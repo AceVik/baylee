@@ -255,6 +255,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     cast_this_spell_triggers(state, lookup, events, &mut triggers);
     discarded::collect(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
+    damage_watch_triggers(state, events, &mut triggers);
     cast_copy_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
     for trigger in &mut triggers {
@@ -828,6 +829,86 @@ fn watch_triggers(
     }
 }
 
+/// "Whenever that creature is dealt damage by [a source the filter matches]
+/// this turn" (Glyph of Life, `DelayedWhen::DealtDamageThisTurn`): once for
+/// each such damage event after the watch began, while the watched object is
+/// still the one it was. The source is asked as it deals the damage — the
+/// scan follows the event before anything else happens — with the watch's
+/// controller as "you". "That much" is the event's amount.
+fn damage_watch_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for watch in &state.delayed {
+        let crate::state::DelayedWhen::DealtDamageThisTurn {
+            card,
+            version,
+            by,
+            after,
+        } = watch.when
+        else {
+            continue;
+        };
+        let crate::state::DelayedAction::Trigger {
+            source,
+            source_version,
+            effects,
+            text,
+        } = watch.action
+        else {
+            continue;
+        };
+        if state.object(card).is_none_or(|o| o.version != version) {
+            continue;
+        }
+        for entry in events.iter().filter(|entry| entry.seq > after) {
+            let GameEvent::DamageDealt {
+                source: Some(damager),
+                target: crate::event::DamageTarget::Object(recipient),
+                amount,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            if recipient != card || amount == 0 {
+                continue;
+            }
+            let Some(dealer) = state.object_or_departed(damager) else {
+                continue;
+            };
+            if !eval::matches(by, state, dealer, watch.controller, source) {
+                continue;
+            }
+            triggers.push(PendingTrigger {
+                text,
+                source_version: Some(source_version),
+                event_ability: None,
+                event_object_identity: None,
+                related_objects: None,
+                counter_source_version: None,
+                event_amount: Some(amount),
+                event_player: None,
+                event_mana: None,
+                event_mana_value: None,
+                event_departure: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller: watch.controller,
+                timestamp: state.object(source).map_or(0, |o| o.timestamp),
+                event_object: Some(damager),
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
+    }
+}
+
 /// Whether a `ManaProduced` event is the first mana of an activation that
 /// tapped `object` as its cost: "tap [a permanent] for mana" is activating a
 /// mana ability of it with {T} in the cost (CR 106.12), and the trigger
@@ -1233,7 +1314,9 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
             },
         ) => Some(*recipient),
         (
-            Trigger::DealsDamageToPlayer { .. } | Trigger::OneOrMoreDealCombatDamageToPlayer(_),
+            Trigger::DealsDamageToPlayer { .. }
+            | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
+            | Trigger::DealsCombatDamageToYou(_),
             GameEvent::DamageDealt {
                 source: damage_source,
                 ..
@@ -2288,6 +2371,23 @@ fn matches(
         ) => state
             .object(*damage_source)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        // Contested War Zone: each source's own combat damage to the
+        // ability's controller; the source is the event object.
+        (
+            Trigger::DealsCombatDamageToYou(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                is_combat: true,
+                amount,
+            },
+        ) => {
+            *player == you
+                && *amount > 0
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         (
             Trigger::DealsCombatDamageToOpponent(filter),
             GameEvent::DamageDealt {

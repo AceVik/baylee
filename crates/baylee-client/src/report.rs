@@ -466,8 +466,12 @@ fn references(
         let lookup = |card: baylee_core::ids::CardIndex, face: u8| {
             texts.and_then(|texts| texts.face(card, face))
         };
+        // Everything the view shows, then every card the log named to this
+        // seat that it no longer shows (#14).
+        let mut cards = bugreport::refs::candidates(view, statics, &lookup);
+        bugreport::refs::logged(&duel.log, statics, &lookup, &mut cards);
         return bugreport::Candidates {
-            cards: bugreport::refs::candidates(view, statics, &lookup),
+            cards,
             players: statics
                 .map(|s| bugreport::refs::table_players(s, view.seat))
                 .unwrap_or_default(),
@@ -483,6 +487,7 @@ fn references(
                     seat.player.clone().map(|name| bugreport::PlayerRef {
                         name,
                         seat: u8::try_from(seat.seat).ok(),
+                        tag: None,
                     })
                 })
                 .collect()

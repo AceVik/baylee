@@ -465,6 +465,34 @@ fn duel_opponent(
     (view.seats.len() == 2).then_some(object.controller != player)
 }
 
+/// Whether `card` is a "choose one" spell whose modes at the printed price
+/// all lack a legal target here while a mode with a price of its own (an
+/// overload) remains — the engine then offers only that mode (CR 702.96a).
+pub(crate) fn only_a_dearer_mode_is_left(
+    view: &baylee_view::PlayerView,
+    card: baylee_view::CardIdentity,
+) -> bool {
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return false;
+    };
+    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }) = def
+        .abilities_for_face(usize::from(card.face))
+        .iter()
+        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+    else {
+        return false;
+    };
+    let possible = |mode: &baylee_cards_dsl::SpellMode| {
+        mode.targets
+            .is_none_or(|req| requirement_possible(view, req))
+    };
+    modes.iter().any(|m| m.cost_override.is_some())
+        && modes
+            .iter()
+            .filter(|m| m.cost_override.is_none())
+            .all(|m| !possible(m))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

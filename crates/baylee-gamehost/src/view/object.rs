@@ -270,7 +270,8 @@ pub(super) fn public_object(
         commander: is_commander(state, id),
         // The four statuses of CR 110.5: whether a phased-out permanent
         // phased out with what it is attached to is the engine's to know.
-        status: ObjectStatus::from_bits(obj.status.public().bits()),
+        // Beside them, whether every ability is gone (`status_of`).
+        status: status_of(obj, chars),
         types: chars.types,
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
@@ -600,4 +601,26 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                 colors,
             })
         })
+}
+
+/// A permanent's status as the view carries it: CR 110.5's four, and
+/// beside them whether every ability is gone (report 21), which the printed
+/// text a client shows cannot say. A face-down permanent's characteristics
+/// are not the seat's to read, so never there.
+fn status_of(
+    obj: &baylee_engine::object::GameObject,
+    chars: &baylee_engine::object::Characteristics,
+) -> ObjectStatus {
+    let lost = chars.abilities_lost.is_some()
+        && !obj
+            .status
+            .contains(baylee_engine::object::Status::FACE_DOWN);
+    ObjectStatus::from_bits(
+        obj.status.public().bits()
+            | if lost {
+                ObjectStatus::NO_ABILITIES.bits()
+            } else {
+                0
+            },
+    )
 }

@@ -923,6 +923,11 @@ pub struct DeckBuilder {
     /// said it hid them. A flag whose `Default` *is* the intention cannot
     /// drift that way again.
     show_unplayable: bool,
+    /// The cards blocked on the gateway the pool came from, by registry
+    /// index (`GET /cards/blocked`, `docs/protocol.md` §"Blocked cards"):
+    /// marked, never hidden or refused here; the gateway refuses the deck.
+    /// Empty offline and from a gateway that does not say.
+    blocked: std::collections::BTreeMap<u32, crate::lobby::BlockedCard>,
     /// The filter-string builder, while the gear inside the box is open.
     ///
     /// The same shape as `Browser::builder` and for the same reason: it is a

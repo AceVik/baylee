@@ -71,3 +71,47 @@ fn matrix_grants_a_persistent_regeneration_ability_and_charges_the_actual_counte
         .is_err()
     );
 }
+
+/// "Activate only during **your** upkeep": with the {4} floating, the ability is
+/// offered in my upkeep and in no other step of mine, nor in the opponent's upkeep.
+#[test]
+fn matrix_is_offered_in_its_controllers_upkeep_and_nowhere_else() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::LIFE_MATRIX, index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    let holds = |e: &Engine<RegistryLookup>, seat: PlayerId| matches!(e.pending(), Pending::Priority { player, .. } if *player == seat);
+
+    pass_until(&mut e, |e| {
+        e.state().turn.step == crate::turn::Step::Upkeep && holds(e, p0)
+    });
+    kit::float(&mut e, p0, &[(ManaColor::Colorless, 4)]);
+    assert!(
+        kit::offered(&e, index::LIFE_MATRIX, p0, 0),
+        "in my own upkeep, with {{4}} floating, the Matrix can be activated"
+    );
+
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.phase == crate::turn::Phase::FirstMain
+            && holds(e, p0)
+    });
+    kit::float(&mut e, p0, &[(ManaColor::Colorless, 4)]);
+    assert!(
+        !kit::offered(&e, index::LIFE_MATRIX, p0, 0),
+        "\"during your upkeep\": not in my own main phase, though {{4}} is floating"
+    );
+
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && holds(e, p0)
+    });
+    kit::float(&mut e, p0, &[(ManaColor::Colorless, 4)]);
+    assert!(
+        !kit::offered(&e, index::LIFE_MATRIX, p0, 0),
+        "\"during your upkeep\": not in the opponent's upkeep, though I hold priority with {{4}} floating"
+    );
+}

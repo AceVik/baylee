@@ -6,9 +6,9 @@
 # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")` and
 # would rot unnoticed without a target-specific check.
 #
-# All seven crates are named rather than the client alone, and that is not
+# All eight crates are named rather than the client alone, and that is not
 # redundancy: cargo unifies features across the members a command selects, so
-# `-p baylee-client` resolves the other six with whatever the client happens
+# `-p baylee-client` resolves the other seven with whatever the client happens
 # to ask for. Naming them is what checks that each one still compiles for this
 # target on its *own* default features, which is the promise CLAUDE.md's
 # architecture section makes about them.
@@ -19,6 +19,7 @@ exec cargo check --locked \
     -p baylee-core \
     -p baylee-deckio \
     -p baylee-protocol \
+    -p baylee-seal \
     -p baylee-view \
     -p baylee-client-core \
     -p baylee-client \

@@ -233,6 +233,58 @@ pub struct DeckSummary {
     /// whose [`Self::leaders`] are its picture.
     #[serde(default)]
     pub signature: Option<Leader>,
+    /// Its cards blocked on the gateway that listed it (`docs/protocol.md`
+    /// §"Blocked cards"): the gateway refuses the deck for its tables while
+    /// any is. Empty from an older gateway, and for a deck listed offline.
+    #[serde(default)]
+    pub blocked: Vec<BlockedCard>,
+}
+
+/// A card the gateway's operator took out of play there, as `GET
+/// /cards/blocked` and a deck row's `blocked` say it (`docs/protocol.md`
+/// §"Blocked cards"). Only the gateway acts on it; the client marks it, and
+/// a local game never looks.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct BlockedCard {
+    /// The card's registry index.
+    pub index: u32,
+    /// Its English name.
+    pub name: String,
+    /// Why, in the operator's words.
+    #[serde(default)]
+    pub reason: String,
+    /// When it ends by itself (RFC 3339, UTC); `None` for no end.
+    #[serde(default)]
+    pub until: Option<String>,
+}
+
+impl BlockedCard {
+    /// The end as a reader takes it in: `2026-10-20 18:00 UTC`, read off
+    /// the gateway's RFC 3339 (`2026-10-20T18:00:00Z`) as it is written;
+    /// anything else as it came.
+    #[must_use]
+    pub fn until_said(&self) -> Option<String> {
+        self.until.as_deref().map(|at| {
+            match (
+                at.get(..10),
+                at.get(10..11),
+                at.get(11..16),
+                at.ends_with('Z'),
+            ) {
+                (Some(day), Some("T"), Some(time), true) => format!("{day} {time} UTC"),
+                _ => at.to_owned(),
+            }
+        })
+    }
+
+    /// The sentence a player reads: which card, why and until when.
+    #[must_use]
+    pub fn sentence(&self, lang: Lang) -> String {
+        match self.until_said() {
+            Some(until) => Phrase::CardBlockedUntil.fill(lang, &[&self.name, &self.reason, &until]),
+            None => Phrase::CardBlocked.fill(lang, &[&self.name, &self.reason]),
+        }
+    }
 }
 
 /// The fewest chairs a table may have.
@@ -605,6 +657,16 @@ pub enum LobbyRequest {
         /// Its password.
         password: String,
     },
+    /// `POST /auth/password` (beta.8): the account an admin reset chooses
+    /// its own password, and is answered a session as a sign-in is.
+    ChangePassword {
+        /// The username, as it was signed in with.
+        username: String,
+        /// The password the admin gave.
+        password: String,
+        /// The one chosen.
+        new_password: String,
+    },
     /// `POST /auth/guest` (#269): a new guest, and its session.
     PlayAsGuest {
         /// The name to be seen by, or `None` for the gateway's `Guest`.
@@ -617,6 +679,15 @@ pub enum LobbyRequest {
     /// because the lobby has already forgotten it; nothing comes back.
     LogOut {
         /// The session to end.
+        token: String,
+    },
+    /// `POST /lobby/depart`: this player leaves every room and running
+    /// game they sit in, on purpose (`docs/protocol.md` §"Leaving, and
+    /// losing the connection"); the house takes a running chair at once.
+    /// Sent when a player leaves a table from its game menu (report 33).
+    /// Nothing comes back.
+    Depart {
+        /// The session that leaves.
         token: String,
     },
     /// `GET /decks`.
@@ -814,6 +885,9 @@ pub enum LobbyEvent {
         /// Whether the gateway could serve rules text with them.
         has_text: bool,
     },
+    /// The cards blocked on the gateway (`GET /cards/blocked`), asked
+    /// beside the pool; never offline.
+    BlockedCards(Vec<BlockedCard>),
     /// Every printing of one card.
     Printings {
         /// Which card was asked about.
@@ -860,6 +934,18 @@ pub enum LobbyEvent {
     Seated(SeatHandover),
     /// The hosted models the gateway offers.
     HostedProfiles(Vec<hosted::HostedProfile>),
+    /// The sign-in was right, and the password an admin's reset one
+    /// (beta.8): a new one is chosen before anything else.
+    PasswordChangeNeeded,
+    /// The account is banned (beta.8): its sign-in or its session was
+    /// refused with the admin's reason and the ban's end.
+    Banned {
+        /// The admin's words.
+        reason: String,
+        /// When it ends, as the gateway said it (RFC 3339, UTC); `None` for
+        /// good.
+        until: Option<String>,
+    },
     /// The request failed, with something worth showing a player.
     Failed(String),
     /// The gateway did not answer at all: no connection, or a proxy saying
@@ -1078,6 +1164,9 @@ pub struct Lobby {
     me: Option<strips::Me>,
     /// `GET /lobby/stats`: the gateway pill's counts (WP0b-3).
     stats: Option<strips::LobbyStats>,
+    /// The password the admin gave, held while the new-password face asks
+    /// for the player's own (beta.8); `None` otherwise.
+    password_change: Option<String>,
     /// The front door shows the guest's face (WP1): a name to play under
     /// and, on a closed beta, the key. Only read on the sign-in screen while
     /// not registering; see [`Lobby::face`].
@@ -1098,6 +1187,9 @@ pub enum Face {
     Create,
     /// A display name, the key on a closed beta.
     Guest,
+    /// The password twice, after an admin reset it (beta.8): the player
+    /// chooses their own before anything else.
+    NewPassword,
 }
 
 /// The signed-in account's deletion, while it is being confirmed (#292).
@@ -1218,7 +1310,11 @@ impl Lobby {
             | Field::RoomName
             | Field::RoomBoard(_)
             | Field::RoomCounter => FieldKind::Name,
-            Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
+            Field::Password | Field::PasswordAgain
+                if self.registering() || self.password_change.is_some() =>
+            {
+                FieldKind::NewPassword
+            }
             Field::Password | Field::PasswordAgain => FieldKind::Password,
             Field::RoomPassword | Field::AccountPassword => FieldKind::Secret,
         }
@@ -1434,6 +1530,9 @@ impl Lobby {
     pub fn face(&self) -> Face {
         match self.screen {
             Screen::SignIn { registering: true } => Face::Create,
+            Screen::SignIn { registering: false } if self.password_change.is_some() => {
+                Face::NewPassword
+            }
             Screen::SignIn { registering: false } if self.guest_face => Face::Guest,
             _ => Face::SignIn,
         }
@@ -1467,6 +1566,7 @@ impl Lobby {
             return false;
         }
         self.guest_face = false;
+        self.password_change = None;
         self.screen = Screen::SignIn { registering: false };
         self.clear_status();
         let field = if self.username.text().trim().is_empty() {
@@ -1627,7 +1727,12 @@ impl Lobby {
 
     /// Puts the caret in a field.
     pub fn focus_on(&mut self, field: Field) {
-        if matches!(field, Field::DisplayName | Field::PasswordAgain) && !self.registering() {
+        if field == Field::DisplayName && !self.registering() {
+            return;
+        }
+        // The password again: creating an account, or choosing a new
+        // password after an admin's reset.
+        if field == Field::PasswordAgain && !self.registering() && self.password_change.is_none() {
             return;
         }
         if field == Field::GuestName && !self.guest_name_offered() {
@@ -1724,6 +1829,7 @@ impl Lobby {
                 ],
                 Face::Guest => &[Field::GuestName],
                 Face::SignIn => &[Field::Username, Field::Password],
+                Face::NewPassword => &[Field::Password, Field::PasswordAgain],
             };
             let key = self.invite_key_offered().then_some(Field::InviteKey);
             let mut ring = Vec::new();
@@ -1796,10 +1902,14 @@ impl Lobby {
                 Field::Gateway => !self.gateway_chosen(),
                 Field::GuestName => self.guest_name_offered(),
                 Field::InviteKey => self.invite_key_offered(),
-                Field::Username | Field::Password => {
-                    self.gateway_chosen() && self.face() != Face::Guest
+                Field::Username => {
+                    self.gateway_chosen() && !matches!(self.face(), Face::Guest | Face::NewPassword)
                 }
-                Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
+                Field::Password => self.gateway_chosen() && self.face() != Face::Guest,
+                Field::DisplayName => registering && self.gateway_chosen(),
+                Field::PasswordAgain => {
+                    (registering || self.password_change.is_some()) && self.gateway_chosen()
+                }
                 Field::RoomPassword
                 | Field::RoomName
                 | Field::RoomBoard(_)
@@ -1962,6 +2072,9 @@ impl Lobby {
         if self.face() == Face::Guest {
             return self.play_as_guest();
         }
+        if self.face() == Face::NewPassword {
+            return self.choose_password();
+        }
         if self.username.text().trim().is_empty() || self.password.is_empty() {
             self.refuse(Phrase::NeedUsernameAndPassword);
             return None;
@@ -2017,6 +2130,36 @@ impl Lobby {
                 password: self.password.text().to_string(),
             })
         }
+    }
+
+    /// The new-password face's button: the password twice, not the one
+    /// the admin gave, sent with that one (beta.8).
+    fn choose_password(&mut self) -> Option<LobbyRequest> {
+        let current = self.password_change.clone()?;
+        if self.password.is_empty() {
+            self.refuse(Phrase::NeedUsernameAndPassword);
+            self.focus_on(Field::Password);
+            return None;
+        }
+        if self.password_again.text() != self.password.text() {
+            self.refuse(Phrase::PasswordsDiffer);
+            self.focus_on(Field::PasswordAgain);
+            self.password_again.select_all();
+            return None;
+        }
+        if self.password.text() == current {
+            self.refuse(Phrase::NewPasswordIsTheOld);
+            self.focus_on(Field::Password);
+            self.password.select_all();
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::SettingPassword);
+        Some(LobbyRequest::ChangePassword {
+            username: self.username.text().trim().to_string(),
+            password: current,
+            new_password: self.password.text().to_string(),
+        })
     }
 
     /// Picks a deck to sit down with.
@@ -2752,6 +2895,19 @@ impl Lobby {
         ending
     }
 
+    /// The request that tells the gateway this player left the table on
+    /// purpose ([`LobbyRequest::Depart`]); `None` offline and signed out,
+    /// where there is nobody to tell.
+    #[must_use]
+    pub fn depart(&self) -> Option<LobbyRequest> {
+        match &self.performer {
+            Performer::Gateway(token) | Performer::Guest(token) => Some(LobbyRequest::Depart {
+                token: token.clone(),
+            }),
+            Performer::Nobody | Performer::Offline => None,
+        }
+    }
+
     /// Opens the confirmation that deletes the signed-in account (#292).
     ///
     /// Only a gateway account or a guest has one to delete; offline or
@@ -3023,6 +3179,7 @@ impl Lobby {
             }
             LobbyEvent::LoggedIn { token, username } => {
                 self.performer = Performer::Gateway(token);
+                self.password_change = None;
                 self.password.clear();
                 self.password_again.clear();
                 self.screen = Screen::Table;
@@ -3086,6 +3243,10 @@ impl Lobby {
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
                 self.clear_status();
+                None
+            }
+            LobbyEvent::BlockedCards(blocked) => {
+                self.builder.set_blocked(blocked);
                 None
             }
             LobbyEvent::Printings {
@@ -3253,6 +3414,33 @@ impl Lobby {
                 self.note(Phrase::AccountDeleted);
                 None
             }
+            LobbyEvent::PasswordChangeNeeded => {
+                // The admin's password proved the account; it is kept to
+                // send beside the player's own, and the boxes are for that.
+                self.password_change = Some(self.password.text().to_string());
+                self.password.clear();
+                self.password_again.clear();
+                self.guest_face = false;
+                self.screen = Screen::SignIn { registering: false };
+                // The face says why itself (`Phrase::PasswordWasReset`).
+                self.clear_status();
+                self.focus_on(Field::Password);
+                None
+            }
+            LobbyEvent::Banned { reason, until } => {
+                let said = ban_sentence(self.lang, &reason, until.as_deref());
+                self.password_change = None;
+                // Signed out, but a guest kept here stays kept: its session
+                // is the guest, and it is good again when the ban ends.
+                if matches!(self.performer, Performer::Gateway(_) | Performer::Guest(_)) {
+                    self.forget_the_session();
+                } else {
+                    self.password.clear();
+                    self.password_again.clear();
+                }
+                self.write(said, Tone::Refusal);
+                None
+            }
             LobbyEvent::Failed(why) => {
                 self.room_saving = false;
                 // A refused deletion leaves the session good: the refusal is
@@ -3312,6 +3500,67 @@ impl Lobby {
         };
         Some(deck.id.clone())
     }
+}
+
+/// The sentence a ban is told in (beta.8): the admin's reason, and the
+/// end when there is one ([`ban_end`]).
+#[must_use]
+pub fn ban_sentence(lang: crate::i18n::Lang, reason: &str, until: Option<&str>) -> String {
+    match until {
+        Some(until) => Phrase::BannedUntil.fill(lang, &[&ban_end(until), reason]),
+        None => Phrase::BannedForGood.fill(lang, &[reason]),
+    }
+}
+
+/// A ban's end as a player reads it: `2026-10-20T18:00:00Z` is
+/// `2026-10-20 18:00 UTC`. Said in UTC, as the gateway said it: the client
+/// reads no time zone here. Anything not of that shape is shown as it came.
+#[must_use]
+pub fn ban_end(until: &str) -> String {
+    let shaped = until.len() >= 16
+        && until.is_char_boundary(10)
+        && until.is_char_boundary(16)
+        && until.as_bytes().get(10) == Some(&b'T');
+    if shaped && until.ends_with('Z') {
+        format!("{} {} UTC", &until[..10], &until[11..16])
+    } else {
+        until.to_string()
+    }
+}
+
+/// What a gateway's refusal of a sign-in or a session says about the
+/// account (beta.8), read off a `403`'s body: a ban
+/// ([`LobbyEvent::Banned`]) or a password an admin reset
+/// ([`LobbyEvent::PasswordChangeNeeded`]). `None` for any other refusal,
+/// which is shown as the gateway worded it.
+#[must_use]
+pub fn account_refusal(status: u16, body: &[u8]) -> Option<LobbyEvent> {
+    #[derive(Deserialize)]
+    struct Refused {
+        #[serde(default)]
+        ban: Option<BanBody>,
+        #[serde(default)]
+        password_change: bool,
+    }
+    #[derive(Deserialize)]
+    struct BanBody {
+        reason: String,
+        #[serde(default)]
+        until: Option<String>,
+    }
+    if status != 403 {
+        return None;
+    }
+    let refused: Refused = serde_json::from_slice(body).ok()?;
+    if let Some(ban) = refused.ban {
+        return Some(LobbyEvent::Banned {
+            reason: ban.reason,
+            until: ban.until,
+        });
+    }
+    refused
+        .password_change
+        .then_some(LobbyEvent::PasswordChangeNeeded)
 }
 
 #[cfg(test)]

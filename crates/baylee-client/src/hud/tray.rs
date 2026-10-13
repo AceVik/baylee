@@ -655,6 +655,7 @@ pub fn sync_tray(
     mode: Res<crate::face::FaceMode>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+    (rows, mut carry): (TrayRows, ResMut<TrayCarry>),
 ) {
     let Ok(root) = tree.root.single() else {
         // No overlay yet. Nothing of ours can be standing either — a despawn
@@ -761,7 +762,14 @@ pub fn sync_tray(
         return;
     }
 
-    for entity in tree.panel.iter().chain(tree.veil.iter()) {
+    // What the pointer had made of each row, handed to the rows that replace
+    // them ([`carry_the_rows`]): a tick is a rebuild, and the row just
+    // clicked is the row under the pointer.
+    carry.0 = rows
+        .iter()
+        .map(|(card, feel, held)| (card.object, feel.warmth, held.copied()))
+        .collect();
+    for entity in &tree.panel {
         commands.entity(entity).despawn();
     }
     reveal.arrives(!drawn, !browser.sheet.for_choice());
@@ -790,7 +798,13 @@ pub fn sync_tray(
     // gone, and a veil that was spawned on the lock would vanish there
     // instead of lifting. Clear, it is one node painting nothing and
     // answering nothing.
-    spawn_tray_veil(&mut commands, root);
+    //
+    // Kept, where one stands: a veil spawned again comes up clear until
+    // `dim_the_table` paints it, and a tick in the list is no reason for the
+    // table behind it to blink.
+    if tree.veil.is_empty() {
+        spawn_tray_veil(&mut commands, root);
+    }
     // Where the sheet stands, decided by the browser so that the tray takes a
     // rectangle rather than the window and the store. `fit` is applied on
     // every build and never written back: a window briefly dragged narrow
@@ -831,6 +845,56 @@ pub fn sync_tray(
         &lit,
     );
     commands.entity(root).add_child(tray);
+}
+
+/// The rows standing, with what the pointer has made of each.
+pub type TrayRows<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static TrayCard,
+        &'static crate::ambience::Feel,
+        Option<&'static bevy::picking::hover::PickingInteraction>,
+    ),
+>;
+
+/// What the pointer had made of each row when [`sync_tray`] last tore the
+/// rows down: its warmth and its picking state, by object.
+#[derive(Resource, Default)]
+pub struct TrayCarry(
+    Vec<(
+        ObjectId,
+        f32,
+        Option<bevy::picking::hover::PickingInteraction>,
+    )>,
+);
+
+/// Hands each new row what the pointer had made of the row it replaces.
+///
+/// The dialog's flicker while choosing (report 11): every tick rebuilds the
+/// rows, a row torn down and written again comes back with a fresh [`Feel`]
+/// at `warmth: 0` and no picking state, and picking needs a frame to find the
+/// new entity under the pointer — so the row just clicked went dark and lit
+/// up again, and a tile shrank and grew back, on every click. Before
+/// `ambience::feel`, which then paints the row from the warmth it carried.
+pub fn carry_the_rows(
+    mut commands: Commands,
+    mut carry: ResMut<TrayCarry>,
+    mut fresh: Query<(Entity, &TrayCard, &mut crate::ambience::Feel), Added<TrayCard>>,
+) {
+    if carry.0.is_empty() {
+        return;
+    }
+    for (entity, card, mut feel) in &mut fresh {
+        let Some(&(_, warmth, held)) = carry.0.iter().find(|(id, ..)| *id == card.object) else {
+            continue;
+        };
+        feel.warmth = warmth;
+        if let Some(held) = held {
+            commands.entity(entity).insert(held);
+        }
+    }
+    carry.0.clear();
 }
 
 /// Every card in a graveyard, an exile pile or a command zone that this seat
@@ -2184,7 +2248,13 @@ fn spawn_footer(
         commands.entity(confirm).insert((
             Button,
             PromptButton {
-                decision_id: None,
+                // The question's own identity, as the shelf's Confirm carries
+                // it (`ledge::sync`): `PromptButton::matches_decision_id`
+                // drops a Confirm whose identity is not the current one, and
+                // a versioned question — a copy's "choose new targets"
+                // (`DecisionId::Retarget`) — never matched `None`, so the lit
+                // button under a retarget's graveyard rows did nothing (#03).
+                decision_id: it.decision_id(),
                 action: PromptAction::Confirm,
             },
             Feel::new(palette::CANDLE),

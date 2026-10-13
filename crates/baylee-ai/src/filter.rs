@@ -159,6 +159,7 @@ impl HeuristicAgent {
     /// `this` is the object the filter is written on — the source of the
     /// ability — and is `None` where the caller does not have one, which
     /// makes `This` and `Another` unreadable rather than false.
+    #[allow(clippy::too_many_lines)] // One arm per `Filter` variant, exhaustive on purpose.
     pub(crate) fn filter_matches(
         &self,
         filter: &Filter,
@@ -281,7 +282,17 @@ impl HeuristicAgent {
         | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
-        | Filter::BlockedBySource => None,
+        | Filter::BlockedBySource
+        // The resolution's reference object, this turn's blocks and damage,
+        // and what an Aura is attached to are not in a view.
+        | Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::BlockedThisTurnBy(_)
+        | Filter::AttachedTo(_)
+        | Filter::SharesTypeWithReference(_)
+        | Filter::DealtDamageToSourceThisTurn => None,
         }
     }
 

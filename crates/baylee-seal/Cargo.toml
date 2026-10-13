@@ -1,0 +1,31 @@
+[package]
+name = "baylee-seal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Chat's end-to-end encryption: device keys, sealing and opening a message, checking a report, records at rest and safety numbers. Pure, no I/O, no randomness of its own."
+
+[lints]
+workspace = true
+
+# Every dependency here builds for wasm32-unknown-unknown without a backend
+# for `getrandom`, which none of them pulls in: randomness is handed in by the
+# caller (`Entropy`): `cargo tree -p baylee-seal --target wasm32-unknown-unknown`
+# names no `getrandom`, and `scripts/gate-wasm.sh` checks the crate builds.
+[dependencies]
+chacha20poly1305.workspace = true
+ed25519-dalek.workspace = true
+hkdf.workspace = true
+# Wipes HKDF's HMAC and SHA-2 states when dropped (the crypto review).
+hmac = { workspace = true, features = ["zeroize"] }
+# Only for `testkit`'s seeded entropy, which tests on both sides of the wire
+# use for keys whose bytes are pinned. Already in the engine's graph.
+rand_chacha.workspace = true
+sha2 = { workspace = true, features = ["zeroize"] }
+subtle.workspace = true
+thiserror.workspace = true
+x25519-dalek.workspace = true
+zeroize.workspace = true

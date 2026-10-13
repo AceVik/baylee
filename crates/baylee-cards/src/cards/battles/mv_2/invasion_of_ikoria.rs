@@ -30,6 +30,7 @@ card!(
             subtypes = &[subtypes::creature::DINOSAUR],
             power = Some(8),
             toughness = Some(8),
+            color_indicator = ColorSet::from_slice(&[Color::Green]),
             castable_from_hand = false,
         ),
     ],

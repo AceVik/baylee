@@ -32,7 +32,8 @@
     <a class="brand" href="#top" aria-label="Baylee">
       <img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee" fetchpriority="high">
     </a>
-    <nav class="nav" aria-label="Sections">
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="nav"><span class="bars" aria-hidden="true"></span><span class="vh"><span class="en">Menu</span><span class="de" lang="de">Menü</span></span></button>
+    <nav class="nav" id="nav" aria-label="Sections">
       <a href="#about"><span class="en">What it is</span><span class="de" lang="de">Was es ist</span></a>
       <a href="#cards"><span class="en">Cards</span><span class="de" lang="de">Karten</span></a>
       <a href="#sets"><span class="en">Sets</span><span class="de" lang="de">Sets</span></a>
@@ -40,6 +41,7 @@
       <a href="#beta"><span class="en">Beta</span><span class="de" lang="de">Beta</span></a>
       <a href="#selfhost"><span class="en">Self-hosting</span><span class="de" lang="de">Selbst hosten</span></a>
       <a href="#source"><span class="en">Source</span><span class="de" lang="de">Quellcode</span></a>
+      <a href="#contact"><span class="en">Contact</span><span class="de" lang="de">Kontakt</span></a>
     </nav>
     <div class="lang" role="group" aria-label="Language / Sprache">
       <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
@@ -52,18 +54,25 @@
 
 <!-- ============================================================ hero -->
 <section class="hero" id="top">
+  <!-- the painting in layers; site.js moves each at its own pace (data-speed) as the page scrolls and the pointer moves -->
   <div class="sky" aria-hidden="true">
-    <div class="sky-painting"></div>
+    <div class="layer sky-painting" data-speed="0.42" data-tilt="10"></div>
+    <div class="layer sky-stars" data-speed="0.5" data-tilt="6"><div></div><div></div></div>
+    <div class="layer sky-light" data-speed="0.46" data-tilt="8"><div></div></div>
+    <div class="layer sky-mist sky-mist-far" data-speed="0.3" data-tilt="16"><div></div></div>
     <div class="sky-veil"></div>
-    <div class="sky-light"></div>
+    <div class="layer sky-mist sky-mist-near" data-speed="0.12" data-tilt="24"><div></div></div>
+    <div class="layer sky-petals" data-speed="-0.18" data-tilt="34"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="sky-vignette"></div>
   </div>
-  <div class="hero-inner">
+  <div class="hero-inner" id="hero-inner">
+    <img class="hero-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" fetchpriority="high">
     <p class="kicker">
       <span class="en">Closed beta · free · open source · unofficial fan content</span>
       <span class="de" lang="de">Geschlossene Beta · kostenlos · quelloffen · inoffizieller Fan-Content</span>
     </p>
-    <h1 class="en">A table that knows the rules.</h1>
-    <h1 class="de" lang="de">Ein Tisch, der die Regeln kennt.</h1>
+    <h1 class="en">A table that <span class="glow">knows the rules.</span></h1>
+    <h1 class="de" lang="de">Ein Tisch, der <span class="glow">die Regeln kennt.</span></h1>
     <p class="lead en">Baylee is a rules engine and a 3D table for playing Magic: The Gathering with friends or against the house AI. The engine enforces the Comprehensive Rules, so nobody has to. Free, open source under the AGPL, and it stays that way.</p>
     <p class="lead de" lang="de">Baylee ist eine Regel-Engine und ein 3D-Spieltisch für Magic: The Gathering – mit Freunden oder gegen die Haus-KI. Die Engine setzt die Comprehensive Rules durch, damit es niemand am Tisch tun muss. Kostenlos, quelloffen unter der AGPL, und das bleibt so.</p>
 
@@ -82,7 +91,12 @@
       <span class="en">Plays offline against the house AI without an account. Online play on the Sanctuary gateway is a closed beta and needs a key.</span>
       <span class="de" lang="de">Offline gegen die Haus-KI geht ohne Konto. Online auf dem Sanctuary-Gateway ist eine geschlossene Beta und braucht einen Schlüssel.</span>
     </p>
+    <p class="hero-actions">
+      <a class="button button-ghost" href="#about"><span class="en">What Baylee is</span><span class="de" lang="de">Was Baylee ist</span></a>
+      <a class="button button-ghost" href="#sets"><span class="en">Where the cards stand</span><span class="de" lang="de">Stand der Karten</span></a>
+    </p>
   </div>
+  <a class="scroll-cue" href="#about" aria-label="Scroll down / Nach unten"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 15.6 5.4 9l1.4-1.4 5.2 5.2 5.2-5.2L18.6 9z" fill="currentColor"/></svg></a>
 </section>
 
 <!-- ============================================================ status strip -->
@@ -110,6 +124,7 @@
 <!-- ============================================================ about -->
 <section class="section" id="about">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">What it is</span><span class="de" lang="de">Was es ist</span></p>
     <h2 class="en">Two halves, one game</h2>
     <h2 class="de" lang="de">Zwei Hälften, ein Spiel</h2>
     <div class="two-col">
@@ -132,55 +147,64 @@
     </div>
 
     <ul class="features">
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 5c-5 0-9 4.5-10 7 .5 1.3 1.7 3 3.4 4.4L3.3 18.5l1.4 1.4 16-16-1.4-1.4-2.6 2.6A10.6 10.6 0 0 0 12 5zm-3.9 9.3A4 4 0 0 1 13.3 8.1L8.1 13.3zM12 19c5 0 9-4.5 10-7-.4-1-1.2-2.3-2.4-3.5l-3.7 3.7A4 4 0 0 1 12.2 16l-2.7 2.7c.8.2 1.6.3 2.5.3z" fill="currentColor"/></svg></span>
         <h3 class="en">Hidden information stays hidden</h3>
         <h3 class="de" lang="de">Verdeckte Information bleibt verdeckt</h3>
         <p class="en">Your client is sent only what you may see. Libraries and other hands arrive as counts, a face-down card carries no identity. A modified client cannot peek, because the data never reaches it.</p>
         <p class="de" lang="de">Dein Client bekommt nur, was du sehen darfst. Bibliotheken und fremde Hände kommen als Zahlen an, eine verdeckte Karte trägt keine Identität. Ein manipulierter Client kann nicht spicken, weil die Daten ihn nie erreichen.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm-8 2c-2.7 0-6 1.3-6 3.5V19h12v-2.5C14 14.3 10.7 13 8 13zm8 0c-.4 0-.9 0-1.4.1A4.3 4.3 0 0 1 16 16.5V19h6v-2.5c0-2.2-3.3-3.5-6-3.5z" fill="currentColor"/></svg></span>
         <h3 class="en">Two to eight seats</h3>
         <h3 class="de" lang="de">Zwei bis acht Plätze</h3>
         <p class="en">Duels, free-for-all and team tables. The host puts chairs on sides, and the sides need not be even. Teams keep separate turns and life totals; teammates can choose to show each other their hands.</p>
         <p class="de" lang="de">Duelle, Jeder-gegen-jeden und Teamtische. Der Gastgeber verteilt die Stühle auf Seiten, und die Seiten müssen nicht gleich groß sein. Teams haben eigene Züge und Lebenspunkte; Teamkollegen können sich gegenseitig die Hand zeigen.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 8l4.5 3.5L12 4l4.5 7.5L21 8l-2 11H5zm3.5 13h11v-1.2h-11z" fill="currentColor"/></svg></span>
         <h3 class="en">Commander and freeform</h3>
         <h3 class="de" lang="de">Commander und Freiform</h3>
         <p class="en">A deck that names a commander plays Commander; any other deck plays freeform. Banlists and format-legality checks do not exist yet. That is a gap, not a feature.</p>
         <p class="de" lang="de">Ein Deck mit Commander spielt Commander, jedes andere spielt frei. Banlisten und Formatprüfungen gibt es noch nicht. Das ist eine Lücke, kein Feature.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M9 2v2H7a3 3 0 0 0-3 3v2H2v2h2v2H2v2h2v2a3 3 0 0 0 3 3h2v2h2v-2h2v2h2v-2h2a3 3 0 0 0 3-3v-2h2v-2h-2v-2h2V9h-2V7a3 3 0 0 0-3-3h-2V2h-2v2h-2V2zm0 6h6v8H9z" fill="currentColor"/></svg></span>
         <h3 class="en">A house AI at five levels</h3>
         <h3 class="de" lang="de">Eine Haus-KI in fünf Stufen</h3>
         <p class="en">Novice, casual, steady, sharp and expert. It plays from the same view a human gets, so it cannot see your hand either.</p>
         <p class="de" lang="de">Novice, casual, steady, sharp und expert. Sie spielt aus derselben Sicht wie ein Mensch und sieht deine Hand genauso wenig.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z" fill="currentColor"/></svg></span>
         <h3 class="en">One process per game</h3>
         <h3 class="de" lang="de">Ein Prozess pro Spiel</h3>
         <p class="en">Each game runs in its own engine process. The gateway that handles accounts and rooms runs no rules at all, so one broken game is one broken game.</p>
         <p class="de" lang="de">Jedes Spiel läuft in einem eigenen Engine-Prozess. Das Gateway für Konten und Räume kennt keine Regeln, also ist ein kaputtes Spiel genau ein kaputtes Spiel.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm6.9 6h-3a15.7 15.7 0 0 0-1.4-3.6A8 8 0 0 1 18.9 8zM12 4a14 14 0 0 1 1.9 4h-3.8A14 14 0 0 1 12 4zM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4zm.8 2h3a15.7 15.7 0 0 0 1.4 3.6A8 8 0 0 1 5.1 16zm3-8h-3a8 8 0 0 1 4.4-3.6A15.7 15.7 0 0 0 8.1 8zM12 20a14 14 0 0 1-1.9-4h3.8A14 14 0 0 1 12 20zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4zm.2 5.6a15.7 15.7 0 0 0 1.4-3.6h3a8 8 0 0 1-4.4 3.6zm1.8-5.6a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4z" fill="currentColor"/></svg></span>
         <h3 class="en">Card text in 19 languages</h3>
         <h3 class="de" lang="de">Kartentext in 19 Sprachen</h3>
         <p class="en">When the gateway carries the card catalog, cards read in your language with English as the fallback. The interface itself is in English and German.</p>
         <p class="de" lang="de">Hat das Gateway den Kartenkatalog, lesen sich Karten in deiner Sprache, Englisch als Rückfall. Die Oberfläche selbst gibt es auf Englisch und Deutsch.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 5C7 5 3 9.5 2 12c1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7zm0 11a4 4 0 1 1 4-4 4 4 0 0 1-4 4zm0-6a2 2 0 1 0 2 2 2 2 0 0 0-2-2z" fill="currentColor"/></svg></span>
         <h3 class="en">Watch a running table</h3>
         <h3 class="de" lang="de">Einem laufenden Tisch zuschauen</h3>
         <p class="en">The lobby's <i>Watch</i> button seats you as a spectator. You see what the whole table sees and nobody's hand. A host can switch spectators off for a room.</p>
         <p class="de" lang="de">Der Knopf <i>Zuschauen</i> in der Lobby setzt dich als Zuschauer an den Tisch. Du siehst, was der ganze Tisch sieht, und keine Hand. Ein Gastgeber kann Zuschauer für seinen Raum abschalten.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 6a11 11 0 0 0-8.5 4L2 8.6A13 13 0 0 1 12 4a13 13 0 0 1 10 4.6L20.5 10A11 11 0 0 0 12 6zm0 4a7 7 0 0 0-5.6 2.7L5 11.3A9 9 0 0 1 12 8a9 9 0 0 1 7 3.3l-1.4 1.4A7 7 0 0 0 12 10zm0 4a3 3 0 0 0-2.4 1.2L12 18l2.4-2.8A3 3 0 0 0 12 14z" fill="currentColor"/></svg></span>
         <h3 class="en">A lost connection is not a lost game</h3>
         <h3 class="de" lang="de">Verbindung weg, Spiel nicht verloren</h3>
         <p class="en">When a player drops, the table shows a countdown while their chair waits for them. If time runs out, the house AI plays for them until they are back; with nobody else at the table, the game simply pauses.</p>
         <p class="de" lang="de">Fällt ein Spieler heraus, zeigt der Tisch einen Countdown, solange sein Platz auf ihn wartet. Läuft die Zeit ab, spielt die Haus-KI für ihn, bis er zurück ist; sitzt sonst niemand am Tisch, pausiert das Spiel einfach.</p>
       </li>
-      <li>
+      <li class="glass">
+        <span class="feat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 17v2h6v-2zM3 5v2h10V5zm10 16v-2h8v-2h-8v-2h-2v6zM7 9v2H3v2h4v2h2V9zm14 4v-2H11v2zm-6-4h2V7h4V5h-4V3h-2z" fill="currentColor"/></svg></span>
         <h3 class="en">Tables your way</h3>
         <h3 class="de" lang="de">Tische nach deinen Regeln</h3>
         <p class="en">A Mixed table seats decks of any format together, and fourteen decision clocks run from a 15-second bullet to untimed. Starting life and mulligans are the host's to set.</p>
@@ -193,33 +217,34 @@
 <!-- ============================================================ screenshots -->
 <section class="section section-alt" id="screens">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">At the table</span><span class="de" lang="de">Am Tisch</span></p>
     <h2 class="en">What it looks like</h2>
     <h2 class="de" lang="de">So sieht es aus</h2>
     <p class="section-lead en">These pictures show the text view, which draws each card from its rules text rather than the printed card image, because we do not redistribute Scryfall's scans. In the game you see the real card images. The screenshots were taken with 0.1.0-beta.2 on a local test gateway with made-up players; the current build looks a little different.</p>
     <p class="section-lead de" lang="de">Die Bilder zeigen die Textansicht, die jede Karte aus ihrem Regeltext zeichnet statt aus dem gedruckten Kartenbild, weil wir Scryfalls Scans nicht weiterverbreiten. Im Spiel siehst du die echten Kartenbilder. Die Aufnahmen entstanden mit 0.1.0-beta.2 auf einem lokalen Test-Gateway mit erfundenen Spielern; die aktuelle Version sieht etwas anders aus.</p>
     <ul class="shots">
-      <li><figure>
-        <img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-table-duel.webp"><img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view"></a>
         <figcaption><span class="en"><b>A duel</b> against the house AI. Hovering a card shows it large.</span><span class="de" lang="de"><b>Ein Duell</b> gegen die Haus-KI. Eine Karte unter dem Zeiger wird groß gezeigt.</span></figcaption></figure>
       </li>
-      <li><figure>
-        <img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-game-log.webp"><img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link"></a>
         <figcaption><span class="en"><b>The game log</b> (<kbd>L</kbd>) reads like a chat; every card name opens its preview.</span><span class="de" lang="de"><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau.</span></figcaption></figure>
       </li>
-      <li><figure>
-        <img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-table-ring.webp"><img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt"></a>
         <figcaption><span class="en"><b>Four seats.</b> Larger tables sit in a ring around the felt.</span><span class="de" lang="de"><b>Vier Plätze.</b> Größere Tische sitzen im Ring um den Filz.</span></figcaption></figure>
       </li>
-      <li><figure>
-        <img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-lobby.webp"><img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right"></a>
         <figcaption><span class="en"><b>The lobby.</b> Your decks, the open tables, and <i>Play the house</i> for a quick game.</span><span class="de" lang="de"><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Play the house</i> für ein schnelles Spiel.</span></figcaption></figure>
       </li>
-      <li><figure>
-        <img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-room.webp"><img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life"></a>
         <figcaption><span class="en"><b>Arranging a table.</b> Chairs, starting life, mulligans, and a level for each AI chair.</span><span class="de" lang="de"><b>Einen Tisch einrichten.</b> Stühle, Startleben, Mulligans und eine Stufe für jeden KI-Stuhl.</span></figcaption></figure>
       </li>
-      <li><figure>
-        <img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool">
+      <li class="glass"><figure>
+        <a class="shot-link" href="/site/img/shot-deck-builder.webp"><img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool"></a>
         <figcaption><span class="en"><b>The deck builder.</b> Mana curve, land statistics, a search over the whole pool, and a warning for cards that will not play as printed.</span><span class="de" lang="de"><b>Der Deckbauer.</b> Manakurve, Länderstatistik, eine Suche über den ganzen Pool und eine Warnung für Karten, die nicht wie gedruckt spielen.</span></figcaption></figure>
       </li>
     </ul>
@@ -229,6 +254,7 @@
 <!-- ============================================================ cards -->
 <section class="section" id="cards">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Cards</span><span class="de" lang="de">Karten</span></p>
     <h2 class="en">The cards, honestly</h2>
     <h2 class="de" lang="de">Die Karten, ehrlich</h2>
     <div class="two-col">
@@ -236,9 +262,9 @@
         <p class="en">Every card in Baylee is code: one file per card, written in a small rules language and played in a test. There is no "close enough" interpreter guessing at card text. That is why the pool grows batch by batch instead of all at once.</p>
         <p class="de" lang="de">Jede Karte in Baylee ist Code: eine Datei pro Karte, in einer kleinen Regelsprache geschrieben und in einem Test gespielt. Es gibt keinen Interpreter, der Kartentext ungefähr errät. Deshalb wächst der Pool Stapel für Stapel statt auf einmal.</p>
         <dl class="numbers">
-          <div><dt id="num-full"><span class="en">3,161</span><span class="de" lang="de">3.161</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
-          <div><dt id="num-partial">112</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
-          <div><dt id="num-corpus"><span class="en">33,684</span><span class="de" lang="de">33.684</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
+          <div class="glass"><dt id="num-full"><span class="en">3,161</span><span class="de" lang="de">3.161</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
+          <div class="glass"><dt id="num-partial">112</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
+          <div class="glass"><dt id="num-corpus"><span class="en">33,684</span><span class="de" lang="de">33.684</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
         </dl>
         <p class="small en">Counted in the repository on 12 October 2026 for 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">the pool list</a>, <a href="https://github.com/AceVik/baylee#what-baylee-is" rel="noopener">the README</a>). The deck builder can show only playable cards, and it warns when a deck holds cards that will not play as printed.</p>
         <p class="small de" lang="de">Gezählt im Repository am 12. Oktober 2026 für 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">die Pool-Liste</a>, <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#was-baylee-ist" rel="noopener">die README</a>). Der Deckbauer kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält, die nicht wie gedruckt spielen.</p>
@@ -285,6 +311,7 @@
 <!-- ============================================================ opponents -->
 <section class="section section-alt" id="ai">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Opponents</span><span class="de" lang="de">Gegner</span></p>
     <h2 class="en">Opponents: the house, or a language model</h2>
     <h2 class="de" lang="de">Gegner: das Haus, oder ein Sprachmodell</h2>
     <div class="two-col">
@@ -311,6 +338,7 @@
 <!-- ============================================================ download -->
 <section class="section" id="download">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Get it</span><span class="de" lang="de">Holen</span></p>
     <h2 class="en">Download</h2>
     <h2 class="de" lang="de">Herunterladen</h2>
     <p class="section-lead en">Every download goes straight to the file on GitHub, nothing in between. Where a release has installers, they are the easy way; the archives hold the same game to unpack anywhere. An installed Baylee updates itself from the signed archives wherever it may write its own folder. Every package carries the seat bridge for language models beside the game.</p>
@@ -356,6 +384,7 @@
 <!-- ============================================================ beta -->
 <section class="section section-alt" id="beta">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Online</span><span class="de" lang="de">Online</span></p>
     <h2 class="en">The closed beta</h2>
     <h2 class="de" lang="de">Die geschlossene Beta</h2>
     <div class="two-col">
@@ -367,7 +396,7 @@
         <p class="en">Keys come from the project owner, <a href="https://github.com/AceVik" rel="noopener">@AceVik</a> on GitHub. Without one, Baylee still plays offline against the house AI, with the deck builder and your own decks, and you can run a gateway of your own for your group.</p>
         <p class="de" lang="de">Schlüssel kommen vom Projektinhaber, <a href="https://github.com/AceVik" rel="noopener">@AceVik</a> auf GitHub. Ohne Schlüssel spielt Baylee trotzdem offline gegen die Haus-KI, mit Deckbauer und eigenen Decks, und du kannst für deine Runde ein eigenes Gateway betreiben.</p>
       </div>
-      <div class="gateway-card" id="gateway-card">
+      <div class="gateway-card glass" id="gateway-card">
         <h3 class="en">The gateway right now</h3>
         <h3 class="de" lang="de">Das Gateway gerade jetzt</h3>
         <dl class="kv" id="gateway-kv">
@@ -389,6 +418,7 @@
 <!-- ============================================================ self-hosting -->
 <section class="section" id="selfhost">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Self-hosting</span><span class="de" lang="de">Selbst hosten</span></p>
     <h2 class="en">Run your own gateway</h2>
     <h2 class="de" lang="de">Ein eigenes Gateway betreiben</h2>
     <div class="two-col">
@@ -418,6 +448,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 <!-- ============================================================ source -->
 <section class="section section-alt" id="source">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Source</span><span class="de" lang="de">Quellcode</span></p>
     <h2 class="en">Open source, and it stays that way</h2>
     <h2 class="de" lang="de">Quelloffen, und das bleibt so</h2>
     <div class="two-col">
@@ -433,7 +464,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
           <a class="button button-ghost" href="https://github.com/AceVik/baylee/blob/main/docs/architecture.md" rel="noopener"><span class="en">Architecture</span><span class="de" lang="de">Architektur</span></a>
         </p>
       </div>
-      <div class="repo-card" id="repo-card">
+      <div class="repo-card glass" id="repo-card">
         <h3 class="en">The repository right now</h3>
         <h3 class="de" lang="de">Das Repository gerade jetzt</h3>
         <dl class="kv">
@@ -454,6 +485,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 <!-- ============================================================ feedback -->
 <section class="section" id="feedback">
   <div class="section-inner">
+    <p class="eyebrow"><span class="en">Reports</span><span class="de" lang="de">Meldungen</span></p>
     <h2 class="en">Found something wrong? Tell us</h2>
     <h2 class="de" lang="de">Etwas gefunden? Sag es uns</h2>
     <div class="two-col">
@@ -464,12 +496,67 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
         <p class="de" lang="de">Beim Offline-Spielen sagt der Client einmal pro Minute, dass ein Spiel läuft: kein Konto, keine Geräte-ID, nichts über das Spiel. <i>Anonyme Nutzungszahl senden</i> unter Einstellungen › Datenschutz &amp; Daten schaltet das ab.</p>
       </div>
       <div>
-        <p class="en">Want to talk, find opponents or hear first about new builds? Join the <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee community on Discord</a>.</p>
-        <p class="de" lang="de">Lust zu reden, Gegner zu finden oder als Erstes von neuen Builds zu erfahren? Komm in die <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee-Community auf Discord</a>.</p>
+        <p class="en">Want to talk, find opponents or hear first about new builds? Join the <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee community on Discord</a>. Anything else, or something only for us: the <a href="#contact">contact form</a> below.</p>
+        <p class="de" lang="de">Lust zu reden, Gegner zu finden oder als Erstes von neuen Builds zu erfahren? Komm in die <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee-Community auf Discord</a>. Alles andere, oder etwas nur für uns: das <a href="#contact">Kontaktformular</a> unten.</p>
         <p class="en">Rules questions, wrong card behaviour, ideas: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">open an issue on GitHub</a>. A card that resolved wrongly is the most useful report we can get, because every card has a test and yours becomes one.</p>
         <p class="de" lang="de">Regelfragen, falsches Kartenverhalten, Ideen: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">eröffne ein Issue auf GitHub</a>. Eine Karte, die falsch verrechnet wurde, ist die nützlichste Meldung, die wir bekommen können, denn jede Karte hat einen Test, und deine wird einer.</p>
-        <p class="en"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> lists everything the client, the gateway and the feedback service keep. This page keeps nothing: no cookies, no analytics, no fonts from anyone else's server. It asks GitHub for the release list and the CI status; when you open a set in the card status, your browser loads that set's card images from Scryfall. Those are the only other hosts it talks to.</p>
-        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> listet alles, was Client, Gateway und Feedback-Dienst speichern. Diese Seite speichert nichts: keine Cookies, keine Analyse, keine Schriften von fremden Servern. Sie fragt GitHub nach der Release-Liste und dem CI-Status; wenn du im Kartenstatus ein Set öffnest, lädt dein Browser dessen Kartenbilder von Scryfall. Das sind die einzigen anderen Hosts, mit denen sie spricht.</p>
+        <p class="en"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> lists everything the client, the gateway and the feedback service keep. This page keeps nothing: no cookies, no analytics, no fonts from anyone else's server. It asks GitHub for the release list and the CI status; when you open a set in the card status, your browser loads that set's card images from Scryfall; and a message you send with the contact form goes to our feedback service. Those are the only other hosts it talks to.</p>
+        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> listet alles, was Client, Gateway und Feedback-Dienst speichern. Diese Seite speichert nichts: keine Cookies, keine Analyse, keine Schriften von fremden Servern. Sie fragt GitHub nach der Release-Liste und dem CI-Status; wenn du im Kartenstatus ein Set öffnest, lädt dein Browser dessen Kartenbilder von Scryfall; und eine Nachricht aus dem Kontaktformular geht an unseren Feedback-Dienst. Das sind die einzigen anderen Hosts, mit denen sie spricht.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ contact -->
+<section class="section section-alt" id="contact">
+  <div class="section-inner">
+    <p class="eyebrow"><span class="en">Contact</span><span class="de" lang="de">Kontakt</span></p>
+    <h2 class="en">Write to us</h2>
+    <h2 class="de" lang="de">Schreib uns</h2>
+    <div class="two-col">
+      <div>
+        <p class="en">A question, an idea, a game you would like to see, or something you would rather not post in public: this form goes straight to the people behind Baylee. Leave an e-mail address if you want an answer; without one we can only read it.</p>
+        <p class="de" lang="de">Eine Frage, eine Idee, ein Spiel, das du gern sehen würdest, oder etwas, das du lieber nicht öffentlich schreibst: Dieses Formular geht direkt an die Leute hinter Baylee. Lass eine E-Mail-Adresse da, wenn du eine Antwort willst; ohne können wir es nur lesen.</p>
+        <p class="en">A card that resolved wrongly is best reported from the game with <kbd>F8</kbd>, because the report can carry the whole game.</p>
+        <p class="de" lang="de">Eine Karte, die falsch verrechnet wurde, meldest du am besten im Spiel mit <kbd>F8</kbd>, weil die Meldung das ganze Spiel mitnehmen kann.</p>
+        <ul class="channels">
+          <li><a class="glass" href="https://discord.gg/4pP3uAwgY" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2zm3 6v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2z" fill="currentColor"/></svg><span><span class="en">Discord</span><span class="de" lang="de">Discord</span><small><span class="en">talk, find opponents, hear about builds</span><span class="de" lang="de">reden, Gegner finden, von Builds hören</span></small></span></a></li>
+          <li><a class="glass" href="https://github.com/AceVik/baylee/issues" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7 3.6 3.6 0 0 1 .1-2.7s.8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1a3.6 3.6 0 0 1 .1 2.7 3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z" fill="currentColor"/></svg><span><span class="en">GitHub issues</span><span class="de" lang="de">GitHub-Issues</span><small><span class="en">bugs and ideas, in public</span><span class="de" lang="de">Fehler und Ideen, öffentlich</span></small></span></a></li>
+        </ul>
+      </div>
+      <div class="contact-card glass" id="contact-card">
+        <p class="nojs-note"><span class="en">The form needs JavaScript. Without it, write to us on Discord or GitHub.</span><span class="de" lang="de">Das Formular braucht JavaScript. Ohne schreib uns auf Discord oder GitHub.</span></p>
+        <!-- no action: site.js sends it (the page's CSP allows no form submission), to the feedback service named here -->
+        <form class="contact-form" id="contact-form" data-endpoint="https://feedback.baylee.acevik.de/site/contact" data-endpoint-local="http://127.0.0.1:28780/site/contact" novalidate>
+          <div class="field">
+            <label for="c-name"><span class="en">Name</span><span class="de" lang="de">Name</span> <span class="opt"><span class="en">optional</span><span class="de" lang="de">freiwillig</span></span></label>
+            <input id="c-name" name="name" type="text" maxlength="100" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="c-email"><span class="en">E-mail</span><span class="de" lang="de">E-Mail</span> <span class="opt"><span class="en">optional, only if you want an answer</span><span class="de" lang="de">freiwillig, nur wenn du eine Antwort willst</span></span></label>
+            <input id="c-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="c-message"><span class="en">Message</span><span class="de" lang="de">Nachricht</span></label>
+            <textarea id="c-message" name="message" maxlength="5000" required rows="6"></textarea>
+            <div class="field-foot"><span></span><span class="count" id="c-count" aria-live="off">0 / 5000</span></div>
+          </div>
+          <div class="trap" aria-hidden="true">
+            <label for="c-website">Website</label>
+            <input id="c-website" name="website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+          <p class="privacy-note"><span class="en">We keep your message, and your name and e-mail address only if you give them, to read and answer it: no IP address, no cookie, no tracker. It is deleted 90 days after we have dealt with it, after a year at the latest. <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md#contact-messages" rel="noopener">More in docs/privacy.md</a>.</span><span class="de" lang="de">Wir speichern deine Nachricht, und Namen und E-Mail-Adresse nur, wenn du sie angibst, um sie zu lesen und zu beantworten: keine IP-Adresse, kein Cookie, kein Tracker. Sie wird 90 Tage, nachdem wir sie erledigt haben, gelöscht, spätestens nach einem Jahr. <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md#contact-messages" rel="noopener">Mehr in docs/privacy.md</a>.</span></p>
+          <div class="form-row">
+            <button type="submit" class="button" id="c-send"><svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 20.5V14l9-2-9-2V3.5L22 12z" fill="currentColor"/></svg><span class="en">Send</span><span class="de" lang="de">Senden</span></button>
+            <p class="form-status" id="c-status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+        <div class="contact-done" id="contact-done" tabindex="-1">
+          <svg class="check" viewBox="0 0 52 52" aria-hidden="true" focusable="false"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg>
+          <h3><span class="en">Thank you, it is on its way.</span><span class="de" lang="de">Danke, sie ist unterwegs.</span></h3>
+          <p class="small"><span class="en">If you left an address, the answer comes from a person, by mail.</span><span class="de" lang="de">Wenn du eine Adresse dagelassen hast, kommt die Antwort von einem Menschen, per Mail.</span></p>
+          <button type="button" class="button button-ghost" id="c-again"><span class="en">Write another</span><span class="de" lang="de">Noch eine schreiben</span></button>
+        </div>
       </div>
     </div>
   </div>
@@ -477,8 +564,17 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 
 </main>
 
+<dialog class="lightbox" id="lightbox" aria-label="Screenshot">
+  <img alt="" id="lightbox-img">
+  <p class="lightbox-cap" id="lightbox-cap"></p>
+  <button type="button" class="lightbox-step lightbox-prev" id="lightbox-prev" aria-label="Previous / Zurück">‹</button>
+  <button type="button" class="lightbox-step lightbox-next" id="lightbox-next" aria-label="Next / Weiter">›</button>
+  <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close / Schließen">×</button>
+</dialog>
+
 <footer class="foot">
   <div class="foot-inner">
+    <img class="foot-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" loading="lazy">
     <p class="notice">baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
     <p class="notice de" lang="de">Baylee ist inoffizieller Fan-Content im Rahmen der Fan Content Policy, von Wizards weder genehmigt noch unterstützt. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
     <p class="notice"><span class="en">Card data and images provided by Scryfall. Baylee is not affiliated with Scryfall.</span><span class="de" lang="de">Kartendaten und -bilder bereitgestellt von Scryfall. Baylee ist nicht mit Scryfall verbunden.</span></p>
@@ -487,6 +583,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
       <a href="https://github.com/AceVik/baylee/releases" rel="noopener">Releases</a>
       <a href="https://github.com/AceVik/baylee/issues" rel="noopener">Issues</a>
       <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Discord</a>
+      <a href="#contact"><span class="en">Contact</span><span class="de" lang="de">Kontakt</span></a>
       <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener"><span class="en">Privacy</span><span class="de" lang="de">Datenschutz</span></a>
       <a href="https://github.com/AceVik/baylee/blob/main/docs/legal.md" rel="noopener"><span class="en">Legal</span><span class="de" lang="de">Rechtliches</span></a>
       <a href="https://github.com/AceVik/baylee/blob/main/NOTICE" rel="noopener">NOTICE</a>

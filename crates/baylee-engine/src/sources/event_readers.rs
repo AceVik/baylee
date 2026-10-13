@@ -123,7 +123,9 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PreventNextDamage { target, amount, .. } => {
             reads_target(*target) || reads_amount(*amount)
         }
-        Effect::AtEndOfCombat { about, .. } => reads_target(*about),
+        Effect::AtEndOfCombat { about, .. } | Effect::AtEndOfCombatThisTurn { about, .. } => {
+            reads_target(*about)
+        }
         Effect::BecomeMonarch(who)
         | Effect::DestroyChosenForPlayers { who, .. }
         | Effect::DiscardForPlayers { who, .. }

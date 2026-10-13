@@ -1022,7 +1022,9 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
 /// [`crate::rebuild_board`] has callers — so the change is noticed here,
 /// once a frame, the way [`track_canvas`] notices the window.
 pub fn track_proposals(mut duel: ResMut<Duel>) {
-    if crate::proposals(&duel) != duel.proposed {
+    // And the creatures a combat declaration can take, which move with its
+    // focus and not with the view (`reach::activatable`, report 31).
+    if crate::proposals(&duel) != duel.proposed || crate::activatable(&duel) != duel.activatable {
         crate::rebuild_board(&mut duel);
     }
 }

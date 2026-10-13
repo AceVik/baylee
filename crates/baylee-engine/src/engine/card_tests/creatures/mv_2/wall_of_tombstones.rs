@@ -65,3 +65,56 @@ fn wall_of_tombstones_freezes_upkeep_graveyard_count_without_setting_power() {
     assert!(walk_to_own_main(&mut e, p0));
     assert_eq!(pt(&e, wall), (8, 3));
 }
+
+/// "At the beginning of **your** upkeep": the opponent's upkeep is not it. The
+/// graveyard gains a third creature card after the Wall's own upkeep has
+/// counted two; p1's upkeep passes with the base toughness still the old 3,
+/// and only p0's next upkeep recounts it (1 + 3).
+#[test]
+fn wall_of_tombstones_recounts_at_its_controllers_upkeep_and_not_the_opponents() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                index::WALL_OF_TOMBSTONES,
+                grizzly_bears(),
+                gray_ogre(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    let wall = on_battlefield(&e, p0, index::WALL_OF_TOMBSTONES).unwrap();
+    let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    let ogre = on_battlefield(&e, p0, gray_ogre()).unwrap();
+    let elves = on_battlefield(&e, p0, llanowar_elves()).unwrap();
+    bury(&mut e, &[bears, ogre]);
+    assert!(
+        walk_to_own_main(&mut e, p0),
+        "p0 reaches its own main phase"
+    );
+    assert_eq!(
+        pt(&e, wall),
+        (0, 3),
+        "p0's upkeep counted two creature cards: 1 + 2"
+    );
+    bury(&mut e, &[elves]);
+    assert_eq!(
+        pt(&e, wall),
+        (0, 3),
+        "a third creature card arriving recounts nothing by itself"
+    );
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(
+        pt(&e, wall),
+        (0, 3),
+        "p1's upkeep went by and is not \"your upkeep\": the base toughness is still the old count"
+    );
+    assert!(walk_to_own_main(&mut e, p0), "p0's next main phase");
+    assert_eq!(
+        pt(&e, wall),
+        (0, 4),
+        "p0's own upkeep recounts: 1 + 3 creature cards"
+    );
+}

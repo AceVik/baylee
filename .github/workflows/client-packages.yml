@@ -45,6 +45,15 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             timeout: 105
+          # Intel Macs: cross-compiled on the arm runner (the macOS SDK
+          # carries both slices; `rustup target add` is all it takes), and
+          # the dmg's smoke start runs under Rosetta 2. GitHub's x86_64 macOS
+          # runners are on their way out (`macos-13` retired, sat 91 minutes
+          # in `queued`; `macos-15-intel` is the last image, until 2027), and
+          # the arm runner is the faster machine of the two.
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            timeout: 105
     env:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
@@ -129,6 +138,16 @@ jobs:
       # The installers wrap the tree package-client.sh just packed: a dmg, an
       # Inno Setup installer, an AppImage and a .deb (docs/releasing.md
       # §"Installers"). They are promoted with the archive, never rebuilt.
+      # The x86_64 client starts in check-installers.sh on an arm runner:
+      # that needs Rosetta 2, which an image may lack. `arch -x86_64` fails
+      # without it.
+      - if: inputs.source-run == '' && matrix.target == 'x86_64-apple-darwin'
+        shell: bash
+        run: |
+          if ! /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          /usr/bin/arch -x86_64 /usr/bin/true
       - if: inputs.source-run == '' && runner.os == 'macOS'
         uses: actions/setup-python@v5
         with:

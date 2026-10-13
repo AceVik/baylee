@@ -45,6 +45,44 @@ pub(in crate::hud) fn stack_sentence(
     item: &baylee_client_core::board::StackItem,
     faces: &FaceCtx<'_>,
 ) -> Option<Vec<TextBlock>> {
+    let said = printed_sentence(item, faces);
+    // The modes chosen for it (#23): every player is told them as it is
+    // put on the stack (CR 601.2b, 603.3c), and the card alone cannot say
+    // which they were. A modal spell has no sentence of its own here, and a
+    // modal trigger's says only "choose one —".
+    let Some(modes) = chosen_modes(item, faces) else {
+        return said;
+    };
+    let mut blocks = said.unwrap_or_default();
+    blocks.extend(modes);
+    Some(blocks)
+}
+
+/// The chosen modes of a stack entry, one block each, in the order the card
+/// prints them (CR 700.2a's order of resolution is that one, 608.2c).
+fn chosen_modes(
+    item: &baylee_client_core::board::StackItem,
+    faces: &FaceCtx<'_>,
+) -> Option<Vec<TextBlock>> {
+    let (rules, set) = item.modes?;
+    let lang = Lang::of(&faces.settings.lang);
+    let blocks: Vec<TextBlock> = (0..8_usize)
+        .filter(|i| set & (1 << i) != 0)
+        .map(|i| {
+            let words = crate::choices::mode_words(Some(faces.texts), rules.card, i)
+                .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]));
+            TextBlock::Rules(format!("\u{2022} {words}"))
+        })
+        .collect();
+    (!blocks.is_empty()).then_some(blocks)
+}
+
+/// The printed sentence of an ability on the stack: [`stack_sentence`]
+/// before the modes.
+fn printed_sentence(
+    item: &baylee_client_core::board::StackItem,
+    faces: &FaceCtx<'_>,
+) -> Option<Vec<TextBlock>> {
     let baylee_client_core::board::StackKind::Ability {
         text,
         rules,
@@ -134,7 +172,9 @@ pub(in crate::hud) fn queued_ability_line(
     item: &baylee_client_core::board::StackItem,
     faces: &FaceCtx<'_>,
 ) -> Option<String> {
-    ability_line(&stack_sentence(item, faces)?)
+    // The printed sentence alone: a queued spell keeps its name, and a
+    // queued modal trigger its "choose one —" without the modes under it.
+    ability_line(&printed_sentence(item, faces)?)
 }
 
 /// What a row is headed, given the `name` its object is drawn under.

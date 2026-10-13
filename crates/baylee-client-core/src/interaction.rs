@@ -43,6 +43,8 @@ use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
 
 mod attack;
 pub use attack::AttackOption;
+mod block;
+pub use block::BlockRow;
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -1917,13 +1919,23 @@ impl Interaction {
                 if !candidates.contains(&id) {
                     return SelectionOutcome::Rejected;
                 }
-                if let Some(pos) = pairs.iter().position(|(a, _)| *a == id) {
-                    pairs.remove(pos);
-                    return SelectionOutcome::Removed;
-                }
                 let Some(defender) = defenders.get(*focus).copied() else {
                     return SelectionOutcome::Rejected;
                 };
+                if let Some(pos) = pairs.iter().position(|(a, _)| *a == id) {
+                    // Sent somewhere else, the press sends it where the aim
+                    // is now (report 24): a player who sent a creature, aimed
+                    // at a planeswalker and pressed the creature again meant
+                    // "attack that", and the press took it out of the attack
+                    // altogether. Only one aimed where it already goes comes
+                    // back out.
+                    if pairs[pos].1 == defender {
+                        pairs.remove(pos);
+                        return SelectionOutcome::Removed;
+                    }
+                    pairs[pos].1 = defender;
+                    return SelectionOutcome::Added;
+                }
                 pairs.push((id, defender));
                 SelectionOutcome::Added
             }
@@ -2410,6 +2422,29 @@ impl Interaction {
             self.number = value.clamp(*min, *max);
         }
         self.number
+    }
+
+    /// Lowers the top of an X question (CR 107.3) to `cap`, the most the
+    /// player's own mana pays: the range the question shows and the one
+    /// [`Interaction::set_number`] clamps to. Never below the engine's
+    /// minimum and never above its maximum, and only for `NumberPrompt::X`
+    /// — every other number is the engine's to bound.
+    pub fn cap_number(&mut self, cap: u32) {
+        let Pending::ChooseNumber {
+            min,
+            max,
+            reason: NumberPrompt::X,
+            ..
+        } = &mut self.pending
+        else {
+            return;
+        };
+        *max = (*max).min(cap).max(*min);
+        let (min, max) = (*min, *max);
+        if let Mode::Number { max: shown, .. } = &mut self.mode {
+            *shown = max;
+        }
+        self.number = self.number.clamp(min, max);
     }
 
     /// The currently chosen number.

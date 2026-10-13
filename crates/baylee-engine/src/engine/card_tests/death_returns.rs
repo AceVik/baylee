@@ -80,6 +80,33 @@ fn mikaeus_retaliates_against_human_damage_including_noncombat() {
 }
 
 #[test]
+fn mikaeus_ignores_damage_its_controllers_human_deals_to_an_opponent() {
+    for combat in [false, true] {
+        let mut e = Duel::new(SEED, swamp())
+            .battlefield(0, &[index::MIKAEUS_THE_UNHALLOWED, index::ROYAL_ASSASSIN])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, P0);
+        let human = on_battlefield(&e, P0, index::ROYAL_ASSASSIN).unwrap();
+        let life = e.state().players[1].life;
+        e.dev_state_mut(P0)
+            .unwrap()
+            .damage_player(human, P1, 1, combat, Cause::Effect);
+        assert_eq!(
+            e.state().players[1].life,
+            life - 1,
+            "the Human did deal damage, to the opponent"
+        );
+        advance(&mut e);
+        pass_until(&mut e, stack_is_empty);
+        assert!(
+            on_battlefield(&e, P0, index::ROYAL_ASSASSIN).is_some(),
+            "Whenever a Human deals damage to you: damage to an opponent (combat {combat}) destroys nothing"
+        );
+    }
+}
+
+#[test]
 fn deathmantle_returns_its_death_card_then_attaches_if_still_present() {
     for (equipment_stays, same_card) in [(true, true), (false, true), (true, false)] {
         let mut e = Duel::new(SEED, swamp())

@@ -64,6 +64,7 @@
 #![warn(missing_docs)]
 
 pub mod accounts;
+pub mod card_blocks;
 pub mod confirmations;
 pub mod console;
 pub mod entity;
@@ -74,6 +75,7 @@ pub mod migration;
 pub mod pictures;
 pub mod precons;
 pub mod records;
+pub mod social;
 pub mod stats;
 pub mod usernames;
 

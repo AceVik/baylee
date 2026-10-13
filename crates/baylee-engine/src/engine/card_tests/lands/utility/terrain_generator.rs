@@ -62,3 +62,36 @@ fn terrain_generator_puts_only_a_basic_land_tapped_without_spending_a_land_drop(
     play_land(&mut e, p0, index::CITY_OF_BRASS);
     assert_eq!(e.state().players[0].lands_played_this_turn, 1);
 }
+
+/// "You may put a basic land card from your hand onto the battlefield
+/// tapped": the choice is optional. Naming no card leaves the Forest in the
+/// hand and the land drop unspent, though the {2} and the {T} are paid.
+#[test]
+fn terrain_generator_may_decline_to_put_a_land() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::TERRAIN_GENERATOR])
+        .hand(0, &[index::FOREST])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let generator = on_battlefield(&e, p0, index::TERRAIN_GENERATOR).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    activate(&mut e, p0, index::TERRAIN_GENERATOR, 1);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("\"You may\": naming no card is a legal answer");
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        in_hand(&e, p0, index::FOREST).is_some(),
+        "the Forest stays in the hand"
+    );
+    assert_eq!(e.state().players[0].lands_played_this_turn, 0);
+    assert!(is_tapped(&e, generator), "the {{T}} was paid all the same");
+}

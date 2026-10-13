@@ -66,7 +66,9 @@ pub(crate) fn sync_spectator_line(
 }
 
 /// A spectator's *Stop watching* closes the table; nothing is sent, since a
-/// spectator has nothing to say to the game.
+/// spectator has nothing to say to the game. A player's *Leave the table*
+/// closes it the same way (report 33); the lobby tells the gateway on the way
+/// back ([`Duel::departing`]).
 pub(crate) fn leave_watching(mut duel: ResMut<Duel>, mut closes: MessageWriter<DuelCommand>) {
     if duel.leave_asked {
         duel.leave_asked = false;

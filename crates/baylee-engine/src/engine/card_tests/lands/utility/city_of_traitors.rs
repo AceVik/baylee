@@ -60,3 +60,41 @@ fn city_of_traitors_does_not_sacrifice_itself_for_its_own_play() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().object(city).unwrap().zone, Zone::Battlefield);
 }
+
+/// "When you play another land": only a land its controller plays counts. The
+/// opponent's land drop leaves the City standing; our own next one sacrifices
+/// it, so the trigger was live all along.
+#[test]
+fn city_of_traitors_ignores_the_opponents_land_drop() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[city_of_traitors()])
+        .hand(0, &[forest()])
+        .hand(1, &[forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let city = on_battlefield(&e, p0, city_of_traitors()).expect("City of Traitors deployed");
+
+    reach_their_main_phase(&mut e, p1);
+    play_land(&mut e, p1, forest());
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        on_battlefield(&e, p1, forest()).is_some(),
+        "the opponent's land entered"
+    );
+    assert_eq!(
+        e.state().object(city).unwrap().zone,
+        Zone::Battlefield,
+        "\"When you play another land\": a land the opponent plays does not sacrifice our City"
+    );
+
+    reach_their_main_phase(&mut e, p0);
+    play_land(&mut e, p0, forest());
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().object(city).unwrap().zone,
+        Zone::Graveyard,
+        "a land we play does sacrifice it"
+    );
+}

@@ -351,7 +351,16 @@ pub fn options_for(
             offered_as_mana = Some(source.tap);
             out.push(AbilityOption {
                 action,
-                label: mana_label(lang, &source),
+                // A tap whose amount the board counts (Harabaz Druid's X
+                // Allies) is labelled as the printed ability is, "Tap for X
+                // mana": the planner reads today's X to pay with it, but the
+                // row names the ability, and X is what the ability makes.
+                label: match source.tap {
+                    Tap::Ability(index) if counted_on_the_board(view, object, index) => {
+                        printed_label(lang, view, object, index)
+                    }
+                    _ => mana_label(lang, &source),
+                },
                 mana: true,
                 // Already one tap because it is a mana ability; answered
                 // truthfully anyway, so the two reasons stay separable.
@@ -715,6 +724,21 @@ fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
                 ..
             }
         )
+    )
+}
+
+/// Whether printed ability `index` of `object` adds an amount that is not a
+/// number on the card but a count the board answers (`mana_written` reads
+/// no fixed amount). A granted ability is printed nowhere and never is.
+fn counted_on_the_board(view: &PlayerView, object: ObjectId, index: u32) -> bool {
+    if baylee_engine::choice::granted_slot(index).is_some() {
+        return false;
+    }
+    matches!(
+        crate::manasources::ability_at(view, object, index),
+        Some(
+            AbilityDef::Activated { effects, .. } | AbilityDef::ActivatedConditional { effects, .. }
+        ) if baylee_cards_dsl::mana_written(effects).is_some_and(|(_, amount, _)| amount.is_none())
     )
 }
 
@@ -1414,7 +1438,8 @@ mod tests {
             .map(TextBlock::text)
             .collect::<Vec<_>>()
             .join(" ");
-        assert!(sentence.starts_with("{0}:"), "{sentence}");
+        // The `{0}` is the cost column; the words follow it.
+        assert!(sentence.starts_with("The next 1 damage"), "{sentence}");
         assert!(sentence.contains("owner may activate"), "{sentence}");
     }
 

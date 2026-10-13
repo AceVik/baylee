@@ -94,3 +94,43 @@ fn batch54_gnomes_preserves_nonwhite_mana_from_granted_ability() {
         0
     );
 }
+
+#[test]
+fn batch54_gnomes_offers_plains_only_as_its_target() {
+    let mut e = prepared(
+        &[],
+        &[
+            index::QUARUM_TRENCH_GNOMES,
+            index::PLAINS,
+            index::FOREST,
+            index::ISLAND,
+        ],
+        &[index::PLAINS],
+    );
+    let plains = on_battlefield(&e, P0, index::PLAINS).unwrap();
+    let forest = on_battlefield(&e, P0, index::FOREST).unwrap();
+    let island = on_battlefield(&e, P0, index::ISLAND).unwrap();
+    let gnomes = on_battlefield(&e, P0, index::QUARUM_TRENCH_GNOMES).unwrap();
+    let their_plains = on_battlefield(&e, PlayerId::new(1), index::PLAINS).unwrap();
+    activate(&mut e, P0, index::QUARUM_TRENCH_GNOMES, 0);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("target Plains: {:?}", e.pending())
+    };
+    assert!(options.contains(&plains), "a Plains is a legal target");
+    assert!(
+        options.contains(&their_plains),
+        "target Plains names no controller: the opponent's Plains is legal too"
+    );
+    assert!(
+        !options.contains(&forest),
+        "a Forest is not a Plains: {options:?}"
+    );
+    assert!(
+        !options.contains(&island),
+        "an Island is not a Plains: {options:?}"
+    );
+    assert!(
+        !options.contains(&gnomes),
+        "the Gnomes are not a Plains: {options:?}"
+    );
+}

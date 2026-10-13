@@ -53,7 +53,8 @@ pub(crate) async fn game_ws(
             Some(
                 wsticket::Grant::Lobby { .. }
                 | wsticket::Grant::Chair { .. }
-                | wsticket::Grant::Watch { .. },
+                | wsticket::Grant::Watch { .. }
+                | wsticket::Grant::Social { .. },
             ) => {
                 return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
             }

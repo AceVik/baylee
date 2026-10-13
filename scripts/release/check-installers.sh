@@ -75,6 +75,14 @@ mac() {
     need "$mnt/Baylee.app/Contents/MacOS/baylee-client"
     need "$mnt/Baylee.app/Contents/MacOS/baylee-runtime"
     need "$mnt/Baylee.app/Contents/MacOS/baylee-seat"
+    # Each program is the target's one slice: an Intel dmg holding an arm
+    # build (or the reverse) would install and then refuse to start.
+    local slice f
+    case "$arch" in x86_64) slice=x86_64 ;; aarch64) slice=arm64 ;; esac
+    for f in baylee-client baylee-runtime baylee-seat; do
+        [ "$(lipo -archs "$mnt/Baylee.app/Contents/MacOS/$f")" = "$slice" ] ||
+            fail "$f is $(lipo -archs "$mnt/Baylee.app/Contents/MacOS/$f"), not $slice"
+    done
     codesign --verify --deep --strict "$mnt/Baylee.app"
     echo "dmg: layout and seal ok"
     $install || return 0

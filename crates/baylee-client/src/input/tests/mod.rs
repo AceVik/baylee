@@ -40,6 +40,7 @@ mod cancel_cast;
 mod combat;
 mod dialog_keys;
 mod hover;
+mod keep_targets;
 mod keyboard;
 mod menu;
 mod taps;
@@ -533,7 +534,8 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                 HostMessage::Curtain => duel.curtain_up = true,
                 HostMessage::Preparing { .. }
                 | HostMessage::AiLog(_)
-                | HostMessage::Spectators(_) => {}
+                | HostMessage::Spectators(_)
+                | HostMessage::Closed(_) => {}
             }
         }
         match duel.interaction.as_ref().map(Interaction::pending) {

@@ -254,7 +254,11 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
-                let options = self.wizard_target_options(&wizard, &req.spec);
+                let options = self.wizard_target_options_relative(
+                    &wizard,
+                    &req.spec,
+                    wizard.targets.first().copied(),
+                );
                 if options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));

@@ -691,3 +691,91 @@ fn target_context_wraps_and_keeps_mana_symbols_in_the_mana_font() {
     }
     assert_eq!(marks, 3);
 }
+
+/// A copy's "choose new targets" question, `index` of `of`, with one graveyard
+/// card on offer.
+fn a_retarget_question() -> baylee_client_core::Interaction {
+    use baylee_core::ids::{DamageSourceRef, ObjectId};
+    use baylee_engine::choice::{Pending, TargetPrompt};
+    let source = DamageSourceRef {
+        object: ObjectId::new(7, 0),
+        version: 1,
+    };
+    baylee_client_core::Interaction::new(
+        Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![source.object],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: TargetPrompt::Retarget {
+                current: baylee_view::TargetRef::Object(source),
+                index: 0,
+                of: 1,
+            },
+        },
+        PlayerId::new(0),
+    )
+}
+
+/// Report 03: the lit Confirm under a retarget's rows carries the question's
+/// own identity, so `matches_decision_id` lets its press through. Before the
+/// fix the footer built it with `decision_id: None`, which never matches the
+/// `Some(DecisionId::Retarget { .. })` of a versioned question: the button
+/// lit, was pressed, and was dropped as stale.
+#[test]
+fn a_retarget_footers_confirm_carries_the_questions_own_identity() {
+    let it = a_retarget_question();
+    assert!(
+        it.decision_id().is_some(),
+        "a retarget is a versioned question, which is what made None wrong"
+    );
+    assert!(
+        it.can_confirm(),
+        "a copy may keep its targets: the button is lit"
+    );
+    let mut app = App::new();
+    let fonts = UiFonts {
+        text: Handle::default(),
+        medium: Handle::default(),
+        bold: Handle::default(),
+        italic: Handle::default(),
+        medium_italic: Handle::default(),
+        serif: Handle::default(),
+        serif_italic: Handle::default(),
+        icons: Handle::default(),
+        mana: Handle::default(),
+    };
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    {
+        let mut commands = Commands::new(&mut queue, app.world());
+        spawn_footer(
+            &mut commands,
+            &fonts,
+            Lang::En,
+            Some(&it),
+            &baylee_client_core::test_support::ViewBuilder::new(2).build(),
+        )
+        .expect("a question has a footer");
+    }
+    queue.apply(app.world_mut());
+    let mut buttons = app.world_mut().query::<&PromptButton>();
+    let confirms: Vec<_> = buttons
+        .iter(app.world())
+        .filter(|b| b.action == PromptAction::Confirm)
+        .collect();
+    assert_eq!(confirms.len(), 1, "one lit Confirm");
+    assert_eq!(confirms[0].decision_id, it.decision_id());
+    assert!(
+        confirms[0].matches_decision_id(it.decision_id()),
+        "the press is for this very question, and goes through"
+    );
+
+    // The trap, pinned: a Confirm that carries no identity is dropped as
+    // stale by the same question.
+    let stale = PromptButton {
+        decision_id: None,
+        action: PromptAction::Confirm,
+    };
+    assert!(!stale.matches_decision_id(it.decision_id()));
+}

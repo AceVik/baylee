@@ -141,3 +141,176 @@ fn quarry_exiles_the_announced_value_and_copies_abilities_with_zombie_exceptions
         }
     }
 }
+
+/// A game at p0's main phase: a Lazotep Quarry (and `extra` beside it) and a
+/// creature card in p0's graveyard for the exile cost's target.
+fn quarry_game(extra: &[CardIndex]) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![lazotep_quarry()];
+    board.extend_from_slice(extra);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(
+            0,
+            &[
+                llanowar_elves(),
+                baylee_core::generated::index::LIGHTNING_BOLT,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = on_battlefield(&e, p0, lazotep_quarry()).unwrap();
+    let elf = bury_from_hand(&mut e, p0, llanowar_elves());
+    (e, land, elf)
+}
+
+fn float_for_quarry(e: &mut Engine<RegistryLookup>) {
+    e.dev_state_mut(PlayerId::new(0)).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 3);
+    e.refresh_offer();
+}
+
+fn quarry_exile_offered(e: &Engine<RegistryLookup>, land: ObjectId) -> bool {
+    let Pending::Priority { player, legal } = e.pending() else {
+        return false;
+    };
+    *player == PlayerId::new(0) && legal.abilities.contains(&(land, 2))
+}
+
+/// "Activate only as a sorcery": p0's creature card and the mana are there the
+/// whole time, so the only thing that changes between the four checks is the
+/// timing. Offered in p0's main phase with an empty stack; refused in p1's
+/// turn, refused with a spell on the stack, offered again once it resolved.
+#[test]
+fn quarry_exile_ability_is_offered_only_at_sorcery_timing() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut e, land, _elf) = quarry_game(&[]);
+    float_for_quarry(&mut e);
+    assert!(
+        quarry_exile_offered(&e, land),
+        "control: own main phase, empty stack, creature card and mana ready"
+    );
+
+    // With a spell on the stack (p0 keeps priority after casting a Bolt).
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, index::LIGHTNING_BOLT);
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    assert!(!stack_is_empty(&e), "the Bolt waits on the stack");
+    assert!(
+        !quarry_exile_offered(&e, land),
+        "not with a non-empty stack: sorcery timing needs an empty stack"
+    );
+    let before = e.state().snapshot_hash();
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 2,
+            },
+        )
+        .is_err(),
+        "and a direct attempt is refused"
+    );
+    assert_eq!(
+        e.state().snapshot_hash(),
+        before,
+        "the refusal changed nothing"
+    );
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        quarry_exile_offered(&e, land),
+        "control: same turn, stack empty again, offered again"
+    );
+
+    // In the opponent's turn: p0 gets priority only as the non-active player.
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_for_quarry(&mut e);
+    assert!(
+        !quarry_exile_offered(&e, land),
+        "not in the opponent's turn, though the creature card and the mana are there"
+    );
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 2,
+            },
+        )
+        .is_err(),
+        "a direct attempt in the opponent's turn is refused too"
+    );
+}
+
+/// "Sacrifice a Desert": the menu is the Deserts we control. A Forest beside
+/// the Quarry and the opponent's Desert are not on it, another Desert of ours
+/// is, and choosing that other Desert pays the cost without losing the Quarry.
+#[test]
+fn quarry_sacrifice_menu_is_our_deserts_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[lazotep_quarry(), forest(), cactus_preserve()])
+        .battlefield(1, &[cactus_preserve()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = on_battlefield(&e, p0, lazotep_quarry()).unwrap();
+    let forest_id = on_battlefield(&e, p0, forest()).unwrap();
+    let own_desert = on_battlefield(&e, p0, cactus_preserve()).unwrap();
+    let their_desert = on_battlefield(&e, p1, cactus_preserve()).unwrap();
+    let elf = bury_from_hand(&mut e, p0, llanowar_elves());
+    float_for_quarry(&mut e);
+    activate(&mut e, p0, lazotep_quarry(), 2);
+    e.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+    aim_at(&mut e, p0, elf);
+    let Pending::ChooseCards {
+        options,
+        prompt: ChoicePrompt::CostSacrifice,
+        ..
+    } = e.pending().clone()
+    else {
+        panic!("expected the sacrifice choice, got {:?}", e.pending())
+    };
+    assert!(options.contains(&land), "the Quarry is a Desert we control");
+    assert!(
+        options.contains(&own_desert),
+        "another Desert we control is a legal sacrifice"
+    );
+    assert!(
+        !options.contains(&forest_id),
+        "a Forest is not a Desert: the cost is not payable with it"
+    );
+    assert!(
+        !options.contains(&their_desert),
+        "\"Sacrifice a Desert\" is a Desert we control, not the opponent's"
+    );
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![own_desert],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(own_desert).unwrap().zone, Zone::Graveyard);
+    assert_eq!(e.state().object(land).unwrap().zone, Zone::Battlefield);
+    assert_eq!(e.state().object(forest_id).unwrap().zone, Zone::Battlefield);
+}

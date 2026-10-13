@@ -670,7 +670,9 @@ impl Effect {
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
-            | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
+            | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
+            | Effect::AtEndOfCombat { about: _, effects }
+            | Effect::AtEndOfCombatThisTurn { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::SacrificeOneThen {
                 filter: _,
@@ -847,6 +849,12 @@ impl Effect {
             | Effect::CounterTargetSpell
             | Effect::DiscardAnyThenDraw
             | Effect::DiscardCount { .. }
+            | Effect::DealHalfOfSpellDamage { .. }
+            | Effect::MoveTargetAuraToAnother { .. }
+            | Effect::ExchangeLifeTotals { .. }
+            | Effect::GainControlAll { .. }
+            | Effect::DestroyAurasOnTargets
+            | Effect::ReturnPerBlockedDeath { .. }
             | Effect::ReturnFromGraveyardOf { .. }
             | Effect::DestroyRandom { .. }
             | Effect::RevealTopPutOntoBattlefield { .. }

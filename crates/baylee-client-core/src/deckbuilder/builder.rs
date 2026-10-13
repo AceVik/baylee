@@ -203,6 +203,18 @@ impl DeckBuilder {
         };
     }
 
+    /// Takes the cards blocked on the gateway (`GET /cards/blocked`),
+    /// replacing what was held.
+    pub fn set_blocked(&mut self, blocked: Vec<crate::lobby::BlockedCard>) {
+        self.blocked = blocked.into_iter().map(|b| (b.index, b)).collect();
+    }
+
+    /// The block on the card `index` at the gateway, if it has one.
+    #[must_use]
+    pub fn blocked(&self, index: u32) -> Option<&crate::lobby::BlockedCard> {
+        self.blocked.get(&index)
+    }
+
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
         self.pool_revision = self.pool_revision.wrapping_add(1);

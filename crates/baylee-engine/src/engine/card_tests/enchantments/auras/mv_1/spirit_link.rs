@@ -40,3 +40,54 @@ fn spirit_link_gains_the_aura_controller_life_for_combat_and_other_damage() {
         assert_eq!(e.state().players[1].life, other);
     }
 }
+
+/// "Whenever enchanted creature deals damage, you gain that much life": the
+/// Aura's controller gains when the enchanted creature deals the damage
+/// (even to an opponent, in combat or not), and gains nothing when another
+/// creature deals it, even to them.
+#[test]
+fn spirit_link_gains_only_for_the_enchanted_creatures_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (from_enchanted, combat) in [(true, false), (true, true), (false, false), (false, true)] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[plains(), grizzly_bears()])
+            .battlefield(1, &[grizzly_bears()])
+            .hand(0, &[index::SPIRIT_LINK])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let mine = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+        let theirs = on_battlefield(&e, p1, grizzly_bears()).unwrap();
+        cast_from_hand(&mut e, p0, index::SPIRIT_LINK);
+        aim_at(&mut e, p0, mine);
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(e.state().players[0].life, 20);
+        assert_eq!(e.state().players[1].life, 20);
+
+        let (source, victim) = if from_enchanted {
+            (mine, p1)
+        } else {
+            (theirs, p0)
+        };
+        crate::engine::card_tests::history_helpers::damage_player(
+            &mut e, source, victim, 3, combat,
+        );
+        e.apply(p0, PlayerAction::PassPriority).unwrap();
+        pass_until(&mut e, stack_is_empty);
+
+        let (me, them) = (e.state().players[0].life, e.state().players[1].life);
+        if from_enchanted {
+            assert_eq!(
+                (me, them),
+                (23, 17),
+                "combat={combat}: the enchanted creature hit the opponent and its Aura's controller gained 3"
+            );
+        } else {
+            assert_eq!(
+                (me, them),
+                (17, 20),
+                "combat={combat}: a creature the Aura is not on dealt the damage, so no life is gained"
+            );
+        }
+    }
+}

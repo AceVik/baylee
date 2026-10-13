@@ -258,6 +258,8 @@ impl Offline {
                             unplayable: digest.unplayable,
                             // The offline file keeps no save times.
                             updated_at: 0,
+                            // Nothing is blocked where no gateway is asked.
+                            blocked: Vec::new(),
                         }
                     })
                     .collect(),
@@ -365,8 +367,10 @@ impl Offline {
             // from a client that has stopped working.
             LobbyRequest::Register { .. }
             | LobbyRequest::LogIn { .. }
+            | LobbyRequest::ChangePassword { .. }
             | LobbyRequest::PlayAsGuest { .. }
             | LobbyRequest::LogOut { .. }
+            | LobbyRequest::Depart { .. }
             | LobbyRequest::DeleteAccount { .. }
             | LobbyRequest::JoinGame { .. }
             | LobbyRequest::HandOver { .. }

@@ -200,3 +200,109 @@ fn smithy_gnome_cda_is_overridden_by_later_base_size_effect_fixture() {
         "printed CDA is 7a, not a 7c count bonus"
     );
 }
+
+/// Turns the Smithy on the battlefield over to Barracks of the Thousand, the
+/// way the cast test above does, and empties the pool `prepared` filled.
+#[track_caller]
+fn barracks_out(e: &mut Engine<RegistryLookup>) -> ObjectId {
+    pass_until(e, stack_is_empty);
+    let smithy = source(e, P0, index::THOUSAND_MOONS_SMITHY);
+    e.state.switch_face(
+        smithy,
+        RegistryLookup.card(index::THOUSAND_MOONS_SMITHY).unwrap(),
+        1,
+    );
+    e.sync_static_effects();
+    e.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
+    e.refresh_offer();
+    smithy
+}
+
+/// "...using mana **produced by Barracks of the Thousand**": the same creature spell
+/// paid for with a Plains' mana makes no Gnome, though the Barracks is out and
+/// untapped. A second creature paid with the Barracks' own mana makes one, so
+/// the silence is about the mana and not about the board.
+#[test]
+fn barracks_makes_no_gnome_for_a_creature_cast_with_other_mana() {
+    let mut e = prepared(
+        &[index::SAVANNAH_LIONS, index::SAVANNAH_LIONS],
+        &[index::THOUSAND_MOONS_SMITHY, index::PLAINS],
+        &[],
+    );
+    let barracks = barracks_out(&mut e);
+    let plains = source(&e, P0, index::PLAINS);
+
+    tap_mana_where(&mut e, P0, |id| id == plains);
+    assert_eq!(
+        e.state.players[0].mana_pool.total(),
+        1,
+        "the Plains' {{W}} is all that is floating"
+    );
+    cast_exact(&mut e, index::SAVANNAH_LIONS);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        all_on_battlefield(&e, P0, index::SAVANNAH_LIONS).len(),
+        1,
+        "the Lions resolved"
+    );
+    assert!(
+        !is_tapped(&e, barracks),
+        "the Barracks stayed untapped: its mana was not what paid"
+    );
+    assert_eq!(
+        token_count(&e, subtypes::creature::GNOME),
+        0,
+        "a creature spell paid with a Plains' mana is not \"using mana produced by Barracks\": no Gnome"
+    );
+
+    ability(&mut e, P0, index::THOUSAND_MOONS_SMITHY, 0);
+    cast_exact(&mut e, index::SAVANNAH_LIONS);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        token_count(&e, subtypes::creature::GNOME),
+        1,
+        "control: the second Lions, paid with the Barracks' {{W}}, makes the Gnome"
+    );
+}
+
+/// "Whenever you cast an **artifact or creature** spell": an instant paid with the
+/// Barracks' mana is neither, and makes no Gnome.
+#[test]
+fn barracks_makes_no_gnome_for_an_instant_paid_with_its_mana() {
+    let mut e = prepared(
+        &[index::SWORDS_TO_PLOWSHARES],
+        &[index::THOUSAND_MOONS_SMITHY],
+        &[index::GRIZZLY_BEARS],
+    );
+    let barracks = barracks_out(&mut e);
+    let bear = source(&e, P1, index::GRIZZLY_BEARS);
+
+    ability(&mut e, P0, index::THOUSAND_MOONS_SMITHY, 0);
+    assert_eq!(
+        e.state.players[0].mana_pool.total(),
+        1,
+        "the Barracks' {{W}} is all that is floating"
+    );
+    cast_exact(&mut e, index::SWORDS_TO_PLOWSHARES);
+    targets(&mut e, vec![bear], vec![]);
+    assert_eq!(
+        e.state.players[0].mana_pool.total(),
+        0,
+        "Swords to Plowshares was paid with the Barracks' mana"
+    );
+    assert!(
+        is_tapped(&e, barracks),
+        "and the Barracks is the source that tapped"
+    );
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state.object(bear).unwrap().zone,
+        Zone::Exile,
+        "the instant resolved"
+    );
+    assert_eq!(
+        token_count(&e, subtypes::creature::GNOME),
+        0,
+        "an instant is not an artifact or creature spell: no Gnome"
+    );
+}

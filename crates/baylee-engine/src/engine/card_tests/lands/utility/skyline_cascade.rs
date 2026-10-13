@@ -61,3 +61,32 @@ fn skyline_cascade_enters_tapped_targets_opposing_creature_and_later_taps_for_bl
     );
     assert!(is_tapped(&engine, land), "which tapped the land for it");
 }
+
+/// "When this land enters, target creature an opponent controls doesn't untap
+/// during its controller's next untap step." With a creature of the Cascade's
+/// own controller on the table too, the opponent's is the only creature on
+/// the menu.
+#[test]
+fn skyline_cascade_offers_only_the_creatures_an_opponent_controls() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(42, forest())
+        .battlefield(0, &[index::GRIZZLY_BEARS])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[skyline_cascade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, index::GRIZZLY_BEARS).expect("own creature");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("an Elf across the table");
+
+    play_land(&mut engine, p0, skyline_cascade());
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("Cascade must target an opposing creature");
+    };
+    assert!(
+        !options.contains(&mine),
+        "a creature its own controller has is no target: {options:?}"
+    );
+    assert_eq!(options, &[theirs]);
+}

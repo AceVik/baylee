@@ -286,3 +286,100 @@ fn discarded_aclazotz_returns_tapped_transformed_and_requires_a_small_hand_to_tu
     assert_eq!(pt(&e, bat), (4, 4));
     assert!(is_tapped(&e, bat));
 }
+
+#[test]
+fn discarded_aclazotz_temple_back_face_taps_for_black() {
+    let mut e = ready(
+        &[index::HERO_S_DOWNFALL],
+        &[index::ACLAZOTZ_DEEPEST_BETRAYAL],
+    );
+    let bat = on_battlefield(&e, P0, index::ACLAZOTZ_DEEPEST_BETRAYAL).unwrap();
+    cast_with_floating(&mut e, P0, index::HERO_S_DOWNFALL);
+    aim_at(&mut e, P0, bat);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().object(bat).unwrap().characteristics().types,
+        TypeSet::LAND,
+        "the death trigger returned it as Temple of the Dead"
+    );
+    // It returned tapped; the pool holds the harness' mana, so read a difference.
+    e.dev_state_mut(P0).unwrap().set_tapped(bat, false);
+    e.refresh_offer();
+    let black =
+        |e: &Engine<RegistryLookup>| e.state().players[0].mana_pool.available(ManaColor::Black);
+    let colorless = |e: &Engine<RegistryLookup>| {
+        e.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless)
+    };
+    let (black_before, colorless_before) = (black(&e), colorless(&e));
+    e.apply(
+        P0,
+        PlayerAction::ActivateAbility {
+            source: bat,
+            ability_index: 0,
+        },
+    )
+    .expect("Temple of the Dead's first ability is offered");
+    assert!(is_tapped(&e, bat), "{{T}}: the land taps for its own mana");
+    assert_eq!(
+        black(&e),
+        black_before + 1,
+        "{{T}}: Add {{B}} puts one black mana in the pool"
+    );
+    assert_eq!(
+        colorless(&e),
+        colorless_before,
+        "and nothing of another colour"
+    );
+}
+
+#[test]
+fn discarded_aclazotz_ignores_its_own_controllers_land_discards() {
+    // "Whenever an opponent discards a land card": the controller's own
+    // Forest, discarded as a cost and then as an effect, makes no Bat.
+    let mut e = prepared(
+        Duel::new(SEED, index::FOREST)
+            .hand(0, &[index::FOREST])
+            .battlefield(
+                0,
+                &[
+                    index::ACLAZOTZ_DEEPEST_BETRAYAL,
+                    index::CORAL_HELM,
+                    index::GRIZZLY_BEARS,
+                ],
+            ),
+    );
+    let bear = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    activate(&mut e, P0, index::CORAL_HELM, 0);
+    aim_at(&mut e, P0, bear);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        in_graveyard(&e, P0, index::FOREST).is_some(),
+        "the Forest was discarded to Coral Helm's cost"
+    );
+    assert!(
+        tokens_of(&e, P0).is_empty(),
+        "the controller discarding a land to a cost creates no Bat"
+    );
+    let mut e = prepared(
+        Duel::new(SEED, index::FOREST)
+            .hand(0, &[index::WHEEL_OF_FORTUNE, index::FOREST])
+            .battlefield(0, &[index::ACLAZOTZ_DEEPEST_BETRAYAL])
+            .hand(1, &[index::LIGHTNING_BOLT]),
+    );
+    let forest = in_hand(&e, P0, index::FOREST).unwrap();
+    cast_with_floating(&mut e, P0, index::WHEEL_OF_FORTUNE);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        e.journal().entries().iter().any(|entry| matches!(
+            &entry.event,
+            GameEvent::Discarded { object, player, .. } if *object == forest && *player == P0
+        )),
+        "Wheel of Fortune made its caster discard the Forest"
+    );
+    assert!(
+        tokens_of(&e, P0).is_empty(),
+        "the controller discarding a land to an effect creates no Bat"
+    );
+}

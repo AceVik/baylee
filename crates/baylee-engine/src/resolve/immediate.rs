@@ -708,7 +708,13 @@ pub(super) fn exec_immediate(
         // The delayed trigger is about the object `about` names as this
         // resolves, as the object it is now (CR 603.7c); naming nothing, it
         // is about nothing.
-        Effect::AtEndOfCombat { about, effects } => {
+        Effect::AtEndOfCombat { about, effects }
+        | Effect::AtEndOfCombatThisTurn { about, effects } => {
+            let when = if matches!(op, Effect::AtEndOfCombatThisTurn { .. }) {
+                crate::state::DelayedWhen::EndOfCombatThisTurn
+            } else {
+                crate::state::DelayedWhen::EndOfCombat
+            };
             let action = match zones::spec_object(state, res, about)
                 .and_then(|t| state.object(t).map(|o| (t, o.version)))
             {
@@ -733,7 +739,7 @@ pub(super) fn exec_immediate(
             };
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
-                when: crate::state::DelayedWhen::EndOfCombat,
+                when,
                 action,
             });
             None
@@ -822,6 +828,126 @@ pub(super) fn exec_immediate(
         Effect::RevealTopPutOntoBattlefield { count, picks } => {
             let n = amount2(&count, state, you, res);
             super::reveal_put::start(state, res, n, picks)
+        }
+        // A delayed trigger (CR 603.7) on the first target as it is now.
+        Effect::WheneverTargetDealtDamageThisTurn { by, effects } => {
+            let &card = res.targets.first()?;
+            let version = state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?
+                .version;
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::DealtDamageThisTurn {
+                    card,
+                    version,
+                    by,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::DealHalfOfSpellDamage { spell } => super::half_damage::start(state, res, spell),
+        Effect::ReturnPerBlockedDeath { filter } => {
+            super::blocked_returns::start(state, res, filter)
+        }
+        Effect::MoveTargetAuraToAnother { types } => {
+            let &aura = res.targets.first()?;
+            let host = state.object(aura).and_then(|o| o.attached_to)?;
+            let host_types = state
+                .object(host)
+                .map(|o| o.characteristics().types.intersection(types))
+                .unwrap_or_default();
+            if host_types.is_empty() {
+                return None;
+            }
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    id != host
+                        && id != aura
+                        && state
+                            .object(id)
+                            .is_some_and(|o| o.characteristics().types.intersects(host_types))
+                        && crate::aura_bindings::can_attach(state, aura, id)
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::MoveAura { aura });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+        // CR 701.12c, all or nothing (701.12a): each side's change must be
+        // one its player's life can make.
+        Effect::ExchangeLifeTotals { with } => {
+            let other = players_of(with, state, you, res).first().copied()?;
+            if other == you {
+                return None;
+            }
+            let mine = state.players[usize::from(you.get())].life;
+            let theirs = state.players[usize::from(other.get())].life;
+            let can = |player: PlayerId, delta: i32| {
+                delta == 0
+                    || (!state.life_total_cant_change(player)
+                        && (delta > 0 || !state.cant_lose_life(player)))
+            };
+            if can(you, theirs - mine) && can(other, mine - theirs) {
+                state.change_life(you, theirs - mine, Cause::Effect);
+                state.change_life(other, mine - theirs, Cause::Effect);
+            }
+            None
+        }
+        Effect::GainControlAll { filter, to } => {
+            let player = players_of(to, state, you, res).first().copied()?;
+            let changes: Vec<(ObjectId, PlayerId)> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .map(|id| (id, player))
+                .collect();
+            super::gain_control(state, &changes);
+            None
+        }
+        Effect::DestroyAurasOnTargets => {
+            let hosts: Vec<ObjectId> = res
+                .targets
+                .iter()
+                .chain(res.second_targets.iter())
+                .copied()
+                .collect();
+            let auras: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.attached_to.is_some_and(|h| hosts.contains(&h))
+                            && o.characteristics()
+                                .subtypes
+                                .contains(baylee_core::generated::subtypes::enchantment::AURA)
+                    })
+                })
+                .collect();
+            sba::destroy_all(state, &auras, false);
+            None
         }
         Effect::ChoosePlayerFrom { among } => {
             let options = players_of(among, state, you, res);

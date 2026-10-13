@@ -117,3 +117,33 @@ fn countered_land_adventure_goes_to_graveyard_without_a_play_permission() {
     assert_eq!(e.state().object(card).unwrap().zone, Zone::Graveyard);
     assert!(!crate::casting::adventure_permission(e.state(), p0, card));
 }
+
+/// Faith & Grief returns cards "from your graveyard": an artifact or an
+/// enchantment card in the opponent's graveyard is on no menu of yours, and
+/// the one in yours is.
+#[test]
+fn faith_and_grief_offers_only_cards_from_your_own_graveyard() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[ishgard_the_holy_see(), index::ORNITHOPTER])
+        .hand(1, &[index::SOL_RING, index::HOLY_STRENGTH])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let mine = bury_from_hand(&mut e, p0, index::ORNITHOPTER);
+    let their_artifact = bury_from_hand(&mut e, p1, index::SOL_RING);
+    let their_enchantment = bury_from_hand(&mut e, p1, index::HOLY_STRENGTH);
+    begin_town_adventure(&mut e, p0, ishgard_the_holy_see(), ManaColor::White, 5);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("targets, got {:?}", e.pending())
+    };
+    assert!(
+        options.contains(&mine),
+        "the artifact card in your graveyard is a target"
+    );
+    assert!(
+        !options.contains(&their_artifact) && !options.contains(&their_enchantment),
+        "\"from your graveyard\": an opponent's artifact or enchantment card is not: {options:?}"
+    );
+}

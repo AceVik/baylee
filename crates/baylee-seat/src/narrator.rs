@@ -308,7 +308,9 @@ impl Narrator {
         // tell them apart by, and four lines would say nothing a count
         // does not.
         let mut folded: Vec<(String, u32)> = Vec::new();
-        for line in book.lines(&wording) {
+        // Whole sentences: a line the panel indents under the one above
+        // ("now at 17 life") would lose its subject here.
+        for line in book.lines_whole(&wording) {
             let mut text = line.text.clone();
             // Name spans in reverse, so earlier ranges stay put.
             for span in line.names.iter().rev() {

@@ -68,3 +68,49 @@ fn animated_spire_first_strike_follows_its_current_controllers_turn() {
     reach_their_main_phase(&mut e, p1);
     assert!(!keywords(&e, land).contains(KeywordSet::FIRST_STRIKE));
 }
+
+/// "Whenever this land attacks, scry 1." It scries for the land's controller
+/// when the land is declared as an attacker.
+#[test]
+fn restless_spire_scries_one_when_it_attacks() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::RESTLESS_SPIRE])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = on_battlefield(&e, p0, index::RESTLESS_SPIRE).unwrap();
+    let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Blue, 1);
+    pool.add(ManaColor::Red, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, index::RESTLESS_SPIRE, 1);
+    pass_until(&mut e, stack_is_empty);
+
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(land, Defender::Player(p1))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        prompt,
+    } = e.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(player, p0, "its controller scries");
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(cards.len(), 1, "scry 1");
+}

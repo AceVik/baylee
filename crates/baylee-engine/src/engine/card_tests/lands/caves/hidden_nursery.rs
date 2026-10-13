@@ -34,3 +34,9 @@ fn hidden_nursery_enters_tapped_and_taps_for_green() {
 fn hidden_nursery_pays_its_colored_cost_and_discovers_four() {
     hidden_cave_discovers(hidden_nursery(), ManaColor::Green, true);
 }
+
+/// "Activate only as a sorcery" and "{T}" are part of the discover ability.
+#[test]
+fn hidden_nursery_discover_is_refused_on_a_stack_an_opponents_turn_or_a_tapped_cave() {
+    hidden_cave_refuses_discover(hidden_nursery(), ManaColor::Green);
+}

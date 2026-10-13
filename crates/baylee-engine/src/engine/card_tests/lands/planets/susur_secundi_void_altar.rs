@@ -81,3 +81,48 @@ fn susur_stations_then_draws_the_sacrificed_creatures_power() {
     assert_eq!(library_size(&engine, kit::P0), library - 4);
     assert_eq!(engine.state().object(angel).unwrap().zone, Zone::Graveyard);
 }
+
+/// "Station only as a sorcery" and "12+ | … Activate only as a sorcery": with
+/// an untapped creature to tap or sacrifice, twelve charge counters, the mana
+/// and the life, both abilities are on offer in p0's main phase and neither is
+/// in p1's turn.
+#[test]
+fn susur_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(
+        983,
+        &[susur_secundi_void_altar(), serra_angel()],
+        &[],
+        &[],
+        &[],
+    );
+    let planet = kit::obj(&e, kit::P0, susur_secundi_void_altar());
+    crate::replacement::put_counters(
+        e.dev_state_mut(kit::P0).unwrap(),
+        planet,
+        CounterKind::Charge,
+        12,
+    );
+    kit::float(&mut e, kit::P0, &[(ManaColor::Black, 2)]);
+    assert!(
+        planet_offered(&e, planet, 1),
+        "control: Station at sorcery timing"
+    );
+    assert!(
+        planet_offered(&e, planet, 2),
+        "control: 12+ at sorcery timing"
+    );
+
+    to_instant_timing(&mut e);
+    kit::float(&mut e, kit::P0, &[(ManaColor::Black, 2)]);
+    assert!(
+        !planet_offered(&e, planet, 1),
+        "Station only as a sorcery: not in the opponent's turn"
+    );
+    assert!(
+        !planet_offered(&e, planet, 2),
+        "the 12+ ability is also sorcery-only, with its counters, mana and creature ready"
+    );
+    assert_activation_refused(&mut e, planet, 1);
+    assert_activation_refused(&mut e, planet, 2);
+}

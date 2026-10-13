@@ -540,6 +540,22 @@ pub(super) fn resume_inner(
                 .collect();
             crate::sba::destroy_all(state, &doomed, false);
         }
+        AwaitingOp::MoveAura { aura } => {
+            if let Some(&host) = chosen.first()
+                && let Some(source) = state.source_identity(aura)
+                && crate::aura_bindings::can_attach(state, aura, host)
+            {
+                super::attachments::attach_to(state, source, host, false);
+            }
+        }
+        AwaitingOp::BlockedReturns(returns) => {
+            if let Some(pending) = super::blocked_returns::resume(state, res, *returns, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::HalfSpell(spells) => {
+            super::half_damage::resume(state, res, &spells, chosen);
+        }
         AwaitingOp::ReturnFromGraveyardOf => {
             if let Some(&card) = chosen.first() {
                 super::reanimation::return_card(state, card, res.controller, true, None);

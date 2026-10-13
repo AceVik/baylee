@@ -51,6 +51,7 @@
 //! POST /executor {"single":true}   (every schedule on one thread, or back)
 //! POST /allocs   {"every":31}   (keep every 31st allocation's stack; `{}` stops and reports)
 //! POST /changed  {"frames":60}   (count what is marked changed over 60 frames; `{}` reports)
+//! POST /reveal   {"count":3}   (another seat reveals this seat's first 3 hand cards: the sheet only)
 //! ```
 //!
 //! The last six measure rather than drive: `docs/perf-client.md` has what
@@ -72,6 +73,7 @@
 mod changed;
 mod music;
 mod perf;
+mod reveal;
 mod state;
 
 use state::{Believed, quoted, state_dump};
@@ -109,6 +111,22 @@ pub(crate) fn window_size() -> Option<(f32, f32)> {
     let height: u16 = height.parse().ok()?;
     ((320..=7680).contains(&width) && (320..=4320).contains(&height))
         .then_some((f32::from(width), f32::from(height)))
+}
+
+/// `/reveal {"count":3}`: a reveal by another seat of this seat's first
+/// hand cards, stood up as a host's line would (`reveal.rs`).
+fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
+    if control.reveal_jobs.is_empty() {
+        return;
+    }
+    let mut duel = duel;
+    for job in std::mem::take(&mut control.reveal_jobs) {
+        let answer = match duel.as_mut() {
+            Some(duel) => reveal::stage(&job.body, duel),
+            None => "{\"error\":\"no duel\"}".to_string(),
+        };
+        let _ = job.reply.send(answer);
+    }
 }
 
 /// `/shell {"text_size":"xl","lang":"de","input":"touch","gallery":"true","update_ready":"9.9.9"}`:
@@ -229,6 +247,16 @@ pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
 }
 
+/// Whether a driven run stays silent: with `BAYLEE_DEV_CONTROL` set, the
+/// client installs no audio output unless `BAYLEE_DEV_SOUND=1` asks for it
+/// (owner, 13.10.2026: agents test the client without a sound). The score
+/// and the cues already run without an `AudioPlugin` (`music::install`,
+/// `sound::voice_the_cues`), so nothing else changes.
+pub(crate) fn silent() -> bool {
+    std::env::var_os("BAYLEE_DEV_CONTROL").is_some()
+        && !std::env::var("BAYLEE_DEV_SOUND").is_ok_and(|v| v == "1")
+}
+
 /// Optional scale-factor override (`BAYLEE_DEV_SCALE=1`) for captures at a
 /// logical size the display could not otherwise hold: a 2560 × 1440 window
 /// at the Retina factor 2 is wider than the screen and the OS shrinks it,
@@ -316,6 +344,7 @@ impl Plugin for DevControlPlugin {
             clicking: Vec::new(),
             stepping: None,
             shell_jobs: Vec::new(),
+            reveal_jobs: Vec::new(),
             frame: 0,
         })
         // After `InputSystem`: bevy has already cleared last frame's
@@ -323,7 +352,9 @@ impl Plugin for DevControlPlugin {
         // for exactly the frame that follows, the way a real one is.
         .add_systems(
             PreUpdate,
-            (pump, shell_knobs).chain().after(bevy::input::InputSystems),
+            (pump, shell_knobs, stage_reveals)
+                .chain()
+                .after(bevy::input::InputSystems),
         );
         perf::install(app);
         app.init_resource::<changed::Tally>()
@@ -348,7 +379,22 @@ struct DevControl {
     /// `/shell` requests, answered by `shell_knobs` after `pump` (they write
     /// the settings `pump` only reads).
     shell_jobs: Vec<Job>,
+    /// `/reveal` requests, answered by `stage_reveals` (they write the duel).
+    reveal_jobs: Vec<Job>,
     frame: u64,
+}
+
+impl DevControl {
+    /// Queues a request whose answer writes what `pump` only reads, for the
+    /// system after it that owns that: `/shell` for `shell_knobs`,
+    /// `/reveal` for `stage_reveals`.
+    fn answer_later(&mut self, job: Job) {
+        if job.path == "/reveal" {
+            self.reveal_jobs.push(job);
+        } else {
+            self.shell_jobs.push(job);
+        }
+    }
 }
 
 /// A run of frames the clock was let go for.
@@ -831,8 +877,8 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
-            "/shell" => {
-                control.shell_jobs.push(job);
+            "/shell" | "/reveal" => {
+                control.answer_later(job);
                 continue;
             }
             "/window" => match windows.single_mut() {

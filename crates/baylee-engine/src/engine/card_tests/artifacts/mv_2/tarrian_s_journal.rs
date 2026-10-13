@@ -88,3 +88,36 @@ fn tarrians_journal_taps_and_sacrifices_another_creature_to_draw_card() {
         "a card was drawn from the library"
     );
 }
+
+/// "{T}, Sacrifice another artifact or creature: Draw a card. **Activate only as a
+/// sorcery.**" Offered in my main phase with an empty stack, not in my end step.
+#[test]
+fn tarrians_journal_draw_ability_is_not_offered_in_the_end_step() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(126, swamp())
+        .battlefield(0, &[swamp(), tarrian_s_journal(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        kit::offered(&engine, tarrian_s_journal(), p0, 0),
+        "control: in my main phase with an empty stack the draw ability is offered"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End
+            && e.state().turn.active == p0
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(stack_is_empty(&engine), "an empty stack at the end step");
+    let journal = on_battlefield(&engine, p0, tarrian_s_journal()).unwrap();
+    assert!(
+        !is_tapped(&engine, journal) && on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "the Journal is untapped and there is still a creature to sacrifice"
+    );
+    assert!(
+        !kit::offered(&engine, tarrian_s_journal(), p0, 0),
+        "\"activate only as a sorcery\": not in my end step, though the cost is payable"
+    );
+}

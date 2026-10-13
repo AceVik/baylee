@@ -67,3 +67,65 @@ fn mystifying_maze_taps_for_the_colorless_mana_it_prints() {
     );
     assert!(is_tapped(&engine, maze), "the Maze paid its own {{T}}");
 }
+
+/// "{4}, {T}: Exile target attacking creature an opponent controls." Out of
+/// the opponent's creatures only the one that attacks is on the menu, and in
+/// the controller's own attack their attacker is no target at all.
+#[test]
+fn mystifying_maze_targets_only_an_opponents_attacking_creature() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut e = kit::game(
+        958,
+        &[mystifying_maze(), index::GRIZZLY_BEARS],
+        &[index::GRIZZLY_BEARS, index::SERRA_ANGEL],
+        &[],
+        &[],
+    );
+    let (mine, their_attacker) = (
+        kit::obj(&e, kit::P0, index::GRIZZLY_BEARS),
+        kit::obj(&e, kit::P1, index::GRIZZLY_BEARS),
+    );
+    let their_idler = kit::obj(&e, kit::P1, index::SERRA_ANGEL);
+
+    // The Maze's controller attacks: the opponent's creatures stand idle and
+    // their own attacker is not one an opponent controls.
+    assert!(kit::attackers_offered(&mut e).contains(&mine));
+    e.apply(
+        kit::P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(mine, Defender::Player(kit::P1))],
+        },
+    )
+    .unwrap();
+    assert!(matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0));
+    kit::float(&mut e, kit::P0, &[(ManaColor::Colorless, 4)]);
+    let maze = kit::obj(&e, kit::P0, mystifying_maze());
+    assert!(
+        !kit::offered(&e, mystifying_maze(), kit::P0, 1),
+        "neither my own attacker nor the idle creatures are targets"
+    );
+    assert_p0_refused(&mut e, maze, 1);
+
+    // The opponent attacks with one of their two creatures.
+    let _ = kit::attackers_offered(&mut e);
+    let blocks = kit::declare(&mut e, &[their_attacker]);
+    assert!(blocks.iter().all(|b| b.blocker != their_attacker));
+    kit::block(&mut e, &[]);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0),
+    );
+    kit::float(&mut e, kit::P0, &[(ManaColor::Colorless, 4)]);
+    activate(&mut e, kit::P0, mystifying_maze(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("a target choice was expected, got {:?}", e.pending());
+    };
+    assert_eq!(options, vec![their_attacker], "the attacker, nothing else");
+    assert!(!options.contains(&their_idler) && !options.contains(&mine));
+    aim_at(&mut e, kit::P0, their_attacker);
+    kit::settle(&mut e);
+    assert_eq!(kit::zone_of(&e, their_attacker), Zone::Exile);
+    assert_eq!(kit::zone_of(&e, their_idler), Zone::Battlefield);
+    assert_eq!(kit::zone_of(&e, mine), Zone::Battlefield);
+}

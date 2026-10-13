@@ -1135,6 +1135,17 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "At this turn's next end of combat, [effects]" (Glyph of Doom):
+    /// [`Self::AtEndOfCombat`], except that the delayed trigger lapses with
+    /// the turn (CR 603.7b, a stated duration): resolved after this turn's
+    /// last combat, it never triggers, where `AtEndOfCombat` would wait for
+    /// the next turn's.
+    AtEndOfCombatThisTurn {
+        /// What the delayed trigger remembers.
+        about: TargetSpec,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -2831,6 +2842,77 @@ pub enum Effect {
         /// One optional pick per filter, in this order.
         picks: &'static [&'static Filter],
     },
+    /// "Whenever [the target] is dealt damage by [a source the filter
+    /// matches] this turn, …" (Glyph of Life: "Choose target Wall creature.
+    /// Whenever that creature is dealt damage by an attacking creature this
+    /// turn, you gain that much life"): a delayed triggered ability
+    /// (CR 603.7) of this ability's controller that triggers each time the
+    /// first target, as the object it is now, is dealt damage this turn by a
+    /// source the filter matches as it deals it. "That much" is
+    /// [`Amount::EventAmount`].
+    WheneverTargetDealtDamageThisTurn {
+        /// Which sources count.
+        by: &'static Filter,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Choose a player who cast one or more [spell] spells this turn. [This]
+    /// deals damage to that player equal to half the damage dealt by one of
+    /// those spells this turn, rounded down" (Backdraft): the controller
+    /// chooses the player (asked only with more than one), then one of that
+    /// player's spells the filter matched as cast this turn (asked only with
+    /// more than one), and the source deals half the damage that spell dealt
+    /// this turn, rounded down.
+    DealHalfOfSpellDamage {
+        /// Which spells.
+        spell: &'static Filter,
+    },
+    /// "Attach target Aura attached to a creature or land to another
+    /// permanent of that type" (Enchantment Alteration): the controller
+    /// chooses, as this resolves, another permanent that shares a type in
+    /// `types` with the permanent the first target is attached to and that
+    /// the Aura could enchant, and attaches the Aura to it (CR 701.3). Only
+    /// the Aura is targeted; with no such permanent nothing moves.
+    MoveTargetAuraToAnother {
+        /// The types "of that type" may be.
+        types: baylee_core::types::TypeSet,
+    },
+    /// "Exchange life totals with target opponent" (Mirror Universe,
+    /// CR 701.12c): you and the player `with` names each gain or lose the
+    /// life needed to equal the other's previous total. With nobody named,
+    /// or when either change can't happen (a player who can't lose life, a
+    /// life total that can't change), nothing happens: the whole exchange or
+    /// none of it (CR 701.12a).
+    ExchangeLifeTotals {
+        /// The other player.
+        with: PlayerRel,
+    },
+    /// "… then [player] gains control of them" (Rohgahh of Kher Keep): every
+    /// permanent the filter matches, whoever controls it, comes under the
+    /// control of the player `to` names, for the rest of the game
+    /// (CR 613.1b, layer 2).
+    GainControlAll {
+        /// What changes hands.
+        filter: &'static Filter,
+        /// Who gains control.
+        to: PlayerRel,
+    },
+    /// "For each creature that died this way, put a creature card from the
+    /// graveyard of the player who controlled that creature the last time it
+    /// became blocked by that Wall onto the battlefield under its owner's
+    /// control" (Glyph of Reincarnation): for each creature this resolution
+    /// put into a graveyard from the battlefield, the player who controlled it
+    /// as it last became blocked by the reference object (the first target)
+    /// gives one card the filter matches from their graveyard; the
+    /// controller chooses those cards after every death, and they all enter
+    /// at once, each under its owner's control.
+    ReturnPerBlockedDeath {
+        /// What may be returned.
+        filter: &'static Filter,
+    },
+    /// "Destroy all Auras attached to them" (Gauntlets of Chaos): every Aura
+    /// attached to any of this resolution's targets, of either instance.
+    DestroyAurasOnTargets,
     /// "Choose a player with the most life or tied for most life" (The Black
     /// Gate): the controller chooses one of the players `among` names, asked
     /// only when there is more than one, and the rest of the resolution

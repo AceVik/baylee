@@ -506,11 +506,15 @@ impl<L: CardLookup> Engine<L> {
         if let Some(req) = second
             && self.activation_second_targets.is_none()
         {
+            // A requirement naming the first target (Gauntlets of Chaos:
+            // "that shares one of those types with it") reads it here.
+            let mut context = self.ability_rule_context(source, ability_index);
+            context.reference = targets.first().copied();
             let options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
-                self.ability_rule_context(source, ability_index),
+                context,
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );

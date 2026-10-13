@@ -1392,6 +1392,18 @@ impl<L: CardLookup> Engine<L> {
         wizard: &CastWizard,
         spec: &TargetSpec,
     ) -> Vec<ObjectId> {
+        self.wizard_target_options_relative(wizard, spec, None)
+    }
+
+    /// [`Self::wizard_target_options`] with the object a relational
+    /// requirement is relative to: the first target, for the second
+    /// instance of "target" (Glyph of Delusion's Wall).
+    pub(super) fn wizard_target_options_relative(
+        &self,
+        wizard: &CastWizard,
+        spec: &TargetSpec,
+        reference: Option<ObjectId>,
+    ) -> Vec<ObjectId> {
         let Some(def) = self
             .state
             .object(wizard.card)
@@ -1406,7 +1418,7 @@ impl<L: CardLookup> Engine<L> {
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
-        eval::spell_target_options_for(
+        eval::spell_target_options_relative(
             spec,
             &self.state,
             wizard.player,
@@ -1417,6 +1429,7 @@ impl<L: CardLookup> Engine<L> {
                 self.wizard_target_req(wizard),
                 self.wizard_second_target_req(wizard),
             ),
+            reference,
         )
     }
 

@@ -90,6 +90,7 @@ impl GameState {
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_characteristics: Vec::new(),
+            ltb_combat: Vec::new(),
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),

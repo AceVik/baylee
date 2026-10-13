@@ -27,6 +27,7 @@ card!(
             subtypes = &[subtypes::creature::DEMON],
             power = Some(9),
             toughness = Some(7),
+            color_indicator = ColorSet::from_slice(&[Color::Black]),
             keywords = KeywordSet::FLYING
                 .union(KeywordSet::LIFELINK)
                 .union(KeywordSet::INDESTRUCTIBLE)

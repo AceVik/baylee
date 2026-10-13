@@ -280,8 +280,11 @@ impl<L: CardLookup> Engine<L> {
         if chosen.is_empty() && chosen_players.is_empty() {
             return None;
         }
+        // A second instance's requirement may name the first (Glyph of
+        // Delusion's Wall "that blocked" the first target).
+        let reference = (!players).then(|| obj.targets.first().copied()).flatten();
         let (legal_objects, legal_players) =
-            eval::stack_target_options(&self.state, obj, &req.spec);
+            eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         let objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
             .enumerate()

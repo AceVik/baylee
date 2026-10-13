@@ -130,3 +130,54 @@ fn hall_counts_a_cast_even_when_countered_but_not_an_artifact_or_a_previous_turn
         assert!(!legal.abilities.contains(&(hall, 2)));
     }
 }
+
+/// "Activate only as a sorcery and only if you've cast an instant or sorcery
+/// spell this turn": the cast spell alone is not enough. With the instant
+/// still on the stack and again in combat the counter ability is not offered;
+/// in a main phase with the stack empty it is.
+#[test]
+fn hall_counter_ability_waits_for_an_empty_stack_in_a_main_phase() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = kit::game(
+        1208,
+        &[hall_of_oracles(), index::GRIZZLY_BEARS],
+        &[],
+        &[index::DARK_RITUAL],
+        &[],
+    );
+    let bear = kit::obj(&e, p0, index::GRIZZLY_BEARS);
+    kit::float(&mut e, p0, &[(ManaColor::Black, 1)]);
+    cast_with_floating(&mut e, p0, index::DARK_RITUAL);
+    assert!(
+        !stack_is_empty(&e),
+        "the instant is still on the stack, waiting for the pass"
+    );
+    assert!(
+        !kit::offered(&e, hall_of_oracles(), p0, 2),
+        "\"as a sorcery\": not while a spell is on the stack, though the instant has been cast"
+    );
+
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        kit::offered(&e, hall_of_oracles(), p0, 2),
+        "main phase, empty stack, an instant cast this turn: offered"
+    );
+
+    kit::to_step(&mut e, p0, crate::turn::Step::CombatBegin);
+    assert!(
+        !kit::offered(&e, hall_of_oracles(), p0, 2),
+        "\"as a sorcery\": not in combat, though an instant was cast this turn"
+    );
+
+    pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
+    assert!(
+        kit::offered(&e, hall_of_oracles(), p0, 2),
+        "the second main phase with an empty stack is a sorcery window too"
+    );
+    activate(&mut e, p0, hall_of_oracles(), 2);
+    aim_at(&mut e, p0, bear);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(counters_on(&e, bear, CounterKind::P1P1), 1);
+}

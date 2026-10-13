@@ -146,6 +146,11 @@ from starting on any agent while it waits:
 The hold is one gateway's: every agent's games pass through it. Another
 gateway on another machine is not held by this file.
 
+Replay jobs (`docs/protocol.md` §"Replays") are no games: the drain does not
+wait for them, so a deploy that replaces the engine binary can end a
+projection in flight, and that request is answered `502` (a client retries
+once). The hold refuses new jobs as it refuses new games (`503`).
+
 ## Retries and recovery
 
 Where a deploy is stands in `/opt/baylee/state/transaction` (`target`,

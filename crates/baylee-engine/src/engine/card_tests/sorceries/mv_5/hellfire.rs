@@ -207,7 +207,7 @@ fn hellfire_does_not_count_a_creature_that_regenerated() {
     );
     assert!(
         is_tapped(&engine, wall),
-        "regenerating taps the creature (CR 701.19c)"
+        "regenerating taps the creature (CR 701.19a)"
     );
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),

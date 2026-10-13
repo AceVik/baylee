@@ -24,6 +24,7 @@ card!(
         face!(
             name = "Braided Quipu",
             types = TypeSet::ARTIFACT,
+            color_indicator = ColorSet::from_slice(&[Color::Blue]),
             castable_from_hand = false,
         ),
     ],

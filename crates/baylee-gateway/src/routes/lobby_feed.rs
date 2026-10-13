@@ -31,7 +31,12 @@ pub(crate) async fn lobby_ws(
             .await
             .map_err(|e| db_down(&e))?
         {
-            Some(session) if session.account_id == account_id => account_id,
+            Some(session)
+                if session.account_id == account_id
+                    && crate::moderation::admit(&session).is_ok() =>
+            {
+                account_id
+            }
             _ => {
                 tracing::debug!("a lobby ticket outlived its session");
                 return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
@@ -39,11 +44,12 @@ pub(crate) async fn lobby_ws(
         }
     } else {
         let token = legacy_token(&state, params.token.as_deref(), "/lobby/ws")?;
-        store::resolve_token(&state.db, token, auth::now_secs())
+        let session = store::resolve_token(&state.db, token, auth::now_secs())
             .await
             .map_err(|e| db_down(&e))?
-            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
-            .account_id
+            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
+        crate::moderation::admit(&session)?;
+        session.account_id
     };
     Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
 }

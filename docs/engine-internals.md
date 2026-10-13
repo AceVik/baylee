@@ -1343,10 +1343,67 @@ planeswalker, SBAs) record nobody.
 
 `PlayerRel::DefendingPlayer` is `eval::defending_player_of(source)`: the player
 the source attacks, or the controller of the planeswalker it attacks (last
-known, CR 506.4c). A source no longer attacking names the one opponent of a
-two-player game during combat (CR 506.2) and nobody at a larger table.
-`Filter::ControlledByDefendingPlayer` is older and coarser (any opponent of
-the active player during combat) and is left as it is.
+known, CR 506.4c). A source that did not attack this combat names the one
+opponent of a two-player game during combat (CR 506.2) and nobody at a larger
+table.
+`Filter::ControlledByDefendingPlayer` read on an ability of an attacking
+creature is exact as well: the player that creature attacks (Floral Spuzzem's
+"target artifact defending player controls" at a table of three). Both read
+`CombatState::last_defender_of`, which keeps what each creature attacked this
+combat after it is removed from combat ("the player that creature was
+attacking before it was removed from combat", CR 508.5). Read on
+anything else (a spell such as False Orders) it stays coarse: any opponent of
+the active player during combat. `mechanics_tests::combat_memory` plays the
+three-seat case.
+
+### What combat and damage leave behind (wave 2)
+
+Four records, each read by name and never inferred from the journal:
+
+- `PerTurn::blocks` — every block declared this turn, as a `BlockRecord` of
+  the blocker and the attacker (each a `DamageSourceRef`, the object as it was)
+  and the attacker's controller at that moment. Written in
+  `GameState::declare_block`, cleared with the turn. `Filter::BlockedByReferenceThisTurn`,
+  `BlockedReferenceThisTurn` and `BlockedThisTurnBy` compare both versions, so
+  a creature that left and came back is a new object that was never blocked
+  (CR 400.7); `Effect::ReturnPerBlockedDeath` reads the controller.
+- `PerTurn::damage_log` — every damage event this turn after prevention
+  (CR 615.1: prevented damage was never dealt), with the amount, combat or
+  not, the recipient (and the version of an object recipient) and an
+  `Arc<GameObject>` snapshot of the source as it dealt it. Written in
+  `damage_history::log_damage`. `Amount::DamageThisTurn` matches its `by`
+  filter against the snapshot, so "damage dealt by artifacts" counts a
+  creature that was an artifact then; `Filter::DealtDamageToSourceThisTurn`
+  and `Effect::DealHalfOfSpellDamage` (damage a spell dealt while on the
+  stack) read it too. A dies trigger's "to it" counts the incarnation that
+  died (the last version damaged before it left).
+- `GameState::ltb_combat` — who a permanent was in combat with as it left the
+  battlefield, written and cleared where `ltb_characteristics` is.
+  `Filter::BlockingSource` / `BlockedBySource` fall back to it once the source
+  is gone (CR 608.2h: Abu Ja'far's dies trigger destroys the creatures that
+  were blocking it, though it died out of combat).
+- `DelayedWhen::DealtDamageThisTurn` — `Effect::WheneverTargetDealtDamageThisTurn`'s
+  delayed trigger (CR 603.7): it watches the first target as the object it is
+  now and fires on each damage event to it whose source the filter matches as
+  it deals it; "that much" is the event amount. It lapses with the turn.
+
+### The reference object (`RuleContext::reference`)
+
+A relational filter (`Filter::Reference`, `BlockingReference`,
+`BlockedByReferenceThisTurn`, `BlockedReferenceThisTurn`,
+`SharesTypeWithReference`) reads one object besides the source:
+`Resolution::rule_context` names the first target, else the triggering event's
+object (a delayed trigger made by `Effect::AtEndOfCombat { about, .. }` carries
+its `about` object as that, which is how Glyph of Doom's end-of-combat trigger
+still knows its Wall). While a second target is chosen (cast wizard,
+activation, the resolution-time legality check in `progress/stack.rs`) the
+reference is the first target, so `second_targets` may relate to it (Gauntlets
+of Chaos, Glyph of Delusion). A continuous effect whose filter reads the
+reference is bound to the objects it names as it resolves
+(`resolve::bound_now_with_context`, whatever the modifier): the reference is
+gone with the resolution (Feint's "that creature and each creature blocking
+it"). Nothing outside a resolution or a target choice has a reference, and
+there every such filter matches nothing.
 
 ## Two instances of "target", and a board that moves mid-resolution
 

@@ -18,6 +18,10 @@ pub(super) fn the_click(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs:
         prefs.edit().orders.toggle(side, row);
         return true;
     }
+    if duel.paying() {
+        duel.confirm_payment();
+        return true;
+    }
     if let Some(action) = committed_answer(duel) {
         duel.submit(action);
         return true;
@@ -82,6 +86,12 @@ pub(crate) fn empty_combat_declaration(interaction: &Interaction) -> bool {
 /// exactly the state this function refuses, so the key is unadvertised at the
 /// moment it stops working, with the two answers that do something beside it.
 pub(super) fn committed_answer(duel: &Duel) -> Option<PlayerAction> {
+    // A payment window is answered by `Duel::confirm_payment`, never by the
+    // bare pass a priority confirm is: passing it unpaid refuses the
+    // payment (#01).
+    if duel.paying() {
+        return None;
+    }
     let interaction = duel.interaction.as_ref()?;
     if empty_combat_declaration(interaction) {
         return None;
@@ -126,6 +136,10 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
     // key that always means "I am done here" — with the one exception
     // [`committed_answer`] names.
     if fired.has(Action::Confirm) {
+        if duel.paying() {
+            duel.confirm_payment();
+            return;
+        }
         if let Some(action) = committed_answer(duel) {
             duel.submit(action);
             return;

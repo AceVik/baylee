@@ -7,6 +7,7 @@ import { api, Refused, SignedOut, type AccountDetail as Detail } from "../api";
 import { formatAgo, formatCount, formatDuration, formatWhen, t, type Lang } from "../i18n";
 import { adminPath } from "../router";
 import { Presence } from "./Accounts";
+import { AccountActions } from "./Moderation";
 import { Badge, copy, describe, Facts, Link, Panel, REFRESH_MS, useNow, useVisibleInterval } from "./shared";
 
 function seconds(from: string, to: string): number {
@@ -64,6 +65,7 @@ export function AccountDetail({ lang, id }: { lang: Lang; id: string }) {
                   {t(lang, detail.guest ? "acc.guest" : "acc.registered")}
                 </Badge>
                 {detail.by_key && <Badge tone="accent">{t(lang, "acc.byKey")}</Badge>}
+                {detail.ban != null && <Badge tone="danger">{t(lang, "mod.banned")}</Badge>}
               </p>
             </div>
             <button
@@ -105,6 +107,9 @@ export function AccountDetail({ lang, id }: { lang: Lang; id: string }) {
             </p>
           )}
           <div className="panels detail-panels">
+            <Panel id="det-acts" title={t(lang, "mod.title")} className="wide-panel">
+              <AccountActions lang={lang} target={detail} onChanged={load} />
+            </Panel>
             <Panel id="det-facts" title={t(lang, "acc.name")}>
               <Facts
                 rows={[

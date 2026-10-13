@@ -42,7 +42,10 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         | Effect::AtNextEndStep { .. }
         | Effect::AtNextCleanup { .. }
         | Effect::WhenTargetDiesThisTurn { .. }
-        | Effect::AtEndOfCombat { .. } => (&[], &[]),
+        | Effect::WhenSourceDiesThisTurn { .. }
+        | Effect::WheneverTargetDealtDamageThisTurn { .. }
+        | Effect::AtEndOfCombat { .. }
+        | Effect::AtEndOfCombatThisTurn { .. } => (&[], &[]),
         _ => effect.branches(),
     }
 }

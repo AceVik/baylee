@@ -2665,16 +2665,22 @@ fn mental_misstep_asks_life_or_mana_when_both_can_pay() {
 
 fn assert_plural_color_change(card: CardIndex, color: Color, mana: ManaColor) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    // The fourth creature is not a target. It must not already be the colour
+    // on offer, or "it stayed" would hold for a spell that recoloured it too.
+    let lions = baylee_core::generated::index::SAVANNAH_LIONS;
+    let (third, third_was, fourth, fourth_was) = if color == Color::Green {
+        (quiet_creature(), Color::Green, lions, Color::White)
+    } else {
+        (lions, Color::White, quiet_creature(), Color::Green)
+    };
+    assert_ne!(
+        fourth_was, color,
+        "the untargeted creature has another colour"
+    );
     let mut e = Duel::new(SEED, forest())
         .hand(0, &[card])
         .battlefield(0, &[quiet_creature(), quiet_creature()])
-        .battlefield(
-            1,
-            &[
-                baylee_core::generated::index::SAVANNAH_LIONS,
-                quiet_creature(),
-            ],
-        )
+        .battlefield(1, &[third, fourth])
         .start();
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
@@ -2719,13 +2725,22 @@ fn assert_plural_color_change(card: CardIndex, color: Color, mana: ManaColor) {
             .unwrap()
             .characteristics()
             .colors,
-        ColorSet::of(Color::Green)
+        ColorSet::of(fourth_was),
+        "the creature that was not a target keeps its own colour"
     );
     reach_their_main_phase(&mut e, p1);
-    for (id, original) in [(creatures[0], Color::Green), (creatures[2], Color::White)] {
+    for (id, original) in [(creatures[0], Color::Green), (creatures[2], third_was)] {
         assert_eq!(
             e.state().object(id).unwrap().characteristics().colors,
             ColorSet::of(original)
         );
     }
+    assert_eq!(
+        e.state()
+            .object(creatures[3])
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(fourth_was)
+    );
 }

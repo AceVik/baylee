@@ -108,3 +108,33 @@ fn volatile_faults_basic_land_arrives_untapped_for_the_target_controller() {
     assert!(!is_tapped(&e, found));
     assert_eq!(tokens_of(&e, p0).len(), 1);
 }
+
+/// "Destroy target nonbasic land an opponent controls": the menu is the
+/// opponent's nonbasic land and nothing else — not the opponent's basic
+/// Forest, not the activator's own nonbasic land (Treetop Village), not the
+/// activator's basic Forest and not the Fault itself.
+#[test]
+fn volatile_fault_offers_only_an_opponents_nonbasic_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[volatile_fault(), forest(), treetop_village()])
+        .battlefield(1, &[badlands(), forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let fault = on_battlefield(&e, p0, volatile_fault()).expect("the Fault");
+    let theirs = on_battlefield(&e, p1, badlands()).expect("Badlands");
+
+    tap_mana_except(&mut e, p0, fault);
+    activate(&mut e, p0, volatile_fault(), 1);
+
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("expected target choice, got {:?}", e.pending())
+    };
+    assert_eq!(
+        options,
+        vec![theirs],
+        "only Badlands: not the opponent's Forest (basic), nor the activator's \
+         own Treetop Village (not an opponent's), Forest or the Fault itself"
+    );
+}

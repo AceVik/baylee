@@ -406,6 +406,16 @@ pub enum Modifier {
     /// a creature that may not block it — tapped, or a ground creature
     /// facing a flier — is under no requirement.
     MustBeBlockedByAllAble,
+    /// Every creature the filter matches that is able to block the affected
+    /// creature does so (Marble Priest: "All Walls able to block this
+    /// creature do so"): [`Self::MustBeBlockedByAllAble`] for the creatures
+    /// the filter names, read with the effect's controller as "you".
+    MustBeBlockedByAllAbleMatching(&'static crate::Filter),
+    /// The affected creature assigns no combat damage (Floral Spuzzem: "this
+    /// creature assigns no combat damage this turn"; the card overrides
+    /// CR 510.1a, CR 101.1). Not a prevention: no damage is assigned, so
+    /// none is dealt, prevented or redirected.
+    AssignsNoCombatDamage,
     /// The affected creature blocks each attacking creature if able (Blaze
     /// of Glory: "It blocks each attacking creature this turn if able"). A
     /// requirement on the declaration of blockers (CR 509.1c), one for each
@@ -1000,6 +1010,8 @@ impl Modifier {
             | Self::CanBlockAdditional(_)
             | Self::CanBlockAnyNumber
             | Self::MustBeBlockedByAllAble
+            | Self::MustBeBlockedByAllAbleMatching(_)
+            | Self::AssignsNoCombatDamage
             | Self::BlocksEachAttackerIfAble
             | Self::RedirectDamageToYou(_)
             | Self::CountersPreventDamage(_)
@@ -1498,6 +1510,8 @@ mod tests {
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
+            Modifier::MustBeBlockedByAllAbleMatching(&Filter::CREATURE),
+            Modifier::AssignsNoCombatDamage,
             Modifier::BlocksEachAttackerIfAble,
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::CountersPreventDamage(crate::CounterKind::P1P1),

@@ -44,6 +44,10 @@ pub enum Socket<'a> {
         /// The game.
         game_id: &'a str,
     },
+    /// The chat's socket (`/social/ws`), bought with the session (the
+    /// beta.8 social design §8.1). Its path is
+    /// [`baylee_protocol::social::social_socket_path`].
+    Social,
 }
 
 impl Socket<'_> {
@@ -54,6 +58,9 @@ impl Socket<'_> {
             Self::Lobby => serde_json::json!({ "socket": "lobby" }),
             Self::Seat { game_id } => serde_json::json!({ "socket": "seat", "game": game_id }),
             Self::Watch { game_id } => serde_json::json!({ "socket": "watch", "game": game_id }),
+            Self::Social => {
+                serde_json::json!({ "socket": baylee_protocol::social::TICKET_SOCKET })
+            }
         }
         .to_string()
     }

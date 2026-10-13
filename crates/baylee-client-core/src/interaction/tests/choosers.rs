@@ -30,6 +30,97 @@ fn x_starts_at_the_minimum() {
     assert_eq!(i.number(), 3);
 }
 
+/// Report 20: an X question the engine bounds only by the number type is
+/// capped at what the seat's mana pays; the cap shows in the question, in
+/// what a tap on a bigger number answers, and in what is sent.
+#[test]
+fn a_cap_lowers_the_top_of_an_x_question_and_what_is_answered() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: u32::MAX,
+        reason: baylee_engine::choice::NumberPrompt::X,
+    });
+    i.cap_number(3);
+    let Pending::ChooseNumber { min, max, .. } = i.pending() else {
+        panic!("still a number question");
+    };
+    assert_eq!((*min, *max), (0, 3));
+    assert_eq!(i.set_number(10), 3);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(3)));
+}
+
+/// Report 20: a number already chosen above the cap comes down with it.
+#[test]
+fn a_cap_pulls_a_number_already_chosen_down_to_it() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 100,
+        reason: baylee_engine::choice::NumberPrompt::X,
+    });
+    assert_eq!(i.set_number(40), 40);
+    i.cap_number(5);
+    assert_eq!(i.number(), 5);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(5)));
+}
+
+/// Report 20: the cap never goes below the engine's own minimum, and never
+/// raises the engine's maximum.
+#[test]
+fn a_cap_below_the_minimum_leaves_the_maximum_at_the_minimum_and_never_raises_it() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 4,
+        max: 9,
+        reason: baylee_engine::choice::NumberPrompt::X,
+    });
+    i.cap_number(1);
+    let Pending::ChooseNumber { min, max, .. } = i.pending() else {
+        panic!("still a number question");
+    };
+    assert_eq!((*min, *max), (4, 4));
+    assert_eq!(i.set_number(9), 4);
+
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 6,
+        reason: baylee_engine::choice::NumberPrompt::X,
+    });
+    i.cap_number(50);
+    let Pending::ChooseNumber { max, .. } = i.pending() else {
+        panic!("still a number question");
+    };
+    assert_eq!(*max, 6, "a cap only lowers");
+    assert_eq!(i.set_number(u32::MAX), 6);
+}
+
+/// Report 20: only an X is the player's own to bound; the engine's range
+/// for any other number stands.
+#[test]
+fn a_cap_leaves_a_number_that_is_not_x_alone() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 80,
+        reason: baylee_engine::choice::NumberPrompt::Counters {
+            target: obj(1),
+            kind: baylee_engine::object::CounterKind::Plus {
+                power: 1,
+                toughness: 0,
+            },
+        },
+    });
+    i.cap_number(3);
+    let Pending::ChooseNumber { max, .. } = i.pending() else {
+        panic!("still a number question");
+    };
+    assert_eq!(*max, 80);
+    assert_eq!(i.set_number(60), 60);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(60)));
+}
+
 /// An ordering starts complete — every card in its one pile, as offered —
 /// and a tap takes a card up while the next puts it down in front of the
 /// card tapped. No card is ever missing from the answer, so there is no

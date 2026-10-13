@@ -9,6 +9,8 @@
 //!   token at all, held to its limits instead ([`direct`]).
 //! - `POST /client/alive`: an offline game still going, anonymously, for
 //!   the admins' "offline now" ([`alive`]).
+//! - `POST /site/contact`: a message from the landing page's contact form,
+//!   from the configured page origins only ([`contact`]).
 //! - `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`: the
 //!   read token (or the admin token).
 //! - `PATCH /reports/{id}` (status), `DELETE /reports/{id}`: the admin token.
@@ -26,8 +28,10 @@
 pub mod admin;
 pub mod alive;
 pub mod console;
+pub mod contact;
 pub mod direct;
 pub mod migration;
+pub mod moderation;
 pub mod ui;
 pub mod web;
 
@@ -91,18 +95,23 @@ pub struct Config {
     /// gateway's admin console the UI's admin pages talk to ([`console`]);
     /// `None` = no admin pages.
     gateway_admin: Option<console::Gateway>,
+    /// `FEEDBACK_CONTACT_ORIGINS`: the pages whose contact form may post
+    /// here ([`contact`]); empty = the route is off.
+    contact_origins: Vec<String>,
 }
 
 impl Config {
     /// Reads `FEEDBACK_GATEWAY_TOKENS`, `FEEDBACK_READ_TOKEN`,
     /// `FEEDBACK_ADMIN_TOKEN`, `FEEDBACK_DIRECT_KEY`,
-    /// `FEEDBACK_GATEWAY_ADMIN_URL` and `FEEDBACK_GATEWAY_ADMIN_TOKEN`.
+    /// `FEEDBACK_GATEWAY_ADMIN_URL`, `FEEDBACK_GATEWAY_ADMIN_TOKEN` and
+    /// `FEEDBACK_CONTACT_ORIGINS`.
     ///
     /// # Errors
     ///
     /// When a value is malformed; see [`Config::new`],
-    /// [`Config::with_direct_key`] and [`Config::with_gateway_admin`]. One
-    /// of the last two without the other is malformed too.
+    /// [`Config::with_direct_key`], [`Config::with_gateway_admin`] and
+    /// [`Config::with_contact_origins`]. One of the gateway admin's two
+    /// without the other is malformed too.
     pub fn from_env() -> Result<Self> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
         let config = Self::new(
@@ -112,6 +121,10 @@ impl Config {
         )?;
         let config = match var("FEEDBACK_DIRECT_KEY") {
             Some(key) => config.with_direct_key(&key)?,
+            None => config,
+        };
+        let config = match var("FEEDBACK_CONTACT_ORIGINS") {
+            Some(origins) => config.with_contact_origins(&origins)?,
             None => config,
         };
         match (
@@ -183,6 +196,42 @@ impl Config {
         Ok(self)
     }
 
+    /// Takes contact messages (`POST /site/contact`) from pages served at
+    /// `origins`, comma-separated: each `https://host[:port]`, or `http://`
+    /// for a loopback host (`localhost`, `127.0.0.1`, `[::1]`) to try the
+    /// page locally. Answers name the asking origin only if it is one of
+    /// these (CORS), and a request from any other is refused.
+    ///
+    /// # Errors
+    ///
+    /// When an entry is not such an origin: a path, a query, a trailing
+    /// slash, credentials, whitespace, or plain `http://` to anywhere else.
+    pub fn with_contact_origins(mut self, origins: &str) -> Result<Self> {
+        let mut list = Vec::new();
+        for entry in origins.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+            let Some(origin) = contact::origin(entry) else {
+                bail!("FEEDBACK_CONTACT_ORIGINS: `{entry}` is not an https:// origin");
+            };
+            if !list.contains(&origin) {
+                list.push(origin);
+            }
+        }
+        self.contact_origins = list;
+        Ok(self)
+    }
+
+    /// Whether `origin` (an `Origin` header) may post contact messages.
+    pub(crate) fn contact_origin(&self, origin: &str) -> bool {
+        self.contact_origins
+            .iter()
+            .any(|o| o.eq_ignore_ascii_case(origin))
+    }
+
+    /// Whether contact messages are taken at all.
+    pub(crate) fn takes_contact(&self) -> bool {
+        !self.contact_origins.is_empty()
+    }
+
     /// The key direct reports' reporters are made with, when they are taken.
     pub(crate) fn direct_key(&self) -> Option<&TokenHash> {
         self.direct.as_ref()
@@ -232,6 +281,7 @@ impl Config {
             admin: admin.map(|t| take("FEEDBACK_ADMIN_TOKEN", t)).transpose()?,
             direct: None,
             gateway_admin: None,
+            contact_origins: Vec::new(),
         })
     }
 
@@ -335,6 +385,12 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
                 .layer(axum::extract::DefaultBodyLimit::max(alive::MAX_BODY_BYTES))
                 .layer(axum::middleware::map_response(direct::any_origin)),
         )
+        .route(
+            "/site/contact",
+            post(contact::post).options(contact::preflight).layer(
+                axum::extract::DefaultBodyLimit::max(contact::MAX_BODY_BYTES),
+            ),
+        )
         .route("/reports", get(list))
         .route("/reports/{id}", get(one).patch(set_status).delete(remove))
         .route("/reports/{id}/record", get(record))
@@ -419,6 +475,10 @@ pub enum Kind {
     Crash,
     /// None of these.
     Other,
+    /// A chat message a player reported (beta.8): only a gateway sends it,
+    /// from `POST /social/reports`, after checking the message's signature
+    /// and key; `client.chat.verified` says whether both held.
+    Chat,
 }
 
 impl Kind {
@@ -429,6 +489,7 @@ impl Kind {
             Self::Feedback => "feedback",
             Self::Crash => "crash",
             Self::Other => "other",
+            Self::Chat => "chat",
         }
     }
 }

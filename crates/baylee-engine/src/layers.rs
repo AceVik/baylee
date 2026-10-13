@@ -820,10 +820,14 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::Named(_) | Filter::NamedBySource => matches!(modifier, Modifier::BecomeCopyOf(_)),
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
+        // Another object's characteristics decide these, so any modifier
+        // may move them.
+        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) => true,
         Filter::HasType(_)
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
         | Filter::MatchesChosenTypeOfSource
+        | Filter::SharesTypeWithReference(_)
         | Filter::SharesSubtypeWithCommander => {
             matches!(
                 modifier,
@@ -925,6 +929,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
+        | Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::DealtDamageToSourceThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
@@ -1435,6 +1444,8 @@ fn apply(
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
+        | Modifier::MustBeBlockedByAllAbleMatching(_)
+        | Modifier::AssignsNoCombatDamage
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)

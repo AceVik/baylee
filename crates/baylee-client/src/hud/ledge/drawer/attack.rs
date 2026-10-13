@@ -50,6 +50,13 @@ pub(super) fn reading(
         .min(creatures.saturating_sub(1) / targeting::PAGE_SIZE)
         * targeting::PAGE_SIZE;
     let end = (start + targeting::PAGE_SIZE).min(creatures);
+    // Folded, the list is one row that opens it again (report 25): the
+    // creatures are clicked on the table as well, and a long list stands
+    // over the player's own board.
+    if duel.attack_list_folded {
+        *rows = vec![fold_row(lang, true, options.len())];
+        return;
+    }
     *rows = options
         .iter()
         .enumerate()
@@ -100,6 +107,24 @@ pub(super) fn reading(
                 cost: None,
             });
         }
+    }
+    rows.push(fold_row(lang, false, options.len()));
+}
+
+/// The row that folds the attack chooser's list away, or opens it again.
+/// Its index is in no engine's namespace, like the page arrows'.
+pub(crate) const FOLD: usize = usize::MAX - 64;
+
+fn fold_row(lang: Lang, folded: bool, count: usize) -> crate::choices::ChoiceOption {
+    crate::choices::ChoiceOption {
+        index: FOLD,
+        label: if folded {
+            Phrase::AttackListShow.fill(lang, &[&count.to_string()])
+        } else {
+            Phrase::AttackListHide.text(lang).into()
+        },
+        pip: None,
+        cost: None,
     }
 }
 
@@ -191,7 +216,8 @@ mod tests {
         let mut seen = Vec::new();
         loop {
             let page = rows(&duel, Lang::En);
-            assert!(page.len() <= targeting::PAGE_SIZE + 6);
+            // Four controls, a page of creatures, two arrows and the fold.
+            assert!(page.len() <= targeting::PAGE_SIZE + 7);
             assert_eq!(
                 page.iter().take(4).map(|r| r.index).collect::<Vec<_>>(),
                 vec![0, 1, 2, 3]
@@ -213,5 +239,43 @@ mod tests {
         crate::input::pick_choice(&mut duel, 999);
         assert_eq!(duel.interaction.as_ref().unwrap().declared(), 0);
         assert!(duel.outbox.is_empty());
+    }
+
+    /// Report 25: the list folds away to one row and opens again. The last
+    /// row of an open list is the fold, "Hide the list"; picking it leaves
+    /// one row, "Show the list (N)" with N the options it hides; picking
+    /// that opens the list as it was. Folding is the client's own: nothing is
+    /// sent, and the assignments made stay. On the old code there was no
+    /// such row, so the first assertion fails.
+    #[test]
+    fn the_list_folds_to_one_row_and_opens_again_without_sending_or_forgetting() {
+        let mut duel = duel();
+        crate::input::pick_choice(&mut duel, 4); // first creature at the aimed defender
+        let open = rows(&duel, Lang::En);
+        let last = open.last().expect("rows");
+        assert_eq!(last.index, FOLD, "the fold is the last row");
+        assert_eq!(last.label, "Hide the list \u{25be}");
+        let count = duel.interaction.as_ref().unwrap().attack_options().len();
+        assert_eq!(count, 54, "four controls and fifty creatures");
+
+        crate::input::pick_choice(&mut duel, FOLD);
+        assert!(duel.attack_list_folded);
+        let folded = rows(&duel, Lang::En);
+        assert_eq!(folded.len(), 1, "one row stands for the list");
+        assert_eq!(folded[0].index, FOLD);
+        assert_eq!(folded[0].label, "Show the list (54) \u{25b8}");
+        assert_eq!(rows(&duel, Lang::De)[0].label, "Liste zeigen (54) \u{25b8}");
+        assert!(duel.outbox.is_empty(), "folding sends nothing");
+        assert_eq!(
+            duel.interaction.as_ref().unwrap().declared(),
+            1,
+            "and keeps what was assigned"
+        );
+
+        crate::input::pick_choice(&mut duel, FOLD);
+        assert!(!duel.attack_list_folded);
+        assert_eq!(rows(&duel, Lang::En), open, "opened again as it was");
+        assert!(duel.outbox.is_empty());
+        assert_eq!(duel.interaction.as_ref().unwrap().declared(), 1);
     }
 }
