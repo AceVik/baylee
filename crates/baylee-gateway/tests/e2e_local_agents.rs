@@ -183,6 +183,7 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
             token: start.engine_token.clone(),
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
             pid: 0,
+            build: String::new(),
         }),
     )
     .await;

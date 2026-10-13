@@ -2389,3 +2389,595 @@ async fn every_link_to_an_account_is_indexed() {
 
     sandbox.close().await;
 }
+
+/// Replays (beta.8): the migration adds exactly the columns the list reads,
+/// with the shape the statements rely on.
+#[tokio::test]
+async fn the_replay_columns_have_the_shape_the_list_reads() {
+    let sandbox = Sandbox::open("replay_columns").await;
+    let rows = sandbox
+        .db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT table_name || '.' || column_name AS name, data_type, is_nullable \
+             FROM information_schema.columns \
+             WHERE table_schema = current_schema() \
+               AND table_name IN ('game_record', 'game_record_seat') \
+               AND column_name IN ('build', 'checked', 'allow_spectators', 'winners', 'turn', \
+                                   'end_reason', 'seated', 'colours', 'commander') \
+             ORDER BY 1",
+        ))
+        .await
+        .unwrap();
+    let found: Vec<(String, String, String)> = rows
+        .iter()
+        .map(|row| {
+            (
+                row.try_get("", "name").unwrap(),
+                row.try_get("", "data_type").unwrap(),
+                row.try_get("", "is_nullable").unwrap(),
+            )
+        })
+        .collect();
+    let expected: Vec<(String, String, String)> = [
+        ("game_record.allow_spectators", "boolean", "YES"),
+        ("game_record.build", "text", "YES"),
+        ("game_record.checked", "boolean", "NO"),
+        ("game_record.end_reason", "text", "YES"),
+        ("game_record.turn", "integer", "YES"),
+        ("game_record.winners", "ARRAY", "YES"),
+        ("game_record_seat.colours", "text", "YES"),
+        ("game_record_seat.commander", "integer", "YES"),
+        ("game_record_seat.seated", "text", "YES"),
+    ]
+    .map(|(a, b, c)| (a.to_owned(), b.to_owned(), c.to_owned()))
+    .to_vec();
+    assert_eq!(found, expected, "the nine columns of migration 18");
+
+    // A record that says nothing of them reads as a record from before.
+    baylee_db::records::open(&sandbox.db, "plain", &[baylee_db::records::Seat::default()])
+        .await
+        .unwrap();
+    let row = sandbox
+        .db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT r.build IS NULL AS no_build, r.checked, r.allow_spectators IS NULL AS no_spec, \
+                    r.winners IS NULL AS no_winners, s.seated IS NULL AS no_seated, \
+                    s.colours IS NULL AS no_colours, s.commander IS NULL AS no_commander \
+             FROM game_record r JOIN game_record_seat s USING (game_id)",
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!row.try_get::<bool>("", "checked").unwrap());
+    for column in [
+        "no_build",
+        "no_spec",
+        "no_winners",
+        "no_seated",
+        "no_colours",
+        "no_commander",
+    ] {
+        assert!(row.try_get::<bool>("", column).unwrap(), "{column}");
+    }
+
+    sandbox.close().await;
+}
+
+/// What a game says when it starts and when it ends comes back in the list,
+/// newest first, with the seats' handles as they are now.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
+    use baylee_db::records::{self, ListedSeat, Opening, Seat, SeatFacts, Seated};
+
+    let sandbox = Sandbox::open("replay_list").await;
+    let db = &sandbox.db;
+    let (alice, bob, carol) = (
+        an_account("alice@example.com"),
+        an_account("bob@example.com"),
+        an_account("carol@example.com"),
+    );
+    let (a, b, c) = (
+        alice.id.clone().unwrap(),
+        bob.id.clone().unwrap(),
+        carol.id.clone().unwrap(),
+    );
+    for account in [alice, bob, carol] {
+        Account::insert(account).exec(db).await.expect("an account");
+    }
+    let tag_of = |id: Uuid| {
+        let db = db.clone();
+        async move {
+            db.query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT tag FROM account WHERE id = $1",
+                [id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<i32>("", "tag")
+            .unwrap()
+        }
+    };
+    let (tag_a, tag_b) = (tag_of(a).await, tag_of(b).await);
+
+    let person = |colours: Option<&str>, commander: Option<u32>| SeatFacts {
+        seated: Seated::Person,
+        colours: colours.map(str::to_owned),
+        commander,
+    };
+    let build = "0.8.0+build.212 (3f9a1c7e21)";
+    records::open_with(
+        db,
+        "old",
+        &Opening {
+            build: Some(build.to_owned()),
+            checked: true,
+            allow_spectators: Some(true),
+        },
+        &[
+            (Seat::played_by(a), person(Some("UB"), None)),
+            (Seat::played_by(b), person(Some("G"), Some(4242))),
+            (
+                Seat::default(),
+                SeatFacts {
+                    seated: Seated::House,
+                    colours: Some(String::new()),
+                    commander: None,
+                },
+            ),
+        ],
+    )
+    .await
+    .unwrap();
+    // A game of a seat bridge: Alice answers for seat 1, plays seat 0.
+    records::open_with(
+        db,
+        "new",
+        &Opening::default(),
+        &[
+            (Seat::played_by(a), SeatFacts::default()),
+            (
+                Seat {
+                    account: None,
+                    delegated_by: Some(a),
+                },
+                SeatFacts {
+                    seated: Seated::Model,
+                    ..SeatFacts::default()
+                },
+            ),
+        ],
+    )
+    .await
+    .unwrap();
+    // Alice only answered for the bridge here: not a game she sat at.
+    records::open_with(
+        db,
+        "bridge-only",
+        &Opening::default(),
+        &[
+            (
+                Seat {
+                    account: None,
+                    delegated_by: Some(a),
+                },
+                SeatFacts {
+                    seated: Seated::Model,
+                    ..SeatFacts::default()
+                },
+            ),
+            (Seat::played_by(c), SeatFacts::default()),
+        ],
+    )
+    .await
+    .unwrap();
+    // Two games begun in the same instant: told apart by their ids.
+    for game in ["tie-b", "tie-a"] {
+        records::open_with(
+            db,
+            game,
+            &Opening::default(),
+            &[(Seat::played_by(c), SeatFacts::default())],
+        )
+        .await
+        .unwrap();
+    }
+    for (game, at) in [
+        ("old", "2026-10-01T10:00:00Z"),
+        ("new", "2026-10-02T11:30:05Z"),
+        ("bridge-only", "2026-10-03T00:00:00Z"),
+        ("tie-a", "2026-10-04T00:00:00Z"),
+        ("tie-b", "2026-10-04T00:00:00Z"),
+    ] {
+        db.execute_unprepared(&format!(
+            "UPDATE game_record SET started_at = '{at}' WHERE game_id = '{game}'"
+        ))
+        .await
+        .unwrap();
+    }
+    // "old" is played to its end, "new" is not.
+    assert!(
+        records::append(db, "old", 0, b"hello ".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        records::append(db, "old", 1, b"world!".to_vec(), true)
+            .await
+            .unwrap()
+    );
+    records::finish(db, "old", &[1], Some(7), "Conceded")
+        .await
+        .unwrap();
+
+    // Alice: the two she sat at, the newer first; the bridge game is not
+    // hers, and what she is told of each is what was stored.
+    let (games, total) = records::seated_games(db, a, 0, 10).await.unwrap();
+    assert_eq!(total, 2);
+    assert_eq!(
+        games.iter().map(|g| g.game_id.as_str()).collect::<Vec<_>>(),
+        ["new", "old"]
+    );
+    let old = &games[1];
+    assert_eq!(old.started_at, "2026-10-01T10:00:00Z");
+    assert!(
+        old.ended_at
+            .as_deref()
+            .is_some_and(|t| t.len() == 20 && t.ends_with('Z'))
+    );
+    assert!(old.complete);
+    assert_eq!(old.build.as_deref(), Some(build));
+    assert!(old.checked);
+    assert_eq!(old.allow_spectators, Some(true));
+    assert_eq!(old.winners, Some(vec![1]));
+    assert_eq!(old.turn, Some(7));
+    assert_eq!(old.end_reason.as_deref(), Some("Conceded"));
+    assert_eq!(old.bytes, 12);
+    assert_eq!(
+        old.seats,
+        vec![
+            ListedSeat {
+                seat: 0,
+                account: Some(a),
+                delegated_by: None,
+                seated: Seated::Person,
+                name: Some(("alice".to_owned(), tag_a)),
+                colours: Some("UB".to_owned()),
+                commander: None,
+            },
+            ListedSeat {
+                seat: 1,
+                account: Some(b),
+                delegated_by: None,
+                seated: Seated::Person,
+                name: Some(("bob".to_owned(), tag_b)),
+                colours: Some("G".to_owned()),
+                commander: Some(4242),
+            },
+            ListedSeat {
+                seat: 2,
+                account: None,
+                delegated_by: None,
+                seated: Seated::House,
+                name: None,
+                colours: Some(String::new()),
+                commander: None,
+            },
+        ]
+    );
+    let new = &games[0];
+    assert_eq!(new.started_at, "2026-10-02T11:30:05Z");
+    assert!(!new.complete);
+    assert_eq!(new.ended_at, None);
+    assert_eq!(new.build, None);
+    assert!(!new.checked);
+    assert_eq!(new.allow_spectators, None);
+    assert_eq!(new.winners, None);
+    assert_eq!(new.turn, None);
+    assert_eq!(new.end_reason, None);
+    assert_eq!(new.bytes, 0);
+    assert_eq!(new.seats.len(), 2);
+    assert_eq!(new.seats[0].seated, Seated::Unknown, "none was said");
+    assert_eq!(new.seats[0].colours, None);
+    assert_eq!(new.seats[1].seated, Seated::Model);
+    assert_eq!(new.seats[1].delegated_by, Some(a));
+    assert_eq!(new.seats[1].name, None);
+
+    // Pages: offset and limit, the total of all of them.
+    let (page, total) = records::seated_games(db, a, 1, 1).await.unwrap();
+    assert_eq!((page.len(), total), (1, 2));
+    assert_eq!(page[0].game_id, "old");
+    let (page, total) = records::seated_games(db, a, 2, 10).await.unwrap();
+    assert_eq!((page.len(), total), (0, 2));
+
+    // Bob has the one; Carol three, the two begun together by id.
+    let (games, total) = records::seated_games(db, b, 0, 10).await.unwrap();
+    assert_eq!((games.len(), total), (1, 1));
+    let (games, total) = records::seated_games(db, c, 0, 10).await.unwrap();
+    assert_eq!(total, 3);
+    assert_eq!(
+        games.iter().map(|g| g.game_id.as_str()).collect::<Vec<_>>(),
+        ["tie-a", "tie-b", "bridge-only"]
+    );
+    // And somebody who sat nowhere has none.
+    let (games, total) = records::seated_games(db, Uuid::now_v7(), 0, 10)
+        .await
+        .unwrap();
+    assert_eq!((games.len(), total), (0, 0));
+
+    // The seat an account played, never a bridge's, and the lowest of two.
+    assert_eq!(records::seat_of(db, "old", a).await.unwrap(), Some(0));
+    assert_eq!(records::seat_of(db, "old", b).await.unwrap(), Some(1));
+    assert_eq!(records::seat_of(db, "old", c).await.unwrap(), None);
+    assert_eq!(records::seat_of(db, "bridge-only", a).await.unwrap(), None);
+    assert_eq!(
+        records::seat_of(db, "bridge-only", c).await.unwrap(),
+        Some(1)
+    );
+    assert_eq!(records::seat_of(db, "nowhere", a).await.unwrap(), None);
+    records::open(
+        db,
+        "two-chairs",
+        &[Seat::default(), Seat::played_by(a), Seat::played_by(a)],
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        records::seat_of(db, "two-chairs", a).await.unwrap(),
+        Some(1)
+    );
+
+    // Every seat of a game, as the list shows them; none for no game.
+    assert_eq!(records::seats_of(db, "old").await.unwrap(), old.seats);
+    assert_eq!(records::seats_of(db, "nowhere").await.unwrap(), Vec::new());
+
+    // The size and the record the job reads, whoever sat there.
+    assert_eq!(
+        records::stored_size(db, "old").await.unwrap(),
+        Some((12, true))
+    );
+    assert_eq!(
+        records::stored_size(db, "new").await.unwrap(),
+        Some((0, false))
+    );
+    assert_eq!(records::stored_size(db, "nowhere").await.unwrap(), None);
+    assert_eq!(
+        records::for_projection(db, "old").await.unwrap(),
+        Some(records::Projectable {
+            data: b"hello world!".to_vec(),
+            complete: true,
+            build: Some(build.to_owned()),
+        })
+    );
+    assert_eq!(
+        records::for_projection(db, "new").await.unwrap(),
+        Some(records::Projectable {
+            data: Vec::new(),
+            complete: false,
+            build: None,
+        })
+    );
+    assert_eq!(records::for_projection(db, "nowhere").await.unwrap(), None);
+
+    // Alice goes: Bob's list keeps the game, her seat a person's with no
+    // account and no name, and the deck's colours stay (card data).
+    baylee_db::accounts::delete(db, a).await.unwrap();
+    let (games, total) = records::seated_games(db, b, 0, 10).await.unwrap();
+    assert_eq!(total, 1);
+    let gone = &games[0].seats[0];
+    assert_eq!(gone.account, None);
+    assert_eq!(gone.name, None);
+    assert_eq!(
+        gone.seated,
+        Seated::Person,
+        "a former player, not the house"
+    );
+    assert_eq!(gone.colours.as_deref(), Some("UB"));
+    assert_eq!(
+        games[0].seats[1].name.as_ref().map(|n| n.0.as_str()),
+        Some("bob")
+    );
+    assert_eq!(records::seat_of(db, "old", a).await.unwrap(), None);
+
+    sandbox.close().await;
+}
+
+/// A game starting twice rewrites nothing, an end is noted as given (a draw
+/// is an end with no winner), and the database refuses what the columns
+/// must never hold.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn the_opening_is_kept_the_end_is_noted_and_bad_values_are_refused() {
+    use baylee_db::records::{self, Opening, Seat, SeatFacts, Seated};
+
+    let sandbox = Sandbox::open("replay_checks").await;
+    let db = &sandbox.db;
+    let me = an_account("checks@example.com");
+    let me_id = me.id.clone().unwrap();
+    Account::insert(me).exec(db).await.expect("an account");
+    let facts = |seated, colours: &str, commander| SeatFacts {
+        seated,
+        colours: Some(colours.to_owned()),
+        commander,
+    };
+    let count = |table: &'static str, game: &'static str| async move {
+        db.query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            format!("SELECT count(*) AS n FROM {table} WHERE game_id = '{game}'"),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<i64>("", "n")
+        .unwrap()
+    };
+
+    // Opened again, a game keeps the build and the seats it began with.
+    let first = Opening {
+        build: Some("first".to_owned()),
+        checked: true,
+        allow_spectators: Some(false),
+    };
+    records::open_with(
+        db,
+        "g",
+        &first,
+        &[(Seat::played_by(me_id), facts(Seated::Person, "W", Some(1)))],
+    )
+    .await
+    .unwrap();
+    records::open_with(
+        db,
+        "g",
+        &Opening {
+            build: Some("second".to_owned()),
+            checked: false,
+            allow_spectators: Some(true),
+        },
+        &[
+            (Seat::default(), facts(Seated::House, "R", Some(2))),
+            (Seat::default(), facts(Seated::House, "R", Some(2))),
+        ],
+    )
+    .await
+    .unwrap();
+    let (games, _) = records::seated_games(db, me_id, 0, 10).await.unwrap();
+    assert_eq!(games[0].build.as_deref(), Some("first"));
+    assert!(games[0].checked);
+    assert_eq!(games[0].allow_spectators, Some(false));
+    assert_eq!(games[0].seats.len(), 1);
+    assert_eq!(games[0].seats[0].commander, Some(1));
+
+    // How a game ended is noted as given: a draw has no winner, which is a
+    // list and not a missing one; a team win has several; no turn is none.
+    records::append(db, "g", 0, b"x".to_vec(), true)
+        .await
+        .unwrap();
+    records::finish(db, "g", &[], None, "Draw").await.unwrap();
+    let ended = |game: &'static str| async move {
+        records::seated_games(db, me_id, 0, 10)
+            .await
+            .unwrap()
+            .0
+            .into_iter()
+            .find(|g| g.game_id == game)
+            .unwrap()
+    };
+    let draw = ended("g").await;
+    assert_eq!(draw.winners, Some(Vec::new()));
+    assert_eq!(draw.turn, None);
+    assert_eq!(draw.end_reason.as_deref(), Some("Draw"));
+    records::finish(db, "g", &[0, 2], Some(31), "Won")
+        .await
+        .unwrap();
+    let team = ended("g").await;
+    assert_eq!(team.winners, Some(vec![0, 2]));
+    assert_eq!(team.turn, Some(31));
+    assert_eq!(team.end_reason.as_deref(), Some("Won"));
+    // A game with no record is left alone, not made.
+    records::finish(db, "nowhere", &[0], Some(1), "Won")
+        .await
+        .unwrap();
+    assert_eq!(count("game_record", "nowhere").await, 0);
+    // And a number the column cannot hold is an error, not a wrap.
+    assert!(
+        records::finish(db, "g", &[0], Some(u32::MAX), "Won")
+            .await
+            .is_err()
+    );
+    assert_eq!(ended("g").await.turn, Some(31), "nothing changed");
+
+    // The colour identity is WUBRG letters in that order, or nothing.
+    for (i, good) in ["", "W", "U", "WU", "WBG", "UBRG", "WUBRG"]
+        .iter()
+        .enumerate()
+    {
+        let game = format!("good-{i}");
+        records::open_with(
+            db,
+            &game,
+            &Opening::default(),
+            &[(Seat::played_by(me_id), facts(Seated::Person, good, None))],
+        )
+        .await
+        .unwrap_or_else(|e| panic!("{good:?}: {e}"));
+    }
+    for (i, bad) in ["GW", "wubrg", "WW", "X", "W U", "WUBRGW", "BU"]
+        .iter()
+        .enumerate()
+    {
+        let game = format!("bad-{i}");
+        let refused = records::open_with(
+            db,
+            &game,
+            &Opening::default(),
+            &[(Seat::played_by(me_id), facts(Seated::Person, bad, None))],
+        )
+        .await;
+        assert!(refused.is_err(), "{bad:?} was stored");
+        // Its transaction went with it: no half-opened record.
+        let row = db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT count(*) AS n FROM game_record WHERE game_id = $1",
+                [game.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            row.try_get::<i64>("", "n").unwrap(),
+            0,
+            "{bad:?} left a row"
+        );
+    }
+    // A commander the column cannot hold is refused too.
+    assert!(
+        records::open_with(
+            db,
+            "huge",
+            &Opening::default(),
+            &[(Seat::default(), facts(Seated::House, "", Some(u32::MAX)))],
+        )
+        .await
+        .is_err()
+    );
+
+    // Who sat is one of three words, or not said.
+    for bad in ["robot", "Person", "", "human"] {
+        let refused = db
+            .execute_unprepared(&format!(
+                "UPDATE game_record_seat SET seated = '{bad}' WHERE game_id = 'g'"
+            ))
+            .await;
+        assert!(refused.is_err(), "{bad:?} was stored");
+    }
+    for good in ["person", "house", "model"] {
+        db.execute_unprepared(&format!(
+            "UPDATE game_record_seat SET seated = '{good}' WHERE game_id = 'g'"
+        ))
+        .await
+        .unwrap_or_else(|e| panic!("{good:?}: {e}"));
+    }
+    // Not said reads as unknown.
+    db.execute_unprepared("UPDATE game_record_seat SET seated = NULL WHERE game_id = 'g'")
+        .await
+        .unwrap();
+    assert_eq!(ended("g").await.seats[0].seated, Seated::Unknown);
+    // Words the code does not know (a later build's) read as unknown too,
+    // rather than as a person: the CHECK is the migration's, the reader's
+    // fallback is its own.
+    db.execute_unprepared("ALTER TABLE game_record_seat DROP CONSTRAINT game_record_seat_seated")
+        .await
+        .unwrap();
+    db.execute_unprepared("UPDATE game_record_seat SET seated = 'spectre' WHERE game_id = 'g'")
+        .await
+        .unwrap();
+    assert_eq!(ended("g").await.seats[0].seated, Seated::Unknown);
+
+    sandbox.close().await;
+}
