@@ -163,7 +163,7 @@ impl Builder {
                 frames: Vec::new(),
                 curtain: None,
                 over_at: None,
-                stop: StopLine::cut(),
+                stop: wire::cut(),
                 statics: Vec::new(),
                 log: Vec::new(),
                 over: None,
@@ -369,7 +369,7 @@ impl Tape {
     /// Whether this tape is the spectators' table.
     #[must_use]
     pub fn public(&self) -> bool {
-        self.header.perspective == "public"
+        self.header.perspective == wire::TapePerspective::Public
     }
 
     /// The view at step `i`, as the renderer reads a seat's: a public

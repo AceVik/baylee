@@ -122,3 +122,64 @@ pub enum ReplayAsk {
     /// Stop waiting for a tape.
     Cancel,
 }
+
+/// What a perspective is called on the pill and the top line.
+#[must_use]
+pub fn perspective_words(perspective: Perspective, lang: baylee_client_core::Lang) -> &'static str {
+    use baylee_client_core::replay::words::ReplayPhrase;
+    match perspective {
+        Perspective::Seat(_) => ReplayPhrase::YourSeat.text(lang),
+        Perspective::Public => ReplayPhrase::TheTableShort.text(lang),
+        Perspective::AllHands(_) => ReplayPhrase::AllHands.text(lang),
+    }
+}
+
+/// When a replayed game started, as the top line says it: today's and
+/// yesterday's by their names, older ones by their date; local time.
+#[must_use]
+pub fn when_words(ms: Option<u64>, lang: baylee_client_core::Lang) -> String {
+    use baylee_client_core::replay::words::ReplayPhrase;
+    let Some(ms) = ms else {
+        return String::new();
+    };
+    let Ok(utc) = time::OffsetDateTime::from_unix_timestamp(i64::try_from(ms / 1000).unwrap_or(0))
+    else {
+        return String::new();
+    };
+    let offset = time::UtcOffset::local_offset_at(utc).unwrap_or(time::UtcOffset::UTC);
+    let at = utc.to_offset(offset);
+    let now = web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .ok()
+        .and_then(|d| time::OffsetDateTime::from_unix_timestamp(d.as_secs() as i64).ok())
+        .map(|now| now.to_offset(offset));
+    let clock = format!("{:02}:{:02}", at.hour(), at.minute());
+    match now.map(|now| (now.date() - at.date()).whole_days()) {
+        Some(0) => format!("{} {clock}", ReplayPhrase::Today.text(lang)),
+        Some(1) => format!("{} {clock}", ReplayPhrase::Yesterday.text(lang)),
+        _ => format!(
+            "{:04}-{:02}-{:02} {clock}",
+            at.year(),
+            u8::from(at.month()),
+            at.day()
+        ),
+    }
+}
+
+/// The table's top line in a replay: "Replay · <where> · <when> ·
+/// <perspective>" (§7.2).
+#[must_use]
+pub fn top_line(status: &ReplayStatus, lang: baylee_client_core::Lang) -> String {
+    use baylee_client_core::replay::words::ReplayPhrase;
+    let when = when_words(status.origin.started, lang);
+    let line = ReplayPhrase::TopLine.fill(
+        lang,
+        &[
+            &status.origin.place,
+            &when,
+            perspective_words(status.perspective, lang),
+        ],
+    );
+    // An empty part leaves no empty slot between its dots.
+    line.replace(" \u{b7}  \u{b7} ", " \u{b7} ")
+}

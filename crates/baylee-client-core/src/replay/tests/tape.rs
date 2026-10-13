@@ -139,7 +139,7 @@ fn header() -> Header {
         view: VIEW,
         build: "b".into(),
         source: Source::Local,
-        perspective: "seat".into(),
+        perspective: crate::replay::TapePerspective::Seat,
         seat: 0,
         game: "g".into(),
         recorded_by: "b".into(),
@@ -266,7 +266,7 @@ fn a_multi_member_tape_reads_whole_and_a_torn_one_reads_cut() {
         match torn.stop.stop {
             StopReason::Cut => {
                 cut_short += 1;
-                assert_eq!(torn.stop, StopLine::cut(), "cut at {cut}");
+                assert_eq!(torn.stop, crate::replay::wire::cut(), "cut at {cut}");
                 assert!(torn.frames.len() >= 2, "cut at {cut}");
                 assert!(torn.frames.len() <= whole.frames.len(), "cut at {cut}");
                 fewer += usize::from(torn.frames.len() < whole.frames.len());
@@ -286,7 +286,7 @@ fn a_multi_member_tape_reads_whole_and_a_torn_one_reads_cut() {
     // The second member missing altogether is two steps and a cut.
     let torn = Tape::read(&file[..first.len()]).expect("the first member");
     assert_eq!(torn.frames.len(), 2);
-    assert_eq!(torn.stop, StopLine::cut());
+    assert_eq!(torn.stop, crate::replay::wire::cut());
 }
 
 /// A tape without its stop line reads as cut in transit, with no inputs.
@@ -296,7 +296,7 @@ fn a_missing_stop_line_reads_as_cut() {
     script.stop = None;
     let tape = script.tape();
     assert_eq!(tape.frames.len(), 2);
-    assert_eq!(tape.stop, StopLine::cut());
+    assert_eq!(tape.stop, crate::replay::wire::cut());
     assert_eq!(tape.stop.stop, StopReason::Cut);
 }
 

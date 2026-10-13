@@ -16,7 +16,7 @@ const FOLDER: &str = "records";
 
 /// Plays `record` (JSON Lines, inflated) again from `perspective` and reads
 /// what the perspective is shown into a tape, reporting progress in
-/// percent and stopping when `cancel` is set.
+/// percent and stopping when `cancel` is set. Nothing is written to disk.
 ///
 /// # Errors
 /// The record cannot be played again on this build, in words a player may
@@ -24,14 +24,65 @@ const FOLDER: &str = "records";
 pub fn project(
     record: &[u8],
     names: Vec<String>,
-    header: Header,
+    mut header: Header,
     perspective: Perspective,
     verify: Verify,
     progress: &AtomicU8,
     cancel: &AtomicBool,
 ) -> Result<Tape, String> {
-    let _ = (record, names, header, perspective, verify, progress, cancel);
-    Err("replaying a game against the house needs this build's projection (lane A)".to_string())
+    use baylee_client_core::replay::{StopLine, StopReason, TapeMoment};
+    use baylee_gamehost::replay::{self as projection, Stop};
+    use std::ops::ControlFlow;
+    use std::sync::atomic::Ordering;
+    let summary = projection::summary(record).map_err(|e| format!("{e:?}"))?;
+    header.recorded_by.clone_from(&summary.build);
+    let inputs = summary.inputs.max(1);
+    let mut moments = Vec::new();
+    let made = projection::project(
+        record,
+        names,
+        match perspective {
+            Perspective::Seat(seat) => projection::Perspective::Seat(seat),
+            Perspective::Public => projection::Perspective::Public,
+            Perspective::AllHands(seat) => projection::Perspective::AllHands(seat),
+        },
+        match verify {
+            Verify::Stop => projection::Verify::Stop,
+            Verify::Note => projection::Verify::Note,
+        },
+        |moment| {
+            if let Some(n) = moment.input {
+                let percent = (n.saturating_add(1).saturating_mul(100) / inputs).min(100);
+                progress.store(percent as u8, Ordering::Relaxed);
+            }
+            moments.push(TapeMoment {
+                input: moment.input,
+                at: moment.at,
+                check: moment.check,
+                frames: moment.frames,
+            });
+            if cancel.load(Ordering::Relaxed) {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        },
+    )
+    .map_err(|e| format!("{e:?}"))?;
+    let stop = StopLine {
+        stop: match made.stop {
+            Stop::End => StopReason::End,
+            Stop::Cut => StopReason::Cut,
+            Stop::Diverged { .. } => StopReason::Diverged,
+            Stop::Refused { .. } => StopReason::Refused,
+            Stop::Cancelled => StopReason::Cancelled,
+        },
+        inputs: made.inputs,
+        exact_to: made.exact_to,
+        seen_to: made.seen_to,
+        diverged: made.diverged,
+    };
+    Tape::from_moments(header, moments, stop).map_err(|e| e.to_string())
 }
 
 /// A kept record's file, inflated. `None`: no such file, or not a record.
@@ -66,65 +117,40 @@ pub fn preset(record: &[u8]) -> Option<baylee_core::preset::GamePreset> {
     }
 }
 
-/// What the list shows of a record, read without playing it.
-///
-/// Interim: `baylee_gamehost::replay::summary` (lane A) reads the same and
-/// more (colours, commanders, the turn); this reads the header and the end.
+/// What the list shows of a record, read without playing it
+/// (`baylee_gamehost::replay::summary`), in the list's words.
 #[must_use]
-pub fn summary(file: &str, record: &[u8]) -> Option<LocalSummary> {
-    let mut lines = record.split(|b| *b == b'\n').filter(|l| !l.is_empty());
-    let (build, preset) = match serde_json::from_slice::<Line>(lines.next()?).ok()? {
-        Line::Header { build, preset, .. } => (build, preset),
-        _ => return None,
-    };
-    let started = file
-        .strip_prefix("game-")
-        .and_then(|rest| rest.get(..13))
-        .and_then(|ms| ms.parse().ok())
-        .unwrap_or(0);
-    let mut summary = LocalSummary {
-        started,
-        build,
-        seats: preset
+pub fn summary(record: &[u8]) -> Option<LocalSummary> {
+    use baylee_gamehost::replay::Controller;
+    let read = baylee_gamehost::replay::summary(record).ok()?;
+    // Whether the record carries the public table's digest: its header
+    // does from the release that wrote it on (`record::seen`).
+    let checked = record
+        .split(|b| *b == b'\n')
+        .next()
+        .and_then(|first| serde_json::from_slice::<serde_json::Value>(first).ok())
+        .is_some_and(|header| header.get("seen").is_some());
+    Some(LocalSummary {
+        started: read.started,
+        ended: (read.ended > 0).then_some(read.ended),
+        complete: read.complete,
+        winners: read.winners,
+        turn: read.turn,
+        build: read.build,
+        checked,
+        seats: read
             .seats
-            .iter()
+            .into_iter()
             .map(|seat| LocalSeat {
-                house: match &seat.controller {
-                    baylee_core::preset::SeatController::Ai(profile) => Some(
-                        baylee_core::preset::AIProfile::NAMED
-                            .iter()
-                            .find(|(_, known)| known == profile)
-                            .map_or_else(String::new, |(name, _)| (*name).to_string()),
-                    ),
-                    _ => None,
+                house: match seat.controller {
+                    Controller::House(level) => Some(level),
+                    Controller::You | Controller::Player => None,
                 },
-                colours: String::new(),
-                commander: seat.commanders.first().map(|c| c.card.get()),
+                colours: seat.colours,
+                commander: seat.commander.map(|c| c.get()),
             })
             .collect(),
-        ..LocalSummary::default()
-    };
-    for line in lines {
-        let Ok(line) = serde_json::from_slice::<Line>(line) else {
-            continue;
-        };
-        match line {
-            Line::Input { at, .. } | Line::Chair { at, .. } | Line::DeclaredMind { at, .. } => {
-                if at > 0 {
-                    summary.ended = Some(at);
-                }
-            }
-            Line::End { at, winners, .. } => {
-                summary.complete = true;
-                summary.winners = winners;
-                if at > 0 {
-                    summary.ended = Some(at);
-                }
-            }
-            Line::Header { .. } => {}
-        }
-    }
-    Some(summary)
+    })
 }
 
 /// Every kept record as a list entry, newest first. `build` is this
@@ -144,7 +170,7 @@ pub fn entries(build: &str, you: &str) -> Vec<Entry> {
         .filter(|name| baylee_client_core::bugreport::is_record_file_name(name))
         .filter_map(|name| {
             let record = read(&name)?;
-            let summary = summary(&name, &record)?;
+            let summary = summary(&record)?;
             Some(Entry::of_record(&name, &summary, build, you))
         })
         .collect();
@@ -158,7 +184,7 @@ pub fn entries(build: &str, you: &str) -> Vec<Entry> {
 /// # Errors
 /// The file cannot be read, or is neither.
 pub fn open_file(path: &std::path::Path) -> Result<(super::ReplaySource, Perspectives), String> {
-    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let bytes = std::fs::read(path).map_err(|e| format!("{e:?}"))?;
     let text = baylee_client_core::bugreport::inflate(&bytes)
         .or_else(|| (bytes.first() == Some(&b'{')).then(|| bytes.clone()))
         .ok_or("not a gzip of JSON Lines")?;

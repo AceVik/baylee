@@ -176,7 +176,7 @@ impl ReplayHost {
                     } else {
                         baylee_client_core::replay::Source::Local
                     },
-                    perspective: perspective.wire().to_string(),
+                    perspective: baylee_client_core::replay::tape_perspective(perspective),
                     seat: perspective.seat().get(),
                     game: file.clone(),
                     recorded_by: String::new(),
@@ -253,7 +253,14 @@ impl ReplayHost {
                 let mut transport = Transport::at(at);
                 transport.playing = playing && at < timeline.last();
                 transport.speed = speed;
-                self.perspective = job.perspective;
+                // A tape says whose table it is: the gateway's word for a
+                // hosted seat (read from the table, never from the ask).
+                self.perspective = match self.source {
+                    ReplaySource::Record { .. } => job.perspective,
+                    ReplaySource::Tape { .. } | ReplaySource::Hosted(_) => {
+                        baylee_client_core::replay::perspective_of(&tape.header)
+                    }
+                };
                 self.verify = job.verify;
                 self.status.problem = None;
                 self.shown = Some(Shown {

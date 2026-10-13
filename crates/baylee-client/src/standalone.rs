@@ -245,6 +245,27 @@ fn seated_host() -> Result<Option<Box<dyn DuelHost>>, String> {
     if let Some(host) = crate::host::snapshot::from_env()? {
         return Ok(Some(host));
     }
+    // A record or tape file a developer opens by hand (`BAYLEE_REPLAY`,
+    // `docs/client.md` §"Replays"): a report's record, every perspective.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    if let Some(path) = std::env::var_os("BAYLEE_REPLAY").filter(|p| !p.is_empty()) {
+        let path = std::path::PathBuf::from(path);
+        let (source, offers) = crate::replay::local::open_file(&path)
+            .map_err(|why| format!("BAYLEE_REPLAY {}: {why}", path.display()))?;
+        let host = crate::replay::ReplayHost::new(
+            source,
+            baylee_client_core::replay::Perspective::Seat(baylee_core::ids::PlayerId::new(0)),
+            baylee_client_core::replay::Verify::Note,
+            offers,
+            crate::replay::Origin {
+                place: path
+                    .file_name()
+                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
+                started: None,
+            },
+        );
+        return Ok(Some(Box::new(host)));
+    }
     let Some(ticket) = SeatTicket::discover() else {
         return Ok(None);
     };

@@ -586,6 +586,24 @@ impl Plugin for DuelPlugin {
                     .chain()
                     .in_set(DuelSet::Sync),
             )
+            // A replay (`docs/client.md` §"Replays"): its keys and the bar's
+            // presses go to the host with the clock's tick, after the host is
+            // drained; the bar follows the status the next drain writes.
+            .init_resource::<hud::replay_bar::ReplayAsks>()
+            .init_resource::<hud::replay_bar::ScrubDrag>()
+            .init_resource::<hud::replay_bar::ReplayBarRevision>()
+            .add_systems(
+                Update,
+                (
+                    hud::replay_bar::replay_keys,
+                    hud::replay_bar::drive,
+                    hud::replay_bar::sync_replay_bar,
+                    hud::replay_bar::place_playhead,
+                )
+                    .chain()
+                    .after(poll_host)
+                    .in_set(DuelSet::Sync),
+            )
             .add_systems(
                 OnEnter(DuelPhase::Opening),
                 (table::forget_the_last_table, table::spawn_stage),

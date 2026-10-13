@@ -18,13 +18,16 @@ pub mod library;
 pub mod tape;
 pub mod timeline;
 pub mod transport;
-mod wire;
+pub mod wire;
 pub mod words;
 
 pub use tape::{Frame, Tape, TapeMoment, TapeRefusal};
 pub use timeline::Timeline;
 pub use transport::{Command, Out, Speed, Transport};
-pub use wire::{Check, Header, Source, StopLine, StopReason, TAPE_VERSION};
+pub use wire::{
+    Check, Diverged, DivergedBy, Header, Source, StopLine, StopReason, TAPE_VERSION,
+    TapePerspective, perspective_of, tape_perspective,
+};
 
 /// Whose table a replay draws (§3.3).
 ///

@@ -42,7 +42,9 @@ pub fn sync_ledge(
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
     // Under a decision sheet the question is the sheet's head, and the shelf
     // under it is the sheet's foot: its answers, without the sentence again.
-    let prompt = if super::drawer::sheet_up(&duel) {
+    // A replay asks nothing, and the transport bar stands in the middle
+    // (`replay_bar`): no sentence under it.
+    let prompt = if super::drawer::sheet_up(&duel) || duel.replay.is_some() {
         None
     } else {
         shelf_headline(&duel, lang, &texts)
