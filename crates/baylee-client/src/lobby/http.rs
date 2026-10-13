@@ -462,6 +462,12 @@ fn fetch(
             Ok(response) if matches!(response.status, 502 | 504) => {
                 Reply::Event(LobbyEvent::GatewayLost)
             }
+            // A gateway older than hosted seats (beta.7) has no such list,
+            // so it offers none: no refusal to say in a room that asked by
+            // itself as it opened (D5).
+            Ok(response) if response.status == 404 && matches!(expect, Expect::HostedProfiles) => {
+                Reply::Event(LobbyEvent::HostedProfiles(Vec::new()))
+            }
             Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(lang, &response))),
             Err(err) if addressed => {
                 debug!(err, "the gateway did not answer");

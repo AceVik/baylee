@@ -271,12 +271,15 @@ impl Answer {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MindError {
     /// The mind cannot answer now: the network is gone, a quota ran out,
-    /// a process died. The house answers, and a run of these takes the mind
-    /// off the table ([`crate::BridgeConfig::down_after`]).
+    /// a process died. A fallback profile takes the question over where one
+    /// stands by ([`crate::bridge::Standby`]); else the house answers, and a
+    /// run of these takes the mind off the table
+    /// ([`crate::BridgeConfig::down_after`]).
     Unavailable(String),
     /// The provider says the mind is rate limited or busy (HTTP 429, or
     /// its error code `rate_limited` or `busy`): unavailable as above, and
-    /// what a fallback profile takes over on ([`crate::bridge::Standby`]).
+    /// the one failure a seat agent hears as a limit
+    /// ([`crate::bridge::LIMITED`]).
     Limited {
         /// Why, in the provider's words.
         why: String,
