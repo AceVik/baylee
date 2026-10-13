@@ -8,7 +8,7 @@
 //! damage a number the test chooses, and Stream of Life (`{X}{G}`: a player
 //! gains X life), which makes a sorcery that dealt none. Everything happens in
 //! p0's first main phase, with the mana floating from one tap of every land,
-//! because a pool empties only when a step ends (CR 500.5).
+//! because unspent mana empties only as a step or phase ends (CR 500.5).
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
