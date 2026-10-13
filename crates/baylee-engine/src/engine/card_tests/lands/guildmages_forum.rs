@@ -104,3 +104,62 @@ fn guildmages_forum_taps_for_colorless_and_trades_that_mana_for_any_color() {
          green source on this board"
     );
 }
+
+/// "If that mana is spent on a **multicolored** creature spell": a colorless
+/// creature (Brass Man, `{1}`) is not multicolored — it has no colors at all —
+/// and a monocolored one (Llanowar Elves) is not either. Each is paid for with
+/// exactly the Forum's one mana of any color, so mana really is spent on it;
+/// neither enters with a counter. The multicolored Marhault Elsdragon, paid the
+/// same way, does.
+#[test]
+fn forum_gives_no_counter_to_a_colorless_or_monocolored_creature_but_one_to_a_multicolored() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for (card, counters, why) in [
+        (
+            index::BRASS_MAN,
+            0,
+            "a colorless creature is not multicolored",
+        ),
+        (
+            index::LLANOWAR_ELVES,
+            0,
+            "a monocolored creature is not multicolored",
+        ),
+        (
+            index::MARHAULT_ELSDRAGON,
+            1,
+            "a red-green creature is multicolored",
+        ),
+    ] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[index::GUILDMAGES_FORUM])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        // The Forum's {1} comes out of one floating colorless mana.
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Colorless, 1);
+        e.refresh_offer();
+        activate(&mut e, p0, index::GUILDMAGES_FORUM, 1);
+        e.apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+            .unwrap();
+        if card == index::MARHAULT_ELSDRAGON {
+            // {3}{R}{R}{G}: the Forum's green pays the {G}; the rest is plain.
+            let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
+            pool.add(ManaColor::Red, 2);
+            pool.add(ManaColor::Colorless, 3);
+        }
+        e.refresh_offer();
+        cast_with_floating(&mut e, p0, card);
+        pass_until(&mut e, stack_is_empty);
+        let object = on_battlefield(&e, p0, card).expect("the creature resolved");
+        assert_eq!(
+            counters_on(&e, object, CounterKind::P1P1),
+            counters,
+            "{why}"
+        );
+    }
+}
