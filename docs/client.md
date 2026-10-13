@@ -6594,6 +6594,26 @@ the card):
   never left an empty blob
   (`a_folded_pill_whose_reading_changes_keeps_its_words`).
 
+### A copy's new targets, one at a time (report 10, 13.10.2026)
+
+A copy of a spell may be given new targets (CR 707.10c), and the engine asks
+for them target by target (`TargetPrompt::Retarget { current, index, of }`):
+an empty answer keeps the target where `min` is 0, and a target the engine
+will not let stay (another target of the copy already holds that object, so
+moving one target can make the next one a must) comes with `min` 1. Correct
+and, at ten targets (Jin-Gitaxias copying a ten-target spell), ten questions
+that did not say where they were. The shelf now says "Target 3 of 10: keep
+it, or choose a new one" or "Target 3 of 10: choose a new one"
+(`Phrase::RetargetKeepOrChange`, `RetargetMustChange`), the sheet still names
+the current target ("Previous target 3 of 10: …"), the confirmation still
+reads "Keep current target" with nothing picked, and beside it stands "Keep
+all remaining (n)" wherever the question may be kept and more follow
+(`keep_targets::KeepTargets::offered`). That is a standing instruction for
+this run alone, driven as `combat_auto` is: it answers this question and
+every later one of the run with the empty answer, and a question that must
+change waits for the player and does not end the run. A different question,
+a new turn or a run of another size ends it.
+
 ### The creature type (08.10.2026)
 
 The owner's item 8. The type chooser in the sheet is three things over the
