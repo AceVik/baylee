@@ -10,3 +10,5 @@ mod the_hive;
 mod al_abara_s_carpet;
 
 mod ring_of_immortals;
+
+mod gauntlets_of_chaos;
