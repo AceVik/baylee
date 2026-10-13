@@ -9,8 +9,15 @@
 <h1 align="center">Baylee</h1>
 
 <p align="center">
-  Eine Regel-Engine und ein 3D-Spieltisch für Magic: The Gathering – mit Freunden oder gegen die Haus-KI.<br>
-  Kostenlos, quelloffen (AGPL-3.0), inoffizieller Fan-Content.
+  Ein kostenloser 3D-Spieltisch für Magic: The Gathering – mit Freunden, gegen die Haus-KI oder gegen ein Sprachmodell,<br>
+  mit einer Regel-Engine, die die Regeln kennt, damit niemand darüber streiten muss.<br>
+  Quelloffen (AGPL-3.0), inoffizieller Fan-Content.
+</p>
+
+<p align="center">
+  <a href="https://baylee.acevik.de/?lang=de"><b>Website</b></a> ·
+  <a href="https://github.com/AceVik/baylee/releases"><b>Download</b></a> ·
+  <a href="https://discord.gg/4pP3uAwgY"><b>Discord</b></a>
 </p>
 
 <p align="center">
@@ -20,26 +27,26 @@
 </p>
 
 > [!NOTE]
-> **Baylee ist in der geschlossenen Beta.** Aktuell ist
-> [v0.1.0-beta.2](https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.2), eine Vorabversion.
-> Das öffentliche Gateway **[CLOSED BETA] Baylee Sanctuary** unter `https://baylee.acevik.de`
-> nimmt neue Spieler nur mit einem Beta-Schlüssel auf. Ohne Schlüssel kannst
-> du offline gegen die Haus-KI spielen.
+> **Baylee ist in der geschlossenen Beta.** Diese Seite beschreibt Version
+> **0.1.0-beta.7**, eine Vorabversion für **Windows-, macOS- und
+> Linux-Rechner**. Der öffentliche Server **Baylee Sanctuary** unter
+> `https://baylee.acevik.de` nimmt neue Spieler nur mit einem Beta-Schlüssel
+> auf. Ohne Schlüssel kannst du trotzdem offline gegen die Haus-KI spielen,
+> Decks bauen oder für deine Runde einen eigenen Server betreiben.
 
 ## Inhalt
 
 - [Was Baylee ist](#was-baylee-ist)
+- [Neu in beta.7](#neu-in-beta7)
 - [Bilder](#bilder)
 - [Installation](#installation)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux](#linux)
-  - [Handy, Tablet und Browser](#handy-tablet-und-browser)
-  - [Download prüfen](#download-prüfen)
-  - [Aktualisieren](#aktualisieren)
-- [Zugang: Beta-Schlüssel](#zugang-beta-schlüssel)
-- [Spielen](#spielen)
+- [Dein erstes Spiel](#dein-erstes-spiel)
+- [Mit Freunden spielen](#mit-freunden-spielen)
+- [Freunde und Chat](#freunde-und-chat)
+- [Wiederholungen](#wiederholungen)
+- [Gegen ein Sprachmodell spielen](#gegen-ein-sprachmodell-spielen)
 - [Fehler melden](#fehler-melden)
+- [Wo die Karten stehen](#wo-die-karten-stehen)
 - [Ein eigenes Gateway betreiben](#ein-eigenes-gateway-betreiben)
 - [Aus dem Quellcode bauen](#aus-dem-quellcode-bauen)
 - [Wie alles zusammenhängt](#wie-alles-zusammenhängt)
@@ -48,107 +55,152 @@
 
 ## Was Baylee ist
 
-Baylee ist eine in Rust geschriebene Plattform für Magic: The Gathering. Sie
-besteht aus zwei Teilen.
+Baylee ist ein Programm, mit dem du Magic: The Gathering am Rechner spielst.
+Du startest es, wählst ein Deck und setzt dich an einen Tisch: allein gegen
+den Computer oder mit Freunden über das Internet.
 
-**Eine Regel-Engine, die das Spiel durchsetzt.** Die Engine wendet die
-Comprehensive Rules an: Priorität und Stapel, das Ebenensystem,
-Ersatzeffekte, ausgelöste Fähigkeiten, zustandsbasierte Aktionen und den
-Kampf. Was erlaubt ist, entscheidet nie der Client. Bei jedem Schritt zählt
-die Engine auf, welche Möglichkeiten ein Spieler hat, und der Client bietet
-genau diese an. Die Engine ist **deterministisch**: Sie nutzt einen
-Zufallsgenerator mit festem Startwert, liest keine Uhr und hängt nirgends von
-der Reihenfolge einer Hash-Map ab. Dieselbe Partie mit denselben Antworten
-endet deshalb immer gleich. Jede gehostete Partie wird Zug für Zug
-aufgezeichnet, und die Aufzeichnung lässt sich bis zum selben Stand
-nachspielen.
+**Das Spiel kennt die Regeln.** Baylee hat eine Regel-Engine, die den
+Comprehensive Rules von Magic folgt: Priorität und Stapel, Auslöser,
+Ersatzeffekte, Ebenen, Kampf und die vielen kleinen Prüfungen dazwischen. In
+jedem Moment sagt sie, was du tun darfst, und der Tisch bietet genau das an.
+Niemand muss etwas nachschlagen oder diskutieren. Du spielst mit der Maus
+oder ganz mit der Tastatur.
 
-**Ein 3D-Tisch**, gebaut mit [Bevy](https://bevyengine.org/). Er zeigt
-Schlachtfeld, Hände, Stapel und Friedhöfe und bietet eine Lobby für Konten,
-Decks und Räume.
+**Es ist von Grund auf fair.** Dein Rechner bekommt nur, was du sehen darfst.
+Die Hände deiner Gegner und die Bibliotheken kommen als Anzahl an, nie als
+Karten. Ein verändertes Programm kann also nicht spicken: Die Information ist
+schlicht nicht da.
 
-Was Baylee ausmacht:
+Was du damit machen kannst:
 
-- **Verdeckte Information bleibt verdeckt, und zwar durch die Bauweise.** Der
-  Client eines Spielers bekommt nur, was dieser sehen darf: Bibliotheken und
-  fremde Hände kommen als Anzahl an, und eine verdeckte Karte trägt keine
-  Identität, solange der Spieler kein Recht darauf hat. Ein veränderter
-  Client kann nicht schummeln, denn die Daten erreichen ihn gar nicht.
-- **Zwei bis acht Plätze.** Duelle, Jeder-gegen-jeden und Teamtische. Der
-  Gastgeber teilt die Plätze in Seiten ein, und die Seiten müssen nicht gleich
-  groß sein (3 gegen 2 geht). Teams behalten eigene Züge und eigene
-  Lebenspunkte; das ist also kein Two-Headed Giant. Teammitglieder können
-  einander ihre Hand zeigen, wenn sie wollen.
-- **Commander und Freeform.** Ein Deck mit Kommandeur spielt Commander, jedes
-  andere Deck spielt Freeform. Bannlisten und Formatprüfungen gibt es noch
-  nicht.
-- **Eine Haus-KI in fünf Stufen**: novice, casual, steady, sharp und expert
-  (in der deutschen Oberfläche Anfänger, Locker, Solide, Scharf und Experte;
-  [docs/house-ai.md](docs/house-ai.md)). Sie spielt aus derselben Sicht, die
-  ein Mensch bekommt.
-- **Ein Prozess pro Partie.** Jede Partie läuft in einem eigenen
-  Engine-Prozess, den ein separater Agent startet. Das Gateway, das Konten und
-  Räume verwaltet, führt selbst keine Regeln aus.
-- **Kartentext in 19 Sprachen**, wenn das Gateway den Kartenkatalog hat. Die
-  Oberfläche gibt es auf Deutsch und Englisch.
+- **Offline spielen** gegen die Haus-KI, in fünf Stufen von *Anfänger* bis
+  *Experte*, ohne Konto und ohne Internet.
+- **Online spielen** auf einem *Gateway* (einem Baylee-Server): 2 bis 8
+  Spieler an einem Tisch, jeder gegen jeden oder in Teams (auch ungleiche wie
+  3 gegen 2), mit oder ohne KI-Spieler auf den freien Plätzen. Ein Deck mit
+  Kommandeur spielt Commander, jedes andere Deck spielt frei.
+- **Freunde hinzufügen und mit ihnen chatten**, Ende-zu-Ende-verschlüsselt.
+- Beim laufenden Spiel eines Freundes **zuschauen** und **eigene Spiele noch
+  einmal ansehen**.
+- **Ein Sprachmodell an den Tisch setzen**, mit deinem eigenen Schlüssel
+  oder eines, das der Betreiber des Servers anbietet.
+- **Decks bauen** mit einer Suche über alle Karten des Pools, Manakurve und
+  Länderstatistik, und sie in gängigen Textformaten importieren und
+  exportieren.
+- **Kartentexte in 19 Sprachen lesen**, wenn das Gateway den Kartenkatalog
+  hat. Das Programm selbst spricht Deutsch und Englisch.
 
-Der Kartenpool wächst Stapel für Stapel; diese Version kennt rund 2.700
-Karten. Der Deckbau kann sich auf spielbare Karten beschränken und warnt,
-wenn ein Deck Karten enthält, die noch nicht vollständig umgesetzt sind und
-deshalb nicht wie gedruckt spielen.
+Baylee ist kostenlos und bleibt es: keine Bezahlschranke, keine Werbung,
+nichts zu kaufen. Es ist ein nicht kommerzielles Fanprojekt und steht in
+keiner Verbindung zu Wizards of the Coast.
+
+## Neu in beta.7
+
+- **Freunde und Chat.** Freundschaftsanfragen, Flüstern, Gruppen, ein Chat
+  für jeden Tisch und jedes Team, und welche deiner Freunde gerade online
+  sind und wo. Jede Nachricht ist Ende-zu-Ende-verschlüsselt
+  ([Einzelheiten](#freunde-und-chat)).
+- **Das Spielprotokoll ist ein Reiter im Chatfenster.** Am Tisch hat das
+  Fenster die Reiter *Alle*, *Log*, *Tisch*, *Team*, *Privat* und *Gruppe*.
+  Das Protokoll nennt Phasen, Modi und Ziele, und jede Karte darin ist ein
+  Link zu ihrem Bild.
+- **Wiederholungen.** Jedes Online-Spiel, an dem du gesessen hast, kannst du
+  von jedem Rechner aus noch einmal ansehen: von deinem Platz aus, aus der
+  öffentlichen Sicht des Tisches oder vom Platz eines anderen Spielers, wenn
+  er seine verdeckten Karten freigegeben hat
+  ([Einzelheiten](#wiederholungen)). Spiele gegen das Haus bleiben auf deinem
+  Rechner.
+- **Zuschauen.** Ein Tisch kann Zuschauer zulassen; die Lobby zeigt dann
+  *Zuschauen* und wie viele schon zusehen.
+- **Ein neues Bezahlfenster.** Wenn etwas eine Zahlung verlangt (ein
+  Zauberspruch, eine Fähigkeit, eine „zahle oder …“-Steuer), tippst du deine
+  Länder erst als Plan an, es passiert noch nichts, und dann bezahlst du
+  alles auf einmal. Ein versehentlich angetipptes Land nimmst du einfach
+  zurück.
+- **Aufgedeckte Karten bleiben stehen.** Deckt ein anderer Spieler eine
+  Karte auf, siehst du sie mitten auf dem Tisch, bis du sie wegklickst.
+- **Auf einen Blick lesbar.** Schutz-Schlüsselwörter legen einen Rand um die
+  Karte, jedes mit eigener Farbe und eigenem Muster (indestructible,
+  hexproof, shroud, defender); eine Kreatur mit Einsatzverzögerung zeigt
+  eine langsame Welle aus Mondlicht; eine bleibende Karte, die gerade
+  ausgephast ist (phased out), ist grau und blass.
+- **Karten mit besonderen Seiten.** Abenteuer, Flip-, Split- und
+  Aftermath-Karten und Schlachten werden so gezeigt, wie man sie liest; mit
+  gedrückter <kbd>Shift</kbd>-Taste über einer Vorschau dreht sich die Karte
+  auf ihre Rückseite oder ihre andere Hälfte.
+- **Sprachmodelle vom Server.** Der Betreiber eines Servers kann eigene
+  Modelle anbieten und für jedes Modell festlegen, welche Spieler es an den
+  Tisch setzen dürfen.
+- **Für Betreiber:** eine Admin-Konsole im Browser (Konten, Sperren,
+  Passwort zurücksetzen, Spiele beenden, Karten sperren, Beta-Schlüssel,
+  Sprachmodelle, Serverlast), Nutzungsbedingungen pro Gateway und ein Link
+  auf das Impressum des Betreibers.
+- **Eine Version für Intel-Macs.** Jetzt sechs Downloads: Windows (x64,
+  ARM64), macOS (Apple Silicon, Intel) und Linux (x86-64, ARM64).
+- **Rund 470 Karten mehr spielen genau wie gedruckt** (2.702 in beta.6,
+  jetzt 3.172), die meisten davon fertiggestellte Teil-Karten; die Zahl der
+  teilweise umgesetzten Karten sank von 571 auf 98
+  ([Wo die Karten stehen](#wo-die-karten-stehen)).
+
+Diese Version ist nur für Desktop-Rechner. Die Browser-Version und die
+Handy-Apps gehören nicht zu beta.7 ([docs/mobile.md](docs/mobile.md) sagt,
+wo sie stehen).
 
 ## Bilder
 
-Die Bilder vom Tisch zeigen Baylees **Textansicht**. Sie zeichnet jede Karte
-aus ihrem Regeltext statt aus dem gedruckten Kartenbild (warum, steht unter
+Die Bilder zeigen Baylees **Textansicht**, die jede Karte aus ihrem
+Regeltext zeichnet statt aus dem gedruckten Kartenbild (warum, steht unter
 [Lizenz und Rechtliches](#lizenz-und-rechtliches)). Im Spiel kommen die
-Kartenbilder von Scryfall, und `T` schaltet zwischen den beiden Ansichten um.
-Aufgenommen wurden die Bilder mit Version 0.1.0-beta.2 an einem lokalen
-Test-Gateway mit erfundenen Spielern; das Bild ganz oben und das Anmeldefenster zeigen das echte
-Gateway Baylee Sanctuary.
+Kartenbilder von Scryfall, und <kbd>T</kbd> schaltet zwischen beiden
+Ansichten um. Die Bilder entstanden an einem lokalen Testserver mit
+ausgedachten Spielern; das Bild ganz oben zeigt das echte Gateway Baylee
+Sanctuary.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Anmeldefenster des Beta-Gateways"><br><sub><b>Anmelden.</b> Das Beta-Gateway verlangt von neuen Spielern einen Schlüssel; wer schon ein Konto hat, meldet sich mit Benutzername und Passwort an. Unten stehen der Fan-Content-Hinweis und der Link zum Quellcode.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby mit einem Deck und offenen Tischen"><br><sub><b>Die Lobby.</b> Links deine Decks, rechts die offenen Tische, dazu <i>Gegen das Haus</i> für eine schnelle Partie gegen die KI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Anmeldung am Gateway der geschlossenen Beta"><br><sub><b>Anmelden.</b> Das Gateway der geschlossenen Beta fragt neue Spieler nach einem Schlüssel; wer schon ein Konto hat, meldet sich mit Benutzername und Passwort an.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby mit einem Deck und offenen Tischen"><br><sub><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Gegen das Haus</i> für ein schnelles Spiel gegen die KI.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Tisch wird eingerichtet: Plätze, KI-Stufen, Lebenspunkte"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber legt Plätze, Startlebenspunkte und Mulligans fest und gibt jedem KI-Platz eine Stufe von novice bis expert.</sub></td>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deckbau mit Statistik und Kartensuche"><br><sub><b>Der Deckbau.</b> Kommandeur, Hauptdeck und Sideboard, Manakurve und Länderstatistik, dazu eine Suche über den ganzen Pool. (Die Bildfelder sind leer, weil die Kartenbilder für diese Aufnahmen abgeschaltet waren.)</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Raum wird eingerichtet: Plätze, KI-Stufen, Startleben"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber legt Plätze, Startleben und Mulligans fest und gibt jedem KI-Platz eine Stufe von Anfänger bis Experte.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deckbauer mit Statistik und Kartensuche"><br><sub><b>Der Deckbauer.</b> Kommandeur, Hauptdeck und Sideboard, Manakurve und Länderstatistik und eine Suche über den ganzen Pool.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="Ein laufendes Duell, Kartenvorschau in der Textansicht"><br><sub><b>Ein Duell</b> gegen die Haus-KI. Mit der Maus über einer Karte erscheint sie groß, hier in der Textansicht.</sub></td>
-    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="Das Spielprotokoll neben dem Tisch"><br><sub><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau der Karte.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="Ein laufendes Duell, Kartenvorschau in der Textansicht"><br><sub><b>Ein Duell</b> gegen die Haus-KI. Mit der Maus über einer Karte siehst du sie groß.</sub></td>
+    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="Das Spielprotokoll neben dem Tisch"><br><sub><b>Das Spielprotokoll</b> liest sich wie ein Chat; jeder Kartenname ist ein Link zu ihrer Vorschau.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen"><br><sub><b>Vier Plätze.</b> Größere Tische sitzen im Kreis um den Filz.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit einem Kästchen je Anhang"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ein eigenes Kästchen; alle sind anfangs angehakt, und du nimmst das Häkchen weg, wo du etwas lieber behältst.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen"><br><sub><b>Vier Plätze.</b> Größere Runden sitzen im Kreis um den Tisch.</sub></td>
+    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit einem Häkchen pro Anhang"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ihr eigenes Häkchen.</sub></td>
   </tr>
 </table>
 
 ## Installation
 
 Lade Baylee für dein System von der
-**[Release-Seite](https://github.com/AceVik/baylee/releases)** herunter. Dort
-stehen auch die Vorabversionen. Für jedes System gibt es einen
-**Installer**, der einfachste Weg, und ein **Archiv** mit demselben Spiel zum
-Entpacken an beliebiger Stelle. Baylee aktualisiert sich selbst, wo es seinen
-eigenen Ordner beschreiben darf ([Aktualisieren](#aktualisieren)).
+**[Release-Seite](https://github.com/AceVik/baylee/releases)** herunter (dort
+stehen auch die Vorabversionen) oder von der
+[Website](https://baylee.acevik.de/?lang=de), die die passende Datei für
+dich auswählt. Für jedes System gibt es einen **Installer**, der einfachste
+Weg, und ein **Archiv** mit demselben Spiel zum Entpacken an beliebiger
+Stelle. Danach aktualisiert Baylee sich selbst
+([Aktualisieren](#aktualisieren)).
 
 | System | Installer | Archiv |
 | --- | --- | --- |
 | Windows, Intel/AMD 64 Bit | `Baylee-Setup-<version>-x64.exe` | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
 | Windows auf ARM | `Baylee-Setup-<version>-arm64.exe` | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
 | macOS, Apple Silicon (M1 und neuer) | `Baylee-<version>-aarch64.dmg` | `baylee-client-<version>-aarch64-apple-darwin.zip` |
+| macOS, Intel | `Baylee-<version>-x86_64.dmg` | `baylee-client-<version>-x86_64-apple-darwin.zip` |
 | Linux, x86-64 | `Baylee-<version>-x86_64.AppImage` oder `baylee_<version>_amd64.deb` | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
 | Linux, ARM64 | `Baylee-<version>-aarch64.AppImage` oder `baylee_<version>_arm64.deb` | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
 
 Jedes Archiv enthält das Spiel, seinen Ordner `assets`, `LICENSE`, `NOTICE`
 und eine `README.txt` mit diesen Schritten für den ersten Start.
 
-Die Programme sind **nicht signiert**, weil eine Signatur Geld kostet. Windows
-und macOS warnen deshalb beim ersten Start. Wie du an der Warnung vorbeikommst,
-steht in den Schritten unten.
+Die Programme sind **nicht signiert**, weil eine Signatur Geld kostet.
+Windows und macOS warnen deshalb beim ersten Start. Wie du an der Warnung
+vorbeikommst, steht in den Schritten unten.
 
 ### Windows
 
@@ -175,11 +227,14 @@ eine solche startet auch Windows 11 24H2 nicht.
 
 ### macOS
 
-Unterstützt werden vorerst nur Macs mit **Apple Silicon** (M1 und neuer); eine
-Intel-Version gibt es nicht. Voraussetzung ist macOS 11 oder neuer.
+Macs mit Apple Silicon (M1 und neuer) nehmen die `aarch64`-Version,
+Intel-Macs die `x86_64`-Version (Apple-Menü → Über diesen Mac nennt Chip
+oder Prozessor). Voraussetzung ist macOS 11 oder neuer.
 
-1. Öffne `Baylee-<version>-aarch64.dmg` und ziehe **Baylee** auf
-   **Programme** (Applications). Wirf das Image danach aus.
+1. Öffne `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) und ziehe
+   **Baylee** auf **Programme** (Applications). Wirf das Image danach aus.
+   Mit der ZIP-Datei entpackst du sie und ziehst `Baylee.app` ebenso nach
+   „Programme“.
 2. Öffne Baylee aus „Programme“. Beim ersten Mal lehnt macOS die App ab,
    weil sie nicht notarisiert ist.
 3. Öffne **Systemeinstellungen → Datenschutz & Sicherheit**, scrolle zum
@@ -191,20 +246,13 @@ Oder im Terminal:
 xattr -dr com.apple.quarantine /Applications/Baylee.app
 ```
 
-Vorher nach „Programme“ zu verschieben ist nicht nötig, aber eine App, die
-dort geöffnet wird, wo sie nach dem Download liegt (im Image oder im
-entpackten Ordner in „Downloads“), startet macOS jedes Mal aus einer
-versteckten, schreibgeschützten Kopie. Baylee aktualisiert sich trotzdem.
-Die Einstellungen sagen das und bieten **In meinen Programme-Ordner
-verschieben** an: Baylee kopiert sich in den Programme-Ordner in deinem
-Benutzerordner (`~/Applications`, ohne Passwort), prüft, dass die Signatur
-der Kopie intakt ist, entfernt die Download-Markierung von der Kopie (nicht
-vom Original), startet die Kopie und schließt sich. Die Kopie startet, ohne
-dass macOS noch einmal fragt. Beim ersten Start fragt sie, ob die alte Kopie
-in den Papierkorb soll; gelöscht wird nichts, ohne dass du es sagst. Darfst
-du in den Haupt-Ordner „Programme“ schreiben, legt ein zweiter Knopf sie
-dorthin. Mit der ZIP-Datei entpackst du sie und ziehst `Baylee.app` ebenso
-nach „Programme“.
+Startest du Baylee direkt aus dem Download (aus dem Image oder dem
+entpackten Ordner in „Downloads“), führt macOS es aus einer versteckten,
+schreibgeschützten Kopie aus. Baylee aktualisiert sich trotzdem, und die
+Einstellungen bieten **In meinen Programme-Ordner verschieben** an: Baylee
+kopiert sich nach `~/Applications` (ohne Passwort), prüft die Kopie, startet
+sie und schließt sich. Beim ersten Start fragt die Kopie, ob die alte in den
+Papierkorb soll; gelöscht wird nichts, ohne dass du es sagst.
 
 ### Linux
 
@@ -239,27 +287,6 @@ Gebaut wird auf Ubuntu 22.04; das Programm läuft auf jeder Distribution mit
 glibc 2.35 oder neuer. Wie unter Windows braucht die x86-64-Version eine CPU
 mit x86-64-v2.
 
-### Handy, Tablet und Browser
-
-**Mobile Versionen zum Herunterladen gibt es noch nicht.**
-
-- **Android:** Der Client lässt sich bauen und läuft auf einem echten Handy
-  (`scripts/mobile/android-build.sh`). Die Lobby ist aber noch nicht per
-  Touch bedienbar, deshalb kannst du dich auf dem Handy nicht anmelden.
-- **iOS:** Der Client läuft nur im Simulator
-  (`scripts/mobile/ios-sim-run.sh`).
-- **Browser:** Im Browser spielst du unter
-  **<https://baylee.acevik.de/play/>**, auf dem Sanctuary-Gateway; ein neues
-  Konto dort braucht weiterhin einen
-  [Beta-Schlüssel](#zugang-beta-schlüssel). Die Seite braucht WebGPU:
-  Chrome oder Edge ab 113, Safari ab 26 (macOS, iOS, iPadOS) oder Firefox ab
-  141 unter Windows bzw. ab 145 unter macOS. Firefox unter Linux und Android
-  bietet WebGPU noch nicht an; ein Browser ohne WebGPU bekommt das gesagt
-  statt einer leeren Seite. Die Browser-Version spielt nur auf dem Gateway,
-  das sie ausliefert; für andere Gateways nimm den Desktop-Client.
-
-Was genau geht und was nicht, steht in [docs/mobile.md](docs/mobile.md).
-
 ### Download prüfen
 
 Neben jedem Installer und jedem Archiv liegt auf der Release-Seite eine
@@ -269,7 +296,7 @@ auch. Lade die Datei und ihre `.sha256` in denselben Ordner und führe aus:
 ```bash
 # Linux
 sha256sum -c Baylee-<version>-x86_64.AppImage.sha256
-# macOS
+# macOS (ein Intel-Mac: Baylee-<version>-x86_64.dmg.sha256)
 shasum -a 256 -c Baylee-<version>-aarch64.dmg.sha256
 ```
 
@@ -281,171 +308,378 @@ vergleichst das Ergebnis mit der Zahl in der `.sha256`-Datei.
 
 Baylee aktualisiert sich selbst. Es fragt GitHub beim Start und alle sechs
 Stunden nach einer neueren Version, lädt sie herunter, prüft ihre Signatur
-und installiert sie beim Beenden; die Ecke der Lobby und das Menü am Tisch
-sagen „Update X bereit – wird beim Beenden installiert“, und der nächste
-Start sagt einmal „Aktualisiert auf X“. Ein Update, dessen Signatur nicht
-stimmt, wird nie installiert. In den Einstellungen gibt es zwei Schalter,
-„Automatisch aktualisieren“ und „Automatisch nach Updates suchen“ (aus: Baylee
-fragt GitHub gar nichts, bis du „Nach Updates suchen“ drückst);
-`docs/privacy.md` sagt, was GitHub dabei sieht.
+und installiert sie beim Beenden; die Lobby sagt „Update X bereit – wird
+beim Beenden installiert“, und der nächste Start sagt einmal „Aktualisiert
+auf X“. Ein Update, dessen Signatur nicht stimmt, wird nie installiert. In
+den Einstellungen gibt es zwei Schalter, „Automatisch aktualisieren“ und
+„Automatisch nach Updates suchen“ (aus: Baylee fragt GitHub gar nichts, bis
+du „Nach Updates suchen“ drückst); `docs/privacy.md` sagt, was GitHub dabei
+sieht.
 
 Updates liegen in deinem eigenen Zustandsordner (`~/.local/state/baylee`,
 unter Windows `%LOCALAPPDATA%\baylee`) und werden nie in den Ordner des
-Programms geschrieben. Darum aktualisiert sich die Windows-Installation pro
-Benutzer selbst, ebenso eine Mac-App, egal wo du sie gestartet hast, auch aus
-der schreibgeschützten Kopie. Ein **AppImage** aktualisiert sich selbst, wenn
-der Ordner mit der `.AppImage`-Datei dir gehört (etwa `~/Apps`); die Datei
-selbst bleibt, wie sie ist, und die neuere Version startet aus dem
-Zustandsordner.
+Programms geschrieben. Darum aktualisieren sich die Windows-Installation,
+eine Mac-App, egal wo sie liegt, und ein AppImage in einem eigenen Ordner
+selbst. Gehört der Ordner des Programms jemand anderem (etwa `/opt/baylee`
+aus dem `.deb`), fragt Baylee nie nach Administratorrechten: Es verlinkt die
+Release-Seite, und du aktualisierst von Hand, indem du das neue Paket über
+das alte installierst. Versionen bis 0.1.0-beta.5 aktualisierten sich auf
+dem Mac nicht, solange macOS sie aus der schreibgeschützten Kopie startete:
+Verschiebe so eine `Baylee.app` einmal von Hand nach „Programme“.
 
-Nur verlinken, und du aktualisierst von Hand, wenn der Ordner des Programms
-für deinen Benutzer nicht beschreibbar ist: Dann verwaltet jemand anderes
-diese Installation, und Baylee fragt nie nach Administratorrechten.
-`/opt/baylee` aus dem `.deb` ist so ein Ordner. Der Hinweis nennt den Ordner
-und die Antwort des Systems; auf dem Mac bietet er **In meinen
-Programme-Ordner verschieben** an, danach aktualisiert es sich selbst. Von
-Hand: Starte den neuen Installer über der alten Installation (das `.deb` mit
-`sudo apt install`, beim AppImage ersetzt du die Datei), oder lade das neue
-Archiv herunter und ersetze den alten Ordner (oder `Baylee.app`) durch den
-neuen. Eine von Hand installierte neuere Version startet immer statt einer
-älteren, die Baylee selbst heruntergeladen hatte.
+**Wo deine Sachen liegen.** Deine Einstellungen bleiben beim Ersetzen des
+Programms erhalten, weil sie nicht daneben liegen: unter Windows in
+`%APPDATA%\Baylee`, unter Linux und macOS in `~/.config/baylee/`
+(`$XDG_CONFIG_HOME/baylee`, wenn du diese Variable setzt). Dort findest du
 
-Versionen bis 0.1.0-beta.5 aktualisieren sich nicht, solange macOS sie aus
-der schreibgeschützten Kopie startet, und ihr Starter bleibt in der App:
-Verschiebe so eine `Baylee.app` einmal von Hand nach „Programme“ (oder
-ersetze sie durch einen neuen Download), danach aktualisiert sie sich.
-
-Deine Einstellungen bleiben dabei erhalten, weil sie nicht neben dem Programm
-liegen. Unter Windows speichert der Client sie in `%APPDATA%\Baylee`, unter
-Linux und macOS in `~/.config/baylee/`. Ist `$XDG_CONFIG_HOME` gesetzt,
-verwendet er auf allen drei Systemen stattdessen `$XDG_CONFIG_HOME/baylee`.
-Dort liegen:
-
-- `client-settings.json`: Sprache, Gateway-Liste, Einwilligungen für
+- `client-settings.json`: Sprache, deine Gateway-Liste, Einwilligungen für
   Meldungen und die Sitzung eines Gastes;
 - `preferences.json`: Tastenbelegung und stehende Antworten;
-- `offline-decks.json`: offline gebaute Decks.
-- `update.json`: die beiden Update-Schalter.
+- `offline-decks.json`: offline gebaute Decks;
+- `update.json`: die beiden Update-Schalter;
+- `records/`: deine letzten 20 Spiele gegen das Haus, für Wiederholungen
+  (`records/archive/` hält die archivierten);
+- `chat/`: deinen Chatverlauf, verschlüsselt, und den Chat-Schlüssel des
+  Geräts, wo das System keinen Schlüsselbund dafür hat;
+- `llm-seat.json` und `llm-spend.json`, sobald du ein Sprachmodell
+  einrichtest.
 
 Kartenbilder werden getrennt davon zwischengespeichert, in
 `~/Library/Caches/baylee` (macOS), `%LOCALAPPDATA%\baylee` (Windows) oder
-`~/.cache/baylee` (Linux). Dein Konto und die online gebauten Decks liegen auf
-dem Gateway, nicht auf deinem Rechner. Wenn du dich anmeldest, lädt der
-Client deine Tastenbelegung und Vorlieben vom Gateway.
+`~/.cache/baylee` (Linux). Dein Konto, deine Online-Decks, deine Freunde und
+deine Wiederholungen liegen auf dem Gateway, also auf jedem Rechner, an dem
+du dich anmeldest.
 
 Jede Version zeigt ihre Versionsnummer und ihren Commit in der Lobby. Eine
-neue Minor-Version (0.1 → 0.2) kann mit einem älteren Gateway unter Umständen
-nicht mehr sprechen. Aktualisiere also, sobald eine neue Version erscheint.
+neue Version kann mit einem älteren Gateway unter Umständen nicht mehr
+sprechen. Aktualisiere also, sobald eine neue Version erscheint.
 
-## Zugang: Beta-Schlüssel
+## Dein erstes Spiel
 
-Das Gateway Baylee Sanctuary ist eine geschlossene Beta. **Ein neues Konto und
-ein neuer Gast brauchen jeweils einen Schlüssel** der Form
-`BAYLEE-XXXX-XXXX-XXXX-XXXX`. Die Schlüssel vergibt der Projektinhaber
+Wenn Baylee startet, stehst du an seinem **Eingang**: einer Liste von
+Gateways (Servern) und dem Weg, offline zu spielen. Beim ersten Mal führt
+dich eine kurze Tour herum, und <kbd>?</kbd> zeigt auf jedem Bildschirm jede
+Taste, die gerade wirkt.
+
+**Offline, sofort.** Wähle **Offline spielen**. Du bekommst die Lobby mit
+deinen Offline-Decks, den Deckbauer und **Gegen das Haus**, womit sofort ein
+Spiel gegen die Haus-KI beginnt. Der kleine Pfeil am Knopf wählt, wie stark
+die KI spielt.
+
+**Online.** Wähle ein Gateway aus der Liste (**Baylee Sanctuary** steht
+schon drin, weitere fügst du über ihre Adresse hinzu) und melde dich an:
+
+- **Registrieren**: ein *Benutzername* (3–24 Buchstaben, Ziffern, `_ - .`),
+  ein *Anzeigename* und ein Passwort. Eine E-Mail-Adresse wird nicht
+  verlangt. Der Benutzername bleibt privat: Andere sehen nur deinen
+  Anzeigenamen und ein kurzes Kennzeichen, etwa `Alice#af03`.
+- **Als Gast spielen**: Ein Anzeigename genügt. Ein Gast kann Decks bauen
+  und spielen, aber keine Hüllen oder Spielmatten hochladen, und wird
+  gelöscht, wenn er sich abmeldet oder 30 Tage lang nicht benutzt wurde.
+
+Dein Konto kannst du jederzeit im Client löschen; alles, was dazugehört,
+geht mit.
+
+Ein Gateway kann **Nutzungsbedingungen** haben: Du siehst sie, wenn du ein
+Konto anlegst, und wieder, wenn sie sich ändern. Nennt der Betreiber ein
+Impressum, verlinkt der Client es unter *Über* am Eingang, bei den
+Bedingungen und unter *Einstellungen → Netzwerk*.
+
+### Zugang: Beta-Schlüssel
+
+Baylee Sanctuary ist eine geschlossene Beta: **Ein neues Konto und ein neuer
+Gast brauchen jeweils einen Schlüssel** der Form
+`BAYLEE-XXXX-XXXX-XXXX-XXXX`. Schlüssel vergibt der Projektinhaber
 ([@AceVik](https://github.com/AceVik)); ein öffentliches Anmeldeformular gibt
-es nicht.
+es nicht. Füge den Schlüssel beim Registrieren oder beim Gast-Zugang ein;
+Groß- und Kleinschreibung, Leerzeichen und Bindestriche spielen keine Rolle.
+Mit einem Konto meldest du dich danach mit Benutzername und Passwort an und
+brauchst keinen Schlüssel mehr.
 
-Mit Schlüssel:
+## Mit Freunden spielen
 
-1. Starte Baylee. Im Eingang steht **Baylee Sanctuary** schon in der Liste;
-   wähle es aus.
-2. Wähle **Registrieren**. Such dir einen *Benutzernamen* (3–24 Buchstaben,
-   Ziffern, `_ - .`), einen *Anzeigenamen* und ein Passwort aus und füge den
-   Schlüssel ein. Groß- und Kleinschreibung, Leerzeichen und Bindestriche im
-   Schlüssel spielen keine Rolle.
-3. Oder wähle **Als Gast spielen**: Ein Anzeigename und ein Schlüssel reichen. Gäste
-   können Decks bauen und spielen, aber keine Hüllen oder Spielmatten
-   hochladen. Ein Gast wird gelöscht, wenn er sich abmeldet oder 30 Tage lang
-   nicht genutzt wurde.
+**Decks.** Im Deckbauer durchsuchst du den Pool (auf Wunsch nur Karten, die
+genau wie gedruckt spielen), stellst Hauptdeck, Sideboard und Kommandeur
+zusammen, behältst die Manakurve im Blick und wählst für jede Karte einen
+Druck. Ein Deck lässt sich als Text importieren und exportieren (Baylees
+eigenes Format, JSON, YAML und Moxfields Textexport;
+[docs/deck-format.md](docs/deck-format.md)). Das Gateway hebt jede Version
+eines Online-Decks auf, und ein registriertes Konto kann einem Deck eine
+eigene Hülle und Spielmatte geben. Eine Karte, die der Betreiber des
+Gateways gesperrt hat, ist markiert, mit dem Grund.
 
-Die Registrierung **fragt nach keiner E-Mail-Adresse**: Ein Konto besteht aus
-Benutzername und Passwort. Der Benutzername bleibt
-privat: Andere sehen nur deinen Anzeigenamen mit einem kurzen Kürzel, etwa
-`Alice#af03`. Mit einem Konto meldest du dich künftig mit Benutzername und
-Passwort an und brauchst keinen Schlüssel mehr. Du kannst das Konto jederzeit
-im Client löschen (`DELETE /account`).
+**Räume.** In der Lobby eröffnest du einen Tisch mit 2 bis 8 Plätzen und,
+wenn du willst, einem Namen und einem Passwort. Als Gastgeber bestimmst du,
+wer wo sitzt: ein anderer Spieler, die Haus-KI in einer ihrer fünf Stufen
+oder ein Sprachmodell. Du legst auch die Teams fest, das Startleben, freie
+Mulligans und die Uhr (`casual`, `standard`, `blitz` oder `untimed`), und ob
+andere zuschauen dürfen. Jeder wählt sein Deck und sagt *Bereit*, und der
+Gastgeber startet. Ist das Spiel vorbei, kann der Tisch noch einmal spielen.
 
-## Spielen
+**Am Tisch.** Das Spiel fragt, und du antwortest: Was du spielen kannst,
+leuchtet, und die Leiste unten sagt, was gefragt ist. Im Team könnt ihr
+einander eure Hände zeigen. Die wichtigsten Tasten:
 
-**Offline**, ganz ohne Gateway: Wähle im Eingang *Offline spielen*. Du
-bekommst dieselbe Lobby mit deinen Offline-Decks, dem Deckbau und einem Tisch
-mit Gegnern der Haus-KI. *Gegen das Haus* startet sofort ein Duell mit den
-beiden mitgelieferten Decks.
-
-**Online**, angemeldet an einem Gateway:
-
-- **Decks.** Bau ein Deck im Deckbau: Durchsuche den Pool (auf Wunsch nur
-  vollständig spielbare Karten), stelle Hauptdeck, Sideboard und Kommandeur
-  zusammen, behalte die Manakurve im Blick und wähle für jede Karte eine
-  Druckversion. Gespeichert wird ein Deck als eine Textzeile pro Karte, etwa
-  `1 Lightning Bolt (M11) 149` ([docs/deck-format.md](docs/deck-format.md)).
-  Das Gateway führt für jedes Deck eine Versionsgeschichte. Registrierte
-  Konten können einem Deck eine eigene Hülle und Spielmatte geben.
-- **Räume.** Eröffne einen Raum mit 2 bis 8 Plätzen, auf Wunsch mit Namen und
-  Passwort. Als Gastgeber legst du fest, wer wo sitzt: ein anderer Spieler
-  oder die Haus-KI in einer ihrer fünf Stufen. Du bestimmst auch die Seiten,
-  die Startlebenspunkte, freie Mulligans, bleibende Karten, die schon zu Beginn
-  im Spiel liegen, und die Bedenkzeit
-  (`casual`, `standard`, `blitz` oder `untimed`). Jeder Spieler wählt sein
-  eigenes Deck und meldet sich *bereit*, dann startet der Gastgeber die
-  Partie. Nach dem Ende kann der Tisch gleich noch einmal spielen.
-- **Am Tisch.** Die Engine fragt, du antwortest. Du kannst mit der Maus oder
-  komplett mit der Tastatur spielen:
-
-| Taste | Wirkung |
+| Taste | Bewirkt |
 | --- | --- |
-| <kbd>Leertaste</kbd> | Bestätigen / Priorität abgeben |
-| <kbd>Enter</kbd> | Die Karte unter dem Cursor spielen, sonst abgeben |
+| <kbd>Leertaste</kbd> | Bestätigen / Priorität abgeben / bezahlen |
+| <kbd>Enter</kbd> | Mit der Karte unter dem Cursor handeln, sonst passen |
 | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, <kbd>E</kbd> | Karten-Cursor bewegen; die Karte darunter spielen oder wählen |
-| <kbd>Esc</kbd> | Abbrechen (Schritt für Schritt) |
-| <kbd>Tab</kbd> / <kbd>⇧ Tab</kbd> | Zur nächsten Phase / zum nächsten Zug vorspulen (Entscheidungen bleiben deine) |
-| <kbd>F6</kbd> / <kbd>F7</kbd> | Stapel verrechnen lassen / in diesem Zug nichts mehr |
-| <kbd>K</kbd> / <kbd>B</kbd>, <kbd>Y</kbd> / <kbd>N</kbd> | Mulligan: behalten / Karte nach unten legen; ja / nein |
-| <kbd>T</kbd>, <kbd>Cmd</kbd>/<kbd>Alt</kbd> halten | Kartentext statt Bild (umschalten / nur solange gehalten) |
-| <kbd>G</kbd>, <kbd>L</kbd> | Zonenansicht (Friedhöfe, Exil, Stapel), Spielprotokoll |
-| <kbd>F8</kbd> | Einen Fehler melden |
+| <kbd>Esc</kbd> | Abbrechen (Schritt für Schritt), eine aufgedeckte Karte wegklicken |
+| <kbd>Tab</kbd> / <kbd>⇧ Tab</kbd> | Vorspulen bis zur nächsten Phase / zum nächsten Zug (Entscheidungen bleiben deine) |
+| <kbd>F6</kbd> / <kbd>F7</kbd> | Stapel abhandeln lassen / in diesem Zug nichts mehr |
+| <kbd>K</kbd> / <kbd>B</kbd>, <kbd>Y</kbd> / <kbd>N</kbd> | Mulligan: behalten / Karte unter die Bibliothek; ja / nein |
+| <kbd>T</kbd>, <kbd>Cmd</kbd>/<kbd>Alt</kbd> halten | Kartentext statt Bild (umschalten / nur solange gedrückt) |
+| <kbd>Shift</kbd> über einer Vorschau | Karte auf Rückseite oder andere Hälfte drehen |
+| <kbd>G</kbd>, <kbd>L</kbd> | Zonen-Browser (Friedhöfe, Exil, Stapel), Spielprotokoll |
+| <kbd>F8</kbd> | Fehler melden |
+| <kbd>?</kbd> | Alle Tasten, die gerade wirken |
 
 Jede Taste lässt sich in den Einstellungen neu belegen, und ein angemeldetes
-Konto speichert seine Belegung auf dem Gateway. Die vollständige Liste, auch
-für Kampf und Fähigkeitenblatt, steht in
-[docs/keyboard-map.md](docs/keyboard-map.md).
+Konto speichert die Belegung auf dem Gateway. Die vollständige Liste steht
+in [docs/keyboard-map.md](docs/keyboard-map.md).
+
+**Zuschauen.** Lässt ein Tisch es zu, kann jeder, der am Gateway angemeldet
+ist, in der Lobby *Zuschauen* drücken und das Spiel aus der öffentlichen
+Sicht verfolgen: keine Hände, keine verdeckten Karten. Die Spieler sehen,
+wie viele zuschauen.
+
+**Bricht deine Verbindung ab**, wartet dein Platz auf dich: Der Client
+verbindet sich von selbst neu, und die anderen sehen einen Countdown. Bist
+du nicht rechtzeitig zurück, spielt die Haus-KI deinen Platz, bis du wieder
+da bist.
+
+## Freunde und Chat
+
+Auf einem Gateway mit Chat (Baylee Sanctuary hat ihn) zeigt die
+**Freundesleiste** rechts in der Lobby deine Freunde und ob sie online sind,
+spielen oder zuschauen. Einen Freund fügst du mit Name und Kennzeichen hinzu
+(`Alice#af03`) oder aus den Spielern, mit denen du zuletzt gespielt hast.
+Aus der Zeile eines Freundes heraus kannst du ihm zuflüstern, an seinem
+Tisch zuschauen oder ihn an deinen einladen. Gruppen sind Chats für mehrere
+Freunde. Am Tisch hat jeder, der dort sitzt, einen Tischchat, und jedes Team
+seinen eigenen.
+
+**Was verschlüsselt ist.** Nachrichten sind **Ende-zu-Ende-verschlüsselt**:
+Sie werden auf dem Rechner des Absenders für die Rechner der Personen im
+Gespräch verschlossen, und nur diese können sie öffnen. Ehrlich gesagt
+heißt das:
+
+- **Der Server kann deine Nachrichten nicht lesen.** Er leitet sie weiter
+  und bewahrt sie verschlüsselt auf, bis sie zugestellt sind, höchstens 14
+  Tage (der Betreiber kann 1 bis 30 wählen; bei einem Gast 1 Tag).
+- **Der Server sieht aber**, wer wem wann schreibt, wie lang eine Nachricht
+  ist, wer in einer Gruppe ist und wie sie heißt, wer mit wem befreundet ist
+  und wer online ist und an welchem Tisch. Darüber führt er kein Protokoll.
+- **Deine Geräte sind die Schwachstelle.** Eine Nachricht lässt sich auf
+  jedem Gerät lesen, auf dem die Personen im Gespräch Baylee nutzen – solange
+  diese Geräte wirklich ihre sind. Um sicherzugehen, vergleicht ihr die
+  **Sicherheitsnummern** (die Schloss-Zeile oben im Chat öffnet sie). Wer
+  deinen Rechner benutzen kann, kann den darauf gespeicherten Chatverlauf
+  lesen.
+- **Der Tischchat** geht nur an die Personen, die am Tisch sitzen.
+  Zuschauer, die Haus-KI und Sprachmodelle bekommen nie Chat, und Chat ist
+  nie Teil einer Spielaufzeichnung oder Wiederholung.
+- **Meldest du eine Nachricht**, schickst du genau diese eine Nachricht an
+  die Moderation des Gateways, nichts sonst aus dem Gespräch.
+
+Das Chatfenster sitzt in der Lobby unten rechts; am Tisch ist es dasselbe
+Fenster wie das Spielprotokoll. Seine Einstellungen (*Chat & Privatsphäre*
+in der Freundesleiste) regeln, wer dir zuflüstern darf, wie lange dein
+Verlauf bleibt, die Töne und die Liste deiner Geräte. Was das Gateway genau
+speichert, steht in [docs/privacy.md](docs/privacy.md).
+
+## Wiederholungen
+
+Der Reiter **Wiederholungen** in der Lobby listet jedes Spiel, das du dir
+noch einmal ansehen kannst:
+
+- **Spiele gegen das Haus**, auf deinem Rechner gespeichert (die letzten 20
+  und alle, die du archivierst).
+- **Online-Spiele**, an denen du gesessen hast, vom Gateway, auf jedem
+  Rechner, an dem du dich anmeldest.
+
+Eine Wiederholung hat unten am Tisch eigene Bedienelemente: eine Zeitleiste
+mit einem Feld pro Zug, Abspielen und Anhalten, einen Moment oder einen Zug
+vor und zurück, Anfang und Ende und Geschwindigkeiten von ½× bis 8× (die
+Tasten: <kbd>Leertaste</kbd>, <kbd>←</kbd> <kbd>→</kbd>, <kbd>⇧ ←</kbd>
+<kbd>⇧ →</kbd>, <kbd>Pos1</kbd> <kbd>Ende</kbd>, <kbd>-</kbd> <kbd>=</kbd>).
+Der Platz-Schalter wählt, **wessen Sicht** du siehst: deinen eigenen Platz,
+den öffentlichen Tisch, alle Hände zugleich oder den Platz eines anderen
+Spielers.
+
+**Wer deine verdeckten Karten sieht.** Für jedes Online-Spiel entscheidest
+du, ob die anderen Spieler in seinen Wiederholungen deine Hand und deine
+Bibliothek sehen dürfen. Bei Spielen ab beta.7 ist die Freigabe **an**,
+solange du sie nicht abschaltest (der Bildschirm am Spielende zeigt das
+Häkchen, und das Menü des Spiels im Reiter Wiederholungen ändert es
+jederzeit). Bei Spielen vor beta.7 ist sie aus, weil damals niemand gefragt
+wurde. Die Haus-KI und Sprachmodelle geben immer frei. Ein Platz, dessen
+Spieler Nein gesagt hat, trägt ein Schloss, und seine Hand bleibt verdeckt.
+
+**Gelöscht wird nichts.** *Archivieren* nimmt ein Spiel aus deiner Liste
+(und *Zurückholen* bringt es zurück); die Aufzeichnung bleibt auf dem
+Gateway, weil Spielaufzeichnungen die Haus-KI trainieren und beim
+Ausbalancieren der Decks helfen ([docs/privacy.md](docs/privacy.md) sagt,
+was eine Aufzeichnung enthält: keinen Chat, und keine Namen mehr, sobald ein
+Konto gelöscht ist). Eine Wiederholung spielt die heutige Version der Engine
+noch einmal; wo sich das nicht gegen das prüfen lässt, was der Tisch damals
+zeigte, markiert es die Zeitleiste.
+
+## Gegen ein Sprachmodell spielen
+
+Einen Platz kann auch ein Sprachmodell spielen, etwa eines hinter der API
+von Anthropic oder einer OpenAI-kompatiblen API, oder ein lokales Modell in
+LM Studio. Es spielt aus genau dem, was dieser Platz sehen würde, über
+dieselben Fragen, die auch ein Mensch beantwortet. Der Name eines Spielers
+wird nie an ein Modell geschickt: Die Plätze heißen `P1`, `P2`, … und der
+eigene Platz des Modells „du“. Der Raum zeigt, welches Modell auf welchem
+Platz sitzt, bevor jemand *Bereit* sagt.
+
+Es gibt zwei Wege.
+
+### Ein Modell, das der Server anbietet
+
+Manche Gateways bieten **Gateway-Modelle** an, die der Betreiber des Servers
+betreibt und bezahlt. Der Betreiber legt für jedes Modell fest, welche
+Spieler es an den Tisch setzen dürfen. Darfst du, bietet ein freier Platz in
+deinem Raum **Gateway-Modell** an: Such eines aus, und es setzt sich. Auf
+deinem Rechner brauchst du dafür nichts.
+
+### Dein eigenes Modell, mit deinem eigenen Schlüssel
+
+Das geht im Desktop-Client, auf jedem Gateway, und kostet, was dein Anbieter
+berechnet.
+
+1. **Ein Profil anlegen.** Öffne **Einstellungen → Sprachmodelle** und wähle
+   eine Vorlage: Anthropic, OpenAI, DeepSeek, LM Studio auf diesem Rechner
+   oder ein Agenten-Kommandozeilenprogramm, bei dem du angemeldet bist (zum
+   Beispiel Claude Code). Ein Profil sagt, welcher Anbieter und welches
+   Modell spielen und wie gründlich das Modell nachdenkt.
+2. **Einen Schlüssel geben.** Füge den Schlüssel ins Schlüsselfeld ein und
+   drücke *Behalten*. Er landet im Schlüsselbund deines Systems
+   (macOS-Schlüsselbund, Windows-Anmeldeinformationsverwaltung, der Secret
+   Service unter Linux), nie in einer Datei, und das Fenster zeigt ihn nie
+   wieder an. Ein lokales Modell in LM Studio braucht keinen Schlüssel.
+3. **Grenzen setzen.** Tages- und Monatsgrenzen in Dollar oder Tokens, dazu
+   ein Budget pro Spiel. Jedes Spiel reserviert sein Budget, bevor es sich
+   setzt, und rechnet danach ab; das Fenster zeigt, was heute und in diesem
+   Monat ausgegeben wurde.
+4. **Es an den Tisch setzen.** In einem Raum, den du leitest, drückst du auf
+   einem freien Platz **Sprachmodell**, wählst Profil, Modell und Deck und
+   wartest, bis der Platz *Bereit* zeigt: Vorher prüft die Brücke, ob das
+   Modell antwortet.
+
+Wie es hineinkommt: Dein Client holt sich beim Gateway ein kurzlebiges
+**Platz-Ticket** (Chair Ticket) für diesen Platz und gibt es an die
+Sitz-Brücke weiter (`baylee-seat`, die mit dem Client ausgeliefert wird).
+Das Modell sitzt dann als *dein* Vertreter auf dem Platz, mit einem Namen
+`LLM-…` und ohne eigenes Konto; bist du mit einem Konto angemeldet, klappt
+das also auch auf einem Gateway der geschlossenen Beta. Scheitert das
+Modell, läuft ihm die Zeit davon oder antwortet es etwas Unzulässiges,
+beantwortet das Haus diese eine Frage für es.
+
+**Für Bastler** läuft dieselbe Brücke auch im Terminal. Starte ein lokales
+Gateway und einen Agenten ([Ein eigenes Gateway betreiben](#ein-eigenes-gateway-betreiben))
+und dann:
+
+```bash
+cargo run -p xtask -- dev-table --bridge profile:<name> --play   # du auf Platz 0, das Modell auf Platz 1
+cargo run -p xtask -- dev-table --bridge house --play             # das Haus über dieselbe Brücke, zur Probe
+```
+
+Die Brücke schreibt, was sie gefragt und was das Modell geantwortet hat,
+nach `target/seat-transcripts/`. Die Einstellungsdatei, die Grenzen, die
+Anbieter und die Kommandozeilenprogramme beschreibt
+[docs/llm-seat.md](docs/llm-seat.md) (englisch).
 
 ## Fehler melden
 
-Drück <kbd>F8</kbd> am Tisch oder in der Lobby, oder nimm den Melde-Knopf im
-Menü. Die Meldung geht an das Gateway, an dem du angemeldet bist. Sie enthält
-immer die Art der Meldung, deinen Text, die Client-Version und, am Tisch, die
-Kennung der Partie.
+Drücke <kbd>F8</kbd> am Tisch oder in der Lobby, oder nimm den Melde-Knopf im
+Menü. Eine Meldung geht an das Gateway, an dem du angemeldet bist. Sie
+enthält immer ihre Art, deinen Text, die Client-Version und am Tisch die
+Kennung des Spiels.
 
-Alles Weitere hat **je ein eigenes Kästchen**, und jedes ist anfangs
-angehakt: Nimm vor dem Senden das Häkchen weg, wo du etwas lieber behältst.
-Die Kästchen sind System und Hardware, der Tisch aus deiner Sicht, dein
-Spielprotokoll (mit den Mitspielern als „Player A“, „Player B“, …), deine
-Einstellungen, ein Bild nur des Baylee-Fensters und am Tisch die ganze
-Aufzeichnung der Partie (jeder Zug und die Karten jedes Platzes, keine
-Namen). „Zeigen, was gesendet wird“ zeigt jedes Byte. Sitzungsschlüssel werden nie
-gesendet. Nach einem Absturz fragt der nächste Start einmal, ob
-Absturzberichte gesendet werden dürfen. Bist du an keinem Gateway angemeldet,
-geht die Meldung direkt an den Feedback-Dienst, den der Build nennt; nennt er
-keinen, wird nichts gesendet.
+Alles Weitere hat **je ein Häkchen**, und jedes Häkchen ist zu Beginn
+gesetzt: Nimm weg, was du lieber für dich behältst, bevor du *Senden*
+drückst. Die Häkchen sind System und Hardware, der Tisch, wie du ihn siehst,
+dein Spielprotokoll (mit Spielern umbenannt in „Spieler A“, „Spieler B“, …),
+deine Einstellungen, ein Bild nur des Baylee-Fensters und am Tisch die
+ganze Aufzeichnung des Spiels (jeder Zug und die Karten jedes Platzes, keine
+Namen). „Zeigen, was gesendet wird“ zeigt jedes Byte. Sitzungsschlüssel und
+Chat werden nie gesendet. Nach einem Absturz fragt der nächste Start
+einmal, ob Absturzberichte gesendet werden dürfen. Bist du an keinem Gateway
+angemeldet, geht die Meldung direkt an den Feedback-Dienst, den der Build
+nennt; nennt er keinen, wird nichts gesendet.
 
-Was Client, Gateway und Meldedienst speichern, steht vollständig in
-[docs/privacy.md](docs/privacy.md).
+[docs/privacy.md](docs/privacy.md) listet alles, was Client, Gateway und
+Feedback-Dienst speichern. Eine Karte, die falsch spielt, ist die
+nützlichste Meldung überhaupt; du kannst auch
+[ein Issue auf GitHub eröffnen](https://github.com/AceVik/baylee/issues).
+
+## Wo die Karten stehen
+
+Jede Karte in Baylee ist Code: eine Datei pro Karte, in einer kleinen
+Regelsprache geschrieben und in einem Test gespielt. Es gibt keinen
+Interpreter, der Kartentext ungefähr errät. Deshalb wächst der Pool Stapel
+für Stapel statt auf einmal.
+
+Gezählt am Release-Kandidaten von beta.7 (13. Oktober 2026):
+
+| | Karten |
+| --- | --- |
+| Spielen **genau wie gedruckt** (`Implemented`) | **3.172** |
+| Spielen, aber **noch nicht jeder Satz** (`Partial`, der Deckbauer warnt) | 98 |
+| Im Pool, **noch ohne Regeln** (der Deckbauer warnt) | 48 |
+| Absichtlich **nie gebaut** (Ante-, Geschicklichkeits- und Subgame-Karten) | 13 |
+| **Alle Magic-Karten**, auf die wir hinarbeiten (jede Karte einmal, eine pro Oracle-Text) | 33.694 |
+
+Heute spielt also etwa **jede zehnte Karte** von ganz Magic. Der Deckbauer
+kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält,
+die nicht wie gedruckt spielen.
+
+**Sets.** Karten entstehen Set für Set in der Reihenfolge, in der Magic sie
+gedruckt hat; jede Karte zählt in dem Set, in dem sie zuerst erschien:
+
+| Set | Karten | Wie gedruckt | Teilweise | Noch ohne Regeln | Noch nicht im Pool | Nie gebaut |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Limited Edition Alpha (und die zwei Karten, die Beta dazubrachte) | 292 | 288 | 0 | 0 | 0 | 4 |
+| Arabian Nights | 77 | 63 | 12 | 0 | 0 | 2 |
+| Antiquities | 85 | 79 | 5 | 0 | 0 | 1 |
+| Legends | 310 | 259 | 42 | 6 | 0 | 3 |
+| The Dark | 119 | 19 | 0 | 2 | 98 | 0 |
+| Fallen Empires | 102 | 23 | 0 | 0 | 79 | 0 |
+
+**Alpha ist vollständig**: Jede spielbare Karte spielt genau wie gedruckt
+(die vier fehlenden sind Chaos Orb, eine Geschicklichkeitskarte, und drei
+Ante-Karten). Arabian Nights, Antiquities und Legends sind vollständig im
+Pool; ihre teilweise umgesetzten Karten werden gerade fertig. Danach kommen
+The Dark, Fallen Empires und Ice Age. Karten aus späteren Sets, die schon
+spielen, kamen mit früheren Stapeln dazu.
+
+**Bekannte Lücken.** Noch keine Bannlisten und keine Prüfung der
+Format-Legalität; die besonderen Objekte der Varianten-Formate (Planes,
+Schemes, Vanguards, Conspiracies, Dungeons) sind nicht gebaut. Die
+[Website](https://baylee.acevik.de/?lang=de#cards) zeigt jedes Set und jede
+Karte mit ihrem Stand und bei einer teilweise umgesetzten Karte, was ihr
+noch fehlt; [docs/mechanics-roadmap.md](docs/mechanics-roadmap.md) §E8 ist
+der Plan, und [data/card-pool.txt](data/card-pool.txt) die Liste der Karten
+im Pool.
 
 ## Ein eigenes Gateway betreiben
 
-Ein Gateway ist der Server, an dem sich Spieler anmelden. Eine Partie läuft
-über drei Arten von Prozessen:
+Ein Gateway ist der Server, an dem sich Spieler anmelden. Du kannst eines für
+deine eigene Runde betreiben: alles, was das öffentliche kann, auf deinem
+eigenen Rechner. Ein Spiel läuft in drei Arten von Prozessen:
 
-- **`baylee-gateway`** verwaltet Konten, Decks und Räume und vermittelt
-  zwischen Spielern und Partien. Es führt keine Regeln aus und braucht
-  PostgreSQL.
-- **`baylee-agent`** startet auf Anfrage des Gateways für jede Partie einen
-  Engine-Prozess. Auch er kennt keine Regeln.
-- **`baylee-engine-server`** ist eine Partie. Er verbindet sich von sich aus
-  mit dem Gateway.
+- **`baylee-gateway`** verwaltet Konten, Decks, Räume, Freunde, Chat und
+  Wiederholungen. Es führt selbst keine Regeln aus und braucht PostgreSQL.
+- **`baylee-agent`** startet pro Spiel einen Engine-Prozess, wenn das
+  Gateway darum bittet.
+- **`baylee-engine-server`** ist ein Spiel. Es verbindet sich zurück zum
+  Gateway.
 
-Dieser Abschnitt ist eine Anleitung. Verbindlich sind
+Dieser Abschnitt ist eine Anleitung. Maßgeblich sind
 [docs/protocol.md](docs/protocol.md) und der Abschnitt *Environment* in
 [CLAUDE.md](CLAUDE.md#environment).
 
@@ -456,8 +690,8 @@ docker compose up -d          # PostgreSQL 18 aus compose.yaml
 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
 ```
 
-Ändere das Passwort für alles, was von außen erreichbar ist. Das Gateway legt
-seine Tabellen selbst an und migriert sie.
+Ändere das Passwort für alles, was von außen erreichbar ist. Seine Tabellen
+legt das Gateway selbst an und migriert sie.
 
 ### 2. Bauen und starten
 
@@ -469,38 +703,41 @@ RUST_LOG=info BAYLEE_GATEWAY_NAME="Mein Tisch" ./target/release/baylee-gateway  
 RUST_LOG=info ./target/release/baylee-agent        # findet baylee-engine-server neben sich
 ```
 
-Ohne `RUST_LOG=info` protokollieren die Server nichts. Ist kein Agent
-verbunden, kann das Gateway zwar Räume anzeigen, aber keine Partie starten
-(`503`).
+Ohne `RUST_LOG=info` protokollieren die Server nichts. Ohne verbundenen
+Agenten kann das Gateway Räume anzeigen, aber kein Spiel starten (`503`).
 
-Laufen Gateway und Agent auf derselben Maschine, können sie statt über TCP
-über einen **Unix-Socket** sprechen. Setze dazu
-`BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock` beim Gateway und
-`BAYLEE_GATEWAY=unix:/run/baylee/gateway.sock` beim Agenten. Siehe
+Laufen Gateway und Agent auf demselben Rechner, können sie statt über TCP
+über einen **Unix-Socket** sprechen: `BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock`
+für das Gateway und `BAYLEE_GATEWAY=unix:/run/baylee/gateway.sock` für den
+Agenten. Siehe
 [docs/protocol.md § On the same machine](docs/protocol.md#on-the-same-machine-the-unix-socket).
 
-Stell `baylee-engine-server` nie allein ins Netz: Ohne die Argumente des
-Gateways ist er ein Entwicklungswerkzeug ohne jede Anmeldung.
+Stelle `baylee-engine-server` nie allein ins Netz: Ohne die Argumente des
+Gateways ist es ein Entwicklungswerkzeug ohne Anmeldung.
 
 ### 3. Wichtige Einstellungen
 
 | Variable | Wirkung |
 | --- | --- |
 | `DATABASE_URL` | Pflicht. |
-| `PORT` | Port, auf dem das Gateway lauscht (Standard `28766`). |
+| `PORT` | Port, auf dem es lauscht (Standard `28766`). |
 | `BAYLEE_AGENT_TOKEN` | Das Geheimnis des Agenten. Ohne es kann sich kein Agent verbinden. |
-| `BAYLEE_GATEWAY_NAME` | Der Name, den Clients für das Gateway anzeigen. |
-| `BAYLEE_REGISTRATION` | Nicht gesetzt: offene Registrierung. `invite`: geschlossene Beta mit Schlüsseln. `off`: keine Registrierung. |
-| `BAYLEE_GUESTS=off` | Keine Gastkonten. `BAYLEE_GUEST_CAP` begrenzt die Zahl aktiver Gäste (Standard 1000). |
-| `BAYLEE_TRUSTED_PROXIES` | Adresse deines Reverse-Proxys, damit die Anfragebegrenzung die echte IP des Clients sieht. |
+| `BAYLEE_GATEWAY_NAME` | Der Name, den Clients für das Gateway zeigen. |
+| `BAYLEE_REGISTRATION` | Nicht gesetzt: offene Anmeldung. `invite`: geschlossene Beta, Schlüssel nötig. `off`: keine Anmeldung. |
+| `BAYLEE_GUESTS=off` | Keine Gastkonten. `BAYLEE_GUEST_CAP` begrenzt die gleichzeitigen Gäste (Standard 1000). |
+| `BAYLEE_TRUSTED_PROXIES` | Adresse deines Reverse Proxys, damit die Ratenbegrenzung die echte Client-IP sieht. |
 | `BAYLEE_ART_PATH` / `BAYLEE_DECK_IMAGE_PATH` | Wo Kartenbilder zwischengespeichert und hochgeladene Hüllen/Matten abgelegt werden (`off` schaltet sie ab). |
-| `BAYLEE_ENGINE_URL` | Setzen, wenn der Agent auf einer anderen Maschine läuft. |
-| `BAYLEE_SOURCE_URL` | Wo der Quellcode deiner Version liegt, falls du ihn geändert hast (AGPL §13). |
-| `BAYLEE_FEEDBACK_URL`, `…_TOKEN`, `…_KEY` | Optional: <kbd>F8</kbd>-Meldungen an einen Meldedienst weiterleiten. |
+| `BAYLEE_SOCIAL` / `BAYLEE_SOCIAL_KEEP_DAYS` | Freunde und Chat (`off` schaltet sie ab); wie viele Tage eine nicht zugestellte Nachricht bleibt (1–30, Standard 14). |
+| `BAYLEE_REPLAY_JOBS` | Wie viele Wiederholungen gleichzeitig berechnet werden (Standard 4; `0` schaltet Wiederholungen ab). |
+| `BAYLEE_TERMS_PATH` | Deine Nutzungsbedingungen: eine Markdown-Datei oder ein Ordner mit `terms.<lang>.md`-Dateien, darunter `terms.en.md`. Spieler stimmen ihnen bei der Anmeldung und nach jeder Änderung zu. |
+| `BAYLEE_IMPRESSUM_URL` | Ein Link auf dein Impressum, den die Clients zeigen. |
+| `BAYLEE_ENGINE_URL` | Setzen, wenn der Agent auf einem anderen Rechner läuft. |
+| `BAYLEE_SOURCE_URL` | Wo der Quellcode deines Builds liegt, falls du ihn verändert hast (AGPL §13). |
+| `BAYLEE_FEEDBACK_URL`, `…_TOKEN`, `…_KEY` | Optional: <kbd>F8</kbd>-Meldungen an einen Feedback-Dienst weiterleiten. |
 
-Das Gateway beantwortet `GET /source` ohne Anmeldung mit Lizenz, Version und
-Commit. Die AGPL verlangt, dass du den Nutzern deines Servers den Quellcode
-anbietest, und diese Route erledigt das für dich.
+Das Gateway beantwortet `GET /source` mit Lizenz, Version und Commit, ohne
+Anmeldung. Die AGPL verlangt, dass du den Nutzern deines Servers den
+Quellcode anbietest, und diese Route erledigt das für dich.
 
 ### 4. Beta-Schlüssel
 
@@ -513,13 +750,14 @@ baylee-gateway invite revoke <id>
 ```
 
 Der Befehl braucht nur `DATABASE_URL`; das Gateway muss dafür nicht laufen.
-Jeder Schlüssel wird einmal angezeigt, gespeichert wird nur sein Hash. Auf
-einem Server, der mit `scripts/server/baylee-deploy` eingerichtet wurde, liest
-`sudo baylee-invite …` die Einstellungen des Gateways für dich.
+Jeder Schlüssel wird einmal ausgegeben, gespeichert wird nur sein Hash. Auf
+einem mit `scripts/server/baylee-deploy` eingerichteten Server liest der
+Wrapper `sudo baylee-invite …` die Einstellungen des Gateways für dich. Die
+Admin-Konsole unten kann dasselbe im Browser.
 
 ### 5. Kartentext (optional)
 
-Auch ohne Katalog laufen Partien: Die Karten zeigen ihren englischen
+Ohne Katalog laufen Spiele trotzdem: Die Karten zeigen ihren englischen
 Oracle-Text, der in die Programme eingebaut ist. Für durchsuchbaren
 Kartentext in 19 Sprachen lädst du Scryfalls Massendaten in dieselbe
 Datenbank:
@@ -531,9 +769,9 @@ RUST_LOG=baylee_catalog=info cargo run --release -p baylee-catalog -- ingest --e
 
 ### 6. HTTPS davor
 
-Das Gateway spricht einfaches HTTP und WebSocket, also gehört ein TLS-Proxy
-davor. Das Repository bringt keine Proxy-Konfiguration mit; dieses minimale
-Beispiel für [Caddy](https://caddyserver.com/) ist ein Ausgangspunkt:
+Das Gateway spricht einfaches HTTP und WebSocket; setze also einen
+TLS-Proxy davor. Dieses minimale [Caddy](https://caddyserver.com/)-Beispiel
+ist ein Anfang (`scripts/server/` enthält die des öffentlichen Servers):
 
 ```caddyfile
 baylee.example.org {
@@ -544,15 +782,33 @@ baylee.example.org {
 Caddy besorgt ein Zertifikat, reicht WebSockets durch und setzt
 `X-Forwarded-For`. Setze dann `BAYLEE_TRUSTED_PROXIES=127.0.0.1` beim
 Gateway. Das Gateway authentifiziert mit Bearer-Tokens und setzt keine
-Cookies, weitere CORS- oder Cookie-Einstellungen sind also nicht nötig.
+Cookies; weitere CORS- oder Cookie-Einstellungen braucht es nicht.
 
-### 7. Fehlermeldungen (optional)
+### 7. Fehlermeldungen und Admin-Konsole (optional)
 
-`baylee-feedback` ist ein eigener Dienst. Er sammelt die Meldungen, die
-Gateways weiterleiten, und hat eine kleine Weboberfläche zum Lesen. Die
-Einrichtung beschreibt
-[docs/feedback.md § Running it](docs/feedback.md#running-it). Ohne ihn lehnt
-das Gateway Meldungen mit „reports are not configured“ ab.
+`baylee-feedback` ist ein eigener Dienst, der die Meldungen sammelt, die
+Gateways weiterleiten, mit einer Weboberfläche zum Lesen. Dieselbe
+Oberfläche ist die **Admin-Konsole** für ein Gateway, für Admins, die du mit
+`baylee-feedback admin add` anlegst: eine Übersicht mit der Serverlast, wer
+online ist und an welchem Tisch, Konten (Passwort zurücksetzen, sperren,
+löschen), ein laufendes Spiel beenden, eine Karte für eine Zeit oder auf
+Dauer sperren (die Spieler erfahren den Grund), Beta-Schlüssel und die
+Gateway-Modelle (welcher Sitz-Agent welches Modell betreibt, ihre Schlüssel
+und welche Spieler welches Modell setzen dürfen). Die Seite des Gateways
+dafür lauscht nur auf dem eigenen Rechner (`BAYLEE_ADMIN_TOKEN`,
+`BAYLEE_ADMIN_BIND`). Die Einrichtung beschreibt
+[docs/feedback.md § Running it](docs/feedback.md#running-it); ohne den
+Dienst lehnt das Gateway Meldungen mit „reports are not configured“ ab.
+
+### 8. Gateway-Modelle (optional)
+
+Um deinen Spielern Modelle anzubieten, betreibst du neben dem Gateway einen
+**Sitz-Agenten** (`baylee-seathost`), mit `BAYLEE_SEATHOST_TOKEN` auf beiden
+Seiten. Seine Modelle, ihre Schlüssel und ihre Ausgabengrenzen liegen auf
+dem Rechner des Sitz-Agenten; die Admin-Konsole richtet sie ein und
+entscheidet, wer welches Modell setzen darf. Einzelheiten stehen in
+[docs/llm-seat.md § A hosted seat](docs/llm-seat.md#a-hosted-seat) und in
+[docs/protocol.md](docs/protocol.md) §„Hosted language-model seats“.
 
 ## Aus dem Quellcode bauen
 
@@ -567,20 +823,19 @@ cd baylee
 cargo run --release -p baylee-client          # das Spiel; offline braucht es nichts weiter
 ```
 
-- **Browser-Version:** `trunk serve index.html --release` in
-  `crates/baylee-client/`. Immer mit `--release` bauen: Ein Debug-Wasm ist
-  rund 350 MB groß.
-- **Android / iOS-Simulator:** `scripts/mobile/android-build.sh`,
-  `scripts/mobile/ios-sim-run.sh` ([docs/mobile.md](docs/mobile.md)).
-- **Ein lokaler Tisch mit mehreren Plätzen:** Gateway und Agent starten (siehe
-  oben), dann `cargo run -p xtask -- dev-table --seats 4 --ai sharp --play`.
+- **Ein lokaler Tisch mit Plätzen:** Starte Gateway und Agent (oben), dann
+  `cargo run -p xtask -- dev-table --seats 4 --ai sharp --play`.
+- **Browser- und Handy-Versionen** lassen sich weiter bauen
+  (`trunk serve index.html --release` in `crates/baylee-client/`;
+  `scripts/mobile/`), gehören aber nicht zu diesem Release
+  ([docs/mobile.md](docs/mobile.md)).
 
 Für Mitwirkende die Prüfungen, die auch die CI ausführt:
 
 ```bash
 cargo fmt --all
-./scripts/gate-rules.sh                        # schnell: die Regel-Crates, ohne Client
-DATABASE_URL=… ./scripts/gate.sh               # die volle Prüfung: fmt, clippy, nextest, validate
+./scripts/gate-rules.sh                        # schnell: Regel-Crates ohne Client
+DATABASE_URL=… ./scripts/gate.sh               # das volle Gate: fmt, clippy, nextest, validate
 DATABASE_URL=… ./scripts/gate-features.sh      # die Builds mit Nicht-Standard-Features
 ```
 
@@ -597,51 +852,60 @@ flowchart LR
   core --> clientcore[baylee-client-core]
   view --> clientcore
   protocol[baylee-protocol] --> clientcore
+  seal[baylee-seal] --> clientcore
   clientcore --> client[baylee-client<br/>Bevy]
+  clientcore --> seat[baylee-seat]
   protocol --> gateway[baylee-gateway]
   protocol --> agent[baylee-agent]
   db[baylee-db] --> gateway
   catalog[baylee-catalog] --> gateway
+  seal --> gateway
 ```
 
-Jeder Pfeil nimmt eine Fähigkeit weg. Die **Engine** ist synchron und rein:
-kein I/O, kein async, keine Uhr. **gamehost** baut aus ihr die Sicht jedes
-Platzes, und diese Sicht verbirgt, was der Platz nicht sehen darf.
-**client-core** ist die Logik des Clients ohne Grafik und enthält die meisten
-Client-Tests. **Gateway** und **Agent** binden überhaupt keine Regeln ein.
-Karten sind Rust-Code in einer kleinen DSL, eine Datei pro Karte unter
+Jeder Pfeil nimmt eine Fähigkeit weg. Die **Engine** ist synchron und
+deterministisch: keine Ein-/Ausgabe, keine Uhr, ein Zufallsgenerator mit
+festem Startwert. Dasselbe Spiel mit denselben Antworten endet also immer
+gleich, und das macht Aufzeichnungen und Wiederholungen erst möglich.
+**gamehost** baut daraus die Sicht jedes Platzes, und diese Sicht verbirgt,
+was der Platz nicht sehen darf. **client-core** ist die Logik des Clients
+ohne Darstellung und enthält die meisten Client-Tests; der 3D-Tisch ist mit
+[Bevy](https://bevyengine.org/) gebaut. **seal** ist die Verschlüsselung des
+Chats. **Gateway** und **Agent** enthalten überhaupt keine Regeln. Karten
+sind Rust-Code in einer kleinen DSL, eine Datei pro Karte unter
 `crates/baylee-cards/src/cards/`.
 
-Zum Weiterlesen (die Dokumentation ist englisch):
+Zum Weiterlesen (englisch):
 
 | Thema | Dokument |
 | --- | --- |
 | Gesamtplan | [docs/architecture.md](docs/architecture.md) |
-| Engine-Interna (Ebenen, Ereignisse, Cleanup, Schleifen) | [docs/engine-internals.md](docs/engine-internals.md) |
-| Protokoll, Gateway, Räume, Schlüssel | [docs/protocol.md](docs/protocol.md) |
+| Interna der Engine (Ebenen, Ereignisse, Cleanup, Schleifen) | [docs/engine-internals.md](docs/engine-internals.md) |
+| Protokoll, Gateway, Räume, Chat, Wiederholungen, Schlüssel | [docs/protocol.md](docs/protocol.md) |
 | Der Client | [docs/client.md](docs/client.md) |
 | Karten schreiben | [docs/card-dsl.md](docs/card-dsl.md), [docs/card-identity.md](docs/card-identity.md) |
 | Haus-KI | [docs/house-ai.md](docs/house-ai.md) |
+| Sprachmodell-Plätze | [docs/llm-seat.md](docs/llm-seat.md) |
 | Datenschutz | [docs/privacy.md](docs/privacy.md) |
 | Rechtliches | [docs/legal.md](docs/legal.md) |
-| Veröffentlichen | [docs/releasing.md](docs/releasing.md) |
+| Releases | [docs/releasing.md](docs/releasing.md) |
 
 ## Mitmachen
 
-Issues und Pull Requests sind auf
-[GitHub](https://github.com/AceVik/baylee) willkommen. Lies vorher
-[AGENTS.md](AGENTS.md) und [CLAUDE.md](CLAUDE.md): Das sind die
-Arbeitsregeln des Projekts, für Menschen und Coding-Agenten gleichermaßen. Ein
-paar Punkte daraus:
+Issues und Pull Requests sind auf [GitHub](https://github.com/AceVik/baylee)
+willkommen, und auf [Discord](https://discord.gg/4pP3uAwgY) kannst du reden
+und Gegner finden. Bevor du mit Code anfängst, lies [AGENTS.md](AGENTS.md)
+und [CLAUDE.md](CLAUDE.md): Das sind die Arbeitsregeln des Projekts, für
+Menschen und Coding-Agenten gleichermaßen. Ein paar Punkte:
 
-- Lass vor dem Push die Prüfungen laufen. Die CI baut zusätzlich für Windows,
-  macOS, wasm32 und die kleinste unterstützte Rust-Version.
+- Lass das Gate laufen, bevor du pushst. Die CI baut außerdem für Windows,
+  macOS, wasm32 und die minimale Rust-Version.
 - Jede Karte, die du hinzufügst oder reparierst, bekommt einen Test, der sie
   spielt, in `crates/baylee-engine/src/engine/card_tests/`.
 - Die Engine bleibt deterministisch: kein `std::time`, kein Zufall außer dem
-  Generator mit festem Startwert, keine Hash-Map-Iteration in heißen Pfaden.
-- Nichts, was eine Karte, ein Symbol, eine Schrift oder einen Klang zeigt,
-  wird gemergt, ohne es gegen [docs/legal.md](docs/legal.md) zu prüfen.
+  Generator mit festem Startwert, keine Iteration über Hash-Maps in heißen
+  Pfaden.
+- Nichts, was eine Karte, ein Symbol, eine Schrift oder einen Ton zeigt, wird
+  gemergt, ohne es gegen [docs/legal.md](docs/legal.md) zu prüfen.
 
 ## Lizenz und Rechtliches
 
@@ -651,20 +915,25 @@ verändertes Gateway für andere betreibt, muss ihnen dessen Quellcode
 anbieten; die Route `GET /source` des Gateways erledigt das. Das Projekt ist
 kostenlos und nicht kommerziell, und keine Funktion wird je verkauft.
 
-**Fan-Content.** Der Hinweis, den die Fan Content Policy verlangt, steht hier
-im englischen Wortlaut, so wie ihn auch der Client zeigt:
+**Fan-Content.** Baylee ist ein inoffizieller Fan-Inhalt im Rahmen der
+[Richtlinie für Fan-Inhalte](https://company.wizards.com/de/legal/fancontentpolicy).
+Nicht von Wizards gefördert/gesponsert. Bestandteile des enthaltenen
+Materials sind Eigentum von Wizards of the Coast. ©Wizards of the Coast LLC.
+Baylee ist nicht mit Wizards of the Coast verbunden. Der englische Wortlaut,
+den auch der Client zeigt:
 
 > Baylee is unofficial Fan Content permitted under the
 > [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
 > Not approved/endorsed by Wizards. Portions of the materials used are
 > property of Wizards of the Coast. ©Wizards of the Coast LLC.
 
-Baylee steht in keiner Verbindung zu Wizards of the Coast, und dieses
-Repository enthält kein Material von Wizards of the Coast.
+Magic: The Gathering sowie Kartennamen, Setnamen, Kartenbilder und
+Manasymbole sind Eigentum von Wizards of the Coast LLC. Dieses Repository
+enthält kein Material von Wizards of the Coast.
 
-**Scryfall.** Kartendaten und -bilder stellt
-[Scryfall](https://scryfall.com) bereit. Der Client lädt die Kartenbilder
-beim Spielen von Scryfall; sie gehören nicht zu diesem Repository und werden
+**Scryfall.** Kartendaten und -bilder bereitgestellt von
+[Scryfall](https://scryfall.com). Der Client lädt die Kartenbilder beim
+Spielen von Scryfall; sie gehören nicht zu diesem Repository und werden
 nicht weiterverbreitet. Deshalb zeigen die Bilder oben Baylees eigene
 Textansicht: Sie zeichnet eine Karte aus Name und Regeltext in unserem
 eigenen Layout, ohne Rahmengrafik und ohne das Bild einer gedruckten Karte
