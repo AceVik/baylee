@@ -585,7 +585,13 @@ fn ask(
     request.timeout = Some(std::time::Duration::from_secs(75));
     crate::transport::fetch(request, move |answer| match answer {
         Ok(response) if response.ok => {
-            let gzip = Arc::new(response.bytes);
+            // Gzip as the route sends it; JSON Lines if something on the
+            // way inflated it (a `Content-Encoding` honoured in transit).
+            let gzip = Arc::new(if response.bytes.first() == Some(&b'{') {
+                baylee_client_core::bugreport::gzip(&response.bytes)
+            } else {
+                response.bytes
+            });
             if let Ok(mut tapes) = TAPES.lock() {
                 tapes.retain(|(k, _)| *k != key);
                 tapes.push((key, Arc::clone(&gzip)));
@@ -597,8 +603,21 @@ fn ask(
         Ok(response) if response.status == 502 && again => {
             ask(access, perspective, verify, key, tx, false);
         }
+        // The game ended a moment ago and the gateway does not yet know
+        // (`409`, still being played): once more, a second later.
+        Ok(response) if response.status == 409 && again => {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            ask(access, perspective, verify, key, tx, false);
+        }
         Ok(response) => {
-            let said = String::from_utf8_lossy(&response.bytes).trim().to_string();
+            #[derive(serde::Deserialize)]
+            struct Refused {
+                error: String,
+            }
+            let said = serde_json::from_slice::<Refused>(&response.bytes).map_or_else(
+                |_| String::from_utf8_lossy(&response.bytes).trim().to_string(),
+                |refused| refused.error,
+            );
             let _ = tx.send(Err(if said.is_empty() {
                 format!("{} {}", response.status, response.status_text)
             } else {
