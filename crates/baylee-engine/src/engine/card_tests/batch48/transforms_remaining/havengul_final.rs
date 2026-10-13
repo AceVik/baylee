@@ -189,3 +189,62 @@ fn havengul_simultaneous_source_and_linked_creature_departure_uses_predeparture_
         "independent trigger cannot transform a departed source"
     );
 }
+
+/// Havengul Mystery prints "{T}, Pay 1 life: Add {B}." (back-face ability 2):
+/// one tap pays exactly one life for exactly one black mana, and the tapped
+/// land offers it no second time.
+#[test]
+fn havengul_mystery_taps_and_pays_one_life_for_one_black_and_not_twice() {
+    let (mut e, lab, _bear) = super::havengul::linked_bear();
+    assert_eq!(face(&e, lab), 1, "the land stands transformed");
+    // The Laboratory's last Investigate tapped it; transforming does not untap.
+    e.state.set_tapped(lab, false);
+    e.refresh_offer();
+    let life = e.state.players[0].life;
+    let black = e.state.players[0].mana_pool.available(ManaColor::Black);
+    let total = e.state.players[0].mana_pool.total();
+
+    ability(&mut e, P0, index::HAVENGUL_LABORATORY, 2);
+
+    assert_eq!(
+        e.state.players[0].life,
+        life - 1,
+        "\"Pay 1 life\": exactly one life, no more and no less"
+    );
+    assert_eq!(
+        e.state.players[0].mana_pool.available(ManaColor::Black),
+        black + 1,
+        "\"Add {{B}}\": one black mana"
+    );
+    assert_eq!(
+        e.state.players[0].mana_pool.total(),
+        total + 1,
+        "one mana of black and nothing else (the front face's {{C}} is not printed here)"
+    );
+    assert!(e.state.object(lab).unwrap().status.contains(Status::TAPPED));
+    assert_eq!(face(&e, lab), 1, "the mana ability does not transform it");
+
+    let Pending::Priority { legal, .. } = e.pending().clone() else {
+        panic!("priority expected, got {:?}", e.pending());
+    };
+    assert!(
+        !legal.abilities.contains(&(lab, 2)),
+        "\"{{T}}\": a tapped Mystery does not offer the ability again"
+    );
+    assert!(
+        e.apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: lab,
+                ability_index: 2,
+            },
+        )
+        .is_err(),
+        "a second activation while tapped is refused"
+    );
+    assert_eq!(
+        e.state.players[0].life,
+        life - 1,
+        "the refused activation paid no second life"
+    );
+}

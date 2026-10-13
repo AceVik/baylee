@@ -249,3 +249,161 @@ fn floated_courtyard_mana_keeps_its_chosen_type_when_the_land_returns_with_a_new
     assert_eq!(counters_on(&e, ballista, CounterKind::P1P1), 1);
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
 }
+
+/// Untaps `source` with four storage counters on it and taps it for its
+/// restricted mana through printed ability `ability`, answering whatever it asks.
+fn float_restricted_mana(
+    e: &mut Engine<RegistryLookup>,
+    source: ObjectId,
+    land: CardIndex,
+    ability: u32,
+) {
+    let p0 = PlayerId::new(0);
+    {
+        let state = e.dev_state_mut(p0).unwrap();
+        state.set_tapped(source, false);
+        state
+            .object_mut(source)
+            .unwrap()
+            .counters
+            .add(counters::STORAGE, 4);
+    }
+    e.refresh_offer();
+    activate(e, p0, land, ability);
+    if matches!(e.pending(), Pending::ChooseNumber { .. }) {
+        e.apply(p0, PlayerAction::ChooseNumber(4)).unwrap();
+    }
+    while matches!(e.pending(), Pending::ChooseColor { .. }) {
+        e.apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+            .unwrap();
+    }
+}
+
+/// The creature-type restriction of a tribal land, with no Maskwood Nexus on
+/// the board to give every creature every type (the sweep above has one, so
+/// there the restriction cannot be told from "any creature"). The land's mana
+/// pays for a spell and an ability of each named creature type, and for
+/// nothing of a Bear or a Construct, nor for a payment that is neither.
+fn tribal_mana_without_a_nexus(
+    land: CardIndex,
+    ability: u32,
+    produced: u32,
+    kinds: &[(CardIndex, baylee_core::ids::SubtypeId)],
+    permanent: (CardIndex, baylee_core::ids::SubtypeId),
+) {
+    let p0 = PlayerId::new(0);
+    let mut hand = vec![index::GRIZZLY_BEARS];
+    hand.extend(kinds.iter().map(|(card, _)| *card));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                land,
+                index::WALKING_BALLISTA,
+                index::GLORIOUS_ANTHEM,
+                permanent.0,
+            ],
+        )
+        .hand(0, &hand)
+        .start();
+    keep_mulligans(&mut e);
+    settle_starting_land_choices(&mut e);
+    reach_main_phase(&mut e, p0);
+    let source = on_battlefield(&e, p0, land).unwrap();
+    let ballista = on_battlefield(&e, p0, index::WALKING_BALLISTA).unwrap();
+    let member = on_battlefield(&e, p0, permanent.0).unwrap();
+    let bears = in_hand(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    float_restricted_mana(&mut e, source, land, ability);
+    assert_eq!(
+        e.state().players[0].mana_pool.total(),
+        u64::from(produced),
+        "the land made its restricted mana"
+    );
+
+    let subtypes_of = |id| e.state().object(id).unwrap().characteristics().subtypes;
+    assert!(subtypes_of(member).contains(permanent.1));
+    assert!(!subtypes_of(bears).contains(permanent.1));
+    assert!(!subtypes_of(ballista).contains(permanent.1));
+    assert_eq!(
+        spendable_units(e.state(), p0, SpendFor::Ability(member)),
+        produced,
+        "an ability of a real {:?} may be paid with it",
+        permanent.1
+    );
+    for (card, subtype) in kinds {
+        let spell = in_hand(&e, p0, *card).unwrap();
+        assert!(
+            subtypes_of(spell).contains(*subtype),
+            "{card:?} is a {subtype:?}"
+        );
+        assert_eq!(
+            spendable_units(e.state(), p0, SpendFor::Spell(spell)),
+            produced,
+            "a {subtype:?} spell may be paid with it"
+        );
+    }
+    for (what, label) in [
+        (SpendFor::Spell(bears), "a Grizzly Bears spell"),
+        (
+            SpendFor::Ability(ballista),
+            "an ability of Walking Ballista",
+        ),
+        (SpendFor::Other, "a payment that is no spell or ability"),
+    ] {
+        assert_eq!(
+            spendable_units(e.state(), p0, what),
+            0,
+            "{label}: none of it is spendable there"
+        );
+        let before = e.state().players[0].mana_pool.clone();
+        assert!(
+            pay_mana_for(
+                e.dev_state_mut(p0).unwrap(),
+                p0,
+                what,
+                &ManaCost::parse("{1}")
+            )
+            .is_none(),
+            "{label}: cannot be paid with it"
+        );
+        assert_eq!(e.state().players[0].mana_pool, before, "atomic refusal");
+    }
+}
+
+#[test]
+fn crucible_of_the_spirit_dragon_mana_is_for_real_dragons_only() {
+    tribal_mana_without_a_nexus(
+        index::CRUCIBLE_OF_THE_SPIRIT_DRAGON,
+        2,
+        4,
+        &[(index::SHIVAN_DRAGON, creature::DRAGON)],
+        (index::SHIVAN_DRAGON, creature::DRAGON),
+    );
+}
+
+#[test]
+fn base_camp_mana_is_for_clerics_rogues_warriors_and_wizards_only() {
+    tribal_mana_without_a_nexus(
+        index::BASE_CAMP,
+        1,
+        1,
+        &[
+            (index::DEVOUT_MONK, creature::CLERIC),
+            (index::OPPOSITION_AGENT, creature::ROGUE),
+            (index::GOBLIN_SKY_RAIDER, creature::WARRIOR),
+            (index::THUNDERSCAPE_APPRENTICE, creature::WIZARD),
+        ],
+        (index::DEVOUT_MONK, creature::CLERIC),
+    );
+}
+
+#[test]
+fn primal_beyond_mana_is_for_real_elementals_only() {
+    tribal_mana_without_a_nexus(
+        index::PRIMAL_BEYOND,
+        1,
+        1,
+        &[(index::FLAMEKIN_HARBINGER, creature::ELEMENTAL)],
+        (index::BOGARDAN_FIREFIEND, creature::ELEMENTAL),
+    );
+}

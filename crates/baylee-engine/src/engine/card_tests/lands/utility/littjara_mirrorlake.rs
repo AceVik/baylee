@@ -152,3 +152,46 @@ fn mirrorlake_doubles_tokens_and_entry_counters_but_counters_are_not_copiable() 
     assert_eq!(pt(&e, image), (1, 1));
     assert_eq!(counters_on(&e, image, CounterKind::P1P1), 0);
 }
+
+/// "Activate only as a sorcery": with the cost floating and a creature to
+/// copy, the ability is not offered with a spell on the stack or in combat,
+/// and is offered in a main phase with an empty stack.
+#[test]
+fn mirrorlake_copy_ability_is_offered_only_as_a_sorcery() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = kit::game(
+        983,
+        &[littjara_mirrorlake(), llanowar_elves()],
+        &[],
+        &[index::DARK_RITUAL],
+        &[],
+    );
+    let price = [
+        (ManaColor::Green, 2),
+        (ManaColor::Blue, 1),
+        (ManaColor::Colorless, 2),
+    ];
+    kit::float(&mut e, p0, &[(ManaColor::Black, 1)]);
+    cast_with_floating(&mut e, p0, index::DARK_RITUAL);
+    assert!(!stack_is_empty(&e), "Dark Ritual waits on the stack");
+    kit::float(&mut e, p0, &price);
+    assert!(
+        !kit::offered(&e, littjara_mirrorlake(), p0, 1),
+        "\"Activate only as a sorcery\": not with a spell on the stack, though {{2}}{{G}}{{G}}{{U}} floats"
+    );
+
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        kit::offered(&e, littjara_mirrorlake(), p0, 1),
+        "main phase, empty stack, cost floating: offered"
+    );
+
+    kit::to_step(&mut e, p0, crate::turn::Step::CombatBegin);
+    kit::float(&mut e, p0, &price);
+    assert!(
+        !kit::offered(&e, littjara_mirrorlake(), p0, 1),
+        "\"Activate only as a sorcery\": not in combat"
+    );
+}

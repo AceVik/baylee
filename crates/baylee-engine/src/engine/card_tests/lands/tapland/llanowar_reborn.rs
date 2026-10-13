@@ -112,3 +112,66 @@ fn graft_moves_one_counter_only_between_the_two_original_permanents() {
         );
     }
 }
+
+/// Graft 1: the land enters with one +1/+1 counter and "whenever a creature
+/// enters, you may move a +1/+1 counter from this land onto it". Without
+/// Doubling Season in the way the land holds exactly one counter: the first
+/// creature may take it (land 0, creature 1, no doubling), and a second
+/// creature entering afterwards finds none, so there is no "you may" at all.
+#[test]
+fn graft_moves_the_only_counter_once_and_offers_nothing_when_the_land_has_none() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let is_may_do = |e: &Engine<RegistryLookup>| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    };
+    let mut e = Duel::new(SEED, forest())
+        .hand(
+            0,
+            &[llanowar_reborn(), index::GRIZZLY_BEARS, llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = play_land(&mut e, p0, llanowar_reborn());
+    assert_eq!(counters_on(&e, land, CounterKind::P1P1), 1, "Graft 1");
+
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Green, 3);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, index::GRIZZLY_BEARS);
+    pass_until(&mut e, is_may_do);
+    e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    assert_eq!(
+        counters_on(&e, land, CounterKind::P1P1),
+        0,
+        "the one counter left the land"
+    );
+    assert_eq!(
+        counters_on(&e, bear, CounterKind::P1P1),
+        1,
+        "and arrived once, undoubled"
+    );
+
+    cast_with_floating(&mut e, p0, llanowar_elves());
+    pass_until(&mut e, |e| {
+        is_may_do(e) || (on_battlefield(e, p0, llanowar_elves()).is_some() && stack_is_empty(e))
+    });
+    assert!(
+        !is_may_do(&e),
+        "a land with no +1/+1 counter on it offers no graft"
+    );
+    let elf = on_battlefield(&e, p0, llanowar_elves()).unwrap();
+    assert_eq!(counters_on(&e, elf, CounterKind::P1P1), 0);
+    assert_eq!(counters_on(&e, land, CounterKind::P1P1), 0);
+    assert_eq!(counters_on(&e, bear, CounterKind::P1P1), 1);
+}

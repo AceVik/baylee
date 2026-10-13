@@ -140,3 +140,127 @@ fn an_opponents_third_spell_does_not_offer_the_transform() {
         "p1's third spell does not turn p0's Cannons over"
     );
 }
+
+/// The Cannons after their controller's third spell of the turn and a "yes" to
+/// the may-transform: Spitfire Bastion on the battlefield, the three Rituals'
+/// black mana still floating.
+fn a_spitfire_bastion() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(111, swamp())
+        .battlefield(0, &[vance_s_blasting_cannons(), swamp(), swamp(), swamp()])
+        .hand(0, &[dark_ritual(), dark_ritual(), dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let bastion = on_battlefield(&engine, p0, vance_s_blasting_cannons()).expect("the Bastion");
+    assert_eq!(
+        engine.state().object(bastion).map(|o| o.face_index),
+        Some(1),
+        "the Cannons turned over"
+    );
+    assert!(!is_tapped(&engine, bastion), "the Bastion is untapped");
+    (engine, bastion)
+}
+
+/// "{2}{R}, {T}: Spitfire Bastion deals 3 damage to any target." — the back
+/// face's second ability, after a real transform. It deals exactly 3 to the
+/// player named, costs the {2}{R} and the tap, and a tapped Bastion cannot do
+/// it again however much mana floats.
+#[test]
+fn spitfire_bastion_deals_three_to_any_target_for_two_red_and_a_tap() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, bastion) = a_spitfire_bastion();
+
+    // {R} on top of the black the three Rituals left floating pays {2}{R}.
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    engine.refresh_offer();
+    let pool_before = engine.state().players[0].mana_pool.total();
+    assert_eq!(engine.state().players[1].life, 20);
+
+    activate(&mut engine, p0, vance_s_blasting_cannons(), 1);
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        player_options.contains(&p1),
+        "\"any target\" includes the opposing player: {player_options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "the Bastion deals exactly 3 damage"
+    );
+    assert!(
+        is_tapped(&engine, bastion),
+        "\"{{T}}\" is part of the activation cost"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        pool_before - 3,
+        "\"{{2}}{{R}}\" is three mana of the cost"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        0,
+        "the {{R}} of the cost was spent"
+    );
+
+    // The cost's tap is what is missing now: mana floats for another go.
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    engine.refresh_offer();
+    assert!(
+        engine.state().players[0].mana_pool.total() >= 3,
+        "{{2}}{{R}} is on hand, so only the tapped Bastion stands in the way"
+    );
+    let before = engine.snapshot_hash();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: bastion,
+                    ability_index: 1,
+                },
+            )
+            .is_err(),
+        "a tapped Bastion cannot pay {{T}} again"
+    );
+    assert_eq!(
+        engine.snapshot_hash(),
+        before,
+        "and the refusal changed nothing"
+    );
+}

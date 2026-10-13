@@ -74,3 +74,70 @@ fn trenzalore_shuffles_both_hand_and_graveyard_before_drawing_seven() {
         ));
     }
 }
+
+/// "Remove twelve time counters from Trenzalore Clocktower": eleven are not
+/// enough, even with a Time Lord on the battlefield and the `{1}{U}` floating
+/// and the land untapped; twelve are.
+#[test]
+fn trenzalore_needs_twelve_time_counters_not_eleven() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for (counters, offered) in [(11, false), (12, true)] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(
+                0,
+                &[
+                    trenzalore_clocktower(),
+                    index::MASKWOOD_NEXUS,
+                    index::GRIZZLY_BEARS,
+                ],
+            )
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let tower = on_battlefield(&e, p0, trenzalore_clocktower()).unwrap();
+        let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+        assert!(
+            e.state()
+                .object(bear)
+                .unwrap()
+                .characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::TIME_LORD),
+            "under the Nexus the Bears are the Time Lord"
+        );
+        let state = e.dev_state_mut(p0).unwrap();
+        state
+            .object_mut(tower)
+            .unwrap()
+            .counters
+            .add(CounterKind::Time, counters);
+        state.players[0].mana_pool.add(ManaColor::Blue, 2);
+        e.refresh_offer();
+        assert!(!is_tapped(&e, tower));
+        let Pending::Priority { legal, .. } = e.pending().clone() else {
+            panic!("priority")
+        };
+        assert_eq!(
+            legal.abilities.contains(&(tower, 1)),
+            offered,
+            "{counters} time counters, a Time Lord and {{1}}{{U}} floating"
+        );
+        if !offered {
+            let hash = e.snapshot_hash();
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ActivateAbility {
+                        source: tower,
+                        ability_index: 1,
+                    },
+                )
+                .is_err(),
+                "eleven counters cannot pay for removing twelve"
+            );
+            assert_eq!(e.snapshot_hash(), hash);
+            assert_eq!(counters_on(&e, tower, CounterKind::Time), 11);
+        }
+    }
+}

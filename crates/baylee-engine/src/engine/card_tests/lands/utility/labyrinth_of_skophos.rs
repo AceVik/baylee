@@ -94,3 +94,52 @@ fn labyrinth_removes_attackers_or_blockers_without_unblocking_or_untapping() {
         );
     }
 }
+
+/// "Remove target attacking or blocking creature from combat": an idle
+/// creature on either side is not a legal target, and an unblocked attacker
+/// that is removed deals no combat damage.
+#[test]
+fn labyrinth_offers_only_combatants_and_a_removed_attacker_deals_no_damage() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut engine = kit::game(
+        946,
+        &[
+            labyrinth_of_skophos(),
+            index::GRIZZLY_BEARS,
+            llanowar_elves(),
+        ],
+        &[serra_angel()],
+        &[],
+        &[],
+    );
+    let attacker = kit::obj(&engine, kit::P0, index::GRIZZLY_BEARS);
+    let idle_mine = kit::obj(&engine, kit::P0, llanowar_elves());
+    let idle_theirs = kit::obj(&engine, kit::P1, serra_angel());
+    kit::attack(&mut engine, &[attacker]);
+    kit::block(&mut engine, &[]);
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Colorless, 4)]);
+    activate(&mut engine, kit::P0, labyrinth_of_skophos(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![attacker],
+        "\"attacking or blocking\": only the attacker, not the idle creatures \
+         {idle_mine:?} / {idle_theirs:?}"
+    );
+    let life = kit::life(&engine, kit::P1);
+    kit::aim(&mut engine, &[attacker], &[]);
+    kit::settle(&mut engine);
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        life,
+        "\"remove from combat\": the removed attacker deals no combat damage"
+    );
+    assert!(
+        is_tapped(&engine, attacker),
+        "removal from combat does not untap it"
+    );
+}

@@ -377,3 +377,61 @@ fn disharmony_removes_untaps_and_temporarily_takes_an_attacker() {
     pass_until(&mut engine, |e| e.state().turn.number > turn);
     assert_eq!(engine.state().object(attacker).unwrap().controller, P0);
 }
+
+/// "Cast this spell only during combat before blockers are declared": not in
+/// the main phase before combat, offered once attackers are declared, not
+/// once blockers are.
+#[test]
+fn disharmony_is_castable_in_combat_before_blockers_and_nowhere_else() {
+    let card = card_index("fc4f1aa1-e252-4454-9ad9-d41682dff13b");
+    let mut e = game(948, &[llanowar_elves()], &[], &[], &[card]);
+    let attacker = obj(&e, P0, llanowar_elves());
+
+    // The precombat main phase, once p0 has passed: p1 holds priority there.
+    pass_once(&mut e);
+    assert_eq!(e.state().turn.phase, Phase::FirstMain);
+    assert!(matches!(e.pending(), Pending::Priority { player, .. } if *player == P1));
+    float(&mut e, P1, &[(ManaColor::Red, 3)]);
+    assert!(
+        !castable(&e, P1, card),
+        "\"during combat\": not in the main phase before combat"
+    );
+
+    // The declare attackers step, p1 holding priority with an attacker in play.
+    let able = attackers_offered(&mut e);
+    assert!(able.contains(&attacker));
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(attacker, Defender::Player(P1))],
+        },
+    )
+    .unwrap();
+    assert_eq!(e.state().turn.step, Step::DeclareAttackers);
+    pass_once(&mut e);
+    assert!(matches!(e.pending(), Pending::Priority { player, .. } if *player == P1));
+    float(&mut e, P1, &[(ManaColor::Red, 3)]);
+    assert!(
+        castable(&e, P1, card),
+        "in combat, with the attacker declared and no blockers yet, it is on the offer"
+    );
+
+    // Blockers declared (none), and the same player, mana and attacker.
+    pass_once(&mut e);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    block(&mut e, &[]);
+    to_step(&mut e, P1, Step::DeclareBlockers);
+    float(&mut e, P1, &[(ManaColor::Red, 3)]);
+    assert!(
+        !castable(&e, P1, card),
+        "\"before blockers are declared\": not in the declare blockers step"
+    );
+    let spell = in_hand(&e, P1, card).unwrap();
+    assert!(
+        e.apply(P1, PlayerAction::CastSpell { card: spell })
+            .is_err(),
+        "and casting it is refused there"
+    );
+}
