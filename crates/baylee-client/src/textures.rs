@@ -9,7 +9,7 @@
 //! is pure arithmetic and unit-tested — and this module is the thin part that
 //! turns its answers into handle drops.
 
-use baylee_client_core::board::art_of;
+use baylee_client_core::board::art_in;
 use baylee_client_core::images::{ArtSize, ImageKey, TextureBudget, resolve};
 use baylee_view::GameStatic;
 use bevy::asset::RenderAssetUsages;
@@ -191,10 +191,9 @@ impl CardTextures {
                 o.card
                     .is_none_or(|c| settled(ImageKey::new(c.print, c.face, ArtSize::Small)))
             })
-            && view
-                .battlefield
-                .iter()
-                .all(|o| art_of(o, ArtSize::Small, crate::cardart::registry()).is_none_or(settled))
+            && view.battlefield.iter().all(|o| {
+                art_in(o, ArtSize::Small, crate::cardart::registry(), view).is_none_or(settled)
+            })
     }
 
     fn reset_prints(&mut self) {
@@ -638,7 +637,9 @@ pub fn drive_preloads(
             // is on nobody's print table either, so the sweep below can never
             // reach one: if it is not asked for here it is only ever fetched
             // at the moment it is first drawn.
-            if let Some(key) = art_of(o, ArtSize::Small, crate::cardart::registry()) {
+            // `art_in`, as the board draws it: a copy wears its original's
+            // printing where the view shows one (report 02).
+            if let Some(key) = art_in(o, ArtSize::Small, crate::cardart::registry(), view) {
                 preload.want(key);
             }
         }

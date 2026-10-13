@@ -1919,13 +1919,23 @@ impl Interaction {
                 if !candidates.contains(&id) {
                     return SelectionOutcome::Rejected;
                 }
-                if let Some(pos) = pairs.iter().position(|(a, _)| *a == id) {
-                    pairs.remove(pos);
-                    return SelectionOutcome::Removed;
-                }
                 let Some(defender) = defenders.get(*focus).copied() else {
                     return SelectionOutcome::Rejected;
                 };
+                if let Some(pos) = pairs.iter().position(|(a, _)| *a == id) {
+                    // Sent somewhere else, the press sends it where the aim
+                    // is now (report 24): a player who sent a creature, aimed
+                    // at a planeswalker and pressed the creature again meant
+                    // "attack that", and the press took it out of the attack
+                    // altogether. Only one aimed where it already goes comes
+                    // back out.
+                    if pairs[pos].1 == defender {
+                        pairs.remove(pos);
+                        return SelectionOutcome::Removed;
+                    }
+                    pairs[pos].1 = defender;
+                    return SelectionOutcome::Added;
+                }
                 pairs.push((id, defender));
                 SelectionOutcome::Added
             }

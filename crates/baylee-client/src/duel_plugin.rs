@@ -158,6 +158,7 @@ pub(super) fn add_present_systems(app: &mut App) {
                     hud::measure_shelves,
                     hud::sync_seat_bars,
                     hud::place_seat_bars,
+                    hud::clip_only_level,
                     hud::stretch_step_tiles,
                     // Each seat's clock beside its plate: built when the
                     // seats change, then counted and stood beside the plate

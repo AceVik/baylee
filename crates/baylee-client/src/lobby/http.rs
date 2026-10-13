@@ -122,6 +122,15 @@ pub(super) fn build(
             ),
             Expect::LoggedOut,
         ),
+        // Fire and forget, as a sign-out: the table is already closed here,
+        // and a gateway that did not hear it waits out the reconnect window.
+        LobbyRequest::Depart { token } => (
+            bearer(
+                json_post(&format!("{base}/lobby/depart"), &serde_json::json!({})),
+                Some(&token),
+            ),
+            Expect::LoggedOut,
+        ),
         LobbyRequest::Library(request) => library_request(base, request),
         LobbyRequest::ListDecks => (ehttp::Request::get(format!("{base}/decks")), Expect::Decks),
         LobbyRequest::LoadPool => (

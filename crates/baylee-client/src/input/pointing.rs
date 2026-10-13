@@ -48,6 +48,7 @@ pub fn pointer(
         // rule is one line and cannot be forgotten by a widget added later:
         // a half-pressed concession survives exactly nothing.
         let was_armed = std::mem::take(&mut duel.concede_armed);
+        let was_leaving = std::mem::take(&mut duel.leave_armed);
         // A board the tear is moving takes no press until it docks
         // (DESIGN-v8 §2.4, the owner's tear): the card under the finger is
         // on its way somewhere else.
@@ -126,7 +127,11 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
-            menu_click(&mut duel, button.action, was_armed);
+            if button.action == MenuAction::LeaveGame {
+                leave_click(&mut duel, was_leaving);
+            } else {
+                menu_click(&mut duel, button.action, was_armed);
+            }
             continue;
         }
         if sheet_click(&mut duel, e, &sheet, &parents) {
@@ -282,6 +287,7 @@ pub fn pointer(
         // What the loop takes from every click, taken once here for the same
         // reason: a half-pressed concession survives no tap either.
         duel.concede_armed = false;
+        duel.leave_armed = false;
         let answer = activate_card(&mut duel, object);
         crate::touch::answer(&mut touched, answer);
     }

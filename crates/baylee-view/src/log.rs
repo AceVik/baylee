@@ -1,7 +1,7 @@
 use crate::counters::CounterKind;
 use crate::objects::{CardIdentity, RulesFace, StackText};
 use crate::seats::LossCause;
-use crate::turn::DayNight;
+use crate::turn::{DayNight, Phase};
 use baylee_core::ids::{AbilityRef, Defender, ObjectId, PlayerId, PrintRef, SeatSet};
 use serde::{Deserialize, Serialize};
 
@@ -70,6 +70,11 @@ pub struct LogEntry {
     pub at: u64,
     /// What happened.
     pub event: LogEvent,
+    /// The phase of the turn it happened in, for a reader that groups a
+    /// turn's lines by phase. `None` before the first turn began (the
+    /// opening mulligans) and from a host that never said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase: Option<Phase>,
 }
 
 /// An object as the log may name it to one seat: exactly as that seat's view
@@ -157,7 +162,8 @@ pub enum LogPlace {
 pub enum LogTarget {
     /// A player.
     Player(PlayerId),
-    /// A permanent.
+    /// An object: a permanent, or, for a target, also a spell on the stack
+    /// or a card in a public zone.
     Object(LogObject),
 }
 
@@ -296,6 +302,10 @@ pub enum LogEvent {
         source: LogObject,
         /// Which ability, when the seat may know its source.
         ability: Option<LogAbility>,
+        /// Whether it was activated (CR 602) rather than triggered
+        /// (CR 603); `None` where the host cannot say.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        activated: Option<bool>,
     },
     /// A spell was countered.
     Countered {
@@ -489,6 +499,32 @@ pub enum LogEvent {
         /// The new monarch.
         player: PlayerId,
     },
+    /// What a spell or an ability on the stack was announced with: the modes
+    /// chosen for it (CR 601.2b, 603.3c) and its targets (CR 601.2c,
+    /// 602.2b, 603.3d), all of which every player is told. Written right
+    /// after the cast or the ability where they are known by then, and
+    /// again whenever they change while it is on the stack: a trigger's
+    /// targets chosen in a later question, or a spell's changed by another
+    /// effect.
+    Aimed {
+        /// Who controls the spell or the ability.
+        controller: PlayerId,
+        /// The spell, or the source of the ability.
+        source: LogObject,
+        /// Whether this is an ability of `source` rather than the spell
+        /// `source` itself.
+        ability: bool,
+        /// The card the chosen modes are printed on: for a copy, the copied
+        /// card (CR 707.2). `None` where the seat may not know `source`, and
+        /// for a line with no modes.
+        rules: Option<RulesFace>,
+        /// The chosen modes: bit `i` is mode `i` of `rules`' card, as the
+        /// card prints them. Zero for a line with none, and where `rules` is
+        /// `None`.
+        modes: u8,
+        /// The targets, in the order they were chosen.
+        targets: Vec<LogTarget>,
+    },
 }
 
 impl LogEvent {
@@ -542,6 +578,15 @@ impl LogEvent {
             Self::Banded { attacker, with } => {
                 out.push(attacker);
                 out.push(with);
+            }
+            Self::Aimed {
+                source, targets, ..
+            } => {
+                out.push(source);
+                out.extend(targets.iter().filter_map(|target| match target {
+                    LogTarget::Object(o) => Some(o),
+                    LogTarget::Player(_) => None,
+                }));
             }
         }
         out.into_iter()
@@ -597,6 +642,15 @@ impl LogEvent {
             Self::Banded { attacker, with } => {
                 out.push(attacker);
                 out.push(with);
+            }
+            Self::Aimed {
+                source, targets, ..
+            } => {
+                out.push(source);
+                out.extend(targets.iter_mut().filter_map(|target| match target {
+                    LogTarget::Object(o) => Some(o),
+                    LogTarget::Player(_) => None,
+                }));
             }
         }
         out.into_iter()

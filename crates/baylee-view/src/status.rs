@@ -21,6 +21,12 @@ impl ObjectStatus {
     pub const PHASED_OUT: Self = Self(4);
     /// Flipped (flip cards).
     pub const FLIPPED: Self = Self(8);
+    /// Has lost all its abilities (an effect such as Oko, Thief of Crowns's
+    /// "loses all abilities", CR 613.1f), as the host's projection says.
+    /// Not one of CR 110.5's statuses: a fact about the permanent's
+    /// characteristics the view carries here, never set on a face-down
+    /// permanent, whose characteristics the seat may not know.
+    pub const NO_ABILITIES: Self = Self(16);
 
     /// Builds a status from the engine's raw bits.
     #[must_use]
@@ -57,5 +63,11 @@ impl ObjectStatus {
     #[must_use]
     pub const fn is_phased_out(self) -> bool {
         self.contains(Self::PHASED_OUT)
+    }
+
+    /// Whether the permanent has lost all its abilities ([`Self::NO_ABILITIES`]).
+    #[must_use]
+    pub const fn has_no_abilities(self) -> bool {
+        self.contains(Self::NO_ABILITIES)
     }
 }

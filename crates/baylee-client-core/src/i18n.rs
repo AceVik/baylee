@@ -2094,6 +2094,10 @@ messages! {
     AttackRemaining { en: "Attack with all remaining → {0}", de: "Mit allen übrigen angreifen → {0}" },
     /// Clears the draft without submitting it.
     AttackWithdrawAll { en: "Withdraw all attackers", de: "Alle Angreifer zurückziehen" },
+    /// The attack chooser's fold row while its rows show (report 25).
+    AttackListHide { en: "Hide the list \u{25be}", de: "Liste ausblenden \u{25be}" },
+    /// The fold row while folded. `{0}` is how many rows it holds.
+    AttackListShow { en: "Show the list ({0}) \u{25b8}", de: "Liste zeigen ({0}) \u{25b8}" },
     /// A single unassigned creature.
     AttackSend { en: "Attack: {0} → {1}", de: "Angreifen: {0} → {1}" },
     /// A single assigned creature, naming its existing defender.
@@ -2547,6 +2551,14 @@ messages! {
     HintClickBoard { en: "Click what you are choosing", de: "Klicke an, was du wählst" },
     /// Type to narrow the list
     HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
+    /// A permanent's label: it has lost all its abilities (report 21).
+    NoAbilities { en: "No abilities", de: "Keine Fähigkeiten" },
+    /// A leveler's label, short (report 30). `{0}` is its level.
+    LevelShort { en: "LV {0}", de: "St. {0}" },
+    /// The same label under the pointer, in full.
+    LevelLong { en: "Level {0}", de: "Stufe {0}" },
+    /// What an empty search box in the question's sheet says (report 16).
+    FilterPlaceholder { en: "type to search…", de: "zum Suchen tippen…" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
     /// The first card in a graveyard ordering will be on top of the others.
@@ -2691,6 +2703,21 @@ messages! {
     YouAreWatching { en: "You are watching", de: "Du schaust zu" },
     /// Concede, armed and waiting for the second press.
     ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
+    /// The game menu's way up from a running table without conceding
+    /// (report 33).
+    LeaveTable { en: "Leave the table", de: "Tisch verlassen" },
+    /// The lobby's note after a player left a running table from its menu.
+    LeftTheTable { en: "You left the table", de: "Du hast den Tisch verlassen" },
+    /// Leaving a networked table, armed: the house plays the chair on.
+    LeaveTableConfirm {
+        en: "Leave? The house plays on for you. Press again",
+        de: "Verlassen? Das Haus spielt für dich weiter. Nochmal drücken",
+    },
+    /// Leaving a game this client hosts offline, armed: it ends with it.
+    LeaveTableConfirmOffline {
+        en: "Leave? This game ends. Press again",
+        de: "Verlassen? Die Partie endet. Nochmal drücken",
+    },
     /// The game log panel's title (#262). Not a `Log…` phrase: those are the
     /// book's own sentences, which `gamelog` writes; these are the panel's.
     GameLogTitle { en: "Game log", de: "Spielprotokoll" },
@@ -3760,6 +3787,20 @@ messages! {
         en: "{0} put an ability of {1} on the stack",
         de: "{0} hat eine Fähigkeit auf den Stapel gelegt: {1}",
     },
+    /// The reading seat activated an ability (CR 602). `{1}` is its source.
+    LogActivatedYou { en: "{7} activated {1}", de: "{7} hast {1} aktiviert" },
+    /// Another seat activated an ability.
+    LogActivated { en: "{0} activated {1}", de: "{0} hat {1} aktiviert" },
+    /// An ability the reading seat controls triggered (CR 603). `{1}` is its
+    /// source.
+    LogTriggeredYou { en: "{1} triggered for {8}", de: "{1} hat für {8} ausgelöst" },
+    /// An ability another seat controls triggered.
+    LogTriggered { en: "{1} triggered for {0}", de: "{1} hat für {0} ausgelöst" },
+    /// Under a line dealing damage to a player: where it left their life,
+    /// 1. `{2}` is it, `{1}` what it was.
+    LogLifeNowPoint { en: "now at {2} life (from {1})", de: "jetzt {2} Lebenspunkt (vorher {1})" },
+    /// The same, at any other total.
+    LogLifeNowPoints { en: "now at {2} life (from {1})", de: "jetzt {2} Lebenspunkte (vorher {1})" },
     /// A spell was countered. `{1}` is the spell.
     LogCountered { en: "{1} was countered", de: "{1} wurde neutralisiert" },
     /// A spell or ability left the stack without resolving. `{1}` is it.
@@ -3912,6 +3953,9 @@ messages! {
     LogPlayerCountersYou { en: "{7} went to {1} {2} (from {3})", de: "{7} hattest danach {1} {2} (vorher {3})" },
     /// Another player's public counter total changed.
     LogPlayerCounters { en: "{0} went to {1} {2} (from {3})", de: "{0} hatte danach {1} {2} (vorher {3})" },
+    /// A permanent that had no counters of a kind got some: object, count,
+    /// counter noun.
+    LogCountersGot { en: "{1} got {2} {3}", de: "{1} hat {2} {3} bekommen" },
     /// Counters on a permanent changed: object, new count, counter noun, old count.
     LogCounters { en: "{1} went to {2} {3} (from {4})", de: "{1} hatte danach {2} {3} (vorher {4})" },
     /// One +X/+Y counter. `{0}` is X and `{1}` is Y.
@@ -4049,6 +4093,34 @@ messages! {
     LogMonarchYou { en: "{7} became the monarch", de: "{7} bist der Monarch geworden" },
     /// Another seat became the monarch.
     LogMonarch { en: "{0} became the monarch", de: "{0} ist der Monarch geworden" },
+    /// The one mode chosen for a spell or an ability (CR 601.2b, 603.3c).
+    /// `{1}` is it: the card's own words in quotes ([`Phrase::LogQuoted`]),
+    /// or its number.
+    LogAimedMode { en: "mode: {1}", de: "Modus: {1}" },
+    /// Several modes chosen at once. `{1}` is them, joined by " + ".
+    LogAimedModes { en: "modes: {1}", de: "Modi: {1}" },
+    /// The one target of a spell or an ability (CR 601.2c). `{1}` is it.
+    LogAimedTarget { en: "targeting {1}", de: "Ziel: {1}" },
+    /// Several targets. `{1}` is the list.
+    LogAimedTargets { en: "targeting {1}", de: "Ziele: {1}" },
+    /// A spell's modes or targets, on a line of their own (changed while it
+    /// was on the stack). `{1}` is the spell, `{2}` what it was announced
+    /// with: [`Phrase::LogAimedMode`] and [`Phrase::LogAimedTarget`] parts.
+    LogAimedSpell { en: "{1}: {2}", de: "{1}: {2}" },
+    /// The same for an ability. `{1}` is its source.
+    LogAimedAbility { en: "Ability of {1}: {2}", de: "Fähigkeit von {1}: {2}" },
+    /// A card's own words, quoted. `{0}` is them.
+    LogQuoted { en: "\u{201c}{0}\u{201d}", de: "\u{201e}{0}\u{201c}" },
+    /// A turn's phase, as the log groups a turn's lines under it.
+    LogPhaseBeginning { en: "Beginning", de: "Beginn" },
+    /// The precombat main phase.
+    LogPhaseFirstMain { en: "Main phase", de: "Hauptphase" },
+    /// The combat phase.
+    LogPhaseCombat { en: "Combat", de: "Kampf" },
+    /// The postcombat main phase.
+    LogPhaseSecondMain { en: "Second main phase", de: "Zweite Hauptphase" },
+    /// The ending phase.
+    LogPhaseEnding { en: "End of turn", de: "Ende des Zuges" },
 
     // ---- reports (#309, #310) ------------------------------------------
     /// The button, the form's title and the keymap row that opens it.
@@ -6240,6 +6312,9 @@ messages! {
     ReportRefShown { en: "Shown", de: "Gezeigt" },
     /// A `#` suggestion's zone: a revealed library top.
     ReportRefLibraryTop { en: "Library top", de: "Bibliothek oben" },
+    /// A suggestion's place: a card seen earlier in the game, named by the
+    /// game log and no longer in sight (#14).
+    ReportRefLogged { en: "Seen this game", de: "In dieser Partie gesehen" },
     /// Whose a `#` suggestion is, when it is the reader's.
     ReportRefYours { en: "yours", de: "deine" },
     /// The confirmation: how many cards the text names, one.

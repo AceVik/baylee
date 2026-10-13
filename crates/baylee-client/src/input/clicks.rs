@@ -3,6 +3,24 @@
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
 
+/// *Leave the table* in the game menu (report 33): the first press arms it,
+/// the second gets up. `was_leaving` is whether it stood armed before this
+/// click, taken as [`menu_click`]'s `was_armed` is.
+///
+/// Getting up is the spectator's way out with one thing more: the lobby
+/// tells the gateway this player left on purpose ([`Duel::departing`]), so
+/// the house takes the chair now and not when the reconnect window runs
+/// out. Nothing is conceded: the seat plays on.
+pub(crate) fn leave_click(duel: &mut Duel, was_leaving: bool) {
+    if was_leaving {
+        duel.departing = true;
+        duel.leave_asked = true;
+        duel.game_menu = false;
+    } else {
+        duel.leave_armed = true;
+    }
+}
+
 /// A button on the shelf, or a row in the game menu it opens.
 ///
 /// `pub(crate)` so that a test outside this module can answer the way a click
@@ -60,6 +78,9 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // rebuilds the shelf's columns.
         // A spectator concedes nothing: it leaves (`docs/protocol.md`
         // §"Spectators"), in one press, since nothing is lost by it.
+        // Answered by `leave_click`, which reads its own arming; a click
+        // routed here (a test, a later door) arms it.
+        MenuAction::LeaveGame => leave_click(duel, false),
         MenuAction::Concede if duel.watching => {
             duel.leave_asked = true;
             duel.game_menu = false;

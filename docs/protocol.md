@@ -1146,6 +1146,50 @@ shuffled in the same action are "shuffled in", and the shuffle is no line of
 its own; a search that takes a card out and shuffles keeps its shuffle
 line.
 
+### Modes, targets, phases and the kind of an ability (beta.8)
+
+Players were not told which mode an opponent chose (the owner's report on
+Archdruid's Charm, 12.10.2026), nor what anything was aimed at, though both
+are announced to every player (CR 601.2b–c, 602.2b, 603.3c–d). One view
+version adds three things, each defaulted on the wire:
+
+- **`LogEvent::Aimed { controller, source, ability, rules, modes, targets }`**,
+  written right after the cast or the ability line where the spell or
+  ability has modes or targets by the end of that action, and again
+  whenever they change while it is on the stack. A trigger's targets are
+  asked in a later question, so the host keeps every spell and ability on
+  the stack that a line named (`GameLog::aims`) and compares after every
+  action; a changed spell (a retarget) is announced again the same way.
+  `modes` is the chosen set as bits (`GameObject::modes`, or the single
+  `mode_index`), `rules` the card they are printed on (for a copy the copied
+  card, CR 707.2). The source and every object target carry their own
+  audience, as every line's objects do: a face-down target is told as
+  `FaceDown`, and where the seat may not know `source`, `rules` and `modes`
+  are taken out (`Line::told`). A rule's own trigger (prowess, ward)
+  carries the object it is about as an internal target and is announced
+  with none.
+- **`LogEntry::phase`**, the phase the line happened in, read off the
+  journal's own step changes (`GameEvent::StepChanged`), so a client can
+  group a turn's lines; `None` for a turn's heading and the mulligans. Two
+  lines in different phases never fold.
+- **`LogEvent::Ability::activated`**: `Some(true)` for an activated ability
+  (CR 602), `Some(false)` for a triggered one (CR 603), read off the
+  definition the ability was put on the stack from; `None` where it cannot
+  say.
+
+The same view version gives `ObjectStatus` a fifth bit beside CR 110.5's
+four, `NO_ABILITIES` (16): set where the projection says the permanent has
+lost all its abilities (`Characteristics::abilities_lost`, CR 613.1f), never
+on a face-down permanent. The printed text a client shows cannot say it.
+
+A land whose entry asks a question first (enters tapped unless…, a
+shockland's life) is recorded played before it moves, sometimes actions
+before. Its play is now written when it moves, with where from, instead of
+"played a card" while it was still in a hand followed by a move line. And
+the journal records a player's life loss before the damage that caused it:
+where the two are the same player and amount, in one action, the damage
+line now comes first (`GameLog::cause_before_effect`).
+
 ### What a line cannot name
 
 The host reads identities just after each action. It remembers every object

@@ -584,3 +584,20 @@ fn only_a_running_table_that_allows_it_is_watchable() {
     game.state = "waiting".to_string();
     assert!(!game.watchable());
 }
+
+/// Report 33: getting up from a table on purpose is told to the gateway with
+/// the session that sat there, by a signed-in account and a guest alike, and
+/// to nobody offline or signed out, where there is nobody to tell. On the old
+/// code `Lobby::depart` did not exist.
+#[test]
+fn leaving_a_table_on_purpose_is_told_to_the_session_that_sat_there() {
+    let lobby = seated_lobby();
+    assert_eq!(
+        lobby.depart(),
+        Some(LobbyRequest::Depart {
+            token: "tok".to_string()
+        })
+    );
+    assert_eq!(Lobby::new().depart(), None, "signed out: nobody to tell");
+    assert_eq!(offline_lobby().depart(), None, "offline: nobody to tell");
+}

@@ -587,6 +587,11 @@ pub enum MenuAction {
     ArrangementMenu,
     /// Leave the game (sends the engine's own concession).
     Concede,
+    /// Get up from a running table without conceding (report 33): the
+    /// house plays the chair on from here, as for a client that quit
+    /// (`POST /lobby/depart`), and the table closes. Two presses, like the
+    /// concession; offline the game this client hosts ends with it.
+    LeaveGame,
     /// Offer a draw: every other player still in the game has to accept
     /// (CR 104.4i).
     OfferDraw,
@@ -2277,7 +2282,7 @@ pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
-pub(crate) use ledge::drawer::sheet_asked;
+pub(crate) use ledge::drawer::{ATTACK_LIST_FOLD, sheet_asked};
 pub use ledge::drawer::{
     DrawerRevision, DrawerRoot, SheetPill, SheetSource, SheetTitle, sync_drawer, zoom_the_drawer,
 };
@@ -2308,6 +2313,7 @@ pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
+pub(crate) use seatbar::attached::clip_only_level;
 pub use seatbar::attached::{PlateBeside, PlateMark, PlateMarkKind, PlateTab, plate_beside};
 pub use seatbar::plateclock::{PlateClock, PlateClockRoot, sync_plate_clocks, tick_plate_clocks};
 pub use seatbar::{

@@ -175,6 +175,49 @@ fn tapping_a_planeswalker_aims_at_it() {
     assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
 }
 
+/// Report 24: a creature sent at one defender and pressed again with the aim
+/// on another is sent where the aim is now, not withdrawn. Old code removed
+/// the pairing on the second press whatever the aim, so `toggle` answered
+/// `Removed`, `assignment` was `None` and `confirm` declared nothing.
+#[test]
+fn pressing_a_sent_creature_with_the_aim_elsewhere_sends_it_there() {
+    let walker = Defender::Planeswalker(obj(50));
+    let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), walker]));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(seat(1))));
+
+    // Aim at the planeswalker (tapping it sets the focus), press the
+    // creature again.
+    i.toggle(obj(50));
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(walker));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
+    assert_eq!(i.declared(), 1, "moved, not duplicated");
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(1), walker)]
+        })
+    );
+}
+
+/// Pressed once more with the aim unchanged, the creature comes back out
+/// (the other half of report 24's rule: only one aimed where it already
+/// goes is withdrawn).
+#[test]
+fn pressing_a_sent_creature_with_the_aim_where_it_goes_withdraws_it() {
+    let walker = Defender::Planeswalker(obj(50));
+    let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), walker]));
+    i.toggle(obj(50));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Removed);
+    assert_eq!(i.assignment(obj(1)), None);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+    );
+}
+
 #[test]
 fn blocks_are_paired_with_the_attacker_in_focus() {
     let mut i = interaction(block_choice(vec![

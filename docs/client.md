@@ -8653,8 +8653,9 @@ A `LogLine` carries:
   `plain()` adds "(×N)" for a reader that draws plain text.
 
 **The panel** (`hud::ledge::log`) is the scroll button in the bar, `L`, and
-a column that stands on the right strip against the right margin, 360 by 420
-where the window has room and the room there is where it has not. It stands
+a column that stands on the right strip against the right margin, a share of
+the window from 360 by 420 up to 540 by 640 where the window has room (below,
+beta.8) and the room there is where it has not. It stands
 on the strip's top edge and not over the strip the way the game menu does:
 the menu goes away on the next press, and the log stays up while the game
 goes on. The strip was the tray's when this was written, and the panel must
@@ -8740,8 +8741,50 @@ Known limits, each a later view version:
 - `Defender::Planeswalker` names the planeswalker by handle only. The book
   remembers each one's name from the view that arrived with the attack, and
   says "a planeswalker" for one it never saw.
-- An ability line cannot tell activated from triggered.
 - `CounterKind::badge` is English, so the counter nouns are written here.
+
+### Wider, grouped, and saying what was chosen (beta.8)
+
+The owner, 12.10.2026: *"Der Spiellog muss verbessert werden und auch etwas
+breiter gemacht werden."* Read against real games (the beta.6 reports'
+records, replayed for one seat), the log said "Bo put an ability of X on the
+stack" for every fetch, trigger and planeswalker, "Bo played a card" and then
+a move for every shockland, and nothing at all about which mode a charm was
+cast with or what a removal spell was aimed at (report 23). What changed:
+
+- **The panel is a share of the window** (`log_size`): 27 % of its width
+  between `LOG_W` (360) and `LOG_W_MAX` (540), 72 % of the band above the
+  hand zone between `LOG_H` (420) and `LOG_H_MAX` (640). Past 1920 × 1080
+  the HUD's `UiScale` draws every window as that one, so 1080p to 4K show
+  the same proportion; it still stands on the right strip's top edge.
+- **A turn's lines are grouped by phase.** `LogLine::phase` (the host's
+  `LogEntry::phase`) puts a small caption ("COMBAT", "SECOND MAIN PHASE")
+  before the first line of each later phase (`PhaseRun`); the beginning
+  phase has the turn's heading, and a phase where nothing happened has
+  nothing. The end screen groups the same way.
+- **Modes and targets** (`LogEvent::Aimed`, docs/protocol.md §"Modes,
+  targets, phases and the kind of an ability"): right under the cast or the
+  ability it belongs to, the line carries on without naming it again
+  (`LogLine::follows`): no time, a "→" in the quieter ink, then `mode:
+  “…”` and/or `targeting X and Bo`. Elsewhere (a trigger's targets chosen in
+  a later question, a retarget) it is a line of its own, "Spell: targeting
+  X" or "Ability of X: …". A mode is said in the card's own words: the
+  lookup's `CardTextLookup::mode`, which the client answers through the
+  cast chooser's door (`choices::mode_words`), so the log, the chooser and
+  the stack say one sentence; its number where neither is known.
+- **The stack shows the chosen modes** under a modal spell or a modal
+  trigger, as "• …" blocks after the printed sentence
+  (`BoardModel::take_modes` reads them off the log's latest `Aimed` line of
+  the turn; `stack_sentence`). A queued row keeps its heading.
+- **Abilities say what they were**: "Bo activated [Windswept Heath]",
+  "[Smothering Tithe] triggered for Bo" (`LogEvent::Ability::activated`);
+  the old sentence only where the host cannot say.
+- **Damage to a player and the life it left** read as one: the life line
+  right under the damage to that player (the host writes the damage first, `GameLog::cause_before_effect`) carries on it when the two amounts agree, "→ now at 17 life
+  (from 20)". A permanent getting counters it had none of "got 4 loyalty
+  counters" rather than "went to 4 (from 0)".
+- **A land played is one line** even when its entry asked first (the
+  host's change; "Bo played a card" before was a card still in a hand).
 
 ### Another seat's reveal is held up (07.10.2026)
 
@@ -10191,3 +10234,70 @@ position exists, the label is hidden rather than covering a printing.
 The personal deck overview displays copy counts supplied by both the gateway
 and offline performer. Responses without these totals still say “rows”; the
 house-library catalog retains that wording until its summary supplies totals.
+
+## The table's beta.8 reports (12.10.2026)
+
+Players' reports from the beta.6 games, the table's half (`.claude/b8`
+lists them; the game log's are under §"Wider, grouped, and saying what was
+chosen").
+
+- **A side seat's plate reads (reports 04, 19).** At a ring a seat's
+  plate lies along its mat's edge, turned most of a quarter for the seats
+  at the sides. Bevy clips a node to its *unturned* rectangle moved to where
+  the node is (`bevy_ui::update::update_clipping`), so the plate's clip lay
+  across it and cut every letter of the name, the life and the counts to a
+  sliver. A plate's nodes clip as they were built only while it reads level
+  or upside down, and not at all while it is turned
+  (`seatbar::attached::TurnedClip`, `clip_only_level`).
+- **A press on an attacker sends it where the aim is (report 24).** A
+  creature already sent at one defender, pressed again with the aim on
+  another (a planeswalker tapped on the table, or its *Aim* row), was taken
+  out of the attack, and a player who meant "attack Oko" sent nothing.
+  `Interaction::toggle` now reassigns it to the aimed defender; only a
+  press on one aimed where it already goes withdraws it.
+- **A copy wears its original's printing (report 02).** `board::art_in`
+  draws a permanent that has become a copy of a card (`worn`) with the
+  printing, and so the finish, of that card where the seat's own view shows
+  it face up, the battlefield's first (`shown_print`); only where the view
+  shows none is it the registry's reference printing as before. The board
+  (`wear_shown_prints`, after grouping) and the texture preloader ask the
+  same function, so the picture warmed is the one drawn. Nothing new crosses
+  the wire and nothing hidden is read: the printing is one the seat was
+  shown.
+- **What a question will take is lit (report 09).** A card the pending
+  choice accepts and has not taken yet wears `glow::CHOOSABLE`, a pale
+  breathing ring of light on the felt (`floor_light`), chosen over every
+  other offer but the armed one (`table::placement::choosable`). The report
+  asked for the others darkened: darkening a print tints a Scryfall image,
+  which the image terms rule out (`docs/legal.md` §"Nothing we paint lies on
+  a card image"), so the legal ones are lit instead and the rest stay as
+  they are. A press on one the choice will not take answers nothing, as it
+  did (`activate_card` falls through to `Answer::Refused`).
+- **The name and type choosers' box looks like a search box (report 16):**
+  a magnifier, the words typed or "type to search…" in the quieter ink, a
+  caret, at least 280 wide (`drawer::filter_field`).
+- **The attack chooser folds (report 25).** Its last row hides the list,
+  leaving one row that opens it again with how many rows it holds
+  (`attack::FOLD`, `Duel::attack_list_folded`, for the whole game): with
+  many defenders and creatures the list stood over the player's own board,
+  and every creature can be sent from the table as well.
+- **A leveler's level and a permanent with no abilities (reports 30,
+  21)** are labels beside the card, the persistent ones that already say
+  what a Pithing Needle named or how many charge counters a permanent has
+  (`hud::chosen_type`): "LV 5" ("Level 5" under the pointer) from its level
+  counters, and "No abilities" from the view's new
+  `ObjectStatus::NO_ABILITIES` (the host sets it where the projection says
+  every ability is gone, `Characteristics::abilities_lost`, never on a
+  face-down permanent). A label lies beside the print and never on it, as
+  every annotation does. The strip's marks stay keywords only: a new mark is
+  a new glyph through `MARK_GLYPHS`, which docs/legal.md §2a would have to
+  allow first.
+- **Leaving a table (report 33).** The game menu's *Leave the table*
+  (`MenuAction::LeaveGame`, two presses like the concession, disarmed by the
+  same things) closes the table without conceding. At a networked table the
+  lobby says so on the way back (`LobbyRequest::Depart`, `POST
+  /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
+  so the house takes the chair at once rather than after the reconnect
+  window, and the lobby says "You left the table". Offline the game this
+  client hosts ends with it, which its armed words say. A spectator's way
+  out stays *Stop watching*; a finished game's stays the end screen's.

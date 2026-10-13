@@ -619,6 +619,15 @@ pub enum LobbyRequest {
         /// The session to end.
         token: String,
     },
+    /// `POST /lobby/depart`: this player leaves every room and running
+    /// game they sit in, on purpose (`docs/protocol.md` §"Leaving, and
+    /// losing the connection"); the house takes a running chair at once.
+    /// Sent when a player leaves a table from its game menu (report 33).
+    /// Nothing comes back.
+    Depart {
+        /// The session that leaves.
+        token: String,
+    },
     /// `GET /decks`.
     ListDecks,
     /// `GET /pool` — every card a deck may be built from.
@@ -2750,6 +2759,19 @@ impl Lobby {
         }
         self.forget_the_session();
         ending
+    }
+
+    /// The request that tells the gateway this player left the table on
+    /// purpose ([`LobbyRequest::Depart`]); `None` offline and signed out,
+    /// where there is nobody to tell.
+    #[must_use]
+    pub fn depart(&self) -> Option<LobbyRequest> {
+        match &self.performer {
+            Performer::Gateway(token) | Performer::Guest(token) => Some(LobbyRequest::Depart {
+                token: token.clone(),
+            }),
+            Performer::Nobody | Performer::Offline => None,
+        }
     }
 
     /// Opens the confirmation that deletes the signed-in account (#292).

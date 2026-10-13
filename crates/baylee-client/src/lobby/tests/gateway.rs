@@ -728,3 +728,23 @@ fn a_hosted_model_is_listed_ordered_and_taken_back_on_its_routes() {
     assert_eq!(rows[0].until_unix, Some(1_791_800_000));
     assert!(!rows[0].available);
 }
+
+/// Report 33: leaving a table on purpose is `POST /lobby/depart` with the
+/// session's bearer and an empty JSON body, read like a sign-out (nothing
+/// comes back that the lobby waits for).
+#[test]
+fn leaving_a_table_posts_depart_with_the_session_and_expects_nothing_back() {
+    let (request, expect) = build(
+        "http://gw",
+        Some("tok"),
+        "en",
+        LobbyRequest::Depart {
+            token: "tok".to_string(),
+        },
+    );
+    assert_eq!(request.method.as_str(), "POST");
+    assert_eq!(request.url, "http://gw/lobby/depart");
+    assert_eq!(request.headers.get("Authorization"), Some("Bearer tok"));
+    assert_eq!(body(&request), serde_json::json!({}));
+    assert!(matches!(expect, Expect::LoggedOut));
+}

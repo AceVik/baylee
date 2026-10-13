@@ -642,9 +642,18 @@ pub(super) fn came_back(
     // a warning. That would not fail those tests — it would hollow them out,
     // since what they assert on is what this function does. An embedder with
     // its own duel is the same case in production.
+    // A player who left the table from its menu (report 33) says so before
+    // the seat is forgotten, while the session that sat there is still
+    // the lobby's.
+    let departed = duel.as_deref().is_some_and(|duel| duel.departing);
+    if departed {
+        let departing = state.lobby.depart();
+        dispatch(&mut state, &mailbox, departing);
+    }
     let watched = matches!(state.lobby.screen(), Screen::Seated(h) if h.watching());
     match ended_as(duel.as_deref()).filter(|_| !watched) {
         _ if watched => state.lobby.stand_up(Phrase::StoppedWatching, &[]),
+        None if departed => state.lobby.stand_up(Phrase::LeftTheTable, &[]),
         Some((result, seat, team, own)) => {
             // Play's Recent games (this session), before the seat goes.
             super::play::remember(&mut state, duel.as_deref(), result, seat, team);

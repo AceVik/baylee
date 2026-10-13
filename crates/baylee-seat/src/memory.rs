@@ -209,6 +209,7 @@ mod tests {
             event: LogEvent::TurnStarted {
                 active: PlayerId::new(0),
             },
+            phase: None,
         }
     }
 
