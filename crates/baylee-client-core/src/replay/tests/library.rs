@@ -121,6 +121,7 @@ fn game(id: &str, started_at: &str) -> HostedGame {
             seat(1, Who::You, "Alice#af03", Some("G")),
             seat(2, Who::House, "House AI", None),
         ],
+        archived: false,
     }
 }
 

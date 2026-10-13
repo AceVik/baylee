@@ -49,6 +49,9 @@ pub struct HostedGame {
     pub build: Option<String>,
     /// Every seat, in seat order.
     pub seats: Vec<HostedSeat>,
+    /// Whether the asking account archived it (§18.1).
+    #[serde(default)]
+    pub archived: bool,
 }
 
 /// How a hosted game went for the requester's seat.
@@ -324,7 +327,7 @@ impl Entry {
                 .iter()
                 .find(|s| s.mine || s.who == Who::You)
                 .map(|s| s.shared.unwrap_or(true)),
-            archived: false,
+            archived: game.archived,
         }
     }
 
@@ -565,7 +568,8 @@ impl Library {
     /// Adds a page of online games (`offset` 0 replaces the online ones).
     pub fn add_page(&mut self, gateway: &str, offset: u64, page: &ReplayPage) {
         if offset == 0 {
-            self.entries.retain(Entry::is_local);
+            // The archived ones are their own list's (`add_archived_page`).
+            self.entries.retain(|e| e.is_local() || e.archived);
             self.online_held = 0;
         }
         for game in &page.games {
