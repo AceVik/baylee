@@ -805,6 +805,44 @@ async fn blocking_a_card_wants_the_proof_passes_only_its_fields_and_is_audited_w
     gw.server.abort();
 }
 
+/// A hosted profile's fallback reaches the gateway as the admin wrote it,
+/// and one that is not a profile's name is refused here, before the
+/// gateway is asked.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hosted_profiles_fallback_is_relayed_and_a_malformed_one_refused() {
+    let gw = stub().await;
+    let service = Service::start("llmfb", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    let mut proved = service.proof();
+    proved.push(("cookie", cookie.clone()));
+    let base = "/ui/api/admin/llm/seathosts/main/profiles/primary";
+    let written = |fallback: &str| {
+        format!(
+            r#"{{"label":"Model A","vendor":"Example","fallback":"{fallback}","profile":{{"provider":"openai","model":"model-a"}}}}"#
+        )
+    };
+    let answer = service
+        .call("PUT", base, &proved, Some(&written("backup")))
+        .await;
+    assert_eq!(answer.status, 200, "{}", answer.text());
+    let answer = service
+        .call("PUT", base, &proved, Some(&written("a/b")))
+        .await;
+    assert_eq!(answer.status, 400, "{}", answer.text());
+    let seen = gw.seen();
+    assert_eq!(
+        seen.len(),
+        1,
+        "only the well-formed one reached the gateway"
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&seen[0].body).unwrap()["fallback"],
+        "backup"
+    );
+    service.close().await;
+    gw.server.abort();
+}
+
 /// The hosted-model pages: a read passes through, a change wants the proof,
 /// passes only its fields, and is audited as `<host>/<id>`; a key reaches
 /// the gateway and is in no audit row.
