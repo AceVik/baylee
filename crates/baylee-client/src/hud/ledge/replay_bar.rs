@@ -77,6 +77,9 @@ pub struct BarLook {
     lang: Lang,
     window_w: i32,
     seat: PlayerId,
+    /// What the right column reserves: more by the chat's door with a
+    /// social session, which the bar keeps clear of as the shelf does.
+    right: f32,
 }
 
 /// The bar and its sheet: what a rebuild takes down.
@@ -87,7 +90,7 @@ type BarParts = Or<(With<ReplayBar>, With<ReplaySheet>)>;
 pub struct ReplayBarRevision(Option<BarLook>);
 
 impl BarLook {
-    fn of(status: &ReplayStatus, lang: Lang, window_w: i32) -> Self {
+    fn of(status: &ReplayStatus, lang: Lang, window_w: i32, chat_door: bool) -> Self {
         let offers = status.offers;
         let several = [offers.seat, offers.public, offers.all_hands]
             .iter()
@@ -112,6 +115,12 @@ impl BarLook {
             lang,
             window_w,
             seat: status.perspective.seat(),
+            right: RIGHT_RESERVED
+                + if chat_door {
+                    super::tray::CHAT_DOOR
+                } else {
+                    0.0
+                },
         }
     }
 }
@@ -188,8 +197,10 @@ pub fn sync_replay_bar(
     mut revision: ResMut<ReplayBarRevision>,
     bars: Query<Entity, BarParts>,
     phase: Option<Res<State<crate::DuelPhase>>>,
+    social: Option<Res<crate::social::SocialHost>>,
 ) {
     let lang = Lang::of(&settings.lang);
+    let chat_door = social.as_ref().is_some_and(|s| s.machine().is_some());
     let window_w =
         crate::hud::scale::window_space(&windows, ui.as_deref()).map_or(1200, |w| w.x as i32);
     // The duel keeps its last replay status after the table closed, until
@@ -199,7 +210,7 @@ pub fn sync_replay_bar(
         .replay
         .as_ref()
         .filter(|_| !closed)
-        .map(|status| BarLook::of(status, lang, window_w));
+        .map(|status| BarLook::of(status, lang, window_w, chat_door));
     let standing = !bars.is_empty();
     if revision.0 == look && standing == look.is_some() {
         return;
@@ -226,7 +237,7 @@ fn spawn_bar(commands: &mut Commands, fonts: &UiFonts, look: &BarLook, status: &
                 position_type: PositionType::Absolute,
                 bottom: px(HAND_ZONE_H - LEDGE_H),
                 left: px(tools_reserved(look.window_w)),
-                right: px(RIGHT_RESERVED),
+                right: px(look.right),
                 height: px(LEDGE_H + SCRUB_H + 4.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(2.0),

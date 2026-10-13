@@ -70,12 +70,23 @@ pub(crate) enum DrawerPress {
 
 /// Installs the drawer.
 pub(crate) fn install(app: &mut App) {
-    app.init_resource::<DrawerSlide>().add_systems(
-        Update,
-        (asks, presses, sync_door, sync_drawer, slide_the_drawer)
-            .chain()
-            .run_if(resource_exists::<UiFonts>),
-    );
+    app.init_resource::<DrawerSlide>()
+        .add_systems(
+            Update,
+            (asks, presses, sync_door, sync_drawer)
+                .chain()
+                .run_if(resource_exists::<UiFonts>),
+        )
+        // After every rebuild of the frame and before the layout: a shell the
+        // lobby stood up again this frame is squeezed before it is ever laid
+        // out at full width under the drawer (measured: one frame of it on
+        // every lobby press, paused-clock diff, 13.10.).
+        .add_systems(
+            PostUpdate,
+            slide_the_drawer
+                .before(bevy::ui::UiSystems::Prepare)
+                .run_if(resource_exists::<UiFonts>),
+        );
 }
 
 /// How far the drawer is in: 0 shut, 1 open (eased when drawn).
@@ -145,11 +156,22 @@ fn slide_the_drawer(
     let header = if at_table {
         0.0
     } else {
+        // A header the lobby stood up this frame has no size yet: the
+        // drawer keeps the top it had rather than jumping over it for one
+        // frame (measured, paused clock).
         headers
             .iter()
             .find(|(_, role, ..)| **role == crate::shellkit::role::Role::Header)
-            .map_or(0.0, |(_, _, node, _)| {
-                node.size().y * node.inverse_scale_factor()
+            .map(|(_, _, node, _)| node.size().y * node.inverse_scale_factor())
+            .filter(|h| *h > 0.0)
+            .unwrap_or_else(|| {
+                drawers
+                    .iter()
+                    .find_map(|(node, _)| match node.top {
+                        Val::Px(top) => Some(top),
+                        _ => None,
+                    })
+                    .unwrap_or(0.0)
             })
     };
     for (mut node, mut seen) in &mut drawers {
