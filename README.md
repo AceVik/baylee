@@ -139,8 +139,10 @@ where they stand).
 The screenshots show Baylee's **text view**, which draws each card from its
 rules text instead of the printed card image ([License and legal](#license-and-legal)
 explains why). In the game, the card images come from Scryfall, and <kbd>T</kbd>
-switches between the two views. They were taken with 0.1.0-beta.7 on a local
-test server, with made-up players.
+switches between the two views. In the text view a card far off on the table
+shows only its colour, its cost and its marks; pointing at it shows its text
+large. The pictures were taken with 0.1.0-beta.7 on a local test server, with
+card images switched off and made-up players.
 
 <table>
   <tr>

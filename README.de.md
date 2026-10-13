@@ -152,9 +152,11 @@ Die Bilder zeigen Baylees **Textansicht**, die jede Karte aus ihrem
 Regeltext zeichnet statt aus dem gedruckten Kartenbild (warum, steht unter
 [Lizenz und Rechtliches](#lizenz-und-rechtliches)). Im Spiel kommen die
 Kartenbilder von Scryfall, und <kbd>T</kbd> schaltet zwischen beiden
-Ansichten um. Sie entstanden mit 0.1.0-beta.7 an einem lokalen Testserver
-mit ausgedachten Spielern (die Oberfläche ist hier englisch; sie spricht
-auch Deutsch).
+Ansichten um. In der Textansicht zeigt eine Karte weit weg auf dem Tisch nur
+ihre Farbe, ihre Kosten und ihre Markierungen; zeigst du auf sie, siehst du
+ihren Text groß. Die Bilder entstanden mit 0.1.0-beta.7 an einem lokalen
+Testserver, mit abgeschalteten Kartenbildern und ausgedachten Spielern (die
+Oberfläche ist hier englisch; sie spricht auch Deutsch).
 
 <table>
   <tr>
