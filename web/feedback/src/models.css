@@ -293,6 +293,40 @@
   margin: 0.2rem 0 0;
 }
 
+/* Two columns in every section, one on a narrow screen: the editor reads as pairs. */
+.llm-section .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+@media (max-width: 34rem) {
+  .llm-section .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.llm-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.llm-pair-field {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* The pair's legend reads as every other box's label. */
+.llm-pair-field legend.llm-label {
+  padding: 0;
+  margin-bottom: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: inherit;
+  color: var(--muted);
+}
+
 .llm-fallback-line {
   display: flex;
   flex-wrap: wrap;

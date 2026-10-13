@@ -382,8 +382,8 @@ function Editor({
     </div>
   );
 
-  /** A number box; `whole` for a count, else cents. */
-  const numberBox = (fid: string, value: string, set: (v: string) => void, whole: boolean, hint?: Key) => (
+  /** A number box; `whole` for a count, else cents; `named` labels a box that has no label of its own. */
+  const numberBox = (fid: string, value: string, set: (v: string) => void, whole: boolean, hint?: Key, named?: Key) => (
     <input
       id={fid}
       type="number"
@@ -391,6 +391,7 @@ function Editor({
       min={0}
       step={whole ? 1 : "0.01"}
       placeholder={t(lang, "llm.noBound")}
+      aria-label={named === undefined ? undefined : t(lang, named)}
       aria-describedby={hint === undefined ? undefined : `${fid}-hint`}
       value={value}
       onChange={(e) => {
@@ -537,10 +538,18 @@ function Editor({
           <legend>{t(lang, "llm.section.game")}</legend>
           <div className="form-grid">
             {field("llm-game-usd", "llm.gameUsd", numberBox("llm-game-usd", gameUsd, setGameUsd, false, "llm.hint.gameUsd"), "llm.hint.gameUsd")}
+            <fieldset className="field llm-pair-field">
+              <legend className="llm-label">{t(lang, "llm.price")}</legend>
+              <div className="llm-pair">
+                {numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price", "llm.priceIn")}
+                {numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price", "llm.priceOut")}
+              </div>
+              <p id="llm-price-in-hint" className="hint muted llm-hint">
+                {t(lang, "llm.hint.price")}
+              </p>
+            </fieldset>
             {field("llm-game-tokens", "llm.gameTokens", numberBox("llm-game-tokens", gameTokens, setGameTokens, true, "llm.hint.gameTokens"), "llm.hint.gameTokens")}
             {field("llm-game-calls", "llm.gameCalls", numberBox("llm-game-calls", gameCalls, setGameCalls, true, "llm.hint.gameCalls"), "llm.hint.gameCalls")}
-            {field("llm-price-in", "llm.priceIn", numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price"), "llm.hint.price")}
-            {field("llm-price-out", "llm.priceOut", numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price"), "llm.hint.price")}
           </div>
         </fieldset>
 
