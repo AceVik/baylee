@@ -939,6 +939,19 @@ impl Canvas {
         }
     }
 
+    /// With a replay's hand folded away, on any frame: only the replay bar
+    /// covers the bottom, and the table takes the cards' height.
+    #[must_use]
+    pub fn with_replay_hand(self, replay: bool, open: bool) -> Self {
+        if !replay || open {
+            return self;
+        }
+        Self {
+            bottom: crate::hud::replay_bar::BAR_H,
+            ..self
+        }
+    }
+
     /// With a column of `width` on each side.
     #[must_use]
     pub fn with_peeks(self, width: f32) -> Self {
@@ -997,6 +1010,7 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
     let space = crate::hud::scale::space(window, ui.as_deref());
     let aspect = Canvas::for_table(space, duel.arrangement)
         .with_drawer(duel.hand_drawn_open)
+        .with_replay_hand(duel.replay.is_some(), duel.hand_drawn_open)
         .aspect();
     let frame = baylee_client_core::tableview::TableFrame::of(window.width(), window.height());
     // A resize is a rebuild of the whole layout, so the comparison has to be
@@ -1065,7 +1079,8 @@ pub fn frame_table(
         crate::hud::scale::space(window, ui.as_deref()),
         duel.arrangement,
     )
-    .with_drawer(duel.hand_drawn_open);
+    .with_drawer(duel.hand_drawn_open)
+    .with_replay_hand(duel.replay.is_some(), duel.hand_drawn_open);
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the
     // per-count memory and the offer may all have overruled.

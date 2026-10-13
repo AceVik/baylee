@@ -3588,29 +3588,53 @@ driven by a tape instead of a socket.
   `Playing`, places the next board without a glide (`table::Placing`) and
   drops the cues. `Duel::replay` is the host's `ReplayStatus`, written only
   when it differs.
-- **The bar** (`hud/ledge/replay_bar.rs`) stands in the shelf's middle on its
-  own root and revision: a timeline with a cell per turn (own ivory, others
-  slate), `seen` steps underlined, `unverified` ones banded, a red mark where
-  a tape stops early, the playhead and the step's words written in place per
-  frame; start, a turn back, a moment back, play/pause, a moment on, a turn
-  on, the end; the speed; the perspective. A sheet over it says *Rebuilding
-  the game…*, a refusal, or why the tape stops (*Play on anyway* for a
-  divergence). The shelf says no sentence while a replay plays. The clock is
-  `Time` (virtual), so `/pause` and `/step` hold a replay.
+- **The bar** (`hud/ledge/replay_bar.rs`, the owner's redesign of
+  13.10.2026) takes the actions bar's whole place (the hand's sort tools
+  step aside, the shelf says no sentence) on its own root and revision: a
+  timeline with a numbered cell per turn as wide as its steps (own ivory,
+  others slate), `seen` steps underlined, `unverified` ones banded, a red
+  mark where a tape stops early, a brass needle; under it three groups, the
+  two sides as wide so the transport stands on the centre line: the speed
+  pills (½ 1 2 4 8) and where the step stands; start, a turn back, a moment
+  back, a round brass play/pause, a moment on, a turn on, the end; whose
+  table (a chip opening the seat picker) and the hand chip. Every control
+  lights under the pointer and gives under a press (`ambience::Feel`). A
+  sheet over it says *Rebuilding the game…*, a refusal, or why the tape
+  stops (*Play on anyway* for a divergence). The clock is `Time` (virtual),
+  so `/pause` and `/step` hold a replay. A replay draws no decision clock.
+- **The hand folds** where the perspective shows none (the table; a seat
+  whose player did not share, the tape header's `own`) and stands open
+  where it does; the hand chip or `I` folds and unfolds it until the
+  perspective changes (`replay_bar::BarUi`). It is the phone's hand drawer
+  on every frame (`hand_drawer::slide_the_hand`, eased, `reduce_motion` the
+  cut; the bar rides it, `RidesTheHand`), and the table takes the height
+  (`Canvas::with_replay_hand`).
+- **Any seat's view** (REPLAY-DESIGN §18.3): the seat picker lists the
+  viewer's seat, every other seat, the table, all hands; a lock beside a
+  seat whose hidden cards stay hidden (its player unticked the consent; the
+  house and models always share). A hosted tape is asked for that seat and
+  the gateway masks it; a local record holds every hand.
 - **The Replays tab** (`Hub::Replays`, `src/lobby/replays.rs`, desktop only)
   lists this computer's kept records and the account's hosted games
   (`GET /replays`, a page of 20, *Older online games*), grouped by day, newest
-  first, filtered by source, result and a query over players and commanders;
-  a row's `⋯` watches from a perspective, *Delete…* a local record. A replay
-  opens as `Screen::Replay`, never `Screen::Seated`; leaving it comes back to
-  the tab. *Watch replay* stands on a finished game's end sheet (a local game,
-  a hosted one the player sat in); a replay's end sheet offers *Watch again*,
-  *Watch from…* and *Back to replays*.
+  first, filtered by source (All, Against the house, Online, Archived),
+  result and a query over players and commanders. Nothing is deleted from
+  it: a row's `⋯` *Archive*s it (a kept record moves to `records/archive/`,
+  out of the retention's reach; a hosted game is `PUT
+  /replays/{g}/archived`, its record stays on the gateway) and *Unarchive*
+  brings it back from *Archived*. The same menu holds the consent for a
+  hosted game (*Let others see my hand and deck in this game's replay*,
+  On/Off, `PUT /replays/{g}/share`), which the end sheet of a hosted game
+  shows ticked over its ways. A replay opens as `Screen::Replay`, never
+  `Screen::Seated`; leaving it comes back to the tab. *Watch replay* stands
+  on a finished game's end sheet (a local game, a hosted one the player sat
+  in); a replay's end sheet offers *Watch again*, *Watch from…* and *Back to
+  replays*.
 - dev-control: `/state.replay` (step, steps, turns, playing, speed,
   perspective, check, stop, loading, problem, verify) and `POST /replay
   {"command":"seek","step":42}` (`toggle`, `step` with `by`, `turn`,
-  `next_phase`, `start`, `end`, `faster`, `slower`, `perspective` with `to`,
-  `play_on`, `cancel`).
+  `next_phase`, `start`, `end`, `faster`, `slower`, `perspective` with `to`
+  and `seat`, `play_on`, `cancel`; the bar's own `hand` and `picker`).
 
 ### When the socket goes away
 

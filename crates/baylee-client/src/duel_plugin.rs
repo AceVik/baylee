@@ -595,6 +595,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::replay_bar::ReplayAsks>()
             .init_resource::<hud::replay_bar::ScrubDrag>()
             .init_resource::<hud::replay_bar::ReplayBarRevision>()
+            .init_resource::<hud::replay_bar::BarUi>()
             .add_systems(
                 Update,
                 (

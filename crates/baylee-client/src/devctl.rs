@@ -588,14 +588,20 @@ fn field<'a>(body: &'a str, key: &str) -> Option<&'a str> {
 /// `pause`, `step` (`by`), `turn` (`by`), `next_phase`, `prev_phase`,
 /// `seek` (`step`), `start`, `end`, `faster`, `slower`, `perspective`
 /// (`to`: `seat`, `public`, `all_hands`; none: the next), `play_on`,
-/// `cancel`.
-fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
+/// `cancel`; and the bar's own `hand` (fold or unfold) and `picker`.
+fn replay_ask(body: &str) -> Result<crate::hud::replay_bar::BarAsk, String> {
+    use crate::hud::replay_bar::BarAsk;
     use crate::replay::ReplayAsk;
     use baylee_client_core::replay::{Command, Perspective};
-    let number = |key: &str| field(body, key).and_then(|v| v.parse::<i64>().ok());
+    // Read as JSON, not by the hand scanner: `"seat"` is both a key and a
+    // value here (`{"to":"seat","seat":1}`).
+    let parsed: serde_json::Value = serde_json::from_str(body).unwrap_or_default();
+    let number = |key: &str| parsed.get(key).and_then(serde_json::Value::as_i64);
     let by = || number("by").map_or(1, |n| n.clamp(-100, 100) as i8);
     let command = field(body, "command").ok_or("no command")?;
-    Ok(match command {
+    let ask = match command {
+        "hand" => return Ok(BarAsk::ToggleHand),
+        "picker" => return Ok(BarAsk::TogglePicker),
         "toggle" => ReplayAsk::Transport(Command::Toggle),
         "play" => ReplayAsk::Transport(Command::Play),
         "pause" => ReplayAsk::Transport(Command::Pause),
@@ -612,7 +618,7 @@ fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
         "slower" => ReplayAsk::Transport(Command::Slower),
         "perspective" => {
             let seat = baylee_core::ids::PlayerId::new(number("seat").map_or(0, |n| n as u8));
-            match field(body, "to") {
+            match parsed.get("to").and_then(serde_json::Value::as_str) {
                 Some("seat") => ReplayAsk::Perspective(Perspective::Seat(seat)),
                 Some("public") => ReplayAsk::Perspective(Perspective::Public),
                 Some("all_hands") => ReplayAsk::Perspective(Perspective::AllHands(seat)),
@@ -622,7 +628,8 @@ fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
         "play_on" => ReplayAsk::PlayOn,
         "cancel" => ReplayAsk::Cancel,
         other => return Err(format!("no replay command {other}")),
-    })
+    };
+    Ok(BarAsk::Host(ask))
 }
 
 /// Whether a boolean field is present and true.

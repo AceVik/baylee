@@ -105,12 +105,24 @@ messages! {
     Yesterday { en: "Yesterday", de: "Gestern" },
     /// The search's hint.
     SearchHint { en: "Players, commanders\u{2026}", de: "Spieler, Kommandeure\u{2026}" },
-    /// A row's menu: delete a local record.
-    Delete { en: "Delete\u{2026}", de: "L\u{f6}schen\u{2026}" },
-    /// Asked before a local record is deleted.
-    DeleteAsk { en: "Delete this game? It is kept nowhere else, and a report can no longer carry it.", de: "Dieses Spiel l\u{f6}schen? Es wird nirgends sonst aufbewahrt, und ein Bericht kann es dann nicht mehr mitnehmen." },
-    /// The answer that deletes.
-    DeleteYes { en: "Delete", de: "L\u{f6}schen" },
+    /// A row's menu, and the source filter: archived replays.
+    Archived { en: "Archived", de: "Archiviert" },
+    /// A row's menu: archive it.
+    Archive { en: "Archive", de: "Archivieren" },
+    /// A row's menu: bring it back.
+    Unarchive { en: "Unarchive", de: "Zur\u{fc}ckholen" },
+    /// Said after archiving.
+    ArchivedNote { en: "Archived. Archived replays stay available under \u{201c}Archived\u{201d}.", de: "Archiviert. Archivierte Wiederholungen bleiben unter \u{201e}Archiviert\u{201c} verf\u{fc}gbar." },
+    /// Said after bringing one back.
+    UnarchivedNote { en: "Back in your replays.", de: "Wieder bei deinen Wiederholungen." },
+    /// The consent, on the end sheet and in a row's menu (§18.2).
+    ShareHand { en: "Let others see my hand and deck in this game\u{2019}s replay", de: "Andere d\u{fc}rfen in der Wiederholung dieses Spiels meine Hand und mein Deck sehen" },
+    /// The consent's state on a menu row's cap.
+    On { en: "On", de: "An" },
+    /// The consent's state on a menu row's cap.
+    Off { en: "Off", de: "Aus" },
+    /// The archived list is empty.
+    NoArchived { en: "Nothing archived. A replay you archive stays here and can be brought back.", de: "Nichts archiviert. Eine Wiederholung, die du archivierst, bleibt hier und l\u{e4}sst sich zur\u{fc}ckholen." },
     /// The empty list.
     Empty { en: "No replays yet. Games against the house are kept here (the last 20), and the games you play online are on the server you played them on.", de: "Noch keine Wiederholungen. Spiele gegen das Haus werden hier aufbewahrt (die letzten 20), und deine Online-Spiele liegen auf dem Server, auf dem du sie gespielt hast." },
     /// The list's foot line.
@@ -139,6 +151,14 @@ messages! {
     Speed { en: "Speed", de: "Tempo" },
     /// The timeline's hint over a turn. `{0}` the turn, `{1}` whose.
     TurnHint { en: "Turn {0} \u{b7} {1}", de: "Zug {0} \u{b7} {1}" },
+    /// A seat whose hidden cards stay hidden in this replay.
+    NotShared { en: "Hand not shared", de: "Hand nicht geteilt" },
+    /// Its hint.
+    NotSharedHint { en: "This player did not share their hand and deck for replays: their hidden cards stay hidden.", de: "Diese Person hat Hand und Deck nicht für Wiederholungen geteilt: ihre verdeckten Karten bleiben verdeckt." },
+    /// The hand chip: fold the hand away.
+    FoldHand { en: "Fold the hand away (I)", de: "Hand einklappen (I)" },
+    /// The hand chip: bring it back.
+    ShowHand { en: "Show the hand (I)", de: "Hand ausklappen (I)" },
     /// The replay could not be made. `{0}` why.
     Failed { en: "This replay can\u{2019}t be shown: {0}", de: "Diese Wiederholung kann nicht gezeigt werden: {0}" },
 }
