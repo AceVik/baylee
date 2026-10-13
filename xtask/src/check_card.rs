@@ -187,17 +187,23 @@ pub(crate) fn check_def_against_the_printing(
 }
 
 /// A face of a double-faced card that prints no mana cost and is still
-/// coloured has a colour indicator (CR 202.2e, 204.2), and `FaceDef::color_indicator`
-/// is the only place the engine learns that colour: a face's colours are its
-/// mana cost's and its indicator's (`object.rs`). Leave it out and the back
-/// face is colourless — Ormendahl, Profane Prince was, and seven more were.
+/// coloured has a colour indicator (CR 202.2e, 204.2), and the engine
+/// learns a face's colours from its `mana_cost` and its `color_indicator`
+/// and nothing else (`object.rs`). Leave the indicator out and the back face
+/// is colourless — Ormendahl, Profane Prince was, and five more were.
 ///
-/// Read off the printing's face `colors`, because the cached payload keeps
-/// no `color_indicator` field: on a face with no mana cost those colours
-/// *are* the indicator. Both ways: an indicator the printing does not have
-/// is a colour nobody printed. Every coverage level, since colour is a
-/// characteristic a stub has too. Transforming and modal double-faced
-/// cards only, where Scryfall's faces pair one to one with the `FaceDef`s.
+/// So the check is on what the engine will make of the face: for a face the
+/// printing gives no mana cost, the colours of its `mana_cost` together with
+/// its `color_indicator` must be the printed face's colours. A disturb back
+/// keeps its disturb cost in `mana_cost` (CR 702.146a; its mana value is
+/// still the front face's, CR 712.8c), so it is coloured through that cost
+/// and needs no indicator of its own — Ghastly Mimicry and Benevolent Geist.
+/// A face with a printed cost may carry an indicator only for colours the
+/// printing has. Read off the payload face's `colors`, because the cached
+/// payload keeps no `color_indicator` field. Every coverage level, since
+/// colour is a characteristic a stub has too. Transforming and modal
+/// double-faced cards only, where Scryfall's faces pair one to one with the
+/// `FaceDef`s.
 pub(crate) fn check_color_indicator_matches_the_printing(
     slug: &str,
     def: &'static baylee_cards::dsl::CardDef,
@@ -225,40 +231,48 @@ pub(crate) fn check_color_indicator_matches_the_printing(
             .get("mana_cost")
             .and_then(serde_json::Value::as_str)
             .is_none_or(str::is_empty);
-        let colors = printed
-            .get("colors")
-            .and_then(serde_json::Value::as_array)
-            .map(|letters| {
-                letters
-                    .iter()
-                    .filter_map(serde_json::Value::as_str)
-                    .filter_map(color_of_letter)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let want = if costless {
-            baylee_cards::dsl::ColorSet::from_slice(&colors)
+        let colors = baylee_cards::dsl::ColorSet::from_slice(
+            &printed
+                .get("colors")
+                .and_then(serde_json::Value::as_array)
+                .map(|letters| {
+                    letters
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .filter_map(color_of_letter)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+        );
+        let effective = face.color_indicator.union(face.mana_cost.colors());
+        let wrong = if costless {
+            if !colors.is_empty() {
+                tally.color_indicators += 1;
+            }
+            effective != colors
         } else {
-            baylee_cards::dsl::ColorSet::EMPTY
+            !face.color_indicator.difference(colors).is_empty()
         };
-        if costless && !colors.is_empty() {
-            tally.color_indicators += 1;
-        }
-        if face.color_indicator != want {
-            println!(
-                "{slug}: face `{}` prints no mana cost and is {} (a colour indicator, \
-                 CR 202.2e), and the code's color_indicator says {}",
-                face.name,
-                if want.is_empty() {
+        if wrong {
+            let named = |set: baylee_cards::dsl::ColorSet| {
+                if set.is_empty() {
                     "colourless".to_owned()
                 } else {
-                    color_letters(want)
-                },
-                if face.color_indicator.is_empty() {
-                    "nothing".to_owned()
+                    color_letters(set)
+                }
+            };
+            println!(
+                "{slug}: face `{}` is {} as printed and the code makes it {} \
+                 (mana_cost {} with color_indicator {}; CR 202.2e)",
+                face.name,
+                named(colors),
+                named(effective),
+                if face.mana_cost == baylee_core::mana::ManaCost::ZERO {
+                    "none".to_owned()
                 } else {
-                    color_letters(face.color_indicator)
+                    face.mana_cost.to_string()
                 },
+                named(face.color_indicator),
             );
             *problems += 1;
         }
