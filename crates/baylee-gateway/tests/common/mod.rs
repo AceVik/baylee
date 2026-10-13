@@ -657,6 +657,7 @@ async fn run_engine(
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
+                build: baylee_build::short().to_owned(),
             })),
         },
     )
@@ -704,6 +705,12 @@ async fn run_engine(
             }
             msg = next_msg(&mut ws) => {
                 let Some(mut msg) = msg else { break };
+                // A replay job, as `baylee-engine-server` runs one: the
+                // tape's pieces, then the socket closes.
+                if let v1::envelope::Msg::ProjectRecord(order) = msg {
+                    project(&mut ws, order, &probe).await;
+                    break;
+                }
                 if let v1::envelope::Msg::FlushRecord(_) = &msg {
                     probe.flushes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     if probe.mute.load(std::sync::atomic::Ordering::SeqCst) {
@@ -738,6 +745,32 @@ async fn run_engine(
         if runner.finished() {
             break;
         }
+    }
+}
+
+/// A replay job, as `baylee-engine-server` runs one: the tape's pieces on
+/// the engine link. A muted probe's engine never answers (the `504` test).
+async fn project(ws: &mut Socket, order: v1::ProjectRecord, probe: &ProbeEnd) {
+    if probe.mute.load(std::sync::atomic::Ordering::SeqCst) {
+        std::future::pending::<()>().await;
+    }
+    let pieces = tokio::task::spawn_blocking(move || {
+        let mut pieces = Vec::new();
+        baylee_engine_server::projection::run(&order, baylee_build::short(), &mut |piece| {
+            pieces.push(piece);
+        });
+        pieces
+    })
+    .await
+    .expect("the projection runs");
+    for piece in pieces {
+        send(
+            ws,
+            &Envelope {
+                msg: Some(v1::envelope::Msg::TapeChunk(piece)),
+            },
+        )
+        .await;
     }
 }
 

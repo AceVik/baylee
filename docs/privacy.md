@@ -639,10 +639,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   (who played a seat, or whose seat bridge did), which goes with the
   account. What stays after that is a game between
   numbered seats, with their decks and every card they held.
-- **No seat or lobby route reads a record.** The one reader a route
-  reaches is `POST /reports`, which attaches a game's record only when the
-  reporter sat at that game (`docs/protocol.md` §"The game record"). The
-  other is the operator's export below, which no route reaches.
+- **No seat or lobby route reads a record.** Two readers a route reaches:
+  `POST /reports`, which attaches a game's record only when the reporter sat
+  at that game (`docs/protocol.md` §"The game record"), and a replay job,
+  which hands it only to an engine (below: a replay is a projection, never
+  the record). The other is the operator's export below, which no route
+  reaches.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
@@ -686,6 +688,22 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   or the service; the admin reads it over on GitHub before submitting. The
   audit names the admin who changed a report; it names no player. Its
   Overview shows a gateway's numbers (counts only, above) and its keys.
+- **Replays** (`docs/protocol.md` §"Replays") read a record only to hand it
+  to an engine on the engine link, which plays it again and sends back a
+  projection: what one seat (or a spectator) was shown, never the record. A
+  replay is a projection, never the record. A seat's tape goes only to the
+  account `game_record_seat` names for that seat; the public tape only to an
+  account that sat at the game. No tape is stored, on the gateway or on a
+  device, and the job's log names no account. `GET /replays` shows a seated
+  account the current handles of the people it sat with, as the table
+  showed them, and a former player's seat as "Former player" once that
+  account is gone. Beside the record the gateway keeps what the list shows
+  (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
+  `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
+  game and card data, not personal, kept with the record. A deleted
+  account's games are gone from its list and its tapes, because the seat
+  link that authorises them is the one deletion cuts. Asks are counted per
+  account in memory for a minute.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 

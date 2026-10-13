@@ -421,6 +421,30 @@ mod tests {
         assert_eq!(check_record(b"plain"), Err(NotARecord::Unreadable));
     }
 
+    /// A record that carries `seen` on its header and inputs and `turn` on
+    /// its end (`baylee_gamehost::record::Line`) is a record: the shape
+    /// check reads kinds, never the keys beside them, and the keys stay
+    /// there whatever else is on the line.
+    #[test]
+    fn a_record_with_seen_and_an_end_turn_is_still_a_record() {
+        let header = r#"{"kind":"header","record":1,"build":"0.1.0","preset":{},"hash":"00","seen":"30b17ab8dd2e7087"}"#;
+        let input = r#"{"kind":"input","n":0,"at":0,"seat":0,"by":"seat","action":"PassPriority","hash":"01","seen":"deb49d0b74b15d90"}"#;
+        let end = r#"{"kind":"end","n":1,"at":0,"winners":[1],"reason":"concede","turn":7}"#;
+        let record = format!("{header}\n{input}\n{end}\n");
+        assert_eq!(check_record(&gz(&record)), Ok(()));
+        // The same lines, the keys beside them gone: the same answer.
+        let older = record
+            .replace(r#","seen":"30b17ab8dd2e7087""#, "")
+            .replace(r#","seen":"deb49d0b74b15d90""#, "")
+            .replace(r#","turn":7"#, "");
+        assert!(!older.contains("seen") && !older.contains("turn"));
+        assert_eq!(check_record(&gz(&older)), Ok(()));
+        // The check is still a check: a header's `seen` does not make a
+        // header of a line of another kind.
+        let imposter = format!("{header}\n{header}\n");
+        assert_eq!(check_record(&gz(&imposter)), Err(NotARecord::NotARecord));
+    }
+
     /// A small stream that unpacks past the bound is refused before it is
     /// read whole.
     #[test]
