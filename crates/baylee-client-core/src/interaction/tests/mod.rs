@@ -2,6 +2,7 @@ mod bounds;
 mod choosers;
 mod combat;
 mod ending;
+mod leaves_out;
 mod picks;
 mod priority;
 mod prompts;

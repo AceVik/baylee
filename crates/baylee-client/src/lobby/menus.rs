@@ -31,6 +31,8 @@ pub(crate) enum ShellMenu {
     Seat(u8),
     /// An empty seat's AI ▾ in the room, by seat.
     SeatAi(u8),
+    /// A Replays row's `⋯`, by its index in the list.
+    Replay(usize),
 }
 
 /// The entity a menu hangs from: placed under its right edge.

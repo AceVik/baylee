@@ -42,6 +42,8 @@ pub(crate) enum List {
     ProfileSheet,
     /// The settings screen's section list (WP5).
     SettingsNav,
+    /// The Replays tab's list.
+    Replays,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -66,6 +68,7 @@ pub(crate) struct Scrolled {
     about: f32,
     profile_sheet: f32,
     settings_nav: f32,
+    replays: f32,
 }
 
 impl Scrolled {
@@ -85,6 +88,7 @@ impl Scrolled {
             List::About => self.about,
             List::ProfileSheet => self.profile_sheet,
             List::SettingsNav => self.settings_nav,
+            List::Replays => self.replays,
         }
     }
 
@@ -104,6 +108,7 @@ impl Scrolled {
             List::About => self.about = at,
             List::ProfileSheet => self.profile_sheet = at,
             List::SettingsNav => self.settings_nav = at,
+            List::Replays => self.replays = at,
         }
     }
 }

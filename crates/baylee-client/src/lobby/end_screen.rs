@@ -68,14 +68,41 @@ pub(super) fn spawn_leave_button(
     // it has never heard of. It was floating over the board where nobody
     // looked; the end screen put it in the middle of the sheet.
     let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local && !handover.watching());
+    // Watch replay: a game this client hosted, or a hosted one this player
+    // sat in; never one only watched (desktop only).
+    let replayable = super::replays::SHOWN
+        && matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.watching());
+    let replay = matches!(state.lobby.screen(), Screen::Replay(_));
     let mut ways: Vec<(&str, Press)> = Vec::new();
-    if networked {
+    if replay {
+        use baylee_client_core::replay::words::ReplayPhrase;
         ways.push((
-            Phrase::PlayAgain.text(lang),
-            Press::End(EndPress::PlayAgain),
+            ReplayPhrase::WatchAgain.text(lang),
+            Press::End(EndPress::WatchAgain),
         ));
+        ways.push((
+            ReplayPhrase::WatchFrom.text(lang),
+            Press::End(EndPress::WatchFrom),
+        ));
+        ways.push((
+            ReplayPhrase::BackToReplays.text(lang),
+            Press::End(EndPress::Leave),
+        ));
+    } else {
+        if networked {
+            ways.push((
+                Phrase::PlayAgain.text(lang),
+                Press::End(EndPress::PlayAgain),
+            ));
+        }
+        if replayable {
+            ways.push((
+                baylee_client_core::replay::words::ReplayPhrase::WatchReplay.text(lang),
+                Press::End(EndPress::Replay),
+            ));
+        }
+        ways.push((Phrase::BackToLobby.text(lang), Press::End(EndPress::Leave)));
     }
-    ways.push((Phrase::BackToLobby.text(lang), Press::End(EndPress::Leave)));
 
     // In the sheet these are the slip's own answers, so they obey the slip's
     // own rule: the first one is what the sheet is *for* and is the only one
@@ -124,4 +151,11 @@ pub(crate) enum EndPress {
     /// Play that game again. Beside [`EndPress::Leave`], because those are the
     /// only two things left to do with a table that is over.
     PlayAgain,
+    /// Watch the game just played again (a local game, or a hosted one this
+    /// player sat in).
+    Replay,
+    /// A replay's end: from the start again.
+    WatchAgain,
+    /// A replay's end: from the next perspective it offers.
+    WatchFrom,
 }

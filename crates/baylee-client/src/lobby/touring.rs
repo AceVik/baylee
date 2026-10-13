@@ -19,12 +19,14 @@ pub(super) fn place(state: &LobbyState) -> Option<Place> {
     match state.lobby.screen() {
         Screen::SignIn { .. } => Some(Place::Door),
         Screen::Table if state.lobby.awaiting().is_some() && !state.room_away => Some(Place::Room),
-        Screen::Table => Some(match state.hub {
-            Hub::Play => Place::Play,
-            Hub::Decks => Place::Shelf,
-        }),
+        Screen::Table => match state.hub {
+            Hub::Play => Some(Place::Play),
+            Hub::Decks => Some(Place::Shelf),
+            // No tour stands on the Replays tab.
+            Hub::Replays => None,
+        },
         Screen::Build => Some(Place::Builder),
-        Screen::Seated(_) => None,
+        Screen::Seated(_) | Screen::Replay(_) => None,
     }
 }
 

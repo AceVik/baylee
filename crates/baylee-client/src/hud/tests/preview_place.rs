@@ -627,11 +627,9 @@ fn a_preview_keeps_its_plate_on_the_screen() {
 #[test]
 fn what_stands_beside_a_preview_leaves_its_plate_and_shells_uncovered() {
     use crate::hud::overlay::{place_around, plate_reach, preview_taken, shell_reach};
-    use crate::shellmat::{Dome, Shells};
+    use crate::shellmat::{Shells, Ward};
     let all = Shells {
-        steel: true,
-        dome: Some(Dome::Shroud),
-        wall: true,
+        ward: Ward::of(Ward::INDESTRUCTIBLE | Ward::DEFENDER | Ward::SHROUD),
         wave: true,
     };
     let (mut on_the_left, mut on_the_right) = (0, 0);
@@ -671,22 +669,19 @@ fn what_stands_beside_a_preview_leaves_its_plate_and_shells_uncovered() {
 }
 
 /// A preview wears its card's shells as the table does (the PM, 25.09): a
-/// dome's foot off its sides and its foot, a wall over its top. The panel is
+/// border's foot off every edge, three layers deep at most. The panel is
 /// placed as one that much bigger all round, so every shell lands on the
 /// screen at the window's edges, and the bubble's clip lets each out as far
 /// as it reaches.
 #[test]
 fn a_preview_keeps_its_shells_on_the_screen() {
     use crate::hud::overlay::{place_around, shell_reach};
-    use crate::shellmat::{DOME_MARGIN, Dome, Shells, WALL_THICK, wall_arc};
+    use crate::shellmat::{MAX_LAYERS, Shells, Ward, border_margin};
     use baylee_client_core::cardrail::CARD_TALL;
-    use baylee_client_core::layout::CARD_HEIGHT;
-    let (middle, out, _) = wall_arc(0.5);
-    let wall = middle.y + out.y * WALL_THICK / 2.0 - CARD_HEIGHT / 2.0;
+    // The widest border reaches as far off every edge.
+    let margin = border_margin(MAX_LAYERS);
     let all = Shells {
-        steel: true,
-        dome: Some(Dome::Shroud),
-        wall: true,
+        ward: Ward::of(Ward::INDESTRUCTIBLE | Ward::DEFENDER | Ward::SHROUD),
         wave: true,
     };
     let wave = Shells {
@@ -706,7 +701,7 @@ fn a_preview_keeps_its_shells_on_the_screen() {
         let img_h = img_w * CARD_TALL;
         let [side, top] = shell_reach(img_w, all);
         assert!(
-            side + 6.0 >= DOME_MARGIN * img_w - 1e-3 && top + 6.0 >= wall * img_w - 1e-3,
+            side + 6.0 >= margin * img_w - 1e-3 && top + 6.0 >= margin * img_w - 1e-3,
             "a card {img_w} wide: the clip lets out {side} and {top} past the padding"
         );
         let panel = Vec2::new(img_w + 12.0, img_h + 12.0);
@@ -731,10 +726,10 @@ fn a_preview_keeps_its_shells_on_the_screen() {
             let place = place_around(at, panel, WINDOW, None, [0.0; 2], [side, top]);
             let card = place + Vec2::splat(6.0);
             let edges = [
-                card.x - DOME_MARGIN * img_w,
-                card.y - wall * img_w,
-                card.x + img_w + DOME_MARGIN * img_w,
-                card.y + img_h + DOME_MARGIN * img_w,
+                card.x - margin * img_w,
+                card.y - margin * img_w,
+                card.x + img_w + margin * img_w,
+                card.y + img_h + margin * img_w,
             ];
             assert!(
                 edges[0] >= -1e-3

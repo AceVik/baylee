@@ -583,6 +583,48 @@ fn field<'a>(body: &'a str, key: &str) -> Option<&'a str> {
     }
 }
 
+/// `POST /replay {"command":"seek","step":42}`: what a replay is asked,
+/// as the bar and the keys ask it. `command` is one of `toggle`, `play`,
+/// `pause`, `step` (`by`), `turn` (`by`), `next_phase`, `prev_phase`,
+/// `seek` (`step`), `start`, `end`, `faster`, `slower`, `perspective`
+/// (`to`: `seat`, `public`, `all_hands`; none: the next), `play_on`,
+/// `cancel`.
+fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
+    use crate::replay::ReplayAsk;
+    use baylee_client_core::replay::{Command, Perspective};
+    let number = |key: &str| field(body, key).and_then(|v| v.parse::<i64>().ok());
+    let by = || number("by").map_or(1, |n| n.clamp(-100, 100) as i8);
+    let command = field(body, "command").ok_or("no command")?;
+    Ok(match command {
+        "toggle" => ReplayAsk::Transport(Command::Toggle),
+        "play" => ReplayAsk::Transport(Command::Play),
+        "pause" => ReplayAsk::Transport(Command::Pause),
+        "step" => ReplayAsk::Transport(Command::Step(by())),
+        "turn" => ReplayAsk::Transport(Command::Turn(by())),
+        "next_phase" => ReplayAsk::Transport(Command::NextPhase),
+        "prev_phase" => ReplayAsk::Transport(Command::PrevPhase),
+        "seek" => ReplayAsk::Transport(Command::Seek(
+            number("step").ok_or("seek needs a step")?.max(0) as usize,
+        )),
+        "start" => ReplayAsk::Transport(Command::Start),
+        "end" => ReplayAsk::Transport(Command::End),
+        "faster" => ReplayAsk::Transport(Command::Faster),
+        "slower" => ReplayAsk::Transport(Command::Slower),
+        "perspective" => {
+            let seat = baylee_core::ids::PlayerId::new(number("seat").map_or(0, |n| n as u8));
+            match field(body, "to") {
+                Some("seat") => ReplayAsk::Perspective(Perspective::Seat(seat)),
+                Some("public") => ReplayAsk::Perspective(Perspective::Public),
+                Some("all_hands") => ReplayAsk::Perspective(Perspective::AllHands(seat)),
+                _ => ReplayAsk::NextPerspective,
+            }
+        }
+        "play_on" => ReplayAsk::PlayOn,
+        "cancel" => ReplayAsk::Cancel,
+        other => return Err(format!("no replay command {other}")),
+    })
+}
+
 /// Whether a boolean field is present and true.
 fn flag(body: &str, key: &str) -> bool {
     field(body, key) == Some("true")
@@ -766,6 +808,24 @@ fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
     }
 }
 
+/// `/replay`: reads the ask and queues it for the replay bar, which reads
+/// [`crate::hud::replay_bar::ReplayAsks`] in its own system.
+fn queue_replay_ask(body: &str, commands: &mut Commands) -> String {
+    match replay_ask(body) {
+        Ok(ask) => {
+            commands.queue(move |world: &mut World| {
+                if let Some(mut asks) =
+                    world.get_resource_mut::<crate::hud::replay_bar::ReplayAsks>()
+                {
+                    asks.0.push(ask);
+                }
+            });
+            "{\"ok\":true}".to_string()
+        }
+        Err(err) => format!("{{\"error\":\"{err}\"}}"),
+    }
+}
+
 /// Drains the request queue once per frame and answers it.
 #[allow(clippy::too_many_arguments)]
 fn pump(
@@ -877,6 +937,7 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
+            "/replay" => queue_replay_ask(&job.body, &mut commands),
             "/shell" | "/reveal" => {
                 control.answer_later(job);
                 continue;

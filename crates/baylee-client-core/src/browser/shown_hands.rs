@@ -30,11 +30,7 @@ pub(super) fn rows(
         out.push(BrowseRow {
             id: card.id,
             name: shown,
-            art: Some(ImageKey::new(
-                card.card.print,
-                card.card.face,
-                ArtSize::Small,
-            )),
+            art: Some(ImageKey::of(card.card, ArtSize::Small)),
             zone: BrowseZone::ShownHand(player),
             standing: RowStanding {
                 selectable,

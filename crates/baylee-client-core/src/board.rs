@@ -324,6 +324,11 @@ pub enum Proposal {
     /// piling on any row, five Forests paying `{G}` are a lit `×1` beside a
     /// dark `×4`, not one lit card that says all five are being spent.
     Spent,
+    /// A permanent staged to pay an open payment window (`paystage`): not
+    /// tapped yet — nothing is sent before Go — and drawn as if it were, so
+    /// the board shows what the payment will leave. Taken back with a click
+    /// or `Esc` until the payment is sent.
+    Staged,
 }
 
 /// One drawable card, which may stand for several identical permanents.
@@ -1073,10 +1078,14 @@ fn stack_art(
                 lookup.object(source).and_then(|s| {
                     let key = art_of(s, ArtSize::Small, reg)?;
                     let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
-                    Some(text.filter(|_| own).map_or(key, |t| ImageKey {
-                        face: Face::from_index(t.face),
-                        ..key
-                    }))
+                    Some(
+                        text.filter(|_| own)
+                            .zip(rules)
+                            .map_or(key, |(t, r)| ImageKey {
+                                face: Face::of_card(r.card, t.face),
+                                ..key
+                            }),
+                    )
                 })
             }),
         StackKind::Spell => art_of(object, ArtSize::Small, reg),
@@ -1210,7 +1219,7 @@ impl BoardModel {
                 id: h.id,
                 name: h.name.clone(),
                 mana_value: h.mana_value,
-                art: ImageKey::new(h.card.print, h.card.face, ArtSize::Small),
+                art: ImageKey::of(h.card, ArtSize::Small),
                 playable: openings.playable.contains(&h.id),
                 reachable: openings.reachable.contains(&h.id),
                 commander: h.commander,
@@ -1513,7 +1522,7 @@ pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
 pub fn art_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
     worn(obj, reg)
         .map(|w| w.art(size))
-        .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
+        .or_else(|| obj.card.map(|c| ImageKey::of(c, size)))
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
 }
 
@@ -1534,7 +1543,10 @@ pub fn art_in(
     if let Some(Wears::Card(index, face)) = worn(obj, reg)
         && let Some(print) = shown_print(view, index, obj.id)
     {
-        return Some(ImageKey::new(print, face, size));
+        return Some(ImageKey::of(
+            baylee_view::CardIdentity { index, print, face },
+            size,
+        ));
     }
     art_of(obj, size, reg)
 }
@@ -1567,7 +1579,7 @@ pub fn original_in(
     reg: Registry<'_>,
     view: &PlayerView,
 ) -> Option<ImageKey> {
-    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    let own = obj.card.map(|c| ImageKey::of(c, size))?;
     (art_in(obj, size, reg, view)? != own).then_some(own)
 }
 
@@ -1592,7 +1604,7 @@ pub fn original_in(
 /// preloaded small by the board; nothing wants it at [`ArtSize::Normal`].
 #[must_use]
 pub fn original_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
-    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    let own = obj.card.map(|c| ImageKey::of(c, size))?;
     (art_of(obj, size, reg)? != own).then_some(own)
 }
 
@@ -1734,7 +1746,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 count,
                 art: top
                     .and_then(|o| o.card)
-                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+                    .map(|c| ImageKey::of(c, ArtSize::Small)),
                 name: top.map(|o| o.name.clone()),
                 top: top.map(|o| o.id),
                 fan,
@@ -1752,9 +1764,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
 fn fanned(object: &PublicObject) -> FannedCard {
     FannedCard {
         object: object.id,
-        art: object
-            .card
-            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+        art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
         name: object.name.clone(),
     }
 }
@@ -1769,10 +1779,7 @@ fn stack_target(lookup: &Lookup<'_>, what: TargetRef) -> StackTarget {
         what,
         is_current: object.is_some_and(|o| o.is_current),
         name: object.map(|o| o.name.clone()),
-        art: object.and_then(|o| {
-            o.card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
-        }),
+        art: object.and_then(|o| o.card.map(|c| ImageKey::of(c, ArtSize::Small))),
     }
 }
 
@@ -1816,14 +1823,14 @@ fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectI
 /// the equipped creature's (CR 301.5d), and Pacifism lies on the creature it
 /// enchants, on that creature's side of the table. One attached to an
 /// attachment lies under the same host, after it. Only a host that is drawn
-/// takes anything: attachments phase out with their host (CR 702.26g), and
-/// one whose host is not on the battlefield stays in its own row, where it
-/// can still be seen.
+/// takes anything, and one whose host is not on the battlefield stays in its
+/// own row, where it can still be seen. A phased-out host is drawn (grey,
+/// [`CardGroup::status`]), and what phased out with it (CR 702.26g) lies
+/// under it as before.
 fn tucked_under(view: &PlayerView) -> HashMap<ObjectId, Vec<ObjectId>> {
     let drawn: HashMap<ObjectId, Option<ObjectId>> = view
         .battlefield
         .iter()
-        .filter(|o| !o.status.is_phased_out())
         .map(|o| (o.id, o.attached_to))
         .collect();
     let mut under: HashMap<ObjectId, Vec<(usize, ObjectId)>> = HashMap::new();
@@ -1881,8 +1888,15 @@ fn build_pod(
     reg: Registry<'_>,
 ) -> SeatPod {
     let seat = view.seat(player);
-    let permanents: Vec<&PublicObject> = view
-        .battlefield_of(player)
+    // A phased-out permanent is treated as though it does not exist (CR
+    // 702.26b), so it counts in no summary; but it is still on the
+    // battlefield and comes back, so the rows draw it, grey and faded, where
+    // it lies (the owner, 13.10.2026). Its status keeps it out of every pile
+    // of phased-in permanents (`ObjectSummaryKey` carries the status).
+    let drawn: Vec<&PublicObject> = view.battlefield_of(player).collect();
+    let permanents: Vec<&PublicObject> = drawn
+        .iter()
+        .copied()
         .filter(|o| !o.status.is_phased_out())
         .collect();
     let hanging: HashSet<ObjectId> = tucked.values().flatten().copied().collect();
@@ -1890,7 +1904,7 @@ fn build_pod(
     let lanes = LaneKind::ALL
         .iter()
         .map(|&kind| {
-            let members: Vec<&PublicObject> = permanents
+            let members: Vec<&PublicObject> = drawn
                 .iter()
                 .copied()
                 .filter(|o| lane_of(o.types) == kind && !hanging.contains(&o.id))
@@ -2057,7 +2071,13 @@ fn card_group(
         base_toughness: obj.base_toughness,
         damage: obj.damage,
         loyalty: obj.loyalty,
-        status: obj.status,
+        // A staged tap is drawn turned: the preview of the payment the
+        // player is about to send, which the view cannot say yet.
+        status: if proposed == Some(Proposal::Staged) {
+            ObjectStatus::from_bits(obj.status.bits() | ObjectStatus::TAPPED.bits())
+        } else {
+            obj.status
+        },
         counters: obj.counters.clone(),
         badges: KeywordBadge::from_bits(obj.keywords),
         // A token has no printing, so for as long as this read only `card` a

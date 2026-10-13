@@ -372,16 +372,22 @@ pub struct Characteristics {
     /// never `mana_cost.cmc()`: a disturb face keeps its disturb cost in
     /// `mana_cost`, which is what it is cast for and not its mana value.
     pub front_mana_value: Option<u8>,
+    /// The number chosen for X while the object is a spell on the stack, 0
+    /// everywhere else (CR 202.3e: X is that number on the stack and 0
+    /// elsewhere). Written by the projection, never by a card.
+    pub x_on_stack: u32,
 }
 
 impl Characteristics {
     /// The mana value (CR 202.3): the front face's for a nonmodal
     /// double-faced card's back face ([`Self::front_mana_value`]), else the
-    /// mana cost's.
+    /// mana cost's, with X as chosen while the object is on the stack
+    /// (CR 202.3e).
     #[must_use]
-    pub const fn mana_value(&self) -> u32 {
+    pub fn mana_value(&self) -> u32 {
         match self.front_mana_value {
-            Some(value) => value as u32,
+            Some(value) => u32::from(value),
+            None if self.x_on_stack > 0 => self.mana_cost.with_x(self.x_on_stack).cmc(),
             None => self.mana_cost.cmc(),
         }
     }
@@ -595,6 +601,7 @@ impl Characteristics {
             // keep it.
             front_mana_value: (face > 0 && !f.castable_from_hand)
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
+            x_on_stack: 0,
         }
     }
 }
@@ -1137,6 +1144,10 @@ pub struct PaidRecord {
     pub sacrificed_lki: Option<SacrificedLki>,
     /// Exact creature sacrificed to pay this object's cost.
     pub sacrificed: Option<(ObjectId, u32)>,
+    /// Every permanent a `CostPart::SacrificeX` sacrificed, each as the card
+    /// it became in its owner's graveyard (id and version) with the power it
+    /// had as it last existed on the battlefield (Sword of the Ages).
+    pub sacrificed_many: Vec<(ObjectId, u32, i32)>,
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,

@@ -613,6 +613,17 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::SacrificedTotalPower => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| {
+                let total: i64 = p
+                    .sacrificed_many
+                    .iter()
+                    .map(|(_, _, power)| i64::from(*power))
+                    .sum();
+                u32::try_from(total.max(0)).unwrap_or(u32::MAX)
+            }),
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
         Amount::ThisWay(what) => this_way::count(state, res, *what, None),
         Amount::ThisWayBy { what, who } => players_of(*who, state, you, res)
@@ -1215,6 +1226,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
+        | Effect::PlayerMayPayManaEachThenElse { .. }
+        | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }

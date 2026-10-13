@@ -94,9 +94,7 @@ pub(in crate::hud) fn armed_label(
                 // whole of "the card taps once the mana has been chosen". So
                 // there is no row to draw here, and no price to quote either
                 // — the mana *is* the point, and it costs a tap.
-                // A settle is never armed either: `Duel::pay_owed` runs it on
-                // the press that asks for it.
-                crate::RunEnd::Float | crate::RunEnd::Ability(_) | crate::RunEnd::Settle => None,
+                crate::RunEnd::Float | crate::RunEnd::Ability(_) => None,
             };
             offered
                 .filter(|(offered, _)| offered.contains(&armed.object))
