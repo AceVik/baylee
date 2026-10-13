@@ -4161,8 +4161,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Infinite Authority
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
