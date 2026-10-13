@@ -15,8 +15,9 @@
 //! One scene, three readings of it. It is seat 1's turn and seat 1's Grizzly
 //! Bears attack seat 0; seat 0 casts the spell in the declare-attackers step.
 //! Everything is placed by playing it: Auras are cast, aimed and resolved, and
-//! only the stolen Crusade is a fixture (a change of control, so an enchantment
-//! is controlled by one player and owned by the other).
+//! only a change of control is a fixture, so that an enchantment is controlled
+//! by one player and owned by the other: seat 1's Crusade, which seat 0 holds,
+//! and one of seat 0's Holy Strengths, which seat 1 holds.
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
@@ -49,10 +50,13 @@ struct Scene {
     stolen_crusade: ObjectId,
     /// A Crusade seat 1 owns and controls.
     their_crusade: ObjectId,
-    /// Holy Strengths seat 0 owns, on its own creature, on the attacker, on the homebody.
+    /// Holy Strengths seat 0 owns and controls, on its own creature, on the
+    /// attacker, on the homebody.
     my_aura_at_home: ObjectId,
     my_aura_on_attacker: ObjectId,
     my_aura_on_homebody: ObjectId,
+    /// A Holy Strength seat 0 owns but seat 1 controls, on the homebody.
+    my_aura_given_away: ObjectId,
     /// Holy Strengths seat 1 owns, on seat 0's creature, on the attacker, on the homebody.
     their_aura_on_mine: ObjectId,
     their_aura_on_attacker: ObjectId,
@@ -67,6 +71,7 @@ fn assert_the_scene_is_as_built(scene: &Scene) {
         (scene.my_aura_at_home, scene.mine_creature),
         (scene.my_aura_on_attacker, scene.attacker),
         (scene.my_aura_on_homebody, scene.homebody),
+        (scene.my_aura_given_away, scene.homebody),
         (scene.their_aura_on_mine, scene.mine_creature),
         (scene.their_aura_on_attacker, scene.attacker),
         (scene.their_aura_on_homebody, scene.homebody),
@@ -102,6 +107,7 @@ fn scene(cast_the_spell: bool) -> Scene {
             index::HOLY_STRENGTH,
             index::HOLY_STRENGTH,
             index::HOLY_STRENGTH,
+            index::HOLY_STRENGTH,
             remove_enchantments(),
         ],
         &[
@@ -122,14 +128,18 @@ fn scene(cast_the_spell: bool) -> Scene {
     let my_aura_at_home = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, mine_creature, &W);
     let my_aura_on_attacker = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, attacker, &W);
     let my_aura_on_homebody = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, homebody, &W);
+    let my_aura_given_away = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, homebody, &W);
     // One of seat 1's Crusades is seat 0's to control, not to own.
     crate::resolve::gain_control(
         engine.dev_state_mut(P0).expect("the harness may set up"),
-        &[(stolen_crusade, P0)],
+        &[(stolen_crusade, P0), (my_aura_given_away, P1)],
     );
     engine.refresh_offer();
     assert_eq!(kit::controller_of(&engine, stolen_crusade), P0);
     assert_eq!(kit::owner_of(&engine, stolen_crusade), P1);
+    // The other way round: seat 0's own Aura, in seat 1's hands.
+    assert_eq!(kit::controller_of(&engine, my_aura_given_away), P1);
+    assert_eq!(kit::owner_of(&engine, my_aura_given_away), P0);
 
     // Seat 1's turn: its three Auras, then the attack.
     pass_until(&mut engine, |e| {
@@ -172,6 +182,7 @@ fn scene(cast_the_spell: bool) -> Scene {
         my_aura_at_home,
         my_aura_on_attacker,
         my_aura_on_homebody,
+        my_aura_given_away,
         their_aura_on_mine,
         their_aura_on_attacker,
         their_aura_on_homebody,
@@ -193,10 +204,14 @@ fn scene(cast_the_spell: bool) -> Scene {
 
 /// "Return to your hand all enchantments you both own and control, all Auras
 /// you own attached to permanents you control, and all Auras you own attached
-/// to attacking creatures your opponents control." Seat 0's own Crusade, its
-/// Holy Strength on its own creature and its Holy Strength on the opposing
-/// attacker are back in its hand, still its cards. The control: before the
-/// spell they were all on the battlefield.
+/// to attacking creatures your opponents control." Seat 0's own Crusade and
+/// its three Holy Strengths (on its own creature, on the opposing attacker
+/// and on the opposing creature that stays home) are back in its hand, still
+/// its cards. The last one is the first clause, not the other two: an Aura is
+/// an enchantment, seat 0 cast it so owns and controls it (CR 303.4e: an
+/// Aura's controller is separate from the enchanted object's), and the clause
+/// says nothing about where it is attached. The control: before the spell
+/// they were all on the battlefield.
 #[test]
 fn what_you_own_comes_back_to_your_hand() {
     let before = scene(false);
@@ -204,6 +219,10 @@ fn what_you_own_comes_back_to_your_hand() {
         ("seat 0's own Crusade", before.my_crusade),
         ("seat 0's Aura on its own creature", before.my_aura_at_home),
         ("seat 0's Aura on the attacker", before.my_aura_on_attacker),
+        (
+            "seat 0's Aura on the creature that stays home",
+            before.my_aura_on_homebody,
+        ),
     ] {
         assert_eq!(
             kit::zone_now(&before.engine, id),
@@ -222,6 +241,10 @@ fn what_you_own_comes_back_to_your_hand() {
         (
             "an Aura you own on an attacking opposing creature",
             after.my_aura_on_attacker,
+        ),
+        (
+            "an Aura you own and control on a creature that is neither yours nor attacking (an enchantment you both own and control)",
+            after.my_aura_on_homebody,
         ),
     ] {
         assert_eq!(
@@ -272,11 +295,14 @@ fn the_other_enchantments_and_auras_are_destroyed() {
     }
 }
 
-/// And nothing else: an Aura on an opposing creature that is not attacking
-/// (seat 1's own and seat 0's alike) and an enchantment seat 1 owns and
-/// controls are untouched, and so are the creatures. The control is that the
-/// two Holy Strengths on the attacking creature, which is in the same scene,
-/// did leave.
+/// And nothing else is touched: an Aura seat 1 owns and controls on its own
+/// creature that is not attacking, and an enchantment seat 1 owns and controls,
+/// stay where they were, and so do the creatures. Seat 0's Aura that seat 1
+/// controls stays too: seat 0 owns it but does not control it, and it sits on
+/// a creature of seat 1's that is not attacking, so none of the four
+/// "you control" / "attacking creatures your opponents control" clauses
+/// reaches it. The control is that the two Holy Strengths on the attacking
+/// creature, which is in the same scene, did leave.
 #[test]
 fn the_rest_is_left_alone() {
     let after = scene(true);
@@ -287,13 +313,13 @@ fn the_rest_is_left_alone() {
     );
     for (name, id, host) in [
         (
-            "an Aura you own on a creature that is not attacking",
-            after.my_aura_on_homebody,
+            "an opponent's Aura on its own creature that is not attacking",
+            after.their_aura_on_homebody,
             Some(after.homebody),
         ),
         (
-            "an opponent's Aura on its own creature that is not attacking",
-            after.their_aura_on_homebody,
+            "an Aura you own but an opponent controls, on that opponent's creature that is not attacking",
+            after.my_aura_given_away,
             Some(after.homebody),
         ),
         ("an opponent's own enchantment", after.their_crusade, None),
@@ -319,5 +345,10 @@ fn the_rest_is_left_alone() {
         kit::controller_of(&after.engine, after.their_crusade),
         P1,
         "and it is still seat 1's"
+    );
+    assert_eq!(
+        kit::controller_of(&after.engine, after.my_aura_given_away),
+        P1,
+        "and so is the Aura seat 0 owns: it did not change hands"
     );
 }
