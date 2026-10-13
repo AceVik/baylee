@@ -639,10 +639,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   (who played a seat, or whose seat bridge did), which goes with the
   account. What stays after that is a game between
   numbered seats, with their decks and every card they held.
-- **No seat or lobby route reads a record.** The one reader a route
-  reaches is `POST /reports`, which attaches a game's record only when the
-  reporter sat at that game (`docs/protocol.md` §"The game record"). The
-  other is the operator's export below, which no route reaches.
+- **No seat or lobby route reads a record.** Two readers a route reaches:
+  `POST /reports`, which attaches a game's record only when the reporter sat
+  at that game (`docs/protocol.md` §"The game record"), and a replay job,
+  which hands it only to an engine (below: a replay is a projection, never
+  the record). The other is the operator's export below, which no route
+  reaches.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them

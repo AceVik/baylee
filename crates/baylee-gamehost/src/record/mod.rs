@@ -525,13 +525,13 @@ pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::Session;
     use baylee_core::preset::SeatController;
 
     /// The acceptance decks, seat 0 a player's chair and seat 1 the house's.
-    pub(super) fn table(seed: u64) -> GamePreset {
+    pub(crate) fn table(seed: u64) -> GamePreset {
         let text = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../data/acceptance-decks.txt"
@@ -550,7 +550,7 @@ mod tests {
     /// player's own answers, the decision clock's, a stand-in's after the
     /// player leaves and the house AI's throughout, with chairs changing
     /// hands on the way. Returns the finished session.
-    pub(super) fn played(seed: u64) -> Session {
+    pub(crate) fn played(seed: u64) -> Session {
         played_saying(seed, |_, _| {})
     }
 
@@ -598,7 +598,7 @@ mod tests {
         session
     }
 
-    pub(super) fn lines(record: &[u8]) -> Vec<Line> {
+    pub(crate) fn lines(record: &[u8]) -> Vec<Line> {
         record
             .split(|&b| b == b'\n')
             .filter(|l| !l.is_empty())
@@ -606,7 +606,7 @@ mod tests {
             .collect()
     }
 
-    pub(super) fn encode(lines: &[Line]) -> Vec<u8> {
+    pub(crate) fn encode(lines: &[Line]) -> Vec<u8> {
         let mut out = Vec::new();
         for line in lines {
             serde_json::to_writer(&mut out, line).expect("a line");

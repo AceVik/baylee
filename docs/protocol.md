@@ -1754,8 +1754,12 @@ bound.
 
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
-  them. The one reader is `POST /reports`, for a player who sat at the game,
-  which passes it to the feedback service (`docs/feedback.md`).
+  them. Two readers a route reaches: `POST /reports`, for a player who sat
+  at the game, which passes it to the feedback service (`docs/feedback.md`)
+  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  it only to an engine on the engine link through `records::for_projection`
+  after the route found the account's seat. A replay is a projection, never
+  the record.
 - **It names nobody.** Seats are numbers, and the gateway keeps which account
   sat where beside it (`game_record_seat`), a link that goes with the
   account (`ON DELETE SET NULL`) while the record stays. The seat names a
@@ -1915,7 +1919,8 @@ client <──200 tape── gateway         (the engine exits; the agent report
 - **The agent is unchanged**: a job's id is a game id to it. The gateway
   counts a job against the agent's capacity (`Agent::games`) until it ends,
   and tells the agent `StopEngine` on a timeout. Jobs are not games: no lobby
-  entry, no `/health` count, no record of their own. `BAYLEE_REPLAY_JOBS`
+  entry, no `/health` `games` count (its `agents.games` counts engines, so a
+  job too), no record of their own. `BAYLEE_REPLAY_JOBS`
   (default 4, `0` = off) bounds how many run at once on a gateway.
 - **The engine** decides by the first frame after its hello: `GameSetup` is a
   game, `ProjectRecord` a job (`baylee_engine_server::projection::run`):

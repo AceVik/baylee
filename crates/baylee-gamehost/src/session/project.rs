@@ -539,3 +539,81 @@ pub fn summary(record: &[u8]) -> Result<Summary, ReplayError> {
     }
     Ok(summary)
 }
+
+#[cfg(test)]
+mod smoke {
+    use super::*;
+    use baylee_protocol::v1;
+
+    fn kind(env: &Envelope) -> &'static str {
+        match env.msg {
+            Some(v1::envelope::Msg::GameStatic(_)) => "static",
+            Some(v1::envelope::Msg::StateDelta(_)) => "delta",
+            Some(v1::envelope::Msg::ChoiceRequest(_)) => "choice",
+            _ => "other",
+        }
+    }
+
+    fn run(perspective: Perspective) -> (Projection, Vec<Moment>, u64) {
+        let record = crate::record::tests::played(3).take_record();
+        let inputs = crate::record::tests::lines(&record)
+            .iter()
+            .filter_map(|l| match l {
+                Line::Input { n, .. } => Some(*n),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let mut moments = Vec::new();
+        let projection = project(
+            &record,
+            vec!["A".into(), "B".into()],
+            perspective,
+            Verify::Stop,
+            |m| {
+                moments.push(m);
+                ControlFlow::Continue(())
+            },
+        )
+        .expect("projects");
+        assert_eq!(projection.inputs, inputs.len() as u64);
+        (projection, moments, *inputs.last().unwrap())
+    }
+
+    #[test]
+    fn a_whole_record_projects_exactly_for_a_seat_and_the_public() {
+        for perspective in [
+            Perspective::Seat(PlayerId::new(0)),
+            Perspective::Seat(PlayerId::new(1)),
+            Perspective::Public,
+            Perspective::AllHands(PlayerId::new(0)),
+        ] {
+            let (projection, moments, last) = run(perspective);
+            assert_eq!(projection.stop, Stop::End, "{perspective:?}");
+            assert_eq!(projection.exact_to, Some(last));
+            assert!(moments.iter().all(|m| m.check == Check::Exact));
+            let first: Vec<_> = moments[0].frames.iter().map(kind).collect();
+            assert_eq!(first[0], "static", "{perspective:?}: {first:?}");
+            assert!(first.contains(&"delta"));
+            let shown = moments.iter().filter(|m| !m.frames.is_empty()).count();
+            assert!(
+                shown > 10 && shown < moments.len(),
+                "{perspective:?}: {shown}"
+            );
+            let end: Vec<_> = moments
+                .iter()
+                .rev()
+                .find(|m| !m.frames.is_empty())
+                .unwrap()
+                .frames
+                .iter()
+                .map(kind)
+                .collect();
+            assert_eq!(
+                end.iter().filter(|k| **k == "choice").count(),
+                1,
+                "{perspective:?}: {end:?}"
+            );
+            assert_eq!(end.last(), Some(&"choice"));
+        }
+    }
+}
