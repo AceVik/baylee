@@ -81,19 +81,56 @@ def _xor(data: bytes, nonce: bytes) -> bytes:
     return bytes(a ^ b for a, b in zip(data, _keystream(nonce, len(data))))
 
 
+def _needles(fields: dict) -> set[str]:
+    """What must not be readable in a blob: every value, every word of three
+    letters or more, the telephone number's digits, both halves of the
+    e-mail address."""
+    out: set[str] = set()
+    for value in fields.values():
+        out.add(value)
+        out.update(w for w in value.split() if len(w) >= 3)
+    out.add("".join(c for c in fields["phone"] if c.isdigit()))
+    local, _, domain = fields["email"].partition("@")
+    out.update((local, domain))
+    return {n for n in out if n}
+
+
+def _readable(blob: bytes, fields: dict) -> bool:
+    """Whether any needle shows in the blob as text, in the raw bytes behind
+    the base64, or in their hex. A random nonce makes that unlikely, not
+    impossible (a three-letter word in 400 base64 characters), so encode()
+    checks every blob it writes."""
+    text = blob.decode("ascii").lower()
+    raw = base64.urlsafe_b64decode(blob + b"=" * (-len(blob) % 4))
+    hexed = raw.hex()
+    for n in _needles(fields):
+        b = n.encode("utf-8")
+        if n.lower() in text or b in raw or b.hex() in hexed:
+            return True
+    return False
+
+
 def encode(fields: dict, nonce: bytes | None = None) -> bytes:
-    """The blob for `fields` (every key in FIELDS, each a non-empty string)."""
+    """The blob for `fields` (every key in FIELDS, each a non-empty string).
+    A blob in which a value or a word of it could be read is never returned:
+    with a random nonce another is drawn, a given nonce raises."""
     missing = [k for k in FIELDS if not isinstance(fields.get(k), str) or not fields[k].strip()]
     if missing:
         raise ValueError("missing or empty field(s): " + ", ".join(missing))
-    if nonce is None:
-        nonce = secrets.token_bytes(NONCE_LEN)
-    if len(nonce) != NONCE_LEN:
+    if nonce is not None and len(nonce) != NONCE_LEN:
         raise ValueError(f"nonce must be {NONCE_LEN} bytes")
-    doc = {"v": VERSION, "fields": {k: fields[k].strip() for k in FIELDS}}
+    clean = {k: fields[k].strip() for k in FIELDS}
+    doc = {"v": VERSION, "fields": clean}
     plain = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    raw = MAGIC + bytes([VERSION]) + nonce + _xor(plain, nonce)
-    return base64.urlsafe_b64encode(raw).rstrip(b"=")
+    for _ in range(64):
+        n = nonce if nonce is not None else secrets.token_bytes(NONCE_LEN)
+        raw = MAGIC + bytes([VERSION]) + n + _xor(plain, n)
+        blob = base64.urlsafe_b64encode(raw).rstrip(b"=")
+        if not _readable(blob, clean):
+            return blob
+        if nonce is not None:
+            break
+    raise ValueError("every blob tried showed part of the data; try again")
 
 
 def decode(blob: bytes) -> dict:

@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -103,6 +104,9 @@ def find_private_files(root: Path) -> list[Path]:
         if not p.is_file():
             continue
         rel_dirs = p.relative_to(root).parts[:-1]
+        # a local build of web/feedback brings its own packages; not ours
+        if "node_modules" in rel_dirs or ".git" in rel_dirs:
+            continue
         if (
             p.name.endswith(".bin")
             or fnmatch.fnmatch(p.name, "impressum-data*.json")
@@ -187,6 +191,40 @@ class BlobTests(unittest.TestCase):
     def test_decode_rejects_other_blobs(self):
         with self.assertRaises(ValueError):
             ib.decode(base64.urlsafe_b64encode(b"NOPE" + bytes(40)).rstrip(b"="))
+
+
+class ReadableCheckTests(unittest.TestCase):
+    def test_readable_detects_plaintext(self):
+        header = ib.MAGIC + bytes([ib.VERSION]) + NONCE
+        sloppy = base64.urlsafe_b64encode(header + FAKE["name"].encode()).rstrip(b"=")
+        self.assertTrue(ib._readable(sloppy, FAKE))
+        doc = json.dumps({"v": 1, "fields": FAKE}, ensure_ascii=False).encode("utf-8")
+        self.assertTrue(ib._readable(base64.urlsafe_b64encode(doc).rstrip(b"="), FAKE))
+        self.assertFalse(ib._readable(ib.encode(FAKE, nonce=NONCE), FAKE))
+
+    def test_every_random_blob_is_clean(self):
+        for fake in (FAKE, FAKE_UMLAUT):
+            with self.subTest(name=fake["name"]):
+                for _ in range(300):
+                    blob = ib.encode(fake)
+                    self.assertEqual(leaks(blob, fake), [])
+                    self.assertEqual(ib.decode(blob), fake)
+
+    def test_a_blob_that_stays_readable_is_never_returned(self):
+        with mock.patch.object(ib, "_readable", return_value=True) as readable:
+            with self.assertRaises(ValueError):
+                ib.encode(FAKE)
+            self.assertGreater(readable.call_count, 1, "a random nonce is redrawn")
+        with mock.patch.object(ib, "_readable", return_value=True) as readable:
+            with self.assertRaises(ValueError):
+                ib.encode(FAKE, nonce=NONCE)
+            self.assertEqual(readable.call_count, 1, "a given nonce is not redrawn")
+
+    def test_a_readable_first_draw_is_redrawn(self):
+        with mock.patch.object(ib, "_readable", side_effect=[True, False]) as readable:
+            blob = ib.encode(FAKE)
+        self.assertEqual(readable.call_count, 2)
+        self.assertEqual(ib.decode(blob), FAKE)
 
 
 class MainTests(unittest.TestCase):
