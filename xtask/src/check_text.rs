@@ -404,6 +404,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "SorceriesHaveFlash",
         "MillMayTakeOne",
         "RevealTopOnePerType",
+        "RevealTopPutOntoBattlefield",
         "ExileTopMayCast",
         "ExileTopToPlay",
         "MaySkipDrawStepDraw",
