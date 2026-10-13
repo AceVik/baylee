@@ -278,9 +278,20 @@ pub(super) fn encode_header(header: &Header) -> Vec<u8> {
 }
 
 /// Writes one line, newline included.
+///
+/// Written by hand rather than through a `serde_json::Value`: a `Value`
+/// sorts an object's keys, and a payload is kept as the wire wrote it,
+/// never encoded again (§4).
 pub(super) fn encode_line(line: &Line) -> Vec<u8> {
-    let value = match line {
-        Line::Static { at, json } => serde_json::json!({"kind": "static", "at": at, "json": json}),
+    fn text<T: Serialize + ?Sized>(value: &T) -> String {
+        serde_json::to_string(value).unwrap_or_else(|_| "null".to_owned())
+    }
+    let fields: Vec<(&str, String)> = match line {
+        Line::Static { at, json } => vec![
+            ("kind", text("static")),
+            ("at", text(at)),
+            ("json", json.get().to_owned()),
+        ],
         Line::View {
             at,
             n,
@@ -288,21 +299,43 @@ pub(super) fn encode_line(line: &Line) -> Vec<u8> {
             seq,
             json,
             log,
-        } => serde_json::json!({
-            "kind": "view", "at": at, "n": n, "check": check, "seq": seq,
-            "json": json, "log": log,
-        }),
-        Line::Curtain { at } => serde_json::json!({"kind": "curtain", "at": at}),
-        Line::Over { at, json } => serde_json::json!({"kind": "over", "at": at, "json": json}),
-        Line::Stop(stop) => {
-            let mut value = serde_json::to_value(stop).unwrap_or_default();
-            if let Some(map) = value.as_object_mut() {
-                map.insert("kind".into(), "stop".into());
-            }
-            value
-        }
+        } => vec![
+            ("kind", text("view")),
+            ("at", text(at)),
+            ("n", text(n)),
+            ("check", text(check)),
+            ("seq", text(seq)),
+            ("json", json.get().to_owned()),
+            (
+                "log",
+                log.as_ref()
+                    .map_or_else(|| "null".to_owned(), |l| l.get().to_owned()),
+            ),
+        ],
+        Line::Curtain { at } => vec![("kind", text("curtain")), ("at", text(at))],
+        Line::Over { at, json } => vec![
+            ("kind", text("over")),
+            ("at", text(at)),
+            ("json", json.get().to_owned()),
+        ],
+        Line::Stop(stop) => vec![
+            ("kind", text("stop")),
+            ("stop", text(&stop.stop)),
+            ("inputs", text(&stop.inputs)),
+            ("exact_to", text(&stop.exact_to)),
+            ("seen_to", text(&stop.seen_to)),
+            ("diverged", text(&stop.diverged)),
+        ],
     };
-    let mut out = serde_json::to_vec(&value).unwrap_or_default();
-    out.push(b'\n');
-    out
+    let mut out = String::from("{");
+    for (i, (key, value)) in fields.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&text(*key));
+        out.push(':');
+        out.push_str(value);
+    }
+    out.push_str("}\n");
+    out.into_bytes()
 }

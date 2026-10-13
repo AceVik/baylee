@@ -19,6 +19,7 @@ pub mod tape;
 pub mod timeline;
 pub mod transport;
 mod wire;
+pub mod words;
 
 pub use tape::{Frame, Tape, TapeMoment, TapeRefusal};
 pub use timeline::Timeline;
@@ -143,3 +144,6 @@ impl Perspectives {
             .unwrap_or(now)
     }
 }
+
+#[cfg(test)]
+mod tests;

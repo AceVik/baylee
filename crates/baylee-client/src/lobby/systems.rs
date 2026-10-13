@@ -126,6 +126,7 @@ pub(super) fn poll(
                 let setup = state.lobby.take_pending_setup();
                 dispatch(&mut state, &mailbox, setup);
             }
+            Reply::Replays(page) => super::replays::online_page(&mut state, &page),
             Reply::Clocks(clocks) => {
                 if state.lobby.clocks() != clocks {
                     state.lobby.set_clocks(clocks);
@@ -522,10 +523,11 @@ pub(super) fn leave_clicks(
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
+    host: Option<Res<InstalledHost>>,
 ) {
     for click in pointer.read() {
         if let Some(way) = in_lineage(click.entity, &presses, &parents) {
-            take_the_way_out(*way, &mut state, &mut closes);
+            take_the_way_out(*way, &mut state, &mut closes, host.as_deref());
         }
     }
 }
@@ -552,6 +554,7 @@ pub(super) fn leave_keys(
     mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
     desk: Option<Res<crate::report::ReportDesk>>,
+    host: Option<Res<InstalledHost>>,
 ) {
     use baylee_client_core::prefs::Action;
     // The report form opens over the end screen too (F8, the corner
@@ -566,18 +569,23 @@ pub(super) fn leave_keys(
     }
     let mut leave = false;
     let mut again = false;
+    let mut rewatch = false;
     for press in &exits {
         match press {
             Press::End(EndPress::Leave) => leave = true,
             Press::End(EndPress::PlayAgain) => again = true,
+            Press::End(EndPress::WatchAgain) => rewatch = true,
             _ => {}
         }
     }
     // `ui::spawn_leave_button` puts *play again* first where there is one, and
     // the first answer on a slip is the lead — so the lead is the rematch when
-    // the sheet has one and the way back otherwise.
+    // the sheet has one and the way back otherwise. A replay's end sheet
+    // leads with Watch again.
     let lead = if again {
         Press::End(EndPress::PlayAgain)
+    } else if rewatch {
+        Press::End(EndPress::WatchAgain)
     } else if leave {
         Press::End(EndPress::Leave)
     } else {
@@ -590,7 +598,7 @@ pub(super) fn leave_keys(
     } else {
         return;
     };
-    take_the_way_out(way, &mut state, &mut closes);
+    take_the_way_out(way, &mut state, &mut closes, host.as_deref());
 }
 
 /// Takes one of the end screen's exits, whatever asked for it.
@@ -599,9 +607,17 @@ pub(super) fn leave_keys(
 /// other side of it. A rematch is *recorded* rather than sent, because
 /// [`came_back`] tears the seat down on the way out and would clear a request
 /// already in flight — see `Lobby::want_rematch`.
-fn take_the_way_out(way: Press, state: &mut LobbyState, closes: &mut MessageWriter<DuelCommand>) {
+fn take_the_way_out(
+    way: Press,
+    state: &mut LobbyState,
+    closes: &mut MessageWriter<DuelCommand>,
+    host: Option<&InstalledHost>,
+) {
     match way {
         Press::End(EndPress::Leave) => {}
+        Press::End(end @ (EndPress::Replay | EndPress::WatchAgain | EndPress::WatchFrom)) => {
+            super::replays::from_the_end(end, state, host);
+        }
         Press::End(EndPress::PlayAgain) => {
             let played = match state.lobby.screen() {
                 Screen::Seated(handover) => Some(handover.game_id.clone()),
@@ -627,6 +643,19 @@ pub(super) fn came_back(
     // keep a dead table's messages queued behind the next game's.
     commands.remove_resource::<InstalledHost>();
     state.connected = false;
+    // A replay left: another replay asked for from its end sheet (Watch
+    // again, Watch from…), else back to the Replays tab, read again.
+    if matches!(state.lobby.screen(), Screen::Replay(_)) {
+        state.lobby.leave_replay();
+        match state.replays.next.take() {
+            Some(next) => state.lobby.watch_replay(next),
+            None => {
+                state.hub = Hub::Replays;
+                state.replays.forget_visit();
+            }
+        }
+        return;
+    }
     if !matches!(state.lobby.screen(), Screen::Seated(_)) {
         return;
     }
@@ -676,6 +705,13 @@ pub(super) fn came_back(
     // table list on the way — the answer puts them straight back in a seat.
     let request = state.lobby.take_rematch().or_else(|| state.lobby.refresh());
     dispatch(&mut state, &mailbox, request);
+    // Watch replay, from the end sheet: the game's replay opens now that
+    // its table is down.
+    if let Some(next) = state.replays.next.take() {
+        state.hub = Hub::Replays;
+        state.replays.forget_visit();
+        state.lobby.watch_replay(next);
+    }
 }
 
 /// How the game ended, for whoever is about to say so.

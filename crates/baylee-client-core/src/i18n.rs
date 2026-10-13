@@ -6456,6 +6456,23 @@ messages! {
     NoAbilityAnswers { en: "None kept yet", de: "Noch keine" },
     /// A volume at nothing.
     SliderOff { en: "off", de: "aus" },
+    /// Replays: the keymap's group (the rest of a replay's words are
+    /// `replay::words::ReplayPhrase`).
+    GroupReplay { en: "Replays", de: "Wiederholungen" },
+    /// Replays: a turn back.
+    ActReplayTurnBack { en: "Replay: a turn back", de: "Wiederholung: einen Zug zur\u{fc}ck" },
+    /// Replays: a turn on.
+    ActReplayTurnForward { en: "Replay: a turn on", de: "Wiederholung: einen Zug weiter" },
+    /// Replays: to the start.
+    ActReplayStart { en: "Replay: to the start", de: "Wiederholung: zum Anfang" },
+    /// Replays: to the end.
+    ActReplayEnd { en: "Replay: to the end", de: "Wiederholung: zum Ende" },
+    /// Replays: slower.
+    ActReplaySlower { en: "Replay: slower", de: "Wiederholung: langsamer" },
+    /// Replays: faster.
+    ActReplayFaster { en: "Replay: faster", de: "Wiederholung: schneller" },
+    /// Replays: the next perspective.
+    ActReplayPerspective { en: "Replay: switch perspective", de: "Wiederholung: Perspektive wechseln" },
 }
 
 #[cfg(test)]

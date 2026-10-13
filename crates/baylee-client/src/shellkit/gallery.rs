@@ -359,7 +359,7 @@ fn header(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     let look = super::header::HeaderLook {
         brand: Phrase::AppName.text(lang),
         build: "0.1.0-beta.5",
-        nav: [
+        nav: &[
             Phrase::ShellPlay.text(lang),
             Phrase::ShellDecks.text(lang),
             Phrase::Settings.text(lang),

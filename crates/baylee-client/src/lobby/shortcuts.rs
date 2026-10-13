@@ -33,6 +33,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         Screen::Table => match state.hub {
             Hub::Play => Context::Play,
             Hub::Decks => Context::Decks,
+            Hub::Replays => Context::Replays,
         },
     };
     // The house list is the Decks screen's data, not a sheet (WP3); a
@@ -197,6 +198,14 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         ShellAction::GoDecks if table && (in_room || state.hub != Hub::Decks) => {
             Some(Press::Header(super::header::HeaderPress::Nav(1)))
         }
+        ShellAction::GoReplays
+            if super::replays::SHOWN && table && (in_room || state.hub != Hub::Replays) =>
+        {
+            Some(super::header::nav_press(super::header::NavTab::Replays))
+        }
+        ShellAction::Search if table && state.hub == Hub::Replays && !in_room => {
+            Some(Press::Shared(SharedPress::Focus(Field::ReplaySearch)))
+        }
         ShellAction::Undo if state.undo.is_some() => {
             Some(Press::Decks(super::decks::DecksPress::Undo))
         }
@@ -211,7 +220,9 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         {
             Some(Press::Settings(SettingsPress::OpenSettings))
         }
-        ShellAction::GoPlay | ShellAction::GoDecks if state.settings.is_open() => {
+        ShellAction::GoPlay | ShellAction::GoDecks | ShellAction::GoReplays
+            if state.settings.is_open() =>
+        {
             Some(Press::Settings(SettingsPress::CloseSettings))
         }
         ShellAction::Refresh if hub => Some(Press::Hub(HubPress::Refresh)),
