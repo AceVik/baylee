@@ -4,7 +4,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1;
 use baylee_protocol::v1::Envelope;
-use baylee_view::{GameStatic, LogTail, SeatIdentity};
+use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity};
 
 impl Session {
     /// The seats that won: one for a solo winner, every seat on the team for
@@ -162,6 +162,13 @@ impl Session {
     /// line that points at it, or the client draws a card it cannot key an
     /// image on.
     pub(super) fn view_envelopes(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        let view = self.seat_view(seat);
+        self.seat_envelopes(seat, &view)
+    }
+
+    /// The view a seat's next frames carry: what [`Session::view_envelopes`]
+    /// sends, built without telling the seat anything.
+    pub(super) fn seat_view(&self, seat: PlayerId) -> PlayerView {
         let awaiting = crate::view::awaiting_for(&self.engine, seat);
         let mut view = crate::view::player_view(
             self.engine.state(),
@@ -187,6 +194,12 @@ impl Session {
         view.clocks = self.running_clocks();
         view.lost = self.lost_seats();
         self.show_hands(&mut view, seat);
+        view
+    }
+
+    /// The frames that tell `seat` `view` and the log lines it has not been
+    /// sent, marking both told ([`Session::view_envelopes`]).
+    pub(super) fn seat_envelopes(&mut self, seat: PlayerId, view: &PlayerView) -> Vec<Envelope> {
         let mut out = Vec::new();
         let tail = self.log_tail(seat);
         // Two separate `let`s: `reveal` marks printings as shown, so folding
@@ -200,8 +213,34 @@ impl Session {
         if revealed || roster_moved {
             out.push(self.game_static_envelope(seat));
         }
-        out.extend(state_frames(self.seq, &view, tail));
+        out.extend(state_frames(self.seq, view, tail));
         out
+    }
+
+    /// Whether the log holds lines `seat` has not been sent.
+    pub(super) fn log_untold(&self, seat: PlayerId) -> bool {
+        self.told
+            .get(seat.get() as usize)
+            .is_some_and(|&told| told < self.log.len())
+    }
+
+    /// [`Session::seat_view`] with every other seat's hand beside the seat's
+    /// own, as a teammate's shared hand is shown (`SharedHand { public:
+    /// false }`): a replay's *all hands* (`project.rs`), for a record its
+    /// holder already holds whole. Never for a live seat.
+    pub(super) fn seat_view_showing_all(&self, seat: PlayerId) -> PlayerView {
+        let mut view = self.seat_view(seat);
+        for owner in (0..self.seats.len()).map(|i| PlayerId::new(seat_byte(i))) {
+            if owner != seat && !view.shared_hands.iter().any(|hand| hand.player == owner) {
+                view.shared_hands.push(baylee_view::SharedHand {
+                    public: false,
+                    player: owner,
+                    cards: crate::view::own_hand(self.engine.state(), owner),
+                });
+            }
+        }
+        view.shared_hands.sort_by_key(|hand| hand.player);
+        view
     }
 
     /// The log lines `seat` has not been sent yet, as it may know them, and

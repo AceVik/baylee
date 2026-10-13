@@ -187,6 +187,9 @@ is no account yet:
   guests. Both are absent from a gateway older than #317. They are here so a
   gateway list can say what a gateway takes before anything is saved;
   `GET /auth/config` says the same for the form.
+- `replays` is `{"version": 1}` (the tape's version) where the gateway
+  replays the hosted games an account sat at (§"Replays"), `null` where
+  `BAYLEE_REPLAY_JOBS=0`. Absent from a gateway older than replays.
 
 ## Printings (which art the client draws)
 
@@ -1734,6 +1737,21 @@ that are themselves recorded inputs. JSON Lines, so a record cut off with its
 engine is readable up to the cut; the header names the build
 (`baylee_build::short`).
 
+The hash checks a replay only on the build that played it: any change to
+the engine's state moves it. So the header and every input also carry
+`seen` (`baylee_gamehost::record::seen`, 16 hex like `hash`): FNV-1a 64 of
+the **public** table in a fixed encoding of our own numbers (turn, active
+seat, the step in CR 500.1's order; per seat in the game, life, poison,
+hand, library and exile counts and the graveyard's cards; the battlefield's
+card, controller, tapped and face-down, sorted; the stack's size), cards by
+their append-only `CardIndex`. It means the same on every build, so a replay
+on a later one is checked against what the table showed (§"Replays"). The
+encoding is frozen (a golden test pins it): a change is a new field name,
+never an edit. The end line carries `turn`, the turn the game ended on. Both
+are optional and skipped when absent: a record from before them reads as it
+did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
+unverified.
+
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
 (`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each
@@ -1786,8 +1804,12 @@ bound.
 
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
-  them. The one reader is `POST /reports`, for a player who sat at the game,
-  which passes it to the feedback service (`docs/feedback.md`).
+  them. Two readers a route reaches: `POST /reports`, for a player who sat
+  at the game, which passes it to the feedback service (`docs/feedback.md`)
+  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  it only to an engine on the engine link through `records::for_projection`
+  after the route found the account's seat. A replay is a projection, never
+  the record.
 - **It names nobody.** Seats are numbers, and the gateway keeps which account
   sat where beside it (`game_record_seat`), a link that goes with the
   account (`ON DELETE SET NULL`) while the record stays. The seat names a
@@ -1863,6 +1885,123 @@ and the check comes with the asking.
 Put the file somewhere root owns and the gateway's service user may read
 (`/var/lib/baylee-deploy/admission-hold`, say), not under a `RuntimeDirectory`
 the gateway's unit removes when it stops.
+
+## Replays
+
+A signed-in account (guests too) can watch again every hosted game it sat
+at, from any device: the gateway has the game's record (§"The game record
+(#315)"), and an engine plays it again on **today's** build and sends back
+what one perspective was sent. Nothing is stored: a replay is computed when
+asked, and the record never leaves the gateway but to that engine.
+
+### `GET /replays?offset=0&limit=20`
+
+The account's seated games (a seat it played; one its seat bridge played
+does not count), newest first (`started_at desc, game_id`), `limit` at most
+50 (default 20):
+
+```json
+{"games":[{"game":"0199c8…","started_at":"2026-10-13T18:31:02Z","ended_at":"2026-10-13T19:02:40Z",
+  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,
+  "check":"exact","build":"0.8.0+build.212 (3f9a1c7e21)",
+  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null},
+           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null},
+           {"seat":2,"who":"house","name":"House AI","commander":null}]}],
+ "total":57}
+```
+
+- `who`: `you`, `player`, `former` (a person whose account is gone),
+  `house`, `model` (a seat bridge). Names are handles as the gateway names
+  them now; the house is "House AI", a bridge "Language model", a former
+  player "Former player". `colours` (the deck's colour identity, `WUBRG`) only
+  for `you`; `commander` (a `CardIndex`) for every seat, public at the table.
+- `result` for the account's seat: `won`, `lost`, `draw`, `unfinished` (the
+  record has no end), or `unknown` (a game that ended before the gateway
+  noted how).
+- `check`: `exact` when the game's engine was this gateway's build (the
+  engine's hash checks every input), `checked` when the record carries `seen`
+  (a later build is checked against what the table showed), else
+  `unverified` (a record from before `seen` on a later build). A client asks
+  an `unverified` game with `verify: note` at once.
+- `public`: whether the account may ask the public perspective; every
+  seated account may in v1.
+
+### `POST /replays/{game}/tape`
+
+`{"perspective":"seat"|"public","verify":"stop"|"note"}` (`verify` defaults
+to `stop`; any other field is `400`: there is no seat field, the seat is the
+one `game_record_seat` names for the account, never the request's) →
+`200 application/gzip`, the tape (`baylee_protocol::tape`, gzip JSON Lines: a
+header, the `static`, `view`, `over` frames the perspective was sent, and a
+closing `stop` line saying how far it is the recorded game).
+
+| Answer | When |
+| --- | --- |
+| `200` | the tape; one that stops early (diverged, refused) says why on its `stop` line |
+| `400` | a body that is not a tape request |
+| `403` | the account sat at no seat of that game |
+| `404` | no record of that game |
+| `409` | the game is still being played |
+| `413` | the record is over 8 MiB compressed |
+| `429` | more than 6 asks a minute, or 2 at once, for the account |
+| `502` | the tape passed 32 MiB compressed, or the engine failed or went away (a client retries once) |
+| `503` | `BAYLEE_REPLAY_JOBS=0`, as many jobs running as it allows, no agent with room, or admission held (in `admission`'s words) |
+| `504` | no tape in 60 s (`BAYLEE_REPLAY_JOB_SECS`, `1..=600`); the job's engine is told to stop |
+
+A game that ended in the last 10 s whose last piece is not stored yet is
+waited for up to 3 s. A seat's tape is that seat's view and log exactly as a
+socket at it was sent them (its own hand, the log as the seat may know it);
+the public tape is the spectators' stream (no hand, a print table that
+starts empty). What a re-run leaves out, because the record does not hold
+it: a teammate's hand shared by choice, clocks, `lost` seats, the debug
+`AiLog`, the spectator count, chat.
+
+### The job
+
+```text
+client ──POST /replays/{g}/tape──> gateway ──StartEngine{game_id:"replay-<id>", engine_token, url}──> agent ── spawn ──> engine
+                                     <── EngineHello{game_id:"replay-…", token, build} ──────────────────────────────┘
+                                     ── ProjectRecord{job, record, perspective, seat, names, verify, game_id, recorded_by} ──>
+                                     <── TapeChunk{job, seq, data, last} … ──
+client <──200 tape── gateway         (the engine exits; the agent reports it as any engine)
+```
+
+- **The agent is unchanged**: a job's id is a game id to it. The gateway
+  counts a job against the agent's capacity (`Agent::games`) until it ends,
+  and tells the agent `StopEngine` on a timeout. Jobs are not games: no lobby
+  entry, no `/health` `games` count (its `agents.games` counts engines, so a
+  job too), no record of their own. `BAYLEE_REPLAY_JOBS`
+  (default 4, `0` = off) bounds how many run at once on a gateway.
+- **The engine** decides by the first frame after its hello: `GameSetup` is a
+  game, `ProjectRecord` a job (`baylee_engine_server::projection::run`):
+  inflate the record, `baylee_gamehost::replay::project` on a blocking
+  thread (no AI runs: the house's answers are the record's), tape lines in
+  gzip members of 32 KiB as `TapeChunk`s, the `last` ending on the `stop`
+  line, then exit. Past 32 MiB the tape stops `too_large`.
+- **The checks**: after every input the engine's hash against the record's
+  (`exact`, the same build), else the record's `seen` against the replayed
+  table's (`seen`, another build), else a divergence: with `verify: stop` the
+  tape ends there (`stop: diverged`, everything before it stands), with
+  `note` it goes on `unverified`. An input this build refuses ends it
+  `refused`.
+- **Engine link only.** `ProjectRecord`, `TapeChunk`, `EngineHello.build`
+  (kept as `game_record.build`) and `GameEnded.turn` are spoken only by
+  gateway and engine, which ship as one build: no `PROTOCOL_VERSION` bump,
+  and a peer from before them passes over either message.
+- **The record never goes to a player.** `baylee_db::records::for_projection`
+  has one caller, the job (`crates/baylee-gateway/src/replays.rs`), after the
+  route found the account's seat; `for_seated` keeps its one, `POST
+  /reports`. A test holds both. The job's log names the job, the game, the
+  outcome and its time, never the account.
+- **Deploys**: a deploy's drain waits on `games.local_running`, which counts
+  no job, so replacing the engine binary can end a projection in flight:
+  that request is `502`. The admission hold refuses new jobs as it refuses
+  new games.
+- **What the list reads** (migration 000018): `game_record.build`,
+  `checked`, `allow_spectators` (the table's setting at start), `winners`,
+  `turn`, `end_reason` (from `GameEnded`), and `game_record_seat.seated`
+  (`person`, `house`, `model`), `colours`, `commander` (card data, kept when
+  the account link is cut).
 
 ## Spectators (protocol 26)
 

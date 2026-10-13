@@ -34,6 +34,7 @@ use flate2::write::GzEncoder;
 
 mod clocks;
 mod frames;
+pub mod projection;
 
 pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};
 pub use frames::{curtain, seat_frame};
@@ -1129,6 +1130,7 @@ impl EngineRunner {
             .map(|p| u32::from(p.get()))
             .collect();
         let reason = format!("{:?}", result.reason);
+        let turn = session.state().turn.number;
         vec![
             self.record_chunk(&data, true),
             Envelope {
@@ -1136,6 +1138,7 @@ impl EngineRunner {
                     game_id: self.game_id.clone(),
                     winners,
                     reason,
+                    turn,
                 })),
             },
         ]

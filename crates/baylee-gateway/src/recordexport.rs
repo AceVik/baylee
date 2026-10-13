@@ -30,9 +30,10 @@ use serde_json::Value;
 /// The line kinds a record holds (`baylee_gamehost::record::Line`).
 const KINDS: [&str; 5] = ["header", "input", "chair", "declared_mind", "end"];
 
-/// Fields whose value is a hash or a card's printing id: hex and uuids,
+/// Fields whose value is a hash, the public table's digest (`seen`) or a
+/// card's printing id: hex and uuids,
 /// which a short name could occur in by chance, and which name no one.
-const NOT_SEARCHED: [&str; 3] = ["kind", "hash", "scryfall_id"];
+const NOT_SEARCHED: [&str; 4] = ["kind", "hash", "seen", "scryfall_id"];
 
 /// Below this many characters a name is not searched for: it would occur by
 /// chance in anything (a username has at least three).
@@ -275,6 +276,41 @@ mod tests {
         assert_eq!(out[2]["mind"]["model"], "claude-sonnet-5-5");
         assert_eq!(out[3]["winners"][0], 1);
         assert!(!anonymise(&text, &[]).unwrap().contains("1791000000"));
+    }
+
+    /// `seen` and `turn` (`baylee_gamehost::record::Line`) are the game's,
+    /// not an account's: the export keeps them as written.
+    #[test]
+    fn the_digest_and_the_turn_of_a_record_survive_the_export() {
+        let text = record(&[
+            r#"{"kind":"header","record":1,"build":"b","hash":"abc","seen":"30b17ab8dd2e7087","preset":{"seats":[]}}"#,
+            r#"{"kind":"input","n":0,"at":5,"seat":0,"by":"seat","action":"Concede","hash":"h","seen":"deb49d0b74b15d90"}"#,
+            r#"{"kind":"end","n":1,"at":6,"winners":[1],"reason":"concede","turn":7}"#,
+        ]);
+        let out = lines(&anonymise(&text, &[]).expect("exported"));
+        assert_eq!(out[0]["seen"], "30b17ab8dd2e7087");
+        assert_eq!(out[1]["seen"], "deb49d0b74b15d90");
+        assert_eq!(out[2]["turn"], 7);
+        assert_eq!(out[1]["at"], 0, "the clock still goes");
+    }
+
+    /// A digest is hex, which any name made of a-f occurs in by chance
+    /// (a username `bad`, `dead`, `ace`): like a hash, it is not searched,
+    /// or a record is refused for a coincidence.
+    #[test]
+    fn a_name_found_in_a_digest_by_chance_does_not_refuse_the_record() {
+        let text = record(&[
+            r#"{"kind":"header","record":1,"build":"b","hash":"abc","seen":"00ace00ace00ace0","preset":{"seats":[]}}"#,
+            r#"{"kind":"input","n":0,"at":0,"seat":0,"by":"seat","action":"Concede","hash":"h","seen":"0dead0dead0dead0"}"#,
+        ]);
+        assert!(
+            anonymise(&text, &["ace".to_owned()]).is_ok(),
+            "a name in the header's seen"
+        );
+        assert!(
+            anonymise(&text, &["dead".to_owned()]).is_ok(),
+            "a name in an input's seen"
+        );
     }
 
     /// A kind this export does not know refuses the record instead of

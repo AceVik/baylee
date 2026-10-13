@@ -117,6 +117,16 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
         "social".into(),
         serde_json::to_value(state.social.info()).unwrap_or(serde_json::Value::Null),
     );
+    // Replays of the hosted games an account sat at (`docs/protocol.md`
+    // §"Replays"): the tape's version, `null` when `BAYLEE_REPLAY_JOBS=0`.
+    body.insert(
+        "replays".into(),
+        if state.replay_jobs.on() {
+            serde_json::json!({ "version": baylee_protocol::tape::TAPE_VERSION })
+        } else {
+            serde_json::Value::Null
+        },
+    );
     // The version of the terms a player accepts here (WG-1), `null` when
     // the gateway has none; `GET /terms` has the text.
     body.insert(
