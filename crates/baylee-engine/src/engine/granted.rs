@@ -309,7 +309,7 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         payment: ActivationPayment,
-    ) {
+    ) -> bool {
         self.mana_window = payment.previous.map(|window| *window);
         // An activation its window leaves short is reversed, and the mana
         // abilities activated for it with it, as a cast's are (CR 732.1;
@@ -323,7 +323,7 @@ impl<L: CardLookup> Engine<L> {
         {
             self.give_back_window(player, &payment.opened);
             self.reverse_activation(player);
-            return;
+            return false;
         }
         let opened = payment.opened;
         self.activation_target_players = payment.players;
@@ -353,6 +353,8 @@ impl<L: CardLookup> Engine<L> {
         {
             self.give_back_window(player, &opened);
             self.reverse_activation(player);
+            return false;
         }
+        true
     }
 }

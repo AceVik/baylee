@@ -1666,7 +1666,11 @@ impl<L: CardLookup> Engine<L> {
         if self.decision_actor() != Some(player) {
             return Err(EngineError::MismatchedAction);
         }
+        let actor = player;
         let player = self.pending.asked().ok_or(EngineError::MismatchedAction)?;
+        if let PlayerAction::PayWindow { steps } = action {
+            return self.pay_window(actor, player, steps);
+        }
         let answered_priority =
             matches!(self.pending, Pending::Priority { player: holder, .. } if holder == player);
         let old_tops = self.library_action_tops.clone();
@@ -1945,6 +1949,8 @@ mod offer_tests;
 mod pact_payment_tests;
 #[cfg(test)]
 mod pay_in_cast_tests;
+#[cfg(test)]
+mod pay_window_tests;
 #[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]

@@ -1688,6 +1688,12 @@ fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFau
             legal.granted_actions.iter().any(|offer| offer.id == *id)
         }
         PlayerAction::Suspend { card } => legal.suspendable.contains(card),
+        // Its shape only: whether a payment window is open is the engine's
+        // question (`Engine::pay_window`), and each step is checked against
+        // the question standing when it is applied.
+        PlayerAction::PayWindow { steps } if steps.iter().all(PlayerAction::is_payment_step) => {
+            true
+        }
         _ => return Some(AnswerFault::WrongKind),
     };
     (!listed).then_some(AnswerFault::NotOffered)
@@ -2466,9 +2472,52 @@ pub enum PlayerAction {
         /// Optional standing answer; `None` restores asking.
         answer: Option<StandingAnswer>,
     },
+    /// Pay the open payment window in one go: `steps`, in order, then the
+    /// payment the window was opened for (`PlayerView::owed`). All or
+    /// nothing.
+    ///
+    /// Legal only while this seat holds priority inside its own payment
+    /// window: a spell's cost (CR 601.2g-h), an activation's (CR 602.2b), a
+    /// "pay or …" price (CR 605.3a). Each step is an action the seat could
+    /// have sent alone in that window — a mana ability
+    /// ([`Self::ActivateManaAbility`], [`Self::ActivateAbility`],
+    /// [`Self::TakeGrantedAction`]) or the answer to a question one of them
+    /// asks (a colour, a mode, a number, yes or no, objects, a player) —
+    /// and it is checked and applied exactly as it would be alone, so its
+    /// side effects (a painland's damage, a triggered mana ability) happen
+    /// in the listed order. After the last step the window must be back on
+    /// its own priority, and then it settles as passing would.
+    ///
+    /// If any step is refused, a question is left open, or the pool then
+    /// does not pay what is owed, the whole action is refused and the game
+    /// is exactly as it was before it arrived: nothing is tapped, made or
+    /// paid, and the journal is unchanged. Mana floating before the window
+    /// counts toward the payment; no steps at all pays from the pool alone.
+    PayWindow {
+        /// The mana abilities and their answers, in the order applied.
+        steps: Vec<PlayerAction>,
+    },
 }
 
 impl PlayerAction {
+    /// Whether this action may be one step of a [`Self::PayWindow`]:
+    /// making mana, or answering what making it asked.
+    #[must_use]
+    pub const fn is_payment_step(&self) -> bool {
+        matches!(
+            self,
+            Self::ActivateManaAbility { .. }
+                | Self::ActivateAbility { .. }
+                | Self::TakeGrantedAction { .. }
+                | Self::ChooseColor(_)
+                | Self::ChooseMode(_)
+                | Self::ChooseNumber(_)
+                | Self::YesNo(_)
+                | Self::ChooseObjects { .. }
+                | Self::ChoosePlayer(_)
+        )
+    }
+
     /// Whether the action only changes a seat's automation settings.
     ///
     /// These never touch the game: the engine applies them and re-offers

@@ -226,7 +226,7 @@ impl<L: CardLookup> Engine<L> {
                         .as_ref()
                         .is_some_and(|w| w.player == player) =>
             {
-                self.close_mana_window()
+                self.close_mana_window().map(|_| ())
             }
             (Pending::Priority { player: p, .. }, PlayerAction::PassPriority) if *p == player => {
                 self.passes += 1;
