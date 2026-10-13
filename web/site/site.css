@@ -237,6 +237,8 @@ html:not([data-lang]) p.de { color: var(--ink-faint); }
 .brand img { width: 7.6rem; height: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
 /* while the hero's own large logo is in view, the bar's small one waits */
 html[data-js] .top:not(.solid) .brand { opacity: 0; transform: translateY(-6px) scale(0.96); pointer-events: none; }
+/* ...but a keyboard that reaches it sees it */
+html[data-js] .top:not(.solid) .brand:focus-visible { opacity: 1; transform: none; }
 .nav { display: flex; gap: 0.1rem; margin-left: auto; font-family: var(--sans); font-weight: 500; font-size: 0.95rem; }
 .nav a {
   position: relative; display: inline-flex; align-items: center; min-height: 44px;
@@ -710,6 +712,9 @@ html[data-js] .reveal.in {
   transition: opacity 760ms var(--ease), transform 760ms var(--ease);
   transition-delay: calc(var(--d, 0) * 70ms);
 }
+/* what the keyboard reaches is shown at once, whether or not it has come up */
+html[data-js] .reveal:focus-within { opacity: 1; transform: none; transition: none; }
+main:focus { outline: none; }
 /* the hover lift must not wait for the reveal's delay */
 html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transform 320ms var(--ease), box-shadow 320ms ease, border-color 320ms ease; }
 

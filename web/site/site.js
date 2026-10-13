@@ -658,7 +658,19 @@
       else frost();
     }
     if (menu && nav) {
-      menu.addEventListener("click", function () { setMenu(menu.getAttribute("aria-expanded") !== "true"); });
+      menu.addEventListener("click", function (e) {
+        var open = menu.getAttribute("aria-expanded") !== "true";
+        setMenu(open);
+        // opened from the keyboard (a click with no pointer), focus goes in
+        if (open && e.detail === 0) { var first = nav.querySelector("a"); if (first) first.focus(); }
+      });
+      // while it is open, Tab goes round the button and the menu's links
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Tab" || menu.getAttribute("aria-expanded") !== "true") return;
+        var items = nav.querySelectorAll("a"), last = items[items.length - 1];
+        if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); menu.focus(); }
+        else if (e.shiftKey && document.activeElement === menu) { e.preventDefault(); last.focus(); }
+      });
       nav.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) setMenu(false); });
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && menu.getAttribute("aria-expanded") === "true") { setMenu(false); menu.focus(); }
@@ -708,6 +720,7 @@
           e.preventDefault();
           show(i);
           box.showModal();
+          document.getElementById("lightbox-close").focus();
         });
       });
       document.getElementById("lightbox-close").addEventListener("click", function () { box.close(); });
@@ -745,8 +758,8 @@
       count.textContent = num(n) + " / " + num(MAX);
       count.classList.toggle("near", n > MAX * 0.9);
     }
-    msg.addEventListener("input", function () { counted(); msg.removeAttribute("aria-invalid"); });
-    email.addEventListener("input", function () { email.removeAttribute("aria-invalid"); });
+    msg.addEventListener("input", function () { counted(); msg.removeAttribute("aria-invalid"); msg.setAttribute("aria-describedby", "c-count"); });
+    email.addEventListener("input", function () { email.removeAttribute("aria-invalid"); email.removeAttribute("aria-describedby"); });
     redraw.push(counted);
     counted();
 
@@ -771,12 +784,14 @@
       var mail = email.value.trim();
       if (!text) {
         msg.setAttribute("aria-invalid", "true");
+        msg.setAttribute("aria-describedby", "c-status");
         say("bad", "Please write a message first.", "Bitte schreib zuerst eine Nachricht.");
         msg.focus();
         return;
       }
       if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
         email.setAttribute("aria-invalid", "true");
+        email.setAttribute("aria-describedby", "c-status");
         say("bad", "That e-mail address does not look right. Leave it empty if you want no answer.", "Diese E-Mail-Adresse sieht nicht richtig aus. Lass sie leer, wenn du keine Antwort willst.");
         email.focus();
         return;
