@@ -116,3 +116,47 @@ fn shizo_grants_fear_with_the_printed_blocking_exceptions_until_end_of_turn() {
     pass_until(&mut engine, |e| e.state().turn.number > turn);
     assert!(!keywords(&engine, target).contains(KeywordSet::FEAR));
 }
+
+/// "Target legendary creature gains fear until end of turn." The menu holds
+/// every legendary creature, whoever controls it, and no creature that is not
+/// legendary, on either side.
+#[test]
+fn shizo_offers_legendary_creatures_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
+    let mut engine = kit::game(
+        957,
+        &[shizo_death_s_storehouse(), emry, llanowar_elves()],
+        &[index::BIRGI_GOD_OF_STORYTELLING, festering_goblin()],
+        &[],
+        &[],
+    );
+    let (own_legend, own_plain) = (
+        kit::obj(&engine, kit::P0, emry),
+        kit::obj(&engine, kit::P0, llanowar_elves()),
+    );
+    let their_legend = kit::obj(&engine, kit::P1, index::BIRGI_GOD_OF_STORYTELLING);
+    let their_plain = kit::obj(&engine, kit::P1, festering_goblin());
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Black, 1)]);
+    activate(&mut engine, kit::P0, shizo_death_s_storehouse(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("a target choice was expected, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&own_legend),
+        "a legendary creature of mine"
+    );
+    assert!(
+        options.contains(&their_legend),
+        "no controller is printed: an opposing legendary creature too"
+    );
+    assert!(
+        !options.contains(&own_plain),
+        "Llanowar Elves is not legendary"
+    );
+    assert!(
+        !options.contains(&their_plain),
+        "Festering Goblin is not legendary"
+    );
+}
