@@ -4004,3 +4004,19 @@ Effects:
   source and those cards from the graveyards.
 - A spell's mana value on the stack counts X as chosen (CR 202.3e): Whir of
   Invention cast for X=2 has mana value 5 there.
+
+### An Aura's trigger about its creature (Infinite Authority)
+
+- `Trigger::AttachedBlocksOrBecomesBlockedBy(&filter)` — "Whenever enchanted
+  (equipped) creature blocks or becomes blocked by a creature [filter]": the
+  Aura's own triggered ability, never `Modifier::GrantTriggered` (its
+  controller is the Aura's, CR 603.3a, and a creature that lost its abilities
+  still has it fire). Once per pair; the other creature is
+  `TargetSpec::EventObject`, the attached creature as it was then is the
+  trigger's subject.
+- `Effect::AtNextEndStepAboutSubject { effects }` — "at the beginning of the
+  next end step, … the first creature": a delayed trigger about that subject,
+  carried through delayed triggers made in between (`AtEndOfCombat`); in
+  `effects` it is the event object and `Filter::Reference`
+  (`Effect::AddCounterFilter { filter: &Filter::Reference, .. }`).
+

@@ -159,6 +159,11 @@ impl<L: CardLookup> Engine<L> {
                     .riders
                     .push(crate::object::Rider::EventAbility(ability));
             }
+            if let Some(subject) = trigger.event_subject {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventSubject(subject));
+            }
             if let Some(related) = &trigger.related_objects {
                 object.riders.extend(
                     related
