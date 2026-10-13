@@ -629,6 +629,8 @@ export interface LlmDefinition {
   max_games?: number;
   caps?: LlmCaps;
   canary?: boolean;
+  /** Another API profile of the same seat agent (docs/protocol.md §"A fallback profile"). */
+  fallback?: string;
   profile: Record<string, unknown>;
 }
 
@@ -657,6 +659,8 @@ export interface LlmProfile {
   key: "kept" | "absent" | "none_needed" | "unavailable";
   last_error: string | null;
   last_ok_unix: number | null;
+  /** The fallback new games start on now, while this profile is full or limited. */
+  diverts?: string;
   definition: LlmDefinition;
 }
 

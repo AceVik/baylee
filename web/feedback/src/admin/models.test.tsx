@@ -176,6 +176,9 @@ describe("the models page", () => {
     await user.type(within(form).getByLabelText("Anbieter (Spieldaten gehen an)"), "Anthropic");
     await user.type(within(form).getByLabelText("Spiele gleichzeitig"), "2");
     await user.click(within(form).getByRole("button", { name: "Speichern" }));
+    // A save asks first.
+    expect(changes(calls)).toEqual([]);
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Speichern" }));
     await screen.findByText("Profil gespeichert.");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(changes(calls)).toEqual([

@@ -11,6 +11,7 @@ import {
   SignedOut,
   type ConsoleChange,
   type LlmAccess,
+  type LlmCaps,
   type LlmDefinition,
   type LlmProfile,
   type LlmState,
@@ -127,10 +128,12 @@ export function Modal({
 
 type Notice = { tone: "ok" | "danger"; text: string };
 
-/** A question before a change that cannot be undone. */
+/** A question before a change. */
 interface Ask {
   title: string;
   yes: string;
+  /** A save is a plain yes; a removal is the danger tone (the default). */
+  tone?: "primary" | "danger";
   run: () => Promise<void>;
 }
 
@@ -147,7 +150,7 @@ function ConfirmDialog({ lang, ask, onClose }: { lang: Lang; ask: Ask; onClose: 
           <button
             ref={yes}
             type="button"
-            className="danger"
+            className={ask.tone ?? "danger"}
             disabled={busy}
             onClick={() => {
               setBusy(true);
@@ -178,14 +181,29 @@ const BLANK: LlmDefinition = {
   profile: { provider: "anthropic", model: "" },
 };
 
-function numberOrUndefined(text: string): number | undefined {
-  if (text.trim() === "") return undefined;
+/** The profile's fields the form edits one by one; the rest stays in its JSON. */
+export const BUDGET_KEYS = ["game_usd", "game_tokens", "game_calls", "price"] as const;
+
+function numberOrUndefined(text: string | undefined): number | undefined {
+  if (text === undefined || text.trim() === "") return undefined;
   const n = Number(text);
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-/** The definition the form says, or the sentence that says why not. */
-export function readDefinition(form: {
+/** A number of the profile's, as a box shows it. */
+function boxed(value: unknown): string {
+  return typeof value === "number" ? value.toString() : "";
+}
+
+/** The profile without the fields the form edits one by one, as its JSON box shows it. */
+export function otherSettings(profile: Record<string, unknown>): Record<string, unknown> {
+  const rest: Record<string, unknown> = { ...profile };
+  for (const key of BUDGET_KEYS) delete rest[key];
+  return rest;
+}
+
+/** What the form holds; the boxes added for the budget, the token caps and the fallback may be absent. */
+export interface DefinitionForm {
   label: string;
   vendor: string;
   enabled: boolean;
@@ -193,30 +211,77 @@ export function readDefinition(form: {
   maxGames: string;
   dayUsd: string;
   monthUsd: string;
+  dayTokens?: string;
+  monthTokens?: string;
+  gameUsd?: string;
+  gameTokens?: string;
+  gameCalls?: string;
+  priceIn?: string;
+  priceOut?: string;
+  /** A profile id, or "" for none. */
+  fallback?: string;
   profile: string;
-}): LlmDefinition | Key {
+}
+
+/** The definition the form says, or the sentence that says why not. */
+export function readDefinition(form: DefinitionForm): LlmDefinition | Key {
   const label = form.label.trim();
   const vendor = form.vendor.trim();
   if (label.length < 1 || label.length > 40 || vendor.length < 1 || vendor.length > 40) return "llm.badNames";
-  let profile: unknown;
+  let parsed: unknown;
   try {
-    profile = JSON.parse(form.profile);
+    parsed = JSON.parse(form.profile);
   } catch {
     return "llm.badProfile";
   }
-  if (typeof profile !== "object" || profile === null || Array.isArray(profile)) return "llm.badProfile";
-  const definition: LlmDefinition = { label, vendor, enabled: form.enabled, profile: profile as Record<string, unknown> };
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return "llm.badProfile";
+  // The boxes own the budget: whatever the JSON says of it is the boxes' to say.
+  const profile = otherSettings(parsed as Record<string, unknown>);
+  const gameUsd = numberOrUndefined(form.gameUsd);
+  const gameTokens = numberOrUndefined(form.gameTokens);
+  const gameCalls = numberOrUndefined(form.gameCalls);
+  if (gameUsd !== undefined) profile["game_usd"] = gameUsd;
+  if (gameTokens !== undefined) profile["game_tokens"] = Math.floor(gameTokens);
+  if (gameCalls !== undefined) profile["game_calls"] = Math.floor(gameCalls);
+  const priceIn = numberOrUndefined(form.priceIn);
+  const priceOut = numberOrUndefined(form.priceOut);
+  if ((priceIn === undefined) !== (priceOut === undefined)) return "llm.badPrice";
+  if (priceIn !== undefined && priceOut !== undefined) profile["price"] = { input: priceIn, output: priceOut };
+  const definition: LlmDefinition = { label, vendor, enabled: form.enabled, profile };
   const maxGames = numberOrUndefined(form.maxGames);
   if (maxGames !== undefined) definition.max_games = Math.floor(maxGames);
+  const caps: LlmCaps = {};
   const day = numberOrUndefined(form.dayUsd);
   const month = numberOrUndefined(form.monthUsd);
-  if (day !== undefined || month !== undefined) {
-    definition.caps = {};
-    if (day !== undefined) definition.caps.day_usd = day;
-    if (month !== undefined) definition.caps.month_usd = month;
-  }
+  const dayTokens = numberOrUndefined(form.dayTokens);
+  const monthTokens = numberOrUndefined(form.monthTokens);
+  if (day !== undefined) caps.day_usd = day;
+  if (month !== undefined) caps.month_usd = month;
+  if (dayTokens !== undefined) caps.day_tokens = Math.floor(dayTokens);
+  if (monthTokens !== undefined) caps.month_tokens = Math.floor(monthTokens);
+  if (Object.keys(caps).length > 0) definition.caps = caps;
   if (form.canary) definition.canary = true;
+  const fallback = form.fallback?.trim() ?? "";
+  if (fallback !== "") definition.fallback = fallback;
   return definition;
+}
+
+/** Whether the profile's JSON names an agent CLI, which takes no fallback. */
+function playsCli(profile: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(profile);
+    return typeof parsed === "object" && parsed !== null && (parsed as Record<string, unknown>)["provider"] === "cli";
+  } catch {
+    return false;
+  }
+}
+
+/** The profiles of `host` that may stand in for `id`: models behind an API, not itself. */
+export function fallbackChoices(hosts: SeatHost[], host: string, id: string): LlmProfile[] {
+  const on = hosts.find((h) => h.name === host);
+  return (on?.profiles ?? [])
+    .filter((p) => p.kind === "api" && p.id !== id)
+    .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
 function Editor({
@@ -229,10 +294,12 @@ function Editor({
   lang: Lang;
   hosts: SeatHost[];
   editing: Editing;
-  onSave: (host: string, id: string, definition: LlmDefinition) => Promise<boolean>;
+  /** Writes it; answers why not in a sentence, or `null` once it is written. */
+  onSave: (host: string, id: string, definition: LlmDefinition) => Promise<string | null>;
   onClose: () => void;
 }) {
   const d = editing.definition;
+  const p = d.profile;
   const isNew = editing.id === null;
   const [host, setHost] = useState(editing.host ?? hosts[0]?.name ?? "");
   const [id, setId] = useState(editing.id ?? "");
@@ -241,178 +308,249 @@ function Editor({
   const [enabled, setEnabled] = useState(d.enabled ?? true);
   const [canary, setCanary] = useState(d.canary ?? false);
   const [maxGames, setMaxGames] = useState(d.max_games?.toString() ?? "");
+  const [fallback, setFallback] = useState(d.fallback ?? "");
+  const [gameUsd, setGameUsd] = useState(boxed(p["game_usd"]));
+  const [gameTokens, setGameTokens] = useState(boxed(p["game_tokens"]));
+  const [gameCalls, setGameCalls] = useState(boxed(p["game_calls"]));
+  const price = p["price"] as { input?: unknown; output?: unknown } | undefined;
+  const [priceIn, setPriceIn] = useState(boxed(price?.input));
+  const [priceOut, setPriceOut] = useState(boxed(price?.output));
   const [dayUsd, setDayUsd] = useState(d.caps?.day_usd?.toString() ?? "");
   const [monthUsd, setMonthUsd] = useState(d.caps?.month_usd?.toString() ?? "");
-  const [profile, setProfile] = useState(JSON.stringify(d.profile, null, 2));
+  const [dayTokens, setDayTokens] = useState(d.caps?.day_tokens?.toString() ?? "");
+  const [monthTokens, setMonthTokens] = useState(d.caps?.month_tokens?.toString() ?? "");
+  const [profile, setProfile] = useState(JSON.stringify(otherSettings(p), null, 2));
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<LlmDefinition | null>(null);
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => {
     first.current?.focus();
   }, []);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const cli = playsCli(profile);
+  const choices = fallbackChoices(hosts, host, id);
+  const missing = fallback !== "" && !choices.some((c) => c.id === fallback);
+  const what = `${id} @ ${host}`;
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!NAME.test(host) || !NAME.test(id)) {
       setError(t(lang, "llm.badId"));
       return;
     }
-    const read = readDefinition({ label, vendor, enabled, canary, maxGames, dayUsd, monthUsd, profile });
+    const read = readDefinition({
+      label,
+      vendor,
+      enabled,
+      canary,
+      maxGames,
+      dayUsd,
+      monthUsd,
+      dayTokens,
+      monthTokens,
+      gameUsd,
+      gameTokens,
+      gameCalls,
+      priceIn,
+      priceOut,
+      fallback: cli ? "" : fallback,
+      profile,
+    });
     if (typeof read === "string") {
       setError(t(lang, read));
       return;
     }
-    setBusy(true);
     setError(null);
-    if (await onSave(host, id, read)) onClose();
-    setBusy(false);
+    setConfirming(read);
   };
 
-  const field = (fid: string, labelKey: Key, input: ReactNode, wide = false) => (
+  const field = (fid: string, labelKey: Key, input: ReactNode, hint?: Key, wide = false) => (
     <div className={`field${wide ? " wide" : ""}`}>
       <label htmlFor={fid}>{t(lang, labelKey)}</label>
       {input}
+      {hint !== undefined && (
+        <p id={`${fid}-hint`} className="hint muted llm-hint">
+          {t(lang, hint)}
+        </p>
+      )}
     </div>
+  );
+
+  /** A number box; `whole` for a count, else cents. */
+  const numberBox = (fid: string, value: string, set: (v: string) => void, whole: boolean, hint?: Key) => (
+    <input
+      id={fid}
+      type="number"
+      inputMode={whole ? "numeric" : "decimal"}
+      min={0}
+      step={whole ? 1 : "0.01"}
+      placeholder={t(lang, "llm.noBound")}
+      aria-describedby={hint === undefined ? undefined : `${fid}-hint`}
+      value={value}
+      onChange={(e) => {
+        set(e.target.value);
+      }}
+    />
   );
 
   return (
     <Modal labelledBy="llm-edit-title" className="llm-editor" onClose={onClose}>
-      <form className="llm-editor-form" onSubmit={(event) => void submit(event)}>
+      <form className="llm-editor-form" onSubmit={submit}>
         <h3 id="llm-edit-title">
           {isNew ? t(lang, "llm.add") : t(lang, "llm.editTitle", { id: editing.id ?? "", host: editing.host ?? "" })}
         </h3>
-        <div className="form-grid">
-          {isNew &&
-            field(
-              "llm-host",
-              "llm.host",
-              <select
-                id="llm-host"
-                value={host}
-                onChange={(e) => {
-                  setHost(e.target.value);
-                }}
-              >
-                {hosts.map((h) => (
-                  <option key={h.name} value={h.name}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>,
-            )}
-          {isNew &&
-            field(
-              "llm-id",
-              "llm.id",
+
+        <fieldset className="llm-section">
+          <legend>{t(lang, "llm.section.profile")}</legend>
+          <div className="form-grid">
+            {isNew &&
+              field(
+                "llm-host",
+                "llm.host",
+                <select
+                  id="llm-host"
+                  value={host}
+                  onChange={(e) => {
+                    setHost(e.target.value);
+                  }}
+                >
+                  {hosts.map((h) => (
+                    <option key={h.name} value={h.name}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>,
+              )}
+            {isNew &&
+              field(
+                "llm-id",
+                "llm.id",
+                <input
+                  id="llm-id"
+                  ref={first}
+                  required
+                  pattern="[A-Za-z0-9._\-]{1,64}"
+                  autoComplete="off"
+                  className="mono"
+                  value={id}
+                  onChange={(e) => {
+                    setId(e.target.value);
+                  }}
+                />,
+              )}
+            {field(
+              "llm-label",
+              "llm.label",
               <input
-                id="llm-id"
-                ref={first}
+                id="llm-label"
+                ref={isNew ? undefined : first}
                 required
-                pattern="[A-Za-z0-9._\-]{1,64}"
-                autoComplete="off"
-                className="mono"
-                value={id}
+                maxLength={40}
+                value={label}
                 onChange={(e) => {
-                  setId(e.target.value);
+                  setLabel(e.target.value);
                 }}
               />,
             )}
-          {field(
-            "llm-label",
-            "llm.label",
-            <input
-              id="llm-label"
-              ref={isNew ? undefined : first}
-              required
-              maxLength={40}
-              value={label}
-              onChange={(e) => {
-                setLabel(e.target.value);
-              }}
-            />,
-          )}
-          {field(
-            "llm-vendor",
-            "llm.vendor",
-            <input
-              id="llm-vendor"
-              required
-              maxLength={40}
-              value={vendor}
-              onChange={(e) => {
-                setVendor(e.target.value);
-              }}
-            />,
-          )}
-          {field(
-            "llm-max",
-            "llm.maxGames",
-            <input
-              id="llm-max"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              placeholder={t(lang, "llm.noBound")}
-              value={maxGames}
-              onChange={(e) => {
-                setMaxGames(e.target.value);
-              }}
-            />,
-          )}
-          {field(
-            "llm-day",
-            "llm.capDay",
-            <input
-              id="llm-day"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              placeholder={t(lang, "llm.noBound")}
-              value={dayUsd}
-              onChange={(e) => {
-                setDayUsd(e.target.value);
-              }}
-            />,
-          )}
-          {field(
-            "llm-month",
-            "llm.capMonth",
-            <input
-              id="llm-month"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              placeholder={t(lang, "llm.noBound")}
-              value={monthUsd}
-              onChange={(e) => {
-                setMonthUsd(e.target.value);
-              }}
-            />,
-          )}
-          <div className="field llm-checks">
+            {field(
+              "llm-vendor",
+              "llm.vendor",
+              <input
+                id="llm-vendor"
+                required
+                maxLength={40}
+                value={vendor}
+                onChange={(e) => {
+                  setVendor(e.target.value);
+                }}
+              />,
+            )}
+          </div>
+          <div className="llm-checks">
             <label>
               <input
                 type="checkbox"
                 checked={enabled}
+                aria-describedby="llm-enabled-hint"
                 onChange={(e) => {
                   setEnabled(e.target.checked);
                 }}
               />{" "}
               {t(lang, "llm.enabled")}
             </label>
+            <p id="llm-enabled-hint" className="hint muted llm-hint">
+              {t(lang, "llm.hint.enabled")}
+            </p>
             <label>
               <input
                 type="checkbox"
                 checked={canary}
+                aria-describedby="llm-canary-hint"
                 onChange={(e) => {
                   setCanary(e.target.checked);
                 }}
               />{" "}
               {t(lang, "llm.canary")}
             </label>
+            <p id="llm-canary-hint" className="hint muted llm-hint">
+              {t(lang, "llm.hint.canary")}
+            </p>
           </div>
+        </fieldset>
+
+        <fieldset className="llm-section">
+          <legend>{t(lang, "llm.section.load")}</legend>
+          <div className="form-grid">
+            {field("llm-max", "llm.maxGames", numberBox("llm-max", maxGames, setMaxGames, true, "llm.hint.maxGames"), "llm.hint.maxGames")}
+            {field(
+              "llm-fallback",
+              "llm.fallback",
+              <select
+                id="llm-fallback"
+                value={cli ? "" : fallback}
+                disabled={cli}
+                aria-describedby="llm-fallback-hint"
+                onChange={(e) => {
+                  setFallback(e.target.value);
+                }}
+              >
+                <option value="">{t(lang, "llm.fallbackNone")}</option>
+                {choices.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label} · {c.id}
+                  </option>
+                ))}
+                {missing && !cli && <option value={fallback}>{t(lang, "llm.fallbackMissing", { id: fallback })}</option>}
+              </select>,
+              cli ? "llm.hint.fallbackCli" : "llm.hint.fallback",
+            )}
+          </div>
+        </fieldset>
+
+        <fieldset className="llm-section">
+          <legend>{t(lang, "llm.section.game")}</legend>
+          <div className="form-grid">
+            {field("llm-game-usd", "llm.gameUsd", numberBox("llm-game-usd", gameUsd, setGameUsd, false, "llm.hint.gameUsd"), "llm.hint.gameUsd")}
+            {field("llm-game-tokens", "llm.gameTokens", numberBox("llm-game-tokens", gameTokens, setGameTokens, true, "llm.hint.gameTokens"), "llm.hint.gameTokens")}
+            {field("llm-game-calls", "llm.gameCalls", numberBox("llm-game-calls", gameCalls, setGameCalls, true, "llm.hint.gameCalls"), "llm.hint.gameCalls")}
+            {field("llm-price-in", "llm.priceIn", numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price"), "llm.hint.price")}
+            {field("llm-price-out", "llm.priceOut", numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price"), "llm.hint.price")}
+          </div>
+        </fieldset>
+
+        <fieldset className="llm-section">
+          <legend>{t(lang, "llm.section.caps")}</legend>
+          <p className="hint muted llm-hint">{t(lang, "llm.hint.caps")}</p>
+          <div className="form-grid">
+            {field("llm-day", "llm.capDay", numberBox("llm-day", dayUsd, setDayUsd, false))}
+            {field("llm-month", "llm.capMonth", numberBox("llm-month", monthUsd, setMonthUsd, false))}
+            {field("llm-day-tokens", "llm.capDayTokens", numberBox("llm-day-tokens", dayTokens, setDayTokens, true))}
+            {field("llm-month-tokens", "llm.capMonthTokens", numberBox("llm-month-tokens", monthTokens, setMonthTokens, true))}
+          </div>
+        </fieldset>
+
+        <fieldset className="llm-section">
+          <legend>{t(lang, "llm.section.model")}</legend>
           {field(
             "llm-profile",
             "llm.profile",
@@ -421,29 +559,49 @@ function Editor({
               className="mono"
               rows={6}
               spellCheck={false}
+              aria-describedby="llm-profile-hint"
               value={profile}
               onChange={(e) => {
                 setProfile(e.target.value);
               }}
             />,
+            "llm.profileHint",
             true,
           )}
-        </div>
-        <p className="muted small">{t(lang, "llm.profileHint")}</p>
+        </fieldset>
+
         {error !== null && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <div className="row-actions">
-          <button type="submit" className="primary" disabled={busy}>
-            {busy ? t(lang, "llm.saving") : t(lang, "llm.save")}
+          <button type="submit" className="primary" disabled={confirming !== null}>
+            {t(lang, "llm.save")}
           </button>
-          <button type="button" disabled={busy} onClick={onClose}>
+          <button type="button" onClick={onClose}>
             {t(lang, "llm.cancel")}
           </button>
         </div>
       </form>
+      {confirming !== null && (
+        <ConfirmDialog
+          lang={lang}
+          ask={{
+            title: t(lang, "llm.ask.save", { what }),
+            yes: t(lang, "llm.save"),
+            tone: "primary",
+            run: async () => {
+              const refused = await onSave(host, id, confirming);
+              if (refused === null) onClose();
+              else setError(t(lang, "llm.refused", { why: refused }));
+            },
+          }}
+          onClose={() => {
+            setConfirming(null);
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -573,6 +731,17 @@ function HostRow({
           </dd>
         </div>
       </dl>
+      {p.definition.fallback !== undefined && (
+        <p className="muted small llm-fallback-line">
+          {t(lang, "llm.fallbackIs", { id: p.definition.fallback })}
+          {p.diverts !== undefined && (
+            <>
+              {" "}
+              <Badge tone="info">{t(lang, "llm.diverts", { id: p.diverts })}</Badge>
+            </>
+          )}
+        </p>
+      )}
       {p.last_error !== null && (
         <p className="error small llm-error" title={p.last_error}>
           {p.last_error}
@@ -950,7 +1119,16 @@ export function Models({ lang }: { lang: Lang }) {
           lang={lang}
           hosts={hosts}
           editing={editing}
-          onSave={(host, id, definition) => act("llm.done.write", () => api.admin.llm.write(host, id, definition))}
+          onSave={async (host, id, definition) => {
+            try {
+              await api.admin.llm.write(host, id, definition);
+            } catch (e: unknown) {
+              return describe(lang, e);
+            }
+            setNotice({ tone: "ok", text: t(lang, "llm.done.write") });
+            load();
+            return null;
+          }}
           onClose={() => {
             setEditing(null);
           }}

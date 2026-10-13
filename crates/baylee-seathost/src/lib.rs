@@ -195,26 +195,40 @@ pub fn definitions_fault(defs: &BTreeMap<String, Definition>) -> Option<String> 
     })
 }
 
-/// The fallback `id`'s definition names that a game may take along: a
-/// profile of this seat agent, not `id` itself, both behind an API, and
-/// switched on. Its own fallback is never followed. `None` otherwise, the
-/// reason logged where a fallback was named.
-fn usable_fallback<'a>(defs: &'a BTreeMap<String, Definition>, id: &str) -> Option<&'a str> {
+/// The fallback `id`'s definition names, if it names one: `Ok` where a
+/// game may take it along (a profile of this seat agent, not `id` itself,
+/// both behind an API, switched on), else `Err` with why not. Its own
+/// fallback is never followed.
+fn fallback_of<'a>(
+    defs: &'a BTreeMap<String, Definition>,
+    id: &str,
+) -> Option<Result<&'a str, &'static str>> {
     let def = defs.get(id)?;
     let fallback = def.fallback.as_deref()?;
     let api = |d: &Definition| {
         serde_json::from_value::<Profile>(d.profile.clone())
             .is_ok_and(|p| p.provider != Provider::Cli)
     };
-    let why = match defs.get(fallback) {
-        None => "it is not on this seat agent",
-        Some(_) if fallback == id => "it is the profile itself",
-        Some(theirs) if !(api(def) && api(theirs)) => "a fallback is a model behind an API",
-        Some(theirs) if !theirs.enabled => "it is switched off",
-        Some(_) => return Some(fallback),
-    };
-    tracing::warn!(profile = id, fallback, why, "no fallback for this game");
-    None
+    Some(match defs.get(fallback) {
+        None => Err("it is not on this seat agent"),
+        Some(_) if fallback == id => Err("it is the profile itself"),
+        Some(theirs) if !(api(def) && api(theirs)) => Err("a fallback is a model behind an API"),
+        Some(theirs) if !theirs.enabled => Err("it is switched off"),
+        Some(_) => Ok(fallback),
+    })
+}
+
+/// [`fallback_of`] where a game may take it along; where one was named and
+/// may not be, the reason is logged.
+fn usable_fallback<'a>(defs: &'a BTreeMap<String, Definition>, id: &str) -> Option<&'a str> {
+    match fallback_of(defs, id)? {
+        Ok(fallback) => Some(fallback),
+        Err(why) => {
+            let fallback = defs.get(id).and_then(|d| d.fallback.as_deref());
+            tracing::warn!(profile = id, fallback, why, "no fallback for this game");
+            None
+        }
+    }
 }
 
 /// The settings file a bridge for `def` is given: the profile alone, the
@@ -352,7 +366,7 @@ impl Host {
         if !matches!(mine.state, State::Busy | State::Exhausted) {
             return None;
         }
-        let fallback = usable_fallback(&inner.defs, id)?;
+        let fallback = fallback_of(&inner.defs, id)?.ok()?;
         if own.get(fallback)?.state != State::Available {
             return None;
         }
@@ -396,6 +410,10 @@ impl Host {
                 fallback: usable_fallback(&inner.defs, id).map(str::to_string),
                 diverted: None,
             });
+        }
+        if matches!(state, State::Busy | State::Exhausted) {
+            // Said in the log here, at an order, not at every report.
+            let _ = usable_fallback(&inner.defs, id);
         }
         match Self::diverts(&inner, &own, id, at) {
             Some((fallback, why)) => Ok(Placement {

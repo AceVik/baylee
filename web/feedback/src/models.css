@@ -272,7 +272,33 @@
 }
 
 .llm-dialog.llm-editor {
-  inline-size: min(calc(100% - 2rem), 40rem);
+  inline-size: min(calc(100% - 2rem), 46rem);
+}
+
+.llm-section {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.llm-section legend {
+  padding: 0 0.3rem;
+  font-weight: 600;
+}
+
+.llm-hint {
+  margin: 0.2rem 0 0;
+}
+
+.llm-fallback-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
 }
 
 .llm-editor textarea {
