@@ -1,7 +1,9 @@
 //! Hand and mana decisions use legal offers and printed properties. A private
 //! scouting summary may adjust values without supplying actionable hidden ids.
 
-use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource};
+use baylee_cards_dsl::{
+    AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
+};
 use baylee_client_core::decision::{hand, known_cards, resource_player};
 use baylee_client_core::manaplan::{self, Source, Tap};
 use baylee_core::ids::ObjectId;
@@ -46,6 +48,59 @@ pub(crate) fn land_face(card: CardIdentity) -> Option<&'static FaceDef> {
 /// Whether a card in hand can be played as a land at all.
 pub(crate) fn plays_as_land(card: CardIdentity) -> bool {
     land_face(card).is_some()
+}
+
+/// Whether printed rules give a card dredge (CR 702.52a): the replacement
+/// that works from the graveyard.
+pub(crate) fn has_dredge(abilities: &[AbilityDef]) -> bool {
+    abilities
+        .iter()
+        .any(|a| matches!(a, AbilityDef::Replacement(ReplacementRule::Dredge(_))))
+}
+
+/// The answer to a question about a card draw that replacements could
+/// modify, or `None` for any other prompt.
+///
+/// `Dredge` (CR 702.52a) is declined by every profile. The alternative is not
+/// a draw at all: `card_value` prices the graveyard card that would come back
+/// but not the N cards milled from this seat's own library, and the draw it
+/// gives up is an unknown card worth nothing to that measure, so a comparison
+/// would dredge nearly every time. Naming nothing is always legal (`min` is 0)
+/// and loses no card; the `max <= 2` default of `act` would have named the
+/// first one on the menu.
+///
+/// `DrawReplacement` (CR 616.1) names the first source on the menu that is no
+/// dredge card, and the first of all when there is none. The engine lists
+/// dredge cards first, so taking the head would dredge whenever Chains of
+/// Mephistopheles or a Lamp is out too, after declining to dredge the same
+/// draw when asked alone. The engine's order is fixed, which keeps the
+/// answer deterministic.
+fn draw_answer(
+    view: &PlayerView,
+    options: &[ObjectId],
+    prompt: baylee_engine::choice::ChoicePrompt,
+) -> Option<Vec<ObjectId>> {
+    use baylee_engine::choice::ChoicePrompt;
+    match prompt {
+        ChoicePrompt::Dredge => Some(Vec::new()),
+        ChoicePrompt::DrawReplacement => {
+            let dredges = |id: &ObjectId| {
+                identity(view, *id)
+                    .and_then(|card| baylee_cards::by_index(card.index))
+                    .is_some_and(|def| has_dredge(def.abilities))
+            };
+            Some(
+                options
+                    .iter()
+                    .find(|id| !dredges(id))
+                    .or_else(|| options.first())
+                    .copied()
+                    .into_iter()
+                    .collect(),
+            )
+        }
+        _ => None,
+    }
 }
 
 fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
@@ -342,6 +397,11 @@ impl HeuristicAgent {
             ranked.sort_unstable();
             ranked.truncate(usize::from(max));
             return Some(ranked);
+        }
+        // Ahead of the skill gate as well: neither draw question is a
+        // judgement a profile makes better or worse.
+        if let Some(answer) = draw_answer(view, options, prompt) {
+            return Some(answer);
         }
         // Ahead of the gate as well: a revealed card put into the hand is a
         // card, and one left goes to the bottom of the library. The best of

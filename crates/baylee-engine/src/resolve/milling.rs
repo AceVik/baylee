@@ -1,7 +1,7 @@
 //! Milling batches and the inherent radiation instruction.
 use super::{
-    Amount, Cause, GameState, ObjectId, Pending, PlayerId, PlayerRel, Resolution, ZoneLocation,
-    ZonePosition, amount2, players_of,
+    Amount, Cause, GameState, ObjectId, Pending, PlayerId, PlayerRel, Resolution, amount2,
+    players_of,
 };
 use baylee_cards_dsl::CounterKind;
 use baylee_core::types::TypeSet;
@@ -22,23 +22,7 @@ pub(super) fn mill(
 /// The full set is frozen before any move; replacements use the ordinary zone
 /// door, and the caller can find moved cards in public destinations (CR 701.17c).
 fn mill_player(state: &mut GameState, player: PlayerId, count: usize) -> Vec<ObjectId> {
-    let top: Vec<_> = state
-        .zones
-        .list(ZoneLocation::Library(player))
-        .iter()
-        .rev()
-        .take(count)
-        .copied()
-        .collect();
-    for &card in &top {
-        let _ = state.move_object(
-            card,
-            ZoneLocation::Graveyard(player),
-            ZonePosition::Top,
-            Cause::Effect,
-        );
-    }
-    top
+    state.mill_top(player, count)
 }
 
 pub(super) fn radiation(state: &mut GameState, res: &Resolution) {

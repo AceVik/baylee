@@ -992,17 +992,15 @@ impl GameState {
 
     /// `player` draws `n` cards: the one door every draw goes through.
     ///
-    /// A draw Island Sanctuary may replace is not made here: it waits in
+    /// A draw a replacement could modify (`GameState::draw_may_be_replaced`:
+    /// Island Sanctuary, dredge, Chains of Mephistopheles, a Ring of Ma'rûf's
+    /// or an Aladdin's Lamp's effect) is not made here: it waits in
     /// [`GameState::draws_to_offer`] to be asked about, one card at a time,
     /// and so does every draw behind one already waiting, so that the order
     /// the instructions gave holds (CR 121.2c). Nothing is returned for a
     /// draw that waits.
     pub fn draw_cards(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
-        if n > 0
-            && (!self.draws_to_offer.is_empty()
-                || self.draw_skip_source(player, &[]).is_some()
-                || self.draw_wish_effect(player, None).is_some())
-        {
+        if n > 0 && (!self.draws_to_offer.is_empty() || self.draw_may_be_replaced(player)) {
             self.draws_to_offer
                 .push_back((player, u32::try_from(n).unwrap_or(u32::MAX)));
             return Vec::new();
@@ -1072,8 +1070,7 @@ impl GameState {
             // fact about this draw, so it is written down now. The turn's
             // count cannot stand in for it: a card drawn in the upkeep
             // would make the draw step's first card the turn's second.
-            let in_own_draw_step =
-                self.turn.active == player && self.turn.step == crate::turn::Step::Draw;
+            let in_own_draw_step = self.in_own_draw_step(player);
             let first_in_draw_step = in_own_draw_step && !self.per_turn.drew_in_draw_step;
             if in_own_draw_step {
                 self.per_turn.drew_in_draw_step = true;
@@ -1085,5 +1082,60 @@ impl GameState {
             });
         }
         drawn
+    }
+
+    /// Whether it is `player`'s own draw step.
+    fn in_own_draw_step(&self, player: PlayerId) -> bool {
+        self.turn.active == player && self.turn.step == crate::turn::Step::Draw
+    }
+
+    /// Whether a card `player` drew now would be the first one they draw in
+    /// this draw step of theirs: the card `Trigger::DrawsExceptFirst` and
+    /// Chains of Mephistopheles leave alone. A draw replaced so that no card
+    /// was drawn leaves the next one the first.
+    pub(crate) fn next_draw_is_first_in_draw_step(&self, player: PlayerId) -> bool {
+        self.in_own_draw_step(player) && !self.per_turn.drew_in_draw_step
+    }
+
+    /// `player` mills `count` cards (CR 701.17a), as many as their library
+    /// holds (701.17b): the top ones, chosen before any of them moves, each
+    /// through the ordinary zone door. The cards moved.
+    pub(crate) fn mill_top(&mut self, player: PlayerId, count: usize) -> Vec<ObjectId> {
+        let top: Vec<_> = self
+            .zones
+            .list(ZoneLocation::Library(player))
+            .iter()
+            .rev()
+            .take(count)
+            .copied()
+            .collect();
+        for &card in &top {
+            let _ = self.move_object(
+                card,
+                ZoneLocation::Graveyard(player),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+        }
+        top
+    }
+
+    /// Puts `cards` on the bottom of `player`'s library in a random order.
+    /// A card already in that library is reordered, which is no zone change
+    /// (CR 400.7); one from elsewhere moves there.
+    pub(crate) fn put_on_bottom_in_random_order(
+        &mut self,
+        player: PlayerId,
+        mut cards: Vec<ObjectId>,
+    ) {
+        self.rng.shuffle(&mut cards);
+        let library = ZoneLocation::Library(player);
+        for card in cards {
+            if self.zones.remove(card, library) {
+                self.zones.insert(card, library, ZonePosition::Bottom, true);
+            } else {
+                let _ = self.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
     }
 }

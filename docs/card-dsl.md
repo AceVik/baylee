@@ -4020,3 +4020,22 @@ Effects:
   `effects` it is the event object and `Filter::Reference`
   (`Effect::AddCounterFilter { filter: &Filter::Reference, .. }`).
 
+### Replacing a draw: dredge, Chains of Mephistopheles, Aladdin's Lamp (K12)
+
+- `AbilityDef::Replacement(ReplacementRule::Dredge(n))` — "Dredge N"
+  (CR 702.52a). It works from the owner's graveyard only and needs at least
+  N cards in their library (702.52b); the engine offers it on every draw of
+  theirs, card by card, as "mill N and return this card to your hand
+  instead".
+- `AbilityDef::Replacement(ReplacementRule::DiscardInsteadOfLaterDraws)` —
+  Chains of Mephistopheles' whole sentence: every player's draws but the
+  first of their draw step; discard a card, then draw; with an empty hand,
+  mill a card instead of drawing. Several Chains each apply once.
+- `Effect::NextDrawLooksAtTop { count: Amount }` — Aladdin's Lamp's "The
+  next time you would draw a card this turn, instead look at the top X cards
+  of your library, put all but one of them on the bottom of your library in
+  a random order, then draw a card". With `x_value = ActivationX::AtLeast(1)`
+  on the `activated!` for "X can't be 0" (as Lair of the Hydra).
+- The drawing player orders several replacements of one draw (CR 616.1);
+  the engine asks when the order matters.
+

@@ -1026,6 +1026,60 @@ not yet asked about it (CR 614.5) and draws it when none is left. The skip
 is offered with an empty library too (CR 614.11), and nobody draws for a
 player who has left (CR 800.4a: what they own has left with them).
 
+#### Every replacement of a draw (K12: dredge, Chains, Lamp)
+The same queue carries every replacement of a draw, card by card:
+Island Sanctuary's skip, dredge from the drawing player's graveyard
+(`ReplacementRule::Dredge(n)`, CR 702.52a-b, read off the printed rules of
+the cards there, never registered from the battlefield), Chains of
+Mephistopheles (`ReplacementRule::DiscardInsteadOfLaterDraws`, every
+player's draws but the first of a draw step,
+`GameState::next_draw_is_first_in_draw_step`), and the next-draw effects of
+Ring of Ma'rûf (`Modifier::NextDrawWish`) and Aladdin's Lamp
+(`Modifier::NextDrawFromTop { count }`, made by `Effect::NextDrawLooksAtTop`).
+`GameState::draw_may_be_replaced` decides whether a draw waits.
+
+What the front draw has been through is `GameState::draw_front`
+(`FrontDraw`: Sanctuaries and dredge declined, Chains already applied to it,
+the cards a Lamp is looking at), hashed, and reset when the card is done
+(`take_front_draw`). One step at a time (`front_draw_step`):
+
+1. A Sanctuary not declined: `YesNo { MayDo }` as before.
+2. Dredge cards on offer and nothing mandatory: `ChooseCards { prompt:
+   Dredge, min: 0, max: 1 }` over those cards; none is the plain draw.
+3. More than one way on (dredge beside a mandatory one, or two mandatory
+   ones whose order matters): `ChooseCards { prompt: DrawReplacement, min:
+   1, max: 1 }` over their sources, dredge cards first (CR 616.1, 616.1e).
+   Replacements that do the same thing (two Chains, two Rings, two Lamps
+   of one X) are interchangeable and are not asked about.
+4. One mandatory replacement: applied. Chains with an empty hand mill one
+   and replace the draw (the card's ruling); with one card it is discarded;
+   with more, `ChooseCards { prompt: Discard, min: 1, max: 1 }` over the
+   hand. A Lamp looks at the top `count` and, with two or more, asks
+   `ChooseCards { prompt: PutOnBottom, min = max = len - 1 }`; the rest go
+   to the bottom in a random order. A Ring asks its `Wish`.
+5. Nothing: the card is drawn (a whole multiple draw at once when no
+   replacement has begun on it and no Chains could treat its cards
+   differently).
+
+Chains and Lamp leave a draw behind, which every replacement not yet applied
+to it may modify (CR 614.5, 616.1f, 616.2): the optional ones are asked
+again about it, so declining a dredge and then meeting the Chains still lets
+the player dredge the card the Chains just made them discard. Both drainers
+answer through `draw_offer_answered` (yes or no) and `draw_choice_answered`
+(cards); `AwaitingOp::SkipDraw` and `PlanKind::SkipDraw` carry only the
+question.
+
+An instruction that does something to "the card drawn" and whose draw had to
+wait keeps its place (`Resolution::draw_watch`, as a loot keeps
+`Resolution::loot`) and runs again once the draw is settled, acting only on
+a card drawn plainly: `GameState::draws_replaced` counts the draws a
+replacement modified (CR 614.11b). Sindbad is the one such instruction.
+
+Not modelled: a Chains discard is not offered to Library of Leng (that
+replacement is asked only by an effect's discard inside a resolution), and
+two Lamp effects of one Lamp in one turn are applied oldest first rather
+than in the player's order.
+
 ### A discard asked about before it is made (Library of Leng)
 "If an effect causes you to discard a card, discard it, but you may put it
 on top of your library instead of into your graveyard." It replaces where a

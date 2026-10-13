@@ -313,6 +313,7 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: t.event_mana,
                 retarget_left: None,
                 loot: None,
+                draw_watch: None,
                 source: t.source,
                 on_stack: t.source,
                 controller: t.controller,

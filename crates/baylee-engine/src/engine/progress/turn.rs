@@ -280,7 +280,7 @@ impl<L: CardLookup> Engine<L> {
         let Some((player, source)) = self.state.next_draw_offer() else {
             return false;
         };
-        self.ask_draw_skip(player, source, Vec::new());
+        self.ask_draw_skip(player, source);
         true
     }
 
@@ -289,9 +289,8 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         source: crate::state::DrawReplacement,
-        declined: Vec<ObjectId>,
     ) {
-        self.pending_plan = Some(PlanKind::SkipDraw { source, declined });
+        self.pending_plan = Some(PlanKind::SkipDraw { source });
         self.pending = self.state.draw_offer_question(player, source);
         self.awaiting_answer = true;
     }

@@ -255,6 +255,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
         | Modifier::NextDrawWish
+        | Modifier::NextDrawFromTop { .. }
         | Modifier::CreatureAbilityManaAnyColor => false,
     }
 }
@@ -1281,6 +1282,7 @@ mod tests {
             Modifier::NextSpellUncounterable,
             Modifier::OneSpellManaAnyType,
             Modifier::NextDrawWish,
+            Modifier::NextDrawFromTop { count: 3 },
             Modifier::ProtectionFrom(&Filter::CREATURE),
             Modifier::CharacteristicPT {
                 count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
@@ -1471,7 +1473,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            134,
+            135,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1539,7 +1541,7 @@ mod tests {
         // modifier registered on the one object it names; 88 since
         // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`; 89
         // since `CantAttackPlayerIdleLastTurn` (Arboria).
-        assert_eq!((locking, all.len() - locking), (45, 89));
+        assert_eq!((locking, all.len() - locking), (45, 90));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

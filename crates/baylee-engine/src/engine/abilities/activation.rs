@@ -837,6 +837,7 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: None,
                 retarget_left: None,
                 loot: None,
+                draw_watch: None,
                 this_way_from: None,
             };
             let flow = resolve::run(&mut self.state, &mut res);
