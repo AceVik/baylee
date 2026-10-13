@@ -9108,7 +9108,19 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
   closes it. Shut, new chat lines peek above the strip for 10 s and fade.
   In the lobby the same window docks bottom-right (560 × 38 % of the height,
-  320–520), minimises to its tab row or hides to the chat pill.
+  320–520), beside the friends drawer, minimises to its tab row or hides to
+  the chat pill. It grows from its corner and shrinks back before the pill
+  takes its place (`window::Pop`, `hud::motion`'s curve); a line more is
+  appended rather than the list redrawn, and a row newer than the list
+  showed rises 10 px into place (`window::Arrive`, 0.18 s). A line is drawn
+  only once `Arrivals` has stamped it (the socket is read after the stamps).
+  A tab opened on unread lines draws a "New" divider above the first,
+  noted before `Intent::Panel` reads the tab; every way of hiding the
+  window tells the machine `Intent::Panel(None)`. A lock line under the
+  tabs says the conversation is end-to-end encrypted and opens the safety
+  numbers. Whispers read `To Bob:` / `From Bob:`. A list scrolled more than
+  half its height up shows the log's pill as "Back to the latest".
+  `reduce_motion` ends every movement on its first frame.
 - **Per-tab filters** (`⚙`) ride in `Preferences.chat` (`ChatPrefs.tabs`), so
   they follow the account; the Group tab shows one group at a time
   (its dropdown), All shows every group with its name as the prefix.
@@ -9122,7 +9134,12 @@ the chat window design). The renderer never builds a frame or an HTTP body.
 - **Drawer, toasts, sheets.** The friends drawer (requests, table and group
   invites, friends by presence with Whisper/Watch/Invite and a `⋯` menu,
   groups with their menu, recent players, blocked, status, Chat & privacy)
-  overlays the right edge. Toasts with buttons stay until answered. The
+  is open by default and docks at the right below the header, full height,
+  with a scrollbar; it slides in and out (0.18 s) while the header's
+  siblings give it their room (each lets go of a fixed width, `Squeezed`,
+  and gets it back), and slides over the table at a table. Card links in
+  the chat (history and composer) preview as a pool row does, from the
+  compiled pool until the builder's has come. Toasts with buttons stay until answered. The
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.
