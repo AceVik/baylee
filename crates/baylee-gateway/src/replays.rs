@@ -35,8 +35,9 @@ pub const MAX_RECORD_BYTES: u64 = 8 * 1024 * 1024;
 /// The largest tape a job may answer, compressed: past it `502`.
 pub const MAX_TAPE_BYTES: usize = 32 * 1024 * 1024;
 
-/// How long a job has from its order to its tape's last piece: past it
-/// `504`, and its engine is told to stop.
+/// How long a job has from its order to its tape's last piece when
+/// `BAYLEE_REPLAY_JOB_SECS` says nothing: past it `504`, and its engine is
+/// told to stop.
 pub const JOB_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// How many jobs one account may ask for per [`ASK_WINDOW`].
@@ -91,17 +92,20 @@ pub struct Jobs {
     asks: auth::RateLimiter,
     /// `BAYLEE_REPLAY_JOBS`: how many run at once; 0 = replays are off.
     pub max: usize,
+    /// `BAYLEE_REPLAY_JOB_SECS`: how long a job may take ([`JOB_TIMEOUT`]).
+    pub timeout: Duration,
 }
 
 impl Jobs {
     /// The registry with room for `max` jobs at once.
     #[must_use]
-    pub fn new(max: usize) -> Self {
+    pub fn new(max: usize, timeout: Duration) -> Self {
         Self {
             running: Mutex::new(HashMap::new()),
             per_account: Mutex::new(HashMap::new()),
             asks: auth::RateLimiter::new(ASK_WINDOW, ASKS_PER_WINDOW),
             max,
+            timeout,
         }
     }
 
@@ -122,6 +126,20 @@ pub fn jobs_from_env(raw: Option<&str>) -> Result<usize, String> {
         Some(text) => match text.parse::<usize>() {
             Ok(n) if n <= 64 => Ok(n),
             _ => Err(format!("{text:?} is not a number of jobs from 0 to 64")),
+        },
+    }
+}
+
+/// `BAYLEE_REPLAY_JOB_SECS`: unset is [`JOB_TIMEOUT`].
+///
+/// # Errors
+/// A value that is not a number of seconds from 1 to 600.
+pub fn timeout_from_env(raw: Option<&str>) -> Result<Duration, String> {
+    match raw.map(str::trim).filter(|s| !s.is_empty()) {
+        None => Ok(JOB_TIMEOUT),
+        Some(text) => match text.parse::<u64>() {
+            Ok(n) if (1..=600).contains(&n) => Ok(Duration::from_secs(n)),
+            _ => Err(format!("{text:?} is not a number of seconds from 1 to 600")),
         },
     }
 }
@@ -262,7 +280,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
         );
         agent_id
     };
-    let answer = match tokio::time::timeout(JOB_TIMEOUT, tape).await {
+    let answer = match tokio::time::timeout(state.replay_jobs.timeout, tape).await {
         Ok(Ok(answer)) => answer,
         Ok(Err(_)) => Err(JobError::Failed),
         Err(_) => Err(JobError::Timeout),
@@ -444,7 +462,7 @@ mod tests {
 
     #[test]
     fn an_account_runs_two_jobs_at_once_and_the_gateway_its_bound() {
-        let jobs = Jobs::new(3);
+        let jobs = Jobs::new(3, JOB_TIMEOUT);
         let a1 = admit(&jobs, "a").expect("first");
         let a2 = admit(&jobs, "a").expect("second");
         assert_eq!(admit(&jobs, "a").err(), Some(Refused::TooMany));
@@ -454,12 +472,12 @@ mod tests {
         let c1 = admit(&jobs, "c").expect("a slot given back");
         drop((a2, b1, c1));
         assert!(jobs.per_account.lock().is_empty());
-        assert!(!Jobs::new(0).on());
+        assert!(!Jobs::new(0, JOB_TIMEOUT).on());
     }
 
     #[test]
     fn an_account_asks_six_times_a_minute() {
-        let jobs = Jobs::new(64);
+        let jobs = Jobs::new(64, JOB_TIMEOUT);
         for i in 0..ASKS_PER_WINDOW {
             drop(admit(&jobs, "a").unwrap_or_else(|e| panic!("ask {i}: {e:?}")));
         }
@@ -475,5 +493,9 @@ mod tests {
         assert!(jobs_from_env(Some("65")).is_err());
         assert!(jobs_from_env(Some("-1")).is_err());
         assert!(jobs_from_env(Some("four")).is_err());
+        assert_eq!(timeout_from_env(None), Ok(JOB_TIMEOUT));
+        assert_eq!(timeout_from_env(Some("5")), Ok(Duration::from_secs(5)));
+        assert!(timeout_from_env(Some("0")).is_err());
+        assert!(timeout_from_env(Some("601")).is_err());
     }
 }

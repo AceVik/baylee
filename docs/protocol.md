@@ -1896,7 +1896,7 @@ closing `stop` line saying how far it is the recorded game).
 | `429` | more than 6 asks a minute, or 2 at once, for the account |
 | `502` | the tape passed 32 MiB compressed, or the engine failed or went away (a client retries once) |
 | `503` | `BAYLEE_REPLAY_JOBS=0`, as many jobs running as it allows, no agent with room, or admission held (in `admission`'s words) |
-| `504` | no tape in 60 s; the job's engine is told to stop |
+| `504` | no tape in 60 s (`BAYLEE_REPLAY_JOB_SECS`, `1..=600`); the job's engine is told to stop |
 
 A game that ended in the last 10 s whose last piece is not stored yet is
 waited for up to 3 s. A seat's tape is that seat's view and log exactly as a

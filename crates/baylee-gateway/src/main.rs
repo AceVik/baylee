@@ -326,6 +326,8 @@ async fn main() {
     .unwrap_or_else(|why| panic!("{why}"));
     let replay_jobs = replays::jobs_from_env(var("BAYLEE_REPLAY_JOBS").as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_REPLAY_JOBS: {why}"));
+    let replay_timeout = replays::timeout_from_env(var("BAYLEE_REPLAY_JOB_SECS").as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_REPLAY_JOB_SECS: {why}"));
     let social = social::Social::from_env(
         var("BAYLEE_SOCIAL").as_deref(),
         var("BAYLEE_SOCIAL_KEEP_DAYS").as_deref(),
@@ -412,7 +414,7 @@ async fn main() {
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
         admission,
         blocks: blocks::Blocks::default(),
-        replay_jobs: replays::Jobs::new(replay_jobs),
+        replay_jobs: replays::Jobs::new(replay_jobs, replay_timeout),
         social,
     });
     // Before serving: a deck holding a blocked card must not slip into the
