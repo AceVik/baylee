@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, noarchive, nosnippet">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1322">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef2f8">
+<title>Impressum – Baylee</title>
+<link rel="icon" href="/site/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/site/site.css">
+<!-- The provider's details are in no file of the repository: impressum.js
+     fetches them from the server (web/site/README.md §"The Impressum"). -->
+<script src="/site/impressum.js" defer></script>
+</head>
+<body class="legal-page">
+
+<a class="skip" href="#main"><span class="en">Skip to content</span><span class="de" lang="de">Zum Inhalt springen</span></a>
+
+<header class="top solid">
+  <div class="top-inner">
+    <a class="brand" href="/" aria-label="Baylee">
+      <img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee">
+    </a>
+    <a class="back" href="/"><span aria-hidden="true">←&nbsp;</span><span class="en">Start page</span><span class="de" lang="de">Startseite</span></a>
+    <div class="lang" role="group" aria-label="Language / Sprache">
+      <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
+      <button type="button" class="lang-btn" data-lang="de" lang="de" aria-pressed="false">Deutsch</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<section class="section">
+  <div class="section-inner legal">
+    <p class="eyebrow"><span class="en">Legal notice</span><span class="de" lang="de">Impressum</span></p>
+    <h1 class="en">Legal notice</h1>
+    <h1 class="de" lang="de">Impressum</h1>
+
+    <h2 class="en">Information pursuant to § 5 DDG</h2>
+    <h2 class="de" lang="de">Angaben gemäß § 5 DDG</h2>
+    <p class="en">This website is a private, non-commercial project of a private individual. Baylee is free and open source; there is no advertising and nothing to buy.</p>
+    <p class="de" lang="de">Diese Website ist ein privates, nicht kommerzielles Projekt einer Privatperson. Baylee ist kostenlos und quelloffen; es gibt keine Werbung und nichts zu kaufen.</p>
+    <div class="imp-box glass" id="imp-provider" data-endpoint="/site/impressum" data-endpoint-local="http://127.0.0.1:28780/site/impressum">
+      <p class="imp-why"><span class="en">To keep address harvesters away, the details load only when you ask for them; your browser works out a small puzzle for it, which takes a moment.</span><span class="de" lang="de">Damit Adresssammler leer ausgehen, werden die Angaben erst auf deinen Wunsch geladen; dein Browser löst dafür ein kleines Rätsel, das einen Moment dauert.</span></p>
+      <button type="button" class="button imp-show" id="imp-show" hidden><span class="en">Show the details</span><span class="de" lang="de">Impressum anzeigen</span></button>
+      <progress class="imp-progress" id="imp-progress" max="1" value="0" hidden></progress>
+      <p class="imp-status" id="imp-show-status" role="status" aria-live="polite"></p>
+      <a class="hp" href="/site/impressum/kontakt" tabindex="-1" aria-hidden="true" rel="nofollow">Kontakt</a>
+      <p class="nojs-note en">Please turn on JavaScript or use the <a href="/#contact">contact form</a>.</p>
+      <p class="nojs-note de" lang="de">Bitte JavaScript aktivieren oder das <a href="/#contact">Kontaktformular</a> nutzen.</p>
+      <p class="imp-failed" hidden><span class="en">The details could not be loaded. Please reload the page or use the <a href="/#contact">contact form</a>.</span><span class="de" lang="de">Die Angaben konnten nicht geladen werden. Bitte lade die Seite neu oder nutze das <a href="/#contact">Kontaktformular</a>.</span></p>
+    </div>
+
+    <h2 class="en">Contact</h2>
+    <h2 class="de" lang="de">Kontakt</h2>
+    <div id="imp-contact"></div>
+    <p class="en">You can also write to me with the <a href="/#contact">contact form</a> on the start page.</p>
+    <p class="de" lang="de">Du erreichst mich außerdem über das <a href="/#contact">Kontaktformular</a> auf der Startseite.</p>
+
+    <h2 class="en">Dispute resolution</h2>
+    <h2 class="de" lang="de">Streitbeilegung</h2>
+    <p class="en">This is a free, non-commercial offer of a private individual. I am neither obliged nor willing to take part in dispute resolution proceedings before a consumer arbitration board.</p>
+    <p class="de" lang="de">Dies ist ein kostenloses, nicht kommerzielles Angebot einer Privatperson. Ich bin weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+
+    <p class="small"><span class="en">What the client, the gateway and the feedback service keep about you: <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a>.</span><span class="de" lang="de">Was Client, Gateway und Feedback-Dienst über dich speichern: <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a>.</span></p>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <!-- The Fan Content Policy's notice, word for word from Wizards' templates
+         (English, and the official German one); docs/legal.md §1. The English
+         one stands in both languages. -->
+    <p class="notice" lang="en">Baylee is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" rel="noopener">Fan Content Policy</a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
+    <p class="notice de" lang="de">Baylee ist ein inoffizieller Fan-Inhalt im Rahmen der <a href="https://company.wizards.com/de/legal/fancontentpolicy" rel="noopener">Richtlinie für Fan-Inhalte</a>. Nicht von Wizards gefördert/gesponsert. Bestandteile des enthaltenen Materials sind Eigentum von Wizards of the Coast. ©Wizards of the Coast LLC. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
+    <p class="notice"><span class="en">Magic: The Gathering, card names, set names, card images and mana symbols are property of Wizards of the Coast LLC. Every card image names its artist; select a card to see artist and printing on Scryfall.</span><span class="de" lang="de">Magic: The Gathering sowie Kartennamen, Setnamen, Kartenbilder und Manasymbole sind Eigentum von Wizards of the Coast LLC. Jedes Kartenbild nennt seine Künstlerin oder seinen Künstler; ein Klick auf eine Karte zeigt Künstler und Druck bei Scryfall.</span></p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="/"><span class="en">Start page</span><span class="de" lang="de">Startseite</span></a>
+      <a href="https://github.com/AceVik/baylee" rel="noopener"><span class="en">Source code (AGPL-3.0)</span><span class="de" lang="de">Quellcode (AGPL-3.0)</span></a>
+      <a href="/#contact"><span class="en">Contact</span><span class="de" lang="de">Kontakt</span></a>
+      <a href="/site/datenschutz.html"><span class="en">Privacy</span><span class="de" lang="de">Datenschutz</span></a>
+      <a href="/site/impressum.html" aria-current="page"><span class="en">Legal notice</span><span class="de" lang="de">Impressum</span></a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

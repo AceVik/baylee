@@ -915,6 +915,31 @@ that posts, from the visitor's browser, to the feedback service's
 - **Who can read them:** the admins of the feedback service's web UI
   (`baylee-feedback admin add`), signed in.
 
+## The Impressum
+
+The landing page's Impressum (`web/site/impressum.html`) gets its details
+from the feedback service for a solved proof of work
+(`docs/feedback.md` §"The Impressum: `/site/impressum`").
+
+| What | Where | Kept | Removed by |
+| --- | --- | --- | --- |
+| The operator's details (name, postal address, e-mail address, telephone) | a private file on the owner's machine and, as an obfuscated blob, on the server (`FEEDBACK_IMPRESSUM_BLOB`); never in the repository | as long as the Impressum is needed | the owner |
+| Challenges asked per address (an IPv6 address by its /64), with their times | the feedback service's memory | an hour; a restart forgets them | the counter itself; never written down or logged |
+| Addresses that asked the honeypot (a link no person sees) | the feedback service's memory | 24 hours; a restart forgets them | the mark's own expiry; never written down or logged |
+| Challenges already answered (random numbers, no address) | the feedback service's memory | until the challenge expires (5 minutes) | the service |
+| How often the honeypot was asked since the start (a number) | the feedback service's log | as the log is kept | log rotation |
+
+What the page sends along with a challenge is three yes/no answers about
+its own browser (`navigator.webdriver`, whether it names languages,
+whether WebGL draws in software), used for that one challenge's
+difficulty and not kept. No cookie, no third party, no fingerprint. Nothing
+bans an address (owner, 13.10.2026: no fail2ban), and no access log is
+written for the site (`scripts/server/site.caddy`).
+
+The website's own privacy notice for visitors is `web/site/datenschutz.html`
+(Art. 13 GDPR, both languages); it is drawn from this inventory and must
+change with it.
+
 ## Open points
 
 Found while writing this inventory. They are facts for the owner and the PM

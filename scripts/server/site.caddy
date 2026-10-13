@@ -2,9 +2,11 @@
 #
 # Directives for the gateway's own site block, served ahead of the gateway:
 # exactly `/` is the page, `/favicon.ico` its icon (browsers ask for it
-# unasked, and the gateway would answer 404), everything under /site/ its
-# files, and everything else stays the gateway's (/info, /lobby, /health,
-# /terms, /catalog, …) or the browser client's (/play/,
+# unasked, and the gateway would answer 404), `/robots.txt`, everything under
+# /site/ its files (the Impressum is /site/impressum.html, its details come
+# from the feedback service under /site/impressum/, below), and everything
+# else stays the gateway's (/info, /lobby, /health, /terms, /catalog, …) or
+# the browser client's (/play/,
 # scripts/server/play.caddy). /site/ is no route of the gateway's, so the
 # two never meet.
 #
@@ -33,9 +35,27 @@
 # repeat the copy and the rename; nothing in Caddy changes.
 #
 # No `log` here, on purpose, like the other snippets: the page keeps nothing
-# about a visitor, and an access log would.
+# about a visitor, and an access log would. The privacy notice
+# (web/site/datenschutz.html) says so; adding a log means changing it.
 
-@baylee_site path / /favicon.ico /site/*
+# The Impressum's details (web/site/impressum.html): the feedback service
+# hands them out for a solved proof of work and answers a honeypot, all
+# under /site/impressum/ (crates/baylee-feedback/src/impressum.rs,
+# docs/feedback.md §"The Impressum"). Passed on from here, so the page asks
+# its own origin and the service sees `Sec-Fetch-Site: same-origin`. Ahead
+# of the page's handle below: Caddy keeps named matchers in file order, and
+# /site/impressum.html is not under /site/impressum/, so the two never meet.
+# The service needs FEEDBACK_TRUSTED_PROXIES=127.0.0.1 (it has it for the
+# contact form) to count the visitor's address and not Caddy's.
+@baylee_impressum path /site/impressum /site/impressum/*
+handle @baylee_impressum {
+	request_body {
+		max_size 8KiB
+	}
+	reverse_proxy 127.0.0.1:28780
+}
+
+@baylee_site path / /favicon.ico /robots.txt /site/*
 handle @baylee_site {
 	root * /opt/baylee/web/site
 	# `/site/site.css` is `site.css` in that folder; `/` and `/favicon.ico`
@@ -46,13 +66,28 @@ handle @baylee_site {
 	# changed, so a new build shows at once. The stylesheet and the script
 	# change with the page and are not named by content, so an hour; fonts
 	# and pictures a week. Everything is revalidated once it is stale.
-	@page path /
+	# (`header` runs before `uri`, so these matchers see the path as asked;
+	# the Impressum is named both ways to hold if that order ever changes.)
+	@page path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html
 	header @page Cache-Control "no-cache"
 	# The card status (data/*.json, scripts/site/card_status.py) is
 	# regenerated with the cards, so it is treated like the code.
-	@code path *.css *.js *.json
+	# A file the page names with ?v=<its hash> (scripts/site/stamp.py) never
+	# changes under that name: a year, immutable. Unstamped, as before.
+	@stamped {
+		path *.css *.js *.woff2 *.webp *.avif *.png *.jpg *.ico
+		query v=*
+	}
+	header @stamped Cache-Control "public, max-age=31536000, immutable"
+	@code {
+		path *.css *.js *.json *.txt
+		not query v=*
+	}
 	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
-	@assets not path / *.css *.js *.json
+	@assets {
+		not path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html *.css *.js *.json *.txt
+		not query v=*
+	}
 	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
 
 	# What the page may do: its own files, GitHub's API for the release
@@ -69,6 +104,10 @@ handle @baylee_site {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 	}
+	# The Impressum is for people who look for it, not for search engines
+	# (robots.txt disallows it too; no sitemap names it).
+	@impressum path /site/impressum.html /impressum.html
+	header @impressum X-Robots-Tag "noindex, noarchive, nosnippet"
 
 	encode zstd gzip
 	file_server

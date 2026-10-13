@@ -84,6 +84,9 @@ pub struct Ui {
     contact: Mutex<crate::direct::Allowance>,
     /// The offline games heard from lately (`crate::alive`).
     presence: Mutex<crate::alive::Presence>,
+    /// The Impressum's requests, honeypot marks and answered puzzles
+    /// (`crate::impressum`).
+    impressum: Mutex<crate::impressum::Watch>,
 }
 
 impl Default for Ui {
@@ -97,6 +100,7 @@ impl Default for Ui {
             alive: Mutex::new(crate::direct::Allowance::default()),
             contact: Mutex::new(crate::direct::Allowance::default()),
             presence: Mutex::new(crate::alive::Presence::default()),
+            impressum: Mutex::new(crate::impressum::Watch::default()),
         }
     }
 }
@@ -161,6 +165,19 @@ impl Ui {
 
     fn now(&self) -> OffsetDateTime {
         (self.clock)()
+    }
+
+    /// The time, as the Impressum's routes see it.
+    pub(crate) fn clock_now(&self) -> OffsetDateTime {
+        self.now()
+    }
+
+    /// Runs `f` on the Impressum's memory (`crate::impressum`).
+    pub(crate) fn impressum<R>(&self, f: impl FnOnce(&mut crate::impressum::Watch) -> R) -> R {
+        f(&mut self
+            .impressum
+            .lock()
+            .expect("the Impressum's memory is never poisoned"))
     }
 
     /// The address a request is counted under ([`client_address`]): kept
