@@ -375,7 +375,7 @@ function Editor({
       <label htmlFor={fid}>{t(lang, labelKey)}</label>
       {input}
       {hint !== undefined && (
-        <p id={`${fid}-hint`} className="hint muted llm-hint">
+        <p id={`${fid}-hint`} className="muted llm-hint">
           {t(lang, hint)}
         </p>
       )}
@@ -485,35 +485,39 @@ function Editor({
               />,
             )}
           </div>
-          <div className="llm-checks">
-            <label>
-              <input
-                type="checkbox"
-                checked={enabled}
-                aria-describedby="llm-enabled-hint"
-                onChange={(e) => {
-                  setEnabled(e.target.checked);
-                }}
-              />{" "}
-              {t(lang, "llm.enabled")}
-            </label>
-            <p id="llm-enabled-hint" className="hint muted llm-hint">
-              {t(lang, "llm.hint.enabled")}
-            </p>
-            <label>
-              <input
-                type="checkbox"
-                checked={canary}
-                aria-describedby="llm-canary-hint"
-                onChange={(e) => {
-                  setCanary(e.target.checked);
-                }}
-              />{" "}
-              {t(lang, "llm.canary")}
-            </label>
-            <p id="llm-canary-hint" className="hint muted llm-hint">
-              {t(lang, "llm.hint.canary")}
-            </p>
+          <div className="form-grid">
+            <div className="field llm-check">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  aria-describedby="llm-enabled-hint"
+                  onChange={(e) => {
+                    setEnabled(e.target.checked);
+                  }}
+                />
+                {t(lang, "llm.enabled")}
+              </label>
+              <p id="llm-enabled-hint" className="muted llm-hint">
+                {t(lang, "llm.hint.enabled")}
+              </p>
+            </div>
+            <div className="field llm-check">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={canary}
+                  aria-describedby="llm-canary-hint"
+                  onChange={(e) => {
+                    setCanary(e.target.checked);
+                  }}
+                />
+                {t(lang, "llm.canary")}
+              </label>
+              <p id="llm-canary-hint" className="muted llm-hint">
+                {t(lang, "llm.hint.canary")}
+              </p>
+            </div>
           </div>
         </fieldset>
 
@@ -556,7 +560,7 @@ function Editor({
                 {numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price", "llm.priceIn", "llm-price-hint")}
                 {numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price", "llm.priceOut", "llm-price-hint")}
               </div>
-              <p id="llm-price-hint" className="hint muted llm-hint">
+              <p id="llm-price-hint" className="muted llm-hint">
                 {t(lang, "llm.hint.price")}
               </p>
             </fieldset>
@@ -567,7 +571,7 @@ function Editor({
 
         <fieldset className="llm-section">
           <legend>{t(lang, "llm.section.caps")}</legend>
-          <p className="hint muted llm-hint">{t(lang, "llm.hint.caps")}</p>
+          <p className="muted llm-hint">{t(lang, "llm.hint.caps")}</p>
           <div className="form-grid">
             {field("llm-day", "llm.capDay", numberBox("llm-day", dayUsd, setDayUsd, false))}
             {field("llm-month", "llm.capMonth", numberBox("llm-month", monthUsd, setMonthUsd, false))}

@@ -77,7 +77,8 @@ async function standIn(page: Page) {
     const path = new URL(request.url()).pathname;
     const body = request.postData() === null ? undefined : (JSON.parse(request.postData() ?? "null") as unknown);
     if (request.method() === "GET") {
-      await route.fulfill({ json: { seathosts: hosts } });
+      // Who may seat which model (beta.7) is the access panel's: none kept.
+      await route.fulfill({ json: path.includes("/llm/access") ? { profiles: [] } : { seathosts: hosts } });
       return;
     }
     asked.push({ method: request.method(), path, body });
