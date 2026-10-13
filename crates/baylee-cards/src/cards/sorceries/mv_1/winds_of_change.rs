@@ -1,7 +1,8 @@
 //! Winds of Change — {R} — Sorcery
 //! Oracle: Each player shuffles the cards from their hand into their library, then draws that many cards.
 //! Set: ME1 #111 — Masters Edition | Scryfall ID: 3f09e393-7318-43eb-95f8-0f2797a771d7 | Oracle ID: f525cf10-e24c-4c46-9a13-6f8579d09d50
-// PARTIAL — the hand-shuffle is written; "then draws that many cards" is not.
+// IMPLEMENTED — each player shuffles their hand into their library, then draws
+// as many cards as they shuffled in.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -10,23 +11,26 @@ card!(
     oracle_id = "f525cf10-e24c-4c46-9a13-6f8579d09d50",
     scryfall_id = "3f09e393-7318-43eb-95f8-0f2797a771d7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "no effect draws a number of cards equal to what a player shuffled \
-         into their library, and no Amount reads a hand that no longer exists"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winds of Change",
         mana_cost = mana!("{R}"),
         types = TypeSet::SORCERY,
     ),],
-    // NOT SUPPORTED: "then draws that many cards." —
-    // `Effect::ShuffleIntoLibrary` moves each hand into its library and
-    // shuffles but reports no count, and by the time an `Effect::DrawCardsFor`
-    // resolved, the hand it would count is empty. No Amount remembers the
-    // cards a resolution shuffled in.
-    abilities = &[spell!(&[Effect::ShuffleIntoLibrary {
-        who: PlayerRel::EachPlayer,
-        hand: true,
-        graveyard: false
-    }])],
+    abilities = &[spell!(&[
+        Effect::ShuffleIntoLibrary {
+            who: PlayerRel::EachPlayer,
+            hand: true,
+            graveyard: false
+        },
+        // "then draws that many cards" — each player draws the number they
+        // shuffled in, every player's count read before anyone draws.
+        Effect::DrawCardsFor {
+            amount: Amount::ThisWayBy {
+                what: ThisWay::PutIntoLibraryFromHand,
+                who: PlayerRel::Recipient,
+            },
+            who: PlayerRel::EachPlayer,
+        },
+    ])],
 );

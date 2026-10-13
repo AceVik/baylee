@@ -5,8 +5,9 @@
 //! Set: ZNR #174 — Zendikar Rising | Scryfall ID: 228e551e-023a-4c9a-8f32-58dae6ffdf7f | Oracle ID: ff0ab867-b710-4b1a-baed-95fc3cf68f79
 //! Face: Valakut Awakening — {2}{R} — Instant
 //! Face: Valakut Stoneforge —  — Land
-// PARTIAL — the back face is a whole land ({T}: Add {R}, and it enters
-// tapped); the front face's spell cannot be said with this vocabulary.
+// IMPLEMENTED — front face: put any number of cards from your hand on the
+// bottom of your library, then draw that many cards plus one; back face: a
+// land that enters tapped and taps for {R}.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -19,24 +20,12 @@ card!(
     oracle_id = "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
     scryfall_id = "228e551e-023a-4c9a-8f32-58dae6ffdf7f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "Valakut Awakening: \"Put any number of cards from your hand on the \
-         bottom of your library, then draw that many cards plus one\" — no \
-         Effect moves an open-ended number of chosen cards from the hand to \
-         the bottom (BottomCardFromHand is one card, PutFromHandOnTop is a \
-         fixed count and the other end of the library), and no Amount reads \
-         \"that many\"."
-    ),
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Valakut Awakening",
             mana_cost = mana!("{2}{R}"),
             types = TypeSet::INSTANT,
-            // NOT SUPPORTED: "Put any number of cards from your hand on the
-            // bottom of your library, then draw that many cards plus one."
-            // — there is no Effect for a variable-count hand-to-bottom move
-            // and no Amount for "that many", so the front face states no
-            // ability at all.
         ),
         face!(
             name = "Valakut Stoneforge",
@@ -45,4 +34,14 @@ card!(
             abilities = BACK_MANA,
         ),
     ],
+    abilities = &[spell!(&[
+        Effect::PutAnyFromHandOnBottom,
+        // "then draw that many cards plus one"
+        Effect::DrawCards {
+            amount: Amount::Plus {
+                base: &Amount::ThisWay(ThisWay::PutIntoLibraryFromHand),
+                offset: 1,
+            },
+        },
+    ])],
 );
