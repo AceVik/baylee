@@ -228,12 +228,13 @@ pub fn sync_scene(
             }
             None => crate::cardmat::VeilTrack::new(placement.veil),
         };
-        if track.to == 0 && track.from == 0 {
+        let veil = track.veil(now);
+        // A card in no state, fades over, needs no entry.
+        if veil == crate::cardmat::Veil::NONE {
             index.veils.remove(&placement.object);
         } else {
             index.veils.insert(placement.object, track);
         }
-        let veil = track.veil(now);
 
         let material = if show_face {
             // One material per colour identity and name depth, so a

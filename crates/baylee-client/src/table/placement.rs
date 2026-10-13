@@ -375,14 +375,8 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                 let lift = LANE_RISE * i as f32 / steps;
                 let turned = tapped[i];
                 let shown = window.shown.contains(&i);
-                // A phased-out permanent is treated as though it does not
-                // exist (CR 702.26b): it wears its grey and nothing it would
-                // say round itself, no shell and no sleep.
-                let shells = if group.status.is_phased_out() {
-                    shellmat::Shells::default()
-                } else {
-                    shellmat::Shells::of(group)
-                };
+                // A phased-out permanent wears none (`Shells::of`).
+                let shells = shellmat::Shells::of(group);
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,

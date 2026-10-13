@@ -66,8 +66,9 @@ const HEX_LIGHT: vec3<f32> = vec3<f32>(0.70, 0.88, 1.0);
 const MIST: vec3<f32> = vec3<f32>(0.50, 0.30, 0.95);
 const MIST_PALE: vec3<f32> = vec3<f32>(0.80, 0.72, 1.0);
 /// How long a block of defender's wall is along the card's edge, in card
-/// widths, and the share of it its joint takes.
-const BLOCK: f32 = 0.11;
+/// widths, and the share of it its joint takes: a whole number of blocks
+/// round the card, so no block is cut where the outline closes.
+const BLOCK: f32 = 0.11875;
 const BLOCK_JOINT: f32 = 0.09;
 /// How far round the card the border's light goes in a second: the gold's
 /// one glint a lap every twelve seconds, hexproof's three streaks quicker,
@@ -75,8 +76,11 @@ const BLOCK_JOINT: f32 = 0.09;
 const GLINT_LAP: f32 = 0.083;
 const FLOW_LAP: f32 = 0.16;
 const MIST_DRIFT: f32 = 0.25;
+/// How many cells of mist go round the card.
+const MIST_CELLS: f32 = 43.0;
 /// The card's outline, in card widths, which the border's patterns are
-/// measured along.
+/// measured along; the mist's cells (43 round it) and the blocks (40) are
+/// whole numbers of it, so neither breaks where the outline closes.
 const OUTLINE: f32 = 4.75;
 
 /// Signed distance to the card's rounded rectangle, in its own space.
@@ -93,16 +97,20 @@ fn card_out(p: vec2<f32>) -> vec2<f32> {
 }
 
 
-/// Value noise for shroud's mist, smooth across a cell.
-fn mist_noise(p: vec2<f32>) -> f32 {
+/// Value noise for shroud's mist, smooth across a cell, repeating every
+/// `period` cells along `x` so it closes round the card without a seam.
+fn mist_noise(p: vec2<f32>, period: f32) -> f32 {
     let i = floor(p);
     let f = fract(p);
     let u = f * f * (3.0 - 2.0 * f);
+    let x0 = i.x - period * floor(i.x / period);
+    let x1 = x0 + 1.0 - period * floor((x0 + 1.0) / period);
+    let k = vec2<f32>(127.1, 311.7);
     let h = fract(sin(vec4<f32>(
-        dot(i, vec2<f32>(127.1, 311.7)),
-        dot(i + vec2<f32>(1.0, 0.0), vec2<f32>(127.1, 311.7)),
-        dot(i + vec2<f32>(0.0, 1.0), vec2<f32>(127.1, 311.7)),
-        dot(i + vec2<f32>(1.0, 1.0), vec2<f32>(127.1, 311.7)),
+        dot(vec2<f32>(x0, i.y), k),
+        dot(vec2<f32>(x1, i.y), k),
+        dot(vec2<f32>(x0, i.y + 1.0), k),
+        dot(vec2<f32>(x1, i.y + 1.0), k),
     )) * 43758.5453);
     return mix(mix(h.x, h.y, u.x), mix(h.z, h.w, u.x), u.y);
 }
@@ -164,7 +172,7 @@ fn ward_layer(style: u32, f: f32, s: f32, t: f32, aa: f32, aa_s: f32) -> vec4<f3
     if style == WARD_SHROUD {
         // A soft violet mist with no edge, drifting.
         let body = smoothstep(0.0, 0.5, f) * smoothstep(0.0, 0.5, 1.0 - f);
-        let fog = mist_noise(vec2<f32>(s * OUTLINE * 9.0 - MIST_DRIFT * t, f * 2.0 + 0.3 * MIST_DRIFT * t));
+        let fog = mist_noise(vec2<f32>(s * MIST_CELLS - MIST_DRIFT * t, f * 2.0 + 0.3 * MIST_DRIFT * t), MIST_CELLS);
         let colour = mix(MIST, MIST_PALE, fog * fog);
         return vec4<f32>(colour, body * (0.55 + 0.45 * fog));
     }

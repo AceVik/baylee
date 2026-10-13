@@ -228,9 +228,14 @@ pub struct Shells {
 
 impl Shells {
     /// What the permanents of `group` wear. Only a creature is ever
-    /// modelled asleep ([`baylee_client_core::board::asleep`]).
+    /// modelled asleep ([`baylee_client_core::board::asleep`]), and a
+    /// phased-out permanent wears nothing: it is treated as though it does
+    /// not exist (CR 702.26b), and its grey says so.
     #[must_use]
     pub fn of(group: &CardGroup) -> Self {
+        if group.status.is_phased_out() {
+            return Self::default();
+        }
         let has = |badge| group.badges.contains(&badge);
         Self {
             ward: Ward::of(
