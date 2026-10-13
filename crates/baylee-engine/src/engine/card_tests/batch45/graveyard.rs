@@ -167,3 +167,62 @@ fn batch45_tarrian_discards_the_hand_and_the_tomb_grants_vampire_and_finality() 
     kill(&mut e, bear);
     assert_eq!(e.state.object(bear).unwrap().zone, Zone::Exile);
 }
+
+/// "{T}: You may cast **a** creature spell from your graveyard this turn": one
+/// spell. With two creature cards and an instant in the graveyard, the first
+/// cast uses the permission up, and the second creature stays where it is. The
+/// instant was never castable from there at all.
+#[test]
+fn batch45_tomb_of_aclazotz_permits_one_creature_spell_only() {
+    let mut e = prepared(
+        &[
+            index::GRIZZLY_BEARS,
+            index::CANOPY_SPIDER,
+            index::GIANT_GROWTH,
+        ],
+        &[index::TARRIAN_S_JOURNAL, index::LLANOWAR_ELVES],
+        &[],
+    );
+    let bear = in_hand(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    let spider = in_hand(&e, P0, index::CANOPY_SPIDER).unwrap();
+    let growth = in_hand(&e, P0, index::GIANT_GROWTH).unwrap();
+    let journal = on_battlefield(&e, P0, index::TARRIAN_S_JOURNAL).unwrap();
+    activate(&mut e, P0, index::TARRIAN_S_JOURNAL, 1);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state.object(journal).unwrap().face_index, 1);
+    for card in [bear, spider, growth] {
+        assert_eq!(
+            e.state.object(card).unwrap().zone,
+            Zone::Graveyard,
+            "the discard cost put the whole hand in the graveyard"
+        );
+    }
+    e.state.set_tapped(journal, false);
+    e.refresh_offer();
+    assert!(
+        !castable(&e, bear) && !castable(&e, spider),
+        "before the Tomb's ability, no creature card is castable from the graveyard"
+    );
+    activate(&mut e, P0, index::TARRIAN_S_JOURNAL, 1);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        castable(&e, bear) && castable(&e, spider),
+        "with the permission, either creature card may be cast"
+    );
+    assert!(
+        !castable(&e, growth),
+        "the permission is for a creature spell: the instant stays in the graveyard"
+    );
+
+    cast(&mut e, bear);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state.object(bear).unwrap().zone, Zone::Battlefield);
+    assert!(
+        !castable(&e, spider),
+        "one creature spell was cast: the second creature card is no longer castable"
+    );
+    assert!(
+        !castable(&e, growth),
+        "and the instant still is not, with a creature on the battlefield to aim at"
+    );
+}
