@@ -52,3 +52,35 @@ fn myriad_landscape_enters_tapped_and_offers_both_abilities_when_untapped() {
     assert_eq!(pool.total(), 3);
     assert!(is_tapped(&engine, landscape));
 }
+
+/// "{2}, {T}, Sacrifice this land: Search your library …": the sacrifice is
+/// a cost. Right after the activation, with the ability still on the stack,
+/// the land is already in its owner's graveyard and the {2} is spent.
+#[test]
+fn myriad_landscape_is_sacrificed_as_a_cost_not_on_resolution() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[myriad_landscape()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let landscape = on_battlefield(&e, p0, myriad_landscape()).expect("Landscape deployed");
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+
+    activate(&mut e, p0, myriad_landscape(), 1);
+
+    assert!(!stack_is_empty(&e), "the search still waits on the stack");
+    assert_eq!(
+        e.state().object(landscape).unwrap().zone,
+        Zone::Graveyard,
+        "Sacrifice this land is part of the cost"
+    );
+    assert_eq!(
+        e.state().players[0].mana_pool.total(),
+        0,
+        "and so is the {{2}}"
+    );
+}
