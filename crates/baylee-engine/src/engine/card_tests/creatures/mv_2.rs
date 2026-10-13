@@ -172,6 +172,7 @@ mod vine_trellis;
 mod viridian_zealot;
 mod voice_of_resurgence;
 mod wall_of_blossoms;
+mod wall_of_caltrops;
 mod wall_of_earth;
 mod wall_of_kelp;
 mod wall_of_mulch;
