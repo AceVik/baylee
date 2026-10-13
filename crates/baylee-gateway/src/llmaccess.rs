@@ -71,9 +71,9 @@ fn reported(console: &Admin, id: &str) -> Option<(String, String)> {
 fn access_json(
     id: &str,
     stored: Option<&llm_access::Access>,
-    seen: Option<(String, String)>,
+    seen: Option<&(String, String)>,
 ) -> serde_json::Value {
-    let (label, vendor) = seen.clone().unzip();
+    let (label, vendor) = seen.cloned().unzip();
     serde_json::json!({
         "id": id,
         "policy": stored.map_or(Policy::Listed, |a| a.policy).word(),
@@ -111,13 +111,7 @@ async fn list(State(console): State<Admin>) -> Result<Json<serde_json::Value>, R
     ids.extend(stored.iter().map(|a| a.profile_id.as_str()));
     let profiles: Vec<serde_json::Value> = ids
         .into_iter()
-        .map(|id| {
-            access_json(
-                id,
-                stored.iter().find(|a| a.profile_id == id),
-                seen.get(id).cloned(),
-            )
-        })
+        .map(|id| access_json(id, stored.iter().find(|a| a.profile_id == id), seen.get(id)))
         .collect();
     Ok(Json(serde_json::json!({ "profiles": profiles })))
 }
@@ -129,7 +123,7 @@ async fn one_json(console: &Admin, id: &str) -> Result<serde_json::Value, Refusa
     let allowed = llm_access::allowed(db, id)
         .await
         .map_err(|e| db_failed(&e))?;
-    let mut json = access_json(id, stored.as_ref(), reported(console, id));
+    let mut json = access_json(id, stored.as_ref(), reported(console, id).as_ref());
     json["accounts"] = allowed
         .iter()
         .map(|a| {

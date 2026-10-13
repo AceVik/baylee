@@ -26,7 +26,7 @@ pub struct Migration;
 const UP: &[&str] = &[
     "CREATE TABLE IF NOT EXISTS llm_profile_access ( \
          profile_id text PRIMARY KEY \
-             CONSTRAINT llm_profile_access_id CHECK (profile_id ~ '^[A-Za-z0-9._-]{1,64}$'), \
+             CONSTRAINT llm_profile_access_id CHECK (profile_id ~ '^[A-Za-z0-9._-]{1,64}$' AND profile_id !~ '^[.]+$'), \
          policy text NOT NULL \
              CONSTRAINT llm_profile_access_policy \
              CHECK (policy IN ('registered', 'listed', 'nobody')), \

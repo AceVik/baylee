@@ -693,11 +693,16 @@ async fn unblock_card(
 
 /// Whether `name` may be a seat agent's name or a profile's id, as the
 /// gateway takes them: 1-64 of `A-Za-z0-9._-`.
+///
+/// The rule of `baylee_protocol::seathost::valid_name`, which this service
+/// does not link: dots alone (`.`, `..`) are refused, since a path made of
+/// them is normalised to another route.
 fn llm_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+        && !name.bytes().all(|b| b == b'.')
 }
 
 /// `{host}` and `{id}`, checked.
