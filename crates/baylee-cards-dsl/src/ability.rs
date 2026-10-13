@@ -821,6 +821,14 @@ pub enum AbilityDef {
         /// did trigger is removed from the stack and does nothing if it
         /// has stopped being true by the time it would resolve.
         condition: Option<Condition>,
+        /// "This ability still resolves if its target becomes illegal"
+        /// (Gilded Drake): the card's own exception to CR 608.2b, which
+        /// otherwise removes an ability whose every target has become
+        /// illegal from the stack without resolving it. With this set it
+        /// resolves with no target, and its effects do what they do with
+        /// none — the Drake's "if you don't or can't make an exchange,
+        /// sacrifice this creature".
+        resolves_if_targets_illegal: bool,
     },
     /// Ward {N}: "whenever this becomes the target of a spell or ability
     /// an opponent controls, counter it unless that player pays {N}".
@@ -1402,6 +1410,7 @@ mod tests {
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+                resolves_if_targets_illegal: false,
             },
             AbilityDef::Ward { mana: 2 },
             AbilityDef::SagaChapter {

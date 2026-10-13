@@ -70,6 +70,7 @@ static WEREWOLF_BACK: &[AbilityDef] = &[
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
+        resolves_if_targets_illegal: false,
     },
 ];
 

@@ -202,6 +202,9 @@ pub struct TriggeredParts {
     pub once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
     pub condition: Option<Condition>,
+    /// "This ability still resolves if its target becomes illegal" (Gilded
+    /// Drake): the card's own exception to CR 608.2b.
+    pub resolves_if_targets_illegal: bool,
 }
 
 impl TriggeredParts {
@@ -217,6 +220,7 @@ impl TriggeredParts {
             second_targets: None,
             once_per_turn: false,
             condition: None,
+            resolves_if_targets_illegal: false,
         }
     }
 
@@ -231,6 +235,7 @@ impl TriggeredParts {
             second_targets: self.second_targets,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
+            resolves_if_targets_illegal: self.resolves_if_targets_illegal,
         }
     }
 }

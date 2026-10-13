@@ -2,7 +2,8 @@
 //! Oracle: Flying
 //! Oracle: When this creature enters, exchange control of this creature and up to one target creature an opponent controls. If you don't or can't make an exchange, sacrifice this creature. This ability still resolves if its target becomes illegal.
 //! Set: USG #76 — Urza's Saga | Scryfall ID: 8de3fdae-cc2c-4a14-b15b-4fe1a983dfbf | Oracle ID: 7f06c098-6482-4bf3-a9a1-110d6d5b5703
-// IMPLEMENTED — control exchange with sacrifice fallback.
+// IMPLEMENTED — control exchange with sacrifice fallback; the trigger resolves
+// (and sacrifices) even when its target has become illegal.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -31,6 +32,7 @@ card!(
             max: 1,
             count_is_x: false,
             distinct_mana_values: false,
-        })
+        }),
+        resolves_if_targets_illegal = true
     )],
 );

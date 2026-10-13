@@ -655,7 +655,7 @@ permission to automatic mana planning; missing data defaults to exact colors.
 
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`
 - `AbilityDef::Activated { cost, effects, targets: Option<TargetReq>, timing, mana_ability, zone }`
-- `AbilityDef::Triggered { trigger, zone, effects, targets, second_targets, once_per_turn, condition }`
+- `AbilityDef::Triggered { trigger, zone, effects, targets, second_targets, once_per_turn, condition, resolves_if_targets_illegal }`
 - `AbilityDef::Static(StaticAbility { layer, filter, modifier })` — written
   `static_ability!(filter, modifier)`, which takes no layer: CR 613.1 makes it
   a function of the modifier and `Modifier::layer` is that function
@@ -792,6 +792,7 @@ ones an ability cannot be written without; everything after them is
 | `target` / `targets` | `None` | an ability targets only when it says "target"; `target` is exactly one, `targets` is a printed count |
 | `once_per_turn` | `false` | a trigger fires on every occurrence |
 | `condition` | `None` | most triggers print no intervening `if` |
+| `resolves_if_targets_illegal` | `false` | CR 608.2b: an ability whose every target has become illegal does not resolve. `true` only for a trigger that prints "This ability still resolves if its target becomes illegal" (Gilded Drake); it then resolves with no target |
 
 `mana_ability = false` is the default; the mana-ability macro opts into the
 exception. The shared `mana_rule::activated_mana_ability` check also guards
