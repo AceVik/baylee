@@ -83,3 +83,44 @@ fn hadanas_climb_transforms_after_the_targets_third_counter() {
         );
     }
 }
+
+/// Winged Temple of Orazca, the back face: "{1}{G}{U}, {T}: Target creature
+/// you control gains flying and gets +X/+X until end of turn, where X is its
+/// power." Only your own creatures are targets, X is that creature's power,
+/// and it all ends with the turn.
+#[test]
+fn winged_temple_of_orazca_gives_a_creature_you_control_flying_and_plus_its_power() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[hadana_s_climb(), grizzly_bears()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let temple = on_battlefield(&e, p0, hadana_s_climb()).unwrap();
+    let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    let their_elf = on_battlefield(&e, p1, llanowar_elves()).unwrap();
+    let def = baylee_cards::by_index(hadana_s_climb()).unwrap();
+    assert!(e.dev_state_mut(p0).unwrap().transform(temple, def, 1));
+    let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Green, 1);
+    pool.add(ManaColor::Blue, 1);
+    pool.add(ManaColor::Colorless, 1);
+    e.refresh_offer();
+
+    activate(&mut e, p0, hadana_s_climb(), 1);
+    let options = aim_at(&mut e, p0, bears);
+    assert!(options.contains(&bears));
+    assert!(
+        !options.contains(&their_elf),
+        "\"target creature you control\": an opponent's creature is no target"
+    );
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(pt(&e, bears), (4, 4), "+X/+X where X is its power, 2");
+    assert!(keywords(&e, bears).contains(KeywordSet::FLYING));
+    assert!(is_tapped(&e, temple), "{{T}} is part of the cost");
+
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(pt(&e, bears), (2, 2), "until end of turn");
+    assert!(!keywords(&e, bears).contains(KeywordSet::FLYING));
+}

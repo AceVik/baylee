@@ -49,3 +49,31 @@ fn elemental_blocking_schedules_sacrifice_and_damage_at_end_of_combat() {
     assert_eq!(e.state().object(elemental).unwrap().zone, Zone::Graveyard);
     assert_eq!(e.state().players[1].life, 15);
 }
+
+/// "When this creature attacks or blocks, at end of combat, sacrifice it and
+/// it deals 5 damage to you." The attack half: it survives combat damage
+/// itself (it has 0 power) and is sacrificed only at the end of combat, and
+/// the 5 damage goes to its controller, not to the defending player.
+#[test]
+fn elemental_attacking_schedules_sacrifice_and_damage_at_end_of_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::TIME_ELEMENTAL])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let elemental = on_battlefield(&e, p0, index::TIME_ELEMENTAL).unwrap();
+    attack_and_collect_blocks(&mut e, elemental, p1);
+    e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    assert_eq!(
+        e.state().object(elemental).unwrap().zone,
+        Zone::Battlefield,
+        "nothing is sacrificed until the end of combat"
+    );
+    pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(e.state().object(elemental).unwrap().zone, Zone::Graveyard);
+    assert_eq!(e.state().players[0].life, 15, "5 damage to its controller");
+    assert_eq!(e.state().players[1].life, 20, "and none to the defender");
+}

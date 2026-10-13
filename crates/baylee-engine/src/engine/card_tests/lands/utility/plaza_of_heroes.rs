@@ -61,3 +61,53 @@ fn plaza_adds_unrestricted_mana_from_current_legendary_permanents_only() {
         assert!(stack_is_empty(&e));
     }
 }
+
+/// "{3}, {T}, Exile this land: Target legendary creature gains hexproof and
+/// indestructible until end of turn." The target, not the land, gets both.
+#[test]
+fn plaza_gives_a_legendary_creature_hexproof_and_indestructible_for_the_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                index::PLAZA_OF_HEROES,
+                index::BIRGI_GOD_OF_STORYTELLING,
+                index::GRIZZLY_BEARS,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let plaza = on_battlefield(&e, p0, index::PLAZA_OF_HEROES).unwrap();
+    let birgi = on_battlefield(&e, p0, index::BIRGI_GOD_OF_STORYTELLING).unwrap();
+    let bears = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 3);
+    e.refresh_offer();
+
+    activate(&mut e, p0, index::PLAZA_OF_HEROES, 2);
+    let options = aim_at(&mut e, p0, birgi);
+    assert!(options.contains(&birgi));
+    assert!(!options.contains(&bears), "the creature must be legendary");
+    pass_until(&mut e, stack_is_empty);
+    let kw = keywords(&e, birgi);
+    assert!(kw.contains(KeywordSet::HEXPROOF), "hexproof");
+    assert!(kw.contains(KeywordSet::INDESTRUCTIBLE), "indestructible");
+    assert!(
+        !keywords(&e, bears).contains(KeywordSet::HEXPROOF),
+        "nobody else gains anything"
+    );
+    assert_eq!(
+        e.state().object(plaza).unwrap().zone,
+        Zone::Exile,
+        "the land exiles itself as part of the cost"
+    );
+
+    reach_their_main_phase(&mut e, p1);
+    let kw = keywords(&e, birgi);
+    assert!(!kw.contains(KeywordSet::HEXPROOF), "until end of turn");
+    assert!(!kw.contains(KeywordSet::INDESTRUCTIBLE));
+}
