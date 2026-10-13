@@ -6,7 +6,7 @@
 //! a card. X can't be 0."
 //!
 //! Written from the printed text, the card's rulings and the Comprehensive
-//! Rules (107.3 X, 121.2 and 121.6 a draw at a time and replaced draws,
+//! Rules (107.3a X, 121.2 and 121.6 a draw at a time and replaced draws,
 //! 611.2a "this turn", 514.2 effects of a turn end, 616.1 the order of two
 //! replacements), not from the card.
 //!
@@ -25,7 +25,7 @@ fn lamp_and_tome(forests: usize) -> Vec<CardIndex> {
     board
 }
 
-/// "{X}, {T}" and "X can't be 0" (CR 107.3k): the X is announced with the
+/// "{X}, {T}" and "X can't be 0" (CR 107.3a): the X is announced with the
 /// activation, from one up to what the floating mana pays, and neither
 /// nought nor more than that is accepted. Without mana the Lamp cannot be
 /// activated at all: the cheapest X is one.
