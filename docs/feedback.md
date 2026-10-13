@@ -32,7 +32,7 @@ The body, frozen:
 
 ```json
 {
-  "kind": "bug" | "improvement" | "feedback" | "crash" | "other",
+  "kind": "bug" | "improvement" | "feedback" | "crash" | "other",   // a gateway also sends "chat"
   "text": "…",                 // at most 20000 characters
   "game_id": "…" | null,        // the game the report is about, if any; at most 128 characters
   "client": { … },              // anything the client wants to say; at most 2 MiB serialized
@@ -107,6 +107,30 @@ Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.acevik.de`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
 never change it, if reports of one player should stay linkable).
+
+## A reported chat message: `POST /social/reports` (beta.8)
+
+A chat message a player reports goes through its own gateway route, never
+`POST /reports`, whose body stays frozen. The player's client sends the
+message as it was delivered, its message key and the body it decrypted to;
+the gateway checks the sender's signature and that the key opens the
+ciphertext to exactly that body (`baylee_seal::verify_report`,
+`docs/protocol.md` §"Friends and chat (beta.8)"), then forwards to the
+intake as any report with `kind: "chat"`:
+
+- `text`: the reporter's note, then the message's text;
+- `game_id`: the table's game for a table or team message, else none;
+- `client.chat`: `{verified, conversation ("whisper" | "group" | "table" |
+  "team"), sender (the sender's pseudonym, made with the reporter key, or
+  null when the sending device is gone), sent_at (the sender's clock, ms),
+  message, note}`;
+- no record.
+
+`verified: false` means the check failed or could not run (the sender's
+device was removed since): say so before acting on it. 10 reports an hour
+per account; `503` without `BAYLEE_FEEDBACK_URL`. Deploy the service (which
+knows the `chat` kind since its migration `m0006_chat_kind`) before the
+gateway. `POST /client/reports` refuses `chat`: only a gateway can check one.
 
 ## The service: `baylee-feedback` (#308)
 

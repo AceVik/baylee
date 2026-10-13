@@ -69,7 +69,6 @@ use baylee_view::PlayerView;
 
 use crate::i18n::Phrase;
 
-mod base64;
 mod consent;
 mod crash;
 mod form;
@@ -78,7 +77,9 @@ pub mod refs;
 mod route;
 mod seatlog;
 
-pub use base64::encode as base64_encode;
+/// Base64 in the standard, padded spelling a report's screenshot and record
+/// are written in; moved to `baylee-seal` so the chat shares it.
+pub use baylee_seal::b64::std_padded::encode as base64_encode;
 pub use consent::{Category, Consent, CrashConsent, RecordConsent};
 pub use crash::{
     BACKTRACE_CHARS, CrashFile, CrashRecord, CrashStep, bounded_backtrace, crash_step,

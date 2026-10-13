@@ -142,6 +142,17 @@ impl Allowance {
         }
     }
 
+    /// A whole allowance at `now`: `burst` at once, then one every
+    /// `interval` (for rates under one a second).
+    #[must_use]
+    pub fn every(now: Instant, interval: Duration, burst: u32) -> Self {
+        Self {
+            interval,
+            tolerance: interval.saturating_mul(burst.saturating_sub(1)),
+            whole_at: now,
+        }
+    }
+
     /// Whether a frame arriving at `now` is within the allowance, which it
     /// then spends.
     pub fn admit(&mut self, now: Instant) -> bool {

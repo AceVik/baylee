@@ -22,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(Channels),
             Box::new(ConsoleAudit),
             Box::new(Contact),
+            Box::new(ChatKind),
         ]
     }
 }
@@ -276,6 +277,47 @@ impl MigrationTrait for Contact {
             "DROP INDEX IF EXISTS feedback_audit_by_contact",
             "ALTER TABLE feedback_audit DROP COLUMN IF EXISTS contact_id",
             "DROP TABLE IF EXISTS feedback_contact",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The sixth migration: a report may be of a chat message (`kind = 'chat'`,
+/// beta.8), which only a gateway sends. The first migration's check was
+/// unnamed, so Postgres named it `feedback_report_kind_check`; it is
+/// replaced by one that also takes `chat`.
+struct ChatKind;
+
+impl MigrationName for ChatKind {
+    fn name(&self) -> &'static str {
+        "m0006_chat_kind"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ChatKind {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_kind_check",
+            "ALTER TABLE feedback_report ADD CONSTRAINT feedback_report_kind_check \
+             CHECK (kind IN ('bug', 'improvement', 'feedback', 'crash', 'other', 'chat'))",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    /// Chat reports go with the kind.
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DELETE FROM feedback_report WHERE kind = 'chat'",
+            "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_kind_check",
+            "ALTER TABLE feedback_report ADD CONSTRAINT feedback_report_kind_check \
+             CHECK (kind IN ('bug', 'improvement', 'feedback', 'crash', 'other'))",
         ] {
             db.execute_unprepared(statement).await?;
         }

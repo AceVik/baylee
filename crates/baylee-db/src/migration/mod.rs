@@ -26,6 +26,7 @@ mod m20261006_000014_sessions_by_account;
 mod m20261007_000015_terms;
 mod m20261012_000016_account_moderation;
 mod m20261012_000016_card_blocks;
+mod m20261013_000017_social;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -51,6 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261007_000015_terms::Migration),
             Box::new(m20261012_000016_account_moderation::Migration),
             Box::new(m20261012_000016_card_blocks::Migration),
+            Box::new(m20261013_000017_social::Migration),
         ]
     }
 }

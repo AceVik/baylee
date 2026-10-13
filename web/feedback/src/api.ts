@@ -2,7 +2,7 @@
 // request is same-origin and carries the session cookie; every change also
 // carries `X-Baylee-CSRF: 1`, which a form on another site cannot send.
 
-export const KINDS = ["bug", "improvement", "feedback", "crash", "other"] as const;
+export const KINDS = ["bug", "improvement", "feedback", "crash", "other", "chat"] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const STATUSES = [

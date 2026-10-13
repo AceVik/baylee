@@ -475,6 +475,10 @@ pub enum Kind {
     Crash,
     /// None of these.
     Other,
+    /// A chat message a player reported (beta.8): only a gateway sends it,
+    /// from `POST /social/reports`, after checking the message's signature
+    /// and key; `client.chat.verified` says whether both held.
+    Chat,
 }
 
 impl Kind {
@@ -485,6 +489,7 @@ impl Kind {
             Self::Feedback => "feedback",
             Self::Crash => "crash",
             Self::Other => "other",
+            Self::Chat => "chat",
         }
     }
 }

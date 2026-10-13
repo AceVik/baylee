@@ -158,6 +158,10 @@ pub(crate) struct JoinGameBody {
     /// The room's password, for a room that has one.
     #[serde(default)]
     password: Option<String>,
+    /// A table invite (`POST /social/invites`) for this caller and this
+    /// room: it stands in for the password and is spent by the join.
+    #[serde(default)]
+    invite: Option<String>,
 }
 
 pub(crate) async fn join_game(
@@ -185,7 +189,14 @@ pub(crate) async fn join_game(
         // Before anything else is checked, and answered the same way whether
         // the password was wrong or missing: a locked room should not tell a
         // stranger how full it is.
-        if let Some(want) = &game.password_hash {
+        let invited = body.invite.as_deref().is_some_and(|invite| {
+            state
+                .social
+                .invites
+                .lock()
+                .fits(invite, &account_id, &id, std::time::Instant::now())
+        });
+        if let Some(want) = game.password_hash.as_ref().filter(|_| !invited) {
             let given = body.password.as_deref().unwrap_or_default();
             if &auth::token_hash(given) != want {
                 return Err(err(StatusCode::FORBIDDEN, "wrong password"));
@@ -220,7 +231,21 @@ pub(crate) async fn join_game(
             chair.deck = Some(deck);
         }
         chair.joined_seq = Some(seq);
-        chair.seat
+        let seat = chair.seat;
+        if invited && let Some(invite) = body.invite.as_deref() {
+            let spent = state.social.invites.lock().spend(
+                invite,
+                chair.account_id.as_deref().unwrap_or_default(),
+                &id,
+                std::time::Instant::now(),
+            );
+            if let Some((_, tell)) = spent {
+                for (to, frame) in tell {
+                    state.social.push(&to, &frame);
+                }
+            }
+        }
+        seat
     };
     state.lobby_moved();
     Ok(Json(serde_json::json!({
