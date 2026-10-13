@@ -224,7 +224,8 @@ fn whir_of_invention_improvise_lets_two_artifacts_pay_two_generic() {
             .characteristics()
             .mana_value(),
         5,
-        "improvise does not change the mana value: {{2}}{{U}}{{U}}{{U}}"
+        "improvise does not change the mana value (CR 702.126b) and X counts as chosen \
+         while the spell is on the stack (CR 202.3e): {{2}}{{U}}{{U}}{{U}}"
     );
     for pendant in &pendants {
         assert!(

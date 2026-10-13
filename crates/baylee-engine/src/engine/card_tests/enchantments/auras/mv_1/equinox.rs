@@ -134,8 +134,11 @@ fn they_cast(
 #[test]
 fn equinox_enchants_a_land_and_gives_that_land_the_ability() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[plains(), mountain(), swamp(), llanowar_elves()])
-        .hand(0, &[equinox()])
+        .battlefield(
+            0,
+            &[plains(), mountain(), mountain(), swamp(), llanowar_elves()],
+        )
+        .hand(0, &[equinox(), lightning_bolt()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
@@ -158,6 +161,42 @@ fn equinox_enchants_a_land_and_gives_that_land_the_ability() {
     );
     pass_until(&mut engine, stack_is_empty);
 
+    // Its only target is "target spell" (CR 602.2b, 601.2c): with no spell on
+    // the stack there is nothing to aim it at, so it is not offered yet.
+    assert!(
+        granted_to(&engine, mountain_land).is_empty(),
+        "no spell to target, no activation"
+    );
+
+    // With a spell on the stack the enchanted Mountain, and only it, has the
+    // ability. The Bolt is paid by the other Mountain.
+    let other_mountain = lands_of(&engine, kit::P0)
+        .into_iter()
+        .find(|id| {
+            *id != mountain_land
+                && engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .map(|c| c.index)
+                    == Some(mountain())
+        })
+        .expect("the second Mountain");
+    tap_mana_where(&mut engine, kit::P0, |id| id == other_mountain);
+    cast_with_floating(&mut engine, kit::P0, lightning_bolt());
+    engine
+        .apply(
+            kit::P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![kit::P1],
+            },
+        )
+        .expect("a player is a legal target for the Bolt");
+    assert!(
+        on_stack(&engine, lightning_bolt()).is_some(),
+        "a spell to aim at"
+    );
     assert_eq!(
         granted_to(&engine, mountain_land).len(),
         1,
@@ -171,6 +210,11 @@ fn equinox_enchants_a_land_and_gives_that_land_the_ability() {
         granted_to(&engine, white).is_empty(),
         "nor has the Plains that paid for it"
     );
+    assert!(
+        granted_to(&engine, other_mountain).is_empty(),
+        "nor has the other Mountain"
+    );
+    pass_until(&mut engine, stack_is_empty);
 }
 
 /// "Counter target spell if it would destroy a land you control": a Stone

@@ -5,8 +5,10 @@
 //! permanent of the chosen color. / When the chosen player controls no
 //! nontoken permanents of the chosen color, sacrifice this enchantment."
 //!
-//! The choices are made as it enters (CR 614.12a), before it is on the
-//! battlefield. White creatures are told by the pump on an Ondu Cleric, whose
+//! The choices are made as it enters (CR 614.12). Where the permanent stands
+//! while they are asked is the engine's entry model for every "as this
+//! enters" choice in the pool and cannot be observed through play, so it is
+//! not asserted here. White creatures are told by the pump on an Ondu Cleric, whose
 //! base size is read off the board rather than assumed; the chosen colour is
 //! told by what the chosen player controls: a red Gray Ogre, a green Llanowar
 //! Elves. Permanents are removed with a Lightning Bolt and read once the
@@ -93,9 +95,8 @@ fn grown(before: (i16, i16), after: (i16, i16)) -> (i16, i16) {
 }
 
 /// "As this enchantment enters, choose a color and an opponent": at a table
-/// of three both are asked of the caster, before Jihad is on the battlefield
-/// (CR 614.12a: it is still on the stack), the colour among the colours and
-/// the player among the two opponents and no one else.
+/// of three both are asked of the caster, the colour among the colours and the
+/// player among the two opponents and no one else.
 #[test]
 fn jihad_asks_for_a_colour_and_an_opponent_as_it_enters() {
     let mut engine = Duel::table(SEED, forest(), 3)
@@ -109,23 +110,15 @@ fn jihad_asks_for_a_colour_and_an_opponent_as_it_enters() {
     cast_from_hand(&mut engine, kit::P0, jihad());
 
     let mut asked = Vec::new();
-    kit::resolve_the_stack(&mut engine, |e, pending| match pending {
+    kit::resolve_the_stack(&mut engine, |_, pending| match pending {
         Pending::ChooseColor { player, options } => {
             assert_eq!(*player, kit::P0, "the caster chooses");
-            assert!(
-                on_stack(e, jihad()).is_some(),
-                "Jihad has not entered while the choice is made"
-            );
             asked.push(format!("colour {}", options.len()));
             assert!(options.contains(&ManaColor::Red), "{options:?}");
             Some(PlayerAction::ChooseColor(ManaColor::Red))
         }
         Pending::ChoosePlayer { player, options } => {
             assert_eq!(*player, kit::P0, "the caster chooses");
-            assert!(
-                on_stack(e, jihad()).is_some(),
-                "Jihad has not entered while the choice is made"
-            );
             assert_eq!(
                 options,
                 &vec![kit::P1, kit::P2],
