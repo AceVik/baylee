@@ -11,6 +11,7 @@ mod admin;
 mod admission;
 mod art;
 mod auth;
+mod blocks;
 mod chair;
 mod clock;
 mod cosmetics;
@@ -21,17 +22,20 @@ mod invite;
 mod lobby;
 mod mail;
 mod metrics;
+mod moderation;
 mod namebook;
 mod pool;
 mod presence;
 mod record;
 mod recordexport;
+mod replays;
 mod report;
 mod room;
 mod routes;
 mod seathost;
 mod seatrate;
 mod sets;
+mod social;
 mod store;
 mod terms;
 mod texts;
@@ -52,10 +56,10 @@ use routes::{
     auth_config, bearer_token, catalog_search, catalog_text, check_pictures, connect_catalog,
     create_game, deck_routes, display_name, expand, game_cosmetics, game_ws, get_settings,
     hand_over, health, house_deck, info, is_bidi_control, join_game, leave_game, legacy_token,
-    list_games, listing, listing_page, lobby_stats, lobby_ws, own_deck, parse_deck_lines,
-    put_settings, rematch, seat_names, seat_of_token, set_ready, set_seat, source, source_url,
-    spend_ticket, start_room, table_prints, take_seat, try_start, validate_deck,
-    validate_the_dev_board, watch_ws, ws_ticket,
+    list_games, list_replays, listing, listing_page, lobby_stats, lobby_ws, own_deck,
+    parse_deck_lines, put_settings, rematch, replay_tape, seat_names, seat_of_token, set_ready,
+    set_seat, source, source_url, spend_ticket, start_room, table_prints, take_seat, try_start,
+    validate_deck, validate_the_dev_board, watch_ws, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -233,6 +237,14 @@ struct AppState {
     /// (`BAYLEE_ADMISSION_HOLD`, `admission.rs`), for a deploy draining
     /// every agent's games.
     admission: admission::Hold,
+    /// The cards blocked on this gateway (`blocks.rs`).
+    blocks: blocks::Blocks,
+    /// The replay jobs running now (`replays.rs`, `BAYLEE_REPLAY_JOBS`);
+    /// memory only.
+    replay_jobs: replays::Jobs,
+    /// Friends, presence and chat (`social/`, `BAYLEE_SOCIAL`,
+    /// `BAYLEE_SOCIAL_KEEP_DAYS`); memory beside the database's tables.
+    social: social::Social,
 }
 
 impl AppState {
@@ -310,6 +322,15 @@ async fn main() {
             var("BAYLEE_FEEDBACK_TOKEN").as_deref(),
             var("BAYLEE_FEEDBACK_KEY").as_deref(),
         ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    let replay_jobs = replays::jobs_from_env(var("BAYLEE_REPLAY_JOBS").as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_REPLAY_JOBS: {why}"));
+    let replay_timeout = replays::timeout_from_env(var("BAYLEE_REPLAY_JOB_SECS").as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_REPLAY_JOB_SECS: {why}"));
+    let social = social::Social::from_env(
+        var("BAYLEE_SOCIAL").as_deref(),
+        var("BAYLEE_SOCIAL_KEEP_DAYS").as_deref(),
     )
     .unwrap_or_else(|why| panic!("{why}"));
     let seathost_token = seathost::token_from_env(
@@ -392,12 +413,25 @@ async fn main() {
             .filter(|url| !url.trim().is_empty())
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
         admission,
+        blocks: blocks::Blocks::default(),
+        replay_jobs: replays::Jobs::new(replay_jobs, replay_timeout),
+        social,
     });
+    // Before serving: a deck holding a blocked card must not slip into the
+    // first game after a restart.
+    state
+        .blocks
+        .reload(&state.db)
+        .await
+        .unwrap_or_else(|e| panic!("card blocks: {e}"));
+    blocks::spawn_refresh(state.clone());
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
+    social::sweep::sweep(&state).await;
+    social::presence::spawn(state.clone());
     if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
         admin::serve(listener, state.clone(), settings);
         // Before `BAYLEE_PORT_FILE`, which says the gateway is up: whoever
@@ -415,8 +449,14 @@ async fn main() {
         .merge(account_routes())
         .merge(deck_routes())
         .merge(report::routes())
+        .merge(social::routes::routes())
+        .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/stats", get(lobby_stats))
+        // Replays (`docs/protocol.md` §"Replays"): the games an account sat
+        // at, and one of them played again as a tape.
+        .route("/replays", get(list_replays))
+        .route("/replays/{game}/tape", post(replay_tape))
         .route("/lobby/depart", post(departure::depart))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))
@@ -742,6 +782,7 @@ fn spawn_cleanup(state: Shared) {
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
             }
+            social::sweep::sweep(&state).await;
         }
     });
 }
@@ -778,6 +819,14 @@ struct ErrorBody {
     /// file is a fixed sentence, and making them all allocate to serve the
     /// handful that cannot would be paying for the exception on every path.
     error: std::borrow::Cow<'static, str>,
+    /// The ban an account is refused with (beta.8): only on a `403` from a
+    /// sign-in or a session of a banned account (`moderation.rs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ban: Option<moderation::BanBody>,
+    /// The account must choose a new password first (beta.8): only on the
+    /// `403` a sign-in with an admin's reset password is answered.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    password_change: bool,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -785,6 +834,8 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
         status,
         Json(ErrorBody {
             error: std::borrow::Cow::Borrowed(message),
+            ban: None,
+            password_change: false,
         }),
     )
 }
@@ -798,6 +849,8 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
         status,
         Json(ErrorBody {
             error: std::borrow::Cow::Owned(message),
+            ban: None,
+            password_change: false,
         }),
     )
 }
@@ -926,10 +979,12 @@ async fn authed_session(
 ) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
     let token = bearer_token(headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    store::resolve_token(&state.db, token, auth::now_secs())
+    let session = store::resolve_token(&state.db, token, auth::now_secs())
         .await
         .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
+    moderation::admit(&session)?;
+    Ok(session)
 }
 
 /// A database that refused, as an answer a client can act on.
@@ -983,7 +1038,7 @@ async fn cors(
     /// are what turns an otherwise simple request into a preflighted one.
     const ALLOW_HEADERS: &str = "authorization, content-type";
     /// Every method this gateway routes.
-    const ALLOW_METHODS: &str = "GET, POST, PUT, DELETE, OPTIONS";
+    const ALLOW_METHODS: &str = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
     let preflight = request.method() == Method::OPTIONS;
     let mut response = if preflight {

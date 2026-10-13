@@ -217,6 +217,39 @@ fn third_iteration_x_uses_affordable_coloured_mana() {
     );
 }
 
+/// The engine leaves a castable X spell's question open (`max` is
+/// `u32::MAX`) while the seat still has a mana source (CR 601.2g), so the
+/// menu is not a bound on X. The search used to start at `max`, and its
+/// first probe, near 2^31, had the planner list two billion generic needs
+/// one by one: minutes and gigabytes, a hung game. It starts at the mana
+/// that can pay at all instead, the floating pool plus what the sources
+/// make: no X above that is affordable, so nothing is lost. This call
+/// finishes at once, answering with what the pool pays for `{X}{G}`.
+#[test]
+fn an_open_x_question_is_answered_from_the_reachable_mana() {
+    let mut v = view(0, &[20, 20], vec![]);
+    v.seats[0].mana_pool.green = 3;
+    let context = baylee_engine::engine::DecisionContext {
+        cost: Some("{X}{G}".parse().unwrap()),
+        ..Default::default()
+    };
+    let pending = Pending::ChooseNumber {
+        player: v.seat,
+        min: 0,
+        max: u32::MAX,
+        reason: baylee_engine::choice::NumberPrompt::X,
+    };
+    let started = std::time::Instant::now();
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseNumber(2)
+    );
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "an open X menu must not make the planner spell out its upper end"
+    );
+}
+
 /// Replicate's count (CR 702.56a) is every payment offered: the engine
 /// bounds it by the floating pool, so the house pays for each copy it
 /// can. Read as X it was `min`, because Lose Focus's cost has no X, and

@@ -1366,6 +1366,22 @@ stepped forward for a declaration of one. Sent attackers still stand one
 card each; merging them by defender is its own change, because blocking two
 of a merged five needs a focus that walks to the next unblocked member.
 
+**Blocking with many creatures (report 31, 12.10.2026).** *"With many
+creatures it's hard to click the right ones to block."* Two answers, neither
+with a rule in it. The creatures a declaration can take now wear the gold
+offer light on the felt (`reach::activatable` adds this seat's creatures
+`Interaction::is_selectable` names while it declares attackers or blockers;
+for a block that is the creatures that may block the attacker in aim, so
+the flier's one possible blocker is the one lit). `table::track_proposals`
+rebuilds the board when that set moves with the aim. And the block
+declaration is a named list in the drawer, as the attack declaration is
+(`drawer::block`, `interaction::BlockRow`): every attacker as
+"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Block: Grizzly Bears → Earth Elemental" for each creature that may block
+it and "Take back: … → …" for each already blocking; a row is the click the
+table takes (`Interaction::toggle`), the blockers page and the attackers stay,
+and the ordinary confirmation still sends.
+
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
 (`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for
@@ -1449,6 +1465,24 @@ under the threshold lights the mark, one that shows leaves it dark.
 Hovering the host lays its attachments beside the preview, in columns of
 two under "ATTACHED", art or, for a Role, its characteristics
 (`a_hovered_host_shows_what_is_attached_to_it_beside_its_preview`).
+Since report 29 (12.10.2026: *"I'd like to enlarge the card under General
+Tazri"*) they, and the card underneath a copy, are drawn to be read rather
+than recognised: `overlay::beside_width` makes them two-thirds of the preview
+and at most a revealed card's 240 (`revealed::WIDEST`), then no wider than
+the roomier flank beside the preview and the window's height allow, from the
+`Normal` picture. They were a third of the preview from the table's
+thumbnail, and the pointer cannot reach them to ask for more: it is on the
+host, and leaving it closes the preview.
+
+The preview also says what the permanent has been **granted** (report 22:
+*"when Great Divide Guide grants another Ally its ability, the other Allies
+don't show they can now do it too"*): under the card, the slip the stack's
+sentence stands on (`hud::slip`), headed "Granted abilities" and its
+controller, one paragraph a grant — the grantor's name and the sentence on
+its card that grants it, in the player's language where it has arrived
+(`slip::granted`, from `PublicObject::grants`; nothing in the client works out
+a grant). A hidden grantor is "Granted ability". Keywords a permanent gains
+are already on its strip (`marksmat::strip_of` reads the projected keywords).
 
 Everything under a host lies within half the height between a face and
 the top of Defender's wall (`ATTACH_DEPTH`), so the wall stays under every
@@ -4432,6 +4466,17 @@ next one may be at another gateway. Every
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+**A card blocked on the gateway is marked, never hidden** (12.10.2026,
+`docs/protocol.md` §"Blocked cards"). Beside the pool the lobby asks `GET
+/cards/blocked` (`http::ask_aside`, never offline) into
+`DeckBuilder::blocked`: a pool row says "blocked here", a deck row's name is
+drawn in the danger ink, and the card sheet gives the operator's reason and
+the end. A deck tile holding one wears a danger badge (`shelf::blocked_badge`,
+from the row's `blocked`); Play's next-game card says the sentence and its
+deck picker the badge; a room's deck choices show such a deck off with the
+same sentence; the first-run mini tiles pass blocked house decks over. Nothing in the client refuses it: the gateway does,
+and a local game is not affected.
+
 It was on by default in three comments and in `DeckBuilder::new`, and **off
 in the client**, which is issue #63. `new` is called by nothing outside the
 tests: `Lobby` derives `Default` and is the only thing that ever holds a
@@ -6560,6 +6605,26 @@ the card):
   never left an empty blob
   (`a_folded_pill_whose_reading_changes_keeps_its_words`).
 
+### A copy's new targets, one at a time (report 10, 13.10.2026)
+
+A copy of a spell may be given new targets (CR 707.10c), and the engine asks
+for them target by target (`TargetPrompt::Retarget { current, index, of }`):
+an empty answer keeps the target where `min` is 0, and a target the engine
+will not let stay (another target of the copy already holds that object, so
+moving one target can make the next one a must) comes with `min` 1. Correct
+and, at ten targets (Jin-Gitaxias copying a ten-target spell), ten questions
+that did not say where they were. The shelf now says "Target 3 of 10: keep
+it, or choose a new one" or "Target 3 of 10: choose a new one"
+(`Phrase::RetargetKeepOrChange`, `RetargetMustChange`), the sheet still names
+the current target ("Previous target 3 of 10: …"), the confirmation still
+reads "Keep current target" with nothing picked, and beside it stands "Keep
+all remaining (n)" wherever the question may be kept and more follow
+(`keep_targets::KeepTargets::offered`). That is a standing instruction for
+this run alone, driven as `combat_auto` is: it answers this question and
+every later one of the run with the empty answer, and a question that must
+change waits for the player and does not end the run. A different question,
+a new turn or a run of another size ends it.
+
 ### The creature type (08.10.2026)
 
 The owner's item 8. The type chooser in the sheet is three things over the
@@ -7456,6 +7521,19 @@ picking frame by frame with nothing rebuilt, and a row's focus ring is
 `Interaction::aim`, the keyboard's row rather than the pointer's. The
 placement is deliberately not in the gate either; `input::tray_drag` writes
 the panel's `Node` directly so that dragging the sheet does not rebuild it.
+
+**A tick still rebuilds the rows, so the rows hand their warmth on (report
+11, 12.10.2026).** What is ticked is in the gate, as it must be, and so the
+row just clicked — the row under the pointer — came back as a new entity at
+`warmth: 0` with no picking state: it went dark and lit again on every
+choice, and a tile shrank and grew back. Measured at a twentieth of the
+clock: the clicked row read `(89, 61, 27)` right after the click and rose to
+`(111, 76, 31)`; now it reads `(110, 75, 31)` on the first frame. `sync_tray`
+writes each row's `Feel::warmth` and `PickingInteraction` into `TrayCarry`
+before it tears them down, and `tray::carry_the_rows` (after `sync_tray`,
+before `ambience::feel`) gives them to the new rows by object. The table's
+veil is kept rather than spawned again (a new one stood clear until
+`dim_the_table` painted it), and `dim_the_table` runs after `sync_tray`.
 
 **A gate field may not be a projection that throws state away.** Naming every
 field closed the hole the sort buttons fell into; it did not close the one a
@@ -8586,8 +8664,9 @@ A `LogLine` carries:
   `plain()` adds "(×N)" for a reader that draws plain text.
 
 **The panel** (`hud::ledge::log`) is the scroll button in the bar, `L`, and
-a column that stands on the right strip against the right margin, 360 by 420
-where the window has room and the room there is where it has not. It stands
+a column that stands on the right strip against the right margin, a share of
+the window from 360 by 420 up to 540 by 640 where the window has room (below,
+beta.8) and the room there is where it has not. It stands
 on the strip's top edge and not over the strip the way the game menu does:
 the menu goes away on the next press, and the log stays up while the game
 goes on. The strip was the tray's when this was written, and the panel must
@@ -8673,8 +8752,50 @@ Known limits, each a later view version:
 - `Defender::Planeswalker` names the planeswalker by handle only. The book
   remembers each one's name from the view that arrived with the attack, and
   says "a planeswalker" for one it never saw.
-- An ability line cannot tell activated from triggered.
 - `CounterKind::badge` is English, so the counter nouns are written here.
+
+### Wider, grouped, and saying what was chosen (beta.8)
+
+The owner, 12.10.2026: *"Der Spiellog muss verbessert werden und auch etwas
+breiter gemacht werden."* Read against real games (the beta.6 reports'
+records, replayed for one seat), the log said "Bo put an ability of X on the
+stack" for every fetch, trigger and planeswalker, "Bo played a card" and then
+a move for every shockland, and nothing at all about which mode a charm was
+cast with or what a removal spell was aimed at (report 23). What changed:
+
+- **The panel is a share of the window** (`log_size`): 27 % of its width
+  between `LOG_W` (360) and `LOG_W_MAX` (540), 72 % of the band above the
+  hand zone between `LOG_H` (420) and `LOG_H_MAX` (640). Past 1920 × 1080
+  the HUD's `UiScale` draws every window as that one, so 1080p to 4K show
+  the same proportion; it still stands on the right strip's top edge.
+- **A turn's lines are grouped by phase.** `LogLine::phase` (the host's
+  `LogEntry::phase`) puts a small caption ("COMBAT", "SECOND MAIN PHASE")
+  before the first line of each later phase (`PhaseRun`); the beginning
+  phase has the turn's heading, and a phase where nothing happened has
+  nothing. The end screen groups the same way.
+- **Modes and targets** (`LogEvent::Aimed`, docs/protocol.md §"Modes,
+  targets, phases and the kind of an ability"): right under the cast or the
+  ability it belongs to, the line carries on without naming it again
+  (`LogLine::follows`): no time, a "→" in the quieter ink, then `mode:
+  “…”` and/or `targeting X and Bo`. Elsewhere (a trigger's targets chosen in
+  a later question, a retarget) it is a line of its own, "Spell: targeting
+  X" or "Ability of X: …". A mode is said in the card's own words: the
+  lookup's `CardTextLookup::mode`, which the client answers through the
+  cast chooser's door (`choices::mode_words`), so the log, the chooser and
+  the stack say one sentence; its number where neither is known.
+- **The stack shows the chosen modes** under a modal spell or a modal
+  trigger, as "• …" blocks after the printed sentence
+  (`BoardModel::take_modes` reads them off the log's latest `Aimed` line of
+  the turn; `stack_sentence`). A queued row keeps its heading.
+- **Abilities say what they were**: "Bo activated [Windswept Heath]",
+  "[Smothering Tithe] triggered for Bo" (`LogEvent::Ability::activated`);
+  the old sentence only where the host cannot say.
+- **Damage to a player and the life it left** read as one: the life line
+  right under the damage to that player (the host writes the damage first, `GameLog::cause_before_effect`) carries on it when the two amounts agree, "→ now at 17 life
+  (from 20)". A permanent getting counters it had none of "got 4 loyalty
+  counters" rather than "went to 4 (from 0)".
+- **A land played is one line** even when its entry asked first (the
+  host's change; "Bo played a card" before was a card still in a hand).
 
 ### Another seat's reveal is held up (07.10.2026)
 
@@ -8759,6 +8880,27 @@ timed — folded or not. The whole paper is no longer a button: the cross,
 the foot's answer and `Esc` put it away, and a press on a card previews it.
 Tests: `a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card`,
 `a_folded_reveal_is_a_pill_and_the_next_one_opens`.
+
+**It holds still under the pointer (12.10.2026).** The owner: *"the revealed
+cards view, the hover preview flickers then"*. Measured with dev-control's
+`/reveal` (a reveal by another seat of this seat's first hand cards, the sheet
+only) and `/state.reveal` (the sheet's entity and `hovered_log`): with the
+pointer resting on a card the sheet's entity was a different one on every
+read and `hovered_log` came and went. The overlay's rebuild sweeps every
+child of `HudRoot` it does not name, the reveal sheet was not named, and the
+preview a pointer on a revealed card opens is part of that tree: the rebuild
+took the sheet, `revealed::sync` stood it up again, the card under the
+pointer was a new entity, `hover_log_links` let the hover go, the preview
+closed, the pointer found the new card, and round again. The sheet is now
+named (`OverlayTree::reveal`) and survives the sweep; its own gate redraws it
+for its own pictures only (the count of its cards' arrivals, not the
+textures' epoch, which every picture landing anywhere moved). The card under
+the pointer wears the candle edge (`revealed::light_the_hovered`), its
+preview opens at that card's edge (`LogHover::card`, set for a link that is a
+`CardLens` over a whole picture) rather than wherever the pointer came in,
+the head says *"Point at a card to enlarge it"* while nothing waits, and the
+foot's answer says what it does: *Next* while another reveal waits, *Done*
+for the last.
 
 ## Reporting a problem (#309, #310)
 
@@ -9427,7 +9569,10 @@ and a person watching an agent's run cannot hover or click into its checks
 (the injected input never came from the OS and is unaffected), and an
 injected move no longer warps the real mouse (bevy_winit warps the OS cursor to
 a changed `Window`'s cursor position; a passive window writes it without change
-detection). Agents start their dev-control clients with it.
+detection). Agents start their dev-control clients with it. Covered by other
+windows, a passive window is not paced as hidden (`quality::note_hidden`):
+it is meant to stand behind, and at one frame a second a click was five
+seconds and a two-frame comparison a guess (12.10.2026).
 
 Seven things about it are load-bearing.
 
@@ -10100,3 +10245,70 @@ position exists, the label is hidden rather than covering a printing.
 The personal deck overview displays copy counts supplied by both the gateway
 and offline performer. Responses without these totals still say “rows”; the
 house-library catalog retains that wording until its summary supplies totals.
+
+## The table's beta.8 reports (12.10.2026)
+
+Players' reports from the beta.6 games, the table's half (`.claude/b8`
+lists them; the game log's are under §"Wider, grouped, and saying what was
+chosen").
+
+- **A side seat's plate reads (reports 04, 19).** At a ring a seat's
+  plate lies along its mat's edge, turned most of a quarter for the seats
+  at the sides. Bevy clips a node to its *unturned* rectangle moved to where
+  the node is (`bevy_ui::update::update_clipping`), so the plate's clip lay
+  across it and cut every letter of the name, the life and the counts to a
+  sliver. A plate's nodes clip as they were built only while it reads level
+  or upside down, and not at all while it is turned
+  (`seatbar::attached::TurnedClip`, `clip_only_level`).
+- **A press on an attacker sends it where the aim is (report 24).** A
+  creature already sent at one defender, pressed again with the aim on
+  another (a planeswalker tapped on the table, or its *Aim* row), was taken
+  out of the attack, and a player who meant "attack Oko" sent nothing.
+  `Interaction::toggle` now reassigns it to the aimed defender; only a
+  press on one aimed where it already goes withdraws it.
+- **A copy wears its original's printing (report 02).** `board::art_in`
+  draws a permanent that has become a copy of a card (`worn`) with the
+  printing, and so the finish, of that card where the seat's own view shows
+  it face up, the battlefield's first (`shown_print`); only where the view
+  shows none is it the registry's reference printing as before. The board
+  (`wear_shown_prints`, after grouping) and the texture preloader ask the
+  same function, so the picture warmed is the one drawn. Nothing new crosses
+  the wire and nothing hidden is read: the printing is one the seat was
+  shown.
+- **What a question will take is lit (report 09).** A card the pending
+  choice accepts and has not taken yet wears `glow::CHOOSABLE`, a pale
+  breathing ring of light on the felt (`floor_light`), chosen over every
+  other offer but the armed one (`table::placement::choosable`). The report
+  asked for the others darkened: darkening a print tints a Scryfall image,
+  which the image terms rule out (`docs/legal.md` §"Nothing we paint lies on
+  a card image"), so the legal ones are lit instead and the rest stay as
+  they are. A press on one the choice will not take answers nothing, as it
+  did (`activate_card` falls through to `Answer::Refused`).
+- **The name and type choosers' box looks like a search box (report 16):**
+  a magnifier, the words typed or "type to search…" in the quieter ink, a
+  caret, at least 280 wide (`drawer::filter_field`).
+- **The attack chooser folds (report 25).** Its last row hides the list,
+  leaving one row that opens it again with how many rows it holds
+  (`attack::FOLD`, `Duel::attack_list_folded`, for the whole game): with
+  many defenders and creatures the list stood over the player's own board,
+  and every creature can be sent from the table as well.
+- **A leveler's level and a permanent with no abilities (reports 30,
+  21)** are labels beside the card, the persistent ones that already say
+  what a Pithing Needle named or how many charge counters a permanent has
+  (`hud::chosen_type`): "LV 5" ("Level 5" under the pointer) from its level
+  counters, and "No abilities" from the view's new
+  `ObjectStatus::NO_ABILITIES` (the host sets it where the projection says
+  every ability is gone, `Characteristics::abilities_lost`, never on a
+  face-down permanent). A label lies beside the print and never on it, as
+  every annotation does. The strip's marks stay keywords only: a new mark is
+  a new glyph through `MARK_GLYPHS`, which docs/legal.md §2a would have to
+  allow first.
+- **Leaving a table (report 33).** The game menu's *Leave the table*
+  (`MenuAction::LeaveGame`, two presses like the concession, disarmed by the
+  same things) closes the table without conceding. At a networked table the
+  lobby says so on the way back (`LobbyRequest::Depart`, `POST
+  /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
+  so the house takes the chair at once rather than after the reconnect
+  window, and the lobby says "You left the table". Offline the game this
+  client hosts ends with it, which its armed words say. A spectator's way
+  out stays *Stop watching*; a finished game's stays the end screen's.

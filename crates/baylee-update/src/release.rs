@@ -229,8 +229,9 @@ mod tests {
         }
     }
 
-    /// A target no release was built for (Intel macOS) is still told about
-    /// the release, with no files: a notice with a link, nothing to install.
+    /// A target no release was built for is still told about the release,
+    /// with no files: a notice with a link, nothing to install. (The
+    /// recorded beta.2 predates the Intel macOS package.)
     #[test]
     fn a_target_without_an_archive_gets_the_page_only() {
         let releases = parse(RECORDED).unwrap();
@@ -244,6 +245,10 @@ mod tests {
         assert_eq!(
             archive_name("0.1.0-beta.3", "aarch64-apple-darwin"),
             "baylee-client-0.1.0-beta.3-aarch64-apple-darwin.zip"
+        );
+        assert_eq!(
+            archive_name("0.1.0-beta.3", "x86_64-apple-darwin"),
+            "baylee-client-0.1.0-beta.3-x86_64-apple-darwin.zip"
         );
         assert_eq!(
             archive_name("0.1.0-beta.3", "x86_64-pc-windows-msvc"),
@@ -277,6 +282,38 @@ mod tests {
             .unwrap();
         assert_eq!(files.signature.unwrap().name, format!("{name}.sig"));
         assert_eq!(files.checksum.unwrap().name, format!("{name}.sha256"));
+    }
+
+    /// Both macOS archives sit in one release: each build gets its own.
+    #[test]
+    fn the_two_mac_archives_never_cross() {
+        let arm = archive_name("0.1.0-beta.8", "aarch64-apple-darwin");
+        let intel = archive_name("0.1.0-beta.8", "x86_64-apple-darwin");
+        let releases = [release(
+            "v0.1.0-beta.8",
+            true,
+            false,
+            &[
+                &arm,
+                &format!("{arm}.sig"),
+                &format!("{arm}.sha256"),
+                &intel,
+                &format!("{intel}.sig"),
+                &format!("{intel}.sha256"),
+            ],
+        )];
+        for (target, name) in [
+            ("x86_64-apple-darwin", &intel),
+            ("aarch64-apple-darwin", &arm),
+        ] {
+            let files = newest(&releases, &v("0.1.0-beta.7"), target)
+                .unwrap()
+                .files
+                .unwrap();
+            assert_eq!(&files.archive.name, name);
+            assert_eq!(files.signature.unwrap().name, format!("{name}.sig"));
+            assert_eq!(files.checksum.unwrap().name, format!("{name}.sha256"));
+        }
     }
 
     #[test]

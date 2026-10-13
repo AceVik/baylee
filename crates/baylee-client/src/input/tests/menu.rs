@@ -83,6 +83,79 @@ fn conceding_takes_two_presses_and_anything_else_forgets_the_first() {
     );
 }
 
+/// Report 33: *Leave the table* takes two presses with nothing in between.
+/// The first arms it; the second sets `departing` (the lobby tells the
+/// gateway) and `leave_asked`, and closes the menu; any other click
+/// disarms. Nothing is conceded: the outbox stays empty. On the old code the
+/// row did not exist, so the first assertion fails.
+#[test]
+fn leaving_takes_two_presses_and_anything_else_forgets_the_first() {
+    use crate::hud::MenuAction;
+    let (mut app, draw, _) = menu_app(crate::Duel {
+        game_menu: true,
+        ..Default::default()
+    });
+    let leave = app
+        .world_mut()
+        .spawn(crate::hud::MenuButton {
+            action: MenuAction::LeaveGame,
+        })
+        .id();
+    let duel = |app: &bevy::app::App| {
+        let d = app.world().resource::<crate::Duel>();
+        (d.leave_armed, d.departing, d.leave_asked, d.game_menu)
+    };
+
+    click(&mut app, leave);
+    assert_eq!(duel(&app), (true, false, false, true), "one press arms");
+
+    // Anything else in between and the first press is forgotten.
+    click(&mut app, draw);
+    assert!(!duel(&app).0, "another click disarms it");
+    click(&mut app, leave);
+    assert_eq!(
+        duel(&app),
+        (true, false, false, true),
+        "so the next press is a first one again"
+    );
+
+    // Twice in a row, and the player gets up: the menu closes.
+    click(&mut app, leave);
+    assert_eq!(
+        duel(&app),
+        (false, true, true, false),
+        "the second press leaves, tells the lobby to say so, and shuts the menu"
+    );
+    let outbox = app.world().resource::<crate::Duel>().outbox().to_vec();
+    assert!(
+        !outbox.contains(&PlayerAction::Concede),
+        "leaving concedes nothing: {outbox:?}"
+    );
+}
+
+/// Leaving and conceding arm separately: pressing one forgets the other, so
+/// the second press of a pair is never the second press of a different row.
+#[test]
+fn leaving_and_conceding_do_not_share_their_first_press() {
+    use crate::hud::MenuAction;
+    let (mut app, _, concede) = menu_app(crate::Duel::default());
+    let leave = app
+        .world_mut()
+        .spawn(crate::hud::MenuButton {
+            action: MenuAction::LeaveGame,
+        })
+        .id();
+    click(&mut app, concede);
+    click(&mut app, leave);
+    let d = app.world().resource::<crate::Duel>();
+    assert!(d.leave_armed && !d.concede_armed && !d.departing);
+    assert!(d.outbox().is_empty(), "the concession was not completed");
+    click(&mut app, concede);
+    let d = app.world().resource::<crate::Duel>();
+    assert!(d.concede_armed && !d.leave_armed && !d.departing);
+    assert!(d.outbox().is_empty());
+}
+
 /// A hold is the one statement a seat makes while it is *not* being asked,
 /// which is also what makes it dangerous: the prompt bar is empty because
 /// the seat is not being asked, and an empty prompt bar is what an idle

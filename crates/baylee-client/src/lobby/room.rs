@@ -917,12 +917,15 @@ fn seat_card(
     if mine && state.room_deck_seat == Some(seat.seat) {
         let picks = super::parts::row(commands, kit, true);
         for (at, deck) in lobby.decks().iter().enumerate() {
+            // A deck holding a card blocked on this gateway is shown and
+            // not offered: the gateway would refuse it, and says why here.
+            let blocked = deck.blocked.first().map(|card| card.sentence(lang));
             let b = controls::button(
                 commands,
                 kit,
                 &deck.name,
                 Weight::Secondary,
-                Live::Yes,
+                blocked.as_deref().map_or(Live::Yes, Live::No),
                 None,
                 Press::Room(RoomPress::RoomDeck(index, seat.seat, at, seat.you)),
             );

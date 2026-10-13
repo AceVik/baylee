@@ -104,6 +104,7 @@ async fn an_engine_of_another_protocol_ends_its_game() {
             token: start.engine_token.clone(),
             protocol_version: OTHER,
             pid: 0,
+            build: String::new(),
         })),
     };
     send(&mut engine, &hello).await;

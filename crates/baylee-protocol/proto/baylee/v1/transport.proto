@@ -313,6 +313,10 @@ message EngineHello {
   // (`docs/protocol.md` §"The admin console"). 0 is an engine from before
   // this field, or one that does not say; the gateway reads nothing then.
   uint32 pid = 4;
+  // The engine's build as `baylee_build::short` says it, which the gateway
+  // keeps beside the game's record so a replay knows whether today's build
+  // played it (docs/protocol.md §"Replays"). Empty: an engine from before it.
+  string build = 5;
 }
 
 // Gateway → engine: everything needed to build the game.
@@ -385,6 +389,51 @@ message GameEnded {
   string game_id = 1;
   repeated uint32 winners = 2;
   string reason = 3;
+  // The turn the game ended on; 0 from an engine before it.
+  uint32 turn = 4;
+}
+
+// Gateway → engine, engine link only: instead of a `GameSetup`, play this
+// game record again and send back the tape one perspective of it is sent
+// (docs/protocol.md §"Replays"). The engine was started for a job, not a
+// game: `job` is the id it was started with. `record` is the record as the
+// gateway stores it (one gzip stream); it travels only here, never to a seat.
+message ProjectRecord {
+  enum Perspective {
+    // Says none; refused.
+    PERSPECTIVE_UNSPECIFIED = 0;
+    // One seat (`seat`), exactly as a socket at it was told the game.
+    PERSPECTIVE_SEAT = 1;
+    // The spectators' stream.
+    PERSPECTIVE_PUBLIC = 2;
+  }
+  enum Verify {
+    // Stop at the first check that fails.
+    VERIFY_STOP = 0;
+    // Note it and play on, unverified.
+    VERIFY_NOTE = 1;
+  }
+  string job = 1;
+  bytes record = 2;
+  Perspective perspective = 3;
+  uint32 seat = 4;
+  // The seats' names for the opening payload, in seat order.
+  repeated string names = 5;
+  Verify verify = 6;
+  // The game's id, for the tape's header.
+  string game_id = 7;
+  // The build that recorded it, for the tape's header; empty when unknown.
+  string recorded_by = 8;
+}
+
+// Engine → gateway, engine link only: a piece of a tape (`baylee_protocol::
+// tape`). `data` is one gzip member, so the pieces in `seq` order are one
+// gzip stream; the `last` piece ends with the tape's `stop` line.
+message TapeChunk {
+  string job = 1;
+  uint32 seq = 2;
+  bytes data = 3;
+  bool last = 4;
 }
 
 // Engine → gateway: a piece of the game's record (#315), every input the
@@ -411,6 +460,24 @@ message FlushRecord {
   string game_id = 1;
   // The gateway's, echoed back; says which ask an answer is for.
   uint64 nonce = 2;
+}
+
+// Gateway → engine: an admin ends this game from the console
+// (docs/protocol.md §"Acting on a game"). The engine tells every seat and
+// spectator `GameClosed` with the reason, sends the rest of the record as its
+// last piece and then `GameEnded` with no winners, as it does for a game
+// that ended by its rules. Never forwarded to a seat.
+message CloseGame {
+  string game_id = 1;
+  // The admin's words, shown to the players.
+  string reason = 2;
+}
+
+// Engine → seat and spectator: the game is over because an admin ended it,
+// not by its rules: nobody won or lost. The last frame of the game.
+message GameClosed {
+  // The admin's words.
+  string reason = 1;
 }
 
 // Engine → gateway: everything of the record up to the `FlushRecord` with
@@ -481,6 +548,18 @@ message Envelope {
     SpectatorsChanged spectators_changed = 35;
     SpectatorFrame spectator_frame = 36;
     Spectators spectators = 37;
+    // An admin ends a running game (docs/protocol.md §"Acting on a game").
+    // Gateway → engine only. An engine from before it passes over it, and
+    // the gateway then ends the game itself after a short wait.
+    CloseGame close_game = 38;
+    // Engine → seat (inside a SeatFrame) and spectator: the game was ended
+    // from outside its rules, and why. The last frame a seat is sent. A
+    // client from before it passes over it and sees the socket close.
+    GameClosed game_closed = 39;
+    // Replays (docs/protocol.md §"Replays"): engine link only. A peer from
+    // before them passes over either.
+    ProjectRecord project_record = 40;
+    TapeChunk tape_chunk = 41;
   }
 
 }

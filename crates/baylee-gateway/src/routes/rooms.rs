@@ -77,7 +77,7 @@ pub(crate) async fn create_game(
         let profile = baylee_core::preset::AIProfile::named(difficulty)
             .ok_or_else(|| err(StatusCode::BAD_REQUEST, "no such difficulty"))?;
         {
-            let mut preset = ai_preset(&deck, auth::new_game_seed())?;
+            let mut preset = ai_preset(&state.blocks, &deck, auth::new_game_seed())?;
             preset.house_rules = house_rules.clone();
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             preset.seats[1].controller = baylee_core::preset::SeatController::Ai(profile);
@@ -158,6 +158,10 @@ pub(crate) struct JoinGameBody {
     /// The room's password, for a room that has one.
     #[serde(default)]
     password: Option<String>,
+    /// A table invite (`POST /social/invites`) for this caller and this
+    /// room: it stands in for the password and is spent by the join.
+    #[serde(default)]
+    invite: Option<String>,
 }
 
 pub(crate) async fn join_game(
@@ -185,7 +189,14 @@ pub(crate) async fn join_game(
         // Before anything else is checked, and answered the same way whether
         // the password was wrong or missing: a locked room should not tell a
         // stranger how full it is.
-        if let Some(want) = &game.password_hash {
+        let invited = body.invite.as_deref().is_some_and(|invite| {
+            state
+                .social
+                .invites
+                .lock()
+                .fits(invite, &account_id, &id, std::time::Instant::now())
+        });
+        if let Some(want) = game.password_hash.as_ref().filter(|_| !invited) {
             let given = body.password.as_deref().unwrap_or_default();
             if &auth::token_hash(given) != want {
                 return Err(err(StatusCode::FORBIDDEN, "wrong password"));
@@ -220,7 +231,21 @@ pub(crate) async fn join_game(
             chair.deck = Some(deck);
         }
         chair.joined_seq = Some(seq);
-        chair.seat
+        let seat = chair.seat;
+        if invited && let Some(invite) = body.invite.as_deref() {
+            let spent = state.social.invites.lock().spend(
+                invite,
+                chair.account_id.as_deref().unwrap_or_default(),
+                &id,
+                std::time::Instant::now(),
+            );
+            if let Some((_, tell)) = spent {
+                for (to, frame) in tell {
+                    state.social.push(&to, &frame);
+                }
+            }
+        }
+        seat
     };
     state.lobby_moved();
     Ok(Json(serde_json::json!({
@@ -370,6 +395,12 @@ pub(crate) async fn set_seat(
                     chair.deck_name = if chair.deck.is_some() {
                         deck_name
                     } else {
+                        // The house deck is not seated while it holds a
+                        // card blocked here (`blocks.rs`).
+                        state.blocks.check_loaded(
+                            &super::tables::house_deck()?,
+                            time::OffsetDateTime::now_utc(),
+                        )?;
                         "Victory".to_string()
                     };
                 }
@@ -481,6 +512,14 @@ pub(crate) async fn set_ready(
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "you are not at this table"))?;
         if body.ready && chair.deck.is_none() {
             return Err(err(StatusCode::CONFLICT, "pick a deck first"));
+        }
+        // A card blocked since the deck was chosen (`blocks.rs`).
+        if body.ready
+            && let Some(deck) = &chair.deck
+        {
+            state
+                .blocks
+                .check_stored(deck, time::OffsetDateTime::now_utc())?;
         }
         chair.said_ready = body.ready;
         is_rematch

@@ -125,14 +125,24 @@ fn printed_sentence(
     line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
     at: usize,
 ) -> Option<String> {
-    let card = cast_card(names, object)?;
+    card_sentence(names.texts, cast_card(names, object)?, line, at)
+}
+
+/// [`printed_sentence`] for a card already known: one printed sentence of
+/// `card`'s front face, as a row or a log line says it.
+fn card_sentence(
+    texts: Option<&crate::cardtext::CardTexts>,
+    card: CardIndex,
+    line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
+    at: usize,
+) -> Option<String> {
     let found = line(card, CAST_FACE, at)?;
     let printed = baylee_view::StackText {
         face: u8::try_from(CAST_FACE).ok()?,
         line: found.line,
         of: found.of,
     };
-    let blocks = crate::cardtext::sentence(names.texts, card, printed)?;
+    let blocks = crate::cardtext::sentence(texts, card, printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {
@@ -189,12 +199,22 @@ fn without_spree_cost(said: &str) -> &str {
 fn mode_label(lang: Lang, object: ObjectId, names: FaceNames<'_>, i: usize) -> String {
     // One-based in the fallback, because the printed card numbers its
     // modes from one and a player reads the card, not the index.
-    printed_sentence(names, object, baylee_cards::lines::mode_line, i)
-        .or_else(|| {
-            let card = cast_card(names, object)?;
-            baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
-        })
+    cast_card(names, object)
+        .and_then(|card| mode_words(names.texts, card, i))
         .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]))
+}
+
+/// What mode `i` of `card` says: its printed sentence, else the card's own
+/// words for a choice made inside one sentence; `None` where neither is
+/// known. The cast chooser's rows and the game log's mode lines (#23) read
+/// it alike.
+pub(crate) fn mode_words(
+    texts: Option<&crate::cardtext::CardTexts>,
+    card: CardIndex,
+    i: usize,
+) -> Option<String> {
+    card_sentence(texts, card, baylee_cards::lines::mode_line, i)
+        .or_else(|| baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string))
 }
 
 /// One row of an indexed chooser.
@@ -1145,6 +1165,13 @@ pub(crate) fn preview_object(
         Some(Target::Player(_)) => return None,
         None => {}
     }
+    if let Some(
+        baylee_client_core::interaction::BlockRow::Aim(id)
+        | baylee_client_core::interaction::BlockRow::Toggle(id),
+    ) = interaction.block_rows().get(index)
+    {
+        return Some(*id);
+    }
     match interaction.attack_options().get(index) {
         Some(
             AttackOption::Toggle(id)
@@ -2090,6 +2117,50 @@ mod tests {
             Lang::En,
         );
         assert_eq!(unfound[0].label, "");
+    }
+
+    /// [`mode_words`] is the one door the cast chooser's rows and the game
+    /// log's mode lines read (#23): a mode of Archdruid's Charm is its
+    /// printed sentence without the bullet, whether the catalog filed the
+    /// text or not (the compiled English Oracle stands in), and a card with
+    /// no modes has none to say. On the old code `mode_words` did not exist
+    /// and `mode_label` held the same chain privately, so the log (which has
+    /// no `FaceNames`) could name no mode at all.
+    #[test]
+    fn mode_words_are_the_printed_sentence_without_its_bullet() {
+        let charm = baylee_cards::decks::by_name("Archdruid's Charm").expect("in the pool");
+        let exile = "Exile target artifact or enchantment.";
+        assert_eq!(
+            mode_words(None, charm, 2).as_deref(),
+            Some(exile),
+            "no text filed: the compiled English Oracle"
+        );
+
+        let (_, texts, _) = asking_about(
+            "3c1ef404-e2c6-486d-a5a2-d5779c71d498",
+            "en",
+            "Choose one \u{2014}\n\
+             \u{2022} Search your library for a creature or land card and reveal it. \
+             Put it onto the battlefield tapped if it's a land card. Otherwise, put it \
+             into your hand. Then shuffle.\n\
+             \u{2022} Put a +1/+1 counter on target creature you control. It deals \
+             damage equal to its power to target creature you don't control.\n\
+             \u{2022} Exile target artifact or enchantment.",
+        );
+        assert_eq!(
+            mode_words(Some(&texts), charm, 2).as_deref(),
+            Some(exile),
+            "filed text: the same sentence, bullet cut"
+        );
+        assert!(
+            mode_words(Some(&texts), charm, 0)
+                .is_some_and(|words| words.starts_with("Search your library")),
+            "and the first mode is the first bullet"
+        );
+        assert_eq!(mode_words(None, charm, 3), None, "there is no fourth mode");
+
+        let bolt = baylee_cards::decks::by_name("Lightning Bolt").expect("in the pool");
+        assert_eq!(mode_words(None, bolt, 0), None, "a card without modes");
     }
 
     /// The source of a modal trigger, on the battlefield as the view shows

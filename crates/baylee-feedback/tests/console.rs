@@ -26,6 +26,10 @@ const PASSWORD: &str = "a long enough password";
 const CONSOLE_TOKEN: &str = "the-gateways-admin-token-0123456789abcdef";
 const KEY: &str = "BAYLEE-ABCD-EFGH-JKMN-PQRS";
 const KEY_ID: &str = "0199aaaa-0000-7000-8000-0000000000aa";
+/// The block the stand-in gateway makes, and the card it is on.
+const BLOCK_ID: &str = "0199bbbb-0000-7000-8000-0000000000bb";
+const BLOCKED_NAME: &str = "Baleful Strix";
+const BLOCKED_INDEX: u32 = 4242;
 
 /// What reached the stand-in gateway.
 #[derive(Clone, Debug)]
@@ -54,6 +58,7 @@ struct Stub {
     server: tokio::task::JoinHandle<()>,
 }
 
+#[allow(clippy::too_many_lines)] // one answer per route of the console
 async fn stub() -> Stub {
     let seen: Arc<Mutex<Vec<Seen>>> = Arc::default();
     let forced = Arc::new(AtomicU16::new(0));
@@ -106,6 +111,33 @@ async fn stub() -> Stub {
                     )
                         .into_response(),
                     ("DELETE", path) if path.starts_with("/admin/invites/") => {
+                        StatusCode::NO_CONTENT.into_response()
+                    }
+                    ("GET", "/admin/cards/search") => {
+                        axum::Json(serde_json::json!({ "cards": [] })).into_response()
+                    }
+                    ("GET", "/admin/cards/blocks") => {
+                        axum::Json(serde_json::json!([])).into_response()
+                    }
+                    // As the gateway answers: the block as listed, the
+                    // admin's reason in it.
+                    ("POST", "/admin/cards/blocks") => {
+                        let order: serde_json::Value =
+                            serde_json::from_slice(&body).unwrap_or_default();
+                        (
+                            StatusCode::CREATED,
+                            axum::Json(serde_json::json!({
+                                "id": BLOCK_ID,
+                                "index": BLOCKED_INDEX,
+                                "name": BLOCKED_NAME,
+                                "reason": order["reason"],
+                                "until": order["until"],
+                                "state": "active",
+                            })),
+                        )
+                            .into_response()
+                    }
+                    ("DELETE", path) if path.starts_with("/admin/cards/blocks/") => {
                         StatusCode::NO_CONTENT.into_response()
                     }
                     ("GET", path) if path.starts_with("/admin/llm/") => {
@@ -328,6 +360,18 @@ async fn nothing_reaches_the_gateway_without_a_session() {
         ("GET", &format!("/ui/api/admin/accounts/{KEY_ID}"), None),
         ("POST", "/ui/api/admin/invites", Some("{}")),
         ("DELETE", &format!("/ui/api/admin/invites/{KEY_ID}"), None),
+        ("GET", "/ui/api/admin/cards/search?q=forest", None),
+        ("GET", "/ui/api/admin/cards/blocks", None),
+        (
+            "POST",
+            "/ui/api/admin/cards/blocks",
+            Some(r#"{"index":1,"reason":"r"}"#),
+        ),
+        (
+            "DELETE",
+            &format!("/ui/api/admin/cards/blocks/{BLOCK_ID}"),
+            None,
+        ),
     ] {
         let mut headers = service.proof();
         let answer = service.call(method, path, &headers, body).await;
@@ -519,6 +563,244 @@ async fn a_change_wants_the_proof_passes_only_its_fields_and_is_audited_without_
     }
     assert!(!audit.text().contains(KEY), "a key in the audit");
     assert!(!audit.text().contains("for Max"), "a note in the audit");
+    service.close().await;
+    gw.server.abort();
+}
+
+/// The blocked-cards pages: the reads pass on only the query they read.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_card_pages_read_through_and_pass_on_only_the_search() {
+    let gw = stub().await;
+    let service = Service::start("cardreads", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    for path in [
+        "/ui/api/admin/cards/search?q=Baleful%20Strix%20%26%20co%3Dx",
+        "/ui/api/admin/cards/search?q=",
+        "/ui/api/admin/cards/search",
+        "/ui/api/admin/cards/blocks",
+    ] {
+        let answer = service.call("GET", path, &with_cookie(&cookie), None).await;
+        assert_eq!(answer.status, 200, "{path}: {}", answer.text());
+    }
+    let answer = service
+        .call(
+            "GET",
+            "/ui/api/admin/cards/search?q=x",
+            &with_cookie(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(answer.json(), serde_json::json!({ "cards": [] }));
+    // A parameter the page does not read is not passed on.
+    let answer = service
+        .call(
+            "GET",
+            "/ui/api/admin/cards/search?q=x&admin=someone",
+            &with_cookie(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(answer.status, 400, "{}", answer.text());
+
+    let seen = gw.seen();
+    let paths: Vec<String> = seen.iter().map(|s| s.path.clone()).collect();
+    assert_eq!(
+        paths,
+        [
+            "/admin/cards/search?q=Baleful%20Strix%20%26%20co%3Dx",
+            "/admin/cards/search?q=",
+            "/admin/cards/search?q=",
+            "/admin/cards/blocks",
+            "/admin/cards/search?q=x",
+        ]
+    );
+    for request in &seen {
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.header("authorization"),
+            Some(format!("Bearer {CONSOLE_TOKEN}").as_str())
+        );
+        assert_eq!(request.header("x-baylee-admin"), Some(NAME));
+        for kept_back in ["cookie", "origin", ui::CSRF_HEADER] {
+            assert_eq!(request.header(kept_back), None, "{kept_back} passed on");
+        }
+    }
+    service.close().await;
+    gw.server.abort();
+}
+
+/// Blocking and lifting: a change wants the proof, passes only its fields,
+/// and is audited with the card, the end and the block, never the reason.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn blocking_a_card_wants_the_proof_passes_only_its_fields_and_is_audited_without_the_reason()
+{
+    let gw = stub().await;
+    let service = Service::start("cardwrites", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    let reason = "plumbus-4711 misprints the stack";
+    let until = "2026-12-31T18:00:00Z";
+    let order = format!(r#"{{"index":{BLOCKED_INDEX},"reason":"{reason}","until":"{until}"}}"#);
+    let delete = format!("/ui/api/admin/cards/blocks/{BLOCK_ID}");
+
+    // No header, a foreign origin, or a cross-site fetch: refused here.
+    let bare = with_cookie(&cookie);
+    let mut foreign = with_cookie(&cookie);
+    foreign.push(("origin", "https://evil.example".into()));
+    foreign.push((ui::CSRF_HEADER, "1".into()));
+    let mut cross = service.proof();
+    cross.push(("cookie", cookie.clone()));
+    cross.push(("sec-fetch-site", "cross-site".into()));
+    for headers in [&bare, &foreign, &cross] {
+        let answer = service
+            .call("POST", "/ui/api/admin/cards/blocks", headers, Some(&order))
+            .await;
+        assert_eq!(answer.status, 403, "{}", answer.text());
+        let answer = service.call("DELETE", &delete, headers, None).await;
+        assert_eq!(answer.status, 403, "{}", answer.text());
+    }
+    assert!(gw.seen().is_empty(), "{:?}", gw.seen());
+
+    let mut proved = service.proof();
+    proved.push(("cookie", cookie.clone()));
+    // Only the three fields, and only an id; nothing is asked of the gateway.
+    for body in [
+        r#"{"index":1,"reason":"r","admin":"someone"}"#,
+        r#"{"index":1}"#,
+        r#"{"reason":"r"}"#,
+        r#"{"index":"1","reason":"r"}"#,
+        r#"{"index":-1,"reason":"r"}"#,
+        "not json",
+        "",
+    ] {
+        let answer = service
+            .call("POST", "/ui/api/admin/cards/blocks", &proved, Some(body))
+            .await;
+        assert_eq!(answer.status, 400, "{body}: {}", answer.text());
+    }
+    for bad in ["not-a-uuid", "..%2Fstats", "1234"] {
+        let answer = service
+            .call(
+                "DELETE",
+                &format!("/ui/api/admin/cards/blocks/{bad}"),
+                &proved,
+                None,
+            )
+            .await;
+        assert_eq!(answer.status, 400, "{bad}");
+    }
+    assert!(gw.seen().is_empty(), "{:?}", gw.seen());
+
+    // A refusal of the gateway's is passed on, and audited as nothing.
+    for (status, method, path, body) in [
+        (
+            409,
+            "POST",
+            "/ui/api/admin/cards/blocks".to_owned(),
+            Some(order.as_str()),
+        ),
+        (404, "DELETE", delete.clone(), None),
+    ] {
+        gw.forced.store(status, Ordering::SeqCst);
+        let answer = service.call(method, &path, &proved, body).await;
+        assert_eq!(answer.status, status, "{}", answer.text());
+        assert_eq!(answer.json()["error"], "forced");
+    }
+    gw.forced.store(0, Ordering::SeqCst);
+    let audit = service
+        .call("GET", "/ui/api/admin/audit", &with_cookie(&cookie), None)
+        .await;
+    assert_eq!(
+        audit.json().as_array().unwrap().len(),
+        0,
+        "{}",
+        audit.text()
+    );
+
+    // The two that work; the second block has no end.
+    let answer = service
+        .call("POST", "/ui/api/admin/cards/blocks", &proved, Some(&order))
+        .await;
+    assert_eq!(answer.status, 201, "{}", answer.text());
+    assert_eq!(answer.json()["id"], BLOCK_ID, "the gateway's row, as it is");
+    let answer = service
+        .call(
+            "POST",
+            "/ui/api/admin/cards/blocks",
+            &proved,
+            Some(&format!(
+                r#"{{"reason":"{reason}","index":{BLOCKED_INDEX}}}"#
+            )),
+        )
+        .await;
+    assert_eq!(answer.status, 201, "{}", answer.text());
+    let answer = service.call("DELETE", &delete, &proved, None).await;
+    assert_eq!(answer.status, 204, "{}", answer.text());
+
+    // What reached the gateway (after the two refused ones).
+    let seen = gw.seen();
+    assert_eq!(seen.len(), 5, "{seen:?}");
+    let sent: Vec<(&str, &str)> = seen[2..]
+        .iter()
+        .map(|s| (s.method.as_str(), s.path.as_str()))
+        .collect();
+    assert_eq!(
+        sent,
+        [
+            ("POST", "/admin/cards/blocks"),
+            ("POST", "/admin/cards/blocks"),
+            ("DELETE", format!("/admin/cards/blocks/{BLOCK_ID}").as_str()),
+        ]
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&seen[2].body).unwrap(),
+        serde_json::json!({ "index": BLOCKED_INDEX, "reason": reason, "until": until })
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&seen[3].body).unwrap(),
+        serde_json::json!({ "index": BLOCKED_INDEX, "reason": reason }),
+        "no until, none made up"
+    );
+    for request in &seen {
+        assert_eq!(request.header("x-baylee-admin"), Some(NAME));
+        assert_eq!(
+            request.header("authorization"),
+            Some(format!("Bearer {CONSOLE_TOKEN}").as_str())
+        );
+        for kept_back in ["cookie", "origin", ui::CSRF_HEADER] {
+            assert_eq!(request.header(kept_back), None, "{kept_back} passed on");
+        }
+    }
+
+    // The audit: the card, its index, the end and the block; not the reason.
+    let audit = service
+        .call("GET", "/ui/api/admin/audit", &with_cookie(&cookie), None)
+        .await;
+    assert_eq!(audit.status, 200);
+    let rows = audit.json();
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 3, "{rows:?}");
+    assert_eq!(rows[0]["action"], "gateway.card.unblock", "newest first");
+    assert_eq!(rows[1]["action"], "gateway.card.block");
+    assert_eq!(rows[2]["action"], "gateway.card.block");
+    for row in rows {
+        assert_eq!(row["actor"], NAME);
+        assert!(row["detail"].as_str().unwrap().contains(BLOCK_ID), "{row}");
+    }
+    // Rows are newest first: the block without an end, then the one with.
+    let detail = |at: usize| rows[at]["detail"].as_str().unwrap().to_owned();
+    for at in [1, 2] {
+        assert!(detail(at).contains(BLOCKED_NAME), "{}", detail(at));
+        assert!(
+            detail(at).contains(&BLOCKED_INDEX.to_string()),
+            "{}",
+            detail(at)
+        );
+    }
+    assert!(detail(2).contains(until), "the end: {}", detail(2));
+    assert!(!detail(1).contains(until), "{}", detail(1));
+    assert!(detail(1).contains("without an end"), "{}", detail(1));
+    assert!(!audit.text().contains("plumbus"), "the reason in the audit");
     service.close().await;
     gw.server.abort();
 }

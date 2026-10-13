@@ -4,7 +4,10 @@ The page an admin triages player reports on, at
 `https://feedback.baylee.acevik.de/`. It is a React app built to static
 files that `baylee-feedback` serves itself from `FEEDBACK_WEB_DIR`, and it
 talks only to that service's `/ui/api/…` routes (`docs/feedback.md` §"The
-web UI"). `cargo build` never needs node: without a build, or with
+web UI"). Besides the reports it has a *Contact* page (`/contact`) for the
+messages from the landing page's contact form: read, answer by mail,
+mark done, delete (`docs/feedback.md` §"The landing page's contact
+form"). `cargo build` never needs node: without a build, or with
 `FEEDBACK_WEB_DIR` unset, the service simply serves no page.
 
 ```sh
@@ -156,6 +159,8 @@ reaches the built page.
     with its cores and memory; a value the host could not say (anything
     off `/proc` on a Mac) is a dash. Every 5 seconds. Under it the pool's
     progress in short, with the sets being worked on.
+    A running table has End game (`src/admin/Moderation.tsx`, beta.8): a
+    reason the players are shown, asked in a dialog.
   - Sets (`/admin/sets`, `src/admin/Sets.tsx`): how far this build is
     through each set, from the gateway's ledger and compiled pool, in
     release order (sortable by size, by completeness, by what is left;
@@ -168,7 +173,17 @@ reaches the built page.
     registered or guests, online only, five orders, 50 a page, all in the
     query string; a table on a desktop, cards on a phone. One account
     (`/admin/accounts/{id}`): its facts, where it is now, its decks and
-    latest games.
+    latest games, and the acts on it (beta.8, `src/admin/Moderation.tsx`,
+    `docs/feedback.md` §"The admin console"): reset its password (shown
+    once, with Copy), ban it (a reason and an end, or permanently) or lift
+    the ban, delete it (its handle typed to confirm). Each asks first; a
+    banned account is marked in the list and on its page.
+  - Blocked cards (`/admin/cards`, `src/admin/Cards.tsx`): a card of the
+    gateway's pool searched by name or index and blocked, without an end,
+    for a day, a week, a month or until a moment picked, with a reason the
+    players see, after a second question; the blocks in force, each lifted
+    after a second question; the earlier ones, folded; the latest card
+    changes (`docs/protocol.md` §"Blocked cards").
   - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
     and, where the browser can, Share), listed and filtered by state
     (never the key, which is kept only as a hash), revoked after a second

@@ -175,6 +175,49 @@ fn tapping_a_planeswalker_aims_at_it() {
     assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
 }
 
+/// Report 24: a creature sent at one defender and pressed again with the aim
+/// on another is sent where the aim is now, not withdrawn. Old code removed
+/// the pairing on the second press whatever the aim, so `toggle` answered
+/// `Removed`, `assignment` was `None` and `confirm` declared nothing.
+#[test]
+fn pressing_a_sent_creature_with_the_aim_elsewhere_sends_it_there() {
+    let walker = Defender::Planeswalker(obj(50));
+    let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), walker]));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(seat(1))));
+
+    // Aim at the planeswalker (tapping it sets the focus), press the
+    // creature again.
+    i.toggle(obj(50));
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(walker));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
+    assert_eq!(i.declared(), 1, "moved, not duplicated");
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(1), walker)]
+        })
+    );
+}
+
+/// Pressed once more with the aim unchanged, the creature comes back out
+/// (the other half of report 24's rule: only one aimed where it already
+/// goes is withdrawn).
+#[test]
+fn pressing_a_sent_creature_with_the_aim_where_it_goes_withdraws_it() {
+    let walker = Defender::Planeswalker(obj(50));
+    let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), walker]));
+    i.toggle(obj(50));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Removed);
+    assert_eq!(i.assignment(obj(1)), None);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+    );
+}
+
 #[test]
 fn blocks_are_paired_with_the_attacker_in_focus() {
     let mut i = interaction(block_choice(vec![
@@ -409,4 +452,166 @@ fn attack_controls_work_in_a_duel_but_never_for_another_seat_or_prompt() {
     let mut blockers = interaction(block_choice(vec![]));
     assert!(blockers.attack_options().is_empty());
     assert!(!blockers.edit_attack(AttackOption::WithdrawAll));
+}
+
+// ------------------------------------------------- the block list (report 31)
+
+/// Attackers 1 (on the ground) and 2 (a flier); blocker 10 blocks only the
+/// first, 11 (reach) either, 12 only the flier.
+fn two_attackers_three_blockers() -> Interaction {
+    interaction(block_choice(vec![
+        BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1)],
+        },
+        BlockOption {
+            blocker: obj(11),
+            attackers: vec![obj(1), obj(2)],
+        },
+        BlockOption {
+            blocker: obj(12),
+            attackers: vec![obj(2)],
+        },
+    ]))
+}
+
+/// The list is what the table would light: a creature that cannot block the
+/// attacker in aim has no row, and moving the aim changes the rows.
+#[test]
+fn block_rows_list_every_attacker_then_only_the_blockers_that_may_block_the_aimed_one() {
+    let mut i = two_attackers_three_blockers();
+    assert_eq!(
+        i.block_rows(),
+        vec![
+            BlockRow::Aim(obj(1)),
+            BlockRow::Aim(obj(2)),
+            BlockRow::Toggle(obj(10)),
+            BlockRow::Toggle(obj(11)),
+        ],
+        "aiming at the ground attacker: 12 may only block the flier and has no row"
+    );
+    assert_eq!(i.block_aim(), Some(obj(1)));
+
+    assert!(i.edit_block(BlockRow::Aim(obj(2))));
+    assert_eq!(i.block_aim(), Some(obj(2)), "the Aim row moved the aim");
+    assert_eq!(
+        i.block_rows(),
+        vec![
+            BlockRow::Aim(obj(1)),
+            BlockRow::Aim(obj(2)),
+            BlockRow::Toggle(obj(11)),
+            BlockRow::Toggle(obj(12)),
+        ],
+        "aiming at the flier: 10 cannot block it and lost its row"
+    );
+}
+
+/// A row is the table's own click: the first adds the block in front of the
+/// aimed attacker, the second takes it back.
+#[test]
+fn a_toggle_row_blocks_the_aimed_attacker_and_a_second_one_takes_it_back() {
+    let mut i = two_attackers_three_blockers();
+    assert_eq!(i.blocking(obj(10)), None);
+
+    assert!(i.edit_block(BlockRow::Toggle(obj(10))));
+    assert_eq!(
+        i.blocking(obj(10)),
+        Some(obj(1)),
+        "the block is in front of the attacker in aim"
+    );
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers {
+            blockers: vec![(obj(10), obj(1))]
+        })
+    );
+
+    assert!(i.edit_block(BlockRow::Toggle(obj(10))));
+    assert_eq!(i.blocking(obj(10)), None, "the same row took it back");
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers { blockers: vec![] })
+    );
+}
+
+/// Once a creature blocks, aiming elsewhere must not hide it: its row stays,
+/// or the block could not be taken back without re-aiming.
+#[test]
+fn a_creature_already_blocking_keeps_its_row_while_another_attacker_is_aimed() {
+    let mut i = two_attackers_three_blockers();
+    assert!(i.edit_block(BlockRow::Toggle(obj(10))));
+    assert!(i.edit_block(BlockRow::Aim(obj(2))));
+
+    assert_eq!(i.block_aim(), Some(obj(2)));
+    assert!(
+        i.block_rows().contains(&BlockRow::Toggle(obj(10))),
+        "10 blocks attacker 1 and cannot block 2, yet its take-back row must stay: {:?}",
+        i.block_rows()
+    );
+    assert!(i.edit_block(BlockRow::Toggle(obj(10))));
+    assert_eq!(
+        i.blocking(obj(10)),
+        None,
+        "the row took back the block on attacker 1, not a new one on 2"
+    );
+    assert!(
+        !i.block_rows().contains(&BlockRow::Toggle(obj(10))),
+        "with the block gone and the aim on the flier, 10 has no row again"
+    );
+}
+
+/// A row the list does not offer is refused, and the draft stays as it was.
+#[test]
+fn a_block_row_that_is_not_offered_is_refused_and_changes_nothing() {
+    let mut i = two_attackers_three_blockers();
+    let before = i.block_rows();
+
+    assert!(
+        !i.edit_block(BlockRow::Toggle(obj(12))),
+        "12 may only block the flier, which is not in aim"
+    );
+    assert!(!i.edit_block(BlockRow::Toggle(obj(99))), "not a creature");
+    assert!(!i.edit_block(BlockRow::Aim(obj(99))), "not an attacker");
+    assert!(
+        !i.edit_block(BlockRow::Aim(obj(10))),
+        "a blocker is no attacker to aim at"
+    );
+
+    assert_eq!(i.block_aim(), Some(obj(1)), "the aim did not move");
+    assert_eq!(i.blocking(obj(12)), None);
+    assert_eq!(i.block_rows(), before);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers { blockers: vec![] }),
+        "nothing was declared"
+    );
+}
+
+/// Another seat's question is not this seat's list, and neither is any other
+/// question.
+#[test]
+fn block_rows_are_empty_for_another_seat_and_for_any_other_question() {
+    let others = Interaction::new(
+        block_choice(vec![BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1)],
+        }]),
+        PlayerId::new(1),
+    );
+    assert!(
+        others.block_rows().is_empty(),
+        "the question is player 0's, this seat is player 1"
+    );
+    let mut others = others;
+    assert!(
+        !others.edit_block(BlockRow::Toggle(obj(10))),
+        "no row, so no edit"
+    );
+    assert_eq!(others.blocking(obj(10)), None);
+
+    let attacking = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
+    assert!(
+        attacking.block_rows().is_empty(),
+        "declaring attackers has no block list"
+    );
 }

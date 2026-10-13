@@ -29,7 +29,7 @@ pub(in crate::hud) fn spawn(commands: &mut Commands) -> Entity {
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(hand::HAND_ZONE_H - hand::LEDGE_H + LEDGE_PAD_Y),
-                right: px(EDGE + menu::BURGER + 6.0 + log::LOG_W + LOG_PAD),
+                right: px(EDGE + menu::BURGER + 6.0 + log::LOG_W_MAX + LOG_PAD),
                 width: px(log::LOG_W),
                 height: px(LOG_H),
                 flex_direction: FlexDirection::Column,

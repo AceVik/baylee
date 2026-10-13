@@ -11,6 +11,8 @@
 pub mod mind;
 pub mod names;
 pub mod seathost;
+pub mod social;
+pub mod tape;
 
 /// Wire protocol version; incompatible versions refuse the session.
 /// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).
@@ -288,6 +290,9 @@ mod tests {
         // 27: a damage decision's `DamageEffectKind::PreventAll`.
         // 28: independent delayed-life-loss cancellation offers.
         // 29: explicit life-payment amounts above 65535 require u32 readers.
+        // Not 30 for `CloseGame`/`GameClosed` (an admin ends a game, beta.8):
+        // `CloseGame` is engine link only, and an engine or client from
+        // before `GameClosed` passes over it, as with `AiLog`.
         assert_eq!(PROTOCOL_VERSION, 29);
     }
 

@@ -696,6 +696,7 @@ mod attached {
                     token: attach.token.clone(),
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     pid: std::process::id(),
+                    build: baylee_build::short().to_owned(),
                 })),
             },
         )
@@ -777,6 +778,13 @@ mod attached {
                     if let Some(v1::envelope::Msg::Error(refused)) = envelope.msg {
                         return Err(refused.message.into());
                     }
+                    // Started for a replay job, not a game (`docs/protocol.md`
+                    // §"Replays"): project the record, send the tape, exit.
+                    if runner.session().is_none()
+                        && let Some(v1::envelope::Msg::ProjectRecord(order)) = envelope.msg
+                    {
+                        return project(ws, order).await;
+                    }
                     // Read the clocks before handing the frame over: this
                     // frame may move the game, and after it has, a number
                     // belongs to a question nobody is being asked any more.
@@ -799,6 +807,38 @@ mod attached {
         }
         // Everything queued is already flushed by `send`; this is the polite
         // close the gateway logs as an ordinary end rather than a drop.
+        let _ = ws.close(None).await;
+        Ok(())
+    }
+
+    /// A replay job (`baylee_engine_server::projection`): the projection runs
+    /// on a blocking thread and its pieces go out as they are made; then the
+    /// socket closes and the process exits.
+    async fn project<S>(
+        mut ws: tokio_tungstenite::WebSocketStream<S>,
+        order: v1::ProjectRecord,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let job = order.job.clone();
+        let worker = tokio::task::spawn_blocking(move || {
+            baylee_engine_server::projection::run(&order, baylee_build::short(), &mut |piece| {
+                let _ = tx.send(piece);
+            })
+        });
+        while let Some(piece) = rx.recv().await {
+            send(
+                &mut ws,
+                &Envelope {
+                    msg: Some(v1::envelope::Msg::TapeChunk(piece)),
+                },
+            )
+            .await?;
+        }
+        let stop = worker.await?;
+        tracing::info!(job, stop = ?stop.stop, inputs = stop.inputs, "replay projected");
         let _ = ws.close(None).await;
         Ok(())
     }

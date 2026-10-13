@@ -247,6 +247,17 @@ pub(crate) fn window(
             .id();
         commands.entity(right).add_child(coverage);
     }
+    if let Some(block) = deck.blocked(card.index) {
+        let said = commands
+            .spawn((
+                Text::new(block.sentence(lang)),
+                tf(kit.fonts, m.small),
+                TextColor(tokens::DANGER),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(right).add_child(said);
+    }
 
     let pane = commands
         .spawn((

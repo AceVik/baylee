@@ -379,7 +379,7 @@ jobs:
           key: ${{ steps.scryfall.outputs.key }}
 
   # The browser client's crates for wasm32; `scripts/gate-wasm.sh` says why
-  # all seven are named.
+  # all eight are named.
   wasm:
     needs: changes
     if: needs.changes.outputs.rust == 'true'

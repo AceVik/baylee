@@ -187,6 +187,9 @@ is no account yet:
   guests. Both are absent from a gateway older than #317. They are here so a
   gateway list can say what a gateway takes before anything is saved;
   `GET /auth/config` says the same for the form.
+- `replays` is `{"version": 1}` (the tape's version) where the gateway
+  replays the hosted games an account sat at (§"Replays"), `null` where
+  `BAYLEE_REPLAY_JOBS=0`. Absent from a gateway older than replays.
 
 ## Printings (which art the client draws)
 
@@ -533,6 +536,16 @@ last saw is sending a number the engine may already have passed — and the
 engine reading a larger depth cancels the hold, which is exactly the right
 answer, because somebody just responded to what was being let through.
 
+A hold or a per-ability yield passes **priority** and nothing that only looks
+like it. A payment window (CR 601.2g, 605.3a: the seat said yes to a tax, owes
+a Pact, or is paying for the spell it is casting) is put to its seat as
+`Pending::Priority`, and a pass there ends the payment with whatever is
+floating. `auto_answer` therefore never passes the seat a window is open for,
+whatever hold it left standing: a hold set "until the stack is empty" once
+closed the window an Esper Sentinel tax had just opened, nothing was paid, and
+the opponent drew (b8 #27). The client must not stand in for the hold either —
+it presents the window as the payment question it is.
+
 What the client is told is one bool, `PlayerView::priority_held` — **the
 viewing seat's own hold and no other seat's**, because a hold is a statement
 about what its owner intends to respond to and telling the table would hand
@@ -642,6 +655,16 @@ an additive JSON field defaulted when absent, and an old client never sends
 in either order. During the window the card is still in its zone; the
 engine moves it to the stack as the cost is paid, not first (CR 601.2a).
 
+A card in `castable` may cost more than what floats once its X is announced
+(CR 601.2b). While the seat still has a mana source to tap, its X question
+is open (`ChooseNumber.max` is `u32::MAX`, as for a `payable` card and an
+activation), and a total the pool does not cover gets the same payment
+window after the cast's choices (CR 601.2g); from there it is paid, or
+reversed when passed short, exactly as a `payable` cast. With nothing left
+to tap, `max` is the greatest X the floating mana pays for the whole cost,
+so an X the question offers is always one the cast can complete. A client
+bounds its X entry by `max`, never by its own count of the pool.
+
 ## Taking back a cast (`PlayerAction::CancelCast`)
 
 A seat may take back a cast it began from priority at any of the cast's own
@@ -667,8 +690,10 @@ painland's damage is not dealt and City of Brass's trigger never goes on the
 stack. A cast whose mana touched a library (moved a card to or from it,
 shuffled it, revealed from it), which CR 732.1 forbids reversing, is still
 taken back and its mana abilities stand. The player keeps priority
-(CR 732.2). The journal records `GameEvent::CastCancelled`; the game log
-writes no line, because the card never left its zone and naming it would
+(CR 732.2). The journal records `GameEvent::CastCancelled` with its
+`reason`: `Withdrawn` for `CancelCast`, `Unpaid` for a window passed short
+(CR 601.2h allows no partial payment), `Illegal` when the card moved or an
+object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would
 reveal a card in a hidden hand.
 
 ## What a seat owes (view version 24)
@@ -1123,6 +1148,50 @@ public even while the card is not. Cards put into a library that is then
 shuffled in the same action are "shuffled in", and the shuffle is no line of
 its own; a search that takes a card out and shuffles keeps its shuffle
 line.
+
+### Modes, targets, phases and the kind of an ability (beta.8)
+
+Players were not told which mode an opponent chose (the owner's report on
+Archdruid's Charm, 12.10.2026), nor what anything was aimed at, though both
+are announced to every player (CR 601.2b–c, 602.2b, 603.3c–d). One view
+version adds three things, each defaulted on the wire:
+
+- **`LogEvent::Aimed { controller, source, ability, rules, modes, targets }`**,
+  written right after the cast or the ability line where the spell or
+  ability has modes or targets by the end of that action, and again
+  whenever they change while it is on the stack. A trigger's targets are
+  asked in a later question, so the host keeps every spell and ability on
+  the stack that a line named (`GameLog::aims`) and compares after every
+  action; a changed spell (a retarget) is announced again the same way.
+  `modes` is the chosen set as bits (`GameObject::modes`, or the single
+  `mode_index`), `rules` the card they are printed on (for a copy the copied
+  card, CR 707.2). The source and every object target carry their own
+  audience, as every line's objects do: a face-down target is told as
+  `FaceDown`, and where the seat may not know `source`, `rules` and `modes`
+  are taken out (`Line::told`). A rule's own trigger (prowess, ward)
+  carries the object it is about as an internal target and is announced
+  with none.
+- **`LogEntry::phase`**, the phase the line happened in, read off the
+  journal's own step changes (`GameEvent::StepChanged`), so a client can
+  group a turn's lines; `None` for a turn's heading and the mulligans. Two
+  lines in different phases never fold.
+- **`LogEvent::Ability::activated`**: `Some(true)` for an activated ability
+  (CR 602), `Some(false)` for a triggered one (CR 603), read off the
+  definition the ability was put on the stack from; `None` where it cannot
+  say.
+
+The same view version gives `ObjectStatus` a fifth bit beside CR 110.5's
+four, `NO_ABILITIES` (16): set where the projection says the permanent has
+lost all its abilities (`Characteristics::abilities_lost`, CR 613.1f), never
+on a face-down permanent. The printed text a client shows cannot say it.
+
+A land whose entry asks a question first (enters tapped unless…, a
+shockland's life) is recorded played before it moves, sometimes actions
+before. Its play is now written when it moves, with where from, instead of
+"played a card" while it was still in a hand followed by a move line. And
+the journal records a player's life loss before the damage that caused it:
+where the two are the same player and amount, in one action, the damage
+line now comes first (`GameLog::cause_before_effect`).
 
 ### What a line cannot name
 
@@ -1618,6 +1687,21 @@ that are themselves recorded inputs. JSON Lines, so a record cut off with its
 engine is readable up to the cut; the header names the build
 (`baylee_build::short`).
 
+The hash checks a replay only on the build that played it: any change to
+the engine's state moves it. So the header and every input also carry
+`seen` (`baylee_gamehost::record::seen`, 16 hex like `hash`): FNV-1a 64 of
+the **public** table in a fixed encoding of our own numbers (turn, active
+seat, the step in CR 500.1's order; per seat in the game, life, poison,
+hand, library and exile counts and the graveyard's cards; the battlefield's
+card, controller, tapped and face-down, sorted; the stack's size), cards by
+their append-only `CardIndex`. It means the same on every build, so a replay
+on a later one is checked against what the table showed (§"Replays"). The
+encoding is frozen (a golden test pins it): a change is a new field name,
+never an edit. The end line carries `turn`, the turn the game ended on. Both
+are optional and skipped when absent: a record from before them reads as it
+did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
+unverified.
+
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
 (`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each
@@ -1670,8 +1754,12 @@ bound.
 
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
-  them. The one reader is `POST /reports`, for a player who sat at the game,
-  which passes it to the feedback service (`docs/feedback.md`).
+  them. Two readers a route reaches: `POST /reports`, for a player who sat
+  at the game, which passes it to the feedback service (`docs/feedback.md`)
+  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  it only to an engine on the engine link through `records::for_projection`
+  after the route found the account's seat. A replay is a projection, never
+  the record.
 - **It names nobody.** Seats are numbers, and the gateway keeps which account
   sat where beside it (`game_record_seat`), a link that goes with the
   account (`ON DELETE SET NULL`) while the record stays. The seat names a
@@ -1747,6 +1835,123 @@ and the check comes with the asking.
 Put the file somewhere root owns and the gateway's service user may read
 (`/var/lib/baylee-deploy/admission-hold`, say), not under a `RuntimeDirectory`
 the gateway's unit removes when it stops.
+
+## Replays
+
+A signed-in account (guests too) can watch again every hosted game it sat
+at, from any device: the gateway has the game's record (§"The game record
+(#315)"), and an engine plays it again on **today's** build and sends back
+what one perspective was sent. Nothing is stored: a replay is computed when
+asked, and the record never leaves the gateway but to that engine.
+
+### `GET /replays?offset=0&limit=20`
+
+The account's seated games (a seat it played; one its seat bridge played
+does not count), newest first (`started_at desc, game_id`), `limit` at most
+50 (default 20):
+
+```json
+{"games":[{"game":"0199c8…","started_at":"2026-10-13T18:31:02Z","ended_at":"2026-10-13T19:02:40Z",
+  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,
+  "check":"exact","build":"0.8.0+build.212 (3f9a1c7e21)",
+  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null},
+           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null},
+           {"seat":2,"who":"house","name":"House AI","commander":null}]}],
+ "total":57}
+```
+
+- `who`: `you`, `player`, `former` (a person whose account is gone),
+  `house`, `model` (a seat bridge). Names are handles as the gateway names
+  them now; the house is "House AI", a bridge "Language model", a former
+  player "Former player". `colours` (the deck's colour identity, `WUBRG`) only
+  for `you`; `commander` (a `CardIndex`) for every seat, public at the table.
+- `result` for the account's seat: `won`, `lost`, `draw`, `unfinished` (the
+  record has no end), or `unknown` (a game that ended before the gateway
+  noted how).
+- `check`: `exact` when the game's engine was this gateway's build (the
+  engine's hash checks every input), `checked` when the record carries `seen`
+  (a later build is checked against what the table showed), else
+  `unverified` (a record from before `seen` on a later build). A client asks
+  an `unverified` game with `verify: note` at once.
+- `public`: whether the account may ask the public perspective; every
+  seated account may in v1.
+
+### `POST /replays/{game}/tape`
+
+`{"perspective":"seat"|"public","verify":"stop"|"note"}` (`verify` defaults
+to `stop`; any other field is `400`: there is no seat field, the seat is the
+one `game_record_seat` names for the account, never the request's) →
+`200 application/gzip`, the tape (`baylee_protocol::tape`, gzip JSON Lines: a
+header, the `static`, `view`, `over` frames the perspective was sent, and a
+closing `stop` line saying how far it is the recorded game).
+
+| Answer | When |
+| --- | --- |
+| `200` | the tape; one that stops early (diverged, refused) says why on its `stop` line |
+| `400` | a body that is not a tape request |
+| `403` | the account sat at no seat of that game |
+| `404` | no record of that game |
+| `409` | the game is still being played |
+| `413` | the record is over 8 MiB compressed |
+| `429` | more than 6 asks a minute, or 2 at once, for the account |
+| `502` | the tape passed 32 MiB compressed, or the engine failed or went away (a client retries once) |
+| `503` | `BAYLEE_REPLAY_JOBS=0`, as many jobs running as it allows, no agent with room, or admission held (in `admission`'s words) |
+| `504` | no tape in 60 s (`BAYLEE_REPLAY_JOB_SECS`, `1..=600`); the job's engine is told to stop |
+
+A game that ended in the last 10 s whose last piece is not stored yet is
+waited for up to 3 s. A seat's tape is that seat's view and log exactly as a
+socket at it was sent them (its own hand, the log as the seat may know it);
+the public tape is the spectators' stream (no hand, a print table that
+starts empty). What a re-run leaves out, because the record does not hold
+it: a teammate's hand shared by choice, clocks, `lost` seats, the debug
+`AiLog`, the spectator count, chat.
+
+### The job
+
+```text
+client ──POST /replays/{g}/tape──> gateway ──StartEngine{game_id:"replay-<id>", engine_token, url}──> agent ── spawn ──> engine
+                                     <── EngineHello{game_id:"replay-…", token, build} ──────────────────────────────┘
+                                     ── ProjectRecord{job, record, perspective, seat, names, verify, game_id, recorded_by} ──>
+                                     <── TapeChunk{job, seq, data, last} … ──
+client <──200 tape── gateway         (the engine exits; the agent reports it as any engine)
+```
+
+- **The agent is unchanged**: a job's id is a game id to it. The gateway
+  counts a job against the agent's capacity (`Agent::games`) until it ends,
+  and tells the agent `StopEngine` on a timeout. Jobs are not games: no lobby
+  entry, no `/health` `games` count (its `agents.games` counts engines, so a
+  job too), no record of their own. `BAYLEE_REPLAY_JOBS`
+  (default 4, `0` = off) bounds how many run at once on a gateway.
+- **The engine** decides by the first frame after its hello: `GameSetup` is a
+  game, `ProjectRecord` a job (`baylee_engine_server::projection::run`):
+  inflate the record, `baylee_gamehost::replay::project` on a blocking
+  thread (no AI runs: the house's answers are the record's), tape lines in
+  gzip members of 32 KiB as `TapeChunk`s, the `last` ending on the `stop`
+  line, then exit. Past 32 MiB the tape stops `too_large`.
+- **The checks**: after every input the engine's hash against the record's
+  (`exact`, the same build), else the record's `seen` against the replayed
+  table's (`seen`, another build), else a divergence: with `verify: stop` the
+  tape ends there (`stop: diverged`, everything before it stands), with
+  `note` it goes on `unverified`. An input this build refuses ends it
+  `refused`.
+- **Engine link only.** `ProjectRecord`, `TapeChunk`, `EngineHello.build`
+  (kept as `game_record.build`) and `GameEnded.turn` are spoken only by
+  gateway and engine, which ship as one build: no `PROTOCOL_VERSION` bump,
+  and a peer from before them passes over either message.
+- **The record never goes to a player.** `baylee_db::records::for_projection`
+  has one caller, the job (`crates/baylee-gateway/src/replays.rs`), after the
+  route found the account's seat; `for_seated` keeps its one, `POST
+  /reports`. A test holds both. The job's log names the job, the game, the
+  outcome and its time, never the account.
+- **Deploys**: a deploy's drain waits on `games.local_running`, which counts
+  no job, so replacing the engine binary can end a projection in flight:
+  that request is `502`. The admission hold refuses new jobs as it refuses
+  new games.
+- **What the list reads** (migration 000018): `game_record.build`,
+  `checked`, `allow_spectators` (the table's setting at start), `winners`,
+  `turn`, `end_reason` (from `GameEnded`), and `game_record_seat.seated`
+  (`person`, `house`, `model`), `colours`, `commander` (card data, kept when
+  the account link is cut).
 
 ## Spectators (protocol 26)
 
@@ -1857,6 +2062,7 @@ other's protocol.
 | agent | `AgentHello.protocol_version` | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
 | engine | `EngineHello.protocol_version` | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
 | seat socket | `&protocol=` in the socket's query | the ticket (or, until 2026-10-31, the seat token), and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
+| social socket | `&protocol=` and `&social=` in the socket's query | the ticket, and the session it was bought with still standing | `{"t":"refused","why":"protocol","message":…}`, the only frame, and the socket closes | the client stops dialling the social socket (§"Friends and chat") |
 
 - **One sentence for all three**, `baylee_protocol::version_refusal`, and it
   names both numbers: a mismatch is fixed by knowing which side is behind.
@@ -1910,6 +2116,8 @@ with that.
 | buy a seat ticket | `POST /ws-ticket` `{"socket":"seat","game":"<id>"}`, `Authorization: Bearer <seat token>` | `{ticket, expires_in}`; `401` for a seat token that is not this game's (or not any more), `404` for no such game |
 | open the lobby feed | `GET /lobby/ws?ticket=…&q=&offset=&limit=&waiting_only=` | the feed |
 | open a seat | `GET /games/{id}/ws?ticket=…&protocol=…` (`baylee_protocol::seat_socket_path`) | the table |
+| buy a social ticket | `POST /ws-ticket` `{"socket":"social"}`, `Authorization: Bearer <session>` | `{ticket, expires_in}`; `403 {"error":"this gateway has no chat"}` with `BAYLEE_SOCIAL=off` |
+| open the social socket | `GET /social/ws?ticket=…&protocol=…&social=…` (`baylee_protocol::social::social_socket_path`) | friends and chat (§"Friends and chat (beta.8)") |
 
 What a ticket is (`crates/baylee-gateway/src/wsticket.rs`):
 
@@ -2163,7 +2371,7 @@ door, key or no key.
 
 What a gateway's operator asks of it without a shell: how busy it is, in
 counts and by day, who is online and at which table, its accounts, and its
-closed-beta keys. Meant for one caller, the feedback
+closed-beta keys and its blocked cards. Meant for one caller, the feedback
 service's Overview on the same machine (`docs/feedback.md` §"The admin
 console"), which signs its admins in itself; the gateway takes no player's
 session here and knows no admin.
@@ -2213,15 +2421,25 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/sets/{code}` | one set's cards; `404` for a code the ledger has not, `400` for one that is not letters and digits |
 | `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
+| `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
+| `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
+| `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
+| `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
 | `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
 | `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
+| `GET /admin/cards/search?q=` | `{"cards": [{"index", "name", "type_line", "mana_cost", "coverage", "scryfall_id", "blocked"}]}`: the pool's cards whose English name holds `q` (any case) or whose index is `q`, those starting with it first, then by name, at most 25; `blocked` is `null` or the block in force (§"Blocked cards"); an empty `q` finds nothing, one over 100 characters is `400` |
+| `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
+| `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
+| `DELETE /admin/cards/blocks/{id}` | lifts a block in force: `204`; `404` for none, or one lifted or ended already; `400` for an id that is not a UUID. The row stays, lifted |
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
-`action=invite.create` with `count`, `uses`, `expires` and the key `ids`, or
-`action=invite.revoke` with the `id`. Never a key, the token, or a key's
-note, which may name a person. Reads are not audited.
+`action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
+`action=invite.revoke` with the `id`, `action=card.block` with the block's
+`id`, the card's `index` and name and `until`, or `action=card.unblock` with
+the `id`, `index` and name. Never a key, the token, a key's note or a block's
+reason, either of which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
 statement (`baylee_db::stats`), one for the days (`baylee_db::console::daily`)
@@ -2357,6 +2575,154 @@ confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
   "complete", "seat", "chairs": [{"seat", "player", "guest"}]}]`, a chair
   no account holds, the house's or a deleted account's, with `player`
   `null`).
+
+### Acting on an account (beta.8)
+
+The owner asked (12.10.2026) that an admin can reset a player's password,
+ban or delete a player or guest, from the console and not a shell
+(`crates/baylee-gateway/src/moderation.rs`; the columns are migration
+`m20261012_000016_account_moderation`). Finding the player is the search
+`GET /admin/accounts?q=` already does (owner, 09.10.2026); nothing new
+lists people. Every act is a change, so it names its admin
+(`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
+`action=account.password.reset`, `account.ban` (with `until` and whether
+it is a guest), `account.unban`, `account.delete` or `game.close`, the
+admin and the account's or game's id; **never a password, a token or a
+ban's reason**, which may name a person. A domain refusal is `400`, `404`
+or `409`, never `403`, which the feedback service reads as its token
+refused.
+
+- **Reset** (`POST /admin/accounts/{id}/password`, no body): a registered
+  account gets a random password, 80 bits as `XXXX-XXXX-XXXX-XXXX` in
+  Crockford's alphabet, answered once as `200 {"password"}` for the admin
+  to hand on, and stored only as its Argon2id hash. The account's
+  `must_change_password` is set and every session it has is deleted in the
+  same transaction; its lobby sockets close (`departed`). A chair it holds
+  is not touched: a seat runs on its seat token. A guest has no password:
+  `409`; no account: `404`.
+- **Choosing the new one** (`POST /auth/password {username, password,
+  new_password}`, public): proves the password as a sign-in does (the same
+  eight tries per account, the same `401`), then checks `new_password` by
+  the registration rule (`400 invalid password`) and that it differs from
+  the one given (`400`). It stores the new hash, clears the flag, deletes
+  every session of the account, closes its lobby sockets, and answers as
+  `POST /auth/login` does (`{token, expires_at, username, terms_stale?}`).
+  Any account may use it to change its password; one that was reset must.
+- **Sign-in with a reset password**: `POST /auth/login` answers `403
+  {"error": "Your password was reset. Choose a new one to sign in.",
+  "password_change": true}` and makes no session. A session that slipped
+  in between (resolved with the flag set) is refused `401`.
+- **Ban** (`PUT /admin/accounts/{id}/ban {"reason", "until"?}`): `reason`
+  1–500 characters, one line; `until` an RFC 3339 moment in the future,
+  absent or `null` for good (`400` otherwise). Replaces any ban the
+  account had; `200 {"ban": {"reason", "until"}}`, `404` for no account.
+  The account leaves every room and game, its sockets close and its
+  unredeemed chair tickets are spent, as a deleted account's are
+  (`account::forget_accounts`): a running game plays on, the house
+  taking the chair when the reconnect window runs out. A registered
+  account's sessions are deleted with the ban. **A guest keeps its
+  session**, which is the guest: it is refused while the ban holds and is
+  not renewed, so the guest is purged when it lapses (30 days) unless the
+  ban ends first. A guest can of course come back as a new guest; a ban is
+  for accounts.
+- **What a banned player is told**: their sign-in (after the right
+  password, so the reason reaches only them), and every request of a
+  banned guest's session, `POST /ws-ticket` and the lobby socket included,
+  answer `403 {"error": "This account is banned until
+  2026-10-20T18:00:00Z. Reason: …", "ban": {"reason", "until"}}` (`until`
+  `null` and "This account is banned. Reason: …" for good). The sentence is
+  English for a client that reads only `error`; the client says the parts
+  in its own language (`client_core::lobby::ban_sentence`). A ban whose end
+  has passed is no ban, read so at each request; it stays on the row until
+  the next ban or an unban.
+- **Unban** (`DELETE /admin/accounts/{id}/ban`): `204`, `404` for an
+  account with no ban (lapsed counts as one).
+- **Delete** (`DELETE /admin/accounts/{id}`): `account::depart` with
+  `store::delete_account`, exactly the player's own `DELETE /account`
+  (§"Deleting an account (#292)": the cascade, the pictures nobody claims,
+  the chairs and sockets); `204`, `404` for none.
+- **In the console's rows**: `GET /admin/accounts` and `/admin/accounts/{id}`
+  carry `reset_pending` (the account's `must_change_password`: named so
+  that no field of the console's answers says "password") and `ban`
+  (`{"reason", "until", "at", "by"}`,
+  only while in force, else `null`).
+
+`PROTOCOL_VERSION` and `VIEW_VERSION` do not move for this: an HTTP route,
+a refusal with additive fields, and a column, as for chair tickets. A
+client from before it shows the `error` sentence of either refusal, which
+says what happened in English; it cannot choose a new password, and the
+owner hands that player a new client.
+
+### Acting on a game (beta.8)
+
+`POST /admin/games/{id}/close {"reason"}` (1–200 characters, one line)
+ends a running game the way games end, through its engine and never by a
+process killed by hand: `404` for no such table, `409` for one that is
+not being played, else `202`. The gateway sends the game's engine
+`CloseGame { game_id, reason }` (envelope field 38, engine link only). The
+engine (`EngineRunner::close`) sends every attached seat and the
+spectators `GameClosed { reason }` (field 39), the rest of the record as
+its last piece, and `GameEnded` with no winners and the reason `closed by
+an admin`; the gateway then ends the game and stops the engine as for any
+other end. The rules are not asked: nobody won or lost, nothing is
+journaled, and the record ends where the game was closed. An engine that
+has not ended the game after 10 seconds (one from before `CloseGame`
+passes over it), or a game with no engine attached, is ended by the
+gateway itself, as a lost engine's is.
+
+The client shows `GameClosed` on the end screen: "The game was ended",
+and under it "An admin ended it: <reason>" (`HostMessage::Closed`), with
+the end screen's way back to the lobby. `PROTOCOL_VERSION` does not move,
+as it did not for `AiLog`: a client or engine from before these messages
+decodes an envelope with no message and passes over it (that client sees
+its table's socket go quiet and the game marked over in the lobby).
+## Blocked cards
+
+The operator may take a card out of play on one gateway, for good or until
+a moment, with a reason the players are told (owner, 12.10.2026): through
+the admin console (§"The admin console", `/admin/cards/…`), which the
+feedback service's admin pages drive (`docs/feedback.md`). Blocks are kept
+in the gateway's database (`card_block`, `baylee_db::card_blocks`), one row
+per block, which stays after the block ends: the list is also the history.
+
+**What a block does.** A deck holding a blocked card, in its main deck,
+sideboard or command zone, does not sit down at a table on this gateway
+(`crates/baylee-gateway/src/blocks.rs`). It is refused
+
+- where it is chosen: `POST /lobby/games` (a room or the one-tap game
+  against the house), `POST /lobby/games/{id}/join`, `POST
+  /lobby/games/{id}/seats/{seat}` with a `deck_id`;
+- where its player says ready (`POST /lobby/games/{id}/ready`), for a card
+  blocked after the deck was chosen;
+- where a game is built from the room (start, rematch), every deck at the
+  table asked again, the house deck an AI chair without a deck plays
+  included; and an AI chair without a deck is not made while the house deck
+  holds a blocked card.
+
+The refusal is `409 {"error": "the deck “<deck>” holds <card>, which is
+blocked on this gateway until 2026-10-20 18:00 UTC: <reason>"}` (without
+`until …` for a block without an end). A game already running is never
+touched: the gateway runs no rules, and a block decides which decks sit
+down, not what happens on a table. A block with an end stops counting at
+that moment by itself; lifting one frees its decks at once. A local game
+(`LocalHost`) asks no gateway and is not affected.
+
+The gateway holds the blocks in force in memory, because the lobby answers
+under its lock: read before it serves, after every change the console makes,
+and every minute in case another process wrote one.
+
+**What players are told.** Both answers are for a signed-in session:
+
+- `GET /cards/blocked`: `{"blocked": [{"index", "name", "reason",
+  "until"}]}`, every card blocked now (`until` RFC 3339 or `null`). The
+  deck builder marks these cards.
+- `GET /decks` and `GET /decks/shared`: every row carries `"blocked"`, the
+  same objects for the cards of that deck blocked now, `[]` for a deck this
+  gateway plays. The client marks such a deck on its shelf and in a room's
+  deck choices, where it cannot be picked.
+
+`PROTOCOL_VERSION` does not move: these are HTTP routes and an additive
+field, and an older client is refused with the sentence above.
 
 ## Hosted language-model seats (beta.7)
 
@@ -2543,6 +2909,193 @@ only, at every hop: no database row, no log line, no argument, no
 environment; the seat agent writes it into its key store
 (`docs/llm-seat.md` §"Where a key is kept", `file:<dir>`).
 
+## Friends and chat (beta.8)
+
+Friends, presence for friends, whispers, groups and table chat, every
+message body end-to-end encrypted. The types are
+`baylee_protocol::social` (`crates/baylee-protocol/src/social.rs`), the
+gateway's side `crates/baylee-gateway/src/social/`, the crypto
+`crates/baylee-seal`.
+
+- **Nothing here touches the engine** or the protobuf `Envelope`, so
+  `PROTOCOL_VERSION` does not move. The social socket still states it and is
+  refused like a seat socket on a mismatch, and it states its own
+  `social::SOCIAL_VERSION` (1) too.
+- **The public identifier is the tag** (`af03`). Account ids never leave the
+  gateway.
+- **The gateway never sees plaintext.** It carries sealed bodies as opaque
+  base64url, checks only shapes, sizes, membership and that a send wraps the
+  message key for exactly the current devices of every recipient, and never
+  logs a frame, ticket, ciphertext, key, tag or handle.
+- `GET /info` says `"social": {"version": 1, "keep_days": 14}`, or `null`
+  when the gateway has `BAYLEE_SOCIAL=off`. An older gateway sends no key,
+  which means no chat.
+
+### The socket: `GET /social/ws`
+
+Buy a ticket with `POST /ws-ticket {"socket":"social"}` (the session in
+`Authorization`), then open
+`/social/ws?ticket=…&protocol=<PROTOCOL_VERSION>&social=<SOCIAL_VERSION>`,
+built only by `baylee_protocol::social::social_socket_path`. JSON text
+frames, tagged by `"t"`: `Up` from the client (`hello`, `send`, `ack`,
+`presence`), `Down` from the gateway (`welcome`, `snapshot`, `msg`, `sent`,
+`refused`, `presence`, `friend`, `group`, `members`, `keys_changed`,
+`invite`, `invite_gone`, `notice`).
+
+The client's **first frame is `hello`** `{device, presence}`, naming one of
+its account's registered devices; nothing else is accepted before it, and a
+device that is not this account's is answered `refused {why:"device"}` and
+the socket closes (the client registers again). The gateway answers
+`welcome`, then a whole `snapshot` (friends with their presence, requests
+both ways, blocks, groups, group invites, the table and team conversations
+the account is in, open table invites, settings), then up to 256 pending
+deliveries.
+
+- **One socket per device.** A second `hello` for a device closes the older
+  socket with code 4001; a device removed (or a guest's replaced) closes with
+  4003 (4002).
+- **Bounds.** A client frame over `MAX_SOCIAL_FRAME` (48 KiB) closes the
+  socket with 1008 (over 64 KiB the transport drops it); 40 frames at once,
+  then 10 a second, and past that 1008; a binary frame 1003. Pings as on
+  the lobby feed (20 s, 50 s of silence ends it). A deleted account's
+  sockets close.
+- **Presence**: the social socket counts the account online
+  (`GET /lobby/stats`, the room grace) as a lobby socket does.
+
+### Conversations and who is in them
+
+| kind | id | members, computed at send time |
+| --- | --- | --- |
+| whisper | `dm:<tagA>:<tagB>`, tags in numeric order (by length, then text) | the two accounts, if friends, or if both have a chair at one table now and the recipient's `whispers_from` is `friends_and_tables` |
+| group | `grp:<uuid>` | `group_member` rows |
+| table | `tbl:<game_id>` | the accounts in a chair of that lobby game (waiting, playing or over until the lobby sweeps it) |
+| team | `team:<game_id>:<n>` | the accounts in a chair with `team == n` |
+
+A table's members are read from the lobby's chairs, so **an AI chair, a
+seat bridge's delegate chair and a spectator are never members**, and the
+engine never sees a social frame: no view, agent view or game record can
+contain chat. A rematch is a new `tbl:`. `members` frames are pushed to the
+accounts in a table or team conversation whenever it changes (and to one
+who left it). Every refusal of membership is `not_member`, whether the
+reason was not being friends, a whisper setting or the conversation not
+existing.
+
+### Sending: `send` → `sent` or `refused`
+
+`{"t":"send","req":7,"conv":"dm:0012:af03","sealed":{hdr,n,ct,epk,sig,wraps:[{d,k}]}}`,
+every value base64url without padding. The gateway checks, in this order:
+
+1. shapes: `hdr` ≤ 512 bytes and JSON, `n` 24, `epk` 32, `sig` 64, `ct` at
+   most 4096 + 16, each wrap a device id and 48 bytes, no device twice
+   (`bad_sealed`, `too_large`);
+2. the header: `v` 1, `from` the socket's tag, `dev` the socket's device,
+   `conv` the frame's, `id` a `UUIDv7`, `kind` `text` (`bad_sealed`), `ts`
+   within ten minutes of the gateway's clock (`stale`);
+3. membership (`not_member`);
+4. the send allowance: 8 at once then 1 a second, a guest 4 then 1 every
+   3 s (`rate`; retry after a second);
+5. **completeness**: the wraps name exactly the current devices of every
+   member except the sending one, blocked recipients included (`devices`,
+   with `missing` and `extra` device ids; refetch the keys and seal again);
+6. the per-device cap of 5000 undelivered slots (`recipient_full`), a
+   duplicate `id` (`duplicate`), then storage: the message once
+   (`chat_message`, without its wraps) and one slot per recipient device
+   (`chat_delivery`, that device's wrap), in one transaction.
+
+A recipient who **blocks the sender** is wrapped for like anyone else and
+given no slot, so the sender sees `sent` and learns nothing. The sending
+device gets no slot; the account's other devices do.
+
+### Delivering: `msg`, `ack`
+
+`{"t":"msg","seq":41,"at":…,"conv":…,"from":{tag,handle,device},"sealed":{hdr,n,ct,epk,sig,k}}`
+carries only that device's wrap `k`. `from` is the gateway's word for who
+sent it; the client checks the header's `from` and `dev` against it.
+`{"t":"ack","upto":41}` deletes the slots up to 41 **that this socket sent**;
+a slot never sent is never deleted by an ack, so `seq`s may arrive out of
+order (a later-committed message can carry a lower `seq`) and a client
+de-duplicates by the message `id`, never by `seq`. Up to 256 deliveries are
+in flight per socket; more follow as acks come. A slot not acked is sent
+again on the next connection (at least once). Undelivered slots expire
+after `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30), **1 day for a
+guest's device**; a message goes with its last slot (the sweep runs at start
+and every ten minutes, logging counts).
+
+### Presence
+
+Memory only, shown **to accepted friends only**, never logged:
+`{"t":"presence","tag":…,"presence":{"status":"online|away|dnd|offline","place":{…}}}`.
+`invisible` reads `offline`. The place is the waiting room, running table or
+watched table from lobby memory, else `building`/`house` as the client says
+(`{"t":"presence","status":…,"activity":…}`), else `lobby`. A place names its
+`game` only when the friend has `share_table` on and the room has no
+password. Pushed on a change, at most once a second per account (the running
+time of a game is not a change); an account's last socket closing pushes
+`offline` at once.
+
+### HTTP routes (all `Authorization: Bearer <session>`)
+
+Types in `baylee_protocol::social` (`DeviceRegistration`, `KeysAnswer`,
+`PlayerLookup`, …). With `BAYLEE_SOCIAL=off` every route is
+`403 {"error":"this gateway has no chat"}`. A guest has no friends list,
+groups or table invites (`403 guests have no friends list`); it may register
+its one device, fetch keys, block, set its settings and report.
+
+| call | body | answer | refusals |
+| --- | --- | --- | --- |
+| `POST /social/devices` | `{ik, dk, dsig, label}` | `201 {id}` (the same device again: `201`) | `400` a bad key, label or statement (`baylee_seal::verify_device` for the account's tag); `409` five devices already, or a key another device has (a guest's new device replaces its old one); `429` past 5 a day |
+| `GET /social/devices` | — | `{devices:[{id,label,added_at,seen_at}]}` | |
+| `DELETE /social/devices/{id}` | — | `204`; its socket closes | `404` |
+| `GET /social/keys?tag=a&tag=b` (or `tag=a,b`; up to 60) | — | `{keys:[{tag,handle,devices:[{id,ik,dk,dsig,label,added_at}]}]}` | only tags the caller may write to (itself, friends, group co-members, players at its tables); any other is left out. `429` past 20 at once then 1 a second |
+| `GET /social/players/{handle}` | — | `{tag,handle,friend,incoming,outgoing,blocked}`, never an id | `400` without `#`, `404` |
+| `POST /social/friends/requests` | `{handle}` | `201 {state:"pending"\|"friends"}` | `403` a guest either side, or requests off; `404`; `409` already friends, or 300 friends / 50 open requests; `429` past 20 an hour. A request to someone who blocks you looks sent and never arrives |
+| `POST /social/friends/requests/{tag}/accept` · `…/decline` | — | `204` | `404` |
+| `DELETE /social/friends/requests/{tag}` | — | `204` (cancels your own) | `404` |
+| `DELETE /social/friends/{tag}` | — | `204` | `404` |
+| `POST /social/blocks` · `DELETE /social/blocks/{tag}` | `{tag}` · — | `204`; a block ends a friendship and requests both ways | `404` |
+| `PUT /social/settings` | `{whispers_from, requests_open, share_table}` | `204` | |
+| `POST /social/groups` | `{name}` | `201 {id}` | `400` a name that is not 1–48 characters or hides characters (`names::group_name`); `409` in 20 groups; `429` past 10 a day |
+| `PATCH /social/groups/{id}` | `{name}` | `204` | `403` anyone but the owner |
+| `POST /social/groups/{id}/invites` | `{tag}` | `204` | `403` unless a member inviting a friend; `409` full (50 members and invites) or already a member; `429` past 30 an hour |
+| `POST /social/groups/{id}/join` | — | `204` | `404` no invite; `409` in 20 groups |
+| `DELETE /social/groups/{id}/invites/{tag}` | — | `204` (the invitee declines; its inviter or the owner withdraws) | `403`, `404` |
+| `DELETE /social/groups/{id}/members/{tag}` | — | `204` (leaving, or the owner removing) | `403`, `404` |
+| `POST /social/groups/{id}/owner` | `{tag}` | `204` | `403`, `404` |
+| `DELETE /social/groups/{id}` | — | `204` | `403` anyone but the owner |
+| `POST /social/invites` | `{tag, game}` | `201 {id}` | `403` unless friends and the caller sits in `game`: a waiting room with an open person's chair (`join`) or a running table that allows spectators (`watch`); `429` past 30 an hour |
+| `DELETE /social/invites/{id}` | `{"answer":"declined"}` or nothing | `204` | `404` |
+| `POST /social/reports` | `{conv, sealed, mk, body, note}` | `201 {report_id}` | `400`; `429` past 10 an hour; `503` without reports configured |
+
+Group changes reach every member as `group` frames (`joined`, `updated`,
+`left`, `invited`, `invite_gone`, `deleted`) and, for joins, departures,
+renames and new owners, as `notice` lines the client draws as server
+notices. An owner who leaves or is deleted hands the group to the member who
+joined first; a group nobody is left in is deleted.
+
+**Table invites** live ten minutes in the gateway's memory.
+`POST /lobby/games/{id}/join` takes an additive `invite: "<id>"`: a live
+`join` invite for the caller and this room stands in for the room's password
+and is spent by the join (`invite_gone {answer:"accepted"}` to both). A
+`watch` invite is only a pointer: watching uses the spectator door as
+always.
+
+### Reporting a message
+
+The reporter sends the message as delivered, its message key `mk` and the
+body it decrypted to (base64url). The gateway looks the header's `dev` up,
+checks it is the account the header's `from` names, and runs
+`baylee_seal::verify_report` (the signature, then that `mk` opens `ct` to
+exactly `body`). It forwards to the feedback service as `kind: "chat"`, the
+text being the reporter's note and the message's text, with
+`client.chat = {verified, conversation, sender (a pseudonym), sent_at,
+message, note}`. A device removed since cannot be checked: the report goes
+on with `verified: false`. Revealing `mk` reveals that one message.
+
+### What the gateway logs
+
+Counts at `info` (the sweep, a report taken), refusals at `debug` by kind
+only. Never a frame, ticket, ciphertext, key, tag, handle or conversation id.
+
 ## Terms of use (WG-1)
 
 A gateway may ask its players to accept terms of use. The operator points
@@ -2705,7 +3258,8 @@ from a curl recipe into a contract:
 | sign up | `POST /auth/register` `{username, display_name, password, lang, invite_key?}` | `{"ok":true}`; `409` for a taken username; `403` for a missing or refused key on a closed beta |
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
-| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
+| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}`; `403` with `ban` for a banned account, with `password_change: true` after an admin's reset (§"Acting on an account") |
+| choose a new password | `POST /auth/password` `{username, password, new_password}` | as a sign-in; what an account an admin reset must do first |
 | play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |

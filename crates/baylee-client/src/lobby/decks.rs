@@ -582,11 +582,15 @@ fn mine(
             parts::ELLIPSIS,
             Press::Shared(SharedPress::OpenMenu(ShellMenu::Deck(index))),
         );
-        let badges: Vec<(String, Color)> = shelf::badges(lang, deck, next)
+        let said = shelf::badges(lang, deck, next);
+        // The blocked badge is the last one, when there is one.
+        let blocked_at = (!deck.blocked.is_empty()).then(|| said.len() - 1);
+        let badges: Vec<(String, Color)> = said
             .into_iter()
             .enumerate()
             .map(|(i, said)| {
                 let ink = match i {
+                    _ if Some(i) == blocked_at => tokens::DANGER,
                     0 => tokens::ACCENT,
                     _ if next && i == 1 => tokens::ACCENT,
                     _ => tokens::GOLD,
@@ -862,6 +866,9 @@ fn house(
                 .fill(lang, &[&n]),
                 tokens::GOLD,
             ));
+        }
+        if let Some(said) = shelf::blocked_badge(lang, &deck.blocked) {
+            badges.push((said, tokens::DANGER));
         }
         let look = TileLook {
             name: &deck.name,

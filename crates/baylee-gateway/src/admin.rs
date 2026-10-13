@@ -144,9 +144,9 @@ fn digest(token: &str) -> [u8; 32] {
 }
 
 /// What the console's routes share.
-struct Console {
+pub(crate) struct Console {
     /// The gateway's state.
-    app: Shared,
+    pub(crate) app: Shared,
     /// SHA-256 of `BAYLEE_ADMIN_TOKEN`.
     token: [u8; 32],
     /// Wrong tokens.
@@ -155,7 +155,7 @@ struct Console {
     requests: auth::RateLimiter,
 }
 
-type Admin = Arc<Console>;
+pub(crate) type Admin = Arc<Console>;
 
 /// The console's routes, guarded.
 fn router(app: Shared, token: [u8; 32]) -> Router {
@@ -172,9 +172,15 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         .route("/admin/sets", get(sets))
         .route("/admin/sets/{code}", get(one_set))
         .route("/admin/accounts", get(list_accounts))
-        .route("/admin/accounts/{id}", get(one_account))
+        .route(
+            "/admin/accounts/{id}",
+            get(one_account).delete(crate::moderation::delete_account),
+        )
         .route("/admin/invites", get(list_invites).post(create_invites))
         .route("/admin/invites/{id}", delete(revoke_invite))
+        .route("/admin/cards/search", get(search_cards))
+        .route("/admin/cards/blocks", get(list_blocks).post(block_card))
+        .route("/admin/cards/blocks/{id}", delete(unblock_card))
         .route("/admin/llm/seathosts", get(llm_seathosts))
         .route("/admin/llm/profiles", get(llm_profiles))
         .route(
@@ -193,6 +199,8 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
             "/admin/llm/seathosts/{host}/profiles/{id}/key",
             post(llm_key),
         )
+        // Acting on an account or a game (beta.8): `moderation.rs`.
+        .merge(crate::moderation::console_routes())
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))
@@ -229,11 +237,11 @@ pub(crate) fn serve(listener: tokio::net::TcpListener, app: Shared, settings: &S
     });
 }
 
-type Refusal = (StatusCode, Json<ErrorBody>);
+pub(crate) type Refusal = (StatusCode, Json<ErrorBody>);
 
 /// Who asked for a change, from [`ACTOR_HEADER`].
 #[derive(Clone)]
-struct Actor(String);
+pub(crate) struct Actor(pub(crate) String);
 
 /// Whether `name` may stand in an audit line: what the feedback service
 /// allows as an admin's name, 1–64 letters, digits, `.`, `-`, `_`.
@@ -354,7 +362,7 @@ async fn no_such_route() -> Refusal {
 }
 
 /// A moment as the console reads it: `2026-10-08T12:00:00Z`.
-fn iso(at: OffsetDateTime) -> String {
+pub(crate) fn iso(at: OffsetDateTime) -> String {
     let at = at.to_offset(time::UtcOffset::UTC);
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
@@ -448,6 +456,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             .into(),
     );
     gateway.insert("terms".into(), app.terms.is_some().into());
+    let social = crate::social::console_counts(app).await;
     gateway.insert(
         "mail".into(),
         (!matches!(app.mail, crate::mail::Mailer::Off)).into(),
@@ -489,6 +498,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             "avg_secs_30d": stored.avg_game_secs_30d,
         },
         "agents": agents(app),
+        "social": social,
         "invites": {
             "total": stored.invites_total,
             "active": stored.invites_active,
@@ -1091,6 +1101,259 @@ async fn revoke_invite(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ------------------------------------------------------------ blocked cards
+
+/// The most cards `GET /admin/cards/search` answers.
+const SEARCH_LIMIT: usize = 25;
+
+/// The latest a block may end: ten years ahead.
+const MAX_BLOCK_DAYS: i64 = 3650;
+
+/// What `GET /admin/cards/search` reads.
+#[derive(serde::Deserialize, Default)]
+#[serde(default)]
+struct CardQuery {
+    q: String,
+}
+
+/// `GET /admin/cards/search?q=`: the pool's cards whose English name holds
+/// `q` (any case), or whose index is `q`; those starting with it first,
+/// then by name; at most [`SEARCH_LIMIT`]. Each says whether it is blocked
+/// now. Only the pool: a card this build cannot play is in no deck here.
+async fn search_cards(
+    State(console): State<Admin>,
+    axum::extract::Query(query): axum::extract::Query<CardQuery>,
+) -> Result<Json<serde_json::Value>, Refusal> {
+    let q = query.q.trim();
+    if q.chars().count() > 100 {
+        return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
+    }
+    if q.is_empty() {
+        return Ok(Json(serde_json::json!({ "cards": [] })));
+    }
+    let needle = q.to_lowercase();
+    let by_index = q.parse::<u32>().ok();
+    let mut found: Vec<(bool, &baylee_cards::pool::PoolCard)> = baylee_cards::pool::rows()
+        .iter()
+        .filter_map(|card| {
+            let name = card.english_name.to_lowercase();
+            if by_index == Some(card.index) {
+                Some((true, card))
+            } else if name.contains(&needle) {
+                Some((name.starts_with(&needle), card))
+            } else {
+                None
+            }
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| a.1.english_name.cmp(&b.1.english_name))
+            .then(a.1.index.cmp(&b.1.index))
+    });
+    let now = OffsetDateTime::now_utc();
+    let cards: Vec<serde_json::Value> = found
+        .into_iter()
+        .take(SEARCH_LIMIT)
+        .map(|(_, card)| {
+            serde_json::json!({
+                "index": card.index,
+                "name": card.english_name,
+                "type_line": card.type_line,
+                "mana_cost": card.mana_cost,
+                "coverage": card.coverage,
+                "scryfall_id": card.scryfall_id,
+                "blocked": console.app.blocks.of(card.index, now).map(|b| b.json()),
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "cards": cards })))
+}
+
+/// One block as the console lists it.
+fn block_listed(row: &baylee_db::card_blocks::CardBlock, now: OffsetDateTime) -> serde_json::Value {
+    let state = if row.lifted_at.is_some() {
+        "lifted"
+    } else if row.in_force(now) {
+        "active"
+    } else {
+        "expired"
+    };
+    serde_json::json!({
+        "id": row.id,
+        "index": row.card_index,
+        "name": crate::blocks::pool_name(row.card_index).unwrap_or(&row.card_name),
+        "reason": row.reason,
+        "created_at": iso(row.created_at),
+        "created_by": row.created_by,
+        "until": row.until.map(iso),
+        "lifted_at": row.lifted_at.map(iso),
+        "lifted_by": row.lifted_by,
+        "state": state,
+    })
+}
+
+/// `GET /admin/cards/blocks`: every block made, newest first, with its
+/// `state`: `active`, `expired` or `lifted`.
+async fn list_blocks(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+    let now = OffsetDateTime::now_utc();
+    let rows = baylee_db::card_blocks::list(&console.app.db)
+        .await
+        .map_err(|e| db_failed(&e))?;
+    Ok(Json(serde_json::Value::Array(
+        rows.iter().map(|row| block_listed(row, now)).collect(),
+    )))
+}
+
+/// What `POST /admin/cards/blocks` reads.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BlockBody {
+    index: u32,
+    reason: String,
+    /// RFC 3339; absent or `null` for a block without an end.
+    #[serde(default)]
+    until: Option<String>,
+}
+
+/// The reason, trimmed and checked: 1 to 200 characters, no control
+/// characters.
+fn block_reason(reason: &str) -> Result<String, Refusal> {
+    let reason = reason.trim();
+    let chars = reason.chars().count();
+    if chars == 0 || chars > baylee_db::card_blocks::MAX_REASON_CHARS {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a block gives its reason in 1-200 characters",
+        ));
+    }
+    if reason.chars().any(char::is_control) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a reason is one line without control characters",
+        ));
+    }
+    Ok(reason.to_owned())
+}
+
+/// When a block ends: an RFC 3339 moment after `now` and at most
+/// [`MAX_BLOCK_DAYS`] ahead; `None` for never.
+fn block_until(
+    until: Option<&str>,
+    now: OffsetDateTime,
+) -> Result<Option<OffsetDateTime>, Refusal> {
+    let Some(until) = until.map(str::trim).filter(|u| !u.is_empty()) else {
+        return Ok(None);
+    };
+    let at = OffsetDateTime::parse(until, &time::format_description::well_known::Rfc3339).map_err(
+        |_| {
+            err(
+                StatusCode::BAD_REQUEST,
+                "until is a moment in RFC 3339, such as 2026-10-20T18:00:00Z",
+            )
+        },
+    )?;
+    if at <= now {
+        return Err(err(StatusCode::BAD_REQUEST, "until is already past"));
+    }
+    if at > now + time::Duration::days(MAX_BLOCK_DAYS) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "until is more than ten years ahead; block it without an end instead",
+        ));
+    }
+    Ok(Some(at))
+}
+
+/// `POST /admin/cards/blocks`: blocks a card of the pool, for good or until
+/// a moment. `201` with the block as listed; `409` when the card is blocked
+/// already (lift that one first); `404` for an index the pool has not.
+async fn block_card(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    let body: BlockBody = serde_json::from_slice(&body)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "not a request to block a card"))?;
+    let now = OffsetDateTime::now_utc();
+    let reason = block_reason(&body.reason)?;
+    let until = block_until(body.until.as_deref(), now)?;
+    let name = crate::blocks::pool_name(body.index)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no card of this pool has that index"))?;
+    let made = baylee_db::card_blocks::create(
+        &console.app.db,
+        &baylee_db::card_blocks::NewBlock {
+            card_index: body.index,
+            card_name: name.to_owned(),
+            reason,
+            created_by: actor.clone(),
+            until,
+        },
+        now,
+    )
+    .await
+    .map_err(|e| db_failed(&e))?
+    .ok_or_else(|| {
+        err_saying(
+            StatusCode::CONFLICT,
+            format!("{name} is blocked already; lift that block first"),
+        )
+    })?;
+    reload_blocks(&console.app).await;
+    // Never the reason: like a key's note, it may name a person.
+    tracing::info!(
+        target: "baylee_gateway::audit",
+        admin = %actor,
+        action = "card.block",
+        id = %made.id,
+        index = body.index,
+        card = %name,
+        until = %until.map_or_else(|| "never".into(), iso),
+        "admin console: card blocked"
+    );
+    Ok((StatusCode::CREATED, Json(block_listed(&made, now))).into_response())
+}
+
+/// `DELETE /admin/cards/blocks/{id}`: lifts a block in force. `204`; `404`
+/// for no such block, or one lifted or ended already. The row stays.
+async fn unblock_card(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, Refusal> {
+    let id =
+        uuid::Uuid::parse_str(&id).map_err(|_| err(StatusCode::BAD_REQUEST, "not a block's id"))?;
+    let lifted =
+        baylee_db::card_blocks::lift(&console.app.db, id, &actor, OffsetDateTime::now_utc())
+            .await
+            .map_err(|e| db_failed(&e))?
+            .ok_or_else(|| {
+                err_saying(
+                    StatusCode::NOT_FOUND,
+                    format!("no block {id} that is still in force"),
+                )
+            })?;
+    reload_blocks(&console.app).await;
+    tracing::info!(
+        target: "baylee_gateway::audit",
+        admin = %actor,
+        action = "card.unblock",
+        id = %id,
+        index = lifted.card_index,
+        card = %lifted.card_name,
+        "admin console: card block lifted"
+    );
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Reads the blocks again after a change; a failure leaves the periodic
+/// refresh (`blocks::spawn_refresh`) to catch up.
+async fn reload_blocks(app: &crate::AppState) {
+    if let Err(e) = app.blocks.reload(&app.db).await {
+        tracing::error!("card blocks: could not read them again after a change: {e}");
+    }
+}
+
 // ---------------------------------------------------------- hosted models
 
 /// `GET /admin/llm/seathosts`: every seat agent connected, and what it
@@ -1370,6 +1633,27 @@ mod tests {
             &known,
             &with("an-admin-token-of-thirty-two-chars-or-more")
         ));
+    }
+
+    /// The console's page sends `Date.toISOString()`, fractional seconds
+    /// included; an offset is RFC 3339 too.
+    #[test]
+    fn a_block_ends_at_any_rfc_3339_moment_ahead() {
+        let now = OffsetDateTime::from_unix_timestamp(1_800_000_000).expect("a moment");
+        for until in [
+            "2027-01-20T18:00:00.000Z",
+            "2027-01-20T18:00:00Z",
+            "2027-01-20T20:00:00+02:00",
+        ] {
+            let at = block_until(Some(until), now)
+                .unwrap_or_else(|_| panic!("{until} is refused"))
+                .expect("an end");
+            assert_eq!(iso(at), "2027-01-20T18:00:00Z", "{until}");
+        }
+        assert!(matches!(block_until(None, now), Ok(None)));
+        assert!(matches!(block_until(Some(" "), now), Ok(None)));
+        assert!(block_until(Some("2027-01-15T07:59:59Z"), now).is_err());
+        assert!(block_until(Some("2027-01-20 18:00"), now).is_err());
     }
 
     #[test]

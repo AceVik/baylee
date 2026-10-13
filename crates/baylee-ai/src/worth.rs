@@ -116,6 +116,84 @@ impl<'a> Origin<'a> {
     }
 }
 
+/// Whether `o` is sacrificed the moment a spell or ability targets it:
+/// "When this creature becomes the target of a spell or ability, sacrifice
+/// it", printed (an Illusion) or given to a clone by the card under it
+/// (Phantasmal Image's `CopyMod::GrantAbility`, which the copied rules the
+/// view names do not carry).
+pub(crate) fn dies_when_targeted(o: &PublicObject) -> bool {
+    let sacrificed = |ability: &AbilityDef| {
+        matches!(
+            ability,
+            AbilityDef::Triggered {
+                trigger: Trigger::BecomesTarget,
+                effects,
+                ..
+            } if effects.iter().any(|e| matches!(e, Effect::SacrificeSelf))
+        )
+    };
+    if printed_list(o).iter().any(sacrificed) {
+        return true;
+    }
+    o.card
+        .and_then(|card| baylee_cards::by_index(card.index))
+        .is_some_and(|def| {
+            def.abilities_for_face(0).iter().any(|ability| match ability {
+                AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
+                    mods.iter().any(|m| {
+                        matches!(m, baylee_cards_dsl::CopyMod::GrantAbility(granted) if sacrificed(granted))
+                    })
+                }
+                _ => false,
+            })
+        })
+}
+
+/// How much mana one activation of a mana ability pours on this board, read
+/// off its one `AddMana` (CR 106.1, 605.1a): a fixed number, or a count of
+/// the battlefield the view shows whole — Harabaz Druid's "X mana of any one
+/// color, where X is the number of Allies you control".
+///
+/// `None` wherever the view cannot count it, which is the answer a planner
+/// must get: an `{X}` the activation announces, a target's mana value, a
+/// sacrificed card's, a filter the view cannot read (a type chosen as the
+/// permanent entered). Counting those would plan mana that never arrives
+/// and strand a half-tapped board mid-cast.
+///
+/// Shared by the client's planner (`manasources`) and the house AI's
+/// (`policy::offers`), so the two count the same tap the same way.
+#[must_use]
+pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> Option<u8> {
+    let mut amounts = effects.iter().filter_map(|effect| match effect {
+        Effect::AddMana { amount, .. } => Some(*amount),
+        _ => None,
+    });
+    let amount = amounts.next()?;
+    if amounts.next().is_some() || !countable(amount) {
+        return None;
+    }
+    let poured = HeuristicAgent::new(crate::AIProfile::STEADY).count(
+        view,
+        Origin::of(view, source),
+        amount,
+        Aim::Source,
+        0,
+    )?;
+    u8::try_from(poured.max(0)).ok()
+}
+
+/// Whether `amount` is made only of numbers and battlefield counts, the two
+/// things a view can answer before the ability is activated.
+fn countable(amount: Amount) -> bool {
+    match amount {
+        Amount::Fixed(_) => true,
+        Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
+        Amount::Plus { base, .. } | Amount::Times { base, .. } => countable(*base),
+        Amount::Sum { left, right } => countable(*left) && countable(*right),
+        _ => false,
+    }
+}
+
 /// What a point of `player`'s life is worth to them: little at twenty, a
 /// great deal at five.
 pub(crate) fn life_price(view: &PlayerView, player: PlayerId) -> i64 {
@@ -750,6 +828,12 @@ impl HeuristicAgent {
             return Self::permanent_worth(view, o);
         }
         let worth = Self::permanent_worth(view, o);
+        // Targeting it is what kills it: a Phantasmal Image is sacrificed as
+        // the flicker is put on the stack, and the flicker then has nothing
+        // to return (CR 608.2b). One of this seat's own is simply lost.
+        if dies_when_targeted(o) {
+            return if hostile { worth } else { -worth };
+        }
         let counters: i64 = o
             .counters
             .iter()
@@ -774,8 +858,50 @@ impl HeuristicAgent {
         } else {
             0
         };
-        let fresh = self.etb_worth(view, o) - counters;
+        let fresh = self.etb_worth(view, o) - counters + self.exile_watched(view, o);
         homecoming + saved + if hostile { -fresh } else { fresh }
+    }
+
+    /// What this seat's own permanents gain from `o` being exiled from the
+    /// battlefield, which a flicker does: Soulherder's "Whenever a creature
+    /// is exiled from the battlefield, put a +1/+1 counter on this
+    /// creature", counted at the price `blink` takes a counter away at.
+    /// The exiled permanent's own watcher is not counted: it leaves, and the
+    /// one that returns is a new object (CR 400.7).
+    fn exile_watched(&self, view: &PlayerView, o: &PublicObject) -> i64 {
+        view.battlefield
+            .iter()
+            .filter(|watcher| watcher.id != o.id && watcher.controller == view.seat)
+            .flat_map(|watcher| printed_list(watcher).iter().map(move |a| (watcher, a)))
+            .filter_map(|(watcher, ability)| match ability {
+                AbilityDef::Triggered {
+                    trigger: Trigger::ExiledFromBattlefield(filter),
+                    effects,
+                    ..
+                } if self.filter_matches(
+                    filter,
+                    view,
+                    o,
+                    ZoneRef::Battlefield,
+                    Some(watcher.id),
+                ) == Some(true) =>
+                {
+                    Some(
+                        effects
+                            .iter()
+                            .map(|effect| match effect {
+                                Effect::AddCounter {
+                                    kind: CounterKind::P1P1,
+                                    amount: Amount::Fixed(n),
+                                } => 110 * i64::from(*n),
+                                _ => 0,
+                            })
+                            .sum::<i64>(),
+                    )
+                }
+                _ => None,
+            })
+            .sum()
     }
 
     /// What an equipment is worth on `c`: its statics on the equipped

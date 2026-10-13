@@ -376,6 +376,7 @@ async fn only_the_admin_token_changes_or_deletes_a_report() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one catalogue of every table's columns
 async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
     let service = Service::start("refused").await;
     let mut bad: serde_json::Value = serde_json::from_str(&a_report("bug", None)).unwrap();
@@ -464,7 +465,31 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
     );
     assert_eq!(
         columns("feedback_audit").await,
-        ["id", "at", "actor", "report_id", "action", "detail"]
+        [
+            "id",
+            "at",
+            "actor",
+            "report_id",
+            "action",
+            "detail",
+            "contact_id"
+        ]
+    );
+    // A contact message is what its sender typed and nothing about the
+    // request: no address, no device (`crate::contact`).
+    assert_eq!(
+        columns("feedback_contact").await,
+        [
+            "id",
+            "created_at",
+            "updated_at",
+            "name",
+            "email",
+            "message",
+            "language",
+            "status",
+            "done_at",
+        ]
     );
 
     service.close().await;

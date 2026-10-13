@@ -290,6 +290,7 @@ fn harness() -> (App, Sender<Job>) {
             clicking: Vec::new(),
             stepping: None,
             shell_jobs: Vec::new(),
+            reveal_jobs: Vec::new(),
             frame: 0,
         })
         .init_resource::<perf::Probe>()

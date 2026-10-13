@@ -65,6 +65,19 @@ pub struct Model {
     pub terms_version: Option<String>,
     /// When it accepted them.
     pub terms_accepted_at: Option<TimeDateTimeWithTimeZone>,
+    /// An admin reset the password: it signs in with the one it was given
+    /// only to choose its own (`POST /auth/password`).
+    pub must_change_password: bool,
+    /// Banned since then; `None` for not banned. The ban columns are all set
+    /// or all `NULL`, but for `banned_until` (a `CHECK`).
+    pub banned_at: Option<TimeDateTimeWithTimeZone>,
+    /// Until then; `None` with a ban is for good. A ban whose end has
+    /// passed is no ban.
+    pub banned_until: Option<TimeDateTimeWithTimeZone>,
+    /// Why, in the admin's words: what the player is shown.
+    pub ban_reason: Option<String>,
+    /// The admin who banned it, as the console named them.
+    pub banned_by: Option<String>,
 }
 
 /// Everything that belongs to an account and dies with it.

@@ -583,6 +583,7 @@ pub(super) fn meta_of(card: &CardRef, desk: &ReportDesk, lang: Lang) -> String {
         RefZone::Command => (Phrase::ReportRefCommand, false),
         RefZone::Shown => (Phrase::ReportRefShown, false),
         RefZone::LibraryTop => (Phrase::ReportRefLibraryTop, false),
+        RefZone::Logged => (Phrase::ReportRefLogged, false),
     };
     let zone = phrase.text(lang);
     let owner = card.owner.filter(|_| whose).map(|owner| {

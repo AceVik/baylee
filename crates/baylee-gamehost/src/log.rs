@@ -28,9 +28,10 @@ use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     CardIdentity, LogAbility, LogEntry, LogEvent, LogFrom, LogObject, LogPlace, LogTarget, LogZone,
+    Phase, RulesFace,
 };
 
-use crate::view::{counter, day_night, loss_cause, may_know_card};
+use crate::view::{counter, day_night, loss_cause, may_know_card, phase, rules_face};
 
 /// The longest run of lines a repeat is looked for in: a loop that blinks a
 /// creature is three lines long (its trigger, the exile, the return).
@@ -98,6 +99,8 @@ struct Line {
     event: LogEvent,
     /// One per object the event names, in [`LogEvent::objects`] order.
     sees: Vec<Sees>,
+    /// The phase it happened in ([`LogEntry::phase`]).
+    phase: Option<Phase>,
 }
 
 impl Line {
@@ -113,7 +116,7 @@ impl Line {
     /// direction, starting where this one ended, is the same thing again,
     /// and the folded line spans both.
     fn folds_with(&self, later: &Self) -> bool {
-        if self.turn != later.turn || self.sees != later.sees {
+        if self.turn != later.turn || self.phase != later.phase || self.sees != later.sees {
             return false;
         }
         match (&self.event, &later.event) {
@@ -171,19 +174,29 @@ impl Line {
                 .unwrap_or(Sees::NOBODY)
                 .tell(seat, object);
         }
-        // Which ability it was says which card its source is.
-        if let LogEvent::Ability {
-            source, ability, ..
-        } = &mut event
-            && !matches!(source, LogObject::Known { .. })
-        {
-            *ability = None;
+        // Which ability it was says which card its source is, and so do
+        // the modes chosen for it.
+        match &mut event {
+            LogEvent::Ability {
+                source, ability, ..
+            } if !matches!(source, LogObject::Known { .. }) => *ability = None,
+            LogEvent::Aimed {
+                source,
+                rules,
+                modes,
+                ..
+            } if !matches!(source, LogObject::Known { .. }) => {
+                *rules = None;
+                *modes = 0;
+            }
+            _ => {}
         }
         LogEntry {
             turn: self.turn,
             repeat: self.repeat,
             at: self.at,
             event,
+            phase: self.phase,
         }
     }
 }
@@ -234,9 +247,41 @@ pub struct GameLog {
     /// already count.
     started: bool,
     turn: u32,
+    /// The phase the journal is in, as far as it has been read.
+    phase: Option<Phase>,
+    /// Every spell and ability on the stack a line has named, with what it
+    /// was last announced with ([`LogEvent::Aimed`]).
+    aims: BTreeMap<ObjectId, Aim>,
+    /// Lands played that had not moved yet when the play was recorded (an
+    /// entry replacement, a shockland's life, asks first): the move onto the
+    /// battlefield writes their play, with who played them.
+    landing: BTreeMap<ObjectId, PlayerId>,
     /// The time as the caller last told it ([`Self::tell_time`]).
     now: u64,
     naming: Naming,
+}
+
+/// A spell or an ability on the stack, as the log last announced it.
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Aim {
+    /// Who controls it.
+    controller: PlayerId,
+    /// The spell itself, or the source of the ability.
+    source: ObjectId,
+    /// Whether it is an ability of `source`.
+    ability: bool,
+    /// Its chosen modes, as [`LogEvent::Aimed::modes`].
+    modes: u8,
+    /// Its object targets, in order.
+    objects: Vec<ObjectId>,
+    /// Its player targets.
+    players: SeatSet,
+}
+
+impl Aim {
+    fn says_nothing(&self) -> bool {
+        self.modes == 0 && self.objects.is_empty() && self.players.is_empty()
+    }
 }
 
 impl GameLog {
@@ -250,6 +295,9 @@ impl GameLog {
             seen: BTreeMap::new(),
             started: false,
             turn: state.turn.number,
+            phase: None,
+            aims: BTreeMap::new(),
+            landing: BTreeMap::new(),
             now: 0,
             naming: Naming::default(),
         };
@@ -325,7 +373,119 @@ impl GameLog {
             );
         }
         self.read = entries.len();
+        self.reannounce(state);
         self.look_around(state);
+    }
+
+    /// What `id`, a spell or an ability on the stack, stands announced with
+    /// now; `None` once it has left the stack.
+    fn aim_of(
+        state: &GameState,
+        id: ObjectId,
+        controller: PlayerId,
+        source: ObjectId,
+        ability: bool,
+    ) -> Option<Aim> {
+        let obj = state.object(id)?;
+        if obj.zone != Zone::Stack {
+            return None;
+        }
+        let modes = obj.modes | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
+        // A rule's own trigger (prowess, ward) carries the object it is about
+        // as a target the card never printed: nothing was aimed.
+        let synthetic = obj
+            .ability
+            .is_some_and(|loc| loc.index == AbilityRef::SYNTHETIC);
+        Some(Aim {
+            controller,
+            source,
+            ability,
+            modes,
+            objects: if synthetic {
+                Vec::new()
+            } else {
+                obj.targets.to_vec()
+            },
+            players: if synthetic {
+                SeatSet::new()
+            } else {
+                obj.target_players
+            },
+        })
+    }
+
+    /// Writes what the spell or ability `id` was announced with, when it
+    /// says anything and differs from what a line last said of it.
+    fn announce(
+        &mut self,
+        state: &GameState,
+        id: ObjectId,
+        controller: PlayerId,
+        source: ObjectId,
+        ability: bool,
+    ) {
+        let Some(aim) = Self::aim_of(state, id, controller, source, ability) else {
+            return;
+        };
+        let before = self.aims.insert(id, aim.clone());
+        if aim.says_nothing() || before.as_ref() == Some(&aim) {
+            return;
+        }
+        let rules = if aim.modes == 0 {
+            None
+        } else {
+            state.object(id).and_then(|obj| {
+                if ability {
+                    log_ability(obj).and_then(|named| named.rules)
+                } else {
+                    obj.printed_face().map(rules_face)
+                }
+            })
+        };
+        self.aimed(state, &aim, rules);
+    }
+
+    /// Announces again every spell and ability on the stack whose modes or
+    /// targets changed since a line last said them (a trigger's targets are
+    /// asked after it is put on the stack, CR 603.3d), and forgets the ones
+    /// that have left it.
+    fn reannounce(&mut self, state: &GameState) {
+        let held: Vec<(ObjectId, Aim)> = self
+            .aims
+            .iter()
+            .map(|(id, aim)| (*id, aim.clone()))
+            .collect();
+        for (id, aim) in held {
+            if Self::aim_of(state, id, aim.controller, aim.source, aim.ability).is_none() {
+                self.aims.remove(&id);
+            } else {
+                self.announce(state, id, aim.controller, aim.source, aim.ability);
+            }
+        }
+    }
+
+    /// The line for `aim`.
+    fn aimed(&mut self, state: &GameState, aim: &Aim, rules: Option<RulesFace>) {
+        let (source, seen) = self.refer(state, aim.source);
+        let mut sees = vec![seen];
+        let mut targets = Vec::new();
+        for id in &aim.objects {
+            let (object, seen) = self.refer(state, *id);
+            sees.push(seen);
+            targets.push(LogTarget::Object(object));
+        }
+        targets.extend(aim.players.iter().map(LogTarget::Player));
+        self.push(
+            LogEvent::Aimed {
+                controller: aim.controller,
+                source,
+                ability: aim.ability,
+                rules,
+                modes: if rules.is_some() { aim.modes } else { 0 },
+                targets,
+            },
+            sees,
+        );
     }
 
     /// Remembers every object in a public zone the log has not named yet.
@@ -365,7 +525,6 @@ impl GameLog {
             GameEvent::BecameTarget { .. }
             | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }
-            | GameEvent::StepChanged { .. }
             // Stack announcements already log nonmana abilities; this is
             // the rules event marking completed cost payment.
             | GameEvent::AbilityActivated { .. }
@@ -403,9 +562,13 @@ impl GameLog {
                 cause: Cause::Setup,
                 ..
             } => {}
+            GameEvent::StepChanged { phase: now, .. } => self.phase = Some(phase(*now)),
             GameEvent::TurnStarted { number, active } => {
                 self.started = true;
                 self.turn = *number;
+                // The turn's heading belongs to no phase: the untap step's
+                // own change of step follows it.
+                self.phase = None;
                 self.push(LogEvent::TurnStarted { active: *active }, Vec::new());
             }
             GameEvent::CardsKept { player, cards } => {
@@ -505,6 +668,7 @@ impl GameLog {
                     },
                     sees,
                 );
+                self.cause_before_effect(batch);
             }
             GameEvent::CoinFlipped { player, won } => self.push(
                 LogEvent::CoinFlipped {
@@ -526,9 +690,19 @@ impl GameLog {
                 Vec::new(),
             ),
             GameEvent::LandPlayed { object, player } => {
-                // The engine moves the land before it records the play, so
-                // the move is already a line, and this one says it again
-                // with where from.
+                // A land whose entry is asked about first (it may enter
+                // tapped, or its controller pays life) is recorded played
+                // before it moves, perhaps actions before: the line waits
+                // for the move, which says where it came from, and is the
+                // play rather than a move of its own. Written now, it named
+                // a card still in a hand: "Bo played a card".
+                if !came.contains_key(object) {
+                    self.landing.insert(*object, *player);
+                    return;
+                }
+                // Otherwise the engine moved the land before it recorded the
+                // play, so the move is already a line, and this one says it
+                // again with where from.
                 self.unwrite_move(*object, LogZone::Battlefield, batch);
                 let from = came_from(state, *object, came);
                 let (land, sees) = self.refer(state, *object);
@@ -552,6 +726,7 @@ impl GameLog {
                     },
                     vec![sees],
                 );
+                self.announce(state, *object, *player, *object, false);
             }
             GameEvent::StackObjectDidNotResolve { object } => {
                 let (object, sees) = self.refer(state, *object);
@@ -698,6 +873,17 @@ impl GameLog {
         if from == Zone::Hand && discarded.remove(&id) {
             return;
         }
+        if to == Zone::Battlefield
+            && let Some(player) = self.landing.remove(&id)
+        {
+            let from = log_zone(from).map(|zone| LogFrom {
+                zone,
+                owner: state.object(id).map_or(player, |obj| obj.owner),
+            });
+            let (land, sees) = self.refer(state, id);
+            self.push(LogEvent::LandPlayed { player, land, from }, vec![sees]);
+            return;
+        }
         let revealed = shown.contains(&id);
         if hidden(to) || to == Zone::OutsideGame {
             shown.remove(&id);
@@ -739,6 +925,38 @@ impl GameLog {
             },
             vec![sees],
         );
+    }
+
+    /// Puts the damage just written before the life it cost, where the
+    /// journal recorded the loss first: "Bo dealt 2 damage to you", then
+    /// "you went to 14 life (from 16)", which a reader takes in that order
+    /// and a client writes as one (`LogLine::follows`). Only this batch's
+    /// lines that nobody has been sent move, and only a pair that is the
+    /// same amount for the same player.
+    fn cause_before_effect(&mut self, batch: usize) {
+        let first = batch.max(self.sealed);
+        let n = self.lines.len();
+        if n < first + 2 {
+            return;
+        }
+        let (life, damage) = (&self.lines[n - 2], &self.lines[n - 1]);
+        let pair = matches!(
+            (&life.event, &damage.event),
+            (
+                LogEvent::Life { player, old, new },
+                LogEvent::Damage {
+                    target: LogTarget::Player(hurt),
+                    amount,
+                    ..
+                },
+            ) if player == hurt
+                && life.repeat == 1
+                && damage.repeat == 1
+                && i64::from(*old) - i64::from(*new) == i64::from(*amount)
+        );
+        if pair {
+            self.lines.swap(n - 2, n - 1);
+        }
     }
 
     /// `player`'s library was shuffled: this batch's lines putting cards into
@@ -849,14 +1067,17 @@ impl GameLog {
         if let Some(seen) = self.seen.get(&source).cloned() {
             self.seen.insert(object, seen);
         }
+        let activated = state.object(object).and_then(|obj| activated(state, obj));
         self.push(
             LogEvent::Ability {
                 controller,
                 source: named,
                 ability,
+                activated,
             },
             vec![sees],
         );
+        self.announce(state, object, controller, source, true);
     }
 
     /// `id` as it is now, or as it was last seen: its name, and who may know
@@ -946,6 +1167,7 @@ impl GameLog {
             at: self.now,
             event,
             sees,
+            phase: self.phase,
         };
         if !self.fold(&line) {
             self.lines.push(line);
@@ -1009,6 +1231,42 @@ fn in_zone(state: &GameState, obj: &GameObject, zone: Zone, owner: PlayerId) -> 
                 Sees::FaceDown(knows)
             }
         }
+    }
+}
+
+/// Whether the ability `obj` is on the stack was activated (CR 602) or
+/// triggered (CR 603), read off the definition it was put there from, as
+/// resolution reads it; `None` for one the definition does not say.
+fn activated(state: &GameState, obj: &GameObject) -> Option<bool> {
+    use baylee_cards_dsl::AbilityDef;
+    use baylee_engine::copiable_abilities::AbilityDefs;
+    let loc = obj.ability?;
+    // A rule's own trigger (prowess, ward), and an ability a permanent was
+    // granted, which is always one its controller activates.
+    if loc.index == AbilityRef::SYNTHETIC {
+        return Some(false);
+    }
+    if baylee_engine::choice::granted_slot(loc.index).is_some() {
+        return Some(true);
+    }
+    let abilities = obj.own_abilities.as_ref().map_or_else(
+        || {
+            state
+                .object(loc.source)
+                .map_or(AbilityDefs::EMPTY, |source| {
+                    source.printed_abilities(&crate::session::RegistryLookup)
+                })
+        },
+        AbilityDefs::from,
+    );
+    match abilities.get(usize::try_from(loc.index).ok()?)? {
+        AbilityDef::Activated { .. }
+        | AbilityDef::ActivatedConditional { .. }
+        | AbilityDef::Loyalty { .. } => Some(true),
+        AbilityDef::Triggered { .. }
+        | AbilityDef::ModalTriggered { .. }
+        | AbilityDef::SagaChapter { .. } => Some(false),
+        _ => None,
     }
 }
 
@@ -1553,6 +1811,7 @@ mod tests {
             at: 0,
             event,
             sees,
+            phase: None,
         }
     }
 
@@ -1590,6 +1849,7 @@ mod tests {
                 controller: PlayerId::new(0),
                 source: known(1),
                 ability: Some(ability),
+                activated: None,
             },
             vec![Sees::Only(std::iter::once(PlayerId::new(0)).collect())],
         );
@@ -1605,7 +1865,8 @@ mod tests {
             LogEvent::Ability {
                 controller: PlayerId::new(0),
                 source: LogObject::Hidden,
-                ability: None
+                ability: None,
+                activated: None,
             }
         );
     }
@@ -1619,6 +1880,9 @@ mod tests {
             seen: BTreeMap::new(),
             started: true,
             turn: 1,
+            phase: None,
+            aims: BTreeMap::new(),
+            landing: BTreeMap::new(),
             naming: Naming::default(),
         }
     }
@@ -1718,6 +1982,152 @@ mod tests {
         assert_eq!(
             told,
             [(2, life(20, 22)), (1, life(22, 20)), (1, life(20, 25))]
+        );
+    }
+
+    /// What `cause_before_effect` is asked about: the journal's order, a
+    /// life change first and the damage after, as `(life, damage)` would
+    /// read in the log.
+    fn life_then_damage(
+        life: (u8, i32, i32),
+        damage: (u8, u32),
+        sealed: bool,
+    ) -> Vec<&'static str> {
+        let mut log = a_log();
+        log.push(
+            LogEvent::Life {
+                player: PlayerId::new(life.0),
+                old: life.1,
+                new: life.2,
+            },
+            Vec::new(),
+        );
+        if sealed {
+            log.seal(1);
+        }
+        log.push(
+            LogEvent::Damage {
+                source: Some(known(1)),
+                target: LogTarget::Player(PlayerId::new(damage.0)),
+                amount: damage.1,
+                combat: false,
+            },
+            Vec::new(),
+        );
+        log.cause_before_effect(0);
+        log.lines
+            .iter()
+            .map(|l| match l.event {
+                LogEvent::Life { .. } => "life",
+                LogEvent::Damage { .. } => "damage",
+                _ => "other",
+            })
+            .collect()
+    }
+
+    /// The loss of life the journal wrote before the damage that caused it is
+    /// told after it: same player, same amount. A different amount (the
+    /// damage was prevented in part, or the life change is another's) or
+    /// another player's is not the same cause and keeps its place, and a
+    /// line that may already have been sent never moves.
+    #[test]
+    fn damage_is_told_before_the_life_it_cost_and_only_for_that_life() {
+        assert_eq!(
+            life_then_damage((1, 20, 17), (1, 3), false),
+            ["damage", "life"]
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 18), (1, 3), false),
+            ["life", "damage"],
+            "two lost against three dealt"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 17), (0, 3), false),
+            ["life", "damage"],
+            "another player's life"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 23), (1, 3), false),
+            ["life", "damage"],
+            "a gain of the same size is not a cost"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 17), (1, 3), true),
+            ["life", "damage"],
+            "a line sent already stays where it was told"
+        );
+    }
+
+    /// The modes chosen for a spell say which card it is, as the ability
+    /// does: a seat that may not know the source is told neither the face
+    /// nor the modes, but still the targets.
+    #[test]
+    fn an_aimed_line_whose_source_a_seat_may_not_know_names_no_modes() {
+        let rules = RulesFace {
+            card: CardIndex::new(7),
+            face: 0,
+        };
+        let aimed = line(
+            LogEvent::Aimed {
+                controller: PlayerId::new(0),
+                source: known(1),
+                ability: false,
+                rules: Some(rules),
+                modes: 0b101,
+                targets: vec![
+                    LogTarget::Player(PlayerId::new(1)),
+                    LogTarget::Object(known(2)),
+                ],
+            },
+            vec![
+                Sees::Only(std::iter::once(PlayerId::new(0)).collect()),
+                Sees::Everyone,
+            ],
+        );
+        assert!(matches!(
+            aimed.told(PlayerId::new(0)).event,
+            LogEvent::Aimed {
+                rules: Some(_),
+                modes: 0b101,
+                ..
+            }
+        ));
+        assert_eq!(
+            aimed.told(PlayerId::new(1)).event,
+            LogEvent::Aimed {
+                controller: PlayerId::new(0),
+                source: LogObject::Hidden,
+                ability: false,
+                rules: None,
+                modes: 0,
+                targets: vec![
+                    LogTarget::Player(PlayerId::new(1)),
+                    LogTarget::Object(known(2))
+                ],
+            }
+        );
+    }
+
+    /// The same public line in two different phases is two lines: a reader
+    /// that groups a turn by phase must not find one phase's line folded
+    /// into another's. In the same phase it still folds.
+    #[test]
+    fn equal_lines_in_different_phases_do_not_fold() {
+        let mut log = a_log();
+        let shuffled = || LogEvent::Shuffled {
+            player: PlayerId::new(0),
+        };
+        log.phase = Some(Phase::FirstMain);
+        log.push(shuffled(), Vec::new());
+        log.push(shuffled(), Vec::new());
+        assert_eq!(log.len(), 1, "alike in one phase folds");
+        log.phase = Some(Phase::Combat);
+        log.push(shuffled(), Vec::new());
+        assert_eq!(log.len(), 2, "the next phase starts a line of its own");
+        let told = log.told(PlayerId::new(1), 0, log.len());
+        assert_eq!(
+            told.iter().map(|e| (e.repeat, e.phase)).collect::<Vec<_>>(),
+            [(2, Some(Phase::FirstMain)), (1, Some(Phase::Combat))]
         );
     }
 }

@@ -57,12 +57,13 @@
 //! thing a short window takes its room out of. The wheel reaches it because
 //! `hud::scrolls` is the one input system that runs past `Playing`.
 
-use super::ledge::log::{LOG_ROW_GAP, LineInks, Paint, scrollbar, spawn_line, wording};
+use super::ledge::log::{
+    LOG_ROW_GAP, LineInks, LogTexts, Paint, PhaseRun, scrollbar, spawn_line, spawn_phase, wording,
+};
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::gamelog::LogLine;
 use baylee_client_core::interaction::{ending_reason, table_losses, verdict};
-use baylee_core::ids::CardIndex;
 use bevy::text::LineHeight;
 use bevy::ui::ScrollPosition;
 
@@ -405,11 +406,12 @@ pub(crate) fn spawn_finish(
             losses: (duel.view.as_ref())
                 .map_or_else(Vec::new, |v| table_losses(lang, v, Some(statics), seat)),
             watched: spectators_verdict(lang, *result, statics, duel.watching),
+            closed: duel.closed.as_deref(),
         },
     );
 
     // The whole game, under how it ended (#262).
-    let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
+    let lookup = LogTexts(texts.as_deref());
     let lines = duel.log.lines(&wording(&duel, lang, &lookup));
     write_the_log(&mut commands, &fonts, sheet, lang, &lines);
 
@@ -451,6 +453,9 @@ struct Said<'a> {
     losses: Vec<String>,
     /// The verdict as a spectator reads it, who neither won nor lost.
     watched: Option<String>,
+    /// Why an admin ended the game, when one did: then nobody won or lost,
+    /// and the sheet says that instead.
+    closed: Option<&'a str>,
 }
 
 /// Who won, named, for a spectator (`docs/protocol.md` §"Spectators"):
@@ -479,10 +484,15 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         team,
         losses,
         watched,
+        closed,
     } = said;
+    let said = match closed {
+        Some(_) => Phrase::GameClosedVerdict.text(lang).to_string(),
+        None => watched.unwrap_or_else(|| verdict(lang, result, seat, team)),
+    };
     let headline = commands
         .spawn((
-            Text::new(watched.unwrap_or_else(|| verdict(lang, result, seat, team))),
+            Text::new(said),
             // The one place this client asks a face for a weight, and Faustina
             // is the one it can ask: Alegreya Sans ships as static cuts,
             // where `weight` reaches nothing at all.
@@ -501,7 +511,11 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
 
     // A draw gets no second line at all, gap included — `ending_reason`
     // refuses it, because the only thing it could say is the verdict again.
-    if let Some(reason) = ending_reason(lang, result) {
+    let reason = match closed {
+        Some(why) => Some(Phrase::GameClosedReason.fill(lang, &[why])),
+        None => ending_reason(lang, result),
+    };
+    if let Some(reason) = reason {
         let line = commands
             .spawn((
                 Text::new(reason),
@@ -590,7 +604,12 @@ fn write_the_log(
             },
         ))
         .id();
+    let mut run = PhaseRun::default();
     for line in lines {
+        if let Some(phase) = run.heading(line) {
+            let heading = spawn_phase(commands, fonts, lang, phase, &SHEET_INKS);
+            commands.entity(list).add_child(heading);
+        }
         // No seat swatch: the sheet is one reader's account of a game that
         // is over, and a column of seat colours down its left is the
         // panel's, where the table is still being played beside it.
@@ -961,6 +980,7 @@ mod tests {
                             player: PlayerId::new(1),
                         }
                     },
+                    phase: None,
                 })
                 .collect(),
         };

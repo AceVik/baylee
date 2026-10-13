@@ -357,6 +357,7 @@ pub fn revealed_line(player: u8, slot: u32, print: u16) -> baylee_view::LogEntry
                 name: "Lightning Bolt".to_string(),
             }],
         },
+        phase: None,
     }
 }
 
@@ -377,6 +378,7 @@ pub fn hear_live(
             event: baylee_view::LogEvent::TurnStarted {
                 active: PlayerId::new(0),
             },
+            phase: None,
         };
         reveals.take(
             book,

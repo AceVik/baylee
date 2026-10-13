@@ -272,3 +272,64 @@ fn a_letter_and_a_blank_still_type_into_a_search_with_words() {
     assert_eq!(duel.browser.filter(), "a b");
     assert!(duel.outbox().is_empty());
 }
+
+/// What the confirm key does in a payment window, from the real key path:
+/// the `Duel` is fed through `receive_view`/`receive_choice` by the shared
+/// owed-tests harness, two Forests offered and `cost` owed.
+fn confirm_key_in_a_payment_window(
+    cost: &str,
+    floating_green: u32,
+) -> (crate::Duel, Option<PlayerAction>) {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+
+    let mut duel = crate::owed_tests::seat_with_two_forests(None);
+    let mut view = duel.view.clone().expect("the view");
+    view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+        baylee_core::mana::ManaCost::parse(cost),
+    ));
+    view.seats[0].mana_pool.green = floating_green;
+    duel.receive_view(view);
+    assert!(duel.paying(), "{cost} owed is a payment window");
+    let before = crate::input::committed_answer(&duel);
+    let fired = Fired::of(&press(bevy::prelude::KeyCode::Space), &Keymap::standard());
+    let mut prefs = crate::prefs::Prefs::default();
+    answer_the_question(fired, &mut duel, &mut prefs);
+    (duel, before)
+}
+
+/// Report 01: in a payment window the confirm key is no longer "the bare
+/// priority pass", which declines the payment. With the pool short and no
+/// plan that pays (three green owed, two Forests), the key sends nothing and
+/// says the mana is short; `committed_answer` offers no answer at all. Before
+/// the fix it was `Some(PassPriority)` and the key passed the window unpaid.
+#[test]
+fn the_confirm_key_does_not_pass_a_payment_window_short() {
+    let (duel, committed) = confirm_key_in_a_payment_window("{G}{G}{G}", 0);
+    assert_eq!(committed, None, "a payment window has no committed answer");
+    assert!(duel.outbox().is_empty(), "sent {:?}", duel.outbox());
+    assert_eq!(
+        duel.last_error,
+        Some(baylee_client_core::i18n::Refusal::Said(
+            baylee_client_core::i18n::Phrase::PaymentShort
+        ))
+    );
+}
+
+/// Report 01, the other two outcomes of the same key: with a Forest to tap
+/// it taps (and only taps; the pass comes after the mana is up), and with the
+/// pool already covering what is owed it settles the window.
+#[test]
+fn the_confirm_key_pays_a_payment_window_by_tapping_or_settling_a_covered_one() {
+    let (mut duel, committed) = confirm_key_in_a_payment_window("{1}", 0);
+    assert_eq!(committed, None);
+    let sent = duel.take_outbox();
+    assert!(
+        matches!(sent.as_slice(), [PlayerAction::ActivateManaAbility { .. }]),
+        "the tap goes first, alone: {sent:?}"
+    );
+
+    let (duel, committed) = confirm_key_in_a_payment_window("{1}", 1);
+    assert_eq!(committed, None);
+    assert_eq!(duel.outbox(), &[PlayerAction::PassPriority]);
+}

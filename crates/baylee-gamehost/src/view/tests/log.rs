@@ -5,7 +5,7 @@ use super::*;
 use crate::log::GameLog;
 use baylee_engine::event::{Cause, GameEvent};
 use baylee_engine::zone::{Zone, ZonePosition};
-use baylee_view::{LogEvent, LogFrom, LogObject, LogPlace, LogZone};
+use baylee_view::{LogEntry, LogEvent, LogFrom, LogObject, LogPlace, LogTarget, LogZone};
 
 /// A table past its mulligans, and its log so far.
 fn a_logged_table() -> (Engine<Registry>, GameLog) {
@@ -1026,5 +1026,575 @@ fn revealed_hand_entry(name: &str) -> DeckEntry {
             .1
             .index,
         print: PrintRef::new(0),
+    }
+}
+
+// ---- what a spell or an ability was aimed with, and where it happened
+
+/// A table of `seats` seats at seat 0's first main phase, with `hand` in
+/// seat 0's hand and `battlefield` out, and seat 1's `opposing` permanents
+/// out; the log starts here.
+fn a_logged_main_phase(
+    seats: usize,
+    hand: &[&str],
+    battlefield: &[&str],
+    opposing: &[&str],
+) -> (Engine<Registry>, GameLog) {
+    let mut preset = mixed_print_preset();
+    while preset.seats.len() < seats {
+        preset.seats.push(preset.seats[1].clone());
+    }
+    let entries = |names: &[&str]| names.iter().map(|n| revealed_hand_entry(n)).collect();
+    preset.seats[0].starting_hand = Some(entries(hand));
+    preset.seats[0].starting_battlefield = entries(battlefield);
+    for seat in &mut preset.seats[1..] {
+        seat.starting_battlefield = entries(opposing);
+    }
+    let mut engine = Engine::new(&preset, Registry).expect("game starts");
+    settle(&mut engine, None);
+    let log = GameLog::new(engine.state());
+    (engine, log)
+}
+
+/// The handle of the object called `name` in seat 0's hand or on the
+/// battlefield (any seat's), as seat 0's view shows it.
+fn named(engine: &Engine<Registry>, name: &str) -> ObjectId {
+    let view = seen_by(engine, PlayerId::new(0));
+    view.hand
+        .iter()
+        .find(|o| o.name == name)
+        .map(|o| o.id)
+        .or_else(|| {
+            view.battlefield
+                .iter()
+                .find(|o| o.name == name)
+                .map(|o| o.id)
+        })
+        .unwrap_or_else(|| panic!("no {name} in sight"))
+}
+
+/// Taps every untapped land seat 0 has for mana.
+fn tap_lands(engine: &mut Engine<Registry>) {
+    let me = PlayerId::new(0);
+    let lands: Vec<ObjectId> = seen_by(engine, me)
+        .battlefield_of(me)
+        .filter(|o| o.types.contains(baylee_core::types::TypeSet::LAND) && !o.status.is_tapped())
+        .map(|o| o.id)
+        .collect();
+    for source in lands {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source })
+            .expect("a land taps for mana");
+    }
+}
+
+/// Answers questions with `answer` (and passes priority when it has none)
+/// until `done`, writing the log after every step.
+#[track_caller]
+fn play_on(
+    engine: &mut Engine<Registry>,
+    log: &mut GameLog,
+    mut answer: impl FnMut(&Pending) -> Option<PlayerAction>,
+    done: impl Fn(&Engine<Registry>) -> bool,
+) {
+    for _ in 0..300 {
+        if done(engine) {
+            return;
+        }
+        let pending = engine.pending().clone();
+        let seat = pending.asked().expect("somebody is asked");
+        let action = answer(&pending).unwrap_or_else(|| match pending {
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("unexpected question: {other:?}"),
+        });
+        engine.apply(seat, action).expect("a legal answer");
+        log.consume(engine.state());
+    }
+    panic!("never got there: {:?}", engine.pending());
+}
+
+/// Whether the stack is empty and seat 0 holds priority with it.
+fn stack_is_clear(engine: &Engine<Registry>) -> bool {
+    matches!(engine.pending(), Pending::Priority { player, .. } if *player == PlayerId::new(0))
+        && engine.state().zones.list(ZoneLocation::Stack).is_empty()
+}
+
+fn lines_of(log: &GameLog, seat: PlayerId, from: usize) -> Vec<LogEntry> {
+    log.told(seat, from, log.len())
+}
+
+/// A spell cast with a target is followed by a line naming the target, and
+/// every seat is told it: what a spell is aimed at is public (CR 601.2c).
+#[test]
+fn a_cast_with_a_target_is_followed_by_what_it_aims_at() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Lightning Bolt"], &["Mountain"], &[]);
+    let bolt = named(&engine, "Lightning Bolt");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: bolt })
+        .expect("casts it");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![them],
+            },
+        )
+        .expect("at the other player");
+    log.consume(engine.state());
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let at = told
+            .iter()
+            .position(|e| matches!(e, LogEvent::Cast { .. }))
+            .unwrap_or_else(|| panic!("{told:?}"));
+        assert!(
+            matches!(
+                &told[at + 1],
+                LogEvent::Aimed {
+                    controller,
+                    source: LogObject::Known { id, .. },
+                    ability: false,
+                    rules: None,
+                    modes: 0,
+                    targets,
+                } if *controller == me && *id == bolt && targets == &[LogTarget::Player(them)]
+            ),
+            "seat {seat:?}: {told:?}"
+        );
+        assert_eq!(
+            told.iter()
+                .filter(|e| matches!(e, LogEvent::Aimed { .. }))
+                .count(),
+            1,
+            "said once"
+        );
+    }
+}
+
+/// A modal spell says which mode was chosen, to everyone (CR 601.2b), by
+/// the bit of the mode on the card named in `rules`; the target of the
+/// chosen mode comes with it.
+#[test]
+fn a_modal_spell_names_its_chosen_mode_and_the_card_it_is_printed_on() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(
+        2,
+        &["Archdruid's Charm"],
+        &["Forest", "Forest", "Forest", "Sol Ring"],
+        &[],
+    );
+    let charm = named(&engine, "Archdruid's Charm");
+    let ring = named(&engine, "Sol Ring");
+    let from = log.len();
+    // Only the Forests pay: the Ring is the target.
+    let forests: Vec<ObjectId> = seen_by(&engine, me)
+        .battlefield_of(me)
+        .filter(|o| o.name == "Forest")
+        .map(|o| o.id)
+        .collect();
+    for source in forests {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source })
+            .expect("a Forest taps");
+    }
+    engine
+        .apply(me, PlayerAction::CastSpell { card: charm })
+        .expect("casts it");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("{:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| o.kind == baylee_engine::choice::CastModeKind::Mode(2))
+        .expect("the exile mode is offered with an artifact to aim at");
+    engine
+        .apply(me, PlayerAction::ChooseMode(slot))
+        .expect("chooses it");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .expect("aims at the Ring");
+    log.consume(engine.state());
+
+    let charm_card = by_oracle_id("3c1ef404-e2c6-486d-a5a2-d5779c71d498")
+        .unwrap()
+        .index;
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let aimed: Vec<&LogEvent> = told
+            .iter()
+            .filter(|e| matches!(e, LogEvent::Aimed { .. }))
+            .collect();
+        let [
+            LogEvent::Aimed {
+                source: LogObject::Known { id, .. },
+                ability: false,
+                rules: Some(RulesFace { card, .. }),
+                modes,
+                targets,
+                ..
+            },
+        ] = &aimed[..]
+        else {
+            panic!("seat {seat:?}: {told:?}")
+        };
+        assert_eq!((*id, *card), (charm, charm_card));
+        assert_eq!(*modes, 0b100, "the third mode, bit 2");
+        assert!(
+            matches!(&targets[..], [LogTarget::Object(LogObject::Known { id, .. })] if *id == ring),
+            "{targets:?}"
+        );
+    }
+}
+
+/// A trigger's target is chosen in a question after the ability is on the
+/// stack: the line naming it comes when it has been chosen, and the ability
+/// line before it says the trigger was triggered, not activated.
+#[test]
+fn a_trigger_aimed_in_a_later_question_is_announced_when_it_is_aimed() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(
+        2,
+        &["Flametongue Kavu"],
+        &["Mountain", "Mountain", "Mountain", "Mountain"],
+        &["Llanowar Elves"],
+    );
+    let kavu = named(&engine, "Flametongue Kavu");
+    let elves = named(&engine, "Llanowar Elves");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: kavu })
+        .expect("casts it");
+    log.consume(engine.state());
+    play_on(
+        &mut engine,
+        &mut log,
+        |pending| match pending {
+            Pending::ChooseTargets { .. } => Some(PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            }),
+            _ => None,
+        },
+        stack_is_clear,
+    );
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let ability = told
+            .iter()
+            .position(|e| matches!(e, LogEvent::Ability { .. }))
+            .unwrap_or_else(|| panic!("{told:?}"));
+        assert!(
+            matches!(
+                &told[ability],
+                LogEvent::Ability {
+                    source: LogObject::Known { id, .. },
+                    activated: Some(false),
+                    ..
+                } if *id == kavu
+            ),
+            "{told:?}"
+        );
+        let aimed = told[ability..]
+            .iter()
+            .find(|e| matches!(e, LogEvent::Aimed { ability: true, .. }))
+            .unwrap_or_else(|| panic!("{told:?}"));
+        assert!(
+            matches!(
+                aimed,
+                LogEvent::Aimed {
+                    controller,
+                    source: LogObject::Known { id, .. },
+                    rules: None,
+                    modes: 0,
+                    targets,
+                    ..
+                } if *controller == me
+                    && *id == kavu
+                    && matches!(&targets[..], [LogTarget::Object(LogObject::Known { id, .. })] if *id == elves)
+            ),
+            "{aimed:?}"
+        );
+    }
+}
+
+/// An ability a player activates is logged as activated, one that triggers
+/// as triggered.
+#[test]
+fn an_activated_ability_is_logged_as_activated() {
+    let me = PlayerId::new(0);
+    let (mut engine, mut log) = a_logged_main_phase(2, &[], &["Flooded Strand"], &[]);
+    let strand = named(&engine, "Flooded Strand");
+    let from = log.len();
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: strand,
+                ability_index: 0,
+            },
+        )
+        .expect("cracks the fetchland");
+    log.consume(engine.state());
+
+    for seat in [me, PlayerId::new(1)] {
+        let told = told_since(&log, seat, from);
+        assert!(
+            told.iter().any(|e| matches!(
+                e,
+                LogEvent::Ability {
+                    source: LogObject::Known { id, .. },
+                    activated: Some(true),
+                    ..
+                } if *id == strand
+            )),
+            "seat {seat:?}: {told:?}"
+        );
+    }
+}
+
+/// A shockland asks before it enters, so the engine records the play before
+/// the move: the log writes the one line, the play, once the land is on the
+/// battlefield, naming where it came from. It is never "a card" played, and
+/// the move is not a line of its own.
+#[test]
+fn a_land_asked_about_before_it_enters_is_one_known_play() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Steam Vents"], &[], &[]);
+    let vents = named(&engine, "Steam Vents");
+    let from = log.len();
+    engine
+        .apply(me, PlayerAction::PlayLand { card: vents })
+        .expect("plays it");
+    log.consume(engine.state());
+    // Entering asks whether to pay: whatever it asks, say no.
+    for _ in 0..4 {
+        match engine.pending().clone() {
+            Pending::Priority { .. } => break,
+            Pending::YesNo { .. } => {
+                engine
+                    .apply(me, PlayerAction::YesNo(false))
+                    .expect("declines");
+            }
+            other => panic!("unexpected question: {other:?}"),
+        }
+        log.consume(engine.state());
+    }
+    assert_eq!(
+        engine.state().object(vents).map(|o| o.zone),
+        Some(baylee_engine::zone::Zone::Battlefield)
+    );
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let played: Vec<&LogEvent> = told
+            .iter()
+            .filter(|e| matches!(e, LogEvent::LandPlayed { .. }))
+            .collect();
+        assert!(
+            matches!(
+                &played[..],
+                [LogEvent::LandPlayed {
+                    player,
+                    land: LogObject::Known { id, .. },
+                    from: Some(LogFrom { zone: LogZone::Hand, owner }),
+                }] if *player == me && *id == vents && *owner == me
+            ),
+            "seat {seat:?}: {told:?}"
+        );
+        assert!(
+            !told.iter().any(|e| matches!(
+                e,
+                LogEvent::Moved { object, .. } if handle(object) == Some(vents)
+            )),
+            "the move is the play: {told:?}"
+        );
+    }
+}
+
+/// Every line says what phase it was written in: a land played in the
+/// first main phase, an attack in combat; the turn's heading, which begins
+/// before any phase, says none.
+#[test]
+fn lines_carry_the_phase_they_were_written_in() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Mountain"], &["Grizzly Bears"], &[]);
+    let land = named(&engine, "Mountain");
+    let bears = named(&engine, "Grizzly Bears");
+    let from = log.len();
+    engine
+        .apply(me, PlayerAction::PlayLand { card: land })
+        .expect("plays its land");
+    log.consume(engine.state());
+    // To the next of its turns, where the Bears may attack.
+    play_on(
+        &mut engine,
+        &mut log,
+        |pending| match pending {
+            Pending::ChooseAttackers {
+                player, attackers, ..
+            } if *player == me && attackers.contains(&bears) => {
+                Some(PlayerAction::DeclareAttackers {
+                    attackers: vec![(bears, baylee_core::ids::Defender::Player(them))],
+                })
+            }
+            Pending::ChooseAttackers { .. } => {
+                Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+            }
+            Pending::ChooseBlockers { .. } => {
+                Some(PlayerAction::DeclareBlockers { blockers: vec![] })
+            }
+            _ => None,
+        },
+        |engine| {
+            engine
+                .journal()
+                .entries()
+                .iter()
+                .any(|e| matches!(e.event, GameEvent::BecameAttacker { .. }))
+        },
+    );
+    let told = lines_of(&log, them, from);
+    let phase_of = |wanted: fn(&LogEvent) -> bool| {
+        told.iter()
+            .find(|e| wanted(&e.event))
+            .unwrap_or_else(|| panic!("{told:?}"))
+            .phase
+    };
+    assert_eq!(
+        phase_of(|e| matches!(e, LogEvent::LandPlayed { .. })),
+        Some(Phase::FirstMain)
+    );
+    let whole = lines_of(&log, them, 0);
+    let heading = whole
+        .iter()
+        .find(|e| matches!(e.event, LogEvent::TurnStarted { .. }))
+        .unwrap_or_else(|| panic!("{whole:?}"));
+    assert_eq!(heading.phase, None);
+    assert_eq!(
+        phase_of(|e| matches!(e, LogEvent::Attacked { .. })),
+        Some(Phase::Combat)
+    );
+}
+
+/// What a spell is aimed at is told to each seat as that seat's view shows
+/// the target: a face-down permanent is a blank with a handle to every seat
+/// but its controller, though the spell aimed at it is plain to all.
+#[test]
+fn a_spell_aimed_at_a_face_down_permanent_names_it_as_each_view_shows_it() {
+    let (me, them, other) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    let (mut engine, mut log) =
+        a_logged_main_phase(3, &["Lightning Bolt"], &["Mountain"], &["Llanowar Elves"]);
+    let bolt = named(&engine, "Lightning Bolt");
+    let elves = seen_by(&engine, them)
+        .battlefield_of(them)
+        .find(|o| o.name == "Llanowar Elves")
+        .expect("seat 1's Elves")
+        .id;
+    engine
+        .dev_state_mut(me)
+        .expect("dev commands")
+        .object_mut(elves)
+        .expect("on the battlefield")
+        .status
+        .insert(baylee_engine::object::Status::FACE_DOWN);
+    log.consume(engine.state());
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: bolt })
+        .expect("casts it");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("aims at the face-down creature");
+    log.consume(engine.state());
+
+    let aimed_at = |seat| {
+        let told = told_since(&log, seat, from);
+        let aimed = told
+            .into_iter()
+            .find_map(|e| match e {
+                LogEvent::Aimed {
+                    source, targets, ..
+                } => Some((source, targets)),
+                _ => None,
+            })
+            .expect("an aimed line");
+        assert!(matches!(aimed.0, LogObject::Known { id, .. } if id == bolt));
+        aimed.1
+    };
+    assert!(matches!(
+        &aimed_at(them)[..],
+        [LogTarget::Object(LogObject::Known { id, card: Some(_), .. })] if *id == elves
+    ));
+    assert_eq!(
+        aimed_at(other),
+        [LogTarget::Object(LogObject::FaceDown { id: elves })]
+    );
+}
+
+/// The damage a spell dealt is told before the life it cost (`GameLog::
+/// cause_before_effect`): the journal records Lightning Bolt's loss of life
+/// first, and a reader takes "Bo went to 17 life" before "Lightning Bolt
+/// dealt 3 damage to Bo" for the wrong way round. On the old code the told
+/// lines came out as `Life`, `Damage`.
+#[test]
+fn a_bolts_damage_is_told_before_the_life_it_cost() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Lightning Bolt"], &["Mountain"], &[]);
+    let bolt = named(&engine, "Lightning Bolt");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: bolt })
+        .expect("casts it");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![them],
+            },
+        )
+        .expect("at the other player");
+    play_on(&mut engine, &mut log, |_| None, stack_is_clear);
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let damage = told
+            .iter()
+            .position(|e| matches!(e, LogEvent::Damage { target: LogTarget::Player(p), amount: 3, .. } if *p == them))
+            .unwrap_or_else(|| panic!("seat {seat:?}: {told:?}"));
+        assert_eq!(
+            told[damage + 1],
+            LogEvent::Life {
+                player: them,
+                old: 20,
+                new: 17
+            },
+            "seat {seat:?}: the life follows its damage: {told:?}"
+        );
+        assert_eq!(
+            told.iter()
+                .filter(|e| matches!(e, LogEvent::Life { .. }))
+                .count(),
+            1,
+            "and is told once"
+        );
     }
 }

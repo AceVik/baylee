@@ -48,6 +48,20 @@ pub enum DamageTarget {
     Object(ObjectId),
 }
 
+/// Why a cast was taken back (CR 732.1), as [`GameEvent::CastCancelled`]
+/// records it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum CastCancelReason {
+    /// The caster took it back (`PlayerAction::CancelCast`).
+    Withdrawn,
+    /// Its payment window closed with the pool short of the total: partial
+    /// payments are not allowed (CR 601.2h), so nothing was paid.
+    Unpaid,
+    /// It could not be completed for another reason: the card moved, or an
+    /// object one of its costs named is gone.
+    Illegal,
+}
+
 /// A single game event.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
@@ -420,6 +434,8 @@ pub enum GameEvent {
         player: PlayerId,
         /// The card, where it still is.
         card: ObjectId,
+        /// Why it was taken back.
+        reason: CastCancelReason,
     },
     /// A player became the monarch (CR 724.3), and whoever was the monarch
     /// ceased to be.

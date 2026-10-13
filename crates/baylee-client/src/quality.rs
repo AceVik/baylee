@@ -410,7 +410,22 @@ fn minimised(windows: &Query<&Window, With<PrimaryWindow>>) -> bool {
 
 fn note_hidden(mut watch: ResMut<Watch>, mut occluded: MessageReader<WindowOccluded>) {
     if let Some(last) = occluded.read().last() {
-        watch.hidden = last.occluded;
+        watch.hidden = last.occluded && !watched_from_behind();
+    }
+}
+
+/// A dev-control window opened passive (`BAYLEE_DEV_PASSIVE=1`) is *meant* to
+/// stand behind everything else while a harness drives it, so being covered
+/// is not being hidden: at one frame a second a click is five seconds and a
+/// two-frame comparison is a guess. Never in a shipped build.
+fn watched_from_behind() -> bool {
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    {
+        crate::devctl::passive()
+    }
+    #[cfg(not(all(feature = "dev-control", not(target_arch = "wasm32"))))]
+    {
+        false
     }
 }
 

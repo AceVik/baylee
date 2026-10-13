@@ -1260,18 +1260,23 @@ impl<L: CardLookup> Engine<L> {
     /// from `LegalActions::payable` makes all its mana here, so the
     /// triggers of that mana wait until the spell is cast (CR 601.2i). Keep the wizard
     /// outside the active choice slot while a mana ability asks its choices.
+    ///
+    /// A cast off the pool whose total the pool does not cover (an X larger
+    /// than what floats, say) gets the same window: the caster may still
+    /// activate mana abilities before paying (CR 601.2g), and is not sent
+    /// back to priority for want of mana they could have made. From then on
+    /// it is paid as a cast from `payable` is, so a window closed short
+    /// hands the caster their priority back (CR 732.1).
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
-        let face = self.wizard_face(&wizard);
-        let cost = wizard_total_cost(face, &wizard)
-            .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
-        if (wizard.makes_mana_after_choices()
-            || face.extra_target_cost > 0
-            || self.state.granted_colorless_capacity(wizard.player) > 0)
-            && (self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost))
-        {
+        let cost = wizard_paid_total(self.wizard_face(&wizard), &wizard);
+        if self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost) {
             let mut legal = self.compute_legal(wizard.player);
             self.narrow_to_mana(&mut legal);
             if legal.has_mana_source() {
+                let mut wizard = wizard;
+                if wizard.started.is_some() {
+                    wizard.paying = casting::Paying::DuringTheCast;
+                }
                 let player = wizard.player;
                 let version = self
                     .state
@@ -1335,6 +1340,17 @@ impl<L: CardLookup> Engine<L> {
             .object(wizard.card)
             .is_some_and(|card| card.version == version);
         if !current || self.finish_cast(wizard).is_err() {
+            // Read before anything is put back: the pool as the window
+            // closed is what was short, if anything was.
+            let reason = if current
+                && !self.wizard_pool_can_pay(
+                    wizard,
+                    wizard_paid_total(self.wizard_face(wizard), wizard),
+                ) {
+                crate::event::CastCancelReason::Unpaid
+            } else {
+                crate::event::CastCancelReason::Illegal
+            };
             // A constrained activation cannot turn into freely floating mana
             // merely by declining the selected spell. Keep the payment question
             // and every obligation until a legal completion is submitted.
@@ -1353,6 +1369,7 @@ impl<L: CardLookup> Engine<L> {
                 self.state.journal.record(GameEvent::CastCancelled {
                     player: wizard.player,
                     card: wizard.card,
+                    reason,
                 });
             } else {
                 self.give_back_window(wizard.player, opened);
@@ -1518,8 +1535,7 @@ impl<L: CardLookup> Engine<L> {
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
-        let cost = wizard_total_cost(self.wizard_face(wizard), wizard)
-            .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
+        let cost = wizard_paid_total(self.wizard_face(wizard), wizard);
         if self.wizard_pool_can_pay(wizard, cost) && self.ask_escape_payment(wizard)? {
             return Ok(());
         }
@@ -1531,6 +1547,37 @@ impl<L: CardLookup> Engine<L> {
             self.synthetic_fx = riders;
         }
         cast
+    }
+
+    /// Whether `player` has anything left to make mana with in a payment
+    /// window: the same narrowed offer `cast_or_make_miracle_mana` asks
+    /// before it opens one, so an X left open for the window is an X a
+    /// window will be there to pay.
+    pub(super) fn can_make_mana_for_cast(&self, player: PlayerId) -> bool {
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        legal.has_mana_source()
+    }
+
+    /// Whether the floating mana is all that pays this cast's total once no
+    /// mana is left to make, so the greatest X it pays is known before X is
+    /// asked.
+    ///
+    /// Not when the cast makes its mana after its choices (a payment
+    /// window, CR 601.2g), and not when anything besides the pool pays
+    /// generic mana: delve, convoke and waterbend (chosen after X, and
+    /// convoke may pay a coloured symbol a generic-only probe would miss),
+    /// a life-for-colorless permission, or a surcharge per extra target.
+    /// Those keep the looser [`Self::x_resource_bound`], and the payment
+    /// decides.
+    pub(super) fn pool_alone_pays_x(&self, wizard: &CastWizard) -> bool {
+        let face = self.wizard_face(wizard);
+        !wizard.makes_mana_after_choices()
+            && !face.delve
+            && !face.convoke
+            && !face.waterbend
+            && face.extra_target_cost == 0
+            && self.state.granted_colorless_capacity(wizard.player) == 0
     }
 
     /// A finite upper bound for a mana X, including ways of paying generic
@@ -1679,6 +1726,13 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
         .with_less_generic(wizard.reduction.map_or(0, |reduction| reduction.remainder))
 }
 
+/// What the pool pays for the cast at its payment: the total less the
+/// generic that delve and convoke already paid.
+fn wizard_paid_total(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
+    wizard_total_cost(face, wizard)
+        .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32)
+}
+
 fn wizard_total_before_reduction(
     face: &baylee_cards_dsl::FaceDef,
     wizard: &CastWizard,
@@ -1786,3 +1840,6 @@ fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
 
 #[cfg(test)]
 mod restricted_x_tests;
+
+#[cfg(test)]
+mod pool_x_tests;
