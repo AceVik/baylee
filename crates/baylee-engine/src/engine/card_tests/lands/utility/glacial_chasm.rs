@@ -337,3 +337,49 @@ fn large_chasm_upkeep_never_truncates_the_full_life_price() {
         }
     }
 }
+
+/// "Creatures you control can't attack": under our Chasm the opponent's
+/// creature is still offered as an attacker on their turn, and ours is not
+/// offered on ours.
+#[test]
+fn chasm_forbids_only_its_controllers_creatures_from_the_attack_offer() {
+    let mut e = prepared(
+        &[index::GLACIAL_CHASM],
+        &[index::FOREST, index::GRIZZLY_BEARS],
+        &[index::GRIZZLY_BEARS],
+    );
+    let land = in_hand(&e, P0, index::GLACIAL_CHASM).unwrap();
+    e.apply(P0, PlayerAction::PlayLand { card: land }).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let forest = obj(&e, P0, index::FOREST);
+    choose(&mut e, vec![forest]);
+    pass_until(&mut e, stack_is_empty);
+    let mine = obj(&e, P0, index::GRIZZLY_BEARS);
+    let theirs = obj(&e, P1, index::GRIZZLY_BEARS);
+
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
+    );
+    let Pending::ChooseAttackers { attackers, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    assert!(
+        !attackers.contains(&mine),
+        "\"Creatures you control can't attack\": our Grizzly Bears is not offered: {attackers:?}"
+    );
+
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1),
+    );
+    let Pending::ChooseAttackers { attackers, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    assert!(
+        attackers.contains(&theirs),
+        "the opponent's creatures are not ours, so theirs may still attack: {attackers:?}"
+    );
+}

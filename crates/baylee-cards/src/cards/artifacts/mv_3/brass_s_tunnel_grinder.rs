@@ -21,7 +21,7 @@ static PERMANENT: Filter = Filter::HasType(
 static BACK_MANA: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
     triggered!(
-        Trigger::SpellCastUsingSourceMana(&PERMANENT),
+        Trigger::SpellCastUsingSourceMana(&Filter::And(&[PERMANENT, Filter::ControlledByYou])),
         &[Effect::DiscoverAmount {
             mana_value: Amount::EventManaValue
         }]

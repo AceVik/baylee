@@ -113,3 +113,70 @@ fn forge_marks_a_commander_that_entered_this_turn_by_its_current_card_types() {
         assert_eq!(counters_on(&e, commander, kind), initial + 1);
     }
 }
+
+/// "Choose target commander that entered this turn": a commander that entered
+/// on an earlier turn and a noncommander creature that entered this turn are
+/// both outside the target options; the commander that entered this turn is
+/// the only one inside.
+#[test]
+fn forge_of_heroes_options_are_only_the_commander_that_entered_this_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .commander(0, &[index::SAVANNAH_LIONS, index::WHITE_KNIGHT])
+        .battlefield(0, &[forge_of_heroes()])
+        .hand(0, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let lions = e.state().commanders[0][0].object;
+    let knight = e.state().commanders[0][1].object;
+
+    // Turn one: the first commander enters.
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::White, 1);
+    e.refresh_offer();
+    e.apply(p0, PlayerAction::CastSpell { card: lions })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().object(lions).unwrap().zone,
+        Zone::Battlefield,
+        "the first commander is on the battlefield"
+    );
+
+    // The next turn of the same player: the second commander and a
+    // noncommander creature enter.
+    reach_their_main_phase(&mut e, p1);
+    reach_their_main_phase(&mut e, p0);
+    let state = e.dev_state_mut(p0).unwrap();
+    state.players[0].mana_pool.add(ManaColor::White, 2);
+    state.players[0].mana_pool.add(ManaColor::Green, 2);
+    e.refresh_offer();
+    e.apply(p0, PlayerAction::CastSpell { card: knight })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    cast_with_floating(&mut e, p0, index::GRIZZLY_BEARS);
+    pass_until(&mut e, stack_is_empty);
+    let bears = on_battlefield(&e, p0, index::GRIZZLY_BEARS).expect("Grizzly Bears entered");
+    assert_eq!(e.state().object(knight).unwrap().zone, Zone::Battlefield);
+
+    activate(&mut e, p0, forge_of_heroes(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("expected a target choice, got {:?}", e.pending());
+    };
+    assert!(
+        options.contains(&knight),
+        "the commander that entered this turn is a legal target"
+    );
+    assert!(
+        !options.contains(&lions),
+        "\"entered this turn\": a commander that entered on an earlier turn is not"
+    );
+    assert!(
+        !options.contains(&bears),
+        "\"target commander\": a noncommander creature that entered this turn is not"
+    );
+    assert_eq!(options.len(), 1, "exactly one legal target: {options:?}");
+}

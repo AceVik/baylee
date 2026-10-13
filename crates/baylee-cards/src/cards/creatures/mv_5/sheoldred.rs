@@ -87,6 +87,7 @@ card!(
             name = "The True Scriptures",
             types = TypeSet::ENCHANTMENT,
             subtypes = &[enchantment::SAGA],
+            color_indicator = ColorSet::from_slice(&[Color::Black]),
             castable_from_hand = false,
             abilities = BACK_ABILITIES,
         ),

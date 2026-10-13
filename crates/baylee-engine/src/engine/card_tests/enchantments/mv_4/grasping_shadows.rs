@@ -213,3 +213,49 @@ fn third_lone_attack_transforms_in_place_even_if_the_attacker_leaves() {
         assert!(types(&e, shadows).contains(TypeSet::LAND));
     }
 }
+
+/// Shadows' Lair: "{T}: Add {B}." One black, no more, and the tap is the
+/// cost.
+#[test]
+fn shadows_lair_taps_for_exactly_one_black() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, lair) =
+        placed_face(grasping_shadows(), 1, &[]).expect("Shadows' Lair on the battlefield");
+    assert!(!is_tapped(&engine, lair));
+    activate(&mut engine, p0, grasping_shadows(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1, "{{T}}: Add {{B}}");
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&engine, lair), "{{T}} is part of the cost");
+}
+
+/// "Then if there are three or more dread counters on it, transform it":
+/// the second lone attack leaves two counters and the enchantment as it is.
+#[test]
+fn second_lone_attack_adds_a_dread_counter_and_does_not_transform() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(975, &[grasping_shadows(), llanowar_elves()], &[], &[], &[]);
+    let shadows = kit::obj(&e, kit::P0, grasping_shadows());
+    let elf = kit::obj(&e, kit::P0, llanowar_elves());
+    crate::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 1);
+    kit::attackers_offered(&mut e);
+    e.apply(
+        kit::P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(elf, Defender::Player(kit::P1))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        counters_on(&e, shadows, counters::DREAD),
+        2,
+        "the lone attack put a dread counter on it"
+    );
+    assert_eq!(
+        e.state.object(shadows).unwrap().face_index,
+        0,
+        "two dread counters are not three: no transform"
+    );
+    assert!(types(&e, shadows).contains(TypeSet::ENCHANTMENT));
+}

@@ -84,3 +84,57 @@ fn bloodhall_deals_two_to_its_chosen_player() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[1].life, 18);
 }
+
+/// "{3}{B}{R}, {T}: This land deals 2 damage to target player or
+/// planeswalker." A creature is no target; a planeswalker is, whoever
+/// controls it, and the damage takes its loyalty away.
+#[test]
+fn bloodhall_targets_players_and_planeswalkers_but_not_creatures() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::STENSIA_BLOODHALL])
+        .battlefield(1, &[index::JACE_THE_MIND_SCULPTOR, llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let walker = on_battlefield(&e, p1, index::JACE_THE_MIND_SCULPTOR).unwrap();
+    let elf = on_battlefield(&e, p1, llanowar_elves()).unwrap();
+    let state = e.dev_state_mut(p0).unwrap();
+    state
+        .object_mut(walker)
+        .unwrap()
+        .counters
+        .set(CounterKind::Loyalty, 5);
+    state.players[0].mana_pool.add(ManaColor::Black, 4);
+    state.players[0].mana_pool.add(ManaColor::Red, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, index::STENSIA_BLOODHALL, 1);
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = e.pending().clone()
+    else {
+        panic!("a target choice was expected, got {:?}", e.pending());
+    };
+    assert!(!options.contains(&elf), "a creature is neither");
+    assert_eq!(
+        options,
+        vec![walker],
+        "the planeswalker alone among objects"
+    );
+    assert!(player_options.contains(&p1), "and the player");
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![walker],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(counters_on(&e, walker, CounterKind::Loyalty), 3, "5 - 2");
+    assert_eq!(e.state().players[1].life, 20, "the player was not hit");
+    assert_eq!(e.state().object(elf).unwrap().damage, 0);
+}

@@ -34,3 +34,9 @@ fn hidden_necropolis_enters_tapped_and_taps_for_black() {
 fn hidden_necropolis_pays_its_colored_cost_and_discovers_four() {
     hidden_cave_discovers(hidden_necropolis(), ManaColor::Black, true);
 }
+
+/// "Activate only as a sorcery" and "{T}" are part of the discover ability.
+#[test]
+fn hidden_necropolis_discover_is_refused_on_a_stack_an_opponents_turn_or_a_tapped_cave() {
+    hidden_cave_refuses_discover(hidden_necropolis(), ManaColor::Black);
+}

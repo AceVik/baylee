@@ -146,3 +146,45 @@ fn batch43_drafna_copy_retargets_the_player_and_all_dependent_graveyard_cards() 
     assert_eq!(library(&e, P0).last(), Some(&sol_ring));
     assert_eq!(library(&e, P1).last(), Some(&winter_orb));
 }
+
+/// "in any order": the order the player arranges is the order in the library,
+/// first of the pile on top. Targeting [a, b] and arranging [b, a] puts b on
+/// top and a beneath it, the reverse of the order named when targeting (the
+/// test above arranges the same cards [a, b] and sees them the other way up).
+#[test]
+fn batch43_drafna_puts_the_artifacts_on_top_in_the_order_the_player_arranges() {
+    let mut e = prepared(
+        &[
+            index::DRAFNA_S_RESTORATION,
+            index::SOL_RING,
+            index::MANA_VAULT,
+        ],
+        &[],
+        &[],
+    );
+    let a = hand_to_graveyard(&mut e, P0, index::SOL_RING);
+    let b = hand_to_graveyard(&mut e, P0, index::MANA_VAULT);
+    cast_with_floating(&mut e, P0, index::DRAFNA_S_RESTORATION);
+    e.apply(P0, PlayerAction::ChoosePlayer(P0)).unwrap();
+    target(&mut e, vec![a, b], vec![]);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    e.apply(
+        P0,
+        PlayerAction::Arrange {
+            piles: vec![vec![b, a]],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let lib = library(&e, P0);
+    assert_eq!(
+        lib.last(),
+        Some(&b),
+        "the first of the arranged pile is the top card"
+    );
+    assert_eq!(
+        lib[lib.len() - 2],
+        a,
+        "the second of the arranged pile is beneath it"
+    );
+}

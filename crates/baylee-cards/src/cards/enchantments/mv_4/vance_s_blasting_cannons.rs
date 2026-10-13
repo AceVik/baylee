@@ -49,7 +49,7 @@ card!(
         triggered!(
             Trigger::NthSpellCast {
                 n: 3,
-                filter: &Filter::Any,
+                filter: &Filter::ControlledByYou,
             },
             &[Effect::MayDo {
                 effects: &[Effect::TransformSource],

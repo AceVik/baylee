@@ -6,6 +6,7 @@ use super::*;
 mod ashnod_s_altar;
 mod basalt_monolith;
 mod bloodstone_cameo;
+mod braided_net;
 mod braidwood_cup;
 mod brass_s_tunnel_grinder;
 mod celestial_prism;

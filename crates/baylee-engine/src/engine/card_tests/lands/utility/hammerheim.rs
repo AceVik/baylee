@@ -252,3 +252,36 @@ fn hammerheim_allows_later_nonbasic_landwalk_matching_grant() {
         "later nonbasic walk grant is effective, illegal block stays atomic"
     );
 }
+
+#[test]
+fn hammerheim_landwalk_loss_ends_with_the_turn() {
+    let mut e = q_prepared(
+        &[index::FISHLIVER_OIL],
+        &[index::HAMMERHEIM, index::GRIZZLY_BEARS],
+        &[index::ISLAND],
+    );
+    let bear = q_obj(&e, P0, index::GRIZZLY_BEARS);
+    q_cast_target(&mut e, index::FISHLIVER_OIL, bear);
+    assert!(
+        keywords(&e, bear).contains(KeywordSet::ISLANDWALK),
+        "Fishliver Oil gave it islandwalk"
+    );
+    q_activate(&mut e, index::HAMMERHEIM, 1);
+    q_targets(&mut e, vec![bear], vec![]);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        !keywords(&e, bear).contains(KeywordSet::ISLANDWALK),
+        "\"loses all landwalk abilities\": it has none this turn"
+    );
+
+    // The next turn begins: "until end of turn" is over, and the Aura still
+    // grants what it granted.
+    let turn = e.state.turn.number;
+    pass_until(&mut e, |e| {
+        e.state.turn.number > turn && e.state.turn.phase == crate::turn::Phase::FirstMain
+    });
+    assert!(
+        keywords(&e, bear).contains(KeywordSet::ISLANDWALK),
+        "\"until end of turn\": the next turn the creature has islandwalk again"
+    );
+}

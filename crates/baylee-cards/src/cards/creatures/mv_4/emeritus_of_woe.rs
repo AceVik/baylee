@@ -41,10 +41,8 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            &[Effect::IfCreaturesDiedAtLeast {
-                n: 2,
-                then: &[Effect::BecomePrepared],
-            }]
+            &[Effect::BecomePrepared],
+            condition = Some(Condition::CreaturesDiedThisTurnAtLeast(2))
         ),
     ],
 );

@@ -88,3 +88,72 @@ fn restless_vents_draws_only_after_an_attack_discards_a_card() {
         );
     }
 }
+
+/// "Whenever this land attacks, you may discard a card. If you do, draw a
+/// card." With an empty hand there is nothing to discard, so nothing is drawn:
+/// the hand stays empty and the library keeps every card, whatever the
+/// optional question is answered with.
+#[test]
+fn restless_vents_with_an_empty_hand_attacks_without_drawing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[restless_vents(), swamp(), mountain(), forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = on_battlefield(&e, p0, restless_vents()).unwrap();
+    assert!(
+        e.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
+        "the hand is empty"
+    );
+    tap_mana_except(&mut e, p0, land);
+    activate(&mut e, p0, restless_vents(), 1);
+    pass_until(&mut e, stack_is_empty);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let library = library_size(&e, p0);
+    e.apply(
+        p0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(land, Defender::Player(p1))],
+        },
+    )
+    .unwrap();
+    // Step through the trigger by hand: answer a discard prompt (if one is
+    // asked at all) with nothing, and let nothing else answer for us.
+    let mut triggered = false;
+    for _ in 0..40 {
+        match e.pending().clone() {
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::CostDiscard,
+                options,
+                ..
+            } => {
+                assert!(options.is_empty(), "nothing to discard: {options:?}");
+                e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+                    .unwrap();
+            }
+            Pending::YesNo { player, .. } => {
+                e.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
+            Pending::Priority { .. } if stack_is_empty(&e) => break,
+            Pending::Priority { player, .. } => {
+                triggered = true;
+                e.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected question: {other:?}"),
+        }
+    }
+    assert!(triggered, "the attack trigger was put on the stack");
+    assert!(stack_is_empty(&e), "the trigger has finished");
+    assert!(
+        e.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
+        "no card was discarded and none was drawn: the hand is still empty"
+    );
+    assert_eq!(
+        library_size(&e, p0),
+        library,
+        "\"if you do\": no discard, so no draw, and the library is untouched"
+    );
+}

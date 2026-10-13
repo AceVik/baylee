@@ -49,6 +49,7 @@ card!(
             subtypes = &[subtypes::creature::HORROR, subtypes::creature::CONSTRUCT],
             power = Some(3),
             toughness = Some(7),
+            color_indicator = ColorSet::from_slice(&[Color::Black]),
             castable_from_hand = false,
             abilities = BACK_ABILITIES,
         ),
