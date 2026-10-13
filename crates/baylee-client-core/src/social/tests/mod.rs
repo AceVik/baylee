@@ -14,4 +14,5 @@ mod contacts;
 mod keys;
 mod notify;
 mod select;
+mod tabs;
 mod text;

@@ -1019,7 +1019,9 @@ mod tests {
     #[test]
     fn the_standard_keymap_binds_every_action_exactly_once() {
         let map = Keymap::standard();
-        for action in Action::ALL {
+        // The friends drawer is a pointer-first surface: it ships with a row
+        // and no key (the player may bind one), so it is the one exemption.
+        for action in Action::ALL.into_iter().filter(|a| *a != Action::Friends) {
             assert!(
                 !map.chords(action).is_empty(),
                 "{action:?} has no default binding, so a keyboard player cannot reach it"
@@ -1557,5 +1559,143 @@ mod tests {
         let read = Preferences::from_json(bad);
         assert!(read.favourites.is_empty());
         assert!(read.reduce_motion, "the other field survives");
+    }
+
+    /// The chat's four actions (the beta.8 chat window): where they sit,
+    /// what they are bound to, and that the settings list names them.
+    #[test]
+    fn the_chat_actions_are_listed_grouped_and_bound_as_the_design_says() {
+        assert_eq!(Action::ALL.len(), 43);
+        let chat = [
+            Action::ChatCommand,
+            Action::ChatReply,
+            Action::ChatOpen,
+            Action::Friends,
+        ];
+        for action in chat {
+            assert!(Action::ALL.contains(&action), "{action:?} is not listed");
+            assert_eq!(action.group(), Phrase::GroupChat, "{action:?}");
+        }
+        let in_chat: Vec<Action> = Action::ALL
+            .into_iter()
+            .filter(|a| a.group() == Phrase::GroupChat)
+            .collect();
+        assert_eq!(
+            in_chat.len(),
+            chat.len(),
+            "no other action sits in the chat group"
+        );
+
+        let map = Keymap::standard();
+        assert_eq!(map.chords(Action::ChatCommand), &[Chord::key("Slash")]);
+        assert_eq!(map.chords(Action::ChatReply), &[Chord::key("KeyR")]);
+        let send = &map.chords(Action::ChatOpen)[0];
+        assert_eq!(send.key, "Enter");
+        // The platform's own "send" chord: Cmd on a Mac, Ctrl elsewhere,
+        // never both and never shift or alt.
+        assert_eq!(send.meta, cfg!(target_os = "macos"));
+        assert_eq!(send.ctrl, !cfg!(target_os = "macos"));
+        assert!(!send.shift && !send.alt);
+        assert_eq!(map.chords(Action::ChatOpen).len(), 1);
+        assert!(
+            map.chords(Action::Friends).is_empty(),
+            "the friends drawer ships without a key, but with a row"
+        );
+        assert!(map.bindings.contains_key(&Action::Friends));
+        assert!(
+            map.conflicts().is_empty(),
+            "a chat key shadows another action: {:?}",
+            map.conflicts()
+        );
+        assert_ne!(
+            map.chords(Action::ChatOpen)[0],
+            *map.chords(Action::Confirm).first().unwrap(),
+            "plain Enter stays the table's"
+        );
+    }
+
+    /// The map that shipped has none of the chat rows, so an untouched one
+    /// migrates to the standard, chat keys included; a customised one keeps
+    /// its rows, gains the chat keys where they are free and loses nothing.
+    #[test]
+    fn a_keymap_from_before_the_chat_gains_its_keys_only_where_they_are_free() {
+        let legacy = Keymap::legacy();
+        for action in [
+            Action::ChatCommand,
+            Action::ChatReply,
+            Action::ChatOpen,
+            Action::Friends,
+        ] {
+            assert!(!legacy.bindings.contains_key(&action), "{action:?}");
+        }
+        let untouched = Preferences::from_json(
+            &Preferences {
+                keymap: legacy.clone(),
+                ..Preferences::default()
+            }
+            .to_json(),
+        );
+        assert_eq!(untouched.keymap, Keymap::standard());
+        assert_eq!(
+            untouched.keymap.chords(Action::ChatCommand),
+            &[Chord::key("Slash")]
+        );
+
+        let mut own = legacy;
+        own.bind(Action::CombatNone, vec![Chord::key("KeyZ")]);
+        own.bind(Action::AnswerYes, vec![Chord::key("KeyR")]);
+        let read = Preferences::from_json(
+            &Preferences {
+                keymap: own,
+                ..Preferences::default()
+            }
+            .to_json(),
+        )
+        .keymap;
+        assert_eq!(read.chords(Action::CombatNone), &[Chord::key("KeyZ")]);
+        assert_eq!(read.chords(Action::AnswerYes), &[Chord::key("KeyR")]);
+        assert_eq!(read.chords(Action::ChatCommand), &[Chord::key("Slash")]);
+        assert!(
+            read.chords(Action::ChatReply).is_empty(),
+            "R is the player's now; the new action waits without a key"
+        );
+        assert_eq!(
+            read.chords(Action::ChatOpen),
+            Keymap::standard().chords(Action::ChatOpen)
+        );
+        assert!(read.conflicts().is_empty());
+    }
+
+    /// The chat settings ride in a top-level key of their own.
+    #[test]
+    fn a_blob_from_before_the_chat_loads_with_the_default_chat_settings() {
+        let read = Preferences::from_json(r#"{"reduce_motion":true}"#);
+        assert!(read.reduce_motion);
+        assert_eq!(read.chat, crate::social::ChatPrefs::default());
+        assert_eq!(read.chat.tabs, crate::social::TabFilter::standard_set());
+    }
+
+    #[test]
+    fn chat_settings_round_trip_and_a_bad_chat_value_costs_only_the_chat() {
+        let mut prefs = Preferences::default();
+        prefs.chat.history_days = 365;
+        prefs.chat.set_filter(
+            crate::social::ChatTab::Log,
+            crate::social::TabFilter::nothing(),
+        );
+        prefs.favourites.push("d1".to_string());
+        let read = Preferences::from_json(&prefs.to_json());
+        assert_eq!(read.chat, prefs.chat);
+        assert_eq!(read, prefs);
+
+        let bad = r#"{"chat":"loud","reduce_motion":true,"favourites":["d1"]}"#;
+        let read = Preferences::from_json(bad);
+        assert_eq!(read.chat, crate::social::ChatPrefs::default());
+        assert!(read.reduce_motion, "the other fields survive");
+        assert_eq!(read.favourites, ["d1".to_string()]);
+        let bad_inside = r#"{"chat":{"history_days":"many"},"reduce_motion":true}"#;
+        let read = Preferences::from_json(bad_inside);
+        assert_eq!(read.chat, crate::social::ChatPrefs::default());
+        assert!(read.reduce_motion);
     }
 }

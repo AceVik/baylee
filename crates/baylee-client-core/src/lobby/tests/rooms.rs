@@ -56,6 +56,41 @@ fn joining_brings_the_selected_deck_to_someone_elses_table() {
     );
 }
 
+#[test]
+fn joining_on_a_friends_invite_carries_the_invite_and_the_first_free_chair() {
+    let mut lobby = seated_lobby();
+    assert_eq!(
+        lobby.join_invited("g7", "inv-1"),
+        Some(LobbyRequest::JoinGame {
+            game_id: "g7".to_string(),
+            deck_id: "d1".to_string(),
+            seat: None,
+            password: String::new(),
+            invite: Some("inv-1".to_string()),
+        })
+    );
+    assert!(lobby.busy(), "it is a request in flight like any join");
+    assert_eq!(
+        lobby.join_invited("g7", "inv-1"),
+        None,
+        "a second click is idle"
+    );
+}
+
+#[test]
+fn joining_without_an_invite_never_invents_one() {
+    let mut lobby = seated_lobby();
+    let Some(LobbyRequest::JoinGame { invite, .. }) = lobby.join_seat("g7", Some(1)) else {
+        panic!("a join")
+    };
+    assert_eq!(invite, None);
+    lobby.apply(LobbyEvent::Failed("full".to_string()));
+    let Some(LobbyRequest::JoinGame { invite, seat, .. }) = lobby.join("g7") else {
+        panic!("a join")
+    };
+    assert_eq!((invite, seat), (None, None));
+}
+
 /// The box is typed into once and spent once — on opening a room or on
 /// joining one, whichever comes first. A password left lying in a text
 /// box is the next room's password by accident.
