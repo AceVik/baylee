@@ -298,6 +298,44 @@ fn a_draw_in_the_upkeep_is_replaced_and_the_draw_steps_first_card_is_still_exemp
         19,
         "the Arena's life loss is not part of the replaced draw"
     );
+    // The same board and cards end the same under the wrong rule, "the first
+    // card drawn each turn is exempt" (the upkeep card drawn, then discarded
+    // to the replaced draw step); what tells them apart is how many cards
+    // were drawn: one here, two under the wrong rule.
+    assert_eq!(
+        kit::drawn_this_turn(&engine, kit::P1),
+        1,
+        "the upkeep's draw was replaced and drew nothing: only the draw step's card was drawn"
+    );
+}
+
+/// The control for the test above, with a card in the opponent's hand. Under
+/// the right rule the upkeep draw is replaced -- the lone card is discarded
+/// without a question and a card is drawn -- and the draw step's first card
+/// is exempt, so nothing is ever asked and two cards are drawn. Under the
+/// wrong rule ("the first card each turn is exempt") the draw step's card
+/// would be the replaced one, with two cards in hand, and would ask which to
+/// discard.
+#[test]
+fn an_upkeep_draw_discards_the_lone_card_and_the_draw_step_asks_nothing() {
+    let mut engine = kit::duel(4508, &[kit::chains()], &[], &[kit::arena()], &[forest()]);
+    let kept = in_hand(&engine, kit::P1, forest()).expect("the Forest");
+    let theirs = kit::top(&engine, kit::P1, 2);
+    assert!(
+        !kit::play_until(&mut engine, kit::first_main_of(kit::P1, 2)),
+        "the draw step's first card is exempt: no discard is asked for"
+    );
+    assert_eq!(
+        kit::graveyard(&engine, kit::P1),
+        vec![kept],
+        "the upkeep's draw discarded the one card in hand"
+    );
+    assert_eq!(
+        kit::sorted(&kit::hand(&engine, kit::P1)),
+        kit::sorted(&theirs),
+        "both cards were drawn: the upkeep's after the discard, the draw step's untouched"
+    );
+    assert_eq!(kit::drawn_this_turn(&engine, kit::P1), 2);
 }
 
 /// The card's ruling: "If there are two of these on the battlefield, each of

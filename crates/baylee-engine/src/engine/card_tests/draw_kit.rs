@@ -337,12 +337,45 @@ pub(super) fn recall_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
     run_stack(engine);
 }
 
-/// Lights Aladdin's Lamp for `x`: activates it off the mana floating, names
-/// X, and lets the ability resolve. Checks that X is announced with a lowest
-/// value of one ("X can't be 0") and nothing else about it.
+/// Whether the player holding priority is offered ability `index` of
+/// `source` right now.
 #[track_caller]
-pub(super) fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) {
-    activate(engine, P0, lamp(), 0);
+pub(super) fn offered(engine: &Engine<RegistryLookup>, source: ObjectId, index: u32) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    legal.abilities.contains(&(source, index))
+}
+
+/// Lights Aladdin's Lamp for `x`: activates the first Lamp that is offered
+/// off the mana floating, names X, and lets the ability resolve. Checks that
+/// X is announced with a lowest value of one ("X can't be 0") and that the
+/// "{T}" of "{X}, {T}" is paid: the Lamp is tapped by the time the ability is
+/// on the stack and is not offered again. Returns the Lamp that was lit.
+#[track_caller]
+pub(super) fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) -> ObjectId {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (lamp_object, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|&(id, ai)| ai == 0 && card_of(engine, id) == Some(lamp()))
+        .expect("an untapped Lamp offers its ability");
+    assert!(
+        !is_tapped(engine, lamp_object),
+        "an offered Lamp is untapped: its {{T}} is still to be paid"
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: lamp_object,
+                ability_index,
+            },
+        )
+        .expect("the Lamp activates");
     let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
         panic!("{{X}} is announced: {:?}", engine.pending())
     };
@@ -351,12 +384,25 @@ pub(super) fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) {
     engine
         .apply(P0, PlayerAction::ChooseNumber(x))
         .expect("X is announced");
+    assert!(
+        is_tapped(engine, lamp_object),
+        "\"{{X}}, {{T}}\": the Lamp is tapped as the cost of the activation"
+    );
     run_stack(engine);
     assert!(
         !is_asking(engine) && stack_is_empty(engine),
         "lighting the Lamp draws nothing and asks nothing: {:?}",
         engine.pending()
     );
+    assert!(
+        is_tapped(engine, lamp_object),
+        "the Lamp stays tapped after its ability resolved"
+    );
+    assert!(
+        !offered(engine, lamp_object, 0),
+        "a tapped Lamp's ability is not offered again"
+    );
+    lamp_object
 }
 
 /// Taps the given mana sources of player 0 and nothing else: mana of one kind

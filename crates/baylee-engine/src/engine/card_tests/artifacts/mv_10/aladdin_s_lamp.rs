@@ -280,8 +280,27 @@ fn a_second_lamp_replaces_the_card_the_first_one_would_draw() {
         &[],
     );
     tap_all_mana(&mut engine, kit::P0);
-    kit::light_the_lamp(&mut engine, 2);
-    kit::light_the_lamp(&mut engine, 2);
+    let lamps = kit::permanents(&engine, kit::P0, kit::lamp());
+    assert_eq!(lamps.len(), 2, "two Lamps on the table");
+    let first_lamp = kit::light_the_lamp(&mut engine, 2);
+    let other_lamp = *lamps
+        .iter()
+        .find(|&&lamp| lamp != first_lamp)
+        .expect("the other Lamp");
+    assert!(lamps.contains(&first_lamp));
+    assert!(
+        kit::offered(&engine, other_lamp, 0) && !is_tapped(&engine, other_lamp),
+        "lighting one Lamp taps that Lamp only: the other is untapped and offered"
+    );
+    let second_lamp = kit::light_the_lamp(&mut engine, 2);
+    assert_eq!(
+        second_lamp, other_lamp,
+        "the second activation is the other Lamp, not the first one again"
+    );
+    assert!(
+        is_tapped(&engine, first_lamp) && is_tapped(&engine, second_lamp),
+        "both Lamps paid their {{T}}"
+    );
     let [a, b, c]: [ObjectId; 3] = kit::top(&engine, kit::P0, 3).try_into().unwrap();
 
     kit::tome_draw(&mut engine);
