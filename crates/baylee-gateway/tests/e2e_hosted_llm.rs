@@ -328,9 +328,9 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         .unwrap();
     let _agent = attach_agent(&gw).await;
     let http_base = format!("http://127.0.0.1:{port}");
-    // A new profile is open to nobody; these two are opened to every
+    // A new profile is open to nobody; these three are opened to every
     // registered account (`e2e_hosted_access` holds the policies).
-    open_to_registered(admin_port, &["sonnet", "opus"]);
+    open_to_registered(admin_port, &["sonnet", "opus", "haiku"]);
 
     // Seat agent "a" on the unix socket holds sonnet and opus, opus with a
     // cap of one dollar a day and a book that spent two; "b" over TCP holds

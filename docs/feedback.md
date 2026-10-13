@@ -644,6 +644,38 @@ with `PUT`, never a key; unticking deletes there), and the `gateway.llm.*`
 audit rows. Deleting, unassigning and forgetting a key ask once more. The
 key field is a password field, cleared as it is sent.
 
+**Who may seat each model** (owner, 13.10.2026; `docs/protocol.md` §"Who
+may seat which model"). Per profile id a policy, `registered`, `listed` or
+`nobody`, the default mark, and the list of accounts a `listed` profile
+admits:
+
+| route | gateway route |
+| --- | --- |
+| `GET /ui/api/admin/llm/access` | `GET /admin/llm/access` |
+| `GET /ui/api/admin/llm/access/{id}` | `GET /admin/llm/access/{id}` |
+| `PUT /ui/api/admin/llm/access/{id}` | `{"policy", "default_for_registered"?}`, read into those two fields and written out again |
+| `POST /ui/api/admin/llm/access/{id}/allow` | `{"accounts": [<uuid>…]}`, 1–200 UUIDs, read and written out again |
+| `POST /ui/api/admin/llm/access/{id}/disallow` | the same |
+| `GET /ui/api/admin/accounts/lookup?q=` | `GET /admin/accounts/lookup?q=`: the list editor's type-ahead |
+
+Each change wants the session and the CSRF proof, as every change here
+does. A change that succeeded is a `feedback_audit` row,
+`gateway.llm.access.policy` with the detail `<id>: <policy>` (and whether
+it became or stopped being the default), or `gateway.llm.access.allow` /
+`.disallow` with `<id>: <account ids>`; never a username, display name or
+handle. The page's panel lists every profile a seat agent reports or a
+policy names, with its policy (`not set: nobody` for a profile no admin has
+opened), how many accounts are on its list, the default mark, and whether a
+seat agent reports it now. *Manage access* opens a dialog: the policy as
+three choices, the default mark (which selects `registered`), and the
+list: a type-ahead (two characters at least, asked 250 ms after the last
+key, ↑/↓ and Enter, at most ten registered accounts, those already on the
+list shown and not pickable), the accounts about to be added and taken off
+as chips, the list itself filtered, ordered by name or by when they were
+added, and taken off one by one or all selected at once. *Save…* shows
+what will change and asks before anything is sent; a change stops no
+game and no chair already ordered.
+
 Several gateways are not configured yet: the routes would take a
 `?gateway=<name>` and the two settings a list of `name=url` pairs, as
 `FEEDBACK_GATEWAY_TOKENS` does.

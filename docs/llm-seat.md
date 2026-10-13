@@ -771,8 +771,17 @@ describes it.
 - **Debug bridges.** A debug `baylee-seat` shows the model's reasoning to
   the whole table (§"The AI log"); `baylee-seat --version` says `debug` or
   `release`, and a release seat agent refuses to start with a debug bridge.
-- **Who may order one**: a host signed in to a registered account; a guest
-  is refused (`403`).
+- **Who may order one**: a host signed in to a registered account to which
+  the profile is open; a guest is refused (`403`). Each profile id has a
+  policy on the gateway, set in the admin console's Models page: every
+  registered account, only the accounts on its list, or nobody
+  (`docs/protocol.md` §"Who may seat which model"). A profile no admin has
+  opened is open to nobody, except the one marked the default for
+  registered players. A player is listed only the profiles open to them,
+  and the room shows no hosted entry when there is none. Which profiles a
+  seat agent runs and who may seat them are set apart: a profile's id is
+  only a label the operator chose, and nothing on the gateway names what
+  stands behind it.
 
 Running one (`scripts/server/baylee-seathost@.service`): its own OS user
 per instance (`baylee-llm-<name>`) whose home holds the CLIs' sign-ins and

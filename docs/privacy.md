@@ -39,6 +39,7 @@ the pointers, because line numbers move.
 | Game state | engine process memory | the game | the process exits |
 | A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
+| Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
 | Server logs | stdout | the host's choice | the host |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
@@ -104,6 +105,40 @@ one spend book per profile (when, which model, what was reserved and
 spent) and its keys on its own machine. A key the console sets passes
 through the feedback service and the gateway in memory only, for that
 request, and is answered back by nothing.
+
+### Who may seat each model (owner, 13.10.2026)
+
+The operator decides per hosted profile which players may seat it
+(`docs/protocol.md` §"Who may seat which model"): every registered
+account, only the accounts on the profile's list, or nobody.
+
+- **Kept:** per profile id its policy, whether it is the default for
+  registered players, when it was last changed and by which admin
+  (`llm_profile_access`); per listed account the account id, the profile,
+  when it was added and by which admin (`llm_profile_allow`). No name, no
+  reason, nothing about the player's games. A row goes with its account
+  (cascade), and an admin takes it off the list.
+- **Why a list of people:** the owner wants access to a model granted per
+  player, by username. A list is the smallest thing that says it.
+- **Seen by:** the feedback service's signed-in admins, on the Models page,
+  through the gateway's loopback console (the list with each account's
+  username, display name and handle, and the admin who added it). A player
+  is never shown a list: the gateway only leaves out of their own offer the
+  profiles not open to them, and no route tells a player who else may seat
+  one.
+- **Finding a player to add:** the list editor's type-ahead,
+  `GET /admin/accounts/lookup?q=` (owner, 13.10.2026: fine-grained access
+  per player needs a player picked by name). It answers registered
+  accounts only (never a guest), whose username or display name *starts*
+  with what was typed, at least two characters, at most ten, and per
+  account only its id, username, display name and handle: less than the
+  console's account search above already shows, and nothing it does not.
+  It is read per request and kept nowhere; reads are not audited, like the
+  account search's.
+- **Logs and audit:** each change is a line on `baylee_gateway::audit` and
+  a `feedback_audit` row (kept indefinitely, §"Reports and crash reports"),
+  naming the admin, the profile id, the policy, and the account ids added
+  or taken off; never a username, display name or handle.
 
 ## Accounts
 
