@@ -46,6 +46,41 @@ pub enum Screen {
     Build,
     /// A seat was granted. The shell connects a host and leaves the lobby.
     Seated(SeatHandover),
+    /// Watching a game again (`docs/client.md` §"Replays"). The shell
+    /// installs a replay host and leaves the lobby; leaving the replay comes
+    /// back to the Replays tab. Never [`Screen::Seated`]: the seated strip,
+    /// reclaiming a chair and "Play again" would all misfire on a replay.
+    Replay(ReplayHandover),
+}
+
+/// Which game a replay plays, and how ([`Screen::Replay`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReplayHandover {
+    /// Where its tape comes from.
+    pub source: ReplayRef,
+    /// Whose table it draws.
+    pub perspective: crate::replay::Perspective,
+    /// What a failing check does (the entry's check chose it, §7.1).
+    pub verify: crate::replay::Verify,
+    /// Opened from a game's end screen (leaving it still goes to the
+    /// Replays tab).
+    pub from_end_screen: bool,
+}
+
+/// Where a replay's tape comes from.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ReplayRef {
+    /// A kept record of a game against the house, by its file name.
+    Record(String),
+    /// A hosted game the account sat in, by its id.
+    Hosted {
+        /// The gateway's game id.
+        game: String,
+    },
+    /// A record or tape file opened by hand (`BAYLEE_REPLAY`).
+    Path(std::path::PathBuf),
+    /// The record of the game just played here, held in memory by the shell.
+    Memory,
 }
 
 impl Default for Screen {
@@ -1243,6 +1278,22 @@ impl Lobby {
         &self.screen
     }
 
+    /// Watches a game again: the shell installs a replay host for it. Only
+    /// from the hub (a seat is given up first, as the end screen does).
+    pub fn watch_replay(&mut self, handover: ReplayHandover) {
+        if matches!(self.screen, Screen::Table | Screen::Replay(_)) {
+            self.screen = Screen::Replay(handover);
+        }
+    }
+
+    /// The replay was left: back to the hub (the shell shows its Replays
+    /// tab).
+    pub fn leave_replay(&mut self) {
+        if matches!(self.screen, Screen::Replay(_)) {
+            self.screen = Screen::Table;
+        }
+    }
+
     /// Which sign-in field has the caret.
     #[must_use]
     pub fn focus(&self) -> Field {
@@ -1932,7 +1983,7 @@ impl Lobby {
                 Field::Search | Field::DeckSearch => self.awaiting.is_none(),
                 _ => false,
             },
-            Screen::Build | Screen::Seated(_) => false,
+            Screen::Build | Screen::Seated(_) | Screen::Replay(_) => false,
         }
     }
 

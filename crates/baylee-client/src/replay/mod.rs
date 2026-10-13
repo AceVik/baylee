@@ -1,0 +1,124 @@
+//! Watching a game again (`docs/client.md` §"Replays";
+//! `.claude/b8/REPLAY-DESIGN.md` §7).
+//!
+//! A replay is a spectator's table driven by a tape instead of a socket:
+//! [`host::ReplayHost`] is a [`crate::host::DuelHost`] whose frames come off
+//! a [`baylee_client_core::replay::Tape`], walked by the transport. Every
+//! system above the host draws it as it draws a live table; what differs is
+//! asked of the host ([`crate::host::DuelHost::replay`]) and drawn by the
+//! transport bar in the actions bar's place.
+//!
+//! What is decided lives in `baylee_client_core::replay`; this module holds
+//! the host, the worker that projects a record or reads a tape, the Replays
+//! tab's state, and the systems that tick the transport.
+
+use std::sync::Arc;
+
+use baylee_client_core::replay::{
+    Check, Header, Perspective, Perspectives, Speed, StopLine, Timeline, Verify,
+};
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod host;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod local;
+mod rewind;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub use host::{HostedAccess, ReplayHost, ReplaySource};
+
+/// A replay's timeline, shared between the host and whoever draws it.
+/// Compared by identity: a timeline is built once per tape and never
+/// changed, so "the same `Arc`" is "the same timeline", and comparing it
+/// costs nothing on a frame where nothing moved.
+#[derive(Clone, Debug)]
+pub struct SharedTimeline(pub Arc<Timeline>);
+
+impl PartialEq for SharedTimeline {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+/// What a replay is still waiting for.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Loading {
+    /// A record is being played again here; how far, in percent, when the
+    /// record's length is known.
+    Here {
+        /// Percent done.
+        percent: Option<u8>,
+    },
+    /// The gateway is playing it again on its side.
+    Gateway {
+        /// What the gateway is called (or its address).
+        name: String,
+    },
+}
+
+/// Where and when the game was played, for the top line.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct Origin {
+    /// "This computer", the gateway's name, or the file's.
+    pub place: String,
+    /// When it started, Unix milliseconds, where known.
+    pub started: Option<u64>,
+}
+
+/// Where a replay stands: what the transport bar, the top line and the stop
+/// sheets draw. Written into `Duel::replay` only when it differs.
+#[derive(Clone, PartialEq, Debug)]
+pub struct ReplayStatus {
+    /// The tape's header, once there is a tape.
+    pub header: Option<Header>,
+    /// The step shown.
+    pub step: usize,
+    /// How many steps there are.
+    pub steps: usize,
+    /// Whether it plays on by itself.
+    pub playing: bool,
+    /// How fast.
+    pub speed: Speed,
+    /// The timeline, once there is a tape.
+    pub timeline: Option<SharedTimeline>,
+    /// How far the tape is the recorded game.
+    pub stop: Option<StopLine>,
+    /// How far the step shown is known to be the recorded game's.
+    pub check: Option<Check>,
+    /// Whose table it is.
+    pub perspective: Perspective,
+    /// The perspectives this source offers.
+    pub offers: Perspectives,
+    /// What a failing check does in the tape shown.
+    pub verify: Verify,
+    /// Still waiting for a tape (a first one, or another perspective's).
+    pub loading: Option<Loading>,
+    /// Why no tape came, in words a player may read.
+    pub problem: Option<String>,
+    /// Where and when.
+    pub origin: Origin,
+}
+
+impl ReplayStatus {
+    /// Whether the step shown is the last.
+    #[must_use]
+    pub const fn at_end(&self) -> bool {
+        self.steps > 0 && self.step + 1 >= self.steps
+    }
+}
+
+/// What a replay is asked to do: the transport's commands, and what only
+/// the host can carry out (another tape).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ReplayAsk {
+    /// A transport command.
+    Transport(baylee_client_core::replay::Command),
+    /// Show the game from another perspective, keeping the place.
+    Perspective(Perspective),
+    /// The next perspective the source offers (`V`).
+    NextPerspective,
+    /// Play on past where this build would differ, keeping the place.
+    PlayOn,
+    /// Stop waiting for a tape.
+    Cancel,
+}

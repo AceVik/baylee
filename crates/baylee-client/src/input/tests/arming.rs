@@ -261,6 +261,7 @@ fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
             HostMessage::Failed(e) => panic!("the host refused: {e}"),
             HostMessage::Curtain => duel.curtain_up = true,
             HostMessage::Preparing { .. }
+            | HostMessage::Jump
             | HostMessage::AiLog(_)
             | HostMessage::Spectators(_)
             | HostMessage::Closed(_) => {}

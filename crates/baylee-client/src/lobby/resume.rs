@@ -499,6 +499,8 @@ fn snapshot(
         Screen::Table => Place::Hub,
         Screen::Build => Place::Builder,
         Screen::Seated(_) => Place::Table,
+        // A replay is not picked up again: a restart opens the Replays tab.
+        Screen::Replay(_) => Place::Hub,
     };
     let over = duel
         .and_then(|d| d.interaction.as_ref())

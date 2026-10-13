@@ -501,6 +501,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::ZoneWatch>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
+            .init_resource::<table::Placing>()
             .init_resource::<table::CameraPose>()
             .init_resource::<dial::DialReport>()
             .init_resource::<Reconnect>()

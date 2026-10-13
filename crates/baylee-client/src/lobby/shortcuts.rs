@@ -23,7 +23,7 @@ use baylee_client_core::shellkeys::{Context, ShellAction, Stack};
 /// What the lobby has open, as the resolver's stack.
 pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
     let screen = match state.lobby.screen() {
-        Screen::Seated(_) => {
+        Screen::Seated(_) | Screen::Replay(_) => {
             return ShellStack::default();
         }
         _ if state.settings.is_open() => Context::Settings,

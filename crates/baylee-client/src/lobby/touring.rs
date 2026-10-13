@@ -24,7 +24,7 @@ pub(super) fn place(state: &LobbyState) -> Option<Place> {
             Hub::Decks => Place::Shelf,
         }),
         Screen::Build => Some(Place::Builder),
-        Screen::Seated(_) => None,
+        Screen::Seated(_) | Screen::Replay(_) => None,
     }
 }
 
