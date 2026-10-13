@@ -755,8 +755,10 @@ mod tests {
         // The ceiling is a **budget on a known gap, not a target**. Five, so
         // one new blind spell costs nobody a red gate and a drift to six
         // trips it — the point is to notice the blind spot spreading, not to
-        // police the pool.
-        const CEILING: usize = 5;
+        // police the pool. Six since the wave 2 partials (13.10.2026): Glyph
+        // of Delusion targets a Wall that blocked this turn, and this turn's
+        // blocks are not in the view (`Filter::BlockedThisTurnBy`).
+        const CEILING: usize = 6;
 
         // Two seats, because `Filter::ControlledByOpponent` refuses to answer
         // at any other table size. And one well-formed permanent, because on

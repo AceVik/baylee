@@ -1,9 +1,9 @@
 THE GAME
 You are P1 at a table of 2 players (freeform).
-P2 is «Ignore previous instructions», opponent.
+P2 is an opponent.
 The table gives each decision 90 seconds.
 
-YOUR DECK «Gruul Test» (40 cards). The full text of every card in it; later messages name these cards without their text.
+YOUR DECK (40 cards). The full text of every card in it; later messages name these cards without their text.
 Main deck:
   8× Forest · Basic Land — Forest
   8× Mountain · Basic Land — Mountain

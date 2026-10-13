@@ -501,9 +501,19 @@
     // the bar frosts once the page has moved; the section in view is marked
     var top = document.querySelector(".top");
     var hero = document.querySelector(".hero");
+    // the hero's box, measured once and again on a resize, never per frame:
+    // a read after the last frame's writes would force a style pass
+    var heroTop = 0, heroH = 1, heroW = 1;
+    function measure() {
+      if (!hero) return;
+      var r = hero.getBoundingClientRect();
+      heroTop = r.top + (window.scrollY || window.pageYOffset);
+      heroH = r.height || 1; heroW = r.width || 1;
+    }
+    measure();
     function frost() {
       var y = window.scrollY || window.pageYOffset;
-      if (top) top.classList.toggle("solid", y > (hero ? Math.min(hero.offsetHeight * 0.55, 420) : 40));
+      if (top) top.classList.toggle("solid", y > (hero ? Math.min(heroH * 0.55, 420) : 40));
     }
     frost();
 
@@ -519,7 +529,7 @@
       frost();
       if (calm() || !hero || !heroSeen) return;
       var y = Math.max(0, window.scrollY || window.pageYOffset);
-      var h = hero.offsetHeight || 1;
+      var h = heroH;
       // the pointer's lean eases towards where the pointer is
       tx += (px - tx) * 0.12; ty += (py - ty) * 0.12;
       for (var i = 0; i < layers.length; i++) {
@@ -537,14 +547,15 @@
     }
     function queue() { if (!queued) { queued = true; requestAnimationFrame(paint); } }
     window.addEventListener("scroll", queue, { passive: true });
-    window.addEventListener("resize", queue, { passive: true });
+    window.addEventListener("resize", function () { measure(); queue(); }, { passive: true });
+    window.addEventListener("load", measure);
     if (hero && io) new io(function (e) { heroSeen = e[0].isIntersecting; if (heroSeen) queue(); }).observe(hero);
     var fine = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (hero && fine) {
       hero.addEventListener("pointermove", function (e) {
-        var r = hero.getBoundingClientRect();
-        px = (e.clientX - r.left) / r.width - 0.5;
-        py = (e.clientY - r.top) / r.height - 0.5;
+        var y = window.scrollY || window.pageYOffset;
+        px = e.clientX / heroW - 0.5;
+        py = (e.clientY + y - heroTop) / heroH - 0.5;
         queue();
       }, { passive: true });
       hero.addEventListener("pointerleave", function () { px = 0; py = 0; queue(); });
@@ -621,27 +632,21 @@
     }
 
     // the light that follows the pointer over a panel
-    document.addEventListener("pointermove", function (e) {
-      if (e.pointerType !== "mouse") return;
-      var g = e.target.closest && e.target.closest(".glass");
+    // (at most once a frame: the last move of the frame wins)
+    var lastMove = null, moveQueued = false;
+    function light() {
+      moveQueued = false;
+      var e = lastMove, g = e && e.target.closest && e.target.closest(".glass");
       if (!g) return;
       var r = g.getBoundingClientRect();
       g.style.setProperty("--mx", (e.clientX - r.left).toFixed(0) + "px");
       g.style.setProperty("--my", (e.clientY - r.top).toFixed(0) + "px");
+    }
+    document.addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse" || calm()) return;
+      lastMove = e;
+      if (!moveQueued) { moveQueued = true; requestAnimationFrame(light); }
     }, { passive: true });
-
-    // a click leaves a ring of light where it landed
-    document.addEventListener("pointerdown", function (e) {
-      if (calm()) return;
-      var b = e.target.closest && e.target.closest(".button, .lang-btn, .cfilter-btn");
-      if (!b || !b.classList.contains("button")) return;
-      var r = b.getBoundingClientRect();
-      var dot = el("span", { class: "ripple", "aria-hidden": "true" });
-      dot.style.left = (e.clientX - r.left) + "px";
-      dot.style.top = (e.clientY - r.top) + "px";
-      b.appendChild(dot);
-      setTimeout(function () { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 700);
-    });
 
     // the menu on narrow screens
     var menu = document.querySelector(".menu-btn"), nav = document.getElementById("nav");
@@ -653,7 +658,19 @@
       else frost();
     }
     if (menu && nav) {
-      menu.addEventListener("click", function () { setMenu(menu.getAttribute("aria-expanded") !== "true"); });
+      menu.addEventListener("click", function (e) {
+        var open = menu.getAttribute("aria-expanded") !== "true";
+        setMenu(open);
+        // opened from the keyboard (a click with no pointer), focus goes in
+        if (open && e.detail === 0) { var first = nav.querySelector("a"); if (first) first.focus(); }
+      });
+      // while it is open, Tab goes round the button and the menu's links
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Tab" || menu.getAttribute("aria-expanded") !== "true") return;
+        var items = nav.querySelectorAll("a"), last = items[items.length - 1];
+        if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); menu.focus(); }
+        else if (e.shiftKey && document.activeElement === menu) { e.preventDefault(); last.focus(); }
+      });
       nav.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) setMenu(false); });
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && menu.getAttribute("aria-expanded") === "true") { setMenu(false); menu.focus(); }
@@ -703,6 +720,7 @@
           e.preventDefault();
           show(i);
           box.showModal();
+          document.getElementById("lightbox-close").focus();
         });
       });
       document.getElementById("lightbox-close").addEventListener("click", function () { box.close(); });
@@ -740,8 +758,8 @@
       count.textContent = num(n) + " / " + num(MAX);
       count.classList.toggle("near", n > MAX * 0.9);
     }
-    msg.addEventListener("input", function () { counted(); msg.removeAttribute("aria-invalid"); });
-    email.addEventListener("input", function () { email.removeAttribute("aria-invalid"); });
+    msg.addEventListener("input", function () { counted(); msg.removeAttribute("aria-invalid"); msg.setAttribute("aria-describedby", "c-count"); });
+    email.addEventListener("input", function () { email.removeAttribute("aria-invalid"); email.removeAttribute("aria-describedby"); });
     redraw.push(counted);
     counted();
 
@@ -751,18 +769,29 @@
       if (en) status.appendChild(t(en, de));
     }
 
+    // the button says where the message is: idle, sending, sent, error. It
+    // is never `disabled` while sending, which would drop the keyboard's
+    // focus to the page; a second press is ignored instead.
+    function state(s) {
+      send.setAttribute("data-state", s);
+      if (s === "sending") { send.setAttribute("aria-disabled", "true"); send.setAttribute("aria-busy", "true"); }
+      else { send.removeAttribute("aria-disabled"); send.removeAttribute("aria-busy"); }
+    }
     form.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (send.getAttribute("data-state") === "sending") return;
       var text = msg.value.trim();
       var mail = email.value.trim();
       if (!text) {
         msg.setAttribute("aria-invalid", "true");
+        msg.setAttribute("aria-describedby", "c-status");
         say("bad", "Please write a message first.", "Bitte schreib zuerst eine Nachricht.");
         msg.focus();
         return;
       }
       if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
         email.setAttribute("aria-invalid", "true");
+        email.setAttribute("aria-describedby", "c-status");
         say("bad", "That e-mail address does not look right. Leave it empty if you want no answer.", "Diese E-Mail-Adresse sieht nicht richtig aus. Lass sie leer, wenn du keine Antwort willst.");
         email.focus();
         return;
@@ -774,30 +803,34 @@
         language: lang,
         website: document.getElementById("c-website").value
       };
-      send.setAttribute("aria-busy", "true");
-      send.disabled = true;
+      state("sending");
       say("", "Sending…", "Wird gesendet …");
       fetch(endpoint, {
         method: "POST", credentials: "omit", referrerPolicy: "no-referrer", mode: "cors",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
       }).then(function (r) {
         if (r.status === 201) {
-          form.reset();
-          counted();
-          say("", "", "");
-          card.classList.add("sent");
-          var done = document.getElementById("contact-done");
-          if (done) done.focus();
+          state("sent");
+          say("ok", "Sent.", "Gesendet.");
+          // a moment for the button's tick, then the thank-you
+          setTimeout(function () {
+            form.reset();
+            counted();
+            say("", "", "");
+            state("idle");
+            card.classList.add("sent");
+            var done = document.getElementById("contact-done");
+            if (done) done.focus();
+          }, still.matches ? 0 : 650);
           return;
         }
+        state("error");
         if (r.status === 429) say("bad", "Too many messages from here in the last hour. Please try again later.", "Zu viele Nachrichten von hier in der letzten Stunde. Bitte versuch es später noch einmal.");
         else if (r.status === 400 || r.status === 413) say("bad", "The message was not accepted. Is it shorter than 5,000 characters, and the address a real one?", "Die Nachricht wurde nicht angenommen. Ist sie kürzer als 5.000 Zeichen und die Adresse eine echte?");
         else say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
       }).catch(function () {
+        state("error");
         say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
-      }).then(function () {
-        send.removeAttribute("aria-busy");
-        send.disabled = false;
       });
     });
     var again = document.getElementById("c-again");
@@ -845,10 +878,6 @@
     }
     return [""];
   }
-  function tileTitle(c) { return c.name + " — " + tt(STATUS[c.status].en, STATUS[c.status].de) + ". " + why(c)[0]; }
-  function imgUrl(id) {
-    return SCRYFALL_ID.test(id) ? IMG_HOST + "/small/front/" + id[0] + "/" + id[1] + "/" + id + ".jpg" : null;
-  }
 
   function bar(s) {
     var of = s.total - s.never;
@@ -871,29 +900,211 @@
     return el("span", { class: "set-counts" }, parts);
   }
 
-  var tiles = []; // every rendered card tile, retitled when the language changes
-  redraw.push(function () {
-    for (var i = 0; i < tiles.length; i++) tiles[i].node.setAttribute("title", tileTitle(tiles[i].card));
-  });
+  // Appends make(item) for every item to parent in slices of about 8 ms,
+  // yielding between them, so a set list of hundreds of rows or a set of
+  // hundreds of cards never blocks the page for long; done() after the last.
+  function inChunks(items, make, parent, done) {
+    var i = 0;
+    (function slice() {
+      var start = Date.now(), frag = document.createDocumentFragment();
+      while (i < items.length && (Date.now() - start < 8 || i === 0)) frag.appendChild(make(items[i++]));
+      parent.appendChild(frag);
+      if (i < items.length) setTimeout(slice, 0);
+      else if (done) done();
+    })();
+  }
+
+  // ------------------------------------------------------------ card tiles
+  // A set's grid is one stop for Tab; the arrow keys, Home and End move in
+  // it (a roving tabindex), Enter or Space opens the card large. With a
+  // mouse, resting on a card shows it large beside the pointer after a
+  // moment (and focus does the same beside the card); a click or a tap
+  // opens it in a dialog. The large picture is Scryfall's "normal" image,
+  // fetched only then, unaltered.
+  //
+  // The line under a card shown large. Keep it here, in both languages: the
+  // legal review may ask for more (docs/legal.md §3).
+  var CARD_CREDIT = {
+    en: "Card image provided by Scryfall, unaltered. Baylee is not affiliated with Scryfall or Wizards of the Coast.",
+    de: "Kartenbild bereitgestellt von Scryfall, unverändert. Baylee ist weder mit Scryfall noch mit Wizards of the Coast verbunden."
+  };
+  var cardOf = window.WeakMap ? new WeakMap() : null;
+  // A picture only for a card in the pool, and only where the data names
+  // one: card_status.py writes none for a card outside the pool or a
+  // Universes Beyond printing (docs/legal.md §3), and this holds it here too.
+  var POOL = { implemented: 1, partial: 1, unimplemented: 1, never: 1 };
+  function imgOf(c, size) {
+    return POOL[c.status] && c.img && SCRYFALL_ID.test(c.img) ? IMG_HOST + "/" + size + "/front/" + c.img[0] + "/" + c.img[1] + "/" + c.img + ".jpg" : null;
+  }
+  // the card's page on Scryfall, where its artist and printing are: the
+  // printing's own page where the data has it, else Scryfall's search for
+  // the card, which opens the card's page
+  function pageOf(c) {
+    return c.uri && /^https:\/\/scryfall\.com\/card\//.test(c.uri) ? c.uri : "https://scryfall.com/search?q=oracleid%3A" + encodeURIComponent(c.oracle_id);
+  }
 
   function tile(c) {
     var st = STATUS[c.status];
-    var src = c.img ? imgUrl(c.img) : null;
+    var src = imgOf(c, "small");
     var pic = src
       ? el("img", { src: src, alt: "", loading: "lazy", decoding: "async", width: "146", height: "204", referrerpolicy: "no-referrer" })
       : el("span", { class: "ctile-blank", "aria-hidden": "true" }, [c.name]);
     var badge = el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]);
     // the reason, in both languages like every other run, for assistive technology
     var reason = el("span", { class: "vh" }, [t(" " + whyIn(c, "en"), " " + whyIn(c, "de"))]);
-    var n = el("li", { class: "ctile", tabindex: "0", "data-group": st.group }, [
-      el("div", { class: "ctile-pic" }, [pic]),
-      el("div", { class: "ctile-cap" }, [el("span", { class: "ctile-name", text: c.name }), badge, reason])
+    // the tile is a link to the card on Scryfall (artist and printing)
+    var link = el("a", { class: "ctile-link", href: pageOf(c), target: "_blank", rel: "noopener", tabindex: "-1" }, [
+      el("span", { class: "ctile-pic" }, [pic]),
+      el("span", { class: "ctile-name", text: c.name })
     ]);
-    n.setAttribute("title", tileTitle(c));
-    tiles.push({ node: n, card: c });
+    var n = el("li", { class: "ctile", "data-group": st.group }, [link, el("div", { class: "ctile-cap" }, [badge, reason])]);
+    if (cardOf) cardOf.set(n, c);
     return n;
   }
   function whyIn(c, l) { var keep = lang; lang = l; var w = why(c)[0]; lang = keep; return w; }
+
+  // the tiles a filter leaves showing, in order
+  function shown(grid) {
+    return [].filter.call(grid.children, function (n) { return n.offsetParent !== null; });
+  }
+  // exactly one showing tile's link is the grid's stop for Tab; returns it
+  function rove(grid, to) {
+    var vis = shown(grid);
+    if (!vis.length) return null;
+    var cur = to || grid.querySelector(".ctile-link[tabindex='0']");
+    cur = cur && cur.closest(".ctile");
+    if (!cur || vis.indexOf(cur) < 0) cur = vis[0];
+    for (var i = 0; i < grid.children.length; i++) grid.children[i].firstChild.setAttribute("tabindex", grid.children[i] === cur ? "0" : "-1");
+    return cur.firstChild;
+  }
+  function gridKeys(grid) {
+    grid.addEventListener("keydown", function (e) {
+      var tileEl = e.target.closest && e.target.closest(".ctile");
+      if (!tileEl) return;
+      // Enter follows the link to Scryfall; Space shows the card large here
+      if (e.key === " ") { e.preventDefault(); openCard(tileEl); return; }
+      var vis = shown(grid), at = vis.indexOf(tileEl);
+      if (at < 0) return;
+      var cols = 1;
+      while (cols < vis.length && vis[cols].offsetTop === vis[0].offsetTop) cols++;
+      var to = { ArrowRight: at + 1, ArrowLeft: at - 1, ArrowDown: at + cols, ArrowUp: at - cols, Home: 0, End: vis.length - 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      to = Math.max(0, Math.min(vis.length - 1, to));
+      rove(grid, vis[to].firstChild).focus();
+    });
+    grid.addEventListener("focusin", function (e) {
+      var tileEl = e.target.closest && e.target.closest(".ctile");
+      if (tileEl) rove(grid, tileEl);
+    });
+    // without a hover (a touch screen) the first tap shows the card large,
+    // with its link to Scryfall; with a mouse the click follows the link
+    grid.addEventListener("click", function (e) {
+      var tileEl = e.target.closest && e.target.closest(".ctile");
+      if (!tileEl || hoverable) return;
+      e.preventDefault();
+      openCard(tileEl);
+    });
+  }
+
+  // the card large beside the pointer (or the focused card)
+  var preview = null, previewTimer = 0, previewFor = null;
+  var hoverable = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  function cardText(c) {
+    var st = STATUS[c.status];
+    var out = [el("strong", { class: "cp-name", text: c.name }), el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]),
+      el("span", { class: "cp-why" }, [t(whyIn(c, "en"), whyIn(c, "de"))])];
+    if (c.artist) out.push(el("span", { class: "cp-artist" }, [t("Illustrated by ", "Illustriert von "), c.artist]));
+    return out;
+  }
+  function credit() { return el("p", { class: "cp-credit" }, [t(CARD_CREDIT.en, CARD_CREDIT.de)]); }
+  // the large picture, or nothing for a card shown by name only
+  function bigPic(c) {
+    var src = imgOf(c, "normal");
+    return src ? el("div", { class: "cp-pic" }, [el("img", { src: src, alt: "", width: "488", height: "680", decoding: "async", referrerpolicy: "no-referrer" })]) : null;
+  }
+  function showPreview(tileEl, x, y) {
+    var c = cardOf && cardOf.get(tileEl);
+    if (!c) return;
+    if (!preview) {
+      preview = el("div", { class: "cpreview", "aria-hidden": "true" });
+      document.body.appendChild(preview);
+    }
+    if (previewFor !== tileEl) {
+      clear(preview);
+      var pic = bigPic(c);
+      if (pic) preview.appendChild(pic);
+      preview.appendChild(el("div", { class: "cp-cap" }, cardText(c)));
+      preview.appendChild(el("p", { class: "cp-go" }, [t("Click for the artist and printing on Scryfall.", "Klick: Künstler und Druck bei Scryfall.")]));
+      preview.appendChild(credit());
+      previewFor = tileEl;
+    }
+    preview.classList.add("on");
+    place(x, y, tileEl);
+  }
+  function place(x, y, tileEl) {
+    if (!preview) return;
+    var w = preview.offsetWidth, h = preview.offsetHeight, W = window.innerWidth, H = window.innerHeight, gap = 18;
+    if (x == null) { var r = tileEl.getBoundingClientRect(); x = r.right; y = r.top + r.height / 2; gap = 12; }
+    var left = x + gap + w > W - 8 ? x - gap - w : x + gap;
+    if (left < 8) left = 8;
+    var topY = Math.max(8, Math.min(H - h - 8, y - h / 2));
+    preview.style.transform = "translate3d(" + Math.round(left) + "px," + Math.round(topY) + "px,0)";
+  }
+  function hidePreview() {
+    clearTimeout(previewTimer);
+    if (preview) preview.classList.remove("on");
+  }
+  if (hoverable) {
+    document.addEventListener("pointerover", function (e) {
+      var tileEl = e.target.closest && e.target.closest(".ctile");
+      if (!tileEl || e.pointerType !== "mouse") return;
+      clearTimeout(previewTimer);
+      var x = e.clientX, y = e.clientY;
+      previewTimer = setTimeout(function () { showPreview(tileEl, x, y); }, preview && preview.classList.contains("on") ? 0 : 220);
+    });
+    document.addEventListener("pointermove", function (e) {
+      if (preview && preview.classList.contains("on") && previewFor && previewFor.contains(e.target)) place(e.clientX, e.clientY);
+    }, { passive: true });
+    document.addEventListener("pointerout", function (e) {
+      var tileEl = e.target.closest && e.target.closest(".ctile");
+      if (tileEl && !(e.relatedTarget && tileEl.contains(e.relatedTarget))) hidePreview();
+    });
+  }
+  // focus by keyboard shows it too, beside the card
+  document.addEventListener("focusin", function (e) {
+    var tileEl = e.target.closest && e.target.closest(".ctile");
+    if (!tileEl) { hidePreview(); return; }
+    if (e.target.matches && e.target.matches(":focus-visible")) { clearTimeout(previewTimer); showPreview(tileEl); }
+  });
+  document.addEventListener("focusout", function (e) { if (e.target.closest && e.target.closest(".ctile")) hidePreview(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") hidePreview(); });
+  window.addEventListener("scroll", hidePreview, { passive: true });
+
+  // the card in a dialog: a tap, a click, Enter or Space
+  var cardview = document.getElementById("cardview"), cardFrom = null;
+  function openCard(tileEl) {
+    var c = cardOf && cardOf.get(tileEl);
+    if (!c || !cardview || !cardview.showModal) return;
+    hidePreview();
+    var body = document.getElementById("cardview-body");
+    clear(body);
+    var pic = bigPic(c);
+    if (pic) body.appendChild(el("a", { href: pageOf(c), target: "_blank", rel: "noopener", tabindex: "-1", class: "cp-piclink" }, [pic]));
+    var cap = el("div", { class: "cp-cap" }, cardText(c));
+    cap.firstChild.id = "cardview-name";
+    body.appendChild(cap);
+    body.appendChild(el("p", { class: "cp-go" }, [el("a", { href: pageOf(c), target: "_blank", rel: "noopener", class: "button button-ghost" }, [t("Artist and printing on Scryfall", "Künstler und Druck bei Scryfall")])]));
+    body.appendChild(credit());
+    cardFrom = tileEl;
+    cardview.showModal();
+    document.getElementById("cardview-close").focus();
+  }
+  if (cardview) {
+    document.getElementById("cardview-close").addEventListener("click", function () { cardview.close(); });
+    cardview.addEventListener("click", function (e) { if (e.target === cardview) cardview.close(); });
+    cardview.addEventListener("close", function () { if (cardFrom && document.contains(cardFrom)) cardFrom.firstChild.focus(); });
+  }
 
   function filterBar(grid, s) {
     var groups = [
@@ -903,23 +1114,23 @@
       ["none", "Not yet", "Noch nicht", s.unimplemented + s.absent],
       ["never", "Never", "Nie", s.never]
     ];
-    var bar = el("div", { class: "cfilter", role: "group" });
-    bar.setAttribute("aria-label", "Filter");
+    var fbar = el("div", { class: "cfilter", role: "group" });
+    fbar.setAttribute("aria-label", "Filter");
     groups.forEach(function (g) {
       if (g[0] !== "all" && !g[3]) return;
       var b = el("button", { type: "button", class: "cfilter-btn", "aria-pressed": g[0] === "all" ? "true" : "false", "data-filter": g[0] },
         [t(g[1], g[2]), " ", el("span", { class: "cfilter-n" }, [numT(g[3])])]);
-      bar.appendChild(b);
+      fbar.appendChild(b);
     });
-    bar.addEventListener("click", function (e) {
+    fbar.addEventListener("click", function (e) {
       var b = e.target.closest && e.target.closest(".cfilter-btn");
       if (!b) return;
-      var f = b.getAttribute("data-filter");
-      grid.setAttribute("data-filter", f);
-      var all = bar.querySelectorAll(".cfilter-btn");
+      grid.setAttribute("data-filter", b.getAttribute("data-filter"));
+      var all = fbar.querySelectorAll(".cfilter-btn");
       for (var i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", all[i] === b ? "true" : "false");
+      rove(grid);
     });
-    return bar;
+    return fbar;
   }
 
   function openSet(d, s) {
@@ -932,15 +1143,16 @@
       .then(function (doc) {
         clear(body);
         var grid = el("ul", { class: "cgrid", "data-filter": "all" });
-        var frag = document.createDocumentFragment();
-        for (var i = 0; i < doc.cards.length; i++) frag.appendChild(tile(doc.cards[i]));
-        grid.appendChild(frag);
+        grid.setAttribute("aria-label", tt("Cards of ", "Karten aus ") + s.name);
+        gridKeys(grid);
         body.appendChild(filterBar(grid, s));
+        body.appendChild(el("p", { class: "small cgrid-hint" }, [t("Arrow keys move between cards; Space shows one large, Enter opens it on Scryfall.", "Pfeiltasten wechseln die Karte; die Leertaste zeigt sie groß, Enter öffnet sie bei Scryfall.")]));
         body.appendChild(grid);
         body.appendChild(el("p", { class: "small set-foot" }, [
           el("a", { href: "https://scryfall.com/sets/" + encodeURIComponent(s.code), rel: "noopener" }, [t("This set on Scryfall", "Dieses Set bei Scryfall")]),
-          " · ", t("Images: Scryfall", "Bilder: Scryfall")
+          " · ", t("Images: Scryfall · © Wizards of the Coast", "Bilder: Scryfall · © Wizards of the Coast")
         ]));
+        inChunks(doc.cards, tile, grid, function () { rove(grid); });
       })
       .catch(function () {
         d.removeAttribute("data-loaded");
@@ -965,57 +1177,183 @@
       counts(s)
     ]);
     var d = el("details", { class: "set", "data-code": s.code }, [sum, el("div", { class: "set-body" })]);
-    d.setAttribute("data-search", (s.name + " " + s.code).toLowerCase());
-    d.setAttribute("data-started", s.implemented + s.partial > 0 ? "1" : "0");
     d.addEventListener("toggle", function () { if (d.open) openSet(d, s); });
     motion.grow(d);
     return d;
   }
 
-  (function sets() {
-    var list = document.getElementById("sets-list");
-    if (!list || !window.fetch) return;
-    fetch(DATA + "sets.json", { credentials: "omit", headers: { Accept: "application/json" } })
+  // ------------------------------------------------------------ the sets
+  // A summary first: the whole corpus, the finished sets, and the next ones
+  // in release order. The full list waits behind "Show all sets", in eras of
+  // four years whose rows exist only while the era is open; a search lists
+  // its matches flat. data/sets.json is fetched only when the cards section
+  // comes near (or a link names a set), a set's cards only when it opens.
+  var ERA = 4, FIRST_YEAR = 1993, NEXT_UP = 3, FOUND_MAX = 40;
+  var setsDoc = null, setsLoading = null, built = false;
+  function yearOf(s) { return parseInt((s.released || "").slice(0, 4), 10) || FIRST_YEAR; }
+  function eraOf(s) { return FIRST_YEAR + Math.floor((yearOf(s) - FIRST_YEAR) / ERA) * ERA; }
+  function begun(s) { return s.implemented + s.partial > 0; }
+  function finished(s) { var of = s.total - s.never; return of > 0 && s.implemented === of; }
+  function sum(list) {
+    var a = { total: 0, implemented: 0, partial: 0, unimplemented: 0, absent: 0, never: 0 };
+    list.forEach(function (s) { for (var k in a) a[k] += s[k]; });
+    return a;
+  }
+  var ui = {
+    summary: document.getElementById("sets-summary"),
+    toggle: document.getElementById("sets-toggle"),
+    all: document.getElementById("sets-all"),
+    list: document.getElementById("sets-list"),
+    found: document.getElementById("sets-found"),
+    q: document.getElementById("sets-q"),
+    started: document.getElementById("sets-started")
+  };
+
+  function loadSets() {
+    if (setsLoading) return setsLoading;
+    if (!window.fetch) return (setsLoading = Promise.reject(new Error("no fetch")));
+    setsLoading = fetch(DATA + "sets.json", { credentials: "omit", headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (doc) {
-        var tot = doc.totals, all = doc.corpus - tot.never;
-        var full = document.getElementById("num-full"), part = document.getElementById("num-partial"), corp = document.getElementById("num-corpus");
-        motion.countTo(full, tot.implemented);
-        motion.countTo(part, tot.partial);
-        motion.countTo(corp, all);
-        var total = document.getElementById("sets-total");
-        if (total) {
-          clear(total);
-          var p = pct(tot.implemented, all);
-          total.appendChild(t(
-            doc.sets.length + " sets, " + Number(doc.corpus).toLocaleString("en-GB") + " cards: " + Number(tot.implemented).toLocaleString("en-GB") + " full (" + p + " %), " + tot.partial + " partial, " + Number(tot.unimplemented + tot.absent).toLocaleString("en-GB") + " not yet, " + tot.never + " never. Measured at commit " + String(doc.rev).slice(0, 9) + ".",
-            doc.sets.length + " Sets, " + Number(doc.corpus).toLocaleString("de-DE") + " Karten: " + Number(tot.implemented).toLocaleString("de-DE") + " voll (" + p + " %), " + tot.partial + " teilweise, " + Number(tot.unimplemented + tot.absent).toLocaleString("de-DE") + " noch nicht, " + tot.never + " nie. Gemessen an Commit " + String(doc.rev).slice(0, 9) + "."
-          ));
-        }
-        clear(list);
-        var frag = document.createDocumentFragment();
-        for (var i = 0; i < doc.sets.length; i++) frag.appendChild(setRow(doc.sets[i]));
-        list.appendChild(frag);
-        var tools = document.getElementById("sets-tools"), q = document.getElementById("sets-q"), started = document.getElementById("sets-started");
-        if (tools) tools.hidden = false;
-        function filter() {
-          var needle = (q && q.value || "").trim().toLowerCase();
-          var only = started && started.checked;
-          var rows = list.children;
-          for (var i = 0; i < rows.length; i++) {
-            var r = rows[i];
-            r.hidden = (needle && r.getAttribute("data-search").indexOf(needle) < 0) || (only && r.getAttribute("data-started") !== "1");
-          }
-        }
-        if (q) q.addEventListener("input", filter);
-        if (started) started.addEventListener("change", filter);
-        // a link to #set-<code> opens that set
-        var m = /^#set-([a-z0-9]+)$/.exec(location.hash);
-        if (m) {
-          var d = list.querySelector('details[data-code="' + m[1] + '"]');
-          if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "instant" }); }
-        }
-      })
-      .catch(function () { /* the static text stays: it says where the list is */ });
-  })();
+      .then(function (doc) { setsDoc = doc; drawSummary(doc); return doc; });
+    setsLoading.catch(function () { /* the static text stays: it says where the list is */ });
+    return setsLoading;
+  }
+
+  function drawSummary(doc) {
+    var tot = doc.totals, all = doc.corpus - tot.never;
+    motion.countTo(document.getElementById("num-full"), tot.implemented);
+    motion.countTo(document.getElementById("num-partial"), tot.partial);
+    motion.countTo(document.getElementById("num-corpus"), all);
+    var box = ui.summary;
+    if (!box) return;
+    clear(box);
+    var p = pct(tot.implemented, all);
+    var overall = el("div", { class: "sets-overall glass" }, [
+      el("p", { class: "sets-total" }, [t(
+        doc.sets.length + " sets, " + Number(doc.corpus).toLocaleString("en-GB") + " cards: " + Number(tot.implemented).toLocaleString("en-GB") + " full (" + p + " %), " + tot.partial + " partial, " + Number(tot.unimplemented + tot.absent).toLocaleString("en-GB") + " not yet, " + tot.never + " never. Measured at commit " + String(doc.rev).slice(0, 9) + ".",
+        doc.sets.length + " Sets, " + Number(doc.corpus).toLocaleString("de-DE") + " Karten: " + Number(tot.implemented).toLocaleString("de-DE") + " voll (" + p + " %), " + tot.partial + " teilweise, " + Number(tot.unimplemented + tot.absent).toLocaleString("de-DE") + " noch nicht, " + tot.never + " nie. Gemessen an Commit " + String(doc.rev).slice(0, 9) + "."
+      )]),
+      bar({ total: doc.corpus, never: tot.never, implemented: tot.implemented, partial: tot.partial })
+    ]);
+    motion.grow(overall);
+    box.appendChild(overall);
+    var done = doc.sets.filter(finished);
+    if (done.length) {
+      var chips = el("ul", { class: "set-chips" });
+      done.forEach(function (s) { chips.appendChild(el("li", null, [el("a", { href: "#set-" + s.code, class: "chip" }, [s.name])])); });
+      box.appendChild(el("h4", { class: "sets-sub" }, [t("Finished", "Fertig")]));
+      box.appendChild(chips);
+    }
+    var next = doc.sets.filter(function (s) { return s.total - s.never > 0 && !finished(s); }).slice(0, NEXT_UP);
+    if (next.length) {
+      box.appendChild(el("h4", { class: "sets-sub" }, [t("Next, in release order", "Als Nächstes, in Erscheinungsreihenfolge")]));
+      var rows = el("div", { class: "sets" });
+      next.forEach(function (s) { rows.appendChild(setRow(s)); });
+      box.appendChild(rows);
+    }
+    if (ui.toggle) {
+      clear(ui.toggle);
+      ui.toggle.appendChild(t("Show all " + doc.sets.length + " sets", "Alle " + doc.sets.length + " Sets anzeigen"));
+      ui.toggle.hidden = false;
+    }
+  }
+
+  // the full list: eras, each rendered when opened and emptied when closed
+  function era(from, list) {
+    var a = sum(list), to = Math.min(from + ERA - 1, Math.max.apply(null, list.map(yearOf)));
+    var of = a.total - a.never, p = pct(a.implemented, of);
+    var d = el("details", { class: "set set-era", "data-era": String(from) }, [
+      el("summary", { class: "set-sum" }, [
+        el("span", { class: "set-title" }, [
+          el("span", { class: "set-name", text: from === to ? String(from) : from + "–" + to }),
+          el("span", { class: "set-meta" }, [numT(list.length), " ", t(list.length === 1 ? "set" : "sets", "Sets"), " · ", numT(a.total), " ", t("cards", "Karten")])
+        ]),
+        el("span", { class: "set-progress" }, [el("span", { class: "set-pct" + (p === 100 ? " done" : ""), "aria-hidden": "true", text: p + " %" }),
+          el("span", { class: "vh" }, [t(p + " percent full", p + " Prozent voll")]), bar(a)]),
+        counts(a)
+      ]),
+      el("div", { class: "era-body sets" })
+    ]);
+    d.addEventListener("toggle", function () { if (d.open) fillEra(d, list); else { clear(d.lastChild); d.removeAttribute("data-filled"); } });
+    motion.grow(d);
+    return d;
+  }
+  function fillEra(d, list, done) {
+    if (d.getAttribute("data-filled")) { if (done) done(); return; }
+    d.setAttribute("data-filled", "1");
+    inChunks(list, setRow, d.lastChild, done);
+  }
+  function chosen() {
+    var only = ui.started && ui.started.checked;
+    return setsDoc.sets.filter(function (s) { return !only || begun(s); });
+  }
+  function drawEras() {
+    clear(ui.list);
+    var byEra = {}, order = [];
+    chosen().forEach(function (s) { var e = eraOf(s); if (!byEra[e]) { byEra[e] = []; order.push(e); } byEra[e].push(s); });
+    order.forEach(function (e) { ui.list.appendChild(era(e, byEra[e])); });
+    say(ui.found, "", "");
+  }
+  function say(node, en, de) { if (!node) return; clear(node); if (en) node.appendChild(t(en, de)); }
+  var searchTimer = 0;
+  function search() {
+    var needle = (ui.q && ui.q.value || "").trim().toLowerCase();
+    if (!needle) { drawEras(); return; }
+    var hits = chosen().filter(function (s) { return (s.name + " " + s.code).toLowerCase().indexOf(needle) >= 0; });
+    clear(ui.list);
+    hits.slice(0, FOUND_MAX).forEach(function (s) { ui.list.appendChild(setRow(s)); });
+    var n = hits.length;
+    if (!n) say(ui.found, "No set matches.", "Kein Set passt.");
+    else if (n > FOUND_MAX) say(ui.found, n + " sets match; the first " + FOUND_MAX + " are shown. Type more to narrow it.", n + " Sets passen; die ersten " + FOUND_MAX + " stehen hier. Tippe mehr, um einzugrenzen.");
+    else say(ui.found, n === 1 ? "1 set matches." : n + " sets match.", n === 1 ? "1 Set passt." : n + " Sets passen.");
+  }
+  function expand(open) {
+    if (!ui.all || !ui.toggle) return;
+    ui.all.hidden = !open;
+    ui.toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open && !built && setsDoc) { built = true; drawEras(); }
+  }
+  if (ui.toggle) ui.toggle.addEventListener("click", function () {
+    loadSets().then(function () { expand(ui.toggle.getAttribute("aria-expanded") !== "true"); });
+  });
+  if (ui.q) ui.q.addEventListener("input", function () { clearTimeout(searchTimer); searchTimer = setTimeout(search, 150); });
+  if (ui.started) ui.started.addEventListener("change", search);
+
+  // #set-<code> opens that set wherever it is: its era, then the row
+  function openDeep() {
+    var m = /^#set-([a-z0-9]+)$/.exec(location.hash);
+    if (!m) return;
+    var code = m[1];
+    loadSets().then(function (doc) {
+      var s = doc.sets.filter(function (x) { return x.code === code; })[0];
+      if (!s) return;
+      if (ui.q && ui.q.value) { ui.q.value = ""; }
+      if (ui.started && ui.started.checked && !begun(s)) ui.started.checked = false;
+      if (!built) { built = true; drawEras(); } else if (!ui.list.querySelector(".set-era")) drawEras();
+      expand(true);
+      var d = ui.list.querySelector('.set-era[data-era="' + eraOf(s) + '"]');
+      if (!d) return;
+      fillEra(d, chosen().filter(function (x) { return eraOf(x) === eraOf(s); }), function () {
+        d.open = true;
+        var row = d.querySelector('details[data-code="' + code + '"]');
+        if (!row) return;
+        row.open = true;
+        row.scrollIntoView({ block: "start", behavior: "instant" });
+        row.firstChild.focus({ preventScroll: true });
+      });
+    });
+  }
+  window.addEventListener("hashchange", openDeep);
+  if (/^#set-/.test(location.hash)) openDeep();
+  else {
+    var near = document.getElementById("cards");
+    if (near && window.IntersectionObserver) {
+      var watch = new IntersectionObserver(function (e) {
+        if (!e[0].isIntersecting) return;
+        watch.disconnect();
+        loadSets();
+      }, { rootMargin: "900px 0px" });
+      watch.observe(near);
+    } else loadSets();
+  }
 })();

@@ -13,8 +13,8 @@
 //!
 //! Each hosted chair is one bridge, given a settings file that holds its
 //! profile alone (the profile's caps as the file's) and the chair ticket on
-//! its stdin, as a host's client starts one (`--tethered --chair-ticket`),
-//! with `--hosted`: it names no player to the model.
+//! its stdin, as a host's client starts one (`--tethered --chair-ticket`).
+//! Like every bridge it names no player to the model, only `P1…Pn`.
 
 #![warn(missing_docs)]
 

@@ -76,6 +76,7 @@ pub(crate) const SETTINGS: TabOrder = TabOrder {
         "sign-out",
         "delete-account",
         // Network & Gateway
+        "impressum",
         "switch-gateway",
         "copy-diagnostics",
         // Language models: the list, the caps, Save (`seatpanel`)

@@ -126,3 +126,89 @@ fn a_chair_says_its_state_and_where_the_data_goes() {
     let plain: GameSeat = serde_json::from_str(r#"{"seat": 0, "taken": false}"#).expect("chair");
     assert_eq!(plain.hosted, None);
 }
+
+/// A registered lobby the gateway answered `profiles` to.
+fn answered(profiles: Vec<HostedProfile>) -> Lobby {
+    let mut lobby = seated_lobby();
+    assert_eq!(lobby.list_hosted(), Some(LobbyRequest::HostedProfiles));
+    lobby.apply(LobbyEvent::HostedProfiles(profiles));
+    lobby
+}
+
+#[test]
+fn the_hosted_entry_waits_for_a_list_that_holds_a_profile() {
+    // No list has come: the gateway has not said what this account may seat.
+    let lobby = seated_lobby();
+    assert!(lobby.may_order_hosted());
+    assert!(!lobby.hosted_listed());
+    assert!(!lobby.offers_hosted(), "nothing was asked yet");
+    // Asked, not yet answered.
+    let mut asking = seated_lobby();
+    assert_eq!(asking.list_hosted(), Some(LobbyRequest::HostedProfiles));
+    assert!(!asking.offers_hosted(), "asked, not answered");
+    // Answered with an empty list: no model is open to this account.
+    let empty = answered(Vec::new());
+    assert!(empty.hosted_listed());
+    assert!(empty.hosted_profiles().is_empty());
+    assert!(!empty.offers_hosted(), "an empty list offers nothing");
+    // One profile, even an unavailable one: the player is shown it exists.
+    let one = answered(vec![profile("sonnet", "Sonnet", true, None)]);
+    assert!(one.offers_hosted());
+    let greyed = answered(vec![profile("zeta", "Zeta", false, None)]);
+    assert!(greyed.offers_hosted(), "a listed model is offered, greyed");
+}
+
+#[test]
+fn a_new_ask_hides_the_entry_until_the_gateway_answers_again() {
+    let mut lobby = answered(vec![profile("sonnet", "Sonnet", true, None)]);
+    assert!(lobby.offers_hosted());
+    // The list is asked afresh (a model may have been taken away): the old
+    // answer does not stand in for the new one.
+    assert_eq!(lobby.list_hosted(), Some(LobbyRequest::HostedProfiles));
+    assert!(!lobby.offers_hosted(), "waiting for the new list");
+    lobby.apply(LobbyEvent::HostedProfiles(Vec::new()));
+    assert!(!lobby.offers_hosted(), "the new list holds none");
+}
+
+#[test]
+fn a_guest_never_sees_the_entry_even_with_profiles_in_hand() {
+    let mut guest = Lobby::new();
+    guest.set_guests_enabled(true);
+    guest.apply(LobbyEvent::GuestIn(KeptGuest {
+        token: "guest-tok".into(),
+        handle: "Casper#0007".into(),
+    }));
+    assert!(!guest.offers_hosted());
+    // Whatever list reaches a guest, the entry stays hidden.
+    guest.apply(LobbyEvent::HostedProfiles(vec![profile(
+        "sonnet", "Sonnet", true, None,
+    )]));
+    assert!(guest.hosted_listed());
+    assert!(!guest.offers_hosted());
+    assert!(!offline_lobby().offers_hosted());
+}
+
+#[test]
+fn signing_out_forgets_which_models_were_open() {
+    let mut lobby = answered(vec![profile("sonnet", "Sonnet", true, None)]);
+    assert!(lobby.offers_hosted());
+    assert!(lobby.sign_out().is_some(), "the gateway ends the session");
+    assert!(lobby.hosted_profiles().is_empty());
+    assert!(!lobby.hosted_listed());
+    assert!(!lobby.offers_hosted());
+    // The next account signs in: it is shown nothing of the last one's
+    // list until its own has come.
+    lobby.set_field(Field::Username, "bob");
+    lobby.set_field(Field::Password, "hunter22");
+    assert!(lobby.submit().is_some());
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok-bob".to_string(),
+        username: None,
+    });
+    assert!(lobby.may_order_hosted());
+    assert!(lobby.hosted_profiles().is_empty());
+    assert!(
+        !lobby.offers_hosted(),
+        "the previous account's list is gone"
+    );
+}

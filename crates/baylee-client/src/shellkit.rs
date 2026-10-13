@@ -105,6 +105,7 @@ fn hold_the_keyboard(
         Res<gallery::Gallery>,
     >,
     tour: Option<Res<crate::tour::TourDesk>>,
+    chat: Option<Res<crate::social::ChatUi>>,
     mut holds: ResMut<KitHolds>,
 ) {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -118,7 +119,10 @@ fn hold_the_keyboard(
     // A narrated tour bubble holds the keys as the overlay does (TOURS.md
     // §1.3), so the lobby's handlers that ask this stand aside for it.
     let tour = tour.is_some_and(|t| t.holds_keyboard());
-    let now = overlay::holds(&overlay) || gallery || typing || tour;
+    // The chat's composer (and its other boxes) hold every key while they
+    // have the caret (the beta.8 social design §12.1).
+    let chat = chat.is_some_and(|c| c.holds_keyboard());
+    let now = overlay::holds(&overlay) || gallery || typing || tour || chat;
     if holds.0 != now {
         holds.0 = now;
     }

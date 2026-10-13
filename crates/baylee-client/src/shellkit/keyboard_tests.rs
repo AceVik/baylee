@@ -450,3 +450,84 @@ struct Activations(usize);
 fn count_activations(mut read: MessageReader<focus::Activated>, mut n: ResMut<Activations>) {
     n.0 += read.read().filter(|a| a.by_key).count();
 }
+
+/// The kit's hold on the keyboard with the chat's state inserted as the
+/// lobby and the table run it, and the gallery and the overlay shut so that
+/// nothing else is what holds it.
+fn kit_holds_with(chat: Option<crate::social::ChatUi>) -> bool {
+    let mut app = app();
+    app.init_resource::<super::KitHolds>()
+        .add_systems(Update, super::hold_the_keyboard);
+    app.world_mut().resource_mut::<Gallery>().open = false;
+    app.world_mut().resource_mut::<Overlay>().open = false;
+    app.world_mut().resource_mut::<InputFocus>().clear();
+    if let Some(chat) = chat {
+        app.insert_resource(chat);
+    }
+    app.update();
+    app.update();
+    app.world().resource::<super::KitHolds>().0
+}
+
+/// The control: with nothing up, the kit holds nothing, so the true below
+/// is the chat's.
+#[test]
+fn the_kit_holds_no_keys_with_nothing_up() {
+    assert!(!kit_holds_with(None));
+    assert!(!kit_holds_with(Some(crate::social::ChatUi::default())));
+}
+
+/// An open chat window with no caret in it is no claim on the keys.
+#[test]
+fn an_open_chat_without_a_caret_does_not_hold_the_kits_keys() {
+    let chat = crate::social::ChatUi {
+        open: true,
+        drawer: true,
+        ..Default::default()
+    };
+    assert!(!kit_holds_with(Some(chat)));
+}
+
+/// The composer (or the drawer's or an entry's box) has the caret: the
+/// lobby's handlers that ask `KitHolds` stand aside.
+#[test]
+fn the_kit_holds_the_keys_while_the_chat_types() {
+    let chat = crate::social::ChatUi {
+        typing: true,
+        ..Default::default()
+    };
+    assert!(kit_holds_with(Some(chat)));
+}
+
+/// And on the frame the box let go.
+#[test]
+fn the_kit_holds_the_keys_the_frame_the_chat_lets_go() {
+    let chat = crate::social::ChatUi {
+        swallow: true,
+        ..Default::default()
+    };
+    assert!(kit_holds_with(Some(chat)));
+}
+
+/// The hold ends with the typing: it follows the chat, it does not latch.
+#[test]
+fn the_kits_hold_ends_when_the_chat_stops_typing() {
+    let mut app = app();
+    app.init_resource::<super::KitHolds>()
+        .add_systems(Update, super::hold_the_keyboard);
+    app.world_mut().resource_mut::<Gallery>().open = false;
+    app.world_mut().resource_mut::<Overlay>().open = false;
+    app.world_mut().resource_mut::<InputFocus>().clear();
+    app.insert_resource(crate::social::ChatUi {
+        typing: true,
+        ..Default::default()
+    });
+    app.update();
+    app.update();
+    assert!(app.world().resource::<super::KitHolds>().0);
+    app.world_mut()
+        .resource_mut::<crate::social::ChatUi>()
+        .typing = false;
+    app.update();
+    assert!(!app.world().resource::<super::KitHolds>().0);
+}

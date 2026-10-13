@@ -782,9 +782,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Maze's End's Gate tutor now ends in "if you control ten or more Gates
     // with different names, you win the game" (astra-review): the table reads
     // neither that condition nor `WinGame`, so the row is unread, not guessed.
-    // The partials lane (waves 1-3, 2026-10-13) flipped Partial cards to
-    // Implemented: 13 more activations in the pool, 4 more of them read.
-    // Read went up, not down: additions, not a lost reader row.
+    // The wave 2 partials (pairs C and D) add nine activations and two read
+    // rows: Gold-Forge Garrison's Golem and Grist's −5 are read; Gauntlets of
+    // Chaos, Golden Guardian's fight, Grist's −2, Mirror Universe, Mount Doom,
+    // Path of Mettle and The Black Gate are contextual.
+    // Wave 3 of the partials lane (pairs E and F, 2026-10-13) adds four
+    // activations and two read rows on top.
     assert_eq!((read, of), (1034, 1310), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6

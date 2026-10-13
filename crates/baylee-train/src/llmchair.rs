@@ -234,7 +234,6 @@ impl LlmChair {
             seat: baylee_core::ids::PlayerId::new(at),
             seats: 2,
             teams: vec![None, None],
-            names: vec!["0".into(), "1".into()],
             format,
             deck: DeckList {
                 name: String::new(),

@@ -57,6 +57,46 @@ pub(crate) fn source_url(raw: Option<&str>) -> Result<String, String> {
     Ok(url.to_owned())
 }
 
+/// The longest `BAYLEE_IMPRESSUM_URL` may be, in characters.
+pub(crate) const MAX_IMPRESSUM_CHARS: usize = 200;
+
+/// This gateway's legal notice (Impressum), out of `BAYLEE_IMPRESSUM_URL`.
+///
+/// Every gateway is run by someone, and where the law asks that someone to
+/// say who they are, each gateway has its own notice, as it has its own
+/// terms. Unset or blank is none (`/info` says `null`). The client shows it
+/// to players as a link with its host, so it has to be a web address and
+/// nothing that displays as something else: `https://` and a host, no
+/// whitespace, no control or bidirectional character, at most
+/// [`MAX_IMPRESSUM_CHARS`]. Refused at startup rather than trimmed, as
+/// `BAYLEE_SOURCE_URL` is. No separate privacy address: the terms
+/// (`BAYLEE_TERMS_PATH`) carry the privacy notice.
+pub(crate) fn impressum_url(raw: Option<&str>) -> Result<Option<String>, String> {
+    let Some(url) = raw.map(str::trim).filter(|url| !url.is_empty()) else {
+        return Ok(None);
+    };
+    let Some(rest) = url.strip_prefix("https://") else {
+        return Err("it is not an https:// address".to_owned());
+    };
+    let length = url.chars().count();
+    if length > MAX_IMPRESSUM_CHARS {
+        return Err(format!(
+            "{length} characters, and an address has {MAX_IMPRESSUM_CHARS} at most"
+        ));
+    }
+    if let Some(bad) = url
+        .chars()
+        .find(|&c| c.is_whitespace() || c.is_control() || is_bidi_control(c))
+    {
+        return Err(format!("it contains U+{:04X}", u32::from(bad)));
+    }
+    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if host.is_empty() || host.contains('@') {
+        return Err("it names no host (or a user before it)".to_owned());
+    }
+    Ok(Some(url.to_owned()))
+}
+
 /// Which binary this is, spelled once for every route that says so.
 ///
 /// `/source`, `/health` and `/info` all answer it, and all three build it
@@ -100,6 +140,14 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
     );
     body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
     body.insert("source".into(), state.source_url.clone().into());
+    // The operator's legal notice (Impressum), `null` when it has none.
+    body.insert(
+        "impressum".into(),
+        state
+            .impressum_url
+            .as_ref()
+            .map_or(serde_json::Value::Null, |url| url.clone().into()),
+    );
     // Who may come in (#317): `open`, `invite` (a closed-beta key for a new
     // account or guest) or `off`, and whether guests are taken at all.
     body.insert("registration".into(), state.registration.wire().into());

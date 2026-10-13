@@ -18,14 +18,14 @@ import {
   type Report,
   type Status,
 } from "../api";
-import { part, readBuild, readCrash, readLog, readRefs, readScreenshot, readSystem } from "../dump";
+import { part, readBuild, readChatSender, readCrash, readLog, readRefs, readScreenshot, readSystem } from "../dump";
 import { formatBytes } from "../format";
 import { CATEGORY_TITLES, newIssueUrl, parseIssue } from "../github";
 import { kindLabel, statusLabel, t, type Lang } from "../i18n";
 import { JsonTree } from "../JsonTree";
 import { pendingLabel, readGame, type GameSummary } from "./game";
 import { CardChip, PlayerChip, RefText, Reporter, Time, TimeBoth, toast } from "./pieces";
-import { navigate } from "../router";
+import { adminPath, navigate } from "../router";
 
 export function Section({
   title,
@@ -309,6 +309,7 @@ export function ReportView({
   const refs = readRefs(client);
   const game = readGame(client);
   const gameJson = part(client, "game");
+  const chat = report.kind === "chat" ? readChatSender(client) : null;
   const settings = part(client, "settings");
   const pageLink = `${window.location.origin}/r/${report.id}`;
 
@@ -467,6 +468,30 @@ export function ReportView({
       </dd>
       <dt>{t(lang, "rep.game")}</dt>
       <dd className="mono">{report.game_id ?? "—"}</dd>
+      {chat !== null && (
+        <>
+          <dt>{t(lang, "rep.sender")}</dt>
+          <dd data-testid="chat-sender">
+            {chat.tag === null ? (
+              <span className="muted">{t(lang, "rep.senderUnverified")}</span>
+            ) : (
+              <>
+                <span className="mono">#{chat.tag}</span>{" "}
+                <a
+                  className="button quiet"
+                  href={`${adminPath("accounts")}?tag=${encodeURIComponent(chat.tag)}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate(`${adminPath("accounts")}?tag=${encodeURIComponent(chat.tag ?? "")}`);
+                  }}
+                >
+                  {t(lang, "rep.findSender")}
+                </a>
+              </>
+            )}
+          </dd>
+        </>
+      )}
     </dl>
   );
 

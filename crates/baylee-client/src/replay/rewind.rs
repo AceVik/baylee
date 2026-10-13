@@ -124,6 +124,10 @@ impl Duel {
             browser: old.browser,
             game_menu: old.game_menu,
             log_open: old.log_open,
+            // The chat's door is a press this frame; the panel's being the
+            // chat window is the session's, which a jump does not change.
+            chat_door: None,
+            chat_panel: old.chat_panel,
             ai_log_open: old.ai_log_open,
             ai_log_heard: old.ai_log_heard,
             report_asked: old.report_asked,

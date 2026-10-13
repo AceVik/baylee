@@ -406,6 +406,8 @@ message ProjectRecord {
     PERSPECTIVE_SEAT = 1;
     // The spectators' stream.
     PERSPECTIVE_PUBLIC = 2;
+    // `seat` with the hands of `hands` beside it.
+    PERSPECTIVE_ALL_HANDS = 3;
   }
   enum Verify {
     // Stop at the first check that fails.
@@ -424,6 +426,16 @@ message ProjectRecord {
   string game_id = 7;
   // The build that recorded it, for the tape's header; empty when unknown.
   string recorded_by = 8;
+  // Whether `seat`'s own hidden cards may be shown (its own seat, an AI
+  // seat, or one that shared them; docs/protocol.md §"Replays"). false: the
+  // public table drawn from `seat`. The gateway always sets it.
+  bool own = 9;
+  // The other seats whose hands may be shown beside `seat`'s.
+  repeated uint32 hands = 10;
+  // With `own`: the other seats whose hidden cards `seat`'s own view may
+  // still show where it was shown them in the game (a card it looked at, a
+  // hand it saw while controlling that player). Empty: none.
+  repeated uint32 others = 11;
 }
 
 // Engine → gateway, engine link only: a piece of a tape (`baylee_protocol::

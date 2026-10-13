@@ -111,7 +111,7 @@ impl Allowance {
 
 /// HMAC-SHA256 (RFC 2104) under a 32-byte key, as the gateway makes its
 /// reporter pseudonyms.
-fn hmac_sha256(key: &[u8; 32], message: &[u8]) -> [u8; 32] {
+pub(crate) fn hmac_sha256(key: &[u8; 32], message: &[u8]) -> [u8; 32] {
     const BLOCK: usize = 64;
     let mut inner = [0x36_u8; BLOCK];
     let mut outer = [0x5c_u8; BLOCK];

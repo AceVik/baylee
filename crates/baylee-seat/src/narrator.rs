@@ -15,11 +15,13 @@
 //! Only what the seat's own [`PlayerView`] and [`Pending`] carry, and the
 //! compiled English Oracle of cards the view names (`baylee_cards::oracle`,
 //! `docs/legal.md` clause 9). A face-down card is "face-down", a hidden log
-//! object is "a card", a library and another player's hand are counts. The
-//! players' display names are the one text a person chose; they appear once
-//! per conversation, in the prefix ([`prefix`]), inside «», and everywhere
-//! else a player is `P1`…`Pn` (seat order, one-based), so a name never
-//! stands where an instruction could.
+//! object is "a card", a library and another player's hand are counts. No
+//! player is named (owner, 13.10.2026): a player is `P1`…`Pn` (seat order,
+//! one-based) and the seat itself "you", on every bridge, a hosted one or a
+//! player's own, with every provider. No display name, handle, tag, account
+//! or game id, and not the deck's own name, reaches a mind, so the provider
+//! learns no person and no game, and a name never stands where an
+//! instruction could.
 //!
 //! # Ids
 //!
@@ -488,25 +490,17 @@ pub fn strip_reminder(line: &str) -> String {
     line[..open].trim_end().to_string()
 }
 
-/// One other seat in the prefix: its number, its name inside «» where the
-/// mind may know it, and its side. A hosted seat knows nobody's name
-/// (`BridgeConfig::pseudonymous`), and `name` is empty.
-fn seat_line(out: &mut String, seat: usize, name: &str, side: &str) {
-    if name.is_empty() {
-        let side = if side == "opponent" {
-            "an opponent"
-        } else {
-            side
-        };
-        let _ = writeln!(out, "P{} is {side}.", seat + 1);
-    } else {
-        let _ = writeln!(out, "P{} is «{name}», {side}.", seat + 1);
-    }
+/// One other seat in the prefix: its number and its side, never its
+/// display name. No bridge names a player to its mind (owner, 13.10.2026):
+/// the people at the table did not choose the provider it goes to.
+fn seat_line(out: &mut String, seat: usize, side: &str) {
+    let _ = writeln!(out, "P{} is {side}.", seat + 1);
 }
 
 /// The stable first part of a conversation: the seat, the table and the
 /// deck it brought, its full text or its names as `deck` says, which a
-/// provider caches. A function of the game alone, so it is the same bytes
+/// provider caches. Never the deck's own name, a label a person typed (a
+/// hosted seat's deck is its host's). A function of the game alone, so it is the same bytes
 /// at every conversation of the game.
 #[must_use]
 pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
@@ -522,18 +516,15 @@ pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
             _ => "freeform",
         }
     );
-    for (seat, name) in context.names.iter().enumerate() {
-        if seat == me {
-            continue;
-        }
+    for seat in (0..usize::from(context.seats)).filter(|seat| *seat != me) {
         let side = match (
             context.teams.get(me).copied().flatten(),
             context.teams.get(seat).copied().flatten(),
         ) {
             (Some(a), Some(b)) if a == b => "your teammate",
-            _ => "opponent",
+            _ => "an opponent",
         };
-        seat_line(&mut out, seat, name, side);
+        seat_line(&mut out, seat, side);
     }
     if let Some(secs) = context.decision_secs {
         let _ = writeln!(out, "The table gives each decision {secs} seconds.");
@@ -548,15 +539,13 @@ pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
     let _ = match deck_text {
         DeckText::Full => writeln!(
             out,
-            "\nYOUR DECK «{}» ({cards} cards). The full text of every card in it; later \
-             messages name these cards without their text.",
-            deck.name
+            "\nYOUR DECK ({cards} cards). The full text of every card in it; later \
+             messages name these cards without their text."
         ),
         DeckText::Names => writeln!(
             out,
-            "\nYOUR DECK «{}» ({cards} cards), by name. A card's full text is shown the \
-             first time it is seen, under \"New cards\".",
-            deck.name
+            "\nYOUR DECK ({cards} cards), by name. A card's full text is shown the \
+             first time it is seen, under \"New cards\"."
         ),
     };
     for (label, entries) in [("Commander", &deck.commanders), ("Main deck", &deck.main)] {
@@ -715,7 +704,8 @@ impl<'a> Table<'a> {
     pub fn statics(&self) -> GameStatic {
         GameStatic {
             view_version: baylee_view::VIEW_VERSION,
-            game_id: self.context.game_id.clone(),
+            // The writer needs no game id, and a sentence never carries one.
+            game_id: String::new(),
             your_seat: self.me(),
             seats: self
                 .view

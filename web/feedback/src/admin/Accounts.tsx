@@ -246,6 +246,23 @@ export function Accounts({ lang, search }: { lang: Lang; search: string }) {
           </button>
         )}
       </form>
+      {filter.tag !== undefined && (
+        <p className="toolbar" data-testid="tag-filter">
+          <Badge tone="accent">{t(lang, "acc.tagFilter", { tag: filter.tag })}</Badge>
+          <button
+            type="button"
+            className="quiet"
+            onClick={() => {
+              const next: AccountFilter = { ...filter };
+              delete next.tag;
+              delete next.offset;
+              navigate(pathFor(next), true);
+            }}
+          >
+            {t(lang, "acc.clear")}
+          </button>
+        </p>
+      )}
       {error !== null && (
         <p className="error" role="alert">
           {error}

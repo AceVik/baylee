@@ -6,11 +6,11 @@
    everything lives here. Every movement is transform and opacity only, and
    `prefers-reduced-motion` stills all of it. */
 
-@font-face { font-family: "Faustina"; src: url("fonts/Faustina.woff2") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }
-@font-face { font-family: "Faustina"; src: url("fonts/Faustina-Italic.woff2") format("woff2"); font-weight: 300 800; font-style: italic; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Faustina"; src: url("fonts/Faustina.woff2?v=5e1bf9a0c7") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Faustina"; src: url("fonts/Faustina-Italic.woff2?v=78aa6e03e0") format("woff2"); font-weight: 300 800; font-style: italic; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Regular.woff2?v=2f8bb62b1e") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Medium.woff2?v=f2d382c484") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Bold.woff2?v=af19c56947") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 
 /* ---------------------------------------------------------------- tokens */
 :root {
@@ -57,6 +57,7 @@
   --code-bg: #0a1120;
   --kbd-bg: #1b2740;
   --field-bg: rgba(9, 15, 28, 0.65);
+  --field-edge: rgba(170, 190, 220, 0.55);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -96,6 +97,7 @@
     --code-bg: #1b2233;
     --kbd-bg: #e3e8f1;
     --field-bg: rgba(255, 255, 255, 0.85);
+    --field-edge: rgba(40, 60, 100, 0.6);
     color-scheme: light;
   }
 }
@@ -135,6 +137,7 @@
   --code-bg: #1b2233;
   --kbd-bg: #e3e8f1;
   --field-bg: rgba(255, 255, 255, 0.85);
+  --field-edge: rgba(40, 60, 100, 0.6);
   color-scheme: light;
 }
 
@@ -214,6 +217,20 @@ html:not([data-lang]) p.de { color: var(--ink-faint); }
   box-shadow: 0 10px 30px -20px rgba(0, 0, 0, 0.6);
 }
 .top.solid::before, html:not([data-js]) .top::before { opacity: 0; }
+/* in the light theme the clear bar lies on a light veil: dark words on a
+   light band (white ones measured 3.9:1 there) */
+:root[data-theme="light"] .top::before { background: linear-gradient(180deg, rgba(238, 242, 248, 0.92), rgba(238, 242, 248, 0)); }
+:root[data-theme="light"] .top:not(.solid) .nav a, :root[data-theme="light"] .top:not(.solid) .menu-btn,
+:root[data-theme="light"] .top:not(.solid) .lang-btn:not([aria-pressed="true"]) { color: var(--ink); text-shadow: none; }
+:root[data-theme="light"] .top:not(.solid) .nav a.here { color: var(--title); }
+:root[data-theme="light"] .lang, :root[data-theme="light"] .menu-btn { background: rgba(255, 255, 255, 0.6); }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .top::before { background: linear-gradient(180deg, rgba(238, 242, 248, 0.92), rgba(238, 242, 248, 0)); }
+  :root:not([data-theme="dark"]) .top:not(.solid) .nav a, :root:not([data-theme="dark"]) .top:not(.solid) .menu-btn,
+  :root:not([data-theme="dark"]) .top:not(.solid) .lang-btn:not([aria-pressed="true"]) { color: var(--ink); text-shadow: none; }
+  :root:not([data-theme="dark"]) .top:not(.solid) .nav a.here { color: var(--title); }
+  :root:not([data-theme="dark"]) .lang, :root:not([data-theme="dark"]) .menu-btn { background: rgba(255, 255, 255, 0.6); }
+}
 .top-inner {
   position: relative;
   max-width: var(--wrap); margin: 0 auto; padding: 0 16px; min-height: var(--top-h);
@@ -223,6 +240,8 @@ html:not([data-lang]) p.de { color: var(--ink-faint); }
 .brand img { width: 7.6rem; height: auto; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
 /* while the hero's own large logo is in view, the bar's small one waits */
 html[data-js] .top:not(.solid) .brand { opacity: 0; transform: translateY(-6px) scale(0.96); pointer-events: none; }
+/* ...but a keyboard that reaches it sees it */
+html[data-js] .top:not(.solid) .brand:focus-visible { opacity: 1; transform: none; }
 .nav { display: flex; gap: 0.1rem; margin-left: auto; font-family: var(--sans); font-weight: 500; font-size: 0.95rem; }
 .nav a {
   position: relative; display: inline-flex; align-items: center; min-height: 44px;
@@ -271,7 +290,11 @@ html[data-js] .top:not(.solid) .brand { opacity: 0; transform: translateY(-6px) 
 }
 .sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: #0b1322; overflow: hidden; }
 .layer { position: absolute; inset: -4% -3%; will-change: transform; }
-.sky-painting { background: url("img/sanctuary.webp") center 42% / cover no-repeat; transform: scale(1.06); }
+.sky-painting {
+  background: url("img/sanctuary.webp?v=dc56d10e62") center 42% / cover no-repeat;
+  background-image: image-set(url("img/sanctuary-1600.avif?v=156a4b6af7") type("image/avif"), url("img/sanctuary.webp?v=dc56d10e62") type("image/webp"));
+  transform: scale(1.06);
+}
 .sky-painting > div { position: absolute; inset: 0; background: inherit; }
 /* stars: dots of light in the upper sky that breathe slowly */
 .sky-stars > div {
@@ -392,48 +415,67 @@ h1 .glow {
 .dl-arch { font-family: var(--sans); font-size: 0.9rem; color: var(--ink-soft); margin: 0; max-width: 36em; text-shadow: var(--hero-shadow); }
 
 /* ---------------------------------------------------------------- buttons */
+/* One button, every state the same size and the same shape: nothing moves
+   or grows. Hover and focus warm the colour and pass a soft sheen across
+   once; a press darkens; disabled and busy dim. The icon and the label sit
+   on one centre line at one size (the icon is 1.15em square), and a button
+   that changes its words (the contact form's) keeps all of them in one grid
+   cell, so it is as wide as its longest word in every state. */
 .button {
   position: relative; overflow: hidden; isolation: isolate;
-  display: inline-flex; align-items: center; justify-content: center; gap: 0.55em;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.6em;
   min-height: 48px; padding: 0.6em 1.45em; border-radius: 999px;
   background: linear-gradient(180deg, var(--gold-2), var(--gold) 55%, var(--gold-deep));
   color: var(--gold-ink);
-  font-family: var(--sans); font-weight: 700; font-size: 1.05rem; letter-spacing: 0.01em;
+  font-family: var(--sans); font-weight: 700; font-size: 1.05rem; line-height: 1.2; letter-spacing: 0.01em;
   text-decoration: none; border: 1px solid transparent; cursor: pointer;
-  box-shadow: 0 14px 30px -14px rgba(224, 190, 124, 0.65), 0 1px 0 rgba(255,255,255,0.35) inset;
-  transition: transform 220ms var(--ease-spring), box-shadow 220ms ease, filter 220ms ease;
+  box-shadow: 0 14px 30px -16px rgba(224, 190, 124, 0.6), 0 1px 0 rgba(255,255,255,0.35) inset;
+  transition: box-shadow 260ms ease, filter 200ms ease, border-color 260ms ease, color 160ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-:root[data-theme="light"] .button { background: linear-gradient(180deg, #34446a, #1f2a44); box-shadow: 0 14px 30px -14px rgba(31, 42, 68, 0.6); }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .button { background: linear-gradient(180deg, #34446a, #1f2a44); box-shadow: 0 14px 30px -14px rgba(31, 42, 68, 0.6); } }
-/* a band of light that sweeps across on hover */
+:root[data-theme="light"] .button { background-image: linear-gradient(180deg, #3d4f7a, #1f2a44 55%, #141c30); box-shadow: 0 14px 30px -16px rgba(31, 42, 68, 0.6); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .button { background-image: linear-gradient(180deg, #3d4f7a, #1f2a44 55%, #141c30); box-shadow: 0 14px 30px -16px rgba(31, 42, 68, 0.6); } }
+/* a soft band of light that passes once on hover and focus */
 .button::before {
-  content: ""; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
-  transform: translateX(-120%); transition: transform 700ms var(--ease);
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
+  transform: translateX(-110%); transition: transform 900ms var(--ease);
 }
-.button:hover { color: var(--gold-ink); transform: translateY(-2px); box-shadow: 0 20px 36px -14px rgba(224, 190, 124, 0.8), 0 1px 0 rgba(255,255,255,0.35) inset; }
-:root[data-theme="light"] .button:hover { color: var(--gold-ink); }
-.button:hover::before { transform: translateX(120%); }
-.button:active { transform: translateY(0) scale(0.97); transition-duration: 90ms; }
+.button:hover, .button:focus-visible { color: var(--gold-ink); filter: brightness(1.05) saturate(1.12); box-shadow: 0 18px 34px -16px rgba(224, 190, 124, 0.75), 0 1px 0 rgba(255,255,255,0.35) inset; }
+:root[data-theme="light"] .button:hover, :root[data-theme="light"] .button:focus-visible { color: var(--gold-ink); filter: brightness(1.22); box-shadow: 0 18px 34px -16px rgba(31, 42, 68, 0.7); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .button:hover, :root:not([data-theme="dark"]) .button:focus-visible { color: var(--gold-ink); filter: brightness(1.22); box-shadow: 0 18px 34px -16px rgba(31, 42, 68, 0.7); } }
+.button:hover::before, .button:focus-visible::before { transform: translateX(110%); }
+.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.button:active { filter: brightness(0.9); transition-duration: 60ms; }
+.button:disabled, .button[aria-disabled="true"] { cursor: not-allowed; filter: saturate(0.6) brightness(0.9); box-shadow: none; }
+.button:disabled::before, .button[aria-disabled="true"]::before { display: none; }
 .button-big { min-height: 58px; padding: 0.75em 1.9em; font-size: 1.16rem; }
-.button-icon { flex: none; transition: transform 300ms var(--ease-spring); }
-.button:hover .button-icon { transform: translateY(2px); }
+.button-icon { flex: none; width: 1.15em; height: 1.15em; display: block; }
 .button-ghost {
   background: rgba(8, 14, 28, 0.25); color: var(--link); border-color: var(--edge); box-shadow: none; font-weight: 500;
   min-height: 46px; font-size: 0.97rem; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
-.button-ghost::before { background: linear-gradient(110deg, transparent 30%, var(--violet-soft) 50%, transparent 70%); }
-.button-ghost:hover { color: var(--link-hover); background: var(--panel-2); border-color: var(--edge-glow); box-shadow: 0 12px 26px -16px rgba(0, 0, 0, 0.7); }
-:root[data-theme="light"] .button-ghost, :root[data-theme="light"] .button-ghost:hover { background: rgba(255, 255, 255, 0.55); color: var(--link); box-shadow: none; }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .button-ghost, :root:not([data-theme="dark"]) .button-ghost:hover { background: rgba(255, 255, 255, 0.55); color: var(--link); box-shadow: none; } }
-/* a click leaves a ring of light where it landed (site.js places it) */
-.ripple {
-  position: absolute; z-index: -1; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55); pointer-events: none;
-  animation: ripple 620ms var(--ease) forwards;
+.button-ghost::before { background: linear-gradient(105deg, transparent 35%, var(--violet-soft) 50%, transparent 65%); }
+.button-ghost:hover, .button-ghost:focus-visible { color: var(--link-hover); background: var(--panel-2); border-color: var(--edge-glow); box-shadow: 0 12px 26px -16px rgba(0, 0, 0, 0.7); }
+:root[data-theme="light"] .button-ghost, :root[data-theme="light"] .button-ghost:hover, :root[data-theme="light"] .button-ghost:focus-visible { background: rgba(255, 255, 255, 0.7); color: var(--link); box-shadow: none; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .button-ghost, :root:not([data-theme="dark"]) .button-ghost:hover, :root:not([data-theme="dark"]) .button-ghost:focus-visible { background: rgba(255, 255, 255, 0.7); color: var(--link); box-shadow: none; } }
+
+/* the contact form's button: one state at a time, each its icon and its
+   words centred together; all of them share one grid cell, so the button is
+   as wide as its widest state in every state (site.js sets data-state:
+   idle, sending, sent, error) */
+.btn-states { display: grid; }
+.btn-states > .st {
+  grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.6em; white-space: nowrap;
+  visibility: hidden; opacity: 0; transition: opacity 180ms ease, visibility 0s linear 180ms;
 }
-@keyframes ripple { from { transform: scale(0); opacity: 0.8; } to { transform: scale(40); opacity: 0; } }
+.button-send[data-state="idle"] .st-idle, .button-send[data-state="sending"] .st-sending,
+.button-send[data-state="sent"] .st-sent, .button-send[data-state="error"] .st-error { visibility: visible; opacity: 1; transition: opacity 180ms ease, visibility 0s; }
+.button-send[data-state="sending"] { cursor: progress; filter: saturate(0.8); }
+.button-send[data-state="sending"]::before { display: none; }
+.i-spin { animation: spin 1s linear infinite; }
+.i-spin circle { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 38 60; }
+.button-send[data-state="error"] { border-color: var(--bad); }
 
 /* ---------------------------------------------------------------- status strip */
 .strip { position: relative; z-index: 2; margin-top: -2.6rem; }
@@ -484,12 +526,14 @@ h1 .glow {
 
 /* a panel that follows the pointer with a soft light (site.js sets --mx/--my) */
 .glass {
-  position: relative; background: var(--panel); border: 1px solid var(--edge-soft); border-radius: 18px;
+  position: relative; isolation: isolate; background: var(--panel); border: 1px solid var(--edge-soft); border-radius: 18px;
   box-shadow: var(--shadow);
   transition: transform 320ms var(--ease), box-shadow 320ms ease, border-color 320ms ease;
 }
+/* under the panel's content (z-index -1 in the panel's own stacking context),
+   never over it: over it, it tinted the buttons and text it passed */
 .glass::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0;
   background: radial-gradient(22rem circle at var(--mx, 50%) var(--my, 0%), var(--violet-soft), transparent 60%);
   transition: opacity 320ms ease;
 }
@@ -571,7 +615,7 @@ h1 .glow {
 .kv > div { display: grid; grid-template-columns: minmax(7rem, 11rem) 1fr; gap: 0.6rem; align-items: baseline; }
 .kv dt { font-family: var(--sans); font-size: 0.82rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
 .kv dd { margin: 0; font-family: var(--sans); font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
-.kv dd a { color: var(--link); }
+.kv dd a { color: var(--link); display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 .kv dd code { white-space: normal; }
 @media (max-width: 420px) { .kv > div { grid-template-columns: 1fr; gap: 0.1rem; } }
 .gateway-card, .repo-card { padding: 1.4rem 1.5rem 0.7rem; }
@@ -612,7 +656,8 @@ h1 .glow {
 .field .opt { font-weight: 400; font-size: 0.82rem; color: var(--ink-faint); }
 .field input, .field textarea {
   font: inherit; font-size: 1rem; color: var(--ink); width: 100%;
-  background: var(--field-bg); border: 1px solid var(--edge-soft); border-radius: 12px;
+  /* a field's edge is how it is found: at least 3:1 to its ground (WCAG 1.4.11) */
+  background: var(--field-bg); border: 1px solid var(--field-edge); border-radius: 12px;
   padding: 0.7em 0.9em; min-height: 48px;
   transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
@@ -628,8 +673,6 @@ h1 .glow {
 .form-status { margin: 0; font-size: 0.95rem; min-height: 1.4em; }
 .form-status.bad { color: var(--bad); }
 .form-status.ok { color: var(--ok); }
-.button[aria-busy="true"] { pointer-events: none; filter: saturate(0.7); }
-.button[aria-busy="true"] .button-icon { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .privacy-note { font-size: 0.86rem; color: var(--ink-faint); margin: 0; line-height: 1.45; }
 .contact-done { display: none; text-align: center; padding: 1.4rem 0.5rem 0.6rem; font-family: var(--sans); }
@@ -673,6 +716,9 @@ html[data-js] .reveal.in {
   transition: opacity 760ms var(--ease), transform 760ms var(--ease);
   transition-delay: calc(var(--d, 0) * 70ms);
 }
+/* what the keyboard reaches is shown at once, whether or not it has come up */
+html[data-js] .reveal:focus-within { opacity: 1; transform: none; transition: none; }
+main:focus { outline: none; }
 /* the hover lift must not wait for the reveal's delay */
 html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transform 320ms var(--ease), box-shadow 320ms ease, border-color 320ms ease; }
 
@@ -729,7 +775,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .sets-tools[hidden] { display: none; }
 .sets-search { display: inline-flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
 .sets-search input {
-  font: inherit; color: var(--ink); background: var(--field-bg); border: 1px solid var(--edge); border-radius: 12px;
+  font: inherit; color: var(--ink); background: var(--field-bg); border: 1px solid var(--field-edge); border-radius: 12px;
   padding: 0.4em 0.8em; min-height: 44px; width: min(18rem, 78vw);
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
@@ -740,6 +786,9 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .sets { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.2rem; }
 .set { background: var(--panel); border: 1px solid var(--edge-soft); border-radius: 14px; transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms var(--ease); }
 .set[hidden] { display: none; }
+/* a row off screen is not laid out or painted until it comes near (it
+   keeps the size it last had, or a summary line's) */
+.set { content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .set:hover { border-color: var(--edge); box-shadow: 0 16px 34px -24px rgba(0, 0, 0, 0.7); }
 .set[open] { border-color: var(--edge); box-shadow: var(--shadow); }
 .set-sum {
@@ -758,7 +807,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
   transform: rotate(-45deg); transition: transform 300ms var(--ease-spring), border-color 200ms ease;
 }
 .set-sum:hover .set-title::before { border-color: var(--gold); }
-.set[open] .set-title::before { transform: rotate(45deg); border-color: var(--gold); }
+.set[open] > .set-sum .set-title::before { transform: rotate(45deg); border-color: var(--gold); }
 .set-name { font-weight: 700; color: var(--title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .set-meta { font-size: 0.85rem; color: var(--ink-faint); font-feature-settings: "lnum", "tnum"; }
 .set-progress { display: flex; align-items: center; gap: 0.6em; min-width: 0; }
@@ -766,7 +815,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .set-pct.done { color: var(--ok); }
 .pbar { flex: 1; display: flex; height: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--edge-soft); min-width: 4rem; }
 .pbar > span { display: block; height: 100%; transition: width 1100ms var(--ease); }
-html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
+html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.shown) .pbar > span { width: 0 !important; }
 .pbar-partial { opacity: 0.75; }
 .set-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.15rem 0.8rem; font-size: 0.85rem; color: var(--ink-soft); font-feature-settings: "lnum", "tnum"; }
 .set-counts .c { white-space: nowrap; }
@@ -781,7 +830,7 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
   .set-progress { padding-left: 1.3em; }
 }
 .set-body { padding: 0.2rem 1rem 1rem; }
-.set[open] .set-body { animation: body-in 420ms var(--ease); }
+.set[open] > .set-body { animation: body-in 420ms var(--ease); }
 @keyframes body-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .set-foot { margin: 0.8rem 0 0; }
 .set-foot a { display: inline-block; padding: 0.4em 0; }
@@ -801,19 +850,27 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
 .cgrid[data-filter="partial"] .ctile:not([data-group="partial"]),
 .cgrid[data-filter="none"] .ctile:not([data-group="none"]),
 .cgrid[data-filter="never"] .ctile:not([data-group="never"]) { display: none; }
+/* A card's picture is shown as Scryfall serves it: whole (contain), never
+   blurred, dimmed, faded, desaturated or tinted, whatever its status, which
+   only the badge under it says (docs/legal.md §3; Scryfall's guidelines).
+   No filter, opacity or blend on .ctile-pic, .cp-pic or their images:
+   scripts/site/test_site_page.py holds this. */
 .ctile { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; border-radius: 8px; animation: tile-in 480ms var(--ease) backwards; }
-@keyframes tile-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes tile-in { from { transform: translateY(8px); } }
+.ctile-link { display: flex; flex-direction: column; gap: 0.35rem; color: inherit; text-decoration: none; border-radius: 8px; }
+.ctile-link:hover .ctile-name { color: var(--link-hover); text-decoration: underline; }
 .ctile-pic {
   aspect-ratio: 146 / 204; border-radius: 4.75% / 3.5%; overflow: hidden; background: var(--panel-2); border: 1px solid var(--edge-soft);
   transition: transform 320ms var(--ease), box-shadow 320ms ease;
 }
-.ctile:hover .ctile-pic, .ctile:focus-visible .ctile-pic { transform: translateY(-5px) rotate(-1deg) scale(1.03); box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--edge); }
-.ctile-pic img { width: 100%; height: 100%; object-fit: cover; }
+.ctile-link:hover .ctile-pic, .ctile-link:focus-visible .ctile-pic { transform: translateY(-5px); box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--edge); }
+.ctile-pic { display: block; }
+.ctile-pic img { width: 100%; height: 100%; object-fit: contain; }
 .ctile-blank { display: flex; align-items: center; justify-content: center; text-align: center; height: 100%; padding: 0.6rem; font-family: var(--serif); font-size: 0.95rem; color: var(--ink-faint); }
 .ctile-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; font-family: var(--sans); font-size: 0.85rem; line-height: 1.25; }
 .ctile-name { color: var(--ink); overflow-wrap: anywhere; }
 .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; padding: 0.08em 0.55em; border-radius: 999px; color: var(--bg); }
-.ctile:focus-visible { outline-offset: 2px; }
+.ctile-link:focus-visible { outline-offset: 3px; }
 
 /* ---------------------------------------------------------------- stillness */
 @media (prefers-reduced-motion: reduce) {
@@ -825,3 +882,124 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
   .sky-stars > div { opacity: 0.8; }
   h1 .glow { background-position: 50% 0; }
 }
+
+/* ---------------------------------------------------------------- the sets: summary, eras, a card large */
+.sets-summary { display: grid; gap: 0.6rem; margin: 1.2rem 0 0.4rem; }
+.sets-overall { padding: 0.9rem 1.1rem 1rem; }
+.sets-overall .sets-total { margin: 0 0 0.6rem; }
+.sets-overall .pbar { height: 0.75rem; }
+.sets-sub { font-family: var(--sans); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin: 0.8rem 0 0.1rem; }
+.set-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.4em; min-height: 44px; padding: 0 1em; border-radius: 999px;
+  font-family: var(--sans); font-weight: 500; font-size: 0.95rem; text-decoration: none;
+  color: var(--title); background: var(--panel); border: 1px solid var(--edge);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.chip::before { content: ""; width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--ok); }
+.chip:hover { background: var(--panel-2); border-color: var(--edge-glow); color: var(--title); }
+.sets-more { margin: 1rem 0 0.4rem; }
+.sets-all[hidden] { display: none; }
+.sets-all { margin-top: 0.4rem; }
+.sets-found:empty { display: none; }
+.set-era > .set-sum .set-name { font-size: 1.08rem; }
+.era-body { padding: 0.2rem 0.7rem 0.8rem; }
+.sets-notes { margin-top: 1.4rem; }
+.cgrid-hint { margin: -0.3rem 0 0.8rem; }
+@media (hover: none) { .cgrid-hint { display: none; } }
+
+/* a card large beside the pointer (site.js places it) */
+.cpreview {
+  position: fixed; left: 0; top: 0; z-index: 40; width: 16rem; max-width: calc(100vw - 16px);
+  padding: 0.6rem; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--edge);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.75); font-family: var(--sans); font-size: 0.85rem; line-height: 1.35;
+  visibility: hidden; pointer-events: none;
+}
+.cpreview.on { visibility: visible; }
+.cp-pic { aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; overflow: hidden; background: var(--panel-2); }
+.cp-pic img { width: 100%; height: 100%; object-fit: contain; }
+.cp-artist { flex-basis: 100%; color: var(--ink-faint); }
+.cp-go { margin: 0.35rem 0.1rem 0; color: var(--ink-soft); }
+.cp-piclink { display: block; }
+.cp-cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; margin: 0.55rem 0.1rem 0.2rem; }
+.cp-name { color: var(--title); font-size: 0.98rem; }
+.cp-why { flex-basis: 100%; color: var(--ink-soft); }
+.cp-credit { margin: 0.35rem 0.1rem 0; font-size: 0.75rem; color: var(--ink-faint); }
+
+/* the card in a dialog */
+.cardview {
+  width: min(92vw, 26rem); max-height: 94vh; padding: 0.8rem; border: 1px solid var(--edge); border-radius: 18px;
+  background: var(--panel-solid); color: var(--ink); overflow: visible;
+}
+.cardview::backdrop { background: rgba(4, 8, 16, 0.78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.cardview[open] { animation: zoom-in 300ms var(--ease); }
+.cardview .cp-pic { width: min(100%, calc(70vh * 488 / 680)); margin: 0 auto; }
+.cardview .cp-cap, .cardview .cp-credit { font-family: var(--sans); }
+.cardview .cp-name { font-size: 1.1rem; }
+
+/* ---------------------------------------------------------------- impressum (impressum.html) */
+.channels + .small { margin-top: 1.2rem; }
+.legal-page main { padding-top: var(--top-h); }
+.legal-page .top-inner { justify-content: flex-start; }
+.legal-page .back { margin-left: auto; font-family: var(--sans); font-weight: 500; font-size: 0.95rem; color: var(--ink-soft); text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.6em; border-radius: 999px; }
+.legal-page .back:hover { color: var(--link-hover); text-decoration: underline; }
+.legal { max-width: 46rem; }
+.legal h1 { font-size: clamp(2rem, 1.4rem + 2.2vw, 3rem); }
+.legal h2 { font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.7rem); margin-top: 2.2rem; }
+.imp-box { padding: 1.2rem 1.4rem; margin: 0 0 1rem; }
+.imp-box p:last-child { margin-bottom: 0; }
+.imp-address { font-size: 1.08rem; line-height: 1.7; }
+/* A field's characters, each a span in a shuffled DOM order among decoys
+   (impressum.js): the flexbox puts them back by their order class, the
+   decoys take no room and stay invisible, yet both are in textContent and
+   innerText (opacity and absolute position keep an element rendered, which
+   display: none and visibility: hidden would not). Copying goes through the
+   page's buttons, so the jumble cannot be selected. */
+.scr-block { user-select: none; -webkit-user-select: none; }
+.scr { display: inline-flex; flex-wrap: nowrap; position: relative; white-space: pre; user-select: none; -webkit-user-select: none; }
+.scr > span { white-space: pre; }
+.scr > .scr-x { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.o0 { order: 0; } .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; } .o5 { order: 5; } .o6 { order: 6; } .o7 { order: 7; }
+.o8 { order: 8; } .o9 { order: 9; } .o10 { order: 10; } .o11 { order: 11; } .o12 { order: 12; } .o13 { order: 13; } .o14 { order: 14; } .o15 { order: 15; }
+.o16 { order: 16; } .o17 { order: 17; } .o18 { order: 18; } .o19 { order: 19; } .o20 { order: 20; } .o21 { order: 21; } .o22 { order: 22; } .o23 { order: 23; }
+.o24 { order: 24; } .o25 { order: 25; } .o26 { order: 26; } .o27 { order: 27; } .o28 { order: 28; } .o29 { order: 29; } .o30 { order: 30; } .o31 { order: 31; }
+.o32 { order: 32; } .o33 { order: 33; } .o34 { order: 34; } .o35 { order: 35; } .o36 { order: 36; } .o37 { order: 37; } .o38 { order: 38; } .o39 { order: 39; }
+.o40 { order: 40; } .o41 { order: 41; } .o42 { order: 42; } .o43 { order: 43; } .o44 { order: 44; } .o45 { order: 45; } .o46 { order: 46; } .o47 { order: 47; }
+.o48 { order: 48; } .o49 { order: 49; } .o50 { order: 50; } .o51 { order: 51; } .o52 { order: 52; } .o53 { order: 53; } .o54 { order: 54; } .o55 { order: 55; }
+.o56 { order: 56; } .o57 { order: 57; } .o58 { order: 58; } .o59 { order: 59; } .o60 { order: 60; } .o61 { order: 61; } .o62 { order: 62; } .o63 { order: 63; }
+.imp-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+.imp-dl .imp-actions { margin-top: 0; }
+.imp-btn { min-height: 44px; padding: 0.4em 1.1em; font-size: 0.92rem; }
+.imp-status { font-family: var(--sans); font-size: 0.92rem; color: var(--ink-soft); min-height: 1.4em; margin: 0.6rem 0 0; }
+.imp-dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.6rem 1.2rem; align-items: center; margin: 0 0 1rem; font-family: var(--sans); }
+.imp-dl dt { font-weight: 700; color: var(--ink); }
+.imp-dl dd { margin: 0; min-height: 46px; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem; }
+@media (max-width: 700px) {
+  .legal-page .back { font-size: 0.88rem; padding: 0 0.3em; white-space: nowrap; }
+  .imp-dl { grid-template-columns: 1fr; gap: 0.2rem; }
+  .imp-dl dd + dt { margin-top: 0.6rem; }
+}
+.imp-status:empty { min-height: 0; margin: 0; }
+.imp-why { font-family: var(--sans); color: var(--ink-soft); font-size: 0.95rem; }
+html:not([data-js]) .imp-why { display: none; }
+.imp-progress { display: block; width: min(18rem, 100%); height: 6px; margin: 0.8rem 0 0; accent-color: var(--gold); }
+.imp-progress[hidden] { display: none; }
+.imp-loaded .imp-why { display: none; }
+/* the honeypot: a link no person sees, for robots that follow every href
+   (crates/baylee-feedback/src/impressum.rs) */
+.hp { display: none !important; }
+.imp-show[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- targets
+   Every link that stands alone (not inside a sentence) is at least 44 px
+   tall and wide enough for a finger: the download block's small links, the
+   release line, a platform's files and their checksums. */
+.dl-sub a, .release-head a, .plat-files a.file, .plat-files .aux a {
+  display: inline-flex; align-items: center; min-height: 44px; padding-top: 0; padding-bottom: 0;
+}
+.plat-files .aux a { min-width: 44px; justify-content: center; }
+.dl-sub a { padding: 0 0.25em; }
+
+/* the download lines lie on the painting: the stronger inks there */
+.hero .dl-sub, .hero .dl-meta .sep { color: var(--ink-soft); }
+.hero .dl-sub a { color: var(--link-hover); }

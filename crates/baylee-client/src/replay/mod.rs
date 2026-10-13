@@ -17,6 +17,7 @@ use std::sync::Arc;
 use baylee_client_core::replay::{
     Check, Header, Perspective, Perspectives, Speed, StopLine, Timeline, Verify,
 };
+use baylee_core::ids::PlayerId;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod host;
@@ -38,6 +39,8 @@ pub mod local {
     }
 }
 mod rewind;
+#[cfg(test)]
+mod status_tests;
 #[cfg(test)]
 mod tests;
 
@@ -74,12 +77,38 @@ pub enum Loading {
 }
 
 /// Where and when the game was played, for the top line.
-#[derive(Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Origin {
     /// "This computer", the gateway's name, or the file's.
     pub place: String,
     /// When it started, Unix milliseconds, where known.
     pub started: Option<u64>,
+    /// The viewer's own seat ("Your seat").
+    pub viewer: PlayerId,
+    /// The seats whose hands their players did not share (hosted games,
+    /// REPLAY-DESIGN §18): seen from such a seat its hidden cards stay
+    /// hidden, and the bar says so. Local records hold every hand whole.
+    pub unshared: Vec<PlayerId>,
+}
+
+impl Default for Origin {
+    fn default() -> Self {
+        Self {
+            place: String::new(),
+            started: None,
+            viewer: PlayerId::new(0),
+            unshared: Vec::new(),
+        }
+    }
+}
+
+/// A seat of the game being replayed, as the seat picker names it.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SeatName {
+    /// The seat.
+    pub seat: PlayerId,
+    /// What the table called it.
+    pub name: String,
 }
 
 /// Where a replay stands: what the transport bar, the top line and the stop
@@ -114,9 +143,82 @@ pub struct ReplayStatus {
     pub problem: Option<String>,
     /// Where and when.
     pub origin: Origin,
+    /// The game's seats, once a tape named them.
+    pub seats: Vec<SeatName>,
 }
 
 impl ReplayStatus {
+    /// Every perspective this replay offers, in the order the picker lists
+    /// them and `V` steps through them: the viewer's seat, every other
+    /// seat, the table, all hands.
+    #[must_use]
+    pub fn choices(&self) -> Vec<Perspective> {
+        let viewer = self.origin.viewer;
+        let mut out = Vec::new();
+        if self.offers.seat {
+            out.push(Perspective::Seat(viewer));
+            out.extend(
+                self.seats
+                    .iter()
+                    .filter(|s| s.seat != viewer)
+                    .map(|s| Perspective::Seat(s.seat)),
+            );
+        }
+        if self.offers.public {
+            out.push(Perspective::Public);
+        }
+        if self.offers.all_hands {
+            out.push(Perspective::AllHands(viewer));
+        }
+        out
+    }
+
+    /// The perspective after the one shown, round the [`Self::choices`].
+    #[must_use]
+    pub fn next_choice(&self) -> Perspective {
+        let choices = self.choices();
+        let at = choices.iter().position(|p| *p == self.perspective);
+        at.map_or(self.perspective, |i| choices[(i + 1) % choices.len()])
+    }
+
+    /// Whether the hand of the seat a perspective is drawn from is hidden
+    /// here: the spectators' table, and a seat whose player did not share.
+    #[must_use]
+    pub fn hand_hidden(&self, perspective: Perspective) -> bool {
+        // The tape shown says it itself (§18.3: `own`, whether the drawn
+        // seat's hidden cards are in it); another perspective goes by the
+        // list's consent.
+        if perspective == self.perspective
+            && perspective != Perspective::Public
+            && let Some(header) = &self.header
+        {
+            return !header.own;
+        }
+        match perspective {
+            Perspective::Public => true,
+            Perspective::Seat(seat) | Perspective::AllHands(seat) => {
+                self.origin.unshared.contains(&seat)
+            }
+        }
+    }
+
+    /// What the picker and the top line call a perspective.
+    #[must_use]
+    pub fn words(&self, perspective: Perspective, lang: baylee_client_core::Lang) -> String {
+        use baylee_client_core::replay::words::ReplayPhrase;
+        match perspective {
+            Perspective::Seat(seat) if seat != self.origin.viewer => {
+                let name = self
+                    .seats
+                    .iter()
+                    .find(|s| s.seat == seat)
+                    .map_or_else(|| format!("{}", seat.get() + 1), |s| s.name.clone());
+                ReplayPhrase::SeatOf.fill(lang, &[&name])
+            }
+            other => perspective_words(other, lang).to_string(),
+        }
+    }
+
     /// Whether the step shown is the last.
     #[must_use]
     pub const fn at_end(&self) -> bool {
@@ -194,7 +296,7 @@ pub fn top_line(status: &ReplayStatus, lang: baylee_client_core::Lang) -> String
         &[
             &status.origin.place,
             &when,
-            perspective_words(status.perspective, lang),
+            &status.words(status.perspective, lang),
         ],
     );
     // An empty part leaves no empty slot between its dots.

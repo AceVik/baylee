@@ -28,6 +28,7 @@ pub fn sync_ledge(
     texts: Res<crate::cardtext::CardTexts>,
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
+    social: Option<Res<crate::social::SocialHost>>,
 ) {
     let Ok((shelf, standing)) = shelf.single() else {
         return;
@@ -98,6 +99,7 @@ pub fn sync_ledge(
         // on every frame of a table at rest.
         keys: None,
         window_w,
+        replay: duel.replay.is_some(),
     };
     // The second half of the gate is what covers a shelf that was spawned
     // afresh with the revision still describing the tree before it. Everything
@@ -145,7 +147,11 @@ pub fn sync_ledge(
         ))
         .id();
     commands.entity(shelf).add_child(tools);
-    let orders = if window_w >= WIDE_ENOUGH_FOR_FIVE {
+    // A replay's bar takes the shelf's whole width: the hand's tools are
+    // the live table's.
+    let orders = if duel.replay.is_some() {
+        Vec::new()
+    } else if window_w >= WIDE_ENOUGH_FOR_FIVE {
         crate::hand_order::HandOrder::ALL.to_vec()
     } else {
         vec![duel.hand_order]
@@ -222,7 +228,12 @@ pub fn sync_ledge(
         baylee_client_core::ledge::Columns {
             left: tools_reserved(window_w),
             mid,
-            right: RIGHT_RESERVED,
+            right: RIGHT_RESERVED
+                + if social.as_ref().is_some_and(|s| s.machine().is_some()) {
+                    tray::CHAT_DOOR
+                } else {
+                    0.0
+                },
         },
         caps_w,
     );

@@ -152,7 +152,7 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true}
+ "registration":"invite","guests":true,"impressum":"https://example.org/impressum"}
 ```
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
@@ -182,6 +182,18 @@ is no account yet:
 - `terms` is the version of the terms of use a player accepts here, or
   `null` on a gateway without terms (§"Terms of use (WG-1)"). It is one
   version for every language the terms are in.
+- `impressum` is the operator's legal notice (Impressum), `BAYLEE_IMPRESSUM_URL`,
+  or `null` when unset (13.10.2026): each gateway is run by someone, and
+  each may have its own notice, as it has its own terms. It must be
+  `https://` with a host (no user before it), at most 200 characters, with
+  no whitespace, control or bidirectional character, or the gateway refuses
+  to start. No separate privacy address: the terms carry the privacy
+  notice. The client keeps it only when it passes the same check
+  (`gateway_info::legal_address`) and draws it as a link with the host it
+  opens in sight (`Legal notice (Impressum) · example.org`) on the front
+  door's About, the terms sheet and Settings → Network; it opens only on
+  the player's click, in the system browser, and only that address. Absent
+  from a gateway older than the field.
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -1891,22 +1903,28 @@ the gateway's unit removes when it stops.
 A signed-in account (guests too) can watch again every hosted game it sat
 at, from any device: the gateway has the game's record (§"The game record
 (#315)"), and an engine plays it again on **today's** build and sends back
-what one perspective was sent. Nothing is stored: a replay is computed when
-asked, and the record never leaves the gateway but to that engine.
+what one perspective was sent. No tape is stored: a replay is computed when
+asked, and the record never leaves the gateway but to that engine. The
+record itself is **never deleted** (it trains the house AI and balances
+decks); a player archives a game (§"Archiving a game"), never deletes it,
+and an account's deletion anonymises its seats
+(the account link is cut). Which seats' hidden cards a tape may hold is each
+seat's own choice (§"Sharing a seat's hidden cards").
 
-### `GET /replays?offset=0&limit=20`
+### `GET /replays?offset=0&limit=20&archived=false`
 
 The account's seated games (a seat it played; one its seat bridge played
-does not count), newest first (`started_at desc, game_id`), `limit` at most
-50 (default 20):
+does not count) that it has not archived, or with `archived=true` only the
+ones it archived; newest first (`started_at desc, game_id`), `limit` at most
+50 (default 20); `total` counts the same list:
 
 ```json
 {"games":[{"game":"0199c8…","started_at":"2026-10-13T18:31:02Z","ended_at":"2026-10-13T19:02:40Z",
-  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,
+  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,"archived":false,
   "check":"exact","build":"0.8.0+build.212 (3f9a1c7e21)",
-  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null},
-           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null},
-           {"seat":2,"who":"house","name":"House AI","commander":null}]}],
+  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null,"shared":false,"mine":false},
+           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null,"shared":true,"mine":true},
+           {"seat":2,"who":"house","name":"House AI","commander":null,"shared":true,"mine":false}]}],
  "total":57}
 ```
 
@@ -1925,20 +1943,103 @@ does not count), newest first (`started_at desc, game_id`), `limit` at most
   an `unverified` game with `verify: note` at once.
 - `public`: whether the account may ask the public perspective; every
   seated account may in v1.
+- `shared`: the seat's consent to show its hidden cards in this game's
+  replays (§"Sharing a seat's hidden cards"), as said or by default; always
+  `true` for `house` and `model`. `mine`: the asking account played this
+  seat. `archived`: which of the two lists this is.
+
+### Archiving a game
+
+`PUT /replays/{game}/archived` `{"archived": true|false}` (any other field is
+`400`) moves the game to the asking account's archived list (`GET
+/replays?archived=true`) or back, and nothing else: the record stays (it is
+never deleted), other players' lists are unchanged, and an archived game's
+tapes are answered as before. `200 {"archived": bool}` (also when it already
+was); `403` the account sat at no seat of that game; `404` no such game. One
+`replay_archived` row while archived, which goes with the account.
+
+### Sharing a seat's hidden cards
+
+`PUT /replays/{game}/share` `{"shared": true|false}` (any other field is
+`400`) sets whether the other players may see the asking account's **own**
+seat's hidden cards in that game's replays: its whole seat view (the list
+under §"`POST /replays/{game}/tape`", "What a shown seat reveals").
+ The seat is the
+one `game_record_seat` names for the account, never the request's. `200
+{"seat": n, "shared": bool}`; `403` the account sat at no seat of that game;
+`404` no such game. Any time, also while the game is played (the end-of-game
+dialog shows it ticked). A seat that never said is **shared in a game
+recorded from the beta.7 deploy on** (the box is ticked; a player unticks
+it) and **not shared in one recorded before** (the terms those games were
+played under promised nobody at the table the recording; owner,
+13.10.2026). The moment is stored once, when migration 000019 runs
+(`replay_share_cutoff`), and compared with the record's `started_at`. An
+explicit choice overrides either default. An AI seat (the house, a host's seat bridge, a hosted model) is
+always shared. Stored per game and seat
+(`game_record_share`); a consent stays when the account is deleted.
 
 ### `POST /replays/{game}/tape`
 
-`{"perspective":"seat"|"public","verify":"stop"|"note"}` (`verify` defaults
-to `stop`; any other field is `400`: there is no seat field, the seat is the
-one `game_record_seat` names for the account, never the request's) →
-`200 application/gzip`, the tape (`baylee_protocol::tape`, gzip JSON Lines: a
-header, the `static`, `view`, `over` frames the perspective was sent, and a
-closing `stop` line saying how far it is the recorded game).
+`{"perspective":"seat"|"public"|"all_hands","seat":2,"verify":"stop"|"note"}`
+(`verify` defaults to `stop`; `seat`, the seat the table is drawn from,
+defaults to the asking account's own and is ignored, even out of range, for
+`public`; for `seat` and `all_hands` a seat the table lacks is `400`, and so
+is any other field) → `200 application/gzip`, the tape
+(`baylee_protocol::tape`, gzip JSON Lines: a header, the `static`, `view`,
+`over` frames the perspective was sent, and a closing `stop` line saying how
+far it is the recorded game).
+
+**Whose hidden cards a tape holds** is decided by the gateway and enforced
+by the projection: a seat's hidden cards appear only where that seat is the
+asker's own, an AI seat, or `shared` (as said, else by default: yes from
+the beta.7 deploy on, no before). With **S** that set of seats:
+
+- `seat`, the drawn seat in **S**: what a socket at that seat was sent
+  (the list below), less what it was shown of a seat outside **S**. The
+  asker's own seat is shown whole.
+- `seat`, the drawn seat not in **S**: the public table drawn from that
+  seat: a `PlayerView` made from the spectator view (no hand, nothing looked
+  at), the spectators' log, a print table earned in public.
+- `all_hands`: the `seat` view as above, plus every other seat in **S** as a
+  `shared_hands` entry (`public: false`): of those seats their **hand only**
+  (and the printings of the cards in it), not the rest of their seat view.
+- `public`: the spectators' stream (`SpectatorView` payloads).
+
+**What a shown seat reveals** (the drawn seat in **S**, its `PlayerView`
+as `Session::seat_view` builds it for a socket at it):
+
+1. its **hand**, every card, at every moment;
+2. its **deck list**: the opening payload's print table holds the printing
+   of every card of its deck, sideboard, starting hand and starting
+   battlefield from the first frame (printings, not counts or order);
+3. what it **looked at** (`looking_at`: a searched or scried library, cards
+   revealed to it alone) while it was asked about them, kept only for cards
+   owned by itself or a seat in **S**;
+4. its **face-down cards** (a morph or manifest it controls, a card it
+   exiled face down and may look at), by name;
+5. its **log** as it was told it: its draws and the cards it was shown, by
+   name;
+6. a hand it saw while **controlling** another player (CR 720,
+   `controlled_hands`), only where that player is in **S**;
+7. its own answers' bookkeeping (what its policies answered, whether the
+   clock or a stand-in answered for it).
+
+Not shown: its library's order beyond what it looked at (it did not know
+it either), clocks, chat. Known limits (v1): the log of a shown seat may
+name a card it was shown privately of a seat outside **S** (an effect that
+revealed that player's hand to it alone), and a face-down card of a player
+it controlled (CR 720) keeps its name; both need a log line or object
+filter of their own (v2).
+
+The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,
+`own` (whether the drawn seat's own hidden cards are in it; absent = `true`)
+and `hands` (the other seats whose hands are shown; absent = `[]`). Every
+`seat` and `all_hands` tape carries `PlayerView` payloads.
 
 | Answer | When |
 | --- | --- |
 | `200` | the tape; one that stops early (diverged, refused) says why on its `stop` line |
-| `400` | a body that is not a tape request |
+| `400` | a body that is not a tape request, or a seat the table lacks |
 | `403` | the account sat at no seat of that game |
 | `404` | no record of that game |
 | `409` | the game is still being played |
@@ -1949,9 +2050,9 @@ closing `stop` line saying how far it is the recorded game).
 | `504` | no tape in 60 s (`BAYLEE_REPLAY_JOB_SECS`, `1..=600`); the job's engine is told to stop |
 
 A game that ended in the last 10 s whose last piece is not stored yet is
-waited for up to 3 s. A seat's tape is that seat's view and log exactly as a
-socket at it was sent them (its own hand, the log as the seat may know it);
-the public tape is the spectators' stream (no hand, a print table that
+waited for up to 3 s. A full seat's tape is that seat's view and log exactly
+as a socket at it was sent them (its own hand, the log as the seat may know
+it); the public tape is the spectators' stream (no hand, a print table that
 starts empty). What a re-run leaves out, because the record does not hold
 it: a teammate's hand shared by choice, clocks, `lost` seats, the debug
 `AiLog`, the spectator count, chat.
@@ -2469,7 +2570,7 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/metrics` | the last hour of server samples, below |
 | `GET /admin/sets` | how far the pool is through each set, below |
 | `GET /admin/sets/{code}` | one set's cards; `404` for a code the ledger has not, `400` for one that is not letters and digits |
-| `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
+| `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `tag=` (exactly one account by its tag: `af03`, `#af03` or a whole handle `Alice#af03`, the name not checked; registered or guest; not a tag `400`; the sender a chat report names, §"Who a report can find"), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
 | `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
@@ -2633,7 +2734,20 @@ ban or delete a player or guest, from the console and not a shell
 (`crates/baylee-gateway/src/moderation.rs`; the columns are migration
 `m20261012_000016_account_moderation`). Finding the player is the search
 `GET /admin/accounts?q=` already does (owner, 09.10.2026); nothing new
-lists people. Every act is a change, so it names its admin
+lists people.
+
+#### Who a report can find
+
+The **sender** of a reported chat message can be found; the **reporter**
+never (13.10.2026). A moderator must be able to act on reported content,
+and the sender's tag is public in every handle anyway: the gateway adds
+`client.chat.sender_tag` (the tag in hex, as a handle draws it) to the
+forwarded report only when the message's signature and key checked
+(`verified`), because an unverified report could name anyone, and the
+feedback UI's *Find sender's account* opens the accounts filtered by
+`GET /admin/accounts?tag=`, where the admin can ban. The reporter reaches
+the service as the keyed pseudonym only, and no route turns it back into an
+account. Every act is a change, so it names its admin
 (`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
 `action=account.password.reset`, `account.ban` (with `until` and whether
 it is a guest), `account.unban`, `account.delete` or `game.close`, the
@@ -2870,7 +2984,8 @@ goes to …").
 
 ### Which profiles a player sees: `GET /lobby/llm-profiles`
 
-Any signed-in session (`401` without):
+Any signed-in session (`401` without); listed are only the profiles open
+to its account (§"Who may seat which model"), so a guest's list is empty:
 
 ```json
 {"profiles": [
@@ -2896,7 +3011,9 @@ The room's host, signed in to a **registered account**, with its session:
 `{"profile": "<id>", "deck_text"?: "<deck>"}`.
 
 - `403` for a guest (`a guest cannot seat a hosted model; sign in with an
-  account`) and for anyone but the room's host; `404` no such room or seat;
+  account`), for a profile not open to the account (`that hosted model is
+  not open to your account`, whether a seat agent holds it or not; checked
+  before the profile's state) and for anyone but the room's host; `404` no such room or seat;
   `409` a chair that is not an open person's chair of a waiting room, or a
   profile that is not available now — then `{"error", "state",
   "until_unix"}`, also for a profile no seat agent holds (`state`
@@ -2927,10 +3044,58 @@ In the room's listing a chair carries
 `"hosted": {"profile", "label", "vendor", "model", "state", "note"}` or
 `null`: `state` is `starting` (ordered, not ready yet), `ready`, or
 `failed` (the chair is open again; `note` says why, until the chair is
-taken or ordered again). A hosted bridge plays **pseudonymised**
-(`--hosted`): its prompts name seats `P1…Pn`, never a display name. Its
+taken or ordered again). A hosted bridge, like every bridge, plays
+**pseudonymised**: its prompts name seats `P1…Pn`, never a display name,
+handle, tag, account or game id (`docs/llm-seat.md`). Its
 record line says `llm_api`/`llm_cli` as any bridge's does
 (§"Who answers a seat, as it says").
+
+### Who may seat which model
+
+Owner, 13.10.2026: the operator decides per profile which players may seat
+it. A profile **id** (the id players order by, over every seat agent that
+holds it) has a **policy** on the gateway, in its database
+(`llm_profile_access`, `llm_profile_allow`; `baylee_db::llm_access`):
+
+- `registered`: every registered account;
+- `listed`: only the accounts on the profile's list;
+- `nobody`.
+
+A guest is admitted to none, whatever the policy. A profile without a
+stored policy is `listed` with nobody on its list: a **new profile is
+open to nobody** until an admin opens it. One profile may be marked
+`default_for_registered`, the operator's default seat: it is always
+`registered`; marking it takes the mark from any other profile, and setting
+another policy on it takes the mark away. A policy and a list may name a
+profile no seat agent reports, so an operator can set one up before its
+seat agent connects, and stay when it goes. A list row goes with its
+account.
+
+The policy is read at each listing (`GET /lobby/llm-profiles` lists only
+the profiles the account may seat) and at each order (`403` otherwise);
+nothing else reads it. So a change **stops nothing already ordered**: a
+chair ordered before, starting or ready, keeps its model, and a game
+playing goes on. The client shows the hosted entry of a chair's menu only
+when its latest list holds a profile.
+
+On the console (§"The admin console"), with its checks; every change names
+its admin and writes an audit line (`baylee_gateway::audit`,
+`action=llm.access.policy` with `profile`, `policy` and
+`default_for_registered`, `llm.access.allow` / `llm.access.disallow` with
+`profile` and the account `accounts` ids; never a username or handle):
+
+| route | what |
+|---|---|
+| `GET /admin/llm/access` | `{"profiles": [{"id", "policy", "stored", "default_for_registered", "listed", "updated_at", "updated_by", "connected", "label", "vendor"}]}`: every profile a seat agent reports or a policy names, by id. `stored` false: no policy is kept, and `policy` says `listed` (with nobody on it); `listed` counts the accounts on its list; `connected`, `label` and `vendor` say whether a seat agent reports it now and as what |
+| `GET /admin/llm/access/{id}` | the same row and `"accounts": [{"id", "username", "display_name", "handle", "added_at", "added_by"}]`, by username |
+| `PUT /admin/llm/access/{id}` | `{"policy", "default_for_registered"?}`; answers as `GET`. `400` for another policy word, or the mark with a policy other than `registered` |
+| `POST /admin/llm/access/{id}/allow` | `{"accounts": [<uuid>…]}` (1–200): puts registered accounts on the list (a profile without a policy gets `listed`); all or nothing: `404` for an id no account has, `409` for a guest's. Answers as `GET` with `"added"` (those not on it already) |
+| `POST /admin/llm/access/{id}/disallow` | the same body; takes them off; answers with `"removed"` |
+| `GET /admin/accounts/lookup?q=` | `{"accounts": [{"id", "username", "display_name", "handle"}]}`: registered accounts whose username or display name **starts** with `q` (any case; `%` and `_` are themselves), the username equal to `q` first, then by username; fewer than 2 characters find nothing, at most 10 are answered, over 100 characters `400`. The list editor's type-ahead; a read, not audited |
+
+`{id}` is 1–64 of `A-Za-z0-9._-` (`400` otherwise). None of these routes
+answers `403`: the feedback service reads a `403` from the console as its
+token refused (`docs/feedback.md` §"The admin console").
 
 ### The console: `/admin/llm/…`
 

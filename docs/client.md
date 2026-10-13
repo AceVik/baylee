@@ -3588,29 +3588,53 @@ driven by a tape instead of a socket.
   `Playing`, places the next board without a glide (`table::Placing`) and
   drops the cues. `Duel::replay` is the host's `ReplayStatus`, written only
   when it differs.
-- **The bar** (`hud/ledge/replay_bar.rs`) stands in the shelf's middle on its
-  own root and revision: a timeline with a cell per turn (own ivory, others
-  slate), `seen` steps underlined, `unverified` ones banded, a red mark where
-  a tape stops early, the playhead and the step's words written in place per
-  frame; start, a turn back, a moment back, play/pause, a moment on, a turn
-  on, the end; the speed; the perspective. A sheet over it says *Rebuilding
-  the game…*, a refusal, or why the tape stops (*Play on anyway* for a
-  divergence). The shelf says no sentence while a replay plays. The clock is
-  `Time` (virtual), so `/pause` and `/step` hold a replay.
+- **The bar** (`hud/ledge/replay_bar.rs`, the owner's redesign of
+  13.10.2026) takes the actions bar's whole place (the hand's sort tools
+  step aside, the shelf says no sentence) on its own root and revision: a
+  timeline with a numbered cell per turn as wide as its steps (own ivory,
+  others slate), `seen` steps underlined, `unverified` ones banded, a red
+  mark where a tape stops early, a brass needle; under it three groups, the
+  two sides as wide so the transport stands on the centre line: the speed
+  pills (½ 1 2 4 8) and where the step stands; start, a turn back, a moment
+  back, a round brass play/pause, a moment on, a turn on, the end; whose
+  table (a chip opening the seat picker) and the hand chip. Every control
+  lights under the pointer and gives under a press (`ambience::Feel`). A
+  sheet over it says *Rebuilding the game…*, a refusal, or why the tape
+  stops (*Play on anyway* for a divergence). The clock is `Time` (virtual),
+  so `/pause` and `/step` hold a replay. A replay draws no decision clock.
+- **The hand folds** where the perspective shows none (the table; a seat
+  whose player did not share, the tape header's `own`) and stands open
+  where it does; the hand chip or `I` folds and unfolds it until the
+  perspective changes (`replay_bar::BarUi`). It is the phone's hand drawer
+  on every frame (`hand_drawer::slide_the_hand`, eased, `reduce_motion` the
+  cut; the bar rides it, `RidesTheHand`), and the table takes the height
+  (`Canvas::with_replay_hand`).
+- **Any seat's view** (REPLAY-DESIGN §18.3): the seat picker lists the
+  viewer's seat, every other seat, the table, all hands; a lock beside a
+  seat whose hidden cards stay hidden (its player unticked the consent; the
+  house and models always share). A hosted tape is asked for that seat and
+  the gateway masks it; a local record holds every hand.
 - **The Replays tab** (`Hub::Replays`, `src/lobby/replays.rs`, desktop only)
   lists this computer's kept records and the account's hosted games
   (`GET /replays`, a page of 20, *Older online games*), grouped by day, newest
-  first, filtered by source, result and a query over players and commanders;
-  a row's `⋯` watches from a perspective, *Delete…* a local record. A replay
-  opens as `Screen::Replay`, never `Screen::Seated`; leaving it comes back to
-  the tab. *Watch replay* stands on a finished game's end sheet (a local game,
-  a hosted one the player sat in); a replay's end sheet offers *Watch again*,
-  *Watch from…* and *Back to replays*.
+  first, filtered by source (All, Against the house, Online, Archived),
+  result and a query over players and commanders. Nothing is deleted from
+  it: a row's `⋯` *Archive*s it (a kept record moves to `records/archive/`,
+  out of the retention's reach; a hosted game is `PUT
+  /replays/{g}/archived`, its record stays on the gateway) and *Unarchive*
+  brings it back from *Archived*. The same menu holds the consent for a
+  hosted game (*Let others see my hand and deck in this game's replay*,
+  On/Off, `PUT /replays/{g}/share`), which the end sheet of a hosted game
+  shows ticked over its ways. A replay opens as `Screen::Replay`, never
+  `Screen::Seated`; leaving it comes back to the tab. *Watch replay* stands
+  on a finished game's end sheet (a local game, a hosted one the player sat
+  in); a replay's end sheet offers *Watch again*, *Watch from…* and *Back to
+  replays*.
 - dev-control: `/state.replay` (step, steps, turns, playing, speed,
   perspective, check, stop, loading, problem, verify) and `POST /replay
   {"command":"seek","step":42}` (`toggle`, `step` with `by`, `turn`,
-  `next_phase`, `start`, `end`, `faster`, `slower`, `perspective` with `to`,
-  `play_on`, `cancel`).
+  `next_phase`, `start`, `end`, `faster`, `slower`, `perspective` with `to`
+  and `seat`, `play_on`, `cancel`; the bar's own `hand` and `picker`).
 
 ### When the socket goes away
 
@@ -3953,6 +3977,20 @@ only when it passes `gateway_info::web_address` again at the door
 (`source::keep_the_code`, `source::open`), because a hostile gateway's
 answer is the thing being drawn; otherwise the line stays plain text.
 `docs/legal.md` §6 is the reason for the line.
+
+**The gateway's legal notice** (13.10.2026): a gateway that names an
+Impressum in `/info` (`impressum`, `docs/protocol.md` §"Which gateway is
+this?") gets a link `Legal notice (Impressum) · <host>`
+(`Phrase::ImpressumLink`) on the front door's About sheet (under the
+source line), on the terms sheet (under its title) and in Settings →
+Network (beside the gateway's facts). The host is always in the words, so
+the player sees where it leads. It is kept only when it passes
+`gateway_info::legal_address` (`https://`, a host, no user before it, no
+whitespace, control or bidi character, at most 200 characters), and a
+press (`FrontPress::OpenImpressum`, `SettingsPress::OpenImpressum`) opens
+exactly that address through `lobby::source::open`, which asks
+`front::impressum_link` again. A gateway that names none, or has not
+answered, draws nothing.
 
 **Framing and empty states.** The front-door composition uses vertical auto
 margins above the fixed legal footer on tablet and desktop. Spare height centres
@@ -9046,7 +9084,8 @@ The form is a kit sheet now (`report/form.rs`, `windows-b6/DESIGN.md`
 `GlobalZIndex(1000)`, the kind a segmented control, the text field
 (`report/field.rs`: six lines growing to twelve, two to four on a phone),
 one small line under it (`n / 20000 characters · # a card · @ a player`),
-the route line, the Attachments disclosure with its consent rows, and a
+the route line, the Attachments disclosure with its attachment boxes (a choice before
+sending, not a consent; `docs/privacy.md`), and a
 sticky footer: **What is sent** (the body, with the "Always sent" sentence
 it replaced in the form), **Copy as text** where a report can go nowhere,
 Close and Send (disabled with its reason). The confirmation replaces the
@@ -9082,6 +9121,71 @@ pointer (`report::refs::show_the_preview`, at `GlobalZIndex(1002)`: the
 table's own preview stands under the sheet). On Send the brackets that
 name a candidate become `client.refs` (`docs/feedback.md` §"References in
 the text").
+
+## Friends and chat (beta.8)
+
+`crates/baylee-client/src/social/` draws and carries out what
+`baylee_client_core::social::Social` decides (the beta.8 social design §11;
+the chat window design). The renderer never builds a frame or an HTTP body.
+
+- **The host.** `SocialHost` starts the machine once the lobby is signed in at
+  a gateway whose `GET /info` names `social` (version and `keep_days`), and
+  drops it at sign-out. Every `/social/ws` dial buys a fresh ticket with the
+  session (`POST /ws-ticket {"socket":"social"}`); a `403` stops dialling for
+  good, any other failure redials after 0.5 s doubling to 15 s. Keys live in
+  the OS credential store (`baylee-chat`, `{tag}@{host}`), else in the `0600`
+  key file in the chat folder `<config>/chat/<gw>/<tag>/`; `BAYLEE_KEY_STORE=off`
+  takes the file (live checks: a rebuilt binary is a new signature to the
+  Keychain). The sealed state file is written 2 s after its last change.
+- **One window, two frames.** At a table the log's panel is the chat window
+  while a social session exists (`sync_log` leaves the panel to
+  `social::window`): fixed tabs All · Log · Table · Team · Private · Group,
+  the log one of them and drawn incrementally as before; All merges log and
+  chat lines in arrival order (`Arrivals`), never by time, and drops phase
+  captions. The tray carries a bubble left of the scroll with the unread
+  count outside its corner (rose for a whisper or a mention). The scroll and
+  `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
+  closes it. Shut, new chat lines peek above the strip for 10 s and fade.
+  In the lobby the same window docks bottom-right (560 × 38 % of the height,
+  320–520), beside the friends drawer, minimises to its tab row or hides to
+  the chat pill. It grows from its corner and shrinks back before the pill
+  takes its place (`window::Pop`, `hud::motion`'s curve); a line more is
+  appended rather than the list redrawn, and a row newer than the list
+  showed rises 10 px into place (`window::Arrive`, 0.18 s). A line is drawn
+  only once `Arrivals` has stamped it (the socket is read after the stamps).
+  A tab opened on unread lines draws a "New" divider above the first,
+  noted before `Intent::Panel` reads the tab; every way of hiding the
+  window tells the machine `Intent::Panel(None)`. A lock line under the
+  tabs says the conversation is end-to-end encrypted and opens the safety
+  numbers. Whispers read `To Bob:` / `From Bob:`. A list scrolled more than
+  half its height up shows the log's pill as "Back to the latest".
+  `reduce_motion` ends every movement on its first frame.
+- **Per-tab filters** (`⚙`) ride in `Preferences.chat` (`ChatPrefs.tabs`), so
+  they follow the account; the Group tab shows one group at a time
+  (its dropdown), All shows every group with its name as the prefix.
+- **Keys.** The composer holds every key but the F-keys while it has the
+  caret (`ChatUi::holds_keyboard`, asked by `KeyClaims`, `KitHolds`, the
+  shell's walker and stack). A press outside the chat's surfaces
+  (`ChatSurface`) gives the keys back.
+- **Presses act on release** (`social::released`): a panel that closes on a
+  click is still standing when the pointer comes up, so the release cannot
+  land on the lobby control under it.
+- **Drawer, toasts, sheets.** The friends drawer (requests, table and group
+  invites, friends by presence with Whisper/Watch/Invite and a `⋯` menu,
+  groups with their menu, recent players, blocked, status, Chat & privacy)
+  is open by default and docks at the right below the header, full height,
+  with a scrollbar; it slides in and out (0.18 s) while the header's
+  siblings give it their room (each lets go of a fixed width, `Squeezed`,
+  and gets it back), and slides over the table at a table. Card links in
+  the chat (history and composer) preview as a pool row does, from the
+  compiled pool until the builder's has come. Toasts with buttons stay until answered. The
+  encryption notice stands the first time the chat opens on a device, and
+  from every lock; Chat & privacy holds the server settings, history length,
+  sounds, this account's devices and Forget this device.
+- **Sounds** are four synthesised cues (`sound::chat_voice`), no samples,
+  at the interface level and the device's effects volume.
+- `/state.chat` reports the machine and the window and every chat control
+  where a pointer would press it (`controls[].press`).
 
 ## Embedding (the open-world plan)
 

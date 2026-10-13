@@ -3,11 +3,29 @@
 // player ticks what goes in. A part that is missing or not the shape
 // expected reads as `null`, and the detail view says so instead of breaking.
 
-import { isRecord } from "./api";
+import { isRecord, senderTag } from "./api";
 import { formatClock, isBase64 } from "./format";
 
 const text = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/**
+ * A chat report's sender, as the gateway forwarded it (`client.chat`):
+ * whether the message's signature checked, and the sender's public tag,
+ * which the gateway names only for a verified message. `null` for a
+ * report that is not of a chat message. The reporter is never in it.
+ */
+export interface ChatSender {
+  verified: boolean;
+  tag: string | null;
+}
+
+export function readChatSender(client: Record<string, unknown>): ChatSender | null {
+  const chat = part(client, "chat");
+  if (chat === null) return null;
+  const verified = chat["verified"] === true;
+  return { verified, tag: verified ? senderTag(chat["sender_tag"]) : null };
+}
 
 export function part(client: Record<string, unknown>, key: string): Record<string, unknown> | null {
   const value = client[key];

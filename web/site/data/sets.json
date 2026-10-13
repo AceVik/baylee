@@ -1,4 +1,4 @@
-{"rev":"eba276a1df91fdeb7a04260982617902aebde9f0","generated_at":"2026-10-12T16:16:42Z","corpus":33694,"totals":{"implemented":3161,"partial":112,"unimplemented":48,"absent":30363,"never":10},"sets":[
+{"rev":"eba276a1df91fdeb7a04260982617902aebde9f0","generated_at":"2026-10-13T11:31:23Z","corpus":33694,"totals":{"implemented":3161,"partial":112,"unimplemented":48,"absent":30363,"never":10},"sets":[
 {"code":"lea","position":0,"name":"Limited Edition Alpha","released":"1993-08-05","total":290,"implemented":286,"partial":0,"unimplemented":0,"absent":0,"never":4},
 {"code":"leb","position":1,"name":"Limited Edition Beta","released":"1993-10-04","total":2,"implemented":2,"partial":0,"unimplemented":0,"absent":0,"never":0},
 {"code":"arn","position":2,"name":"Arabian Nights","released":"1993-12-17","total":77,"implemented":63,"partial":12,"unimplemented":0,"absent":0,"never":2},

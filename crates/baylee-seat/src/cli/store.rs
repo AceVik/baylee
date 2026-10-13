@@ -6,18 +6,16 @@ use super::{CliTool, Dialect, Duration, Path, PathBuf, dialect};
 /// A session's own directory under the OS's temp directory, removed with
 /// it: `work`, the process's working directory, empty; `tmp`, its temp
 /// directory; and `support`, the files its dialect points it at
-/// ([`Dialect::files`]); all four readable by this user alone.
+/// ([`Dialect::files`]); all four readable by this user alone. Named by
+/// the seat and [`unique`] alone: a tool may tell its provider its working
+/// directory, so no part of the game's id is in it (owner, 13.10.2026).
 pub(super) struct SessionDir {
     pub(super) root: PathBuf,
 }
 
 impl SessionDir {
-    pub(super) fn new(game: &str, seat: u8) -> std::io::Result<Self> {
-        let root = std::env::temp_dir().join(format!(
-            "baylee-cli-{}-{seat}-{}",
-            tag(game),
-            uuid::Uuid::now_v7().simple()
-        ));
+    pub(super) fn new(seat: u8) -> std::io::Result<Self> {
+        let root = std::env::temp_dir().join(format!("baylee-cli-{seat}-{}", unique()));
         private_dir(&root)?;
         let dir = Self { root };
         private_dir(&dir.work())?;
@@ -90,7 +88,7 @@ pub(super) fn private_dir(path: &Path) -> std::io::Result<()> {
 }
 
 /// What a seat's [`Store`] is called under the OS's temp directory, before
-/// the game, the seat and a unique tail.
+/// the seat and a [`unique`] tail (never the game's id, as [`SessionDir`]).
 pub(super) const STORE_PREFIX: &str = "baylee-cli-store-";
 
 /// A [`Store`] untouched this long belongs to no bridge still playing it
@@ -111,12 +109,8 @@ pub(super) struct Store {
 }
 
 impl Store {
-    pub(super) fn new(game: &str, seat: u8) -> std::io::Result<Self> {
-        let root = std::env::temp_dir().join(format!(
-            "{STORE_PREFIX}{}-{seat}-{}",
-            tag(game),
-            uuid::Uuid::now_v7().simple()
-        ));
+    pub(super) fn new(seat: u8) -> std::io::Result<Self> {
+        let root = std::env::temp_dir().join(format!("{STORE_PREFIX}{seat}-{}", unique()));
         private_dir(&root)?;
         let store = Self { root };
         private_dir(&store.work())?;
@@ -266,10 +260,9 @@ pub(super) fn private(_: &std::fs::Metadata) -> bool {
     true
 }
 
-/// `game` as a directory name's part: its letters, digits and `-`.
-pub(super) fn tag(game: &str) -> String {
-    game.chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
-        .take(24)
-        .collect()
+/// A directory name's unique tail: 122 random bits (a v4 UUID, no clock
+/// in it), so two sessions never share a directory and nothing about the
+/// game or the time it began can be read off the name.
+pub(super) fn unique() -> String {
+    uuid::Uuid::new_v4().simple().to_string()
 }

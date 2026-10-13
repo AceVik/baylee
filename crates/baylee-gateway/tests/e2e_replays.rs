@@ -13,6 +13,7 @@
 
 mod common;
 
+use std::collections::BTreeSet;
 use std::io::Read as _;
 
 use baylee_core::ids::PlayerId;
@@ -317,6 +318,133 @@ fn health(port: u16) -> Value {
     serde_json::from_str(&body).expect("json")
 }
 
+/// The raw text of each view a tape holds.
+fn view_texts(tape: &Tape) -> Vec<String> {
+    tape.views.iter().map(|v| v.json.get().to_owned()).collect()
+}
+
+/// Every object id a JSON value names, under any `id` key.
+fn ids_under(value: &Value, out: &mut BTreeSet<u64>) {
+    match value {
+        Value::Object(map) => {
+            for (key, inner) in map {
+                if key == "id" {
+                    out.extend(inner.as_u64());
+                }
+                ids_under(inner, out);
+            }
+        }
+        Value::Array(items) => items.iter().for_each(|inner| ids_under(inner, out)),
+        _ => {}
+    }
+}
+
+/// Every object id anywhere in a tape's views, log tails and payloads.
+fn ids_anywhere(tape: &Tape) -> BTreeSet<u64> {
+    let mut ids = BTreeSet::new();
+    for view in &tape.views {
+        ids_under(&serde_json::from_str(view.json.get()).unwrap(), &mut ids);
+        if let Some(log) = &view.log {
+            ids_under(&serde_json::from_str(log.get()).unwrap(), &mut ids);
+        }
+    }
+    ids
+}
+
+/// The ids of the cards the seat's own `hand` held, over the whole tape.
+fn hand_ids_of(tape: &Tape) -> BTreeSet<u64> {
+    let mut ids = BTreeSet::new();
+    for view in &tape.views {
+        let value: Value = serde_json::from_str(view.json.get()).unwrap();
+        ids_under(&value["hand"], &mut ids);
+    }
+    ids
+}
+
+/// The ids of the cards the hand of `player` was shown with, beside the
+/// seat's own, over the whole tape (`public: false` entries only).
+fn shown_hand_ids_of(tape: &Tape, player: u64) -> BTreeSet<u64> {
+    let mut ids = BTreeSet::new();
+    for view in &tape.views {
+        let value: Value = serde_json::from_str(view.json.get()).unwrap();
+        for hand in value["shared_hands"].as_array().into_iter().flatten() {
+            if hand["player"] == player && hand["public"] == false {
+                ids_under(&hand["cards"], &mut ids);
+            }
+        }
+    }
+    ids
+}
+
+/// The players whose hands a tape shows beside the seat's, in any view.
+fn players_shown(tape: &Tape) -> BTreeSet<u64> {
+    let mut players = BTreeSet::new();
+    for view in &tape.views {
+        let value: Value = serde_json::from_str(view.json.get()).unwrap();
+        for hand in value["shared_hands"].as_array().into_iter().flatten() {
+            if hand["public"] == false {
+                players.extend(hand["player"].as_u64());
+            }
+        }
+    }
+    players
+}
+
+/// `PUT /replays/{game}/share`.
+fn put_share(port: u16, token: &str, game: &str, body: &str) -> (u16, String) {
+    http(
+        port,
+        "PUT",
+        &format!("/replays/{game}/share"),
+        Some(token),
+        body,
+    )
+}
+
+/// The account's seat says whether it shares: it must be answered.
+fn set_shared(port: u16, token: &str, game: &str, shared: bool) {
+    let (status, body) = put_share(port, token, game, &json!({ "shared": shared }).to_string());
+    assert_eq!(status, 200, "share {shared}: {body}");
+    let said: Value = serde_json::from_str(&body).expect("json");
+    assert_eq!(said["shared"], shared, "{body}");
+}
+
+/// `PUT /replays/{game}/archived`.
+fn put_archived(port: u16, token: &str, game: &str, body: &str) -> (u16, String) {
+    http(
+        port,
+        "PUT",
+        &format!("/replays/{game}/archived"),
+        Some(token),
+        body,
+    )
+}
+
+/// The account archives (or takes back) a game: it must be answered.
+fn archive(port: u16, token: &str, game: &str, archived: bool) {
+    let (status, body) = put_archived(
+        port,
+        token,
+        game,
+        &json!({ "archived": archived }).to_string(),
+    );
+    assert_eq!(status, 200, "archive {archived}: {body}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&body).unwrap(),
+        json!({ "archived": archived })
+    );
+}
+
+/// The ids of the games a list page names, in order.
+fn game_ids(page: &Value) -> Vec<String> {
+    page["games"]
+        .as_array()
+        .expect("games")
+        .iter()
+        .map(|g| g["game"].as_str().expect("id").to_owned())
+        .collect()
+}
+
 // --------------------------------------------------------- hand-written rows
 
 /// An account's id, which no route says.
@@ -365,6 +493,7 @@ async fn a_finished_game_is_listed_for_each_player_as_they_sat_there() {
     assert_eq!(row["result"], "lost", "{row}");
     assert_eq!(row["complete"], true);
     assert_eq!(row["public"], true);
+    assert_eq!(row["archived"], false);
     assert_eq!(row["check"], "exact", "the harness engine is this build");
     assert_eq!(row["build"], baylee_build::short());
     assert!(row["turn"].as_u64().is_some_and(|t| t >= 1), "{row}");
@@ -730,6 +859,10 @@ async fn a_seat_is_sent_its_own_view_and_the_public_the_spectators() {
         r#"{"perspective":"everything"}"#,
         r#"{"perspective":"seat","verify":"maybe"}"#,
         r#"{"perspective":"seat","hands":"all"}"#,
+        // The gateway decides what a tape shows; the request cannot ask.
+        r#"{"perspective":"all_hands","hands":[1]}"#,
+        r#"{"perspective":"seat","own":true}"#,
+        r#"{"perspective":"seat","shared":true}"#,
         "[1]",
     ] {
         let (status, _, answer) = ask_tape(port, &alice, &game, body);
@@ -738,32 +871,63 @@ async fn a_seat_is_sent_its_own_view_and_the_public_the_spectators() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn the_seat_of_a_tape_is_the_tables_never_the_requests() {
+async fn the_request_picks_the_seat_drawn_and_the_table_picks_the_account() {
     let gw = spawn_gateway("replays-seat");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
     let alice = login(port, "alice", "AliceSeat");
     let bob = login(port, "bob", "BobSeat");
+    let carol = login(port, "carol", "CarolSeat");
     let game = two_humans_to_the_end(&gw, &alice, &bob).await;
 
-    // Bob names seat 0, Alice's: refused as a body, not answered with her
-    // view and not with his.
-    let (status, _, body) = ask_tape(port, &bob, &game, r#"{"perspective":"seat","seat":0}"#);
-    assert_eq!(status, 400, "{}", text(&body));
-    // The same for the seat that is his own, and for the other way round.
-    let (status, _, body) = ask_tape(port, &bob, &game, r#"{"perspective":"seat","seat":1}"#);
-    assert_eq!(status, 400, "{}", text(&body));
-    let (status, _, body) = ask_tape(port, &alice, &game, r#"{"perspective":"seat","seat":1}"#);
-    assert_eq!(status, 400, "{}", text(&body));
-
-    // Without it, Bob's tape is seat 1's.
-    let tape = tape_of(port, &bob, &game, SEAT);
-    assert_eq!(tape.header.seat, 1);
+    // Without a seat, Bob's tape is seat 1's, his own.
+    let own = tape_of(port, &bob, &game, SEAT);
+    assert_eq!(own.header.seat, 1);
+    assert!(own.header.own && own.header.hands.is_empty());
     assert!(
-        tape.player_views()
+        own.player_views()
             .iter()
             .all(|v| v.seat == PlayerId::new(1))
     );
+    // Naming his own seat is the same tape.
+    let named = tape_of(port, &bob, &game, r#"{"perspective":"seat","seat":1}"#);
+    assert_eq!(named.header, own.header);
+    assert_eq!(view_texts(&named), view_texts(&own));
+
+    // Naming seat 0 draws the table from Alice's seat: nobody has unticked,
+    // so it is her view, exactly as her own tape has it.
+    let hers = tape_of(port, &bob, &game, r#"{"perspective":"seat","seat":0}"#);
+    assert_eq!(hers.header.seat, 0);
+    assert!(hers.header.own, "Alice shares by default");
+    assert!(
+        hers.player_views()
+            .iter()
+            .all(|v| v.seat == PlayerId::new(0))
+    );
+    assert_eq!(hers.statics[0].your_seat, PlayerId::new(0));
+    assert!(!hand_ids_of(&hers).is_empty());
+
+    // The seat does not make the account: a stranger is refused whichever
+    // seat she names, and a seat the table lacks is a 400, not a table.
+    for seat in [0, 1] {
+        let body = format!(r#"{{"perspective":"seat","seat":{seat}}}"#);
+        assert_eq!(ask_tape(port, &carol, &game, &body).0, 403, "seat {seat}");
+    }
+    for body in [
+        r#"{"perspective":"seat","seat":2}"#,
+        r#"{"perspective":"seat","seat":255}"#,
+        r#"{"perspective":"seat","seat":256}"#,
+        r#"{"perspective":"seat","seat":-1}"#,
+        r#"{"perspective":"seat","seat":"1"}"#,
+        r#"{"perspective":"all_hands","seat":9}"#,
+    ] {
+        let (status, _, answer) = ask_tape(port, &bob, &game, body);
+        assert_eq!(status, 400, "{body}: {}", text(&answer));
+    }
+    // The public table has no seat to be drawn from: the seat is ignored.
+    let public = tape_of(port, &bob, &game, r#"{"perspective":"public","seat":1}"#);
+    assert_eq!(public.header.perspective, tape::Perspective::Public);
+    assert_eq!(public.header.seat, 0);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1137,4 +1301,790 @@ async fn a_game_leaves_what_the_list_reads_in_the_store() {
     assert_eq!(seats[1]["who"], "house");
     assert_eq!(seats[1]["name"], "House AI");
     assert_eq!(page["games"][0]["result"], "lost");
+}
+
+// ---------------------------------------------- consent, archiving, sharing
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn the_list_says_which_seats_share_and_which_are_mine() {
+    let gw = spawn_gateway("replays-shared-list");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceShared");
+    let bob = login(port, "bob", "BobShared");
+    let human = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let house = a_finished_game(&gw, &alice, "").await;
+
+    let seats_of = |page: &Value, game: &str| -> Vec<Value> {
+        page["games"]
+            .as_array()
+            .expect("games")
+            .iter()
+            .find(|g| g["game"] == game)
+            .unwrap_or_else(|| panic!("{game} is listed: {page}"))["seats"]
+            .as_array()
+            .expect("seats")
+            .clone()
+    };
+    // (shared, mine) of each seat, as booleans: the keys are always there.
+    let flags = |seats: &[Value]| -> Vec<(bool, bool)> {
+        seats
+            .iter()
+            .map(|s| {
+                (
+                    s["shared"]
+                        .as_bool()
+                        .unwrap_or_else(|| panic!("shared: {s}")),
+                    s["mine"].as_bool().unwrap_or_else(|| panic!("mine: {s}")),
+                )
+            })
+            .collect()
+    };
+
+    // Nobody has said: everyone shares, and only the asker's seat is mine.
+    let hers = list(port, &alice, "");
+    assert_eq!(
+        flags(&seats_of(&hers, &human)),
+        [(true, true), (true, false)]
+    );
+    let his = list(port, &bob, "");
+    assert_eq!(
+        flags(&seats_of(&his, &human)),
+        [(true, false), (true, true)]
+    );
+    // The house always shares; the asker's seat is still the one that is mine.
+    let seats = seats_of(&hers, &house);
+    assert_eq!(seats[1]["who"], "house");
+    assert_eq!(flags(&seats), [(true, true), (true, false)]);
+
+    // Bob unticks. Alice reads it in her list, Bob in his; the seat he
+    // spoke for is his, and nothing else moves.
+    set_shared(port, &bob, &human, false);
+    let hers = list(port, &alice, "");
+    assert_eq!(
+        flags(&seats_of(&hers, &human)),
+        [(true, true), (false, false)]
+    );
+    let his = list(port, &bob, "");
+    assert_eq!(
+        flags(&seats_of(&his, &human)),
+        [(true, false), (false, true)]
+    );
+    assert_eq!(
+        flags(&seats_of(&hers, &house)),
+        [(true, true), (true, false)],
+        "another game of Alice's is as it was"
+    );
+
+    // And back: the same row, written over.
+    set_shared(port, &bob, &human, true);
+    assert_eq!(
+        flags(&seats_of(&list(port, &alice, ""), &human)),
+        [(true, true), (true, false)]
+    );
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM game_record_share WHERE game_id = '{human}'"
+        )),
+        1
+    );
+    // Alice unticks her own: a person's `shared` is false for her too, and
+    // `mine` still marks it.
+    set_shared(port, &alice, &human, false);
+    assert_eq!(
+        flags(&seats_of(&list(port, &alice, ""), &human)),
+        [(false, true), (true, false)]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one table of cases, read top to bottom
+async fn a_seat_says_whether_it_shares_from_the_table_never_from_the_request() {
+    let gw = spawn_gateway("replays-share-put");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceShare");
+    let bob = login(port, "bob", "BobShare");
+    let carol = login(port, "carol", "CarolShare");
+    let game = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let rows = |game: &str| {
+        gw.scalar(&format!(
+            "SELECT count(*) FROM game_record_share WHERE game_id = '{game}'"
+        ))
+    };
+
+    // The answer names the seat the table gave the account, and what it said.
+    let (status, body) = put_share(port, &bob, &game, r#"{"shared":false}"#);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&body).unwrap(),
+        json!({ "seat": 1, "shared": false })
+    );
+    let (status, body) = put_share(port, &alice, &game, r#"{"shared":true}"#);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&body).unwrap(),
+        json!({ "seat": 0, "shared": true })
+    );
+    assert_eq!(
+        gw.text(&format!(
+            "SELECT string_agg(seat || '=' || shared, ',' ORDER BY seat) \
+             FROM game_record_share WHERE game_id = '{game}'"
+        )),
+        "0=true,1=false"
+    );
+    // Saying it again changes nothing but the word.
+    assert_eq!(put_share(port, &bob, &game, r#"{"shared":false}"#).0, 200);
+    assert_eq!(rows(&game), 2);
+
+    // A seat is the table's: a request that names one, or anything else, is
+    // not a sharing choice. Nothing is written for it.
+    for body in [
+        "",
+        "{}",
+        "[]",
+        "true",
+        r#"{"shared":1}"#,
+        r#"{"shared":"true"}"#,
+        r#"{"shared":null}"#,
+        r#"{"shared":true,"seat":0}"#,
+        r#"{"shared":false,"seat":1}"#,
+        r#"{"shared":true,"account":"x"}"#,
+        r#"{"seat":0}"#,
+    ] {
+        let (status, answer) = put_share(port, &bob, &game, body);
+        assert_eq!(status, 400, "{body:?}: {answer}");
+    }
+    assert_eq!(rows(&game), 2);
+    assert_eq!(
+        gw.text(&format!(
+            "SELECT shared::text FROM game_record_share WHERE game_id = '{game}' AND seat = 1"
+        )),
+        "false",
+        "Bob's seat is as he left it"
+    );
+
+    // Somebody who sat nowhere: 403, and no row. Nobody signed in: 401.
+    // A game with no record: 404.
+    let (status, answer) = put_share(port, &carol, &game, r#"{"shared":false}"#);
+    assert_eq!(status, 403, "{answer}");
+    assert_eq!(rows(&game), 2);
+    let (status, answer) = put_share(port, &alice, "no-such-game", r#"{"shared":false}"#);
+    assert_eq!(status, 404, "{answer}");
+    assert_eq!(rows("no-such-game"), 0);
+    assert_eq!(
+        http(
+            port,
+            "PUT",
+            &format!("/replays/{game}/share"),
+            None,
+            r#"{"shared":false}"#
+        )
+        .0,
+        401
+    );
+
+    // While the game is played: once its record has begun, a player who
+    // is in it says (the end-of-game dialog does so with the table open).
+    let id = account_id(&gw, "carol");
+    let (live, seat_token) = start_ai_game(port, &carol, "");
+    gw.sql(&format!(
+        "INSERT INTO game_record (game_id, bytes, complete, build, checked) \
+         VALUES ('{live}', 0, false, '{}', true)",
+        baylee_build::short()
+    ));
+    gw.sql(&format!(
+        "INSERT INTO game_record_seat (game_id, seat, account_id, seated) \
+         VALUES ('{live}', 0, '{id}', 'person')"
+    ));
+    let (status, body) = put_share(port, &carol, &live, r#"{"shared":false}"#);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(rows(&live), 1);
+    concede_and_wait(&gw, &live, &seat_token).await;
+    // And the word given in the game stands after it.
+    let page = list(port, &carol, "");
+    assert_eq!(page["games"][0]["seats"][0]["shared"], false, "{page}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_seat_that_unticks_shows_the_other_player_no_card_of_its_hand() {
+    let gw = spawn_gateway("replays-mask");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceMask");
+    let bob = login(port, "bob", "BobMask");
+    let game = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let bob_sees_his = || tape_of(port, &bob, &game, SEAT);
+    let alice_asks_bob =
+        |token: &str| tape_of(port, token, &game, r#"{"perspective":"seat","seat":1}"#);
+
+    // The control: Bob's own tape, his hand in it. His deck is all Swamp,
+    // hers all Island, so a card names whose it is.
+    let bobs = bob_sees_his();
+    let bob_hand = hand_ids_of(&bobs);
+    assert!(bob_hand.len() >= 7, "a hand was shown: {bob_hand:?}");
+    assert!(bobs.raw.contains("Swamp"));
+    assert!(bobs.header.own && bobs.header.hands.is_empty());
+
+    // Shared, as it is until he says otherwise: Alice drawn from his seat
+    // is his tape, view for view.
+    let seen = alice_asks_bob(&alice);
+    assert_eq!(seen.header, bobs.header);
+    assert_eq!(view_texts(&seen), view_texts(&bobs));
+    assert_eq!(hand_ids_of(&seen), bob_hand);
+    assert_eq!(seen.statics[0].your_seat, PlayerId::new(1));
+
+    // Bob unticks. The same ask is now the public table drawn from his seat:
+    // the header says his cards are not in it, and none of them is.
+    set_shared(port, &bob, &game, false);
+    let masked = alice_asks_bob(&alice);
+    assert_eq!(masked.header.perspective, tape::Perspective::Seat);
+    assert_eq!(masked.header.seat, 1);
+    assert!(!masked.header.own);
+    assert!(masked.header.hands.is_empty());
+    assert_eq!(masked.stop.stop, StopKind::End);
+    assert_eq!(masked.overs, 1);
+    assert_eq!(masked.statics[0].your_seat, PlayerId::new(1));
+    let views = masked.player_views();
+    assert!(views.len() > 3);
+    for view in &views {
+        assert_eq!(view.seat, PlayerId::new(1));
+        assert!(view.hand.is_empty(), "a hand in a masked tape");
+        assert!(view.looking_at.is_empty());
+        assert!(view.shared_hands.iter().all(|hand| hand.public));
+        assert_eq!(
+            view.seat(PlayerId::new(1)).map(|s| s.hand_count >= 7),
+            Some(true),
+            "the count of his hand is public"
+        );
+    }
+    let named = ids_anywhere(&masked);
+    assert!(
+        named.is_disjoint(&bob_hand),
+        "a card of Bob's hand is in the tape: {:?}",
+        named.intersection(&bob_hand).collect::<Vec<_>>()
+    );
+    assert!(
+        !masked.raw.contains("Swamp") && !masked.raw.contains("Island"),
+        "a card of either hand is named in the tape"
+    );
+    assert!(
+        !ids_anywhere(&bobs).is_disjoint(&bob_hand),
+        "the control names the hand it is held against"
+    );
+
+    // Alice's own seat is always hers, whatever Bob said; Bob's own, too.
+    let own = tape_of(port, &alice, &game, SEAT);
+    assert!(own.header.own);
+    let alice_hand = hand_ids_of(&own);
+    assert!(alice_hand.len() >= 7 && alice_hand.is_disjoint(&bob_hand));
+    assert!(own.raw.contains("Island") && !own.raw.contains("Swamp"));
+    let mine = bob_sees_his();
+    assert_eq!(mine.header, bobs.header);
+    assert_eq!(view_texts(&mine), view_texts(&bobs), "Bob keeps his own");
+    // Bob draws the table from Alice's seat: she has said nothing, so it is
+    // her view, as hers is.
+    let hers = tape_of(port, &bob, &game, r#"{"perspective":"seat","seat":0}"#);
+    assert!(hers.header.own);
+    assert_eq!(hand_ids_of(&hers), alice_hand);
+    assert_eq!(view_texts(&hers), view_texts(&own));
+
+    // The public tape is the same whatever was ticked.
+    let public = tape_of(port, &alice, &game, r#"{"perspective":"public"}"#);
+    assert!(!public.raw.contains("Swamp"));
+    assert!(ids_anywhere(&public).is_disjoint(&bob_hand));
+
+    // He ticks it again: the same ask is his full view once more.
+    set_shared(port, &bob, &game, true);
+    let back = alice_asks_bob(&alice);
+    assert_eq!(back.header, bobs.header);
+    assert_eq!(view_texts(&back), view_texts(&bobs));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn all_hands_shows_the_hands_that_are_shared_and_only_those() {
+    let gw = spawn_gateway("replays-all-hands");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceAll");
+    let bob = login(port, "bob", "BobAll");
+    let game = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let all = |token: &str, seat: Option<u8>| {
+        let body = seat.map_or_else(
+            || r#"{"perspective":"all_hands"}"#.to_owned(),
+            |s| format!(r#"{{"perspective":"all_hands","seat":{s}}}"#),
+        );
+        tape_of(port, token, &game, &body)
+    };
+    let bob_hand = hand_ids_of(&tape_of(port, &bob, &game, SEAT));
+    assert!(bob_hand.len() >= 7);
+
+    // Everyone shares: Alice's seat, and Bob's hand beside it as shared.
+    let shared = all(&alice, None);
+    assert_eq!(shared.header.perspective, tape::Perspective::AllHands);
+    assert_eq!(shared.header.seat, 0);
+    assert!(shared.header.own);
+    assert_eq!(shared.header.hands, vec![1]);
+    assert_eq!(shared.stop.stop, StopKind::End);
+    let alice_hand = hand_ids_of(&shared);
+    assert!(alice_hand.len() >= 7, "her own hand");
+    assert_eq!(
+        shown_hand_ids_of(&shared, 1),
+        bob_hand,
+        "his, as he holds it"
+    );
+    assert_eq!(players_shown(&shared), BTreeSet::from([1]));
+    assert!(shared.raw.contains("Swamp") && shared.raw.contains("Island"));
+
+    // Bob unticks: the same ask holds her own hand and none of his.
+    set_shared(port, &bob, &game, false);
+    let unshared = all(&alice, None);
+    assert_eq!(unshared.header.perspective, tape::Perspective::AllHands);
+    assert!(unshared.header.own);
+    assert!(unshared.header.hands.is_empty(), "{:?}", unshared.header);
+    assert_eq!(hand_ids_of(&unshared), alice_hand);
+    assert!(players_shown(&unshared).is_empty());
+    assert!(ids_anywhere(&unshared).is_disjoint(&bob_hand));
+    assert!(!unshared.raw.contains("Swamp"));
+
+    // Bob asks all hands: Alice has said nothing, so hers is shown beside
+    // his own seat.
+    let his = all(&bob, None);
+    assert_eq!(his.header.seat, 1);
+    assert!(his.header.own);
+    assert_eq!(his.header.hands, vec![0]);
+    assert_eq!(hand_ids_of(&his), bob_hand);
+    assert_eq!(shown_hand_ids_of(&his, 0), alice_hand);
+
+    // Alice unticks too. Bob's own seat is his and still full, with no hand
+    // beside it; her hand is hers.
+    set_shared(port, &alice, &game, false);
+    let his = all(&bob, None);
+    assert!(his.header.own && his.header.hands.is_empty());
+    assert_eq!(hand_ids_of(&his), bob_hand);
+    assert!(players_shown(&his).is_empty());
+    assert!(!his.raw.contains("Island"));
+
+    // Drawn from a seat that has not shared, the asker's own hand is still
+    // the asker's to see: Bob draws the table from Alice's seat, masked, with
+    // his own hand beside it; Alice does the same from his.
+    let from_hers = all(&bob, Some(0));
+    assert_eq!(from_hers.header.seat, 0);
+    assert!(!from_hers.header.own, "Alice's own cards are not in it");
+    assert_eq!(from_hers.header.hands, vec![1]);
+    assert!(
+        from_hers
+            .player_views()
+            .iter()
+            .all(|v| v.hand.is_empty() && v.seat == PlayerId::new(0))
+    );
+    assert_eq!(shown_hand_ids_of(&from_hers, 1), bob_hand);
+    assert!(!from_hers.raw.contains("Island"));
+    let from_his = all(&alice, Some(1));
+    assert_eq!(from_his.header.seat, 1);
+    assert!(!from_his.header.own);
+    assert_eq!(from_his.header.hands, vec![0]);
+    assert_eq!(shown_hand_ids_of(&from_his, 0), alice_hand);
+    assert!(from_his.player_views().iter().all(|v| v.hand.is_empty()));
+    assert!(!from_his.raw.contains("Swamp"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn the_house_always_shares_its_cards() {
+    let gw = spawn_gateway("replays-house-shares");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let rhea = login(port, "rhea", "RheaHouse");
+    let game = a_finished_game(&gw, &rhea, "").await;
+
+    // Rhea says her own is not shared: the house's is not hers to withhold.
+    set_shared(port, &rhea, &game, false);
+    let page = list(port, &rhea, "");
+    let seats = page["games"][0]["seats"].as_array().expect("seats");
+    assert_eq!(
+        (seats[0]["shared"].clone(), seats[0]["mine"].clone()),
+        (json!(false), json!(true))
+    );
+    assert_eq!(seats[1]["who"], "house");
+    assert_eq!(
+        (seats[1]["shared"].clone(), seats[1]["mine"].clone()),
+        (json!(true), json!(false))
+    );
+
+    // The table drawn from the house's chair holds its hand.
+    let house = tape_of(port, &rhea, &game, r#"{"perspective":"seat","seat":1}"#);
+    assert_eq!(house.header.seat, 1);
+    assert!(house.header.own, "an AI seat has nothing to withhold");
+    assert!(
+        house
+            .player_views()
+            .iter()
+            .all(|v| v.seat == PlayerId::new(1))
+    );
+    assert!(
+        !hand_ids_of(&house).is_empty(),
+        "the house's hand is in its own tape"
+    );
+
+    // All hands from her own (unshared, but hers) seat: the house's beside it.
+    let all = tape_of(port, &rhea, &game, r#"{"perspective":"all_hands"}"#);
+    assert_eq!(all.header.seat, 0);
+    assert!(all.header.own);
+    assert_eq!(all.header.hands, vec![1]);
+    assert_eq!(players_shown(&all), BTreeSet::from([1]));
+    assert!(!shown_hand_ids_of(&all, 1).is_empty());
+    assert_eq!(shown_hand_ids_of(&all, 1), hand_ids_of(&house));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn archiving_a_game_moves_it_between_one_accounts_lists_and_nothing_else() {
+    let gw = spawn_gateway("replays-archive");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceArc");
+    let bob = login(port, "bob", "BobArc");
+    let carol = login(port, "carol", "CarolArc");
+    let game = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let other = a_finished_game(&gw, &alice, "").await;
+    assert_eq!(list(port, &alice, "")["total"], 2);
+    assert_eq!(list(port, &bob, "")["total"], 1);
+    let records = || gw.scalar("SELECT count(*) FROM game_record");
+    let seats = || gw.scalar("SELECT count(*) FROM game_record_seat");
+    let (records_before, seats_before) = (records(), seats());
+
+    // Every listed game says which list it is in; the archive starts empty.
+    let page = list(port, &alice, "");
+    assert!(
+        page["games"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|g| g["archived"] == false)
+    );
+    let none = list(port, &alice, "?archived=true");
+    assert_eq!(none, json!({ "games": [], "total": 0 }));
+    assert_eq!(
+        list(port, &alice, "?archived=false")["total"],
+        2,
+        "false is the default"
+    );
+
+    // 200 with the choice, and the game moves: off Alice's main list and its
+    // total, onto her archived one, and nowhere else.
+    archive(port, &alice, &game, true);
+    let main = list(port, &alice, "");
+    assert_eq!(main["total"], 1, "{main}");
+    assert_eq!(game_ids(&main), [other.as_str()]);
+    assert_eq!(main["games"][0]["archived"], false);
+    assert_eq!(list(port, &alice, "?offset=1")["games"], json!([]));
+    let archived = list(port, &alice, "?archived=true");
+    assert_eq!(archived["total"], 1, "{archived}");
+    assert_eq!(game_ids(&archived), [game.as_str()]);
+    assert_eq!(archived["games"][0]["archived"], true);
+    assert_eq!(archived["games"][0]["seat"], 0, "the row is as it was");
+    assert_eq!(archived["games"][0]["seats"].as_array().unwrap().len(), 2);
+    let his = list(port, &bob, "");
+    assert_eq!(his["total"], 1, "Bob's list is as it was: {his}");
+    assert_eq!(game_ids(&his), [game.as_str()]);
+    assert_eq!(his["games"][0]["archived"], false);
+    assert_eq!(list(port, &bob, "?archived=true")["total"], 0);
+    assert_eq!(list(port, &carol, "")["total"], 0);
+    assert_eq!(list(port, &carol, "?archived=true")["total"], 0);
+
+    // The record, its seats and Alice's right to a tape of it stay.
+    assert_eq!((records(), seats()), (records_before, seats_before));
+    let kept = tape_of(port, &alice, &game, SEAT);
+    assert_eq!(kept.header.seat, 0);
+    assert_eq!(kept.stop.stop, StopKind::End);
+    // Her word about her seat stands, and so does his about his; neither
+    // moves the game between lists.
+    set_shared(port, &alice, &game, false);
+    set_shared(port, &bob, &game, false);
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM game_record_share WHERE game_id = '{game}' AND NOT shared"
+        )),
+        2
+    );
+    assert_eq!(list(port, &alice, "")["total"], 1);
+    assert_eq!(list(port, &alice, "?archived=true")["total"], 1);
+
+    // Saying it again is the same; the row is one.
+    archive(port, &alice, &game, true);
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM replay_archived WHERE game_id = '{game}'"
+        )),
+        1
+    );
+    assert_eq!(list(port, &alice, "?archived=true")["total"], 1);
+
+    // Bad choices: not a body, or not a boolean, or more than the choice.
+    for body in [
+        "",
+        "{}",
+        "[]",
+        "true",
+        r#"{"archived":1}"#,
+        r#"{"archived":"true"}"#,
+        r#"{"archived":null}"#,
+        r#"{"archived":false,"seat":0}"#,
+        r#"{"archived":true,"account":"x"}"#,
+        r#"{"hidden":true}"#,
+        r#"{"shared":true}"#,
+    ] {
+        let (status, answer) = put_archived(port, &bob, &game, body);
+        assert_eq!(status, 400, "{body:?}: {answer}");
+    }
+    assert_eq!(list(port, &bob, "")["total"], 1, "nothing was archived");
+    assert_eq!(
+        gw.scalar("SELECT count(*) FROM replay_archived"),
+        1,
+        "only Alice's row"
+    );
+
+    // Somebody who sat nowhere: 403, and nothing is archived for her. A game
+    // with no record: 404. No session: 401.
+    let (status, body) = put_archived(port, &carol, &game, r#"{"archived":true}"#);
+    assert_eq!(status, 403, "{body}");
+    let (status, body) = put_archived(port, &carol, "no-such-game", r#"{"archived":true}"#);
+    assert_eq!(status, 404, "{body}");
+    assert_eq!(
+        put_archived(port, &alice, "no-such-game", r#"{"archived":true}"#).0,
+        404
+    );
+    assert_eq!(
+        http(
+            port,
+            "PUT",
+            &format!("/replays/{game}/archived"),
+            None,
+            r#"{"archived":true}"#
+        )
+        .0,
+        401
+    );
+    assert_eq!(gw.scalar("SELECT count(*) FROM replay_archived"), 1);
+
+    // There is no DELETE any more: it archives nothing.
+    for token in [&alice, &bob] {
+        let (status, _) = http(port, "DELETE", &format!("/replays/{game}"), Some(token), "");
+        assert!(matches!(status, 404 | 405), "DELETE answered {status}");
+    }
+    assert_eq!(gw.scalar("SELECT count(*) FROM replay_archived"), 1);
+    assert_eq!(list(port, &bob, "")["total"], 1);
+    assert_eq!((records(), seats()), (records_before, seats_before));
+
+    // Bob archives it too: his own row. Then Alice takes hers back.
+    archive(port, &bob, &game, true);
+    assert_eq!(list(port, &bob, "")["total"], 0);
+    assert_eq!(
+        game_ids(&list(port, &bob, "?archived=true")),
+        [game.as_str()]
+    );
+    assert_eq!(gw.scalar("SELECT count(*) FROM replay_archived"), 2);
+    archive(port, &alice, &game, false);
+    archive(port, &alice, &game, false);
+    assert_eq!(list(port, &alice, "")["total"], 2);
+    assert_eq!(list(port, &alice, "?archived=true")["total"], 0);
+    assert_eq!(
+        list(port, &bob, "?archived=true")["total"],
+        1,
+        "Bob's stays"
+    );
+    assert_eq!(gw.scalar("SELECT count(*) FROM replay_archived"), 1);
+    assert_eq!((records(), seats()), (records_before, seats_before));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_player_who_leaves_keeps_the_word_the_seat_gave() {
+    let gw = spawn_gateway("replays-consent-stays");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceStays");
+    let bob = login(port, "bob", "BobLeaves");
+    let said = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let silent = two_humans_to_the_end(&gw, &alice, &bob).await;
+    assert_ne!(said, silent);
+    let bob_id = account_id(&gw, "bob");
+
+    // In one game Bob unticks, and archives it; in the other he says nothing.
+    let bob_hand = hand_ids_of(&tape_of(port, &bob, &said, SEAT));
+    let bob_hand_silent = hand_ids_of(&tape_of(port, &bob, &silent, SEAT));
+    assert!(bob_hand.len() >= 7 && bob_hand_silent.len() >= 7);
+    set_shared(port, &bob, &said, false);
+    archive(port, &bob, &said, true);
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM replay_archived WHERE account_id = '{bob_id}'"
+        )),
+        1
+    );
+
+    let (status, body) = http(
+        port,
+        "DELETE",
+        "/account",
+        Some(&bob),
+        &json!({ "password": PASSWORD }).to_string(),
+    );
+    assert_eq!(status, 204, "{body}");
+
+    // His consent row stays (it belongs to the record); his archive went with
+    // him; the record and both seats are there.
+    assert_eq!(
+        gw.text(&format!(
+            "SELECT shared::text FROM game_record_share WHERE game_id = '{said}' AND seat = 1"
+        )),
+        "false"
+    );
+    assert_eq!(
+        gw.scalar("SELECT count(*) FROM replay_archived"),
+        0,
+        "an archive is its account's"
+    );
+    assert_eq!(gw.scalar("SELECT count(*) FROM game_record"), 2);
+
+    // Alice reads his seat as a former player's, with his word.
+    let page = list(port, &alice, "");
+    for (game, shared) in [(&said, false), (&silent, true)] {
+        let row = page["games"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|g| g["game"] == game.as_str())
+            .unwrap();
+        assert_eq!(row["seats"][1]["who"], "former", "{row}");
+        assert_eq!(row["seats"][1]["shared"], shared, "{row}");
+        assert_eq!(row["seats"][1]["mine"], false);
+    }
+
+    // And his word governs her view: unticked, a former player's hand is
+    // not shown; never ticked or unticked, it is.
+    let ask = r#"{"perspective":"seat","seat":1}"#;
+    let masked = tape_of(port, &alice, &said, ask);
+    assert!(!masked.header.own);
+    assert!(ids_anywhere(&masked).is_disjoint(&bob_hand));
+    assert!(masked.player_views().iter().all(|v| v.hand.is_empty()));
+    let all = tape_of(port, &alice, &said, r#"{"perspective":"all_hands"}"#);
+    assert!(
+        all.header.own && all.header.hands.is_empty(),
+        "{:?}",
+        all.header
+    );
+    assert!(players_shown(&all).is_empty());
+    assert!(ids_anywhere(&all).is_disjoint(&bob_hand));
+
+    let full = tape_of(port, &alice, &silent, ask);
+    assert!(full.header.own);
+    assert_eq!(hand_ids_of(&full), bob_hand_silent);
+    let all = tape_of(port, &alice, &silent, r#"{"perspective":"all_hands"}"#);
+    assert_eq!(all.header.hands, vec![1]);
+    assert_eq!(shown_hand_ids_of(&all, 1), bob_hand_silent);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_seat_that_never_said_is_shared_in_a_game_after_the_cutoff_and_not_before() {
+    let gw = spawn_gateway("replays-cutoff");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let alice = login(port, "alice", "AliceCut");
+    let bob = login(port, "bob", "BobCut");
+    let rhea = login(port, "rhea", "RheaCut");
+    let before = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let after = two_humans_to_the_end(&gw, &alice, &bob).await;
+    let house = a_finished_game(&gw, &rhea, "").await;
+    let move_before_the_cutoff = |game: &str| {
+        gw.sql(&format!(
+            "UPDATE game_record SET started_at = \
+                 (SELECT at FROM replay_share_cutoff) - interval '1 day' \
+             WHERE game_id = '{game}'"
+        ));
+    };
+    // The migration stored one moment, when the gateway first connected: the
+    // games just played began after it.
+    assert_eq!(gw.scalar("SELECT count(*) FROM replay_share_cutoff"), 1);
+    let flags = |token: &str, game: &str| -> Vec<(bool, bool)> {
+        list(port, token, "?limit=50")["games"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|g| g["game"] == game)
+            .unwrap_or_else(|| panic!("{game} is listed"))["seats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| (s["shared"].as_bool().unwrap(), s["mine"].as_bool().unwrap()))
+            .collect()
+    };
+    assert_eq!(flags(&alice, &before), [(true, true), (true, false)]);
+    assert_eq!(flags(&alice, &after), [(true, true), (true, false)]);
+    let bob_hand = hand_ids_of(&tape_of(port, &bob, &before, SEAT));
+    assert!(bob_hand.len() >= 7);
+
+    // Played under the terms that promised nobody the recording: nobody said,
+    // so nobody shares. In the list, for both players.
+    move_before_the_cutoff(&before);
+    assert_eq!(flags(&alice, &before), [(false, true), (false, false)]);
+    assert_eq!(flags(&bob, &before), [(false, false), (false, true)]);
+    assert_eq!(
+        flags(&alice, &after),
+        [(true, true), (true, false)],
+        "the game after it is as it was"
+    );
+
+    // Alice draws the table from Bob's seat: the public table, his cards not
+    // in it. Her own seat is hers, said or not.
+    let ask = r#"{"perspective":"seat","seat":1}"#;
+    let masked = tape_of(port, &alice, &before, ask);
+    assert!(!masked.header.own, "{:?}", masked.header);
+    assert!(masked.player_views().iter().all(|v| v.hand.is_empty()));
+    assert!(ids_anywhere(&masked).is_disjoint(&bob_hand));
+    assert!(!masked.raw.contains("Swamp"));
+    let own = tape_of(port, &alice, &before, SEAT);
+    assert!(own.header.own);
+    assert!(hand_ids_of(&own).len() >= 7);
+    // All hands: nobody else's hand to add.
+    let all = tape_of(port, &alice, &before, r#"{"perspective":"all_hands"}"#);
+    assert!(
+        all.header.own && all.header.hands.is_empty(),
+        "{:?}",
+        all.header
+    );
+    assert!(players_shown(&all).is_empty());
+
+    // Bob says yes: an explicit word beats the default, for his seat only.
+    set_shared(port, &bob, &before, true);
+    assert_eq!(flags(&alice, &before), [(false, true), (true, false)]);
+    let full = tape_of(port, &alice, &before, ask);
+    assert!(full.header.own);
+    assert_eq!(hand_ids_of(&full), bob_hand);
+    assert!(full.raw.contains("Swamp"));
+
+    // After the cutoff the same ask is a yes without a word, and Bob's no
+    // takes it away.
+    let shown = tape_of(port, &alice, &after, ask);
+    assert!(shown.header.own);
+    assert!(hand_ids_of(&shown).len() >= 7);
+    set_shared(port, &bob, &after, false);
+    assert_eq!(flags(&alice, &after), [(true, true), (false, false)]);
+
+    // The house's seat is shared whatever the date.
+    move_before_the_cutoff(&house);
+    let seats = list(port, &rhea, "")["games"][0]["seats"].clone();
+    assert_eq!(seats[0]["shared"], false, "the player's unsaid, before");
+    assert_eq!(seats[1]["who"], "house");
+    assert_eq!(seats[1]["shared"], true, "{seats}");
+    let theirs = tape_of(port, &rhea, &house, ask);
+    assert!(theirs.header.own);
+    assert!(!hand_ids_of(&theirs).is_empty());
+    let all = tape_of(port, &rhea, &house, r#"{"perspective":"all_hands"}"#);
+    assert_eq!(all.header.hands, vec![1]);
 }

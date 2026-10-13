@@ -749,8 +749,9 @@ fn seat_card(
                 walk(commands, llm);
                 commands.entity(line).add_child(llm);
             }
-            // A model the gateway runs: any platform, registered hosts only.
-            if lobby.may_order_hosted() {
+            // A model the gateway runs: any platform, registered hosts only,
+            // and only when one is open to this account.
+            if lobby.offers_hosted() {
                 let hosted = super::parts::menu_button(
                     commands,
                     kit,
@@ -1583,6 +1584,10 @@ impl RoomPress {
             RoomPress::OpenChair(_, seat) => {
                 state.chair_sheet = Some(seat);
                 state.hosted_sheet = false;
+                // Which hosted models this account may seat, afresh: the
+                // entry shows once the list holds one.
+                let request = state.lobby.list_hosted();
+                dispatch(state, mailbox, request);
                 // An open chair: the file's default profile, planned now so
                 // the sheet shows its models (as the chip used to).
                 if state.llm.planned(seat).is_none() {

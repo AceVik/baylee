@@ -6,7 +6,9 @@
 //! `FEEDBACK_WEB_DIR` (the built web UI; unset = none),
 //! `FEEDBACK_TRUSTED_PROXIES`, `FEEDBACK_DIRECT_KEY`,
 //! `FEEDBACK_GATEWAY_ADMIN_URL` and `FEEDBACK_GATEWAY_ADMIN_TOKEN` (a
-//! gateway's admin console, both or neither).
+//! gateway's admin console, both or neither), `FEEDBACK_CONTACT_ORIGINS`,
+//! `FEEDBACK_IMPRESSUM_KEY` and `FEEDBACK_IMPRESSUM_BLOB` (the landing
+//! page's Impressum, both or neither).
 //!
 //! ```text
 //! baylee-feedback                      serve

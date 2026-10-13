@@ -10,12 +10,14 @@ import {
   LLM_STATES,
   SignedOut,
   type ConsoleChange,
+  type LlmAccess,
   type LlmDefinition,
   type LlmProfile,
   type LlmState,
   type SeatHost,
 } from "../api";
 import { formatAgo, formatCount, formatDuration, formatWhen, t, type Key, type Lang } from "../i18n";
+import { AccessPanel } from "./ModelAccess";
 import { Badge, describe, Freshness, LIVE_MS, Panel, useNow, useVisibleInterval, type Tone } from "./shared";
 
 const STATE_TONE: Record<LlmState, Tone> = {
@@ -667,6 +669,7 @@ function HostRow({
 
 export function Models({ lang }: { lang: Lang }) {
   const [hosts, setHosts] = useState<SeatHost[] | null>(null);
+  const [access, setAccess] = useState<LlmAccess[] | null>(null);
   const [at, setAt] = useState<string | null>(null);
   const [changes, setChanges] = useState<ConsoleChange[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -684,6 +687,12 @@ export function Models({ lang }: { lang: Lang }) {
         setAt(new Date().toISOString());
         setError(null);
       })
+      .catch((e: unknown) => {
+        if (!(e instanceof SignedOut)) setError(describe(lang, e));
+      });
+    api.admin.llm
+      .access()
+      .then(setAccess)
       .catch((e: unknown) => {
         if (!(e instanceof SignedOut)) setError(describe(lang, e));
       });
@@ -852,6 +861,15 @@ export function Models({ lang }: { lang: Lang }) {
           ))}
         </ul>
       </Panel>
+
+      <AccessPanel
+        lang={lang}
+        access={access}
+        onChanged={(text) => {
+          setNotice({ tone: "ok", text });
+          load();
+        }}
+      />
 
       {hosts !== null && hosts.length > 0 && groups.length > 0 && (
         <Panel id="llm-assign-title" title={t(lang, "llm.assign")}>

@@ -25,7 +25,12 @@ pub(super) fn poll(
         let Ok(mut box_) = mailbox.0.lock() else {
             return;
         };
-        if box_.is_empty() {
+        // A seat waiting for its host is taken up on the next frame even
+        // with nothing in the mailbox: a watch the chat started (a friend's
+        // Watch, beta.8) arrives with no reply behind it, and the feed that
+        // would have brought one hangs up once a seat is held.
+        let seat_waiting = matches!(state.lobby.screen(), Screen::Seated(_)) && !state.connected;
+        if box_.is_empty() && !seat_waiting {
             return;
         }
         std::mem::take(&mut *box_)
@@ -127,6 +132,13 @@ pub(super) fn poll(
                 dispatch(&mut state, &mailbox, setup);
             }
             Reply::Replays(page) => super::replays::online_page(&mut state, &page),
+            Reply::ReplaysArchived(page) => super::replays::archived_page(&mut state, &page),
+            Reply::ReplayRefused(why) => {
+                // Read again: what the list shows came from this client's
+                // own guess at the answer.
+                state.replays.forget_visit();
+                state.lobby.say(why);
+            }
             Reply::Clocks(clocks) => {
                 if state.lobby.clocks() != clocks {
                     state.lobby.set_clocks(clocks);
@@ -524,10 +536,11 @@ pub(super) fn leave_clicks(
     mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
     host: Option<Res<InstalledHost>>,
+    mailbox: Res<Mailbox>,
 ) {
     for click in pointer.read() {
         if let Some(way) = in_lineage(click.entity, &presses, &parents) {
-            take_the_way_out(*way, &mut state, &mut closes, host.as_deref());
+            take_the_way_out(*way, &mut state, &mut closes, host.as_deref(), &mailbox);
         }
     }
 }
@@ -547,6 +560,7 @@ pub(super) fn leave_clicks(
 /// `Confirm` and `Primary` — Space and Enter by default — press the lead
 /// answer, which is what the brass button on the sheet is; `Cancel` always
 /// leaves, because the way out is the thing nobody may be stuck without.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the keys, the sheet and where each way goes
 pub(super) fn leave_keys(
     keys: Res<ButtonInput<KeyCode>>,
     prefs: Res<crate::prefs::Prefs>,
@@ -555,6 +569,7 @@ pub(super) fn leave_keys(
     mut closes: MessageWriter<DuelCommand>,
     desk: Option<Res<crate::report::ReportDesk>>,
     host: Option<Res<InstalledHost>>,
+    mailbox: Res<Mailbox>,
 ) {
     use baylee_client_core::prefs::Action;
     // The report form opens over the end screen too (F8, the corner
@@ -604,7 +619,7 @@ pub(super) fn leave_keys(
     } else {
         return;
     };
-    take_the_way_out(way, &mut state, &mut closes, host.as_deref());
+    take_the_way_out(way, &mut state, &mut closes, host.as_deref(), &mailbox);
 }
 
 /// Takes one of the end screen's exits, whatever asked for it.
@@ -618,9 +633,25 @@ fn take_the_way_out(
     state: &mut LobbyState,
     closes: &mut MessageWriter<DuelCommand>,
     host: Option<&InstalledHost>,
+    mailbox: &Mailbox,
 ) {
     match way {
         Press::End(EndPress::Leave) => {}
+        Press::End(EndPress::Share) => {
+            if let Screen::Seated(handover) = state.lobby.screen().clone() {
+                let game = handover.game_id;
+                let shared = state
+                    .replays
+                    .end_share
+                    .as_ref()
+                    .filter(|(g, _)| *g == game)
+                    .is_none_or(|(_, shared)| *shared);
+                state.replays.end_share = Some((game.clone(), !shared));
+                state.replays.end_redraw = true;
+                super::replays::send_share(state, mailbox, &game, !shared);
+            }
+            return;
+        }
         Press::End(end @ (EndPress::Replay | EndPress::WatchAgain | EndPress::WatchFrom)) => {
             super::replays::from_the_end(end, state, host);
         }

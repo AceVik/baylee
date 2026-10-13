@@ -333,6 +333,10 @@ messages! {
     /// Under the Fan Content notice: where the source is, the AGPL's §13
     /// offer (#270). `{0}` is the address, drawn as it came.
     SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
+    /// The gateway's legal notice (`/info` `impressum`) as a link, on the
+    /// front door's About, the terms sheet and Settings → Network. `{0}` is
+    /// the host it opens, so the player sees where it goes.
+    ImpressumLink { en: "Legal notice (Impressum) \u{b7} {0}", de: "Impressum \u{b7} {0}" },
     /// The front door's source tile (Wide and Vast): its label, over the
     /// address it opens.
     TileSource { en: "Source code (AGPL-3.0)", de: "Quellcode (AGPL-3.0)" },
@@ -1567,6 +1571,16 @@ messages! {
     GroupQuestions { en: "Questions", de: "Fragen" },
     /// Display
     GroupDisplay { en: "Display", de: "Darstellung" },
+    /// The chat's keys in Settings → Keys
+    GroupChat { en: "Chat", de: "Chat" },
+    /// Open the chat with a command
+    ActChatCommand { en: "Chat: type a command (/)", de: "Chat: Befehl tippen (/)" },
+    /// Answer the last whisper
+    ActChatReply { en: "Chat: answer the last whisper", de: "Chat: letztem Flüstern antworten" },
+    /// Open the chat's box
+    ActChatOpen { en: "Chat: open the box", de: "Chat: Eingabe öffnen" },
+    /// Open the friends list
+    ActFriends { en: "Friends list", de: "Freundesliste" },
     /// Pass when there is nothing to do
     AutoPassLabel {
         en: "Pass when there is nothing to do",
@@ -2794,6 +2808,9 @@ messages! {
     GameLogEmpty { en: "Nothing has happened yet", de: "Noch ist nichts passiert" },
     /// The game log panel has been scrolled up, and lines arrived under it.
     GameLogNewBelow { en: "New lines below", de: "Neue Zeilen unten" },
+    /// The same pill on a list scrolled well up with nothing new under it:
+    /// pressing it goes back to the newest line.
+    GameLogLatest { en: "Back to the latest", de: "Zurück zum Neuesten" },
     /// The head of the sheet that holds up cards another seat revealed.
     /// `{0}` is the seat's name. Present tense, unlike the log's line: the
     /// sheet stands while the cards are being shown (CR 701.20a).
@@ -5383,8 +5400,8 @@ messages! {
     TourT32Title { en: "Attachments", de: "Anhänge" },
     /// Tour step T32's words (TOURS.md §2).
     TourT32Body {
-        en: "Every row under Attachments is a consent your device remembers: system, the table as you see it, your log (names replaced), settings (no keys), a picture of the Baylee window only, never your desktop. All start ticked; untick what you'd rather keep. Show what is sent shows it all.",
-        de: "Jede Zeile unter Anhänge ist eine Einwilligung, die dein Gerät sich merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (Namen ersetzt), Einstellungen (ohne Schlüssel), ein Bild nur des Baylee-Fensters, nie des Desktops. Alles ist angehakt; nimm heraus, was du behalten willst.",
+        en: "Every row under Attachments is a choice your device remembers: system, the table as you see it, your log (names replaced), settings (no keys), a picture of the Baylee window only, never your desktop. All start ticked; untick what you'd rather keep before you send. Show what is sent shows it all.",
+        de: "Jede Zeile unter Anhänge ist eine Wahl, die dein Gerät sich merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (Namen ersetzt), Einstellungen (ohne Schlüssel), ein Bild nur des Baylee-Fensters, nie des Desktops. Alles ist angehakt; nimm vor dem Senden heraus, was du behalten willst.",
     },
     /// Tour step T33's title (TOURS.md §2).
     TourT33Title { en: "Where it goes", de: "Wohin es geht" },
@@ -5499,6 +5516,14 @@ messages! {
     ShellSwitchGateway { en: "Switch gateway", de: "Gateway wechseln" },
     /// The account pill's menu: the report form.
     ShellReportProblem { en: "Report a problem", de: "Problem melden" },
+    /// The shell key that opens the friends drawer
+    ShellKeyFriends { en: "Friends", de: "Freunde" },
+    /// The shell key that opens the chat
+    ShellKeyChat { en: "Open the chat", de: "Chat öffnen" },
+    /// The header's chat button
+    ShellChat { en: "Chat", de: "Chat" },
+    /// The settings row that opens the chat's privacy sheet
+    ShellChatPrivacy { en: "Chat & privacy", de: "Chat & Privatsphäre" },
     /// The bell, with nothing in it.
     ShellBellEmpty { en: "Nothing new", de: "Nichts Neues" },
     /// A bell line: somebody sat down at the player's table. `{0}` who.
@@ -6453,7 +6478,8 @@ messages! {
     HelpWhatIsKept { en: "The gateway keeps your account, decks, settings and which terms you accepted. This client sends, on its own, only update checks to GitHub (desktop, while checking is on), crash reports once you agree, while an offline game runs an anonymous still-playing count (unless switched off below), and asks Scryfall for card images in a browser", de: "Das Gateway speichert dein Konto, deine Decks, Einstellungen und welche Bedingungen du angenommen hast. Dieser Client sendet von selbst nur Update-Pr\u{fc}fungen an GitHub (Desktop, solange gepr\u{fc}ft wird), Absturzberichte nach deiner Zustimmung, w\u{e4}hrend ein Offline-Spiel l\u{e4}uft eine anonyme \u{201e}spielt noch\u{201c}-Z\u{e4}hlung (au\u{df}er unten ausgeschaltet) und fragt im Browser Scryfall nach Kartenbildern" },
     /// Privacy: what a report may carry.
     RowReportConsent { en: "What a report may carry", de: "Was ein Bericht mitnehmen darf" },
-    /// Privacy: consent.
+    /// Privacy: what a report carries, chosen on the form before it is sent
+    /// (an opt-out, not a consent; crash reports are asked for apart).
     HelpReportConsent { en: "Ticked here, ticked on the report form; a report shows exactly what is sent", de: "Hier angehakt, im Berichtsformular angehakt; ein Bericht zeigt genau, was gesendet wird" },
     /// Privacy: crash reports.
     RowCrashReports { en: "Crash reports", de: "Absturzberichte" },
@@ -6471,6 +6497,8 @@ messages! {
     CrashNever { en: "Never", de: "Nie" },
     /// Privacy: the report form.
     HelpReportProblem { en: "Opens the report form (F8)", de: "\u{d6}ffnet das Berichtsformular (F8)" },
+    /// Help for the chat's privacy row
+    HelpChatPrivacy { en: "Who may whisper you, friend requests, chat history, sounds and this account's chat devices", de: "Wer dir flüstern darf, Freundschaftsanfragen, Chatverlauf, Töne und die Chat-Geräte dieses Kontos" },
     /// Opens the report form.
     ReportOpen { en: "Report a problem", de: "Problem melden" },
     /// Language models on a browser or phone build.

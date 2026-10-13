@@ -376,6 +376,12 @@ pub struct ListedSeat {
     pub colours: Option<String>,
     /// The deck's first commander, a `CardIndex`.
     pub commander: Option<u32>,
+    /// Whether the seat's player shares its hidden cards in this game's
+    /// replays: what it said ([`set_share`]), else the default, which is yes
+    /// for a game recorded from the `replay_share_cutoff` on and no for one
+    /// recorded before (owner, 13.10.2026). An AI seat is shared whatever
+    /// this says; the caller knows which seats are AI.
+    pub shared: bool,
 }
 
 /// One game an account sat at, as the replay list shows it.
@@ -418,6 +424,7 @@ pub struct SeatedGame {
 pub async fn seated_games(
     db: &impl ConnectionTrait,
     account: Uuid,
+    archived: bool,
     offset: u64,
     limit: u64,
 ) -> Result<(Vec<SeatedGame>, u64), DbErr> {
@@ -427,8 +434,10 @@ pub async fn seated_games(
     let total: i64 = db
         .query_one_raw(Statement::from_sql_and_values(
             backend,
-            "SELECT count(DISTINCT game_id) AS n FROM game_record_seat WHERE account_id = $1",
-            [account.into()],
+            "SELECT count(DISTINCT s.game_id) AS n FROM game_record_seat s \
+             WHERE s.account_id = $1 AND $2 = EXISTS ( \
+                 SELECT 1 FROM replay_archived h WHERE h.account_id = $1 AND h.game_id = s.game_id)",
+            [account.into(), archived.into()],
         ))
         .await?
         .map_or(Ok(0), |row| row.try_get("", "n"))?;
@@ -445,9 +454,11 @@ pub async fn seated_games(
              FROM game_record r \
              WHERE EXISTS (SELECT 1 FROM game_record_seat s \
                            WHERE s.game_id = r.game_id AND s.account_id = $1) \
+               AND $4 = EXISTS (SELECT 1 FROM replay_archived h \
+                                WHERE h.account_id = $1 AND h.game_id = r.game_id) \
              ORDER BY r.started_at DESC, r.game_id \
              OFFSET $2 LIMIT $3",
-            [account.into(), offset.into(), limit.into()],
+            [account.into(), offset.into(), limit.into(), archived.into()],
         ))
         .await?;
     let mut games = Vec::with_capacity(rows.len());
@@ -505,8 +516,12 @@ async fn listed_seats(
         .query_all_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
             "SELECT s.game_id, s.seat, s.account_id, s.delegated_by, s.seated, s.colours, \
-                    s.commander, a.display_name, a.tag \
+                    s.commander, a.display_name, a.tag, \
+                    coalesce(g.shared, r.started_at >= \
+                        coalesce((SELECT c.at FROM replay_share_cutoff c), '-infinity')) AS shared \
              FROM game_record_seat s LEFT JOIN account a ON a.id = s.account_id \
+             LEFT JOIN game_record_share g ON g.game_id = s.game_id AND g.seat = s.seat \
+             JOIN game_record r ON r.game_id = s.game_id \
              WHERE s.game_id = ANY($1) ORDER BY s.game_id, s.seat",
             [games.into()],
         ))
@@ -528,10 +543,64 @@ async fn listed_seats(
                 name: display_name.zip(tag),
                 colours: row.try_get("", "colours")?,
                 commander: commander.and_then(|c| u32::try_from(c).ok()),
+                shared: row.try_get("", "shared")?,
             },
         ));
     }
     Ok(out)
+}
+
+/// Sets whether `seat` of `game_id` shares its hidden cards in that game's
+/// replays. The caller has found the seat as the asking account's own
+/// ([`seat_of`]). Returns whether the game has a record.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn set_share(
+    db: &impl ConnectionTrait,
+    game_id: &str,
+    seat: u8,
+    shared: bool,
+) -> Result<bool, DbErr> {
+    let done = db
+        .execute_raw(Statement::from_sql_and_values(
+            db.get_database_backend(),
+            "INSERT INTO game_record_share (game_id, seat, shared) \
+             SELECT game_id, $2, $3 FROM game_record WHERE game_id = $1 \
+             ON CONFLICT (game_id, seat) DO UPDATE SET shared = EXCLUDED.shared, at = now()",
+            [game_id.into(), i16::from(seat).into(), shared.into()],
+        ))
+        .await?;
+    Ok(done.rows_affected() == 1)
+}
+
+/// Archives `game_id` for `account` (moves it to its archived list,
+/// [`seated_games`] with `archived`), or takes it back out; the record and
+/// the other accounts' lists are untouched. Saying the same again changes
+/// nothing.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn set_archived(
+    db: &impl ConnectionTrait,
+    account: Uuid,
+    game_id: &str,
+    archived: bool,
+) -> Result<(), DbErr> {
+    let sql = if archived {
+        "INSERT INTO replay_archived (account_id, game_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    } else {
+        "DELETE FROM replay_archived WHERE account_id = $1 AND game_id = $2"
+    };
+    db.execute_raw(Statement::from_sql_and_values(
+        db.get_database_backend(),
+        sql,
+        [account.into(), game_id.into()],
+    ))
+    .await?;
+    Ok(())
 }
 
 /// The seat `account` played at `game_id`, if it played one (the lowest,

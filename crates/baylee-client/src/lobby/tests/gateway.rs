@@ -94,6 +94,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 deck_id: "d1".to_string(),
                 seat: None,
                 password: String::new(),
+                invite: None,
             },
             "POST",
             "http://gw/lobby/games/g1/join",
@@ -198,6 +199,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             deck_id: "d1".to_string(),
             seat: None,
             password: String::new(),
+            invite: None,
         },
     );
     assert_eq!(

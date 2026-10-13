@@ -367,3 +367,74 @@ fn cues_sound_up_to_two_times() {
         [true, true, true, false, false]
     );
 }
+
+/// `SetSpeed` sets that speed from any other, rungs skipped and the ends
+/// included, and shows nothing.
+#[test]
+fn set_speed_sets_the_speed_it_names() {
+    let timeline = quiet(4);
+    for from in Speed::ALL {
+        for to in Speed::ALL {
+            let mut t = Transport::at(1);
+            t.speed = from;
+            assert_eq!(t.apply(Command::SetSpeed(to), &timeline), None);
+            assert_eq!(t.speed, to, "{from:?} to {to:?}");
+        }
+    }
+}
+
+/// Choosing a speed neither pauses nor moves a replay, nor restarts the
+/// step on screen: the dwell already spent still counts.
+#[test]
+fn set_speed_keeps_the_place_and_the_play_state() {
+    let timeline = timeline_of(vec![
+        at(1, Phase::FirstMain),
+        at(1, Phase::FirstMain).lines(1),
+        at(1, Phase::FirstMain),
+        at(1, Phase::FirstMain),
+    ]);
+    for playing in [false, true] {
+        let mut t = Transport::at(1);
+        if playing {
+            t.apply(Command::Play, &timeline);
+        }
+        t.apply(Command::SetSpeed(Speed::Four), &timeline);
+        assert_eq!((t.at, t.playing), (1, playing));
+    }
+
+    // 0.9 s of dwell: half spent at 1× (0.45 s), then 4× takes the rest in
+    // a quarter of the time it would at 1×.
+    let mut t = Transport::at(1);
+    t.apply(Command::Play, &timeline);
+    let tick = Duration::from_millis(50);
+    for _ in 0..9 {
+        assert_eq!(t.apply(Command::Tick(tick), &timeline), None);
+    }
+    t.apply(Command::SetSpeed(Speed::Four), &timeline);
+    // 0.45 s left, 0.2 s of dwell per tick at 4×: three ticks, not nine.
+    assert_eq!(
+        until_shown(&mut t, &timeline, tick, 100),
+        (3, Some(Out::Show(2)))
+    );
+}
+
+/// With nothing to play the command is as idle as the others.
+#[test]
+fn set_speed_on_a_replay_without_steps_changes_nothing_shown() {
+    let timeline = timeline_of(Vec::new());
+    let mut t = Transport::at(0);
+    assert_eq!(t.apply(Command::SetSpeed(Speed::Eight), &timeline), None);
+    assert!(!t.playing);
+}
+
+/// The pills' short words: one for each speed, all different, and the full
+/// label is the speed's factor and a times sign (the half's short word being
+/// the vulgar fraction).
+#[test]
+fn every_speed_has_its_own_short_word() {
+    let shorts: Vec<&str> = Speed::ALL.iter().map(|s| s.short()).collect();
+    assert_eq!(shorts, ["\u{bd}", "1", "2", "4", "8"]);
+    for speed in Speed::ALL {
+        assert_eq!(speed.label(), format!("{}\u{d7}", speed.factor()));
+    }
+}

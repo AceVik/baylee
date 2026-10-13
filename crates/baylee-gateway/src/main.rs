@@ -19,6 +19,7 @@ mod departure;
 mod engine;
 mod handle;
 mod invite;
+mod llmaccess;
 mod lobby;
 mod mail;
 mod metrics;
@@ -46,20 +47,20 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use baylee_protocol::names;
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbyState};
 use parking_lot::Mutex;
 use routes::{
     DeckBody, LobbyWsParams, MAX_SEATS, TICKET_REFUSED, WsParams, account_routes, ai_preset,
-    auth_config, bearer_token, catalog_search, catalog_text, check_pictures, connect_catalog,
-    create_game, deck_routes, display_name, expand, game_cosmetics, game_ws, get_settings,
-    hand_over, health, house_deck, info, is_bidi_control, join_game, leave_game, legacy_token,
-    list_games, list_replays, listing, listing_page, lobby_stats, lobby_ws, own_deck,
-    parse_deck_lines, put_settings, rematch, replay_tape, seat_names, seat_of_token, set_ready,
-    set_seat, source, source_url, spend_ticket, start_room, table_prints, take_seat, try_start,
-    validate_deck, validate_the_dev_board, watch_ws, ws_ticket,
+    archive_replay, auth_config, bearer_token, catalog_search, catalog_text, check_pictures,
+    connect_catalog, create_game, deck_routes, display_name, expand, game_cosmetics, game_ws,
+    get_settings, hand_over, health, house_deck, impressum_url, info, is_bidi_control, join_game,
+    leave_game, legacy_token, list_games, list_replays, listing, listing_page, lobby_stats,
+    lobby_ws, own_deck, parse_deck_lines, put_settings, rematch, replay_tape, seat_names,
+    seat_of_token, set_ready, set_seat, share_replay, source, source_url, spend_ticket, start_room,
+    table_prints, take_seat, try_start, validate_deck, validate_the_dev_board, watch_ws, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -111,6 +112,10 @@ struct AppState {
     /// repository it was built from), already checked by [`source_url`].
     /// The AGPL's §13 offer, which `/source` and `/info` both carry.
     source_url: String,
+    /// This gateway's legal notice (Impressum), `BAYLEE_IMPRESSUM_URL`,
+    /// already checked by [`impressum_url`]; `None` when unset. `/info`
+    /// carries it for the client to link.
+    impressum_url: Option<String>,
     /// Where confirmation mail goes, and — because it is the same
     /// question — whether an address has to be confirmed at all.
     mail: mail::Mailer,
@@ -288,6 +293,8 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
     let source_url = source_url(std::env::var("BAYLEE_SOURCE_URL").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_SOURCE_URL: {why}"));
+    let impressum_url = impressum_url(std::env::var("BAYLEE_IMPRESSUM_URL").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_IMPRESSUM_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let reconnect_secs =
@@ -385,6 +392,7 @@ async fn main() {
         guest_cap,
         display_name,
         source_url,
+        impressum_url,
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
@@ -457,6 +465,8 @@ async fn main() {
         // at, and one of them played again as a tape.
         .route("/replays", get(list_replays))
         .route("/replays/{game}/tape", post(replay_tape))
+        .route("/replays/{game}/share", put(share_replay))
+        .route("/replays/{game}/archived", put(archive_replay))
         .route("/lobby/depart", post(departure::depart))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))

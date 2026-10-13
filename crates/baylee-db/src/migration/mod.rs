@@ -28,6 +28,8 @@ mod m20261012_000016_account_moderation;
 mod m20261012_000016_card_blocks;
 mod m20261013_000017_social;
 mod m20261013_000018_replays;
+mod m20261013_000019_llm_access;
+mod m20261013_000019_replay_shares;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -55,6 +57,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20261012_000016_card_blocks::Migration),
             Box::new(m20261013_000017_social::Migration),
             Box::new(m20261013_000018_replays::Migration),
+            // Two lanes both took 000019; each name is its own row in
+            // `seaql_migrations`, so neither is renamed, and this order is
+            // the one they run in (as with the two 000016s).
+            Box::new(m20261013_000019_llm_access::Migration),
+            Box::new(m20261013_000019_replay_shares::Migration),
         ]
     }
 }

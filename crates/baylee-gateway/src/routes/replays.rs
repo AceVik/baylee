@@ -50,6 +50,9 @@ pub(crate) struct Page {
     #[serde(default)]
     offset: u64,
     limit: Option<u64>,
+    /// The archived games instead of the others.
+    #[serde(default)]
+    archived: bool,
 }
 
 /// One seat of a listed game.
@@ -63,6 +66,11 @@ struct SeatOut {
     #[serde(skip_serializing_if = "Option::is_none")]
     colours: Option<String>,
     commander: Option<u32>,
+    /// Whether the seat's hidden cards may be shown in this game's replays:
+    /// its player shared them, or it is an AI seat.
+    shared: bool,
+    /// Whether the asking account played this seat.
+    mine: bool,
 }
 
 /// One listed game.
@@ -78,6 +86,8 @@ struct GameOut {
     /// ended before the gateway noted how.
     result: &'static str,
     public: bool,
+    /// Whether the asking account archived it.
+    archived: bool,
     /// `exact`, `checked` or `unverified`.
     check: &'static str,
     build: Option<String>,
@@ -111,6 +121,13 @@ fn who(seat: &ListedSeat, me: Uuid) -> &'static str {
     }
 }
 
+/// Whether a seat's hidden cards may be shown in a replay at all: an AI seat
+/// always, a person's as it said, else by default (yes for a game recorded
+/// from the beta.7 deploy on, no before; `docs/protocol.md` §"Replays").
+fn shared(seat: &ListedSeat, who: &str) -> bool {
+    matches!(who, "house" | "model") || seat.shared
+}
+
 /// What a seat is called, in the list and in a tape's opening payload.
 fn name_of(seat: &ListedSeat, who: &str) -> String {
     match (who, &seat.name) {
@@ -142,7 +159,7 @@ fn result_of(game: &SeatedGame, seat: u8) -> &'static str {
     }
 }
 
-fn game_out(game: SeatedGame, me: Uuid) -> GameOut {
+fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
     let seat = game
         .seats
         .iter()
@@ -159,6 +176,8 @@ fn game_out(game: SeatedGame, me: Uuid) -> GameOut {
                 name: name_of(s, who),
                 colours: (who == "you").then(|| s.colours.clone()).flatten(),
                 commander: s.commander,
+                shared: shared(s, who),
+                mine: who == "you",
             }
         })
         .collect();
@@ -172,6 +191,7 @@ fn game_out(game: SeatedGame, me: Uuid) -> GameOut {
         seat,
         turn: game.turn,
         public: true,
+        archived,
         build: game.build,
         seats,
     }
@@ -187,11 +207,15 @@ pub(crate) async fn list_replays(
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
     let limit = page.limit.unwrap_or(DEFAULT_PAGE).clamp(1, MAX_PAGE);
-    let (games, total) = baylee_db::records::seated_games(&state.db, me, page.offset, limit)
-        .await
-        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+    let (games, total) =
+        baylee_db::records::seated_games(&state.db, me, page.archived, page.offset, limit)
+            .await
+            .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
     Ok(Json(Listing {
-        games: games.into_iter().map(|g| game_out(g, me)).collect(),
+        games: games
+            .into_iter()
+            .map(|g| game_out(g, me, page.archived))
+            .collect(),
         total,
     }))
 }
@@ -202,6 +226,7 @@ pub(crate) async fn list_replays(
 enum PerspectiveArg {
     Seat,
     Public,
+    AllHands,
 }
 
 /// What a check that fails does.
@@ -213,13 +238,88 @@ enum VerifyArg {
     Note,
 }
 
-/// `POST /replays/{game}/tape`'s body. No seat: the table says which.
+/// `POST /replays/{game}/tape`'s body. `seat` is the seat the table is
+/// drawn from (default: the asking account's own); whose hidden cards the
+/// tape may hold the gateway decides from consent, never the request.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TapeAsk {
     perspective: PerspectiveArg,
     #[serde(default)]
+    seat: Option<u8>,
+    #[serde(default)]
     verify: VerifyArg,
+}
+
+/// What a tape shows, decided here from the table and each seat's consent,
+/// never from the request (`docs/protocol.md` §"Replays").
+struct Lens {
+    seat: u8,
+    perspective: baylee_protocol::v1::project_record::Perspective,
+    own: bool,
+    hands: Vec<u8>,
+    others: Vec<u8>,
+    names: Vec<String>,
+}
+
+impl Lens {
+    /// The lens `ask` asks of a game with `seats`, for `me` at seat `mine`.
+    /// A seat's hidden cards are shown only where it is mine, an AI seat, or
+    /// shared (the set S).
+    fn of(seats: &[ListedSeat], me: Uuid, ask: &TapeAsk, mine: u8) -> Result<Self, Refusal> {
+        use baylee_protocol::v1::project_record::Perspective;
+        let names = seats.iter().map(|s| name_of(s, who(s, me))).collect();
+        let shown: Vec<u8> = seats
+            .iter()
+            .filter(|s| {
+                let who = who(s, me);
+                who == "you" || shared(s, who)
+            })
+            .map(|s| s.seat)
+            .collect();
+        let perspective = match ask.perspective {
+            PerspectiveArg::Seat => Perspective::Seat,
+            PerspectiveArg::Public => Perspective::Public,
+            PerspectiveArg::AllHands => Perspective::AllHands,
+        };
+        if perspective == Perspective::Public {
+            return Ok(Self {
+                seat: 0,
+                perspective,
+                own: false,
+                hands: Vec::new(),
+                others: Vec::new(),
+                names,
+            });
+        }
+        let seat = ask.seat.unwrap_or(mine);
+        if usize::from(seat) >= seats.len() {
+            return Err(err(StatusCode::BAD_REQUEST, "that game has no such seat"));
+        }
+        Ok(Self {
+            seat,
+            perspective,
+            own: shown.contains(&seat),
+            hands: if perspective == Perspective::AllHands {
+                shown.iter().copied().filter(|&s| s != seat).collect()
+            } else {
+                Vec::new()
+            },
+            // My own seat is shown whole, what it was shown of others
+            // included; another seat's view keeps only what it was shown of
+            // seats in S.
+            others: if seat == mine {
+                seats
+                    .iter()
+                    .map(|s| s.seat)
+                    .filter(|&s| s != seat)
+                    .collect()
+            } else {
+                shown.into_iter().filter(|&s| s != seat).collect()
+            },
+            names,
+        })
+    }
 }
 
 /// Whether the game is still being played here with `account` in a seat.
@@ -304,6 +404,10 @@ pub(crate) async fn replay_tape(
             "that game's record is too large to replay",
         ));
     }
+    let seats = baylee_db::records::seats_of(&state.db, &game_id)
+        .await
+        .map_err(db_down)?;
+    let lens = Lens::of(&seats, me, &ask, seat)?;
     if state.admission.held() {
         return Err(err(StatusCode::SERVICE_UNAVAILABLE, crate::admission::HELD));
     }
@@ -314,21 +418,17 @@ pub(crate) async fn replay_tape(
             "too many replays are being made; try again in a moment",
         ),
     })?;
-    let names = baylee_db::records::seats_of(&state.db, &game_id)
-        .await
-        .map_err(db_down)?
-        .iter()
-        .map(|s| name_of(s, who(s, me)))
-        .collect();
-    let public = ask.perspective == PerspectiveArg::Public;
     let tape = replays::run(
         &state,
         replays::Ask {
             game_id,
-            seat: if public { 0 } else { seat },
-            public,
+            seat: lens.seat,
+            perspective: lens.perspective,
+            own: lens.own,
+            hands: lens.hands,
+            others: lens.others,
             note: ask.verify == VerifyArg::Note,
-            names,
+            names: lens.names,
         },
     )
     .await
@@ -349,4 +449,87 @@ pub(crate) async fn replay_tape(
         JobError::Failed => err(StatusCode::BAD_GATEWAY, "the replay could not be made"),
     })?;
     Ok(([(header::CONTENT_TYPE, "application/gzip")], tape).into_response())
+}
+
+/// `PUT /replays/{game}/share`'s body.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ShareAsk {
+    shared: bool,
+}
+
+/// `PUT /replays/{game}/share`'s answer.
+#[derive(Serialize)]
+pub(crate) struct ShareOut {
+    seat: u8,
+    shared: bool,
+}
+
+/// The asking account's seat at `game_id`: `404` for a game with no
+/// record, `403` for one it sat at no seat of.
+async fn own_seat(state: &Shared, game_id: &str, me: Uuid) -> Result<u8, Refusal> {
+    let db_down = |e: sea_orm::DbErr| crate::db_down(&anyhow::Error::from(e));
+    if baylee_db::records::stored_size(&state.db, game_id)
+        .await
+        .map_err(db_down)?
+        .is_none()
+    {
+        return Err(err(StatusCode::NOT_FOUND, "no such game"));
+    }
+    baylee_db::records::seat_of(&state.db, game_id, me)
+        .await
+        .map_err(db_down)?
+        .ok_or_else(|| err(StatusCode::FORBIDDEN, "you did not sit at that game"))
+}
+
+/// `PUT /replays/{game}/share` `{"shared": bool}`: whether the asking
+/// account's own seat shows its hidden cards in this game's replays. The
+/// seat is the table's, never the request's. Any time, also while the game
+/// is played (once its record has begun).
+pub(crate) async fn share_replay(
+    State(state): State<Shared>,
+    Path(game_id): Path<String>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Json<ShareOut>, Refusal> {
+    let session = crate::authed_session(&state, &headers).await?;
+    let me = account_of(&session)?;
+    let ask: ShareAsk = serde_json::from_slice(&body)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "the body is not a sharing choice"))?;
+    let seat = own_seat(&state, &game_id, me).await?;
+    baylee_db::records::set_share(&state.db, &game_id, seat, ask.shared)
+        .await
+        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+    Ok(Json(ShareOut {
+        seat,
+        shared: ask.shared,
+    }))
+}
+
+/// `PUT /replays/{game}/archived`'s body and answer.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Archived {
+    archived: bool,
+}
+
+/// `PUT /replays/{game}/archived` `{"archived": bool}`: moves the game to
+/// the asking account's archived list (`GET /replays?archived=true`), or
+/// back. The record is never deleted (it trains the house AI); nothing else
+/// changes, and an archived game's tapes are answered as before.
+pub(crate) async fn archive_replay(
+    State(state): State<Shared>,
+    Path(game_id): Path<String>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Json<Archived>, Refusal> {
+    let session = crate::authed_session(&state, &headers).await?;
+    let me = account_of(&session)?;
+    let ask: Archived = serde_json::from_slice(&body)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "the body is not an archive choice"))?;
+    own_seat(&state, &game_id, me).await?;
+    baylee_db::records::set_archived(&state.db, me, &game_id, ask.archived)
+        .await
+        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+    Ok(Json(ask))
 }

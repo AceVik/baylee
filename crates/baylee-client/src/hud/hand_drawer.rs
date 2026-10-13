@@ -51,13 +51,18 @@ pub fn drop_at(shown: f32) -> f32 {
     (crate::hud::HAND_ZONE_H - crate::hud::LEDGE_H) * (1.0 - eased(shown))
 }
 
+/// A node outside the HUD's tree that rides the drawer all the same: the
+/// replay bar and its seat picker, which stand on the shelf's place.
+#[derive(Component)]
+pub struct RidesTheHand;
+
 /// A node that might ride the drawer, as the slide reads it.
 type Rider<'a> = (
     &'a Node,
     &'a mut UiTransform,
     Option<&'a ChildOf>,
     Has<HandScroll>,
-    Has<HandTab>,
+    (Has<HandTab>, Has<RidesTheHand>),
 );
 
 /// Whether a node rides the drawer: the hand zone, the tab, and every panel
@@ -89,7 +94,11 @@ const RIDE_REACH: f32 = 48.0;
 
 /// Slides the drawer toward where it stands and writes the zone's, the
 /// bar's and the tab's place while it moves. Writes nothing at rest.
-#[allow(clippy::needless_pass_by_value)] // a Bevy system
+///
+/// A replay folds the hand on every frame, a desktop's too: it is open
+/// where the perspective shows a hand and the viewer has not folded it
+/// (`replay_bar::BarUi::hand_open`), and the table takes the height.
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)] // a Bevy system
 pub fn slide_the_hand(
     mut duel: ResMut<Duel>,
     time: Res<Time>,
@@ -98,13 +107,21 @@ pub fn slide_the_hand(
     mut nodes: Query<Rider>,
     huds: Query<(), With<crate::hud::HudRoot>>,
     phase: Option<Res<State<DuelPhase>>>,
+    bar: Option<Res<crate::hud::replay_bar::BarUi>>,
 ) {
     let phone = on_a_phone(&windows);
     // Open while the table is still being prepared under its cover: the
     // entrance shows the whole screen as it will first be played.
     let playing =
         phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
-    let open = !phone || !playing || duel.hand_drawer_open();
+    let replay = duel
+        .replay
+        .as_ref()
+        .map(|status| bar.as_deref().is_none_or(|bar| bar.hand_open(status)));
+    let open = match replay {
+        Some(open) => !playing || open,
+        None => !phone || !playing || duel.hand_drawer_open(),
+    };
     if duel.hand_drawn_open != open {
         duel.hand_drawn_open = open;
     }
@@ -113,10 +130,14 @@ pub fn slide_the_hand(
     if (shown - duel.hand_shown).abs() > f32::EPSILON {
         duel.hand_shown = shown;
     }
-    let drop = if phone { drop_at(shown) } else { 0.0 };
-    for (node, mut transform, parent, scroll, tab) in &mut nodes {
+    let drop = if phone || replay.is_some() {
+        drop_at(shown)
+    } else {
+        0.0
+    };
+    for (node, mut transform, parent, scroll, (tab, rider)) in &mut nodes {
         let on_the_hud = parent.is_some_and(|p| huds.contains(p.parent()));
-        if !rides(node, on_the_hud, scroll, tab) {
+        if !rider && !rides(node, on_the_hud, scroll, tab) {
             continue;
         }
         transform.set_if_neq(UiTransform {

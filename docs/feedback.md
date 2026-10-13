@@ -121,13 +121,24 @@ intake as any report with `kind: "chat"`:
 - `text`: the reporter's note, then the message's text;
 - `game_id`: the table's game for a table or team message, else none;
 - `client.chat`: `{verified, conversation ("whisper" | "group" | "table" |
-  "team"), sender (the sender's pseudonym, made with the reporter key, or
-  null when the sending device is gone), sent_at (the sender's clock, ms),
-  message, note}`;
+  "team"), sender_tag (the sender's public tag in hex, only when
+  `verified`; else null), sent_at (the sender's clock, ms), message,
+  note}`. No sender pseudonym (since 13.10.2026): it was the same keyed
+  hash a reporter is known by, and beside the tag it would have resolved
+  every report that account ever filed;
 - no record.
 
 `verified: false` means the check failed or could not run (the sender's
-device was removed since): say so before acting on it. 10 reports an hour
+device was removed since): say so before acting on it. Such a report names
+no sender tag, so nobody can be framed by a forged report.
+
+**Who can be found (13.10.2026).** The sender of a verified message can:
+a moderator must be able to act on reported content (ban the account that
+wrote it), and the tag is public in every handle. The report detail shows
+the tag and *Find sender's account*, which opens **Accounts** filtered to
+that one tag (`?tag=`, the gateway's `GET /admin/accounts?tag=`, exact,
+registered or guest). The reporter cannot (below, §"A reporter is never
+resolved to an account"). 10 reports an hour
 per account; `503` without `BAYLEE_FEEDBACK_URL`. Deploy the service (which
 knows the `chat` kind since its migration `m0006_chat_kind`) before the
 gateway. `POST /client/reports` refuses `chat`: only a gateway can check one.
@@ -312,6 +323,70 @@ text or the address; they outlive the message. The console's audit list
 leaves them out. An answer goes by the admin's own mail (the page's
 *Reply by e-mail* is a `mailto:` link); the service sends no mail.
 
+### The Impressum: `/site/impressum`
+
+The landing page's Impressum (`web/site/impressum.html`) names the operator,
+a private person; the details are in no file of the repository and in
+nothing a crawler reads as text (`web/site/README.md` §"The Impressum",
+`docs/legal.md` §4). The service hands them out for a solved proof of work
+(`crates/baylee-feedback/src/impressum.rs`). The site's Caddy passes
+`/site/impressum` and everything under it on to the service
+(`scripts/server/site.caddy`), so the page asks its own origin. Off (`503`)
+until `FEEDBACK_IMPRESSUM_KEY` (at least 32 characters, none of the
+service's tokens) and `FEEDBACK_IMPRESSUM_BLOB` (the file
+`scripts/site/impressum_blob.py` wrote, on the server only, read on each
+request) are set, both or neither; a file that is not such a blob refuses
+startup.
+
+| route | what |
+| --- | --- |
+| `GET /site/impressum/challenge?s=<bits>` | `{"nonce", "parts", "difficulty", "expires", "sig"}`: 8 parts, 17 zero bits each for an ordinary browser, valid 5 minutes, signed with HMAC-SHA256 under the key |
+| `POST /site/impressum` | the challenge's fields and `"counters"` (one per part); `200` the blob as `text/plain` |
+| `GET /site/impressum/kontakt` | the honeypot: an invented Impressum as HTML |
+
+The puzzle, the same in `web/site/impressum-worker.js`: for each part, the
+smallest counter `c` with `SHA-256(nonce + ":" + part + ":" + c)` starting
+with `difficulty` zero bits. About a second of a laptop's time at 17 bits
+(the worker measured 2.4 million hashes a second in Chromium on an Apple
+laptop, so 8 × 2¹⁷ ≈ 0.4 s there); it starts only when the visitor presses
+*Impressum anzeigen*.
+
+**No person is ever locked out** (owner, 13.10.2026): no challenge is
+refused, a suspicious request only gets up to 4 more bits (each doubles
+the work; at 21 bits about 7 s on that laptop). Points: more than 10
+challenges from one address in an hour (+1, +2 past 30, +3 past 100), no
+`Accept-Language` (+1), no `Sec-Fetch-Site` (+1), an empty user agent or one
+that names a tool, a crawler or a headless browser (+2), and what the page
+reports in `s`: `navigator.webdriver` (1, +2), no `navigator.languages` (2,
++1), a software WebGL renderer such as SwiftShader or llvmpipe (4, +1). Only a
+robot beyond doubt (6 points with both a headless/tool user agent and
+`webdriver`) or an address that asked the honeypot in the last 24 hours gets
+a **decoy**: a blob of the same shape holding invented details (common
+names, `example.com`/`.net`/`.org` addresses, telephone numbers whose
+subscriber part starts with 0, which no German number does), the same for
+one address. The honeypot itself is a link on the Impressum page no person
+sees (hidden by CSS, `aria-hidden`, not focusable, disallowed in
+robots.txt).
+
+| answer | when |
+| --- | --- |
+| `403` | an `Origin` that is not one of `FEEDBACK_CONTACT_ORIGINS` from a request that is not same-origin (another site's page; never the Impressum's); on `POST`, a challenge this service did not sign or one changed since |
+| `400` | not a solution: malformed, the wrong number of counters, or a counter that does not solve its part |
+| `409` | that challenge was answered already (each is taken once) |
+| `410` | the challenge expired (the page then asks for a new one, once) |
+| `503` | the Impressum is not configured, or the blob file is gone |
+
+Every answer says `Cache-Control: no-store`, `X-Robots-Tag: noindex,
+noarchive, nosnippet` and `Vary: Origin`, and names a configured origin in
+`Access-Control-Allow-Origin` (a page tried locally, as for the contact
+form); the preflight is the contact form's. Memory only, never written down
+or logged: challenges per address for an hour (an IPv6 address by its /64),
+the honeypot's marks for 24 hours, answered challenges until they expire. The
+log says that the honeypot was asked and how often since the start, never
+by whom. Nothing bans an address at the firewall: the owner decided
+against fail2ban (13.10.2026), because a ban is a hard block of a possibly
+shared address, and the site keeps no access log for one to read.
+
 ### References in the text
 
 `text` stays plain printable text and reads on its own: a card the player
@@ -417,7 +492,8 @@ one audit row each; there is no bulk route), a quiet refresh every 30
 seconds that announces new reports instead of moving the rows, an export
 of what is shown as CSV made in the browser, and an unread marker kept in
 the browser's `localStorage` only (the service keeps no per-admin state).
-**A reporter is never resolved to an account.** The pseudonym is an HMAC
+**A reporter is never resolved to an account** (the sender of a reported
+chat message is, above). The pseudonym is an HMAC
 the gateway makes so that this service cannot know who wrote a report
 (§"The gateway" above, `docs/privacy.md`); asking the gateway's console to
 turn it back into a name would undo that promise in one request, so the UI
@@ -542,7 +618,7 @@ the browser never sees:
 | `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
 | `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
 | `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
-| `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
+| `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `tag`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`); `tag` is one exact tag, a chat report's sender |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
 | `DELETE /ui/api/admin/accounts/{id}` | the gateway's `DELETE /admin/accounts/{id}`: the account deleted as its player's own deletion does (beta.8) |
 | `POST /ui/api/admin/accounts/{id}/password` | the gateway's reset: `200 {"password"}`, the one time the new password is shown; nothing here writes it down (beta.8) |
@@ -644,6 +720,38 @@ with `PUT`, never a key; unticking deletes there), and the `gateway.llm.*`
 audit rows. Deleting, unassigning and forgetting a key ask once more. The
 key field is a password field, cleared as it is sent.
 
+**Who may seat each model** (owner, 13.10.2026; `docs/protocol.md` §"Who
+may seat which model"). Per profile id a policy, `registered`, `listed` or
+`nobody`, the default mark, and the list of accounts a `listed` profile
+admits:
+
+| route | gateway route |
+| --- | --- |
+| `GET /ui/api/admin/llm/access` | `GET /admin/llm/access` |
+| `GET /ui/api/admin/llm/access/{id}` | `GET /admin/llm/access/{id}` |
+| `PUT /ui/api/admin/llm/access/{id}` | `{"policy", "default_for_registered"?}`, read into those two fields and written out again |
+| `POST /ui/api/admin/llm/access/{id}/allow` | `{"accounts": [<uuid>…]}`, 1–200 UUIDs, read and written out again |
+| `POST /ui/api/admin/llm/access/{id}/disallow` | the same |
+| `GET /ui/api/admin/accounts/lookup?q=` | `GET /admin/accounts/lookup?q=`: the list editor's type-ahead |
+
+Each change wants the session and the CSRF proof, as every change here
+does. A change that succeeded is a `feedback_audit` row,
+`gateway.llm.access.policy` with the detail `<id>: <policy>` (and whether
+it became or stopped being the default), or `gateway.llm.access.allow` /
+`.disallow` with `<id>: <account ids>`; never a username, display name or
+handle. The page's panel lists every profile a seat agent reports or a
+policy names, with its policy (`not set: nobody` for a profile no admin has
+opened), how many accounts are on its list, the default mark, and whether a
+seat agent reports it now. *Manage access* opens a dialog: the policy as
+three choices, the default mark (which selects `registered`), and the
+list: a type-ahead (two characters at least, asked 250 ms after the last
+key, ↑/↓ and Enter, at most ten registered accounts, those already on the
+list shown and not pickable), the accounts about to be added and taken off
+as chips, the list itself filtered, ordered by name or by when they were
+added, and taken off one by one or all selected at once. *Save…* shows
+what will change and asks before anything is sent; a change stops no
+game and no chair already ordered.
+
 Several gateways are not configured yet: the routes would take a
 `?gateway=<name>` and the two settings a list of `name=url` pairs, as
 `FEEDBACK_GATEWAY_TOKENS` does.
@@ -718,6 +826,8 @@ FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
 FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
+FEEDBACK_IMPRESSUM_KEY=<openssl rand -hex 32>       # only to hand out the Impressum (with the next)
+FEEDBACK_IMPRESSUM_BLOB=/etc/baylee/site-private/impressum.bin
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
 FEEDBACK_GATEWAY_ADMIN_TOKEN=<the gateway's BAYLEE_ADMIN_TOKEN>
 RUST_LOG=info

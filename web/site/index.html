@@ -17,11 +17,14 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <title>Baylee – a table that knows the rules</title>
-<link rel="icon" href="/site/favicon-32.png" sizes="32x32" type="image/png">
-<link rel="preload" href="/site/fonts/Faustina.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/site/fonts/AlegreyaSans-Medium.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/site/site.css">
-<script src="/site/site.js" defer></script>
+<link rel="icon" href="/site/favicon-32.png?v=d2b0bb18ce" sizes="32x32" type="image/png">
+<script src="/site/boot.js?v=bdfb47c744"></script>
+<link rel="preload" href="/site/fonts/Faustina.woff2?v=5e1bf9a0c7" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/fonts/AlegreyaSans-Medium.woff2?v=f2d382c484" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/fonts/AlegreyaSans-Bold.woff2?v=af19c56947" as="font" type="font/woff2" crossorigin>
+<link rel="preload" as="image" href="/site/img/baylee-logo-800.avif?v=ad63490495" imagesrcset="/site/img/baylee-logo-400.avif?v=e5430bce2e 400w, /site/img/baylee-logo-800.avif?v=ad63490495 800w" imagesizes="(max-width: 700px) 82vw, 570px" type="image/avif" fetchpriority="high">
+<link rel="stylesheet" href="/site/site.css?v=48354bfe96">
+<script src="/site/site.js?v=e9b776ceb0" defer></script>
 </head>
 <body>
 
@@ -30,7 +33,7 @@
 <header class="top">
   <div class="top-inner">
     <a class="brand" href="#top" aria-label="Baylee">
-      <img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee" fetchpriority="high">
+      <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif?v=e5430bce2e 400w, /site/img/baylee-logo-800.avif?v=ad63490495 800w" sizes="7.6rem"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp?v=a6a4508332 400w, /site/img/baylee-logo.webp?v=ed47cdc8de 800w" sizes="7.6rem"><img src="/site/img/baylee-logo.webp?v=ed47cdc8de" width="800" height="336" alt="Baylee" decoding="async"></picture>
     </a>
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="nav"><span class="bars" aria-hidden="true"></span><span class="vh"><span class="en">Menu</span><span class="de" lang="de">Menü</span></span></button>
     <nav class="nav" id="nav" aria-label="Sections">
@@ -50,7 +53,7 @@
   </div>
 </header>
 
-<main id="main">
+<main id="main" tabindex="-1">
 
 <!-- ============================================================ hero -->
 <section class="hero" id="top">
@@ -66,7 +69,7 @@
     <div class="sky-vignette"></div>
   </div>
   <div class="hero-inner" id="hero-inner">
-    <img class="hero-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" fetchpriority="high">
+    <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif?v=e5430bce2e 400w, /site/img/baylee-logo-800.avif?v=ad63490495 800w" sizes="(max-width: 700px) 82vw, 570px"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp?v=a6a4508332 400w, /site/img/baylee-logo.webp?v=ed47cdc8de 800w" sizes="(max-width: 700px) 82vw, 570px"><img class="hero-logo" src="/site/img/baylee-logo.webp?v=ed47cdc8de" width="800" height="336" alt="" fetchpriority="high"></picture>
     <p class="kicker">
       <span class="en">Closed beta · free · open source · unofficial fan content</span>
       <span class="de" lang="de">Geschlossene Beta · kostenlos · quelloffen · inoffizieller Fan-Content</span>
@@ -224,27 +227,27 @@
     <p class="section-lead de" lang="de">Die Bilder zeigen die Textansicht, die jede Karte aus ihrem Regeltext zeichnet statt aus dem gedruckten Kartenbild, weil wir Scryfalls Scans nicht weiterverbreiten. Im Spiel siehst du die echten Kartenbilder. Die Aufnahmen entstanden mit 0.1.0-beta.2 auf einem lokalen Test-Gateway mit erfundenen Spielern; die aktuelle Version sieht etwas anders aus.</p>
     <ul class="shots">
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-table-duel.webp"><img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view"></a>
+        <a class="shot-link" href="/site/img/shot-table-duel.webp?v=7c0b56290c"><picture><source type="image/avif" srcset="/site/img/shot-table-duel-640.avif?v=3d78187a6b 640w, /site/img/shot-table-duel.avif?v=0be3afb261 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-table-duel-640.webp?v=14a52cc577 640w, /site/img/shot-table-duel.webp?v=7c0b56290c 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-table-duel.webp?v=7c0b56290c" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view" decoding="async"></picture></a>
         <figcaption><span class="en"><b>A duel</b> against the house AI. Hovering a card shows it large.</span><span class="de" lang="de"><b>Ein Duell</b> gegen die Haus-KI. Eine Karte unter dem Zeiger wird groß gezeigt.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-game-log.webp"><img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link"></a>
+        <a class="shot-link" href="/site/img/shot-game-log.webp?v=271cf4aaba"><picture><source type="image/avif" srcset="/site/img/shot-game-log-640.avif?v=c11bdda29b 640w, /site/img/shot-game-log.avif?v=bd19a06292 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-game-log-640.webp?v=51a74d740d 640w, /site/img/shot-game-log.webp?v=271cf4aaba 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-game-log.webp?v=271cf4aaba" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The game log</b> (<kbd>L</kbd>) reads like a chat; every card name opens its preview.</span><span class="de" lang="de"><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-table-ring.webp"><img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt"></a>
+        <a class="shot-link" href="/site/img/shot-table-ring.webp?v=271703657c"><picture><source type="image/avif" srcset="/site/img/shot-table-ring-640.avif?v=3f257a62cf 640w, /site/img/shot-table-ring.avif?v=227fc479d2 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-table-ring-640.webp?v=5892273baf 640w, /site/img/shot-table-ring.webp?v=271703657c 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-table-ring.webp?v=271703657c" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt" decoding="async"></picture></a>
         <figcaption><span class="en"><b>Four seats.</b> Larger tables sit in a ring around the felt.</span><span class="de" lang="de"><b>Vier Plätze.</b> Größere Tische sitzen im Ring um den Filz.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-lobby.webp"><img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right"></a>
+        <a class="shot-link" href="/site/img/shot-lobby.webp?v=7632488b61"><picture><source type="image/avif" srcset="/site/img/shot-lobby-640.avif?v=98f25860e5 640w, /site/img/shot-lobby.avif?v=38347e48eb 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-lobby-640.webp?v=a5c8e460c0 640w, /site/img/shot-lobby.webp?v=7632488b61 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-lobby.webp?v=7632488b61" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The lobby.</b> Your decks, the open tables, and <i>Play the house</i> for a quick game.</span><span class="de" lang="de"><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Play the house</i> für ein schnelles Spiel.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-room.webp"><img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life"></a>
+        <a class="shot-link" href="/site/img/shot-room.webp?v=dd4e0a2b34"><picture><source type="image/avif" srcset="/site/img/shot-room-640.avif?v=08be2399ed 640w, /site/img/shot-room.avif?v=693d2ebbe6 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-room-640.webp?v=c5681d2cf8 640w, /site/img/shot-room.webp?v=dd4e0a2b34 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-room.webp?v=dd4e0a2b34" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life" decoding="async"></picture></a>
         <figcaption><span class="en"><b>Arranging a table.</b> Chairs, starting life, mulligans, and a level for each AI chair.</span><span class="de" lang="de"><b>Einen Tisch einrichten.</b> Stühle, Startleben, Mulligans und eine Stufe für jeden KI-Stuhl.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-deck-builder.webp"><img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool"></a>
+        <a class="shot-link" href="/site/img/shot-deck-builder.webp?v=288e7ad578"><picture><source type="image/avif" srcset="/site/img/shot-deck-builder-640.avif?v=68a800fff0 640w, /site/img/shot-deck-builder.avif?v=97585c5feb 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-deck-builder-640.webp?v=7cae30155b 640w, /site/img/shot-deck-builder.webp?v=288e7ad578 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-deck-builder.webp?v=288e7ad578" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The deck builder.</b> Mana curve, land statistics, a search over the whole pool, and a warning for cards that will not play as printed.</span><span class="de" lang="de"><b>Der Deckbauer.</b> Manakurve, Länderstatistik, eine Suche über den ganzen Pool und eine Warnung für Karten, die nicht wie gedruckt spielen.</span></figcaption></figure>
       </li>
     </ul>
@@ -281,29 +284,41 @@
     <div class="sets-block" id="sets">
       <h3 class="en">Sets and card status</h3>
       <h3 class="de" lang="de">Sets und Kartenstatus</h3>
-      <p class="section-lead en">Every set in release order, each card counted under the set it first appeared in. Open a set to see its cards: whether each plays as printed, plays in part, is not playable yet, or will never be built. Hover or focus a card for the reason.</p>
-      <p class="section-lead de" lang="de">Jedes Set in Erscheinungsreihenfolge, jede Karte unter dem Set gezählt, in dem sie zuerst erschien. Öffne ein Set, um seine Karten zu sehen: ob jede wie gedruckt spielt, teilweise spielt, noch nicht spielbar ist oder nie gebaut wird. Fahr mit der Maus über eine Karte oder fokussiere sie, um den Grund zu sehen.</p>
+      <p class="section-lead en">Every set in release order, each card counted under the set it first appeared in. Open a set to see its cards: whether each plays as printed, plays in part, is not playable yet, or will never be built. Rest the pointer on a card, or focus it, to see it large with the reason; a click opens its page on Scryfall, with artist and printing. On a touch screen a tap shows it large first.</p>
+      <p class="section-lead de" lang="de">Jedes Set in Erscheinungsreihenfolge, jede Karte unter dem Set gezählt, in dem sie zuerst erschien. Öffne ein Set, um seine Karten zu sehen: ob jede wie gedruckt spielt, teilweise spielt, noch nicht spielbar ist oder nie gebaut wird. Lass den Zeiger auf einer Karte ruhen oder fokussiere sie, um sie groß mit dem Grund zu sehen; ein Klick öffnet ihre Seite bei Scryfall, mit Künstler und Druck. Auf einem Touchscreen zeigt ein Tippen sie zuerst groß.</p>
       <ul class="legend plain-row" aria-label="Legend">
         <li><span class="swatch s-implemented" aria-hidden="true"></span><span class="en">Full: plays as printed</span><span class="de" lang="de">Voll: spielt wie gedruckt</span></li>
-        <li><span class="swatch s-partial" aria-hidden="true"></span><span class="en">Partial: plays, one part missing (reason in the tooltip)</span><span class="de" lang="de">Teilweise: spielt, ein Teil fehlt (Grund im Tooltip)</span></li>
+        <li><span class="swatch s-partial" aria-hidden="true"></span><span class="en">Partial: plays, one part missing (the reason is shown with the card)</span><span class="de" lang="de">Teilweise: spielt, ein Teil fehlt (der Grund steht bei der Karte)</span></li>
         <li><span class="swatch s-none" aria-hidden="true"></span><span class="en">Not yet: not playable yet</span><span class="de" lang="de">Noch nicht: noch nicht spielbar</span></li>
         <li><span class="swatch s-never" aria-hidden="true"></span><span class="en">Never: ante, dexterity or a subgame; a set counts as complete without it</span><span class="de" lang="de">Nie: Ante, Geschicklichkeit oder ein Teilspiel; ein Set gilt ohne sie als vollständig</span></li>
       </ul>
       <p class="small en">The percentage is full cards out of all cards of the set that will ever be built. Partial cards are the lighter part of the bar and are not counted as done.</p>
       <p class="small de" lang="de">Der Prozentwert ist der Anteil voller Karten an allen Karten des Sets, die je gebaut werden. Teilweise umgesetzte Karten sind der hellere Teil des Balkens und zählen nicht als fertig.</p>
-      <div class="sets-tools" id="sets-tools" hidden>
-        <label class="sets-search"><span class="en">Find a set</span><span class="de" lang="de">Set suchen</span>
-          <input type="search" id="sets-q" autocomplete="off" spellcheck="false">
-        </label>
-        <label class="sets-check"><input type="checkbox" id="sets-started"> <span class="en">only sets that have begun</span><span class="de" lang="de">nur begonnene Sets</span></label>
-      </div>
-      <p class="sets-total" id="sets-total"></p>
-      <div class="sets" id="sets-list">
+      <!-- site.js fills the summary from data/sets.json once the cards section comes near; the full list waits behind the button -->
+      <div class="sets-summary" id="sets-summary">
         <p class="small en">The set list loads with JavaScript from <a href="/site/data/sets.json">data/sets.json</a>.</p>
         <p class="small de" lang="de">Die Set-Liste wird per JavaScript aus <a href="/site/data/sets.json">data/sets.json</a> geladen.</p>
       </div>
-      <p class="small en">Card images are loaded from Scryfall only when you open a set, unaltered. Card data and images provided by Scryfall; Baylee is not affiliated with Scryfall. The counts are measured from the repository by <code>scripts/site/card_status.py</code>.</p>
-      <p class="small de" lang="de">Kartenbilder werden erst beim Öffnen eines Sets und unverändert von Scryfall geladen. Kartendaten und -bilder bereitgestellt von Scryfall; Baylee ist nicht mit Scryfall verbunden. Die Zahlen misst <code>scripts/site/card_status.py</code> im Repository.</p>
+      <p class="sets-more"><button type="button" class="button button-ghost" id="sets-toggle" aria-expanded="false" aria-controls="sets-all" hidden><span class="en">Show all sets</span><span class="de" lang="de">Alle Sets anzeigen</span></button></p>
+      <div class="sets-all" id="sets-all" hidden>
+        <div class="sets-tools" id="sets-tools">
+          <label class="sets-search"><span class="en">Find a set</span><span class="de" lang="de">Set suchen</span>
+            <input type="search" id="sets-q" autocomplete="off" spellcheck="false" aria-describedby="sets-found">
+          </label>
+          <label class="sets-check"><input type="checkbox" id="sets-started"> <span class="en">only sets that have begun</span><span class="de" lang="de">nur begonnene Sets</span></label>
+        </div>
+        <p class="small sets-found" id="sets-found" role="status" aria-live="polite"></p>
+        <div class="sets" id="sets-list"></div>
+      </div>
+      <!-- Attribution and notices for the card status and its pictures: add
+           what the legal review asks for here, in both languages (and in
+           CARD_CREDIT in site.js for the line under a card shown large). -->
+      <div class="sets-notes" id="sets-notes">
+        <p class="small en">Card images are loaded from Scryfall only when you open a set or show a card large, unaltered. Card data and images provided by Scryfall; Baylee is not affiliated with Scryfall. The counts are measured from the repository by <code>scripts/site/card_status.py</code>.</p>
+        <p class="small en">Card images © Wizards of the Coast, shown unaltered from Scryfall. Cards not yet in Baylee's pool, and Universes Beyond cards, are listed by name only.</p>
+        <p class="small de" lang="de">Kartenbilder werden erst beim Öffnen eines Sets oder beim Großzeigen einer Karte und unverändert von Scryfall geladen. Kartendaten und -bilder bereitgestellt von Scryfall; Baylee ist nicht mit Scryfall verbunden. Die Zahlen misst <code>scripts/site/card_status.py</code> im Repository.</p>
+        <p class="small de" lang="de">Kartenbilder © Wizards of the Coast, unverändert von Scryfall geladen. Karten, die noch nicht in Baylees Pool sind, und Universes-Beyond-Karten stehen nur mit Namen hier.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -523,6 +538,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
           <li><a class="glass" href="https://discord.gg/4pP3uAwgY" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2zm3 6v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2z" fill="currentColor"/></svg><span><span class="en">Discord</span><span class="de" lang="de">Discord</span><small><span class="en">talk, find opponents, hear about builds</span><span class="de" lang="de">reden, Gegner finden, von Builds hören</span></small></span></a></li>
           <li><a class="glass" href="https://github.com/AceVik/baylee/issues" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7 3.6 3.6 0 0 1 .1-2.7s.8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1a3.6 3.6 0 0 1 .1 2.7 3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z" fill="currentColor"/></svg><span><span class="en">GitHub issues</span><span class="de" lang="de">GitHub-Issues</span><small><span class="en">bugs and ideas, in public</span><span class="de" lang="de">Fehler und Ideen, öffentlich</span></small></span></a></li>
         </ul>
+        <p class="small"><span class="en">Who runs this site, with a postal address: the <a href="/site/impressum.html">legal notice</a>.</span><span class="de" lang="de">Wer diese Seite betreibt, mit Postanschrift: das <a href="/site/impressum.html">Impressum</a>.</span></p>
       </div>
       <div class="contact-card glass" id="contact-card">
         <p class="nojs-note"><span class="en">The form needs JavaScript. Without it, write to us on Discord or GitHub.</span><span class="de" lang="de">Das Formular braucht JavaScript. Ohne schreib uns auf Discord oder GitHub.</span></p>
@@ -538,16 +554,23 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
           </div>
           <div class="field">
             <label for="c-message"><span class="en">Message</span><span class="de" lang="de">Nachricht</span></label>
-            <textarea id="c-message" name="message" maxlength="5000" required rows="6"></textarea>
+            <textarea id="c-message" name="message" maxlength="5000" required rows="6" aria-describedby="c-count"></textarea>
             <div class="field-foot"><span></span><span class="count" id="c-count" aria-live="off">0 / 5000</span></div>
           </div>
           <div class="trap" aria-hidden="true">
             <label for="c-website">Website</label>
             <input id="c-website" name="website" type="text" tabindex="-1" autocomplete="off">
           </div>
-          <p class="privacy-note"><span class="en">We keep your message, and your name and e-mail address only if you give them, to read and answer it: no IP address, no cookie, no tracker. It is deleted 90 days after we have dealt with it, after a year at the latest. <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md#contact-messages" rel="noopener">More in docs/privacy.md</a>.</span><span class="de" lang="de">Wir speichern deine Nachricht, und Namen und E-Mail-Adresse nur, wenn du sie angibst, um sie zu lesen und zu beantworten: keine IP-Adresse, kein Cookie, kein Tracker. Sie wird 90 Tage, nachdem wir sie erledigt haben, gelöscht, spätestens nach einem Jahr. <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md#contact-messages" rel="noopener">Mehr in docs/privacy.md</a>.</span></p>
+          <p class="privacy-note"><span class="en">I keep your message, and your name and e-mail address only if you give them, to read and answer it: no IP address, no cookie, no tracker. It is deleted 90 days after I have dealt with it, after a year at the latest. <a href="/site/datenschutz.html#kontakt">More in the privacy notice</a>.</span><span class="de" lang="de">Ich speichere deine Nachricht, und Namen und E-Mail-Adresse nur, wenn du sie angibst, um sie zu lesen und zu beantworten: keine IP-Adresse, kein Cookie, kein Tracker. Sie wird 90 Tage, nachdem ich sie erledigt habe, gelöscht, spätestens nach einem Jahr. <a href="/site/datenschutz.html#kontakt">Mehr in der Datenschutzerklärung</a>.</span></p>
           <div class="form-row">
-            <button type="submit" class="button" id="c-send"><svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 20.5V14l9-2-9-2V3.5L22 12z" fill="currentColor"/></svg><span class="en">Send</span><span class="de" lang="de">Senden</span></button>
+            <button type="submit" class="button button-send" id="c-send" data-state="idle">
+              <span class="btn-states">
+                <span class="st st-idle"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l11 2-11 2z" fill="currentColor"/></svg><span><span class="en">Send</span><span class="de" lang="de">Senden</span></span></span>
+                <span class="st st-sending"><svg class="button-icon i-spin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/></svg><span><span class="en">Sending…</span><span class="de" lang="de">Wird gesendet …</span></span></span>
+                <span class="st st-sent"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 16.6 4.9 12.3l-1.4 1.4 5.7 5.7L20.5 8.1l-1.4-1.4z" fill="currentColor"/></svg><span><span class="en">Sent</span><span class="de" lang="de">Gesendet</span></span></span>
+                <span class="st st-error"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4a8 8 0 1 0 7.7 10h-2.1A6 6 0 1 1 12 6a5.9 5.9 0 0 1 4.2 1.8L13 11h7V4l-2.4 2.4A8 8 0 0 0 12 4z" fill="currentColor"/></svg><span><span class="en">Try again</span><span class="de" lang="de">Erneut senden</span></span></span>
+              </span>
+            </button>
             <p class="form-status" id="c-status" role="status" aria-live="polite"></p>
           </div>
         </form>
@@ -564,6 +587,11 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 
 </main>
 
+<dialog class="cardview" id="cardview" aria-labelledby="cardview-name">
+  <div class="cardview-body" id="cardview-body"></div>
+  <button type="button" class="lightbox-close" id="cardview-close" aria-label="Close / Schließen">×</button>
+</dialog>
+
 <dialog class="lightbox" id="lightbox" aria-label="Screenshot">
   <img alt="" id="lightbox-img">
   <p class="lightbox-cap" id="lightbox-cap"></p>
@@ -574,9 +602,13 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 
 <footer class="foot">
   <div class="foot-inner">
-    <img class="foot-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" loading="lazy">
-    <p class="notice">baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
-    <p class="notice de" lang="de">Baylee ist inoffizieller Fan-Content im Rahmen der Fan Content Policy, von Wizards weder genehmigt noch unterstützt. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
+    <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif?v=e5430bce2e 400w, /site/img/baylee-logo-800.avif?v=ad63490495 800w" sizes="7rem"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp?v=a6a4508332 400w, /site/img/baylee-logo.webp?v=ed47cdc8de 800w" sizes="7rem"><img class="foot-logo" src="/site/img/baylee-logo.webp?v=ed47cdc8de" width="800" height="336" alt="" loading="lazy" decoding="async"></picture>
+    <!-- The Fan Content Policy's notice, word for word from Wizards' templates
+         (English, and the official German one); docs/legal.md §1. The English
+         one stands in both languages. -->
+    <p class="notice" lang="en">Baylee is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" rel="noopener">Fan Content Policy</a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
+    <p class="notice de" lang="de">Baylee ist ein inoffizieller Fan-Inhalt im Rahmen der <a href="https://company.wizards.com/de/legal/fancontentpolicy" rel="noopener">Richtlinie für Fan-Inhalte</a>. Nicht von Wizards gefördert/gesponsert. Bestandteile des enthaltenen Materials sind Eigentum von Wizards of the Coast. ©Wizards of the Coast LLC. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
+    <p class="notice"><span class="en">Magic: The Gathering, card names, set names, card images and mana symbols are property of Wizards of the Coast LLC. Every card image names its artist; select a card to see artist and printing on Scryfall.</span><span class="de" lang="de">Magic: The Gathering sowie Kartennamen, Setnamen, Kartenbilder und Manasymbole sind Eigentum von Wizards of the Coast LLC. Jedes Kartenbild nennt seine Künstlerin oder seinen Künstler; ein Klick auf eine Karte zeigt Künstler und Druck bei Scryfall.</span></p>
     <p class="notice"><span class="en">Card data and images provided by Scryfall. Baylee is not affiliated with Scryfall.</span><span class="de" lang="de">Kartendaten und -bilder bereitgestellt von Scryfall. Baylee ist nicht mit Scryfall verbunden.</span></p>
     <nav class="foot-links" aria-label="Footer">
       <a href="https://github.com/AceVik/baylee" rel="noopener"><span class="en">Source code (AGPL-3.0)</span><span class="de" lang="de">Quellcode (AGPL-3.0)</span></a>
@@ -584,9 +616,10 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
       <a href="https://github.com/AceVik/baylee/issues" rel="noopener">Issues</a>
       <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Discord</a>
       <a href="#contact"><span class="en">Contact</span><span class="de" lang="de">Kontakt</span></a>
-      <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener"><span class="en">Privacy</span><span class="de" lang="de">Datenschutz</span></a>
       <a href="https://github.com/AceVik/baylee/blob/main/docs/legal.md" rel="noopener"><span class="en">Legal</span><span class="de" lang="de">Rechtliches</span></a>
       <a href="https://github.com/AceVik/baylee/blob/main/NOTICE" rel="noopener">NOTICE</a>
+      <a href="/site/datenschutz.html"><span class="en">Privacy</span><span class="de" lang="de">Datenschutz</span></a>
+      <a href="/site/impressum.html"><span class="en">Legal notice</span><span class="de" lang="de">Impressum</span></a>
     </nav>
     <p class="colophon"><span class="en">Fonts: Faustina and Alegreya Sans, SIL Open Font License 1.1, served from this site. The painting and the logo are our own.</span><span class="de" lang="de">Schriften: Faustina und Alegreya Sans, SIL Open Font License 1.1, von dieser Seite ausgeliefert. Das Gemälde und das Logo sind unsere eigenen.</span></p>
   </div>

@@ -560,6 +560,21 @@ pub(crate) fn network(out: &mut Out, view: &View) {
         crate::lobby::gateway_facts(state, lang)
     };
     let shown = out.words(&facts, false);
+    // The gateway operator's legal notice, where it names one (`/info`
+    // `impressum`): a link with the host it opens in sight.
+    let shown = match crate::lobby::front::impressum_link(state).filter(|_| !state.lobby.offline())
+    {
+        Some((_, host)) => {
+            let link = out.button(
+                "impressum",
+                &Phrase::ImpressumLink.fill(lang, &[&host]),
+                Weight::Ghost,
+                Press::Settings(SettingsPress::OpenImpressum),
+            );
+            out.wrap(&[shown, link])
+        }
+        None => shown,
+    };
     out.row(Row::Gateway, shown);
     let switch = out.button(
         "switch-gateway",
@@ -632,6 +647,16 @@ pub(crate) fn privacy(out: &mut Out, view: &View) {
         Press::Header(crate::lobby::HeaderPress::Report),
     );
     out.row(Row::ReportProblem, report);
+    // The chat's own privacy (beta.8): its sheet, where a social session is.
+    if view.state.chat_header.is_some() {
+        let chat = out.button(
+            "chat-privacy",
+            Phrase::ShellChatPrivacy.text(lang),
+            Weight::Secondary,
+            Press::Header(crate::lobby::HeaderPress::ChatPrivacy),
+        );
+        out.row(Row::ChatPrivacy, chat);
+    }
 }
 
 /// Language models: this machine's seat profiles, or one line where the

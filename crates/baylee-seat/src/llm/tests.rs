@@ -1120,10 +1120,7 @@ async fn the_deck_is_told_by_name_where_nothing_caches_it() {
     let told = seen[0].body["messages"][1]["content"]
         .as_str()
         .expect("text");
-    assert!(
-        told.contains("YOUR DECK «Gruul Test» (40 cards), by name."),
-        "{told}"
-    );
+    assert!(told.contains("YOUR DECK (40 cards), by name."), "{told}");
     assert!(told.contains("  Llanowar Elves {G} · Creature"), "{told}");
     assert!(!told.contains("Answer:"), "{told}");
 

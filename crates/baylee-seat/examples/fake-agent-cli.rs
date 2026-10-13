@@ -302,7 +302,17 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect();
     files.sort();
+    // What each file holds, for a test that looks for what must not be in
+    // them.
+    let contents: BTreeMap<String, String> = files
+        .iter()
+        .filter_map(|name| {
+            let text = std::fs::read_to_string(support.as_deref()?.join(name)).ok()?;
+            Some((name.clone(), text))
+        })
+        .collect();
     dump(log, &json!({"pid": pid, "support": files}));
+    dump(log, &json!({"pid": pid, "support_text": contents}));
     let mut prompt = String::new();
     let _ = std::io::Read::read_to_string(&mut std::io::stdin().lock(), &mut prompt);
     dump(log, &json!({"pid": pid, "prompt": prompt}));

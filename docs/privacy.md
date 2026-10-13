@@ -35,10 +35,11 @@ the pointers, because line numbers move.
 | Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
 | Chat keys | the player's device: the OS credential store (`baylee-chat`), or a `0600` file where there is none | until the device is forgotten | the player, or a guest's sign-out |
 | Chat history and state (encrypted) | the player's device, `chat/` beside the settings | 30 days by default (the player chooses off, 7, 30 or 365) | the client's pruning, or the player |
-| A reported chat message (its text, whether its signature checked, the sender's pseudonym) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
+| A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
-| A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
+| A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
+| Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
 | Server logs | stdout | the host's choice | the host |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
@@ -74,9 +75,18 @@ counts, never a tag, handle, conversation or ciphertext.
 **What leaves the device on purpose.** A report of a message sends its text
 and the key of that one message, so that the gateway can check that the
 sender really wrote it. A report never carries other messages or the
-history. The feedback service is sent the text, whether the check held, and
-the sender as a pseudonym (the same keyed hash reporters get), never an
-account id or handle.
+history. The feedback service is sent the text and whether the check held; of the
+sender never an account id and no pseudonym (it would be the keyed hash
+that account's own reports carry, and beside the tag it would resolve
+them), and only when the check held the sender's public tag
+(`sender_tag`), so that an admin can find the account that wrote it and
+act on it (ban it): a moderator must be able to act on reported content,
+and the tag is already public in every handle. An unverified report names
+no tag, so a forged one frames nobody. The reporter is never resolvable:
+only the pseudonym reaches the service, and no route turns it back into an
+account (owner's promise; `docs/feedback.md`). Who can resolve the sender:
+an admin signed in to the feedback UI with the gateway's console
+configured, through `GET /admin/accounts?tag=`.
 
 **What is never chat.** The engine, game records (#315), record exports,
 the AI's view and bug reports never contain chat. AI and language-model
@@ -88,22 +98,65 @@ requests, blocks, group memberships and every message still waiting for or
 from it. Its groups pass to the member who joined first. Signing a guest
 out deletes it, and the client deletes its local chat folder and keys.
 
-## Hosted models
+## Language-model seats
 
 A room's host may seat a language model the operator runs (`docs/llm-seat.md`
-§"A hosted seat"). Its bridge sends the profile's provider what any language
-model seat sends: its own seat's view as text (the board, its own hand, the
-counts of the others' hands and libraries, the log lines its seat is told,
-the question), its deck, and the Oracle text of cards it sees. A hosted
-bridge names no player (`--hosted`): every other seat is `P1…Pn`, so no
-display name, account or deck list of another player is sent; cards they
-play face up are part of the game. The room shows the vendor on the chair
-before anyone says ready. The gateway keeps only what the seat agents
+§"A hosted seat"), and a player may sit their own model with `baylee-seat`
+on their own device. Either bridge sends the profile's provider, with every
+provider (an API or an agent CLI), the same: its own seat's view as text
+(the board, its own hand, the counts of the others' hands and libraries,
+the log lines its seat is told, the question), its deck's cards, and the
+Oracle text of cards it sees. No bridge names a player (owner, 13.10.2026;
+`baylee_seat::narrator`): every seat is `P1…Pn` and the seat itself "you",
+so no display name, handle, tag or account of anyone is sent, nor the
+game's id or the deck's own name; there is no setting that names them.
+Cards the others play face up are part of the game. The request carries no
+other identifier either: no OpenAI `user` or Anthropic `metadata` field, no
+header but the content type, the API version, the key and (for a managed
+session) the session id the endpoint issued, whose label is a random UUID
+and the seat number; an agent CLI runs in a directory named by the seat
+number and a random UUID, never the game's id (`docs/llm-seat.md` §"A CLI
+as the model"). The room shows the vendor on the chair before anyone says
+ready. The gateway keeps only what the seat agents
 report about their profiles, in memory; the seat agent keeps its profiles,
 one spend book per profile (when, which model, what was reserved and
 spent) and its keys on its own machine. A key the console sets passes
 through the feedback service and the gateway in memory only, for that
 request, and is answered back by nothing.
+
+### Who may seat each model (owner, 13.10.2026)
+
+The operator decides per hosted profile which players may seat it
+(`docs/protocol.md` §"Who may seat which model"): every registered
+account, only the accounts on the profile's list, or nobody.
+
+- **Kept:** per profile id its policy, whether it is the default for
+  registered players, when it was last changed and by which admin
+  (`llm_profile_access`); per listed account the account id, the profile,
+  when it was added and by which admin (`llm_profile_allow`). No name, no
+  reason, nothing about the player's games. A row goes with its account
+  (cascade), and an admin takes it off the list.
+- **Why a list of people:** the owner wants access to a model granted per
+  player, by username. A list is the smallest thing that says it.
+- **Seen by:** the feedback service's signed-in admins, on the Models page,
+  through the gateway's loopback console (the list with each account's
+  username, display name and handle, and the admin who added it). A player
+  is never shown a list: the gateway only leaves out of their own offer the
+  profiles not open to them, and no route tells a player who else may seat
+  one.
+- **Finding a player to add:** the list editor's type-ahead,
+  `GET /admin/accounts/lookup?q=` (owner, 13.10.2026: fine-grained access
+  per player needs a player picked by name). It answers registered
+  accounts only (never a guest), whose username or display name *starts*
+  with what was typed, at least two characters, at most ten, and per
+  account only its id, username, display name and handle: less than the
+  console's account search above already shows, and nothing it does not.
+  It is read per request and kept nowhere; reads are not audited, like the
+  account search's.
+- **Logs and audit:** each change is a line on `baylee_gateway::audit` and
+  a `feedback_audit` row (kept indefinitely, §"Reports and crash reports"),
+  naming the admin, the profile id, the policy, and the account ids added
+  or taken off; never a username, display name or handle.
 
 ## Accounts
 
@@ -620,8 +673,11 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 
 | What | Where | Kept | Removed by |
 | --- | --- | --- | --- |
-| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely (the owner's decision) | nothing yet |
+| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely, for training the house AI and balancing decks (the owner's decision, 13.10.2026: never deleted) | nothing: a player archives it in their list, an account's deletion anonymises it |
 | Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
+| A seat's choice to show its hidden cards in that game's replays (`shared`; no row = the default: yes for a game recorded from the beta.7 deploy on, no before) | gateway Postgres `game_record_share` (game, seat, yes/no, when) | with the record, also after the account is deleted (the seat is anonymous then) | nothing; the player changes it (`PUT /replays/{game}/share`) |
+| The moment from which an unsaid choice reads yes (the beta.7 deploy) | gateway Postgres `replay_share_cutoff` (one time) | indefinitely | nothing |
+| A game an account archived in its replay list | gateway Postgres `replay_archived` (account id, game id, when) | while archived, at most until the account is deleted | unarchiving, or the account's deletion |
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
@@ -644,7 +700,9 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   at that game (`docs/protocol.md` §"The game record"), and a replay job,
   which hands it only to an engine (below: a replay is a projection, never
   the record). The other is the operator's export below, which no route
-  reaches.
+  reaches. The operator has full access to every record (the database, the
+  export); a player's sharing choice limits what other players are shown in
+  a replay, never what the operator or the training reads.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
@@ -697,15 +755,32 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   device, and the job's log names no account. `GET /replays` shows a seated
   account the current handles of the people it sat with, as the table
   showed them, and a former player's seat as "Former player" once that
-  account is gone. Beside the record the gateway keeps what the list shows
+  account is gone. Which seats' hidden cards a tape holds is each seat's
+  own choice, made per game in the end-of-game dialog or the Replays list
+  (`game_record_share`; by default **shared** in a game recorded from the
+  beta.7 deploy on, where the box is ticked and a player unticks it, and
+  **not shared** in one recorded before, whose terms promised nobody at the
+  table the recording; an AI seat is always shared): a tape drawn from a seat
+  that unticked it, or all hands, holds only the public table for that
+  seat, enforced on the gateway's side. A shared seat shows its whole seat
+  view (its hand, its deck list as printings, what it looked at, its
+  face-down cards, its log; `docs/protocol.md` §"Replays", "What a shown
+  seat reveals"); in *all hands* the other shared seats show their hand
+  only. A player's own seat is always shown
+  to that player. A player archives a game in the Replays list
+  (`replay_archived`; still watchable from the archived list); the record
+  is never deleted. Beside the record the gateway keeps what the list shows
   (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
   `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
   game and card data, not personal, kept with the record. A deleted
   account's games are gone from its list and its tapes, because the seat
   link that authorises them is the one deletion cuts. Asks are counted per
   account in memory for a minute.
-- **Open:** records have no deletion path yet, not even for a player who
-  deletes their account; their account link is cut, the game stays.
+- **Records are never deleted** (owner, 13.10.2026): they train the house
+  AI and balance decks. A player who deletes their account is anonymised in
+  every record (their seat link is cut); the game stays, with the seat's
+  sharing choice. The terms of use say so (draft for the owner:
+  `.claude/b8/TERMS-REPLAYS-DRAFT.md`).
 
 ## Reports and crash reports (#309, #310, #314)
 
@@ -734,8 +809,8 @@ report once it has it is theirs to describe.
   (`[Lightning Bolt]`, `[@steady 1]`), `client.refs` says which: positions
   in the text, the card's registry index and printing, at a table the
   object, zone and owner's seat number, and a player's seat number. Never
-  an account; it is derived from the text, so it is as consented as the
-  text, and a name the player typed goes as typed. `#` offers only cards
+  an account; it is derived from the text, so it goes only where the
+  text goes, and a name the player typed goes as typed. `#` offers only cards
   the seat's own view shows face up outside other players' hands
   (`bugreport::refs`), so no reference can name a hidden card.
 - **Every attachment starts selected (owner, 10.10.2026).** Each box below
@@ -800,9 +875,16 @@ report once it has it is theirs to describe.
   backtrace and the build, and the system details only if that box is
   ticked. The file is deleted once the gateway has it (or has
   refused it for good); unanswered, it waits for the next start.
-- **Consent is per device** (`client-settings.json`, `reports`), shown and
-  changed in the form itself: un-ticking a box, or the crash box, is the
-  revocation, and holds from the next report on.
+- **Attachments are a choice before sending, not a consent** (owner,
+  13.10.2026): the boxes are an opt-out the player uses before pressing
+  Send (the legal basis the owner names for them is legitimate interest),
+  and nothing is sent before Send. The form and its tour call them a
+  choice, never a consent. The choice is kept per device
+  (`client-settings.json`, `reports`), shown and changed in the form
+  itself; un-ticking a box holds from the next report on.
+- **Crash reports stay a consent**, asked once (`CrashConsent`) and kept
+  per device the same way; un-ticking the crash box withdraws it from the
+  next crash on.
 - **Game records (#315):** the gateway keeps each game's full record in
   its database without a time limit; the record numbers its seats and
   names nobody (see "Game records and reports" above).
@@ -833,6 +915,31 @@ that posts, from the visitor's browser, to the feedback service's
 - **Who can read them:** the admins of the feedback service's web UI
   (`baylee-feedback admin add`), signed in.
 
+## The Impressum
+
+The landing page's Impressum (`web/site/impressum.html`) gets its details
+from the feedback service for a solved proof of work
+(`docs/feedback.md` §"The Impressum: `/site/impressum`").
+
+| What | Where | Kept | Removed by |
+| --- | --- | --- | --- |
+| The operator's details (name, postal address, e-mail address, telephone) | a private file on the owner's machine and, as an obfuscated blob, on the server (`FEEDBACK_IMPRESSUM_BLOB`); never in the repository | as long as the Impressum is needed | the owner |
+| Challenges asked per address (an IPv6 address by its /64), with their times | the feedback service's memory | an hour; a restart forgets them | the counter itself; never written down or logged |
+| Addresses that asked the honeypot (a link no person sees) | the feedback service's memory | 24 hours; a restart forgets them | the mark's own expiry; never written down or logged |
+| Challenges already answered (random numbers, no address) | the feedback service's memory | until the challenge expires (5 minutes) | the service |
+| How often the honeypot was asked since the start (a number) | the feedback service's log | as the log is kept | log rotation |
+
+What the page sends along with a challenge is three yes/no answers about
+its own browser (`navigator.webdriver`, whether it names languages,
+whether WebGL draws in software), used for that one challenge's
+difficulty and not kept. No cookie, no third party, no fingerprint. Nothing
+bans an address (owner, 13.10.2026: no fail2ban), and no access log is
+written for the site (`scripts/server/site.caddy`).
+
+The website's own privacy notice for visitors is `web/site/datenschutz.html`
+(Art. 13 GDPR, both languages); it is drawn from this inventory and must
+change with it.
+
 ## Open points
 
 Found while writing this inventory. They are facts for the owner and the PM
@@ -858,6 +965,8 @@ to weigh, not conclusions.
    (migrations `m20260927_000009`, `m20261006_000013`; held by
    `baylee-db/tests/schema.rs`): an account's deletion cuts its link to
    every record, and the game, between numbered seats, stays. Training and
-   balancing read only the anonymised export (above).
+   balancing read only the anonymised export (above). Records are never
+   deleted (owner, 13.10.2026); the terms must say so before the gateway is
+   public.
 6. **Reports:** a screenshot can show other players' names, and the text
    the player writes can contain anything; neither is filtered.

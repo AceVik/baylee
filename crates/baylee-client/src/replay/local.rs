@@ -13,6 +13,16 @@ use baylee_gamehost::record::Line;
 
 /// The folder the kept records live in (`crate::records`).
 const FOLDER: &str = "records";
+/// The archived ones, under it: out of the list, out of the retention's
+/// reach (it trims the folder's own files only), there to be brought back.
+const ARCHIVE: &str = "archive";
+
+/// The kept records' folder, and its archive.
+fn folders() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    let folder = crate::settings::store::folder(FOLDER)?;
+    let archive = folder.join(ARCHIVE);
+    Some((folder, archive))
+}
 
 /// Plays `record` (JSON Lines, inflated) again from `perspective` and reads
 /// what the perspective is shown into a tape, reporting progress in
@@ -91,20 +101,33 @@ pub fn read(file: &str) -> Option<Vec<u8>> {
     if !baylee_client_core::bugreport::is_record_file_name(file) {
         return None;
     }
-    let path = crate::settings::store::folder(FOLDER)?.join(file);
-    let gzip = std::fs::read(path).ok()?;
+    let (folder, archive) = folders()?;
+    let gzip = std::fs::read(folder.join(file))
+        .or_else(|_| std::fs::read(archive.join(file)))
+        .ok()?;
     baylee_client_core::bugreport::inflate(&gzip)
 }
 
-/// Deletes a kept record (the Replays list's Delete…). Only a file the
-/// records' own name pattern names, and only in their folder.
-pub fn delete(file: &str) {
+/// Archives a kept record, or brings it back (the Replays list's Archive
+/// and Unarchive): the file moves between the folder and its archive.
+/// Nothing is deleted. Only a file the records' own name pattern names.
+///
+/// # Errors
+/// The move failed, in the file system's words.
+pub fn archive(file: &str, archived: bool) -> Result<(), String> {
     if !baylee_client_core::bugreport::is_record_file_name(file) {
-        return;
+        return Err("not a kept record".to_string());
     }
-    if let Some(folder) = crate::settings::store::folder(FOLDER) {
-        let _ = std::fs::remove_file(folder.join(file));
+    let (folder, archive) = folders().ok_or("no settings folder")?;
+    let (from, to) = if archived {
+        (folder.join(file), archive.join(file))
+    } else {
+        (archive.join(file), folder.join(file))
+    };
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
+    std::fs::rename(from, to).map_err(|e| e.to_string())
 }
 
 /// The preset a record was built from: its header's.
@@ -158,20 +181,29 @@ pub fn summary(record: &[u8]) -> Option<LocalSummary> {
 /// called in a row.
 #[must_use]
 pub fn entries(build: &str, you: &str) -> Vec<Entry> {
-    let Some(folder) = crate::settings::store::folder(FOLDER) else {
+    let Some((folder, archive)) = folders() else {
         return Vec::new();
     };
-    let Ok(dir) = std::fs::read_dir(folder) else {
-        return Vec::new();
+    let names = |dir: &std::path::Path| -> Vec<String> {
+        std::fs::read_dir(dir)
+            .map(|d| {
+                d.filter_map(Result::ok)
+                    .filter_map(|file| file.file_name().into_string().ok())
+                    .filter(|name| baylee_client_core::bugreport::is_record_file_name(name))
+                    .collect()
+            })
+            .unwrap_or_default()
     };
-    let mut entries: Vec<Entry> = dir
-        .filter_map(Result::ok)
-        .filter_map(|file| file.file_name().into_string().ok())
-        .filter(|name| baylee_client_core::bugreport::is_record_file_name(name))
-        .filter_map(|name| {
+    let kept = names(&folder).into_iter().map(|n| (n, false));
+    let archived = names(&archive).into_iter().map(|n| (n, true));
+    let mut entries: Vec<Entry> = kept
+        .chain(archived)
+        .filter_map(|(name, archived)| {
             let record = read(&name)?;
             let summary = summary(&record)?;
-            Some(Entry::of_record(&name, &summary, build, you))
+            let mut entry = Entry::of_record(&name, &summary, build, you);
+            entry.archived = archived;
+            Some(entry)
         })
         .collect();
     entries.sort_by_key(|e| std::cmp::Reverse(e.started));

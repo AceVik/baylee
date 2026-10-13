@@ -54,6 +54,11 @@ pub struct GatewayInfo {
     /// `None` on a gateway without terms or from before them. At most 64
     /// characters, as the gateway allows; a longer one is dropped.
     pub terms: Option<String>,
+    /// Its operator's legal notice (Impressum, `BAYLEE_IMPRESSUM_URL`), or
+    /// `None` when it names none. Only a plain `https://` address with a
+    /// host is kept ([`legal_address`]); the client draws it as a link
+    /// with that host in sight ([`address_host`]).
+    pub impressum: Option<String>,
 }
 
 /// `GET /info` as it arrives.
@@ -73,6 +78,8 @@ struct Wire {
     source: Option<String>,
     #[serde(default)]
     terms: Option<String>,
+    #[serde(default)]
+    impressum: Option<String>,
 }
 
 impl GatewayInfo {
@@ -92,6 +99,7 @@ impl GatewayInfo {
             terms: wire.terms.filter(|t| {
                 !t.is_empty() && t.chars().count() <= 64 && !t.chars().any(char::is_control)
             }),
+            impressum: wire.impressum.as_deref().and_then(legal_address),
         })
     }
 
@@ -165,6 +173,41 @@ pub fn web_address(raw: &str) -> Option<String> {
             .chars()
             .any(|c| c.is_whitespace() || c.is_control() || is_bidi_control(c));
     plain.then(|| url.to_string())
+}
+
+/// A legal notice's address as this client keeps it, or `None`: a
+/// [`web_address`] that is `https://` and names a host (no user before it),
+/// as the gateway requires of `BAYLEE_IMPRESSUM_URL`. A gateway may be
+/// hostile, so this is checked on the way in and again before it opens.
+#[must_use]
+pub fn legal_address(raw: &str) -> Option<String> {
+    let url = web_address(raw)?;
+    address_host(&url)?;
+    url.starts_with("https://").then_some(url)
+}
+
+/// The host an `http(s)://` address leads to, as the player is shown it
+/// beside a link so they see where it goes: `example.org` for
+/// `https://example.org/impressum`. `None` for an address with no host, or
+/// with a user before it (`https://bank.example@evil.example/`, which
+/// would show one host and open another).
+#[must_use]
+pub fn address_host(url: &str) -> Option<&str> {
+    let rest = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
+    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    (!host.is_empty() && !host.contains('@')).then_some(host)
+}
+
+/// The link a gateway's legal notice is drawn as: its checked address and
+/// the host to show beside it, or `None` when the gateway names none (or
+/// one that does not pass [`legal_address`]).
+#[must_use]
+pub fn impressum_link(info: &GatewayInfo) -> Option<(String, String)> {
+    let url = legal_address(info.impressum.as_deref()?)?;
+    let host = address_host(&url)?.to_string();
+    Some((url, host))
 }
 
 /// Unicode's embeddings, overrides and isolates: characters that are not
@@ -280,6 +323,7 @@ mod tests {
             view_version: view,
             source: None,
             terms: None,
+            impressum: None,
         })
     }
 
@@ -371,6 +415,128 @@ mod tests {
         let older = GatewayInfo::read(br#"{"protocol_version":1,"view_version":1}"#)
             .expect("a gateway from before #270");
         assert_eq!(older.source, None, "says nothing, so nothing is drawn");
+    }
+
+    /// A gateway's legal notice (Impressum) is kept only as a plain
+    /// `https://` address with a host and nobody before it: anything else
+    /// would show one place and open another, and is not kept at all.
+    #[test]
+    fn an_impressum_address_is_kept_only_as_a_plain_https_address_with_a_host() {
+        let read = |impressum: &str| {
+            let body = serde_json::json!({
+                "impressum": impressum, "protocol_version": 1, "view_version": 1,
+            });
+            GatewayInfo::read(body.to_string().as_bytes())
+                .expect("an answer")
+                .impressum
+        };
+        assert_eq!(
+            read(" https://example.org/impressum ").as_deref(),
+            Some("https://example.org/impressum"),
+            "the ends are trimmed"
+        );
+        assert_eq!(
+            read("https://example.org:8443/legal?lang=de#top").as_deref(),
+            Some("https://example.org:8443/legal?lang=de#top")
+        );
+        let longest = format!("https://{}", "a".repeat(MAX_SOURCE_CHARS - 8));
+        assert_eq!(read(&longest).as_deref(), Some(longest.as_str()));
+        for dropped in [
+            format!("{longest}a"),
+            "http://example.org/impressum".to_string(),
+            "example.org/impressum".to_string(),
+            "javascript:alert(1)".to_string(),
+            "file:///etc/passwd".to_string(),
+            "https://".to_string(),
+            "https:///impressum".to_string(),
+            "https://?x=1".to_string(),
+            // Shows `bank.example`, opens `evil.example`.
+            "https://bank.example@evil.example/x".to_string(),
+            "https://example.org/a b".to_string(),
+            "https://example.org/\nimpressum".to_string(),
+            "https://example.org/\u{202E}mussertpmi".to_string(),
+            String::new(),
+        ] {
+            assert_eq!(read(&dropped), None, "{dropped:?}");
+        }
+        let null =
+            GatewayInfo::read(br#"{"impressum":null,"protocol_version":1,"view_version":1}"#)
+                .expect("an answer");
+        assert_eq!(null.impressum, None, "a gateway with none says null");
+        let older = GatewayInfo::read(br#"{"protocol_version":1,"view_version":1}"#)
+            .expect("a gateway from before the Impressum");
+        assert_eq!(older.impressum, None, "says nothing, so nothing is drawn");
+    }
+
+    #[test]
+    fn the_host_beside_a_link_is_the_one_it_opens() {
+        for (url, host) in [
+            ("https://example.org/impressum", "example.org"),
+            ("https://example.org", "example.org"),
+            ("http://example.org/x", "example.org"),
+            ("https://example.org:8443/x", "example.org:8443"),
+            ("https://example.org?lang=de", "example.org"),
+            ("https://example.org#top", "example.org"),
+            ("https://[::1]/legal", "[::1]"),
+        ] {
+            assert_eq!(address_host(url), Some(host), "{url}");
+        }
+        for none in [
+            "https://",
+            "https:///impressum",
+            "https://?x=1",
+            "https://#top",
+            "https://bank.example@evil.example/",
+            "https://user:pass@example.org/",
+            "ftp://example.org/",
+            "example.org",
+            "",
+        ] {
+            assert_eq!(address_host(none), None, "{none:?}");
+        }
+    }
+
+    #[test]
+    fn a_legal_address_is_https_with_a_host() {
+        assert_eq!(
+            legal_address(" https://example.org/impressum "),
+            Some("https://example.org/impressum".to_string())
+        );
+        for refused in [
+            "http://example.org/impressum",
+            "https://",
+            "https://user@example.org/",
+            "https://example.org/a b",
+            "javascript:alert(1)",
+        ] {
+            assert_eq!(legal_address(refused), None, "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn the_link_is_the_checked_address_and_its_host() {
+        let with = |impressum: Option<&str>| GatewayInfo {
+            impressum: impressum.map(str::to_string),
+            ..GatewayInfo::default()
+        };
+        assert_eq!(
+            impressum_link(&with(Some("https://example.org/impressum"))),
+            Some((
+                "https://example.org/impressum".to_string(),
+                "example.org".to_string()
+            ))
+        );
+        assert_eq!(impressum_link(&with(None)), None);
+        // Whatever got into the struct without `read` (a settings file, a
+        // test, a later change) is checked again here.
+        for planted in [
+            "http://example.org/impressum",
+            "https://bank.example@evil.example/",
+            "https://example.org/\u{202E}x",
+            "https://",
+        ] {
+            assert_eq!(impressum_link(&with(Some(planted))), None, "{planted:?}");
+        }
     }
 
     #[test]

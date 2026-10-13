@@ -224,6 +224,19 @@ fn admin(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
     (status, body)
 }
 
+/// Opens `ids` to every registered account through the console.
+fn open_to_registered(admin_port: u16, ids: &[&str]) {
+    for id in ids {
+        let (status, body) = admin(
+            admin_port,
+            "PUT",
+            &format!("/admin/llm/access/{id}"),
+            r#"{"policy":"registered"}"#,
+        );
+        assert_eq!(status, 200, "{body}");
+    }
+}
+
 fn profiles(port: u16, session: &str) -> Vec<Value> {
     let (status, body) = http(port, "GET", "/lobby/llm-profiles", Some(session), "");
     assert_eq!(status, 200, "{body}");
@@ -315,6 +328,9 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         .unwrap();
     let _agent = attach_agent(&gw).await;
     let http_base = format!("http://127.0.0.1:{port}");
+    // A new profile is open to nobody; these three are opened to every
+    // registered account (`e2e_hosted_access` holds the policies).
+    open_to_registered(admin_port, &["sonnet", "opus", "haiku"]);
 
     // Seat agent "a" on the unix socket holds sonnet and opus, opus with a
     // cap of one dollar a day and a book that spent two; "b" over TCP holds
@@ -383,7 +399,7 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     let session = Session::from_token(host.clone());
     let first = room(&lobby, &session).await;
 
-    // A guest may list the models and may not seat one.
+    // A guest is shown no model and may not seat one.
     let (status, body) = http(
         port,
         "POST",
@@ -393,7 +409,7 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     );
     assert_eq!(status, 200, "{body}");
     let guest = json_field(&body, "token").to_string();
-    assert_eq!(profiles(port, &guest).len(), 2);
+    assert_eq!(profiles(port, &guest).len(), 0);
     let guest_room = room(&lobby, &Session::from_token(guest.clone())).await;
     let (status, body) = order(port, &guest, &guest_room.game_id, "sonnet");
     assert_eq!(status, 403, "{body}");
@@ -405,7 +421,8 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     let (status, body) = order(port, &host, &first.game_id, "opus");
     assert_eq!(status, 409, "{body}");
     assert!(body.contains("exhausted"), "{body}");
-    assert_eq!(order(port, &host, &first.game_id, "nothing").0, 409);
+    // A profile with no policy is open to nobody, known or not.
+    assert_eq!(order(port, &host, &first.game_id, "nothing").0, 403);
 
     // Two orders of sonnet go to the two seat agents; a third finds both
     // at their bound.
@@ -720,6 +737,12 @@ async fn hosted_seat_processes() {
     let admin_port_file = std::env::temp_dir().join(format!("baylee-gw-hostedp-{id}.admin"));
     let gw = spawn("hostedp", &socket, &admin_port_file);
     let port = gw.port;
+    let admin_port: u16 = std::fs::read_to_string(&admin_port_file)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    open_to_registered(admin_port, &["fake"]);
     let _agent = attach_agent(&gw).await;
     let http_base = format!("http://127.0.0.1:{port}");
 

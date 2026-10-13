@@ -11,6 +11,9 @@
 //!   the admins' "offline now" ([`alive`]).
 //! - `POST /site/contact`: a message from the landing page's contact form,
 //!   from the configured page origins only ([`contact`]).
+//! - `GET /site/impressum/challenge`, `POST /site/impressum`: the landing
+//!   page's Impressum details for a solved proof of work, and
+//!   `GET /site/impressum/kontakt`, a honeypot ([`impressum`]).
 //! - `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`: the
 //!   read token (or the admin token).
 //! - `PATCH /reports/{id}` (status), `DELETE /reports/{id}`: the admin token.
@@ -30,6 +33,7 @@ pub mod alive;
 pub mod console;
 pub mod contact;
 pub mod direct;
+pub mod impressum;
 pub mod migration;
 pub mod moderation;
 pub mod ui;
@@ -98,20 +102,25 @@ pub struct Config {
     /// `FEEDBACK_CONTACT_ORIGINS`: the pages whose contact form may post
     /// here ([`contact`]); empty = the route is off.
     contact_origins: Vec<String>,
+    /// `FEEDBACK_IMPRESSUM_KEY` and `FEEDBACK_IMPRESSUM_BLOB` ([`impressum`]);
+    /// `None` = the Impressum routes answer 503.
+    impressum: Option<impressum::Settings>,
 }
 
 impl Config {
     /// Reads `FEEDBACK_GATEWAY_TOKENS`, `FEEDBACK_READ_TOKEN`,
     /// `FEEDBACK_ADMIN_TOKEN`, `FEEDBACK_DIRECT_KEY`,
-    /// `FEEDBACK_GATEWAY_ADMIN_URL`, `FEEDBACK_GATEWAY_ADMIN_TOKEN` and
-    /// `FEEDBACK_CONTACT_ORIGINS`.
+    /// `FEEDBACK_GATEWAY_ADMIN_URL`, `FEEDBACK_GATEWAY_ADMIN_TOKEN`,
+    /// `FEEDBACK_CONTACT_ORIGINS`, `FEEDBACK_IMPRESSUM_KEY` and
+    /// `FEEDBACK_IMPRESSUM_BLOB`.
     ///
     /// # Errors
     ///
     /// When a value is malformed; see [`Config::new`],
     /// [`Config::with_direct_key`], [`Config::with_gateway_admin`] and
-    /// [`Config::with_contact_origins`]. One of the gateway admin's two
-    /// without the other is malformed too.
+    /// [`Config::with_contact_origins`] and [`Config::with_impressum`]. One
+    /// of the gateway admin's two, or of the Impressum's two, without the
+    /// other is malformed too.
     pub fn from_env() -> Result<Self> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
         let config = Self::new(
@@ -126,6 +135,19 @@ impl Config {
         let config = match var("FEEDBACK_CONTACT_ORIGINS") {
             Some(origins) => config.with_contact_origins(&origins)?,
             None => config,
+        };
+        let config = match (
+            var("FEEDBACK_IMPRESSUM_KEY"),
+            var("FEEDBACK_IMPRESSUM_BLOB"),
+        ) {
+            (Some(key), Some(blob)) => config.with_impressum(&key, &blob)?,
+            (None, None) => config,
+            (Some(_), None) => {
+                bail!("FEEDBACK_IMPRESSUM_KEY is set, and FEEDBACK_IMPRESSUM_BLOB is not")
+            }
+            (None, Some(_)) => {
+                bail!("FEEDBACK_IMPRESSUM_BLOB is set, and FEEDBACK_IMPRESSUM_KEY is not")
+            }
         };
         match (
             var("FEEDBACK_GATEWAY_ADMIN_URL"),
@@ -220,6 +242,38 @@ impl Config {
         Ok(self)
     }
 
+    /// Hands out the landing page's Impressum ([`impressum`]): challenges
+    /// signed with `key`, the details read from the file `blob`.
+    ///
+    /// # Errors
+    ///
+    /// When `key` is shorter than [`impressum::MIN_KEY_CHARS`] or is one of
+    /// the service's tokens or keys, or `blob` is no Impressum blob
+    /// ([`impressum::Settings::new`]).
+    pub fn with_impressum(mut self, key: &str, blob: &str) -> Result<Self> {
+        let h = hash(key);
+        let taken = self.gateways.iter().any(|(_, t)| *t == h)
+            || self.read == Some(h)
+            || self.admin == Some(h)
+            || self.direct == Some(h)
+            || self
+                .gateway_admin
+                .as_ref()
+                .is_some_and(|g| g.token_hash() == h);
+        if taken {
+            bail!("FEEDBACK_IMPRESSUM_KEY: that key is already a token");
+        }
+        let settings = impressum::Settings::new(key, blob)?;
+        debug_assert_eq!(settings.key_hash(), h);
+        self.impressum = Some(settings);
+        Ok(self)
+    }
+
+    /// The Impressum's settings, when it is handed out.
+    pub(crate) fn impressum(&self) -> Option<&impressum::Settings> {
+        self.impressum.as_ref()
+    }
+
     /// Whether `origin` (an `Origin` header) may post contact messages.
     pub(crate) fn contact_origin(&self, origin: &str) -> bool {
         self.contact_origins
@@ -282,6 +336,7 @@ impl Config {
             direct: None,
             gateway_admin: None,
             contact_origins: Vec::new(),
+            impressum: None,
         })
     }
 
@@ -391,6 +446,14 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
                 axum::extract::DefaultBodyLimit::max(contact::MAX_BODY_BYTES),
             ),
         )
+        .route(
+            "/site/impressum",
+            post(impressum::post)
+                .options(impressum::preflight)
+                .layer(axum::extract::DefaultBodyLimit::max(4096)),
+        )
+        .route("/site/impressum/challenge", get(impressum::get_challenge))
+        .route("/site/impressum/kontakt", get(impressum::honeypot))
         .route("/reports", get(list))
         .route("/reports/{id}", get(one).patch(set_status).delete(remove))
         .route("/reports/{id}/record", get(record))

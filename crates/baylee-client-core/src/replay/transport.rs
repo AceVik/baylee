@@ -38,6 +38,8 @@ pub enum Command {
     Faster,
     /// One speed down.
     Slower,
+    /// This speed (the bar's speed pills).
+    SetSpeed(Speed),
     /// Time passed (the virtual clock's, so a paused clock holds a replay).
     Tick(Duration),
 }
@@ -80,6 +82,18 @@ impl Speed {
             Self::Two => 2.0,
             Self::Four => 4.0,
             Self::Eight => 8.0,
+        }
+    }
+
+    /// How the bar's pills write it, without the sign.
+    #[must_use]
+    pub const fn short(self) -> &'static str {
+        match self {
+            Self::Half => "\u{bd}",
+            Self::One => "1",
+            Self::Two => "2",
+            Self::Four => "4",
+            Self::Eight => "8",
         }
     }
 
@@ -218,6 +232,10 @@ impl Transport {
             }
             Command::Slower => {
                 self.speed = self.speed.slower();
+                None
+            }
+            Command::SetSpeed(speed) => {
+                self.speed = speed;
                 None
             }
             Command::Tick(dt) => self.tick(dt, timeline),

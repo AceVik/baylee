@@ -20,7 +20,7 @@ use super::*;
 
 pub(super) mod ai_log;
 pub(super) mod drawer;
-pub(super) mod log;
+pub(crate) mod log;
 pub(super) mod menu;
 pub(super) mod players;
 pub(super) mod pool;
@@ -180,6 +180,9 @@ pub struct LedgeRevision {
     /// The window's width, rounded to whole pixels: it is what decides
     /// whether the question keeps its keycaps.
     pub(super) window_w: i32,
+    /// Whether the table plays a replay: the replay bar stands in the
+    /// shelf's place and the hand's tools step aside for it.
+    pub(super) replay: bool,
 }
 
 impl LedgeRevision {

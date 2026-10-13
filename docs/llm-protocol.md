@@ -92,6 +92,8 @@ sentence ending in one. A keyword's reminder after a cost or a number
 precons' cards (estimated tokens, 2026-10-06): full prefix 4,685 → 4,508
 (−3.8 %; the corpus decks' parentheses were 9–12 % of their prefix, most
 of them after a cost or a number, which stay); the names prefix 677.
+Those numbers predate 13.10.2026, when the seats' display names and the
+deck's own name left the prefix (a few tokens fewer; not re-measured).
 
 ## The cache
 

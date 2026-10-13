@@ -800,6 +800,10 @@ pub enum LobbyRequest {
         seat: Option<u32>,
         /// The room's password, for a locked room.
         password: String,
+        /// A friend's table invite (beta.8 social §8.3): it stands in for
+        /// the password and is spent by the join. Additive: an older
+        /// gateway ignores it.
+        invite: Option<String>,
     },
     /// `POST /lobby/games/{id}/seat` — the ticket for a chair this player is
     /// already sitting in.
@@ -1733,6 +1737,12 @@ impl Lobby {
         self.write(message.into(), Tone::Refusal);
     }
 
+    /// Writes a sentence of this client's own that is news, not a refusal
+    /// (a replay archived), already in the player's language.
+    pub fn note_said(&mut self, message: impl Into<String>) {
+        self.write(message.into(), Tone::Note);
+    }
+
     /// Says one of the client's own sentences, in the language it is set to.
     pub(crate) fn note(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();
@@ -2597,6 +2607,22 @@ impl Lobby {
     /// Sits down in a named chair, sending whatever is in the room password
     /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
+        self.join_with(game_id, seat, None)
+    }
+
+    /// Sits down at a friend's table their invite named (the beta.8 social
+    /// design §11.7): the selected deck, the first free chair, and the
+    /// invite in the password's place.
+    pub fn join_invited(&mut self, game_id: &str, invite: &str) -> Option<LobbyRequest> {
+        self.join_with(game_id, None, Some(invite.to_string()))
+    }
+
+    fn join_with(
+        &mut self,
+        game_id: &str,
+        seat: Option<u32>,
+        invite: Option<String>,
+    ) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() {
             return None;
         }
@@ -2605,7 +2631,12 @@ impl Lobby {
             .and_then(|at| self.decks.get(at))
             .map(|d| d.id.clone())
             .unwrap_or_default();
-        let password = self.room_password.text().to_string();
+        // An invite stands in for the password: the box is not sent with it.
+        let password = if invite.is_some() {
+            String::new()
+        } else {
+            self.room_password.text().to_string()
+        };
         self.room_password.clear();
         self.busy = true;
         // A table only starts once every chair is ready and the host says go,
@@ -2618,6 +2649,7 @@ impl Lobby {
             deck_id,
             seat,
             password,
+            invite,
         })
     }
 
@@ -3154,6 +3186,9 @@ impl Lobby {
     fn forget_the_session(&mut self) {
         self.me = None;
         self.stats = None;
+        // Which hosted models are open is the account's own.
+        self.hosted_profiles.clear();
+        self.hosted_listed = false;
         self.deleting = None;
         self.account_password.clear();
         self.close_library();

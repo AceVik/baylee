@@ -135,6 +135,7 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
     match press {
         FrontPress::OpenSource => web_address(super::front::source_address(state)),
         FrontPress::OpenDiscord => web_address(DISCORD_URL),
+        FrontPress::OpenImpressum => super::front::impressum_link(state).map(|(url, _)| url),
         _ => None,
     }
 }

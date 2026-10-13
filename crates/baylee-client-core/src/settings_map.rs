@@ -310,6 +310,8 @@ pub enum Row {
     UsageCount,
     /// The report form.
     ReportProblem,
+    /// The chat's privacy sheet (beta.8).
+    ChatPrivacy,
 }
 
 /// One row of the map.
@@ -663,6 +665,13 @@ pub const ROWS: &[RowDef] = &[
         P::ShellReportProblem,
         P::HelpReportProblem,
     ),
+    def(
+        Row::ChatPrivacy,
+        S::Privacy,
+        D,
+        P::ShellChatPrivacy,
+        P::HelpChatPrivacy,
+    ),
 ];
 
 /// The map's entry for `row`.
@@ -877,5 +886,34 @@ mod tests {
             "no updater there"
         );
         assert_eq!(Section::typed("", Lang::En, Builds::DESKTOP), None);
+    }
+
+    /// The chat's privacy row stands in Privacy and a search for "chat"
+    /// finds it in either language, by its label and its help.
+    #[test]
+    fn chat_and_privacy_is_a_privacy_row_found_by_chat_in_both_languages() {
+        assert_eq!(of(Row::ChatPrivacy).section, Section::Privacy);
+        assert_eq!(of(Row::ChatPrivacy).label, Phrase::ShellChatPrivacy);
+        assert_eq!(of(Row::ChatPrivacy).help, Phrase::HelpChatPrivacy);
+        assert!(
+            rows_of(Section::Privacy, Builds::DESKTOP, 1).any(|d| d.row == Row::ChatPrivacy),
+            "drawn in the Privacy section"
+        );
+        for lang in [Lang::En, Lang::De] {
+            assert!(
+                search("chat", lang, Builds::DESKTOP, 1).contains(&Row::ChatPrivacy),
+                "{lang:?}"
+            );
+        }
+        // The German label is found by its own words, umlaut folded.
+        assert_eq!(
+            Phrase::ShellChatPrivacy.text(Lang::De),
+            "Chat & Privatsph\u{e4}re"
+        );
+        assert!(search("privatsphaere", Lang::De, Builds::DESKTOP, 1).contains(&Row::ChatPrivacy));
+        // The browser and the phone draw it too: it needs no desktop mechanism.
+        for builds in [Builds::WEB, Builds::PHONE] {
+            assert!(search("chat", Lang::En, builds, 1).contains(&Row::ChatPrivacy));
+        }
     }
 }
