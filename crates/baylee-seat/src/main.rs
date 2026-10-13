@@ -31,12 +31,12 @@
 
 use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
-use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
 use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyEntry, KeyStore};
-use baylee_client_core::llmseat::ledger::Moment;
+use baylee_client_core::llmseat::ledger::{Book, Moment};
 use baylee_client_core::llmseat::seating::Order;
+use baylee_client_core::llmseat::{Caps, DEFAULT_THINK_SECS};
 use baylee_client_core::{say, say_err};
-use baylee_protocol::v1::SeatMind;
+use baylee_protocol::v1::{SeatMind, seat_mind};
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
@@ -267,6 +267,21 @@ struct Join {
     /// Sit at a table that gives a question 30 seconds or fewer.
     #[arg(long)]
     allow_blitz: bool,
+    /// A profile that takes the chair over when the model is rate limited
+    /// or busy (HTTP 429, or the endpoint's `rate_limited` or `busy`), from
+    /// the question it could not answer to the end of the game: a language
+    /// model behind an API, behind one too, reserved in its own spend book
+    /// as it takes over (`docs/llm-seat.md` §"A fallback profile").
+    #[arg(long)]
+    fallback_profile: Option<String>,
+    /// The settings file the fallback profile is in [default: the
+    /// model's].
+    #[arg(long, requires = "fallback_profile")]
+    fallback_config: Option<PathBuf>,
+    /// The fallback's spend book [default: the model's `--ledger` when both
+    /// are in one settings file, else the book beside the fallback's].
+    #[arg(long, requires = "fallback_profile")]
+    fallback_ledger: Option<PathBuf>,
 }
 
 /// What decides.
@@ -378,17 +393,7 @@ fn choose(
         Some(MindKind::Llm(spec)) => Some(spec),
         None => None,
     };
-    let paths = Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), env);
-    let file = paths.load().map_err(anyhow::Error::msg)?;
-    let planned = config::plan(
-        spec,
-        file.as_ref(),
-        &paths,
-        join.profile.as_deref(),
-        &join.overrides(),
-    )
-    .map_err(anyhow::Error::msg)?;
-    let Some(plan) = planned else {
+    let Some(reachable) = reach(join, spec, args, env, keys)? else {
         // Nothing names a model: the house, as with no settings file.
         return Ok(quiet(
             Arc::new(HouseMind::new(level)),
@@ -396,31 +401,13 @@ fn choose(
             declare::house(&join.level),
         ));
     };
-    let mut plan = plan;
-    // A key the environment does not hold may be kept in the OS credential
-    // store for the address it goes to (`keys`); it is read as if it were
-    // in its variable, and nowhere else.
-    let stored = plan.key_env.as_deref().and_then(|key_env| {
-        let provider = plan.settings.provider;
-        let env_base = provider.base_env().and_then(env);
-        let base = llmseat_keys::address(provider, plan.base_url.as_deref(), env_base.as_deref())?;
-        keys::stored_key(keys, key_env, &base, env)
-    });
-    let env = |name: &str| {
-        env(name).or_else(|| {
-            (plan.key_env.as_deref() == Some(name))
-                .then(|| stored.clone())
-                .flatten()
-        })
-    };
-    no_key_in(args, &env, plan.key_env.as_deref().as_slice())?;
-    // What the mind is reached through is checked before the game reserves
-    // anything: a missing key or program refuses the game, not the book.
-    let access = llm::check(&plan, &env).map_err(anyhow::Error::msg)?;
-    plan.settings.transcripts.clone_from(&join.transcripts);
-    let caps = file.as_ref().map(|file| file.caps).unwrap_or_default();
-    let mut booked = paths
-        .book(file.is_some())
+    let Reachable {
+        mut plan,
+        access,
+        book,
+        caps,
+    } = reachable;
+    let mut booked = book
         .map(|book| {
             spend::reserve(
                 &book,
@@ -447,6 +434,237 @@ fn choose(
         declared,
     })
 }
+
+/// A language model's plan, what it is reached through, and the spend
+/// book its game is counted in under its caps: what [`choose`] reserves
+/// and builds from, and what a fallback holds until it takes over.
+struct Reachable {
+    plan: config::Plan,
+    access: llm::Access,
+    book: Option<Book>,
+    caps: Caps,
+}
+
+/// The language model `join` names (`spec`, its profile, the settings
+/// file's default), checked as far as it can be before a game reserves
+/// anything: its key or program found (env first, then `keys`), no key on
+/// the command line. `None` when nothing names a model.
+fn reach(
+    join: &Join,
+    spec: Option<&Spec>,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
+) -> anyhow::Result<Option<Reachable>> {
+    let paths = Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), env);
+    let file = paths.load().map_err(anyhow::Error::msg)?;
+    let planned = config::plan(
+        spec,
+        file.as_ref(),
+        &paths,
+        join.profile.as_deref(),
+        &join.overrides(),
+    )
+    .map_err(anyhow::Error::msg)?;
+    let Some(mut plan) = planned else {
+        return Ok(None);
+    };
+    // A key the environment does not hold may be kept in the OS credential
+    // store for the address it goes to (`keys`); it is read as if it were
+    // in its variable, and nowhere else.
+    let stored = plan.key_env.as_deref().and_then(|key_env| {
+        let provider = plan.settings.provider;
+        let env_base = provider.base_env().and_then(env);
+        let base = llmseat_keys::address(provider, plan.base_url.as_deref(), env_base.as_deref())?;
+        keys::stored_key(keys, key_env, &base, env)
+    });
+    let env = |name: &str| {
+        env(name).or_else(|| {
+            (plan.key_env.as_deref() == Some(name))
+                .then(|| stored.clone())
+                .flatten()
+        })
+    };
+    no_key_in(args, &env, plan.key_env.as_deref().as_slice())?;
+    // What the mind is reached through is checked before the game reserves
+    // anything: a missing key or program refuses the game, not the book.
+    let access = llm::check(&plan, &env).map_err(anyhow::Error::msg)?;
+    plan.settings.transcripts.clone_from(&join.transcripts);
+    Ok(Some(Reachable {
+        caps: file.as_ref().map(|file| file.caps).unwrap_or_default(),
+        book: paths.book(file.is_some()),
+        plan,
+        access,
+    }))
+}
+
+/// The command line a fallback profile plays under: `join`'s, its profile
+/// the fallback, its file and book the fallback's, and none of the flags
+/// that tune the model (they are the model's, never the fallback's: the
+/// fallback plays its own profile's answer mode, effort and budgets).
+fn fallback_join(join: &Join, profile: &str) -> Join {
+    Join {
+        mind: None,
+        profile: Some(profile.to_string()),
+        config: join.fallback_config.clone().or_else(|| join.config.clone()),
+        ledger: match (&join.fallback_ledger, &join.fallback_config) {
+            (Some(ledger), _) => Some(ledger.clone()),
+            (None, None) => join.ledger.clone(),
+            (None, Some(_)) => None,
+        },
+        effort: None,
+        default_effort: false,
+        answer: None,
+        max_tokens: None,
+        spend_usd: None,
+        spend_tokens: None,
+        spend_calls: None,
+        price_in: None,
+        price_out: None,
+        think_secs: None,
+        fallback_profile: None,
+        fallback_config: None,
+        fallback_ledger: None,
+        ..join.clone()
+    }
+}
+
+/// What a fallback that took over spends: its reservation, settled with the
+/// game, and its tally, for the closing lines.
+#[derive(Default)]
+struct FallbackSpend {
+    booked: Option<Booked>,
+    tally: Option<Arc<Mutex<Tally>>>,
+}
+
+/// [`FallbackSpend`], shared with the standby that fills it.
+type Fallen = Arc<Mutex<FallbackSpend>>;
+
+/// The fallback `join` names (`--fallback-profile`) for a model that plays
+/// behind an API (`primary`, what it declared), ready to take over: its
+/// profile read and its key found now, its game reserved in its own book
+/// only when it takes over. `Ok(None)` names none; `Err` says why none
+/// stands by, and the chair plays without one.
+fn standby(
+    join: &Join,
+    primary: &SeatMind,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
+    fallen: &Fallen,
+) -> Result<Option<bridge::Standby>, String> {
+    let Some(profile) = join.fallback_profile.as_deref() else {
+        return Ok(None);
+    };
+    if primary.kind != seat_mind::Kind::LlmApi as i32 {
+        return Err(
+            "a fallback takes over from a language model behind an API, and this chair plays none"
+                .into(),
+        );
+    }
+    let fallback = fallback_join(join, profile);
+    let Reachable {
+        mut plan,
+        access,
+        book,
+        caps,
+    } = reach(&fallback, None, args, env, keys)
+        .map_err(|e| format!("{e:#}"))?
+        .ok_or_else(|| format!("the settings file names no profile «{profile}»"))?;
+    if plan.settings.provider == llm::Provider::Cli {
+        return Err(format!(
+            "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
+        ));
+    }
+    let label = profile.to_string();
+    let fallen = Arc::clone(fallen);
+    let named = label.clone();
+    let arm = move |limit: &bridge::Limit| -> Result<bridge::Swap, String> {
+        let lifts = limit
+            .lifts_in
+            .map(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()))
+            .unwrap_or_default();
+        let mut booked = match book
+            .map(|book| {
+                spend::reserve(
+                    &book,
+                    &caps,
+                    &mut plan.settings,
+                    plan.profile.as_deref(),
+                    spend::now(),
+                )
+            })
+            .transpose()
+        {
+            Ok(booked) => booked,
+            Err(why) => {
+                say!(
+                    "the fallback {named} could not take over in turn {}: {why}; {LIMITED}{lifts}",
+                    limit.turn
+                );
+                return Err(why);
+            }
+        };
+        if let Some(booked) = &booked {
+            say!("{}", booked.sat_down());
+        }
+        let declared = declare::llm(&plan.settings);
+        let built = access.build(&plan);
+        if let Some(booked) = &mut booked {
+            booked.watch(Arc::clone(&built.tally));
+        }
+        {
+            let mut spend = fallen.lock().unwrap_or_else(PoisonError::into_inner);
+            spend.booked = booked;
+            spend.tally = Some(built.tally);
+        }
+        say!(
+            "the fallback {named} answers from turn {}: {LIMITED}{lifts}",
+            limit.turn
+        );
+        Ok(bridge::Swap {
+            mind: built.mind,
+            think: Some(Duration::from_secs(plan.think_secs)),
+            taken: None,
+            declared: Some(declared),
+        })
+    };
+    Ok(Some(bridge::Standby {
+        label,
+        arm: Box::new(arm),
+    }))
+}
+
+/// [`standby`], said: which fallback stands by, or why none does (the
+/// chair plays on without one).
+fn stand_by(
+    join: &Join,
+    primary: &SeatMind,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
+    fallen: &Fallen,
+) -> Option<bridge::Standby> {
+    match standby(join, primary, args, env, keys, fallen) {
+        Ok(Some(standby)) => {
+            say!(
+                "the fallback {} stands by: it plays on if the model is rate limited",
+                standby.label
+            );
+            Some(standby)
+        }
+        Ok(None) => None,
+        Err(why) => {
+            say!("no fallback stands by: {}", scrub(&why, None));
+            None
+        }
+    }
+}
+
+/// What a bridge says when its model is rate limited and a fallback stood
+/// by: a seat agent reads it to hold the profile back from new games
+/// until the limit lifts (`baylee-seathost`, `launch::LIMITED`).
+const LIMITED: &str = "the primary is rate limited";
 
 impl MindKind {
     fn parse(text: &str) -> Result<Self, String> {
@@ -1025,12 +1243,17 @@ async fn join_and_play(
     ticket: Option<tokio::sync::oneshot::Receiver<String>>,
     unstarted: &Unstarted,
 ) -> anyhow::Result<()> {
-    let mut seated = sit_down(join, args, env, &**keys, ticket, unstarted).await?;
+    let fallen = Fallen::default();
+    let mut seated = sit_down(join, args, env, &**keys, ticket, unstarted, &fallen).await?;
     let tally = seated.tally.clone();
     let booked: Current = Arc::new(Mutex::new(seated.booked.take()));
     let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
     let played = play_out(join, seated, show.clone(), keys, orders, &booked).await?;
     let booked = booked.lock().unwrap_or_else(PoisonError::into_inner).take();
+    let FallbackSpend {
+        booked: fallback_booked,
+        tally: fallback_tally,
+    } = std::mem::take(&mut *fallen.lock().unwrap_or_else(PoisonError::into_inner));
     report(&played);
     if let Some(show) = show {
         let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
@@ -1038,10 +1261,18 @@ async fn join_and_play(
         for line in show.summary(&played.stats, tally.as_ref()) {
             say!("{line}");
         }
+        if let (Some(fell_back), Some(tally)) = (&played.fallback, fallback_tally) {
+            let tally = tally.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            say!("the fallback {}: {}", fell_back.label, Show::spent(&tally));
+        }
     }
     if let Some(mut booked) = booked {
         booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
         say!("the game is settled in the spend book");
+    }
+    if let Some(mut booked) = fallback_booked {
+        booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
+        say!("the fallback's game is settled in its spend book");
     }
     Ok(())
 }
@@ -1058,6 +1289,8 @@ struct Seated {
     booked: Option<Booked>,
     think_secs: u64,
     declared: SeatMind,
+    /// A fallback profile standing by, if one does.
+    standby: Option<bridge::Standby>,
 }
 
 /// The name a chair played by `mind` signs in under: the prefix of what
@@ -1120,6 +1353,7 @@ async fn sit_down(
     keys: &dyn KeyStore,
     ticket: Option<tokio::sync::oneshot::Receiver<String>>,
     unstarted: &Unstarted,
+    fallen: &Fallen,
 ) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
         .with_context(|| format!("no house level called «{}»", join.level))?;
@@ -1138,6 +1372,7 @@ async fn sit_down(
     if let Some(booked) = &booked {
         say!("{}", booked.sat_down());
     }
+    let standby = stand_by(join, &declared, args, env, keys, fallen);
     let display_name = display_name(join.name.as_deref(), &label, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {
         (Some(path), _) => Deck::from_file(path)?,
@@ -1205,6 +1440,7 @@ async fn sit_down(
         booked,
         think_secs,
         declared,
+        standby,
     })
 }
 
@@ -1361,6 +1597,7 @@ async fn play_out(
         &mut transcript,
         &options,
         swaps,
+        seated.standby,
     )
     .await?;
     transcript.write_value(&serde_json::json!({ "summary": played.stats }));
@@ -1527,10 +1764,20 @@ fn report(played: &bridge::Played) {
         None if played.result.is_none() => "the room closed without a result",
         None => "ended",
     };
+    let fallback = played
+        .fallback
+        .as_ref()
+        .map(|fell| {
+            format!(
+                "; the fallback ({}) answered {} from turn {}",
+                fell.label, fell.answered, fell.turn
+            )
+        })
+        .unwrap_or_default();
     say!(
         "{outcome} after {} turns: {} questions, {} answered by standing orders, {} wakes \
          and {} payment steps, {} questions in a plan; the mind answered {}, the house {}, the least answer {}; \
-         {} fallbacks, {} refused, {} ms of model time, {} sockets",
+         {} fallbacks, {} refused, {} ms of model time, {} sockets{fallback}",
         stats.turns,
         stats.questions,
         stats.standing.total(),

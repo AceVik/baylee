@@ -1005,7 +1005,7 @@ impl ApiMind {
                 return Err(MindError::Declined(why));
             }
         }
-        let result = tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || {
             let started = Instant::now();
             let mut session_id = None;
             let result = (|| {
@@ -1047,11 +1047,14 @@ impl ApiMind {
                 seat.messages.clear();
                 seat.results.clear();
             }
-            result.map_err(|failed| scrub(&failed.why, key.as_ref()))
+            result.map_err(|failed| failed.error(key.as_ref()))
         })
         .await
-        .map_err(|e| MindError::Unavailable(format!("the call did not finish: {e}")))?;
-        result.map_err(MindError::Unavailable)
+        .unwrap_or_else(|e| {
+            Err(MindError::Unavailable(format!(
+                "the call did not finish: {e}"
+            )))
+        })
     }
 
     /// Answers `request`: from the plan or the hint where they fit, else by
@@ -1278,7 +1281,16 @@ struct Failed {
     unknown_bill: bool,
     /// The optional endpoint-owned session expired; recreate on the next call.
     session_gone: bool,
+    /// The provider said it is rate limited or busy ([`limited_by`]): the
+    /// failure is [`MindError::Limited`], which a fallback profile takes
+    /// over on.
+    limited: Option<Lifts>,
 }
+
+/// A limit, and when the provider said it lifts (`Retry-After`), if it
+/// said.
+#[derive(Clone, Copy, Debug)]
+struct Lifts(Option<Duration>);
 
 impl From<String> for Failed {
     /// A failure after the provider answered: billed, as far as anybody
@@ -1289,8 +1301,53 @@ impl From<String> for Failed {
             turned_down: false,
             unknown_bill: true,
             session_gone: false,
+            limited: None,
         }
     }
+}
+
+impl Failed {
+    /// The mind's error for this failure, its words blanked of `key`.
+    fn error(&self, key: Option<&Secret>) -> MindError {
+        let why = scrub(&self.why, key);
+        match self.limited {
+            Some(Lifts(lifts_in)) => MindError::Limited { why, lifts_in },
+            None => MindError::Unavailable(why),
+        }
+    }
+}
+
+/// The error codes an endpoint names a limit or a full house by, whatever
+/// its status: `rate_limited`, `busy`.
+const LIMIT_CODES: [&str; 2] = ["rate_limited", "busy"];
+
+/// Whether a provider's failed answer says it is rate limited or busy:
+/// HTTP 429, or an error whose `code` or `type` (in `error`, or at the top
+/// of the body) is one of [`LIMIT_CODES`].
+fn limited_by(status: u16, body: Option<&Value>) -> bool {
+    if status == 429 {
+        return true;
+    }
+    let Some(body) = body else {
+        return false;
+    };
+    let error = body.get("error");
+    [
+        error.and_then(|e| e.get("code")),
+        error.and_then(|e| e.get("type")),
+        body.get("code"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(Value::as_str)
+    .any(|code| LIMIT_CODES.contains(&code))
+}
+
+/// When a limit lifts, as a `Retry-After` header says it in seconds (an
+/// HTTP date is not read), at most a day ahead.
+fn retry_after(value: Option<&str>) -> Option<Duration> {
+    let secs = value?.trim().parse::<u64>().ok()?;
+    Some(Duration::from_secs(secs.min(86_400)))
 }
 
 impl Failed {
@@ -1346,6 +1403,12 @@ fn call(
         })?;
     let status = answer.status().as_u16();
     let success = (200..300).contains(&status);
+    let lifts_in = retry_after(
+        answer
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok()),
+    );
     if answer.status().is_redirection() {
         // Named by its status alone: where it pointed, and the body a proxy
         // may have written about it, are not read.
@@ -1364,6 +1427,7 @@ fn call(
                 Failed {
                     turned_down: matches!(status, 400 | 413),
                     session_gone: status == 410,
+                    limited: limited_by(status, None).then_some(Lifts(lifts_in)),
                     ..Failed::unbilled(why)
                 }
             }
@@ -1381,6 +1445,7 @@ fn call(
         return Err(Failed {
             turned_down: matches!(status, 400 | 413),
             session_gone: status == 410,
+            limited: limited_by(status, Some(&body)).then_some(Lifts(lifts_in)),
             ..Failed::unbilled(format!("{status}: {why}"))
         });
     }

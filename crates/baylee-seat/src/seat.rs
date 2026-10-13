@@ -524,7 +524,9 @@ impl SeatCore {
                         self.stats.fallbacks.declined += 1;
                         self.fall_back(By::House)
                     }
-                    MindError::Unavailable(_) => {
+                    // A limit the bridge's fallback did not take over
+                    // (`bridge::Standby`) is the mind unavailable.
+                    MindError::Unavailable(_) | MindError::Limited { .. } => {
                         self.stats.fallbacks.unavailable += 1;
                         self.failed()
                     }

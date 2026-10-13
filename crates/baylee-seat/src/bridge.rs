@@ -25,10 +25,25 @@
 //! An answer the core gives while there is no socket is dropped: the table
 //! asks the question again on the next socket, at the same `seq`, and the
 //! core sends the same answer then.
+//!
+//! # A fallback profile
+//!
+//! A bridge may hold a second mind in reserve ([`Standby`]): another
+//! profile, which takes the seat over when its mind says the provider is
+//! rate limited or busy ([`MindError::Limited`]). The question the mind
+//! could not answer is asked of the fallback at once, within what is left
+//! of that question's budget, so the core never hears the limit: the house
+//! does not answer and the failure does not count towards
+//! [`crate::BridgeConfig::down_after`]. The fallback is said to the table
+//! before its first answer (the record writes the change where it
+//! happened), and plays the rest of the game; the bridge never switches
+//! back (`docs/llm-seat.md` §"A fallback profile"). Where it cannot take
+//! over (its own spend book refuses, say), the limit is the mind's failure
+//! as before, the house answers, and the transcript says why.
 
 use crate::link::{SeatLink, Socket};
-use crate::mind::{Answer, Mind, MindError};
-use crate::seat::{SeatCore, Stats, Step};
+use crate::mind::{Answer, Mind, MindError, Request};
+use crate::seat::{By, SeatCore, Stats, Step};
 use crate::transcript::Transcript;
 use baylee_engine::win::GameResult;
 use baylee_protocol::v1::{Envelope, SeatMind};
@@ -74,6 +89,53 @@ pub struct Played {
     pub result: Option<GameResult>,
     /// Sockets opened, the first included.
     pub dials: u32,
+    /// How the fallback profile played, where it took over.
+    pub fallback: Option<FellBack>,
+}
+
+/// The limit a fallback is asked to take over on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Limit {
+    /// The turn of the question the mind could not answer.
+    pub turn: u32,
+    /// Why, in the provider's words ([`MindError::Limited`]).
+    pub why: String,
+    /// When the provider said the limit lifts, if it said.
+    pub lifts_in: Option<Duration>,
+}
+
+/// A fallback profile held in reserve: what takes the seat over when its
+/// mind is rate limited (the module's §"A fallback profile").
+pub struct Standby {
+    /// What it is called in the summary: the profile's name.
+    pub label: String,
+    /// Takes over, once: reserves the fallback's game in its own spend book
+    /// and builds its mind, as a [`Swap`] (its think time and its
+    /// declaration with it). `Err` says why it cannot.
+    pub arm: Arm,
+}
+
+/// [`Standby::arm`]: the fallback's mind, made when it takes over.
+pub type Arm = Box<dyn FnOnce(&Limit) -> Result<Swap, String> + Send>;
+
+impl std::fmt::Debug for Standby {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Standby")
+            .field("label", &self.label)
+            .finish_non_exhaustive()
+    }
+}
+
+/// How a fallback profile played once it took over.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct FellBack {
+    /// Its name ([`Standby::label`]).
+    pub label: String,
+    /// The turn it took over in.
+    pub turn: u32,
+    /// The answers it gave that went to the table: the mind's answers
+    /// from then on (`stats.answered.mind` counts them too).
+    pub answered: u32,
 }
 
 /// A question the mind is working on.
@@ -81,6 +143,9 @@ struct Thinking {
     question: u64,
     deadline: Instant,
     task: JoinHandle<Result<Answer, MindError>>,
+    /// The question as it was asked, kept while a fallback stands by, so
+    /// that the fallback can be asked it.
+    request: Option<Box<Request>>,
 }
 
 /// What woke the loop.
@@ -152,12 +217,14 @@ pub fn play<'a>(
     transcript: &'a mut Transcript,
     options: &'a PlayOptions,
 ) -> Playing<'a> {
-    play_swapping(link, core, mind, transcript, options, None)
+    play_swapping(link, core, mind, transcript, options, None, None)
 }
 
 /// [`play`], taking another mind whenever `swaps` hands one over: never in
 /// the middle of a question, which the mind that was asked it answers, but
-/// at the next one the seat asks a mind.
+/// at the next one the seat asks a mind. With a `fallback`, that profile
+/// takes the seat over when the mind is rate limited (the module's §"A
+/// fallback profile").
 ///
 /// # Errors
 /// As [`play`].
@@ -168,8 +235,9 @@ pub fn play_swapping<'a>(
     transcript: &'a mut Transcript,
     options: &'a PlayOptions,
     swaps: Option<Swaps>,
+    fallback: Option<Standby>,
 ) -> Playing<'a> {
-    Box::pin(run(link, core, mind, transcript, options, swaps))
+    Box::pin(run(link, core, mind, transcript, options, swaps, fallback))
 }
 
 async fn run(
@@ -179,18 +247,9 @@ async fn run(
     transcript: &mut Transcript,
     options: &PlayOptions,
     swaps: Option<Swaps>,
+    fallback: Option<Standby>,
 ) -> anyhow::Result<Played> {
-    let mut bridge = Bridge {
-        mind,
-        game_seat: None,
-        options: options.clone(),
-        thinking: None,
-        asked: None,
-        swaps,
-        rethink: None,
-        redeclare: None,
-        declaring: Vec::new(),
-    };
+    let mut bridge = Bridge::new(mind, options.clone(), swaps, fallback);
     let mut socket = link.connect().await?;
     if socket.is_none() {
         return Ok(bridge.closed(&mut core, transcript, link).await);
@@ -225,10 +284,16 @@ async fn run(
                 continue;
             }
             Woken::Frame(Some(Ok(_))) => continue,
-            Woken::Joined(joined) => match bridge.answered(&mut core, joined) {
-                Some(steps) => steps,
-                None => continue,
-            },
+            Woken::Joined(joined) => {
+                let steps = bridge.answered(&mut core, joined);
+                for note in bridge.notes.drain(..) {
+                    transcript.write_value(&note);
+                }
+                match steps {
+                    Some(steps) => steps,
+                    None => continue,
+                }
+            }
             Woken::Expired => match bridge.expired(&mut core) {
                 Some(steps) => steps,
                 None => continue,
@@ -264,6 +329,7 @@ async fn run(
                     stats: core.stats().clone(),
                     result: Some(result),
                     dials: link.dials(),
+                    fallback: bridge.fell_back.clone(),
                 });
             }
             Next::Left(reason) => {
@@ -299,11 +365,44 @@ struct Bridge {
     redeclare: Option<SeatMind>,
     /// The declaration's steps, sent ahead of the next steps carried out.
     declaring: Vec<Step>,
+    /// A fallback profile, until it takes over (or a mind handed over
+    /// makes it another profile's).
+    fallback: Option<Standby>,
+    /// How the fallback played, once it took over.
+    fell_back: Option<FellBack>,
+    /// Whether the fallback plays now: its answers are counted.
+    on_fallback: bool,
+    /// Lines for the transcript, written by the loop.
+    notes: Vec<serde_json::Value>,
 }
 
 impl Bridge {
+    fn new(
+        mind: Arc<dyn Mind>,
+        options: PlayOptions,
+        swaps: Option<Swaps>,
+        fallback: Option<Standby>,
+    ) -> Self {
+        Self {
+            mind,
+            game_seat: None,
+            options,
+            thinking: None,
+            asked: None,
+            swaps,
+            rethink: None,
+            redeclare: None,
+            declaring: Vec::new(),
+            fallback,
+            fell_back: None,
+            on_fallback: false,
+            notes: Vec::new(),
+        }
+    }
+
     /// Takes every mind handed over since the last question, the latest
-    /// last: the mind the next question is asked of.
+    /// last: the mind the next question is asked of. A mind handed over
+    /// plays another profile, so a fallback held for the old one is let go.
     fn take_swaps(&mut self) {
         let Some(swaps) = self.swaps.as_mut() else {
             return;
@@ -312,6 +411,8 @@ impl Bridge {
             if let Some((game, seat)) = &self.game_seat {
                 self.mind.end_game(game, *seat);
             }
+            self.fallback = None;
+            self.on_fallback = false;
             self.mind = swap.mind;
             self.rethink = swap.think.or(self.rethink);
             if let Some(declared) = swap.declared {
@@ -340,17 +441,119 @@ impl Bridge {
     }
 
     /// The mind answered (or its task ended): the core's steps, `None`
-    /// where no question was being thought about.
+    /// where no question was being thought about. A limit where a fallback
+    /// stands by is not the core's to hear: the fallback is asked the same
+    /// question ([`Self::take_over`]), and there is nothing to send yet.
     fn answered(
         &mut self,
         core: &mut SeatCore,
         joined: Result<Result<Answer, MindError>, tokio::task::JoinError>,
     ) -> Option<Vec<Step>> {
-        let thinking = self.thinking.take()?;
+        let Thinking {
+            question,
+            deadline,
+            request,
+            ..
+        } = self.thinking.take()?;
         let result = joined
             .unwrap_or_else(|e| Err(MindError::Unavailable(format!("the mind stopped: {e}"))));
+        let result = match (result, request) {
+            (Err(MindError::Limited { why, lifts_in }), Some(request))
+                if self.fallback.is_some() =>
+            {
+                match self.take_over(*request, question, deadline, &why, lifts_in) {
+                    Ok(()) => {
+                        // Told to the core now, so the declaration goes out
+                        // ahead of the fallback's first answer.
+                        self.settle(core);
+                        return Some(Vec::new());
+                    }
+                    Err(why) => Err(MindError::Limited { why, lifts_in }),
+                }
+            }
+            (result, _) => result,
+        };
         self.settle(core);
-        Some(core.answered(thinking.question, result))
+        Some(core.answered(question, result))
+    }
+
+    /// The fallback takes the seat over on a limit: built and reserved now
+    /// ([`Standby::arm`]), it is asked `request` within what is left before
+    /// `deadline`, and plays the rest of the game. `Err` is the limit's
+    /// sentence with why the fallback could not take over; it stands by no
+    /// longer either way.
+    fn take_over(
+        &mut self,
+        mut request: Request,
+        question: u64,
+        deadline: Instant,
+        why: &str,
+        lifts_in: Option<Duration>,
+    ) -> Result<(), String> {
+        let Some(standby) = self.fallback.take() else {
+            return Err(why.to_string());
+        };
+        let limit = Limit {
+            turn: request.view.turn,
+            why: why.to_string(),
+            lifts_in,
+        };
+        let swap = match (standby.arm)(&limit) {
+            Ok(swap) => swap,
+            Err(refused) => {
+                tracing::warn!(
+                    fallback = standby.label,
+                    refused,
+                    "the fallback could not take over"
+                );
+                self.notes.push(serde_json::json!({
+                    "fallback_refused": { "profile": standby.label, "why": refused },
+                }));
+                return Err(format!(
+                    "{why}; the fallback {} could not take over: {refused}",
+                    standby.label
+                ));
+            }
+        };
+        tracing::info!(
+            fallback = standby.label,
+            turn = limit.turn,
+            "the fallback takes over"
+        );
+        self.notes.push(serde_json::json!({
+            "fallback": { "profile": standby.label, "turn": limit.turn, "why": why },
+        }));
+        // The mind that was limited plays no more of this game.
+        if let Some((game, seat)) = &self.game_seat {
+            self.mind.end_game(game, *seat);
+        }
+        self.mind = swap.mind;
+        self.rethink = swap.think.or(self.rethink);
+        if let Some(declared) = swap.declared {
+            self.redeclare = Some(declared);
+        }
+        if let Some(taken) = swap.taken {
+            taken();
+        }
+        self.fell_back = Some(FellBack {
+            label: standby.label,
+            turn: limit.turn,
+            answered: 0,
+        });
+        self.on_fallback = true;
+        // Asked as a first asking: an answer refused before was the other
+        // mind's.
+        request.retry = None;
+        request.budget = deadline.saturating_duration_since(Instant::now());
+        let mind = Arc::clone(&self.mind);
+        let task = tokio::spawn(async move { mind.decide(request).await });
+        self.thinking = Some(Thinking {
+            question,
+            deadline,
+            task,
+            request: None,
+        });
+        Ok(())
     }
 
     /// The mind ran out of time: the core's steps, `None` where no question
@@ -402,6 +605,7 @@ impl Bridge {
             stats: core.stats().clone(),
             result: None,
             dials: link.dials(),
+            fallback: self.fell_back.clone(),
         }
     }
 
@@ -418,10 +622,17 @@ impl Bridge {
                 }
                 Step::Answer {
                     question,
+                    by,
                     paced,
                     envelope,
                     ..
                 } => {
+                    if by == By::Mind
+                        && self.on_fallback
+                        && let Some(fell_back) = self.fell_back.as_mut()
+                    {
+                        fell_back.answered += 1;
+                    }
                     if paced {
                         let since = self
                             .asked
@@ -452,12 +663,14 @@ impl Bridge {
                     }
                     let question = request.question;
                     let deadline = now + request.budget;
+                    let kept = self.fallback.is_some().then(|| request.clone());
                     let mind = Arc::clone(&self.mind);
                     let task = tokio::spawn(async move { mind.decide(*request).await });
                     if let Some(old) = self.thinking.replace(Thinking {
                         question,
                         deadline,
                         task,
+                        request: kept,
                     }) {
                         old.task.abort();
                     }
@@ -621,17 +834,12 @@ mod tests {
             })
         };
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
-        let mut bridge = Bridge {
-            mind: mind(ManaColor::Red),
-            game_seat: None,
-            options: PlayOptions::default(),
-            thinking: None,
-            asked: None,
-            swaps: Some(swaps),
-            rethink: None,
-            redeclare: None,
-            declaring: Vec::new(),
-        };
+        let mut bridge = Bridge::new(
+            mind(ManaColor::Red),
+            PlayOptions::default(),
+            Some(swaps),
+            None,
+        );
         let mut core = seated();
         let first = asked(&mut core, 2);
         // Handed over before the question reaches the mind: it is the new
@@ -698,17 +906,12 @@ mod tests {
             })
         };
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
-        let mut bridge = Bridge {
-            mind: mind(ManaColor::Red),
-            game_seat: None,
-            options: PlayOptions::default(),
-            thinking: None,
-            asked: None,
-            swaps: Some(swaps),
-            rethink: None,
-            redeclare: None,
-            declaring: Vec::new(),
-        };
+        let mut bridge = Bridge::new(
+            mind(ManaColor::Red),
+            PlayOptions::default(),
+            Some(swaps),
+            None,
+        );
         let mut core = seated();
         let swap = |think| Swap {
             mind: mind(ManaColor::Green),
@@ -748,17 +951,12 @@ mod tests {
             })
         };
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
-        let mut bridge = Bridge {
-            mind: mind(ManaColor::Red),
-            game_seat: None,
-            options: PlayOptions::default(),
-            thinking: None,
-            asked: None,
-            swaps: Some(swaps),
-            rethink: None,
-            redeclare: None,
-            declaring: Vec::new(),
-        };
+        let mut bridge = Bridge::new(
+            mind(ManaColor::Red),
+            PlayOptions::default(),
+            Some(swaps),
+            None,
+        );
         let mut core = seated();
         let first = asked(&mut core, 2);
         send.send(Swap {
@@ -820,21 +1018,14 @@ mod tests {
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
         let task = tokio::spawn(std::future::pending());
         let aborted = task.abort_handle();
-        let mut bridge = Bridge {
-            mind: mind.clone(),
-            game_seat: Some(("game-owned".into(), 2)),
-            options: PlayOptions::default(),
-            thinking: Some(super::Thinking {
-                question: 1,
-                deadline: Instant::now(),
-                task,
-            }),
-            asked: None,
-            swaps: Some(swaps),
-            rethink: None,
-            redeclare: None,
-            declaring: Vec::new(),
-        };
+        let mut bridge = Bridge::new(mind.clone(), PlayOptions::default(), Some(swaps), None);
+        bridge.game_seat = Some(("game-owned".into(), 2));
+        bridge.thinking = Some(super::Thinking {
+            question: 1,
+            deadline: Instant::now(),
+            task,
+            request: None,
+        });
         send.send(Swap {
             mind: Arc::new(Ending(ended.clone())),
             think: None,

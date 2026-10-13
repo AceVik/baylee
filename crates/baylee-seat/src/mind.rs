@@ -274,6 +274,16 @@ pub enum MindError {
     /// a process died. The house answers, and a run of these takes the mind
     /// off the table ([`crate::BridgeConfig::down_after`]).
     Unavailable(String),
+    /// The provider says the mind is rate limited or busy (HTTP 429, or
+    /// its error code `rate_limited` or `busy`): unavailable as above, and
+    /// what a fallback profile takes over on ([`crate::bridge::Standby`]).
+    Limited {
+        /// Why, in the provider's words.
+        why: String,
+        /// When the provider said the limit lifts (`Retry-After`), if it
+        /// said.
+        lifts_in: Option<std::time::Duration>,
+    },
     /// The mind will not answer this kind of question (a net trained
     /// without it, say). The house answers it, and the mind is not down.
     Declined(String),
@@ -283,6 +293,13 @@ impl std::fmt::Display for MindError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unavailable(why) => write!(f, "the mind is unavailable: {why}"),
+            Self::Limited { why, lifts_in } => {
+                write!(f, "the mind is rate limited: {why}")?;
+                match lifts_in {
+                    Some(lifts) => write!(f, " (it lifts in {} s)", lifts.as_secs()),
+                    None => Ok(()),
+                }
+            }
             Self::Declined(why) => write!(f, "the mind declined: {why}"),
         }
     }

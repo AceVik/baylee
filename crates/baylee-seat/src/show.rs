@@ -138,6 +138,25 @@ impl Show {
         }
     }
 
+    /// What `tally` counts, in one line: the tokens, the calls and the
+    /// money.
+    #[must_use]
+    pub fn spent(tally: &Tally) -> String {
+        let usage = tally.usage;
+        let money = tally
+            .usd
+            .map_or_else(|| "price unknown".to_string(), |usd| format!("${usd:.2}"));
+        let calls = tally.calls_cap.map_or_else(
+            || format!("{} calls", tally.calls),
+            |cap| format!("{} of {cap} calls", tally.calls),
+        );
+        format!(
+            "tokens: {} in, {} written to the cache, {} read from it, {} out; {calls} \
+             ({} failed); {money}",
+            usage.input, usage.cache_write, usage.cache_read, usage.output, tally.failed,
+        )
+    }
+
     /// The closing lines: decisions, who answered them, the tokens and the
     /// money, and the rule of thumb.
     #[must_use]
@@ -175,19 +194,7 @@ impl Show {
             out.push(format!("house answers: {}", why.join(", ")));
         }
         if let Some(tally) = tally {
-            let usage = tally.usage;
-            let money = tally
-                .usd
-                .map_or_else(|| "price unknown".to_string(), |usd| format!("${usd:.2}"));
-            let calls = tally.calls_cap.map_or_else(
-                || format!("{} calls", tally.calls),
-                |cap| format!("{} of {cap} calls", tally.calls),
-            );
-            out.push(format!(
-                "tokens: {} in, {} written to the cache, {} read from it, {} out; {calls} \
-                 ({} failed); {money}",
-                usage.input, usage.cache_write, usage.cache_read, usage.output, tally.failed,
-            ));
+            out.push(Self::spent(tally));
             if tally.sessions > 0 {
                 out.push(format!(
                     "conversations: {} ({} begun again after one was lost)",
@@ -252,6 +259,8 @@ fn reason_key(why: &str) -> String {
         "the model refused".into()
     } else if why.starts_with("refused by") {
         "refused twice".into()
+    } else if why.contains("rate limited") {
+        "rate limited".into()
     } else if why.contains("unavailable") {
         let tail = why.split_once(": ").map_or(why, |(_, rest)| rest);
         format!("unavailable: {}", tail.chars().take(80).collect::<String>())
