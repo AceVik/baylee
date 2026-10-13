@@ -5775,3 +5775,5 @@ mod batch52_guardian;
 mod batch52_song;
 
 mod underdome_acceptance;
+
+mod partials_w2c_kit;
