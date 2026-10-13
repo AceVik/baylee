@@ -21,6 +21,36 @@ type ReportParts<'w, 's> = (
     Query<'w, 's, &'static crate::report::ReportPreview>,
 );
 
+/// A chat control as `/state.chat` lists it: whichever press it carries,
+/// and where it is drawn.
+type ChatControl = (
+    Option<&'static crate::social::window::ChatPress>,
+    Option<&'static crate::social::drawer::DrawerPress>,
+    Option<&'static crate::social::sheet::SheetPress>,
+    Option<&'static crate::social::toasts::ToastPress>,
+    Option<&'static crate::social::menu::RowPress>,
+    &'static ComputedNode,
+    &'static UiGlobalTransform,
+    &'static InheritedVisibility,
+);
+
+/// The chat's part of what the client believes.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct ChatBelief<'w, 's> {
+    host: Option<Res<'w, crate::social::SocialHost>>,
+    ui: Option<Res<'w, crate::social::ChatUi>>,
+    controls: Query<'w, 's, ChatControl, ChatControlFilter>,
+}
+
+/// Every chat control.
+type ChatControlFilter = Or<(
+    With<crate::social::window::ChatPress>,
+    With<crate::social::drawer::DrawerPress>,
+    With<crate::social::sheet::SheetPress>,
+    With<crate::social::toasts::ToastPress>,
+    With<crate::social::menu::RowPress>,
+)>;
+
 /// Everything `/state` reads, in one parameter.
 ///
 /// A bundle rather than six more arguments on [`pump`], which is already at
@@ -38,31 +68,7 @@ pub(super) struct Believed<'w, 's> {
     report: Option<Res<'w, crate::report::ReportDesk>>,
     /// The chat (`/state.chat`): the machine and the window, and every chat
     /// control where a pointer would press it.
-    chat: (
-        Option<Res<'w, crate::social::SocialHost>>,
-        Option<Res<'w, crate::social::ChatUi>>,
-        Query<
-            'w,
-            's,
-            (
-                Option<&'static crate::social::window::ChatPress>,
-                Option<&'static crate::social::drawer::DrawerPress>,
-                Option<&'static crate::social::sheet::SheetPress>,
-                Option<&'static crate::social::toasts::ToastPress>,
-                Option<&'static crate::social::menu::RowPress>,
-                &'static ComputedNode,
-                &'static UiGlobalTransform,
-                &'static InheritedVisibility,
-            ),
-            Or<(
-                With<crate::social::window::ChatPress>,
-                With<crate::social::drawer::DrawerPress>,
-                With<crate::social::sheet::SheetPress>,
-                With<crate::social::toasts::ToastPress>,
-                With<crate::social::menu::RowPress>,
-            )>,
-        >,
-    ),
+    chat: ChatBelief<'w, 's>,
     /// The builder's virtual lists: rows found visible before they were
     /// mounted, and rows mounted (§17 WP4: "0 placeholders").
     lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
@@ -779,7 +785,7 @@ fn report_json(believed: &Believed) -> String {
 /// hold, and every chat control where a pointer would press it (`press`
 /// is its Debug spelling: `Tab(Private)`, `Accept("af03")`, …).
 fn chat_json(believed: &Believed) -> String {
-    let (host, ui, controls) = &believed.chat;
+    let ChatBelief { host, ui, controls } = &believed.chat;
     let (Some(host), Some(ui)) = (host.as_deref(), ui.as_deref()) else {
         return "null".to_string();
     };
