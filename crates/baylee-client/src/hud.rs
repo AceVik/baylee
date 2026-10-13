@@ -2259,7 +2259,7 @@ mod ledge;
 pub(crate) mod lostbanner;
 pub(crate) use ledge::ai_log::update_ai_log;
 pub(crate) mod hand_drawer;
-mod motion;
+pub(crate) mod motion;
 mod overlay;
 pub(crate) mod peeks;
 mod preview_keys;

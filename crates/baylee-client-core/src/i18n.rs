@@ -2782,6 +2782,9 @@ messages! {
     GameLogEmpty { en: "Nothing has happened yet", de: "Noch ist nichts passiert" },
     /// The game log panel has been scrolled up, and lines arrived under it.
     GameLogNewBelow { en: "New lines below", de: "Neue Zeilen unten" },
+    /// The same pill on a list scrolled well up with nothing new under it:
+    /// pressing it goes back to the newest line.
+    GameLogLatest { en: "Back to the latest", de: "Zurück zum Neuesten" },
     /// The head of the sheet that holds up cards another seat revealed.
     /// `{0}` is the seat's name. Present tense, unlike the log's line: the
     /// sheet stands while the cards are being shown (CR 701.20a).

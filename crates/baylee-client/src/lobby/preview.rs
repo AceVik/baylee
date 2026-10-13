@@ -9,9 +9,11 @@ use super::*;
 
 // ------------------------------------------------------------ hover preview
 
-/// The hover preview's band: over the lobby's sheets and menus, under a
-/// tour's bubble (`tour::draw`), which must never be hidden by it.
-pub const PREVIEW_Z: i32 = 600;
+/// The hover preview's band: over the lobby's sheets and menus and over
+/// the chat window and its pop-ups (`social::window::G_PANEL` to `+ 30`:
+/// a card linked in the chat previews beside it), under a tour's bubble
+/// (`tour::draw`), which must never be hidden by it.
+pub const PREVIEW_Z: i32 = 940;
 
 /// A row that has a card behind it, and what that card looks like.
 ///

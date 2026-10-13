@@ -726,9 +726,21 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
                     Pickable::IGNORE,
                 ),
                 (
+                    LogPillWords { unseen: true },
                     Text::new(Phrase::GameLogNewBelow.text(lang)),
                     tf(fonts, LOG_TURN_PT),
                     TextColor(palette::DIALOG_INK),
+                    Pickable::IGNORE,
+                ),
+                (
+                    LogPillWords { unseen: false },
+                    Text::new(Phrase::GameLogLatest.text(lang)),
+                    tf(fonts, LOG_TURN_PT),
+                    TextColor(palette::DIALOG_INK),
+                    Node {
+                        display: Display::None,
+                        ..default()
+                    },
                     Pickable::IGNORE,
                 ),
             ],
@@ -1216,9 +1228,11 @@ pub(crate) fn times(line: &LogLine, lang: Lang) -> Option<String> {
 /// Every frame, because the list's size is only known after layout: the rows
 /// a frame appends are measured by the next one, and the list moves to its
 /// new end then.
+#[allow(clippy::type_complexity)] // the pill's words are nodes beside the pill's own
 pub fn follow_the_log(
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &mut LogFollow), With<LogList>>,
     mut pills: Query<&mut Node, With<LogNewBelow>>,
+    mut words: Query<(&mut Node, &LogPillWords), Without<LogNewBelow>>,
 ) {
     for (mut at, computed, mut follow) in &mut lists {
         let scale = computed.inverse_scale_factor();
@@ -1238,7 +1252,10 @@ pub fn follow_the_log(
                 follow.unseen = false;
             }
         }
-        let display = if follow.unseen {
+        // Scrolled more than half a list up, the pill offers the way back
+        // even with nothing new under it.
+        let away = !follow.stuck && end - at.y > computed.size().y * scale * PILL_AWAY;
+        let display = if follow.unseen || away {
             Display::Flex
         } else {
             Display::None
@@ -1248,7 +1265,28 @@ pub fn follow_the_log(
                 pill.display = display;
             }
         }
+        for (mut node, said) in &mut words {
+            let shown = if said.unseen == follow.unseen {
+                Display::Flex
+            } else {
+                Display::None
+            };
+            if node.display != shown {
+                node.display = shown;
+            }
+        }
     }
+}
+
+/// How far up, in lists, a list is scrolled before its pill offers the way
+/// back to the newest line with nothing new under it.
+const PILL_AWAY: f32 = 0.5;
+
+/// One of the pill's two sentences: new lines below, or back to the latest.
+#[derive(Component)]
+pub struct LogPillWords {
+    /// Said when lines arrived under the list.
+    pub unseen: bool,
 }
 
 /// Opens the panel and shuts it: [`super::menu::grow_the_menu`] for this

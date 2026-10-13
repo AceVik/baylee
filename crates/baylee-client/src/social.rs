@@ -403,6 +403,9 @@ pub struct ChatUi {
     pub at_table: bool,
     /// The selection in the history, for copy.
     pub selection: Option<social::Selection>,
+    /// The first line that was unread when the shown tab was last opened:
+    /// the history draws its "New" divider above it until the tab goes.
+    pub marker: Option<(ChatTab, social::LineKey)>,
     /// The All tab's arrival stamps: chat lines by key, log lines by the
     /// book's length when they arrived.
     pub(crate) arrivals: Arrivals,
@@ -434,6 +437,7 @@ impl Default for ChatUi {
             follow: true,
             at_table: false,
             selection: None,
+            marker: None,
             arrivals: Arrivals::default(),
         }
     }

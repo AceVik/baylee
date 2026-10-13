@@ -54,7 +54,7 @@ pub(crate) enum ChatPress {
     Tab(ChatTab),
     /// The head's gear: this tab's filters.
     Gear,
-    /// The head's lock: the encryption sheet.
+    /// The encryption line under the tabs: the encryption sheet.
     Lock,
     /// The head's cross.
     Close,
@@ -137,6 +137,14 @@ pub(crate) struct Drawn {
     /// they left the phase headings.
     log_lines: usize,
     run: PhaseRun,
+    /// A chat tab's drawn lines, in the order asked, and everything else
+    /// the list was drawn from: a line more on the same list is appended.
+    chat_lines: Vec<(String, String, u8, bool)>,
+    chat_base: u64,
+    /// The tab the list shows and the newest arrival stamp drawn on it: a
+    /// row newer than that arrives with a movement.
+    shown_tab: Option<ChatTab>,
+    newest: u64,
 }
 
 /// The table's and the lobby's drawn windows.
@@ -177,11 +185,14 @@ pub(crate) fn install(app: &mut App) {
             doors,
             keep_the_tab,
             stamp_arrivals,
+            note_the_marker,
             mark_read,
             presses,
             sync_table_window
                 .after(crate::hud::sync_log)
                 .before(crate::hud::follow_the_log),
+            pop_the_lobby_chat,
+            arrive,
             sync_lobby_window,
             follow_in_the_lobby.run_if(in_state(DuelPhase::Closed)),
             wheel_in_the_lobby
@@ -192,6 +203,7 @@ pub(crate) fn install(app: &mut App) {
                     >,
                 ),
             hover_chat_links,
+            lobby_card_links.run_if(in_state(DuelPhase::Closed)),
             peek,
             filter_dialog,
         )
@@ -723,7 +735,7 @@ fn sync_lobby_window(
     lobby: Option<Res<crate::lobby::LobbyState>>,
     windows_q: Query<&Window>,
     mut windows: ResMut<Windows>,
-    mut roots: Query<(Entity, &mut Node, &mut Visibility), With<LobbyChat>>,
+    mut roots: Query<(Entity, &mut Node, &mut Visibility, &mut Pop), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
     mut shape: Local<Option<LobbyShape>>,
     slide: Res<super::drawer::DrawerSlide>,
@@ -738,7 +750,7 @@ fn sync_lobby_window(
         )
     });
     let Some(machine) = host.machine().filter(|_| !at_table && shell) else {
-        for (_, _, mut seen) in &mut roots {
+        for (_, _, mut seen, _) in &mut roots {
             seen.set_if_neq(Visibility::Hidden);
         }
         return;
@@ -746,7 +758,7 @@ fn sync_lobby_window(
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let window_h = windows_q.iter().next().map_or(720.0, Window::height);
     let height = lobby_panel_height(window_h);
-    let root = if let Some((root, _, _)) = roots.iter().next() {
+    let root = if let Some((root, ..)) = roots.iter().next() {
         root
     } else {
         commands
@@ -764,6 +776,7 @@ fn sync_lobby_window(
                 },
                 GlobalZIndex(G_PANEL),
                 Visibility::Visible,
+                Pop::default(),
             ))
             .id()
     };
@@ -776,8 +789,27 @@ fn sync_lobby_window(
     } else {
         (false, false, urgent, unread, 0)
     };
-    if let Ok((_, mut node, mut seen)) = roots.get_mut(root) {
+    if let Ok((_, mut node, mut seen, mut pop)) = roots.get_mut(root) {
         seen.set_if_neq(Visibility::Visible);
+        // A panel that was closed shrinks away as it was drawn, and only
+        // then becomes the pill; a pill that changes, or a panel that opens,
+        // pops.
+        let was_open = shape.is_some_and(|s| s.0);
+        if was_open && !ui.open {
+            if !pop.closing {
+                *pop = Pop::CLOSING;
+            }
+            if pop.t < 1.0 {
+                return;
+            }
+        }
+        let grew = shape.is_some_and(|s| !s.0 && unread > s.3);
+        if *shape != Some(now) && (was_open != ui.open || grew || shape.is_none()) {
+            *pop = Pop::OPENING;
+        } else if pop.closing && ui.open {
+            // Opened again while it shrank: it grows back from there.
+            *pop = Pop::OPENING;
+        }
         let full = ui.open && !ui.minimised;
         let want_h = if full { Val::Px(height) } else { Val::Auto };
         if node.height != want_h {
@@ -839,6 +871,70 @@ fn sync_lobby_window(
 /// What the lobby panel's frame was drawn as: open, minimised, a whisper
 /// waiting, the unread count, the drawer standing.
 type LobbyShape = (bool, bool, bool, u32, u32);
+
+/// The lobby window's opening and closing, on [`crate::hud::motion`]'s
+/// curve: it grows from the bottom-right corner it hangs off, and shrinks
+/// back into it before the pill takes its place.
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
+pub(crate) struct Pop {
+    /// How far it is, 0 → 1.
+    pub(crate) t: f32,
+    /// Shrinking away rather than growing.
+    pub(crate) closing: bool,
+}
+
+impl Pop {
+    const OPENING: Self = Self {
+        t: 0.0,
+        closing: false,
+    };
+    const CLOSING: Self = Self {
+        t: 0.0,
+        closing: true,
+    };
+}
+
+impl Default for Pop {
+    fn default() -> Self {
+        Self::OPENING
+    }
+}
+
+/// Moves each [`Pop`] a frame on (`reduce_motion`: to its end at once).
+pub(crate) fn pop_the_lobby_chat(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut roots: Query<(&mut Pop, &mut UiTransform)>,
+) {
+    use crate::hud::motion;
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    for (mut pop, mut transform) in &mut roots {
+        if pop.t >= 1.0 && !pop.closing && transform.scale == Vec2::ONE {
+            continue;
+        }
+        let span = if pop.closing {
+            motion::ZOOM_OUT
+        } else {
+            motion::ZOOM_IN
+        };
+        let t = motion::step(pop.t, span, time.delta_secs(), still);
+        if (t - pop.t).abs() > f32::EPSILON {
+            pop.t = t;
+        }
+        let scale = if pop.closing {
+            motion::shutting(pop.t)
+        } else {
+            motion::opening(pop.t)
+        };
+        let scale = if pop.t >= 1.0 && !pop.closing {
+            1.0
+        } else {
+            scale
+        };
+        transform.scale = Vec2::splat(scale);
+        transform.translation = motion::from_bottom_right(scale);
+    }
+}
 
 /// The lobby panel's height in a window this tall (SOCIAL §11.4: 38 %,
 /// between 320 and 520).
@@ -1068,18 +1164,11 @@ fn fill(
                 }
             })
             .collect();
-        let lock = tab_conv(machine, ui, ui.tab).is_some();
-        let key = key_of(&(
-            counts.clone(),
-            ui.tab,
-            lock,
-            lang as u8,
-            ui.filters.is_some(),
-        ));
+        let key = key_of(&(counts.clone(), ui.tab, lang as u8, ui.filters.is_some()));
         if key != drawn.head_key {
             drawn.head_key = key;
             commands.entity(head).despawn_children();
-            let kids = head_parts(commands, fonts, lang, &counts, ui.tab, lock, frame);
+            let kids = head_parts(commands, fonts, lang, &counts, ui.tab, frame);
             commands.entity(head).add_children(&kids);
         }
     }
@@ -1248,7 +1337,6 @@ fn head_parts(
     lang: Lang,
     counts: &[(ChatTab, u32, bool)],
     active: ChatTab,
-    lock: bool,
     frame: Frame,
 ) -> Vec<Entity> {
     let inks = frame.inks();
@@ -1328,9 +1416,7 @@ fn head_parts(
             ))
             .id()
     };
-    if lock {
-        out.push(tool(commands, glyph::LOCK, ChatPress::Lock));
-    }
+    // The lock is the line under the tabs (owner, 13.10.), not a tool here.
     out.push(tool(commands, glyph::FRIENDS, ChatPress::Friends));
     out.push(tool(commands, glyph::GEAR, ChatPress::Gear));
     if frame == Frame::Lobby {
@@ -1602,9 +1688,10 @@ fn fill_list(
                     &logpanel::PANEL_INKS,
                     Some(swatch),
                 );
-                commands
-                    .entity(row)
-                    .insert(super::menu::Copyable::new(order, log_copy(&line)));
+                commands.entity(row).insert((
+                    super::menu::Copyable::new(order, log_copy(&line)),
+                    Arrive::default(),
+                ));
                 commands.entity(list).add_child(row);
             }
             if let Ok(mut follow) = lists.get_mut(list)
@@ -1617,6 +1704,8 @@ fn fill_list(
             return;
         }
         drawn.list_key = key;
+        drawn.shown_tab = Some(tab);
+        drawn.chat_lines.clear();
         commands.entity(list).despawn_children();
         let lookup = logpanel::LogTexts(texts);
         let wording = logpanel::wording(duel, lang, &lookup);
@@ -1658,45 +1747,97 @@ fn fill_list(
         }
         return;
     }
-    // A chat tab, or All: drawn whole whenever a line it shows changed.
+    // A chat tab, or All: a line more on the same list is appended, and
+    // anything else draws it whole.
     let chat = machine.lines_where(&filter, CHAT_ROWS);
     let signature: Vec<(String, String, u8, bool)> = chat
         .iter()
         .map(|(c, l)| (c.to_string(), l.key.id.clone(), l.state as u8, l.hidden))
         .collect();
     let with_log = tab == ChatTab::All && filter.log && duel.is_some();
-    let key = key_of(&(
+    let marker = ui
+        .marker
+        .as_ref()
+        .filter(|(t, _)| *t == tab)
+        .map(|(_, k)| k);
+    let base = key_of(&(
         tab,
         format!("{filter:?}"),
-        signature,
         if with_log { log_len } else { 0 },
         log_identity,
         lang as u8,
         shown_group(machine, ui),
         machine.table().map(|t| (t.game.clone(), t.playing)),
+        marker,
     ));
+    let key = key_of(&(base, &signature));
     if key == drawn.list_key {
         return;
     }
-    let first_draw = drawn.list_key == 0;
-    drawn.list_key = key;
-    drawn.log_lines = 0;
-    commands.entity(list).despawn_children();
+    let same_list = drawn.shown_tab == Some(tab);
+    let newest = drawn.newest;
+    let stamp_of = |line: &baylee_client_core::social::ChatLine| {
+        ui.arrivals.chat.get(&line.key).copied().unwrap_or(0)
+    };
     let style = RowStyle {
         prefix: tab == ChatTab::All,
         timestamps: filter.timestamps,
     };
+    let appended = same_list
+        && !with_log
+        && base == drawn.chat_base
+        && !drawn.chat_lines.is_empty()
+        && signature.len() > drawn.chat_lines.len()
+        && signature.starts_with(&drawn.chat_lines)
+        && chat[drawn.chat_lines.len()..]
+            .iter()
+            .all(|(_, line)| stamp_of(line) > newest);
+    if appended {
+        for (order, (conv, line)) in chat.iter().enumerate().skip(drawn.chat_lines.len()) {
+            let swatch = swatch_of(duel, line.from_tag());
+            let row = rows::spawn_row(
+                commands, fonts, lang, machine, conv, line, &inks, style, swatch,
+            );
+            commands.entity(row).insert((
+                super::menu::Copyable::new(order, rows::plain_text(machine, conv, line)),
+                Arrive::default(),
+            ));
+            commands.entity(list).add_child(row);
+            drawn.newest = drawn.newest.max(stamp_of(line));
+        }
+        drawn.list_key = key;
+        drawn.chat_lines = signature;
+        if let Ok(mut follow) = lists.get_mut(list) {
+            if ui.follow || follow.stuck {
+                follow.stuck = true;
+            } else {
+                follow.unseen = true;
+            }
+        }
+        return;
+    }
+    let first_draw = drawn.list_key == 0;
+    drawn.list_key = key;
+    drawn.chat_base = base;
+    drawn.chat_lines = signature;
+    drawn.log_lines = 0;
+    drawn.shown_tab = Some(tab);
+    commands.entity(list).despawn_children();
     let mut entries: Vec<(u64, u8, usize, Entity)> = Vec::new();
+    let mut divider_before = None;
     for (i, (conv, line)) in chat.iter().enumerate() {
         let swatch = swatch_of(duel, line.from_tag());
         let row = rows::spawn_row(
             commands, fonts, lang, machine, conv, line, &inks, style, swatch,
         );
-        let stamp = ui.arrivals.chat.get(&line.key).copied().unwrap_or(0);
+        let stamp = stamp_of(line);
         commands.entity(row).insert(super::menu::Copyable::new(
             0,
             rows::plain_text(machine, conv, line),
         ));
+        if marker == Some(&line.key) {
+            divider_before = Some(row);
+        }
         entries.push((stamp, 1, i, row));
     }
     if with_log && let Some(duel) = duel {
@@ -1727,7 +1868,15 @@ fn fill_list(
         let empty = empty_line(commands, fonts, &sentence, &inks);
         commands.entity(list).add_child(empty);
     }
-    let kids: Vec<Entity> = entries.into_iter().map(|(_, _, _, e)| e).collect();
+    // Rows newer than the list last showed arrive; a tab opened, or the
+    // first drawing, shows what it has standing still.
+    for (stamp, _, _, row) in &entries {
+        if same_list && !first_draw && *stamp > newest {
+            commands.entity(*row).insert(Arrive::default());
+        }
+    }
+    drawn.newest = entries.iter().map(|(stamp, ..)| *stamp).max().unwrap_or(0);
+    let mut kids: Vec<Entity> = entries.into_iter().map(|(_, _, _, e)| e).collect();
     for (order, kid) in kids.iter().enumerate() {
         commands
             .entity(*kid)
@@ -1737,6 +1886,11 @@ fn fill_list(
                 }
             });
     }
+    if let Some(at) = divider_before.and_then(|row| kids.iter().position(|k| *k == row))
+        && at > 0
+    {
+        kids.insert(at, unread_divider(commands, fonts, lang, &inks));
+    }
     commands.entity(list).add_children(&kids);
     if let Ok(mut follow) = lists.get_mut(list) {
         if first_draw || ui.follow || follow.stuck {
@@ -1744,6 +1898,125 @@ fn fill_list(
         } else {
             follow.unseen = true;
         }
+    }
+}
+
+/// The "New" divider (`ChatPhrase::UnreadMarker`): a rule each side of the
+/// word, in the accent, above the first line that was unread.
+fn unread_divider(commands: &mut Commands, fonts: &UiFonts, lang: Lang, inks: &Inks) -> Entity {
+    let rule = |commands: &mut Commands| {
+        commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    height: Val::Px(1.0),
+                    ..default()
+                },
+                BackgroundColor(inks.accent.with_alpha(0.55)),
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
+    let left = rule(commands);
+    let right = rule(commands);
+    let word = commands
+        .spawn((
+            Text::new(ChatPhrase::UnreadMarker.text(lang)),
+            tf_bold(fonts, z(inks.pt - 2.0)),
+            TextColor(inks.accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .spawn((
+            UnreadDivider,
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: zpx(8.0),
+                margin: UiRect::vertical(zpx(4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[left, word, right])
+        .id()
+}
+
+/// The divider [`unread_divider`] draws.
+#[derive(Component)]
+pub(crate) struct UnreadDivider;
+
+/// A row arriving: it rises into its place over [`ARRIVE_SECS`], on the
+/// list's transform only, so the scroll that follows the end stays exact.
+#[derive(Component, Default)]
+pub(crate) struct Arrive(pub(crate) f32);
+
+/// How long a row takes to arrive.
+pub(crate) const ARRIVE_SECS: f32 = 0.18;
+
+/// How far below its place a row starts, in logical pixels.
+const ARRIVE_FROM: f32 = 10.0;
+
+/// Moves each arriving row a frame on and lets it go at its place
+/// (`reduce_motion`: there at once).
+pub(crate) fn arrive(
+    mut commands: Commands,
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut rows: Query<(Entity, &mut Arrive, &mut UiTransform)>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    for (row, mut arrive, mut transform) in &mut rows {
+        arrive.0 = crate::hud::motion::step(arrive.0, ARRIVE_SECS, time.delta_secs(), still);
+        if arrive.0 >= 1.0 {
+            transform.translation = Val2::ZERO;
+            commands.entity(row).remove::<Arrive>();
+            continue;
+        }
+        // Ease-out cubic: most of the way at once, settling.
+        let left = (1.0 - arrive.0).powi(3);
+        transform.translation = Val2::new(Val::ZERO, Val::Px(ARRIVE_FROM * left));
+    }
+}
+
+/// Notes, as a tab comes into view (or the window back into focus), the
+/// first line it had not been read to, before [`mark_read`] reads it: the
+/// "New" divider stands above it until the tab goes (§3.3).
+fn note_the_marker(
+    host: Res<SocialHost>,
+    mut ui: ResMut<ChatUi>,
+    windows: Query<&Window>,
+    mut shown: Local<Option<(ChatTab, Option<String>)>>,
+    mut was_focused: Local<bool>,
+) {
+    let focused = windows.iter().any(|w| w.focused);
+    let regained = focused && !*was_focused;
+    *was_focused = focused;
+    let now = (ui.open && !ui.minimised && ui.tab != ChatTab::Log)
+        .then(|| (ui.tab, ui.shown_group.clone()));
+    if *shown == now && !regained {
+        return;
+    }
+    let came = *shown != now;
+    shown.clone_from(&now);
+    let found = now.and_then(|(tab, _)| {
+        let machine = host.machine()?;
+        let filter = tab_filter(machine, &ui, tab);
+        machine
+            .conversations()
+            .iter()
+            .filter(|c| c.unread > 0 && filter.admits_conv(&c.id))
+            .filter_map(|c| {
+                let first = c.lines.len().checked_sub(c.unread as usize)?;
+                c.lines.get(first).map(|l| l.key.clone())
+            })
+            .min_by_key(|k| ui.arrivals.chat.get(k).copied().unwrap_or(u64::MAX))
+            .map(|k| (tab, k))
+    });
+    // Focus coming back adds a divider for what arrived meanwhile; it does
+    // not take away one the tab opened with.
+    if (came || found.is_some()) && ui.marker != found {
+        ui.marker = found;
     }
 }
 
@@ -1914,35 +2187,82 @@ fn composer_parts(
     } else {
         let buffer = c.buffer();
         let caret = buffer.cursor().min(text.len());
-        let selection = buffer.selection();
-        let (before, after) = text.split_at(caret);
-        let mut spans: Vec<(String, Color)> = Vec::new();
-        match selection {
-            Some(range) if focused && range.start < range.end && range.end <= text.len() => {
-                spans.push((text[..range.start].to_string(), inks.ink));
-                spans.push((text[range.clone()].to_string(), inks.accent));
-                spans.push((text[range.end..].to_string(), inks.ink));
-            }
-            _ => {
-                spans.push((before.to_string(), inks.ink));
-                if focused {
-                    spans.push(("|".to_string(), inks.accent));
-                }
-                spans.push((after.to_string(), inks.ink));
-            }
+        let selection = buffer
+            .selection()
+            .filter(|r| focused && r.start < r.end && r.end <= text.len());
+        // The `[Name]` links the line would carry, in bytes: drawn as links
+        // and previewed as the history's are (§12.3).
+        let byte = |chars: usize| {
+            text.char_indices()
+                .nth(chars)
+                .map_or(text.len(), |(b, _)| b)
+        };
+        let links: Vec<(std::ops::Range<usize>, u32, u8)> = c
+            .body_of(text, false)
+            .links
+            .iter()
+            .map(|l| (byte(l.at[0])..byte(l.at[1]), l.card, l.face))
+            .collect();
+        let mut cuts: Vec<usize> = vec![0, text.len()];
+        if focused && selection.is_none() {
+            cuts.push(caret);
         }
-        for (part, colour) in spans {
-            if part.is_empty() {
+        if let Some(range) = &selection {
+            cuts.extend([range.start, range.end]);
+        }
+        for (range, ..) in &links {
+            cuts.extend([range.start, range.end]);
+        }
+        cuts.sort_unstable();
+        cuts.dedup();
+        let link_font = TextFont {
+            font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+            ..tf(fonts, z(inks.pt))
+        };
+        for pair in cuts.windows(2) {
+            let (from, to) = (pair[0], pair[1]);
+            if focused && selection.is_none() && from == caret {
+                let bar = commands
+                    .spawn((
+                        TextSpan::new("|"),
+                        tf(fonts, z(inks.pt)),
+                        TextColor(inks.accent),
+                    ))
+                    .id();
+                commands.entity(field).add_child(bar);
+            }
+            if from >= to {
                 continue;
             }
+            let link = links.iter().find(|(r, ..)| r.start <= from && to <= r.end);
+            let chosen = selection
+                .as_ref()
+                .is_some_and(|r| r.start <= from && to <= r.end);
+            let (font, colour) = match (chosen, link) {
+                (true, _) => (tf(fonts, z(inks.pt)), inks.accent),
+                (false, Some(_)) => (link_font.clone(), inks.link),
+                (false, None) => (tf(fonts, z(inks.pt)), inks.ink),
+            };
             let span = commands
+                .spawn((TextSpan::new(&text[from..to]), font, TextColor(colour)))
+                .id();
+            if let Some((_, card, face)) = link {
+                commands.entity(span).insert(rows::ChatCardLink {
+                    card: *card,
+                    face: *face,
+                });
+            }
+            commands.entity(field).add_child(span);
+        }
+        if focused && selection.is_none() && caret == text.len() {
+            let bar = commands
                 .spawn((
-                    TextSpan::new(part),
+                    TextSpan::new("|"),
                     tf(fonts, z(inks.pt)),
-                    TextColor(colour),
+                    TextColor(inks.accent),
                 ))
                 .id();
-            commands.entity(field).add_child(span);
+            commands.entity(field).add_child(bar);
         }
     }
     let count = c.chars();
@@ -2060,6 +2380,31 @@ fn placeholder(machine: &Social, target: &Target, lang: Lang) -> String {
             let (name, _, _) = target_label(machine, other, lang);
             ChatPhrase::WriteTo.fill(lang, &[&name])
         }
+    }
+}
+
+/// In the lobby a chat card link previews as a pool row does (§12.3): the
+/// lobby's preview reads the [`crate::lobby::HoverCard`] it carries, the
+/// pool's printing when the pool has the card, else its text face.
+fn lobby_card_links(
+    mut commands: Commands,
+    links: Query<(Entity, &rows::ChatCardLink), Added<rows::ChatCardLink>>,
+    lobby: Option<Res<crate::lobby::LobbyState>>,
+) {
+    for (entity, link) in &links {
+        let pool = lobby.as_ref().map(|l| l.lobby.builder().pool());
+        let card = pool
+            .and_then(|pool| pool.iter().find(|c| c.index == link.card))
+            .map_or_else(
+                || crate::lobby::HoverCard {
+                    url: None,
+                    back_url: None,
+                    finish: baylee_client_core::images::FinishTreatment::Plain,
+                    index: Some(link.card),
+                },
+                crate::lobby::hover_of_card,
+            );
+        commands.entity(entity).insert(card);
     }
 }
 
@@ -2396,8 +2741,9 @@ fn filter_dialog(
 fn follow_in_the_lobby(
     lists: Query<(&mut ScrollPosition, &ComputedNode, &mut LogFollow), With<LogList>>,
     pills: Query<&mut Node, With<logpanel::LogNewBelow>>,
+    words: Query<(&mut Node, &logpanel::LogPillWords), Without<logpanel::LogNewBelow>>,
 ) {
-    crate::hud::follow_the_log(lists, pills);
+    crate::hud::follow_the_log(lists, pills, words);
 }
 
 /// The wheel over the chat's lists in the lobby (the table's `hud::scrolls`

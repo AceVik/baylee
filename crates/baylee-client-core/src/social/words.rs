@@ -450,6 +450,8 @@ messages! {
     SectionAtTable { en: "At a table", de: "An einem Tisch" },
     /// Online friends in the lobby or elsewhere.
     SectionInLobby { en: "In the lobby", de: "In der Lobby" },
+    /// The divider above the first line that was unread when a tab opened.
+    UnreadMarker { en: "New", de: "Neu" },
     /// The drawer's door to the settings.
     PrivacyButton { en: "Chat & privacy…", de: "Chat & Privatsphäre…" },
 }
