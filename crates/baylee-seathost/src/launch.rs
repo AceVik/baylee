@@ -53,8 +53,10 @@ impl std::fmt::Debug for SeatJob {
 /// How a bridge ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Exit {
-    /// Its game is over, or it was stopped.
-    Ended,
+    /// Its game is over, or it was stopped, the bridge saying this last:
+    /// its summary of the game (how many answers the mind gave and how many
+    /// the house), blanked of anything shaped like a key, as a failure's.
+    Ended(String),
     /// It failed, saying this last, read as a check's answer would be.
     Failed(Probe),
 }
@@ -400,7 +402,7 @@ async fn play(
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
     match status {
-        Ok(status) if status.success() => Exit::Ended,
+        Ok(status) if status.success() => Exit::Ended(said),
         Ok(_) => {
             let said = said
                 .strip_prefix("Error: ")
@@ -441,5 +443,39 @@ mod tests {
             Probe::Limited { .. }
         ));
         assert!(matches!(read_check(""), Probe::Failing(_)));
+    }
+
+    /// A bridge that ends well leaves its summary for the operator's log:
+    /// who answered how often, a key in it blanked as in a failure.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_bridge_that_ends_well_leaves_its_last_line() {
+        let job = SeatJob {
+            order: "order".into(),
+            game_id: "game".into(),
+            seat: 1,
+            profile: "deepseek".into(),
+            name: "DeepSeek".into(),
+            chair_ticket: "ticket".into(),
+            gateway_url: "http://127.0.0.1:1".into(),
+            deck_text: None,
+            settings: String::new(),
+            ledger: PathBuf::from("ledger.json"),
+        };
+        let mut command = tokio::process::Command::new("sh");
+        command.args([
+            "-c",
+            "read ticket; echo \"sits in chair\"; \
+             echo \"won after 3 turns: the mind answered 7, the house 1; \
+             key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\"",
+        ]);
+        let (started, started_rx) = oneshot::channel();
+        let (_stop, stop) = oneshot::channel();
+        let Exit::Ended(said) = play(command, &job, started, stop).await else {
+            panic!("the bridge ended well");
+        };
+        assert!(started_rx.await.is_ok(), "it sat in its chair");
+        assert!(said.contains("the mind answered 7, the house 1"), "{said}");
+        assert!(!said.contains("abcdefghijklmnop"), "{said}");
     }
 }

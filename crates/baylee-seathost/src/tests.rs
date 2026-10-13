@@ -30,7 +30,7 @@ impl Launcher for Arc<Fake> {
         Box::pin(async move {
             let _ = started.send(());
             let _ = stop.await;
-            Exit::Ended
+            Exit::Ended(String::new())
         })
     }
 

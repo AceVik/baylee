@@ -111,7 +111,7 @@ impl Launcher for InProcess {
                     match done {
                         Ok(game) => {
                             played.outcomes.lock().unwrap().push(game.stats.outcome);
-                            Exit::Ended
+                            Exit::Ended(String::new())
                         }
                         // A chair taken back or rearranged is vacated as
                         // `stop_seat` goes out, so the bridge may see its
@@ -122,7 +122,7 @@ impl Launcher for InProcess {
                         Err(e) => match tokio::time::timeout(STOP_GRACE, &mut stop).await {
                             Ok(Ok(())) => {
                                 *played.stopped.lock().unwrap() += 1;
-                                Exit::Ended
+                                Exit::Ended(String::new())
                             }
                             _ => Exit::Failed(Probe::Failing(format!("{e:#}"))),
                         },
@@ -131,7 +131,7 @@ impl Launcher for InProcess {
                 _ = &mut stop => {
                     *played.stopped.lock().unwrap() += 1;
                     let _ = lobby.leave_chair(&chair).await;
-                    Exit::Ended
+                    Exit::Ended(String::new())
                 }
             }
         })

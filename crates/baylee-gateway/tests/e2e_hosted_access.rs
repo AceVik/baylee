@@ -68,7 +68,7 @@ impl Launcher for Sits {
             }
             let _ = stop.await;
             let _ = lobby.leave_chair(&chair).await;
-            Exit::Ended
+            Exit::Ended(String::new())
         })
     }
 

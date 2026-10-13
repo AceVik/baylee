@@ -539,7 +539,12 @@ impl Host {
             let exit = run.await;
             announcer.abort();
             let (kind, detail, outcome) = match exit {
-                Exit::Ended => (SeatStatusKind::Exited, String::new(), Ok(())),
+                Exit::Ended(said) => {
+                    // The bridge's own count of who answered, for the
+                    // operator's log only; the seat's status says nothing.
+                    tracing::info!(order, profile, said, "the bridge's last word");
+                    (SeatStatusKind::Exited, String::new(), Ok(()))
+                }
                 Exit::Failed(probe) => {
                     let detail = match &probe {
                         Probe::Ok => String::new(),
