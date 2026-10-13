@@ -100,6 +100,14 @@ messages! {
     HiddenLine { en: "1 hidden message", de: "1 ausgeblendete Nachricht" },
     /// The encryption line under a conversation.
     EncryptedTo { en: "Encrypted to {0} players ({1} devices)", de: "Verschlüsselt an {0} Personen ({1} Geräte)" },
+    /// The encryption line's count of devices: one.
+    NoteOneDevice { en: "1 device", de: "1 Gerät" },
+    /// The encryption line's count of devices.
+    NoteDevices { en: "{0} devices", de: "{0} Geräte" },
+    /// The encryption line's count of people: one.
+    NoteOnePerson { en: "1 person", de: "1 Person" },
+    /// The encryption line's count of people.
+    NotePeople { en: "{0} people", de: "{0} Personen" },
     /// A whisper's lock hover.
     EncryptedWith { en: "End-to-end encrypted · {0} ({1} devices)", de: "Ende-zu-Ende-verschlüsselt · {0} ({1} Geräte)" },
     /// The notice's first part (§11.8).

@@ -188,6 +188,7 @@ pub(crate) fn install(app: &mut App) {
             note_the_marker,
             mark_read,
             presses,
+            panel_follows_the_window,
             sync_table_window
                 .after(crate::hud::sync_log)
                 .before(crate::hud::follow_the_log),
@@ -301,10 +302,36 @@ pub(crate) fn select_tab(host: &mut SocialHost, ui: &mut ChatUi, tab: ChatTab) {
     if tab.is_chat() {
         ui.last_chat_tab = Some(tab);
     }
+    // The "New" divider is noted before the machine reads the tab's
+    // conversation (`Intent::Panel` clears its count).
+    ui.marker = host.machine().and_then(|m| first_unread(m, ui, tab));
     let conv = host.machine().and_then(|m| tab_conv(m, ui, tab));
     if let Some(conv) = conv {
         host.act(Intent::Panel(Some(conv)));
     }
+}
+
+/// The first line of `tab` that is not read yet, by arrival: where its
+/// "New" divider stands.
+fn first_unread(
+    machine: &Social,
+    ui: &ChatUi,
+    tab: ChatTab,
+) -> Option<(ChatTab, baylee_client_core::social::LineKey)> {
+    if !tab.is_chat() && tab != ChatTab::All {
+        return None;
+    }
+    let filter = tab_filter(machine, ui, tab);
+    machine
+        .conversations()
+        .iter()
+        .filter(|c| c.unread > 0 && filter.admits_conv(&c.id))
+        .filter_map(|c| {
+            let first = c.lines.len().checked_sub(c.unread as usize)?;
+            c.lines.get(first).map(|l| l.key.clone())
+        })
+        .min_by_key(|k| ui.arrivals.chat.get(k).copied().unwrap_or(u64::MAX))
+        .map(|k| (tab, k))
 }
 
 /// Opens the window on the last chat tab used (never Log): the chat door,
@@ -442,10 +469,19 @@ fn stamp_arrivals(
     }
     *seen = machine.revision();
     let ui = ui.bypass_change_detection();
-    for conv in machine.conversations() {
-        for line in &conv.lines {
-            ui.arrivals.chat_line(&line.key);
-        }
+    // What is new to this stamp arrives in its own time order: a session's
+    // history loaded from disk reads as it was written, not conversation
+    // by conversation.
+    let mut fresh: Vec<(u64, &baylee_client_core::social::LineKey)> = machine
+        .conversations()
+        .iter()
+        .flat_map(|conv| conv.lines.iter())
+        .filter(|line| !ui.arrivals.chat.contains_key(&line.key))
+        .map(|line| (line.at, &line.key))
+        .collect();
+    fresh.sort_by_key(|(at, _)| *at);
+    for (_, key) in fresh {
+        ui.arrivals.chat_line(key);
     }
 }
 
@@ -470,6 +506,37 @@ fn mark_read(mut host: ResMut<SocialHost>, ui: Res<ChatUi>, windows: Query<&Wind
         .collect();
     for conv in unread {
         host.act(Intent::MarkRead(conv));
+    }
+}
+
+/// The machine is told when the window stops showing its conversation and
+/// when it shows it again, however that came about (the cross, the header's
+/// button, the pill, minimising): a line arriving under the pill is unread.
+fn panel_follows_the_window(
+    mut host: ResMut<SocialHost>,
+    mut ui: ResMut<ChatUi>,
+    mut was: Local<bool>,
+) {
+    let shown = ui.open && !ui.minimised;
+    if *was == shown {
+        return;
+    }
+    *was = shown;
+    let Some(machine) = host.machine() else {
+        return;
+    };
+    if !shown {
+        host.act(Intent::Panel(None));
+        return;
+    }
+    // Shown again: the divider is noted before the machine reads the tab.
+    let marker = first_unread(machine, &ui, ui.tab);
+    let conv = tab_conv(machine, &ui, ui.tab);
+    if marker.is_some() {
+        ui.marker = marker;
+    }
+    if let Some(conv) = conv {
+        host.act(Intent::Panel(Some(conv)));
     }
 }
 
@@ -1065,8 +1132,8 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 padding: UiRect::axes(zpx(logpanel::LOG_PAD), zpx(3.0)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
+            BackgroundColor(inks.ground),
+            Feel::new(inks.ground),
         ))
         .id();
     let body = commands
@@ -1244,13 +1311,31 @@ fn fill(
             drawn.note_key = key;
             commands.entity(note).despawn_children();
             if conv.is_some() {
+                // "End-to-end encrypted · Bob#0002 · 2 devices": a whisper
+                // names its partner, a group or table counts its people.
+                let partner = conv
+                    .as_ref()
+                    .and_then(|c| c.partner(&machine.me().tag))
+                    .map(|t| machine.person(t).handle);
                 let words = match to {
-                    Some((people, devices)) if people > 0 => format!(
-                        "{} · {}",
-                        ChatPhrase::EncryptionTitle.text(lang),
-                        ChatPhrase::EncryptedTo
-                            .fill(lang, &[&people.to_string(), &devices.to_string()])
-                    ),
+                    Some((people, devices)) if people > 0 => {
+                        let who = partner.unwrap_or_else(|| {
+                            if people == 1 {
+                                ChatPhrase::NoteOnePerson.text(lang).to_string()
+                            } else {
+                                ChatPhrase::NotePeople.fill(lang, &[&people.to_string()])
+                            }
+                        });
+                        let devices = if devices == 1 {
+                            ChatPhrase::NoteOneDevice.text(lang).to_string()
+                        } else {
+                            ChatPhrase::NoteDevices.fill(lang, &[&devices.to_string()])
+                        };
+                        format!(
+                            "{} · {who} · {devices}",
+                            ChatPhrase::EncryptionTitle.text(lang)
+                        )
+                    }
                     _ => ChatPhrase::EncryptionTitle.text(lang).to_string(),
                 };
                 let ink = if verified { inks.accent } else { inks.soft };
@@ -1999,24 +2084,22 @@ fn note_the_marker(
     }
     let came = *shown != now;
     shown.clone_from(&now);
-    let found = now.and_then(|(tab, _)| {
-        let machine = host.machine()?;
-        let filter = tab_filter(machine, &ui, tab);
-        machine
-            .conversations()
-            .iter()
-            .filter(|c| c.unread > 0 && filter.admits_conv(&c.id))
-            .filter_map(|c| {
-                let first = c.lines.len().checked_sub(c.unread as usize)?;
-                c.lines.get(first).map(|l| l.key.clone())
-            })
-            .min_by_key(|k| ui.arrivals.chat.get(k).copied().unwrap_or(u64::MAX))
-            .map(|k| (tab, k))
-    });
-    // Focus coming back adds a divider for what arrived meanwhile; it does
-    // not take away one the tab opened with.
-    if (came || found.is_some()) && ui.marker != found {
-        ui.marker = found;
+    let Some((tab, _)) = now else {
+        if ui.marker.is_some() {
+            ui.marker = None;
+        }
+        return;
+    };
+    let found = host.machine().and_then(|m| first_unread(m, &ui, tab));
+    // Focus coming back adds a divider for what arrived meanwhile; a tab
+    // that came into view keeps the one `select_tab` noted before the
+    // machine read it, and drops one of another tab's.
+    if found.is_some() {
+        if ui.marker != found {
+            ui.marker = found;
+        }
+    } else if came && ui.marker.as_ref().is_some_and(|(t, _)| *t != tab) {
+        ui.marker = None;
     }
 }
 
@@ -2396,12 +2479,7 @@ fn lobby_card_links(
         let card = pool
             .and_then(|pool| pool.iter().find(|c| c.index == link.card))
             .map_or_else(
-                || crate::lobby::HoverCard {
-                    url: None,
-                    back_url: None,
-                    finish: baylee_client_core::images::FinishTreatment::Plain,
-                    index: Some(link.card),
-                },
+                || crate::lobby::hover_of_index(link.card),
                 crate::lobby::hover_of_card,
             );
         commands.entity(entity).insert(card);
@@ -2474,10 +2552,21 @@ fn peek(
     mut seen: Local<Option<(u64, u64)>>,
     mut drawn: Local<usize>,
     zoom: Res<super::zoom::Zoom>,
+    phase: Option<Res<State<DuelPhase>>>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
-    let (Some(machine), Some(duel)) = (host.machine(), duel) else {
+    // Only at the table: the lobby has its pill and toasts, and the lines a
+    // session loads from disk as it signs in are not arriving.
+    let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
+    let (Some(machine), Some(duel)) = (host.machine().filter(|_| at_table), duel) else {
         *seen = None;
+        if !ui.peek.is_empty() {
+            ui.peek.clear();
+        }
+        for (root, _) in &roots {
+            commands.entity(root).despawn();
+        }
+        *drawn = 0;
         return;
     };
     // The newest chat line (never a log line) seen so far, by arrival: a

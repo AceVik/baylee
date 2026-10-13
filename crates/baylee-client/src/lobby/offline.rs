@@ -800,7 +800,7 @@ fn rows_of(cards: &[baylee_cards::decks::DeckCard]) -> Vec<String> {
 /// there is no JSON in between to make them the same type. This is that
 /// crossing, written once and checked by the compiler, which is the reason
 /// not to reach for a serialize-then-parse round trip.
-fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::PoolCard {
+pub(super) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::PoolCard {
     use client_core::deckbuilder::Coverage;
     client_core::deckbuilder::PoolCard {
         index: card.index,

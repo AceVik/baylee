@@ -91,6 +91,11 @@ impl DrawerSlide {
     }
 }
 
+/// A node of the lobby's that gave the drawer its room, and the width it
+/// had before.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct Squeezed(pub Val);
+
 /// How long the drawer takes to slide in or out.
 const SLIDE_SECS: f32 = 0.18;
 
@@ -108,9 +113,15 @@ fn slide_the_drawer(
     zoom: Res<super::zoom::Zoom>,
     mut slide: ResMut<DrawerSlide>,
     mut drawers: Query<(&mut Node, &mut Visibility), With<Drawer>>,
-    headers: Query<(&crate::shellkit::role::Role, &ComputedNode)>,
-    lobby_roots: Query<&Children, With<crate::lobby::LobbyRoot>>,
-    mut content: Query<(&mut Node, Option<&crate::shellkit::role::Role>), Without<Drawer>>,
+    headers: Query<(
+        Entity,
+        &crate::shellkit::role::Role,
+        &ComputedNode,
+        &ChildOf,
+    )>,
+    kids: Query<&Children>,
+    mut content: Query<(&mut Node, Option<&Squeezed>), Without<Drawer>>,
+    mut commands: Commands,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let open = ui.drawer && host.active();
@@ -136,8 +147,10 @@ fn slide_the_drawer(
     } else {
         headers
             .iter()
-            .find(|(role, _)| **role == crate::shellkit::role::Role::Header)
-            .map_or(0.0, |(_, node)| node.size().y * node.inverse_scale_factor())
+            .find(|(_, role, ..)| **role == crate::shellkit::role::Role::Header)
+            .map_or(0.0, |(_, _, node, _)| {
+                node.size().y * node.inverse_scale_factor()
+            })
     };
     for (mut node, mut seen) in &mut drawers {
         let right = Val::Px(room - width);
@@ -153,15 +166,40 @@ fn slide_the_drawer(
             Visibility::Hidden
         });
     }
-    // The lobby's content under the header gives the drawer its room.
+    // The lobby's content beside the header (the header keeps the whole
+    // width) gives the drawer its room: each sibling lets go of a fixed
+    // width, which a margin would only push past the edge, and gets it back
+    // when the drawer is in again.
     let margin = if at_table { 0.0 } else { room };
-    for kids in &lobby_roots {
-        for kid in kids {
-            if let Ok((mut node, role)) = content.get_mut(*kid)
-                && role != Some(&crate::shellkit::role::Role::Header)
-                && node.margin.right != Val::Px(margin)
-            {
-                node.margin.right = Val::Px(margin);
+    for (header, role, _, parent) in &headers {
+        if *role != crate::shellkit::role::Role::Header {
+            continue;
+        }
+        let Ok(siblings) = kids.get(parent.parent()) else {
+            continue;
+        };
+        for kid in siblings {
+            if *kid == header {
+                continue;
+            }
+            let Ok((mut node, squeezed)) = content.get_mut(*kid) else {
+                continue;
+            };
+            if node.position_type == PositionType::Absolute {
+                continue;
+            }
+            if margin > 0.0 {
+                if squeezed.is_none() {
+                    commands.entity(*kid).insert(Squeezed(node.width));
+                    node.width = Val::Auto;
+                }
+                if node.margin.right != Val::Px(margin) {
+                    node.margin.right = Val::Px(margin);
+                }
+            } else if let Some(Squeezed(width)) = squeezed {
+                node.width = *width;
+                node.margin.right = Val::ZERO;
+                commands.entity(*kid).remove::<Squeezed>();
             }
         }
     }

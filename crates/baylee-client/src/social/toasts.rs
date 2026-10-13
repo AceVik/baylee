@@ -146,6 +146,7 @@ fn sync(
     ui: Res<super::ChatUi>,
     windows: Query<&Window>,
     zoom: Res<super::zoom::Zoom>,
+    slide: Res<super::drawer::DrawerSlide>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
@@ -174,6 +175,15 @@ fn sync(
         }
         if node.bottom != bottom {
             node.bottom = bottom;
+        }
+        // Beside the friends drawer in the lobby, as the chat window is.
+        let right = if at_table {
+            zpx(12.0)
+        } else {
+            Val::Px(z(slide.room(1.0) + 12.0))
+        };
+        if node.right != right {
+            node.right = right;
         }
         column
     } else {

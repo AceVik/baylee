@@ -961,12 +961,10 @@ use widgets::*;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use end_screen::DuelExit;
 pub(crate) use field::caret_lit;
-/// The tree's root: the friends drawer moves its content aside.
-pub(crate) use shell::LobbyRoot;
-/// The rebuild count, for `devctl`'s `ui_rebuilds` row, under the probe's
-/// own `cfg` for the reason above.
+/// The tree's root and its rebuild count, for `devctl`'s `shell_nodes` and
+/// `ui_rebuilds` rows, under the probe's own `cfg` for the reason above.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-pub(crate) use shell::UiRebuilds;
+pub(crate) use shell::{LobbyRoot, UiRebuilds};
 
 #[cfg(test)]
 mod tests;
@@ -994,7 +992,7 @@ pub(crate) use header::{HeaderPress, ShellAsk};
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};
-pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry, hover_of_index};
 pub(crate) use room::RoomPress;
 pub(crate) use scrolling::Scrollable;
 pub(crate) use scrolling::{List, Scrolled};

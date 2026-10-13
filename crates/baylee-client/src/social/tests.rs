@@ -2256,7 +2256,6 @@ mod pane {
     /// (`Intent::Panel(None)`); `header_ask` only clears `ChatUi.open`, so the
     /// machine goes on reading the conversation under the pill.
     #[test]
-    #[ignore = "defect: header_ask(Chat) shuts the window without Intent::Panel(None)"]
     fn a_line_after_the_header_button_shut_the_window_is_unread() {
         let mut rig = Rig::new(true);
         rig.bob_says("old");

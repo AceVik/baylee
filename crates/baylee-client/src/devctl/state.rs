@@ -40,6 +40,17 @@ pub(super) struct ChatBelief<'w, 's> {
     host: Option<Res<'w, crate::social::SocialHost>>,
     ui: Option<Res<'w, crate::social::ChatUi>>,
     controls: Query<'w, 's, ChatControl, ChatControlFilter>,
+    /// The chat's card links, and whether the lobby's preview reads each.
+    links: Query<
+        'w,
+        's,
+        (
+            &'static crate::social::rows::ChatCardLink,
+            Has<crate::lobby::HoverCard>,
+        ),
+    >,
+    /// The lobby's hover previews standing.
+    previews: Query<'w, 's, (), With<crate::lobby::preview::CardPreview>>,
 }
 
 /// Every chat control.
@@ -785,7 +796,13 @@ fn report_json(believed: &Believed) -> String {
 /// hold, and every chat control where a pointer would press it (`press`
 /// is its Debug spelling: `Tab(Private)`, `Accept("af03")`, …).
 fn chat_json(believed: &Believed) -> String {
-    let ChatBelief { host, ui, controls } = &believed.chat;
+    let ChatBelief {
+        host,
+        ui,
+        controls,
+        links,
+        previews,
+    } = &believed.chat;
     let (Some(host), Some(ui)) = (host.as_deref(), ui.as_deref()) else {
         return "null".to_string();
     };
@@ -814,6 +831,13 @@ fn chat_json(believed: &Believed) -> String {
         })
         .collect();
     value["controls"] = serde_json::Value::Array(rows);
+    value["links"] = serde_json::json!({
+        "cards": links.iter().map(|(l, previewed)| serde_json::json!({
+            "card": l.card,
+            "previewed": previewed,
+        })).collect::<Vec<_>>(),
+        "previews": previews.iter().count(),
+    });
     value.to_string()
 }
 
