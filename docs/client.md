@@ -5066,8 +5066,11 @@ armed card with its lit lands was the staging, and the click that confirmed
 it is the Go (`advance_cast_first`). The tap-first runs that are not windows
 (a cast not in `payable`, an `unpaid_abilities` activation, a mana bubble
 outside a window) keep `ManaRun`; the house AI and the seat bridge keep
-paying one action at a time. Granted mana actions in a window are still
-taken at once.
+paying one action at a time. A granted mana action (a fixed `AddMana`
+paid with life) is staged like a tap from its sheet — confirming it again
+takes it back — and goes out after the taps as `TakeGrantedAction` inside
+the same `PayWindow`; one that costs mana would spend the pool being
+counted, and is still taken at once.
 
 ## Tapping lands for a spell
 
