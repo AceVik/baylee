@@ -379,6 +379,79 @@ baseline that hour was 21.1 W.
   (2560 → 1707 logical wide) and back.
 
 
+
+## bevy 0.20 (13 October 2026)
+
+What the upgrade from bevy 0.19.1 to 0.20.0 (branch `c41/b8-bevy20`, merge
+`c1c83328d`) costs or buys, against `origin/main` at `edc246f6e` (0.19).
+Both `--release --features dev-control`, silent, an isolated config, no
+gateway, M1 Max, built-in display, the same window: 1600×1000 logical at
+scale 1 (`BAYLEE_DEV_WINDOW`, `BAYLEE_DEV_SCALE=1`), passive, MSAA ×4, every
+frame limit at 60 (`graphics`: `frame_limit`, `background_limit`,
+`rest_limit` = `fps60`), so pacing does not decide the comparison at the
+table.
+
+**Each build alone, A/B/A.** Two clients side by side cannot be measured on
+one window position: the second window covers the first, and wgpu draws
+nothing into a window macOS reports occluded (the first attempt read 0.8 GPU
+ms a frame for 0.19 that way). So per screen: 0.19, then 0.20, then 0.19
+again, each alone, a minute apart; the second 0.19 run (0.19b) is the noise
+floor. 30 s of `/perf` and `ps cputime` per run, `top` energy averaged over
+the same window, then a 10 s `xctrace` Metal System Trace summed per process
+(no password needed). Load is the 1-minute load average during the run, taken
+after the 36 orphaned busy-loops of an earlier load test were gone and
+outside the release gate; a first series under the gate (load 12–46) is
+discarded.
+
+| Screen | Build | Load | Frames/s | Frame p50 / p99 ms | Main schedule p50 / mean ms | Allocs/frame | Entities / systems | CPU | Energy | GPU ms/frame (busy) | RSS |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Front door | 0.19 | 3.4 | 21 | 33.4 / 381 | 0.57 / 0.60 | 1,336 | 677 / 728 | 9 % | 12.5 | 0.08 (0.2 %) | 329 MB |
+| Front door | 0.20 | 2.6 | 41 | 16.7 / 19.8 | 0.77 / 0.94 | 1,439 | 732 / 737 | 25 % | 34.2 | 0.12 (0.5 %) | 341 MB |
+| Front door | 0.19b | 3.2 | 21 | 33.4 / 129 | 0.86 / 0.99 | 1,337 | 677 / 728 | 13 % | 17.2 | 0.12 (0.3 %) | 327 MB |
+| Lobby | 0.19 | 4.2 | 24 | 33.4 / 38.4 | 1.02 / 1.21 | 1,332 | 684 / 728 | 16 % | 19.9 | — | 335 MB |
+| Lobby | 0.20 | 4.2 | 47 | 16.7 / 19.3 | 0.69 / 0.77 | 1,402 | 739 / 737 | 23 % | 28.3 | 0.06 (0.3 %) | 347 MB |
+| Lobby | 0.19b | 4.1 | 23 | 33.3 / 36.0 | 0.68 / 0.87 | 1,333 | 684 / 728 | 12 % | 14.7 | 0.15 (0.4 %) | 334 MB |
+| Table, empty board | 0.19 | 6.0 | 60 | 16.7 / 18.8 | 0.88 / 0.90 | 2,354 | 928 / 728 | 33 % | 32.2 | 2.64 (16 %) | 477 MB |
+| Table, empty board | 0.20 | 3.7 | 60 | 16.7 / 18.7 | 1.04 / 1.05 | 2,575 | 983 / 737 | 38 % | 36.4 | 2.82 (17 %) | 457 MB |
+| Table, empty board | 0.19b | 4.5 | 60 | 16.7 / 18.7 | 0.90 / 0.91 | 2,354 | 928 / 728 | 34 % | 33.2 | 2.49 (15 %) | 440 MB |
+| Full duel (40 dealt permanents) | 0.19 | 3.8 | 60 | 16.7 / 17.9 | 1.04 / 1.05 | 2,861 | 1,005 / 728 | 35 % | 34.9 | 2.71 (16 %) | 458 MB |
+| Full duel | 0.20 | 5.5 | 60 | 16.7 / 18.9 | 1.14 / 1.15 | 3,378 | 1,060 / 737 | 42 % | 42.7 | 3.04 (18 %) | 475 MB |
+| Full duel | 0.19b | 5.4 | 60 | 16.7 / 17.6 | 1.03 / 1.03 | 2,859 | 1,005 / 728 | 36 % | 35.2 | 2.67 (16 %) | 478 MB |
+
+| | 0.19 | 0.20 |
+|---|---|---|
+| Startup to the first frame (`/health` frame ≥ 1), warm, 4 runs, load 8–10 | 0.33–0.34 s | 0.30–0.31 s |
+| The same, first start of a freshly built binary | 3.7 s | 3.4 s |
+| Release binary (`dev-control`) | 134.7 MB | 141.9 MB |
+
+**What this says.**
+
+- **At the table 0.20 costs more, and it is not noise.** Both draw 60
+  frames with the same frame times, but the main schedules take 10–16 %
+  longer a frame (0.88–0.90 → 1.04 ms empty, 1.03–1.04 → 1.14 ms full),
+  allocations rise 9 % (empty) and 18 % (full: 2,860 → 3,378 a frame), the
+  process's CPU 14 % and 20 % (33–34 → 38 %, 35–36 → 42 %), energy 11 % and
+  22 %, and GPU time 10–13 % (2.5–2.6 → 2.8 ms; 2.7 → 3.0 ms a frame). The
+  two 0.19 runs agree with each other within 1–3 % on CPU and 6 % on GPU, so
+  the 0.20 deltas lie outside the noise floor; the GPU delta only just. 55
+  more entities on every screen are bevy's (resources stored as entities,
+  retained UI), 9 more systems.
+- **Nothing measured got better beyond the noise**, apart from start-up
+  (about 30 ms, 10 %, warm and cold alike). RSS is unchanged within its run
+  to run spread (±20 MB); the binary is 7 MB (5 %) larger.
+- **Front door and lobby rows are not comparable in CPU and energy.** Not a
+  cost of 0.20 but of how the harness's window now runs: bevy 0.20 no longer
+  activates the app for a window opened unfocused, so the passive 0.20 window
+  paces as a background window (60, `background_limit`), while the 0.19 one,
+  activated at launch, paces as a settled menu (30). A player's window is
+  focused in both and paces alike. Per frame the two are within noise (main
+  schedule 0.6–1.0 ms either way, allocations +5–8 %, GPU a tenth of a
+  millisecond).
+- Not measured: the wasm build's size (no artifact without a `trunk` build,
+  which would have loaded the machine during the series) and a clean build's
+  compile time (only the 0.19 tree was built from scratch, alongside the
+  other build: 57 min under load 150–250, meaningless).
+
 ## Ally trigger storms (2026-10-11)
 
 The regression fixture uses real Wartime Protestors and Doubling Season:
