@@ -197,8 +197,20 @@ pub fn meta_line(lang: Lang, deck: &DeckSummary, now: u64) -> String {
     line
 }
 
+/// The badge of a deck holding cards blocked on its gateway: the card when
+/// it is one, the count when more; `None` for a deck the gateway plays.
+#[must_use]
+pub fn blocked_badge(lang: Lang, blocked: &[super::BlockedCard]) -> Option<String> {
+    match blocked {
+        [] => None,
+        [one] => Some(Phrase::DecksBlockedOne.fill(lang, &[&one.name])),
+        more => Some(Phrase::DecksBlockedMany.fill(lang, &[&more.len().to_string()])),
+    }
+}
+
 /// The tile's badges, in order: its format, whether it is the next game's
-/// deck, and how many of its cards will not play.
+/// deck, how many of its cards will not play, and last which are blocked on
+/// the gateway ([`blocked_badge`]).
 #[must_use]
 pub fn badges(lang: Lang, deck: &DeckSummary, next: bool) -> Vec<String> {
     let mut said = vec![format_label(lang, &deck.format)];
@@ -216,6 +228,7 @@ pub fn badges(lang: Lang, deck: &DeckSummary, next: bool) -> Vec<String> {
             .fill(lang, &[&n]),
         );
     }
+    said.extend(blocked_badge(lang, &deck.blocked));
     said
 }
 
@@ -344,6 +357,90 @@ mod tests {
         );
         d.unplayable = 1;
         assert_eq!(badges(Lang::En, &d, false)[1], "1 card won\u{2019}t play");
+    }
+
+    fn blocked(index: u32, name: &str) -> super::super::BlockedCard {
+        super::super::BlockedCard {
+            index,
+            name: name.into(),
+            ..super::super::BlockedCard::default()
+        }
+    }
+
+    /// A deck the gateway plays carries no blocked badge, and the badge line
+    /// is what it was before the badge existed.
+    #[test]
+    fn a_deck_without_blocked_cards_has_no_blocked_badge() {
+        assert_eq!(blocked_badge(Lang::En, &[]), None);
+        assert_eq!(blocked_badge(Lang::De, &[]), None);
+        let mut d = deck("x", 0, "", "commander");
+        d.unplayable = 1;
+        assert_eq!(
+            badges(Lang::En, &d, true),
+            vec![
+                "Commander".to_string(),
+                "next game".to_string(),
+                "1 card won\u{2019}t play".to_string()
+            ]
+        );
+    }
+
+    /// One blocked card is named, in both languages.
+    #[test]
+    fn one_blocked_card_is_named_in_the_badge() {
+        let one = [blocked(7, "Mana Drain")];
+        assert_eq!(
+            blocked_badge(Lang::En, &one).as_deref(),
+            Some("Mana Drain blocked here")
+        );
+        assert_eq!(
+            blocked_badge(Lang::De, &one).as_deref(),
+            Some("Mana Drain hier gesperrt")
+        );
+    }
+
+    /// Several are counted, in both languages.
+    #[test]
+    fn several_blocked_cards_are_counted_in_the_badge() {
+        let two = [blocked(7, "Mana Drain"), blocked(8, "Black Lotus")];
+        assert_eq!(
+            blocked_badge(Lang::En, &two).as_deref(),
+            Some("2 cards blocked here")
+        );
+        assert_eq!(
+            blocked_badge(Lang::De, &two).as_deref(),
+            Some("2 Karten hier gesperrt")
+        );
+    }
+
+    /// The blocked badge closes the line, after the unplayable one.
+    #[test]
+    fn the_blocked_badge_is_the_last_badge() {
+        let mut d = deck("x", 0, "", "commander");
+        d.blocked = vec![blocked(7, "Mana Drain")];
+        assert_eq!(
+            badges(Lang::En, &d, false),
+            vec![
+                "Commander".to_string(),
+                "Mana Drain blocked here".to_string()
+            ]
+        );
+        d.unplayable = 2;
+        d.blocked.push(blocked(8, "Black Lotus"));
+        let said = badges(Lang::En, &d, true);
+        assert_eq!(
+            said,
+            vec![
+                "Commander".to_string(),
+                "next game".to_string(),
+                "2 cards won\u{2019}t play".to_string(),
+                "2 cards blocked here".to_string()
+            ]
+        );
+        assert_eq!(
+            badges(Lang::De, &d, false).last().map(String::as_str),
+            Some("2 Karten hier gesperrt")
+        );
     }
 
     #[test]

@@ -414,6 +414,18 @@ fn hero(
             commands.entity(pips).add_child(discs);
         }
         commands.entity(words).add_child(pips);
+        // The gateway will refuse this deck while it holds a blocked card:
+        // say which and why before the press, not only after it.
+        if let Some(block) = deck.blocked.first() {
+            let said = parts::line(
+                commands,
+                kit,
+                &block.sentence(lang),
+                kit.m.small,
+                tokens::DANGER,
+            );
+            commands.entity(words).add_child(said);
+        }
         if !phone {
             let meta = parts::line(
                 commands,
@@ -568,6 +580,7 @@ fn hero(
 
 /// Three house decks as mini tiles: art 78 × 57 with its credit, name,
 /// format; one press copies and uses (S-3, through Decks' **Add and use**).
+/// Decks holding a card blocked on the gateway are passed over.
 pub(super) fn mini_tiles(
     commands: &mut Commands,
     state: &LobbyState,
@@ -610,7 +623,15 @@ pub(super) fn mini_tiles(
         commands.entity(row).add_child(waiting);
         return row;
     }
-    for (index, deck) in house.iter().enumerate().take(3) {
+    // A house deck holding a card blocked on this gateway is not offered
+    // here: one press would copy it and the game would be refused (its own
+    // tile on the House shelf says why). The index stays the shelf's.
+    for (index, deck) in house
+        .iter()
+        .enumerate()
+        .filter(|(_, deck)| deck.blocked.is_empty())
+        .take(3)
+    {
         let tile = commands
             .spawn((
                 Role::Tile,
@@ -1489,6 +1510,10 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
             tokens::MUTED,
         );
         commands.entity(words).add_children(&[name, format]);
+        if let Some(said) = shelf::blocked_badge(lang, &deck.blocked) {
+            let blocked = parts::line(commands, kit, &said, kit.m.small, tokens::DANGER);
+            commands.entity(words).add_child(blocked);
+        }
         commands.entity(tile).add_child(words);
         orders::item(commands, tile, &orders::PICKER, "tiles", walked);
         commands

@@ -175,6 +175,12 @@ reaches the built page.
     once, with Copy), ban it (a reason and an end, or permanently) or lift
     the ban, delete it (its handle typed to confirm). Each asks first; a
     banned account is marked in the list and on its page.
+  - Blocked cards (`/admin/cards`, `src/admin/Cards.tsx`): a card of the
+    gateway's pool searched by name or index and blocked, without an end,
+    for a day, a week, a month or until a moment picked, with a reason the
+    players see, after a second question; the blocks in force, each lifted
+    after a second question; the earlier ones, folded; the latest card
+    changes (`docs/protocol.md` §"Blocked cards").
   - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
     and, where the browser can, Share), listed and filtered by state
     (never the key, which is kept only as a hash), revoked after a second

@@ -4466,6 +4466,17 @@ next one may be at another gateway. Every
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+**A card blocked on the gateway is marked, never hidden** (12.10.2026,
+`docs/protocol.md` §"Blocked cards"). Beside the pool the lobby asks `GET
+/cards/blocked` (`http::ask_aside`, never offline) into
+`DeckBuilder::blocked`: a pool row says "blocked here", a deck row's name is
+drawn in the danger ink, and the card sheet gives the operator's reason and
+the end. A deck tile holding one wears a danger badge (`shelf::blocked_badge`,
+from the row's `blocked`); Play's next-game card says the sentence and its
+deck picker the badge; a room's deck choices show such a deck off with the
+same sentence; the first-run mini tiles pass blocked house decks over. Nothing in the client refuses it: the gateway does,
+and a local game is not affected.
+
 It was on by default in three comments and in `DeckBuilder::new`, and **off
 in the client**, which is issue #63. `new` is called by nothing outside the
 tests: `Lobby` derives `Default` and is the only thing that ever holds a

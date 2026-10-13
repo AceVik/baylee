@@ -1,11 +1,12 @@
 // The admin console (`/admin/…`, docs/feedback.md §"The admin console"):
 // a gateway's overview, its live tables and server, its accounts, the
-// pool's progress by set and its closed-beta keys, behind one section bar
-// that sits on top on a wide screen and at the bottom of a phone, under
-// the thumb.
+// pool's progress by set, its blocked cards and its closed-beta keys,
+// behind one section bar that sits on top on a wide screen and at the
+// bottom of a phone, under the thumb.
 
 import { AccountDetail } from "./admin/AccountDetail";
 import { Accounts } from "./admin/Accounts";
+import { Cards } from "./admin/Cards";
 import { Keys } from "./admin/Keys";
 import { Live } from "./admin/Live";
 import { Models } from "./admin/Models";
@@ -23,6 +24,8 @@ const ICONS: Record<AdminSection, string> = {
   accounts:
     "M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13zm8 0c-.3 0-.6 0-1 .1a4.2 4.2 0 0 1 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z",
   sets: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z",
+  cards:
+    "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z",
   models: "M9 2v2H7a3 3 0 0 0-3 3v2H2v2h2v2H2v2h2v2a3 3 0 0 0 3 3h2v2h2v-2h2v2h2v-2h2a3 3 0 0 0 3-3v-2h2v-2h-2v-2h2V9h-2V7a3 3 0 0 0-3-3h-2V2h-2v2h-2V2zm0 6h6v8H9z",
   keys: "M7 14a2 2 0 1 1 2-2 2 2 0 0 1-2 2zm5.6-4A6 6 0 1 0 12.6 14H17v4h4v-4h2v-4z",
 };
@@ -32,6 +35,7 @@ const LABELS: Record<AdminSection, Key> = {
   live: "sec.live",
   accounts: "sec.accounts",
   sets: "sec.sets",
+  cards: "sec.cards",
   keys: "sec.keys",
   models: "sec.models",
 };
@@ -76,6 +80,7 @@ export function Admin({
         {section === "accounts" &&
           (id === undefined ? <Accounts lang={lang} search={search} /> : <AccountDetail key={id} lang={lang} id={id} />)}
         {section === "sets" && (id === undefined ? <Sets lang={lang} /> : <SetPage key={id} lang={lang} code={id} />)}
+        {section === "cards" && <Cards lang={lang} />}
         {section === "keys" && <Keys lang={lang} />}
         {section === "models" && <Models lang={lang} />}
       </main>

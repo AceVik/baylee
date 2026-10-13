@@ -43,6 +43,10 @@ pub struct HouseDeck {
     /// Main-deck copies this build cannot play.
     #[serde(default)]
     pub unplayable: u32,
+    /// Its cards blocked on this gateway (`docs/protocol.md` §"Blocked
+    /// cards"); empty offline.
+    #[serde(default)]
+    pub blocked: Vec<super::BlockedCard>,
 }
 
 impl HouseDeck {

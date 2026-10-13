@@ -45,6 +45,19 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         return;
     }
     let token = state.lobby.token();
+    // The builder marks the cards this gateway blocked (`GET
+    // /cards/blocked`); asked beside the pool, off the one-request chain,
+    // and never offline, where nothing is blocked.
+    if pool && let Some(token) = token {
+        ask_aside::<BlockedBody>(
+            &state.gateway,
+            "/cards/blocked",
+            token,
+            state.gateway_epoch,
+            mailbox,
+            |body| Reply::Event(LobbyEvent::BlockedCards(body.blocked)),
+        );
+    }
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
     fetch(
         request,
@@ -597,6 +610,12 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         Expect::Left => LobbyEvent::Left,
         Expect::HostedProfiles => decode_hosted(lang, body),
     }
+}
+
+/// `GET /cards/blocked`: `{"blocked": [...]}`.
+#[derive(serde::Deserialize)]
+struct BlockedBody {
+    blocked: Vec<client_core::lobby::BlockedCard>,
 }
 
 /// `GET /pool`.

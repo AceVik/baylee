@@ -2303,3 +2303,51 @@ table.sets td.set-bar {
     margin: 0.2rem 0;
   }
 }
+
+/* Blocked cards (`/admin/cards`). */
+.card-search {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.card-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.card-hit {
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.card-hit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+}
+
+.card-hit-head > button,
+.card-hit-head > .badge {
+  margin-left: auto;
+}
+
+.block-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.block-reason {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.block-history > summary {
+  cursor: pointer;
+  padding: 0.4rem 0;
+}

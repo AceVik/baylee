@@ -258,6 +258,8 @@ impl Offline {
                             unplayable: digest.unplayable,
                             // The offline file keeps no save times.
                             updated_at: 0,
+                            // Nothing is blocked where no gateway is asked.
+                            blocked: Vec::new(),
                         }
                     })
                     .collect(),

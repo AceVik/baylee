@@ -2229,7 +2229,7 @@ door, key or no key.
 
 What a gateway's operator asks of it without a shell: how busy it is, in
 counts and by day, who is online and at which table, its accounts, and its
-closed-beta keys. Meant for one caller, the feedback
+closed-beta keys and its blocked cards. Meant for one caller, the feedback
 service's Overview on the same machine (`docs/feedback.md` §"The admin
 console"), which signs its admins in itself; the gateway takes no player's
 session here and knows no admin.
@@ -2286,12 +2286,18 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
 | `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
 | `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
+| `GET /admin/cards/search?q=` | `{"cards": [{"index", "name", "type_line", "mana_cost", "coverage", "scryfall_id", "blocked"}]}`: the pool's cards whose English name holds `q` (any case) or whose index is `q`, those starting with it first, then by name, at most 25; `blocked` is `null` or the block in force (§"Blocked cards"); an empty `q` finds nothing, one over 100 characters is `400` |
+| `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
+| `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
+| `DELETE /admin/cards/blocks/{id}` | lifts a block in force: `204`; `404` for none, or one lifted or ended already; `400` for an id that is not a UUID. The row stays, lifted |
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
-`action=invite.create` with `count`, `uses`, `expires` and the key `ids`, or
-`action=invite.revoke` with the `id`. Never a key, the token, or a key's
-note, which may name a person. Reads are not audited.
+`action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
+`action=invite.revoke` with the `id`, `action=card.block` with the block's
+`id`, the card's `index` and name and `until`, or `action=card.unblock` with
+the `id`, `index` and name. Never a key, the token, a key's note or a block's
+reason, either of which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
 statement (`baylee_db::stats`), one for the days (`baylee_db::console::daily`)
@@ -2528,6 +2534,53 @@ the end screen's way back to the lobby. `PROTOCOL_VERSION` does not move,
 as it did not for `AiLog`: a client or engine from before these messages
 decodes an envelope with no message and passes over it (that client sees
 its table's socket go quiet and the game marked over in the lobby).
+## Blocked cards
+
+The operator may take a card out of play on one gateway, for good or until
+a moment, with a reason the players are told (owner, 12.10.2026): through
+the admin console (§"The admin console", `/admin/cards/…`), which the
+feedback service's admin pages drive (`docs/feedback.md`). Blocks are kept
+in the gateway's database (`card_block`, `baylee_db::card_blocks`), one row
+per block, which stays after the block ends: the list is also the history.
+
+**What a block does.** A deck holding a blocked card, in its main deck,
+sideboard or command zone, does not sit down at a table on this gateway
+(`crates/baylee-gateway/src/blocks.rs`). It is refused
+
+- where it is chosen: `POST /lobby/games` (a room or the one-tap game
+  against the house), `POST /lobby/games/{id}/join`, `POST
+  /lobby/games/{id}/seats/{seat}` with a `deck_id`;
+- where its player says ready (`POST /lobby/games/{id}/ready`), for a card
+  blocked after the deck was chosen;
+- where a game is built from the room (start, rematch), every deck at the
+  table asked again, the house deck an AI chair without a deck plays
+  included; and an AI chair without a deck is not made while the house deck
+  holds a blocked card.
+
+The refusal is `409 {"error": "the deck “<deck>” holds <card>, which is
+blocked on this gateway until 2026-10-20 18:00 UTC: <reason>"}` (without
+`until …` for a block without an end). A game already running is never
+touched: the gateway runs no rules, and a block decides which decks sit
+down, not what happens on a table. A block with an end stops counting at
+that moment by itself; lifting one frees its decks at once. A local game
+(`LocalHost`) asks no gateway and is not affected.
+
+The gateway holds the blocks in force in memory, because the lobby answers
+under its lock: read before it serves, after every change the console makes,
+and every minute in case another process wrote one.
+
+**What players are told.** Both answers are for a signed-in session:
+
+- `GET /cards/blocked`: `{"blocked": [{"index", "name", "reason",
+  "until"}]}`, every card blocked now (`until` RFC 3339 or `null`). The
+  deck builder marks these cards.
+- `GET /decks` and `GET /decks/shared`: every row carries `"blocked"`, the
+  same objects for the cards of that deck blocked now, `[]` for a deck this
+  gateway plays. The client marks such a deck on its shelf and in a room's
+  deck choices, where it cannot be picked.
+
+`PROTOCOL_VERSION` does not move: these are HTTP routes and an additive
+field, and an older client is refused with the sentence above.
 
 ## Hosted language-model seats (beta.7)
 

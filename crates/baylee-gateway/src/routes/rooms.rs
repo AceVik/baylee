@@ -77,7 +77,7 @@ pub(crate) async fn create_game(
         let profile = baylee_core::preset::AIProfile::named(difficulty)
             .ok_or_else(|| err(StatusCode::BAD_REQUEST, "no such difficulty"))?;
         {
-            let mut preset = ai_preset(&deck, auth::new_game_seed())?;
+            let mut preset = ai_preset(&state.blocks, &deck, auth::new_game_seed())?;
             preset.house_rules = house_rules.clone();
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             preset.seats[1].controller = baylee_core::preset::SeatController::Ai(profile);
@@ -370,6 +370,12 @@ pub(crate) async fn set_seat(
                     chair.deck_name = if chair.deck.is_some() {
                         deck_name
                     } else {
+                        // The house deck is not seated while it holds a
+                        // card blocked here (`blocks.rs`).
+                        state.blocks.check_loaded(
+                            &super::tables::house_deck()?,
+                            time::OffsetDateTime::now_utc(),
+                        )?;
                         "Victory".to_string()
                     };
                 }
@@ -481,6 +487,14 @@ pub(crate) async fn set_ready(
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "you are not at this table"))?;
         if body.ready && chair.deck.is_none() {
             return Err(err(StatusCode::CONFLICT, "pick a deck first"));
+        }
+        // A card blocked since the deck was chosen (`blocks.rs`).
+        if body.ready
+            && let Some(deck) = &chair.deck
+        {
+            state
+                .blocks
+                .check_stored(deck, time::OffsetDateTime::now_utc())?;
         }
         chair.said_ready = body.ready;
         is_rematch

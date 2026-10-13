@@ -64,6 +64,7 @@
 #![warn(missing_docs)]
 
 pub mod accounts;
+pub mod card_blocks;
 pub mod confirmations;
 pub mod console;
 pub mod entity;

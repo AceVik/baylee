@@ -29,12 +29,14 @@ pub(crate) async fn list_decks(
         .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
         .collect();
     credit_artists(&state, &mut digests).await;
+    let now = time::OffsetDateTime::now_utc();
     let decks: Vec<_> = decks
         .iter()
         .zip(digests)
         .map(|(d, digest)| {
             serde_json::json!({
                 "id": d.id,
+                "blocked": blocked_json(&state, d, now),
                 "name": d.name,
                 "format": d.format,
                 "cards": d.cards.len(),
@@ -53,6 +55,36 @@ pub(crate) async fn list_decks(
         })
         .collect();
     Ok(Json(serde_json::json!(decks)))
+}
+
+/// The cards of `deck` blocked on this gateway (`blocks.rs`), as a list
+/// row's `blocked`: `[{"index", "name", "reason", "until"}]`, empty for a
+/// deck this gateway plays.
+fn blocked_json(state: &Shared, deck: &Deck, now: time::OffsetDateTime) -> serde_json::Value {
+    state
+        .blocks
+        .in_lines(&deck.cards, &deck.sideboard, &deck.commanders, now)
+        .iter()
+        .map(crate::blocks::Block::json)
+        .collect()
+}
+
+/// `GET /cards/blocked`: every card blocked on this gateway now, for a
+/// signed-in session, as `{"blocked": [{"index", "name", "reason",
+/// "until"}]}` (`docs/protocol.md` §"Blocked cards"). The deck builder marks
+/// them; a local game ignores them.
+pub(crate) async fn blocked_cards(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let _ = authed(&state, &headers).await?;
+    let blocked: Vec<_> = state
+        .blocks
+        .now_in_force(time::OffsetDateTime::now_utc())
+        .iter()
+        .map(crate::blocks::Block::json)
+        .collect();
+    Ok(Json(serde_json::json!({ "blocked": blocked })))
 }
 
 /// Fills in who painted every picture these digests name, from the
@@ -206,6 +238,7 @@ pub(crate) fn deck_routes() -> Router<Shared> {
     Router::new()
         .route("/decks", get(list_decks).post(create_deck))
         .route("/decks/shared", get(list_shared_decks))
+        .route("/cards/blocked", get(blocked_cards))
         .route(
             "/decks/{id}",
             get(get_deck).put(update_deck).delete(delete_deck),
@@ -237,12 +270,14 @@ pub(crate) async fn list_shared_decks(
         .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
         .collect();
     credit_artists(&state, &mut digests).await;
+    let now = time::OffsetDateTime::now_utc();
     let decks: Vec<_> = decks
         .iter()
         .zip(digests)
         .map(|(d, digest)| {
             serde_json::json!({
                 "id": d.id,
+                "blocked": blocked_json(&state, d, now),
                 "kind": d.kind,
                 "name": d.name,
                 "format": d.format,
