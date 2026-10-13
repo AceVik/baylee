@@ -107,3 +107,36 @@ fn cannons_exiles_at_upkeep_and_cast_permission_expires_and_never_plays_lands() 
         }
     }
 }
+
+/// "Whenever *you* cast your third spell in a turn": the third spell of an
+/// opponent's turn is not a trigger of the Cannons' controller.
+#[test]
+fn an_opponents_third_spell_does_not_offer_the_transform() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(112, swamp())
+        .battlefield(0, &[vance_s_blasting_cannons()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[dark_ritual(), dark_ritual(), dark_ritual()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_their_main_phase(&mut e, p1);
+    let cannons = on_battlefield(&e, p0, vance_s_blasting_cannons()).expect("the Cannons");
+
+    cast_from_hand(&mut e, p1, dark_ritual());
+    pass_until(&mut e, stack_is_empty);
+    cast_with_floating(&mut e, p1, dark_ritual());
+    pass_until(&mut e, stack_is_empty);
+    cast_with_floating(&mut e, p1, dark_ritual());
+    pass_until(&mut e, stack_is_empty);
+
+    assert!(
+        matches!(e.pending(), Pending::Priority { .. }),
+        "no may-transform question for p0: {:?}",
+        e.pending()
+    );
+    assert_eq!(
+        e.state().object(cannons).unwrap().face_index,
+        0,
+        "p1's third spell does not turn p0's Cannons over"
+    );
+}
