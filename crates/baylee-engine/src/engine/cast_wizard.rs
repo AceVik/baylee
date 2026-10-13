@@ -1334,7 +1334,7 @@ impl<L: CardLookup> Engine<L> {
         wizard: &CastWizard,
         version: u32,
         opened: &super::WindowStart,
-    ) -> Result<(), EngineError> {
+    ) -> Result<bool, EngineError> {
         let current = self
             .state
             .object(wizard.card)
@@ -1382,8 +1382,9 @@ impl<L: CardLookup> Engine<L> {
             if !self.finish_nested_cast() && wizard.paying == casting::Paying::DuringTheCast {
                 self.after_action(wizard.player);
             }
+            return Ok(false);
         }
-        Ok(())
+        Ok(true)
     }
 
     pub(super) fn wizard_target_options(

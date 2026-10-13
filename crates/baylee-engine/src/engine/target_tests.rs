@@ -138,6 +138,7 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
             .flat_map(|(blocker, attacker)| [*blocker, *attacker])
             .collect(),
         PlayerAction::ChooseDamageSource { source, .. } => vec![source.object],
+        PlayerAction::PayWindow { steps } => steps.iter().flat_map(named).collect(),
         PlayerAction::MulliganKeep
         | PlayerAction::CancelCast
         | PlayerAction::ChooseDamageEffect { .. }
