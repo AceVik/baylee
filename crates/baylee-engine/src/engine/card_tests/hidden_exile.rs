@@ -447,3 +447,42 @@ fn hidden_exile_howltooth_hollow_waits_for_the_opponents_hand_to_empty_too() {
         "played without paying its mana cost"
     );
 }
+
+/// Windbrisk Heights with `attackers` creatures recorded as having attacked
+/// this turn (distinct objects, all p0's), its activation `{W}, {T}` resolving
+/// with the hidden Bears still in exile. Returns the engine and the Bears.
+fn windbrisk_after_attacking_with(attackers: usize) -> (Engine<RegistryLookup>, ObjectId) {
+    let (mut e, _, card) = hidden(index::WINDBRISK_HEIGHTS, index::GRIZZLY_BEARS);
+    for id in library(&e, P0).into_iter().take(attackers) {
+        let version = e.state.object(id).unwrap().version;
+        e.state.per_turn.attacked.push((id, version, P0));
+    }
+    assert_eq!(e.state.per_turn.attacked.len(), attackers);
+    e.refresh_offer();
+    activate(&mut e, P0, index::WINDBRISK_HEIGHTS, 2);
+    (e, card)
+}
+
+/// "if you attacked with three or more creatures this turn": two attackers are
+/// not three. The ability resolves, offers no play and leaves the card
+/// face down in exile with no permission to play it.
+#[test]
+fn hidden_exile_windbrisk_two_attackers_do_not_play_the_exiled_card() {
+    let (mut e, card) = windbrisk_after_attacking_with(2);
+    pass_until(&mut e, stack_is_empty);
+    assert!(!playing(&e), "two attackers is below \"three or more\"");
+    assert_eq!(e.state.object(card).unwrap().zone, Zone::Exile);
+    assert!(crate::casting::play_permission(&e.state, P0, card).is_none());
+}
+
+/// The control for the test above: exactly three attackers is "three or more",
+/// so the same board, mana and exiled card now prompt for the free play.
+#[test]
+fn hidden_exile_windbrisk_three_attackers_offer_the_exiled_card() {
+    let (mut e, card) = windbrisk_after_attacking_with(3);
+    pass_until(&mut e, playing);
+    let Pending::ChooseCards { options, .. } = e.pending().clone() else {
+        panic!("{:?}", e.pending());
+    };
+    assert_eq!(options, vec![card], "the hidden card is what may be played");
+}

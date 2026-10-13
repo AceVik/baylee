@@ -226,3 +226,90 @@ fn batch45_tomb_of_aclazotz_permits_one_creature_spell_only() {
         "and the instant still is not, with a creature on the battlefield to aim at"
     );
 }
+
+/// "any number of target creature cards that each have a different mana value
+/// X or less" from "your graveyard": with X = 2 the menu holds p0's creature
+/// cards of mana value 2 or less and nothing else, so not p0's Serra Angel
+/// (mana value 5) or Spinal Villain (3), not p0's Lightning Bolt (no
+/// creature) and not the Bears in p1's graveyard. A named card off the menu
+/// is refused without changing anything and stays where it is.
+#[test]
+fn batch45_agadeem_targets_only_your_creature_cards_of_mana_value_x_or_less() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .hand(
+            0,
+            &[
+                index::AGADEEM_S_AWAKENING,
+                index::GRIZZLY_BEARS,
+                index::LLANOWAR_ELVES,
+                index::SERRA_ANGEL,
+                index::SPINAL_VILLAIN,
+                index::LIGHTNING_BOLT,
+            ],
+        )
+        .hand(1, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    e.dev_state_mut(P0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 30);
+    e.refresh_offer();
+    let bears = hand_to_graveyard(&mut e, P0, index::GRIZZLY_BEARS);
+    let elves = hand_to_graveyard(&mut e, P0, index::LLANOWAR_ELVES);
+    let angel = hand_to_graveyard(&mut e, P0, index::SERRA_ANGEL);
+    let villain = hand_to_graveyard(&mut e, P0, index::SPINAL_VILLAIN);
+    let bolt = hand_to_graveyard(&mut e, P0, index::LIGHTNING_BOLT);
+    let theirs = hand_to_graveyard(&mut e, P1, index::GRIZZLY_BEARS);
+    cast_with_floating(&mut e, P0, index::AGADEEM_S_AWAKENING);
+    e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    let Pending::ChooseTargets { mut options, .. } = e.pending().clone() else {
+        panic!("expected the target choice, got {:?}", e.pending());
+    };
+    options.sort();
+    let mut expected = vec![bears, elves];
+    expected.sort();
+    assert_eq!(
+        options, expected,
+        "\"creature cards ... X or less\" from \"your graveyard\": X = 2 offers the Bears and the Elves only"
+    );
+    for (named, why) in [
+        (angel, "mana value 5 is more than X = 2"),
+        (villain, "mana value 3 is more than X = 2"),
+        (bolt, "an instant is no creature card"),
+        (theirs, "\"your graveyard\", not the opponent's"),
+    ] {
+        let before = e.snapshot_hash();
+        assert!(
+            e.apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![named],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+            "refused: {why}"
+        );
+        assert_eq!(e.snapshot_hash(), before, "the refusal changed nothing");
+    }
+    target(&mut e, vec![bears, elves], vec![]);
+    pass_until(&mut e, stack_is_empty);
+    for (card, back) in [
+        (bears, true),
+        (elves, true),
+        (angel, false),
+        (villain, false),
+    ] {
+        assert_eq!(
+            e.state.object(card).unwrap().zone,
+            if back {
+                Zone::Battlefield
+            } else {
+                Zone::Graveyard
+            },
+            "only the two cheap creature cards came back"
+        );
+    }
+    assert_eq!(e.state.object(theirs).unwrap().zone, Zone::Graveyard);
+}
