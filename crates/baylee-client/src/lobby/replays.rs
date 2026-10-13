@@ -9,11 +9,13 @@
 use std::sync::Arc;
 
 use baylee_client_core::lobby::{ReplayHandover, ReplayRef};
+#[cfg(not(target_arch = "wasm32"))]
+use baylee_client_core::replay::Perspectives;
 use baylee_client_core::replay::library::{
     Entry, EntrySource, Filters, Library, Outcome, ReplayPage, ResultFilter, SourceFilter,
 };
 use baylee_client_core::replay::words::ReplayPhrase;
-use baylee_client_core::replay::{Perspective, Perspectives, Verify};
+use baylee_client_core::replay::{Perspective, Verify};
 
 use super::menus::{self, ShellMenu};
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
@@ -31,6 +33,7 @@ pub(crate) const SHOWN: bool = cfg!(not(any(
 /// The record of the game just played here, held while its replay opens
 /// from the end screen.
 #[derive(Clone, Debug)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // a browser keeps no records to open
 pub(crate) struct MemoryRecord {
     /// The record, inflated.
     pub(crate) bytes: Arc<Vec<u8>>,
@@ -1010,6 +1013,7 @@ pub(super) fn from_the_end(end: EndPress, state: &mut LobbyState, host: Option<&
 /// The seats of an entry whose players did not share their hands
 /// (REPLAY-DESIGN §18): a hosted game's people who did not say yes; a
 /// house seat is always shared, and a local record holds every hand.
+#[cfg(not(target_arch = "wasm32"))]
 fn unshared_seats(entry: &Entry) -> Vec<baylee_core::ids::PlayerId> {
     if entry.is_local() {
         return Vec::new();
