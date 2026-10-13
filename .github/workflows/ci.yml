@@ -134,6 +134,8 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
       - run: python3 -m unittest discover -s scripts/release/tests -v
+      # the Impressum blob, and that no blob or private data sits under web/
+      - run: python3 -m unittest discover -s scripts/site -p 'test_*.py' -v
 
   # Caches. The repository has 10 GB of Actions cache and each Rust cache is
   # 1.0–1.7 GB; on 08.10.2026 eight entries filled it, all from that day, and
