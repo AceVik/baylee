@@ -8,9 +8,9 @@
 //! Set: RIX #165 — Rivals of Ixalan | Scryfall ID: 66d9d524-3611-48d9-86c9-48e509e8ae70 | Oracle ID: db9ea3f9-c723-422f-98cc-a3ef7ca2c290
 //! Face: Path of Mettle — {R}{W} — Legendary Enchantment
 //! Face: Metzali, Tower of Triumph —  — Legendary Land
-// PARTIAL — the enter trigger and both of Metzali's mana and damage lines
-// are built; the transform trigger and the random destroy are not (see NOT
-// SUPPORTED below).
+// IMPLEMENTED — the enter trigger, the attack trigger that transforms it into
+// Metzali (two or more attackers with first strike, double strike, vigilance
+// and/or haste), and Metzali's mana, damage and random-destroy abilities.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -37,10 +37,16 @@ card!(
             mana_cost = mana!("{R}{W}"),
             types = TypeSet::ENCHANTMENT,
             supertypes = SupertypeSet::LEGENDARY,
-            abilities = &[triggered!(
-                Trigger::ETB,
-                &[Effect::damage_each(1, &WITHOUT_METTLE)]
-            )],
+            abilities = &[
+                triggered!(Trigger::ETB, &[Effect::damage_each(1, &WITHOUT_METTLE)]),
+                triggered!(
+                    Trigger::AttackWithAtLeastMatching {
+                        n: 2,
+                        filter: &Filter::HasKeyword(METTLE),
+                    },
+                    &[Effect::TransformSource]
+                ),
+            ],
         ),
         face!(
             name = "Metzali, Tower of Triumph",
@@ -58,20 +64,14 @@ card!(
                         target: TargetSpec::Player(PlayerRel::EachOpponent),
                     }]
                 ),
+                activated!(
+                    cost!("{2}{W}", TapSelf),
+                    &[Effect::DestroyRandom {
+                        filter: &Filter::And(&[Filter::CREATURE, Filter::AttackedThisTurn]),
+                    }]
+                ),
             ],
         ),
     ],
-    coverage = Coverage::Partial(
-        "no trigger counts attackers, nothing selects at random or asks what attacked this \
-         turn, and no effect transforms — so the front face never becomes Metzali",
-    ),
+    coverage = Coverage::Implemented,
 );
-
-// NOT SUPPORTED: "Whenever you attack with at least two creatures that have
-// first strike, double strike, vigilance, and/or haste, transform Path of
-// Mettle." — Trigger::Attacks(&filter) fires once per attacking object and
-// carries no "at least two" count, and transforming is not an effect
-// (Effect::ExileSelfReturnAsFace exiles and returns, which is a new object).
-// NOT SUPPORTED: "{2}{W}, {T}: Choose a creature at random that attacked this
-// turn. Destroy that creature." — no selection in the DSL is random, and no
-// filter can ask what attacked this turn.

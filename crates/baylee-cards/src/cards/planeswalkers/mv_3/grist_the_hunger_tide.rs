@@ -4,21 +4,33 @@
 //! Oracle: −2: You may sacrifice a creature. When you do, destroy target creature or planeswalker.
 //! Oracle: −5: Each opponent loses life equal to the number of creature cards in your graveyard.
 //! Set: DSC #220 — Duskmourn: House of Horror Commander | Scryfall ID: 1925dc45-4dee-4772-aa16-3b4ca54be6c7 | Oracle ID: 0efb0d7e-dea0-4817-a243-15066e9ef333
-// PARTIAL — the −5 loyalty ability is implemented. The static animation, the
-// +1 mill loop and the −2 reflexive sacrifice-then-destroy are not written.
+// IMPLEMENTED — the 1/1 Insect creature it is everywhere but the battlefield,
+// +1 (Insect token, mill, repeat on a milled Insect card), −2 (optional
+// sacrifice, then a reflexive destroy) and −5 (life loss for creature cards).
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+/// "an Insect card" milled this way — read once Grist's own static has made it
+/// one, off the battlefield.
+const INSECT_CARD: Filter = Filter::HasSubtype(subtypes::creature::INSECT);
+
+/// "If an Insect card was milled this way": what the loop reads after each
+/// pass, for the loyalty counter and for going round again.
+const INSECT_MILLED: Condition =
+    Condition::AmountAtLeast(Amount::ThisWay(ThisWay::Milled(&INSECT_CARD)), 1);
 
 card!(
     index = index::GRIST_THE_HUNGER_TIDE,
     oracle_id = "0efb0d7e-dea0-4817-a243-15066e9ef333",
     scryfall_id = "1925dc45-4dee-4772-aa16-3b4ca54be6c7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Partial(
-        "static animating ability, the +1 mill/repeat loop and the −2 reflexive \
-         sacrifice are not expressible"
-    ),
+    // The static below works outside the game too (CR 113.6c), so before the
+    // game Grist is a legendary creature card, and a legendary creature card
+    // may be a commander (CR 903.3).
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grist, the Hunger Tide",
         mana_cost = mana!("{1}{B}{G}"),
@@ -27,27 +39,78 @@ card!(
         subtypes = &[subtypes::planeswalker::GRIST],
         loyalty = Some(3),
     ),],
-    // NOT SUPPORTED: "As long as Grist isn't on the battlefield, it's a 1/1 Insect
-    // creature in addition to its other types." — a `StaticAbility` is registered
-    // while its source is on the battlefield and carries no field to condition it
-    // on the source's zone; no `Modifier` says "in every zone but this one".
-    // NOT SUPPORTED: "+1: … If an Insect card was milled this way, put a loyalty
-    // counter on Grist and repeat this process." — no `Effect` reports what `Mill`
-    // sent to the graveyard, so the `if` has nothing to read, and there is no
-    // "repeat this process" construct in the vocabulary at all.
-    // NOT SUPPORTED: "−2: You may sacrifice a creature. When you do, destroy target
-    // creature or planeswalker." — the reflexive "when you do" trigger has no shape
-    // here: a `TargetReq` is answered when the ability is activated (CR 601.2c),
-    // not after a sacrifice made while it resolves, and `Effect::MayDo` offers the
-    // whole clause as one yes/no rather than a sacrifice that arms a second one.
-    abilities = &[loyalty!(
-        -5,
-        &[Effect::LoseLife {
-            amount: Amount::CountOf {
-                filter: &Filter::CREATURE,
-                zone: ZoneSel::GraveyardYou,
-            },
-            target: PlayerRel::EachOpponent,
-        }]
-    )],
+    abilities = &[
+        // CR 113.6c: "as long as Grist isn't on the battlefield, it's a 1/1
+        // Insect creature in addition to its other types" — one static per
+        // layer, each working in every zone but the battlefield.
+        static_ability!(
+            Filter::This,
+            Modifier::AddType(TypeSet::CREATURE),
+            zone = ZoneRef::NotBattlefield
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::AddSubtype(subtypes::creature::INSECT),
+            zone = ZoneRef::NotBattlefield
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::SetPT(1, 1),
+            zone = ZoneRef::NotBattlefield
+        ),
+        loyalty!(
+            1,
+            &[Effect::RepeatWhile {
+                effects: &[
+                    Effect::CreateToken {
+                        token: &generated_tokens::INSECT_1_1_BLACK_GREEN,
+                    },
+                    Effect::Mill {
+                        amount: Amount::Fixed(1),
+                        target: PlayerRel::You,
+                    },
+                    Effect::IfCondition {
+                        condition: INSECT_MILLED,
+                        then: &[Effect::AddCounterSource {
+                            kind: CounterKind::Loyalty,
+                            amount: Amount::Fixed(1),
+                        }],
+                        otherwise: &[],
+                    },
+                ],
+                condition: INSECT_MILLED,
+            }]
+        ),
+        // "You may sacrifice a creature. When you do, destroy target creature
+        // or planeswalker." The target is chosen only when the reflexive
+        // trigger goes on the stack, after the sacrifice.
+        loyalty!(
+            -2,
+            &[
+                Effect::MayDo {
+                    effects: &[Effect::SacrificeFilter {
+                        who: PlayerRel::You,
+                        filter: &Filter::CREATURE,
+                    }],
+                },
+                Effect::Reflexive {
+                    when: ReflexiveEvent::Sacrificed(&Filter::CREATURE),
+                    effects: &[Effect::destroy(TargetSpec::Object(
+                        &Filter::CREATURE_OR_PLANESWALKER
+                    ))],
+                    target: Some(TargetSpec::Object(&Filter::CREATURE_OR_PLANESWALKER)),
+                },
+            ]
+        ),
+        loyalty!(
+            -5,
+            &[Effect::LoseLife {
+                amount: Amount::CountOf {
+                    filter: &Filter::CREATURE,
+                    zone: ZoneSel::GraveyardYou,
+                },
+                target: PlayerRel::EachOpponent,
+            }]
+        ),
+    ],
 );

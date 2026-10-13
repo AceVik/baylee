@@ -33,7 +33,7 @@ static ANIMATE: &[Effect] = &[
     ),
     Effect::continuous(
         &Filter::This,
-        Modifier::AddColor(ColorSet::from_slice(&[Color::Black, Color::Green])),
+        Modifier::SetColor(ColorSet::from_slice(&[Color::Black, Color::Green])),
         Duration::UntilEndOfTurn,
     ),
     Effect::continuous(
