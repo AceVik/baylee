@@ -50,6 +50,9 @@ pub(crate) struct Page {
     #[serde(default)]
     offset: u64,
     limit: Option<u64>,
+    /// The archived games instead of the others.
+    #[serde(default)]
+    archived: bool,
 }
 
 /// One seat of a listed game.
@@ -83,6 +86,8 @@ struct GameOut {
     /// ended before the gateway noted how.
     result: &'static str,
     public: bool,
+    /// Whether the asking account archived it.
+    archived: bool,
     /// `exact`, `checked` or `unverified`.
     check: &'static str,
     build: Option<String>,
@@ -117,10 +122,10 @@ fn who(seat: &ListedSeat, me: Uuid) -> &'static str {
 }
 
 /// Whether a seat's hidden cards may be shown in a replay at all: an AI seat
-/// always, a person's unless its player unticked it (shared by default,
-/// owner 13.10.2026; `docs/protocol.md` §"Replays").
+/// always, a person's as it said, else by default (yes for a game recorded
+/// from the beta.7 deploy on, no before; `docs/protocol.md` §"Replays").
 fn shared(seat: &ListedSeat, who: &str) -> bool {
-    matches!(who, "house" | "model") || seat.shared != Some(false)
+    matches!(who, "house" | "model") || seat.shared
 }
 
 /// What a seat is called, in the list and in a tape's opening payload.
@@ -154,7 +159,7 @@ fn result_of(game: &SeatedGame, seat: u8) -> &'static str {
     }
 }
 
-fn game_out(game: SeatedGame, me: Uuid) -> GameOut {
+fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
     let seat = game
         .seats
         .iter()
@@ -186,6 +191,7 @@ fn game_out(game: SeatedGame, me: Uuid) -> GameOut {
         seat,
         turn: game.turn,
         public: true,
+        archived,
         build: game.build,
         seats,
     }
@@ -201,11 +207,15 @@ pub(crate) async fn list_replays(
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
     let limit = page.limit.unwrap_or(DEFAULT_PAGE).clamp(1, MAX_PAGE);
-    let (games, total) = baylee_db::records::seated_games(&state.db, me, page.offset, limit)
-        .await
-        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+    let (games, total) =
+        baylee_db::records::seated_games(&state.db, me, page.archived, page.offset, limit)
+            .await
+            .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
     Ok(Json(Listing {
-        games: games.into_iter().map(|g| game_out(g, me)).collect(),
+        games: games
+            .into_iter()
+            .map(|g| game_out(g, me, page.archived))
+            .collect(),
         total,
     }))
 }
@@ -481,19 +491,30 @@ pub(crate) async fn share_replay(
     }))
 }
 
-/// `DELETE /replays/{game}`: hides the game from the asking account's list.
-/// The record is never deleted (it trains the house AI); nothing else
-/// changes.
-pub(crate) async fn hide_replay(
+/// `PUT /replays/{game}/archived`'s body and answer.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Archived {
+    archived: bool,
+}
+
+/// `PUT /replays/{game}/archived` `{"archived": bool}`: moves the game to
+/// the asking account's archived list (`GET /replays?archived=true`), or
+/// back. The record is never deleted (it trains the house AI); nothing else
+/// changes, and an archived game's tapes are answered as before.
+pub(crate) async fn archive_replay(
     State(state): State<Shared>,
     Path(game_id): Path<String>,
     headers: HeaderMap,
-) -> Result<StatusCode, Refusal> {
+    body: axum::body::Bytes,
+) -> Result<Json<Archived>, Refusal> {
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
+    let ask: Archived = serde_json::from_slice(&body)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "the body is not an archive choice"))?;
     own_seat(&state, &game_id, me).await?;
-    baylee_db::records::hide(&state.db, me, &game_id)
+    baylee_db::records::set_archived(&state.db, me, &game_id, ask.archived)
         .await
         .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(Json(ask))
 }
