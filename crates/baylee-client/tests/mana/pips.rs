@@ -8,13 +8,16 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
-/// The same bubble on a creature, and on the ability no planner can read.
+/// The same bubble on a creature whose amount is a count of the board.
 ///
-/// Harabaz Druid's `Add X mana of any one color` has an `Amount::CountOf`,
-/// so `mana_shape` refuses it and `manasources::sources` has never seen it —
-/// it was the empty `↺` row on the sheet. `mana_offer` reads the colour
-/// question alone, which is all a bubble asks, and the owner's addendum said
-/// the dialog is for *"Artefakte und Kreaturen, die nur Mana Ability haben"*.
+/// Harabaz Druid's `Add X mana of any one color` has an `Amount::CountOf`.
+/// It was the empty `↺` row on the sheet until `mana_offer` read the colour
+/// question alone, which is all a bubble asks; the owner's addendum said the
+/// dialog is for *"Artefakte und Kreaturen, die nur Mana Ability haben"*.
+/// Since #15 the planner counts that X off the board too
+/// (`baylee_ai::mana_poured`), and the bubble is unchanged by it: the pips
+/// still ask the colour and say "X×". The source the planner cannot count at
+/// all is [`a_mana_ability_whose_amount_no_board_answers_stays_out_of_the_plan`].
 #[test]
 fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
     use baylee_client::input::activate_card;
@@ -33,14 +36,15 @@ fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
         .expect("the creature starts on the table")
         .id;
 
-    // The premise, and the reason this needed a fourth reading at all: the
-    // planner cannot count what this makes, so it is in no `Source` list.
-    assert!(
-        !manasources::sources(table.view(), table.legal())
-            .iter()
-            .any(|s| s.id == druid),
-        "no planner can read an amount that is a count of the battlefield"
-    );
+    // The planner counts X off the board (#15): the Druid is the only Ally
+    // here, so it pours one mana of a colour it is asked for.
+    let counted: Vec<_> = manasources::sources(table.view(), table.legal())
+        .into_iter()
+        .filter(|s| s.id == druid)
+        .collect();
+    assert_eq!(counted.len(), 1, "the Druid is a source: {counted:?}");
+    assert_eq!(counted[0].amount, 1, "X is the one Ally: {counted:?}");
+    assert_eq!(counted[0].colors.len(), 5, "of any one colour: {counted:?}");
 
     let mut duel = Duel::default();
     duel.view = Some(table.view().clone());
@@ -83,6 +87,43 @@ fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
     activate_card(&mut duel, druid);
     assert_eq!(duel.ability_menu, Some(druid), "the click opens the bubble");
     assert!(duel.outbox().is_empty(), "and taps nothing");
+}
+
+/// The fallback the bubble's fourth reading exists for: a mana ability whose
+/// amount no board answers before it is activated stays out of the plan.
+///
+/// Priest of Yawgmoth adds `{B}` equal to the *sacrificed* artifact's mana
+/// value, a number that exists only once the cost is paid, so the planner
+/// (`manasources::sources`, through `baylee_ai::mana_poured`) counts nothing
+/// for it and taps around it rather than guess (#15 kept that refusal).
+#[test]
+fn a_mana_ability_whose_amount_no_board_answers_stays_out_of_the_plan() {
+    const PRIEST: &str = "cb6465f9-dcf8-4258-aa18-661ad252b58b";
+    const ORNITHOPTER: &str = "a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba";
+    let mut preset = bubble_preset();
+    preset.seats[0].starting_battlefield = vec![entry(PRIEST), entry(ORNITHOPTER)];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+    let priest = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Priest of Yawgmoth")
+        .expect("the creature starts on the table")
+        .id;
+    // The premise: the engine offers the tap, an artifact being there to
+    // sacrifice.
+    assert!(
+        table.legal().abilities.iter().any(|(id, _)| *id == priest),
+        "the Priest's tap is offered: {:?}",
+        table.legal()
+    );
+    assert!(
+        !manasources::sources(table.view(), table.legal())
+            .iter()
+            .any(|s| s.id == priest),
+        "an amount fixed only by what is sacrificed is no source to plan with"
+    );
 }
 
 /// The owner's sixth point: a permanent that makes mana **and** does
