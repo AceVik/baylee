@@ -239,6 +239,18 @@ pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRe
         source(state, res)
     }
 }
+/// The creature the resolving trigger is about besides its event object
+/// (`Rider::EventSubject`), as it was when the trigger fired.
+pub(super) fn event_subject(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
+    state
+        .object(res.on_stack)?
+        .riders
+        .iter()
+        .find_map(|rider| match rider {
+            crate::object::Rider::EventSubject(subject) => Some(*subject),
+            _ => None,
+        })
+}
 pub(super) fn is_current(state: &GameState, reference: DamageSourceRef) -> bool {
     state.object(reference.object).is_some_and(|o| {
         o.version == reference.version && !o.status.contains(crate::object::Status::PHASED_OUT)

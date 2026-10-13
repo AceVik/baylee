@@ -84,8 +84,8 @@
 // WheneverTargetDealtDamageThisTurn and AtEndOfCombatThisTurn (wave 2, Glyph
 // of Life and Glyph of Doom), and WheneverYouAttackThisTurn (wave 3,
 // Dalkovan Encampment), and PlayerMayPayManaEachThenElse's two branches
-// (Cyclone).
-const NESTING_FIELDS: usize = 57;
+// (Cyclone), and AtNextEndStepAboutSubject (Infinite Authority).
+const NESTING_FIELDS: usize = 58;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -132,8 +132,9 @@ const NESTING_FIELDS: usize = 57;
 /// forty-eighth, the same shape. `WheneverYouAttackThisTurn` (Dalkovan
 /// Encampment) is the forty-ninth, the same shape again.
 /// `PlayerMayPayManaEachThenElse` (Cyclone) is the fiftieth: one new carrier,
-/// two branches.
-const CARRYING_VARIANTS: usize = 50;
+/// two branches. `AtNextEndStepAboutSubject` (Infinite Authority's "the
+/// first creature") is the fifty-first: one new carrier, one branch.
+const CARRYING_VARIANTS: usize = 51;
 
 /// The floor under the reader itself.
 ///

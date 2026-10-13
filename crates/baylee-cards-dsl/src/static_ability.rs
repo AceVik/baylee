@@ -532,6 +532,13 @@ pub enum Modifier {
     OneSpellManaAnyType,
     /// Replace the next draw this turn with a card from outside the game.
     NextDrawWish,
+    /// Aladdin's Lamp's replacement of the controller's next draw this
+    /// turn, made by `Effect::NextDrawLooksAtTop`: look at the top `count`
+    /// cards, put all but one on the bottom in a random order, then draw.
+    NextDrawFromTop {
+        /// X, as the effect resolved.
+        count: u32,
+    },
     /// Mana of any color may activate creatures this effect's controller controls.
     CreatureAbilityManaAnyColor,
     /// The effect's controller controls the affected permanent (CR 613.1b,
@@ -958,6 +965,7 @@ impl Modifier {
             | Self::NextSpellUncounterable
             | Self::OneSpellManaAnyType
             | Self::NextDrawWish
+            | Self::NextDrawFromTop { .. }
             | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
@@ -1242,6 +1250,23 @@ pub enum ReplacementRule {
     MayDiscardToLibraryTop,
     /// Opponent-caused effect discards may be revealed and put on the library.
     MayRevealOpponentDiscardToLibraryTop,
+    /// "Dredge N" (CR 702.52a): "As long as you have at least N cards in
+    /// your library, if you would draw a card, you may instead mill N
+    /// cards and return this card from your graveyard to your hand." A
+    /// static ability that functions only while the card is in its owner's
+    /// graveyard, so it is read off the graveyard and never registered from
+    /// the battlefield; with fewer than N cards in the library it cannot be
+    /// used (CR 702.52b). One draw is replaced by one dredge at most.
+    Dredge(u8),
+    /// "If a player would draw a card except the first one they draw in
+    /// each of their draw steps, that player discards a card instead. If
+    /// the player discards a card this way, they draw a card. If the player
+    /// doesn't discard a card this way, they mill a card" (Chains of
+    /// Mephistopheles). Every player's draws, each card of a multiple draw
+    /// on its own (CR 121.2); each source modifies a draw once (CR 614.5),
+    /// and the draw it leaves is a draw other replacements may modify
+    /// (CR 616.2). With an empty hand the mill replaces the draw entirely.
+    DiscardInsteadOfLaterDraws,
 }
 
 #[cfg(test)]
@@ -1450,6 +1475,7 @@ mod tests {
             Modifier::NextSpellUncounterable,
             Modifier::OneSpellManaAnyType,
             Modifier::NextDrawWish,
+            Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),

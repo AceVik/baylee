@@ -3,13 +3,16 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod arboria;
 mod castle;
 mod conversion;
+mod cyclone;
 mod day_of_destiny;
 mod embargo;
 mod field_of_souls;
 mod grasping_shadows;
 mod greed;
+mod invoke_prejudice;
 mod karma;
 mod levitation;
 mod living_lands;

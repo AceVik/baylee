@@ -375,6 +375,41 @@ pub fn of_hand(card: &baylee_view::HandObject, texts: &crate::cardtext::CardText
     )
 }
 
+/// A card known only by who it is (a revealed card, a log link): its
+/// printed characteristics from the registry and its text, the player's
+/// language where it has arrived, else English. `None` for an index the
+/// registry does not know.
+pub fn of_identity(
+    card: baylee_core::ids::CardIndex,
+    face: u8,
+    texts: &crate::cardtext::CardTexts,
+) -> Option<CardFace> {
+    use baylee_client_core::card_face::Characteristics;
+    use baylee_core::types::SubtypeSet;
+
+    let face_def = baylee_cards::by_index(card)?.faces.get(face as usize)?;
+    let text = texts.face(card, face);
+    let chars = Characteristics {
+        name: text
+            .as_ref()
+            .map_or_else(|| face_def.name.to_string(), |t| t.name.clone()),
+        types: face_def.types,
+        supertypes: face_def.supertypes,
+        subtypes: SubtypeSet::from_slice(face_def.subtypes),
+        colors: face_def.mana_cost.colors().union(face_def.color_indicator),
+        power: face_def.power,
+        toughness: face_def.toughness,
+        loyalty: face_def.loyalty,
+        damage: 0,
+    };
+    Some(CardFace::build(
+        &chars,
+        Some(&face_def.mana_cost),
+        Some(printed_types(face_def)),
+        text.as_ref(),
+    ))
+}
+
 // ------------------------------------------------------------------ palette
 
 /// The card's frame colour, from its projected colours.

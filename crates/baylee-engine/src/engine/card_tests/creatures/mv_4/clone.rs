@@ -686,29 +686,28 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
 }
 
 /// Golgari Thug ({1}{B}, 1/1): "When this creature dies, put target creature
-/// card from your graveyard on top of your library." — and a printed
-/// `Dredge 4` the card stands at `Coverage::Partial` for.
+/// card from your graveyard on top of your library." / "Dredge 4".
 ///
 /// It is Myr Retriever's mirror, and the word that is *missing* is what makes
 /// it one. The printed sentence says "target creature card", not "another",
 /// so the Thug lying in the graveyard it has just fallen into is a legal
 /// target for its own trigger: the trigger's targets are chosen as it is put
 /// on the stack (CR 603.3d), by which time the Thug is a creature card in
-/// that graveyard (CR 400.7). Both halves are struck here — the corpse is in
+/// that graveyard (CR 400.7). Both halves are struck here -- the corpse is in
 /// the offer, and the trigger resolves onto it and puts the Thug on top of
 /// its owner's library.
 ///
-/// The second half is what `Partial` promises. Dredge 4 replaces a draw with
-/// "mill four cards, then return this card from your graveyard to your hand",
-/// and nothing in the DSL says "instead of drawing", so the line is not
-/// written at all. Mikokoro is activated in *response* to the Thug's own
-/// trigger, which is the only moment in this game where the Thug's controller
-/// draws a card with the Thug lying in their graveyard: a dredge that existed
-/// would have to fire exactly there. The draw is asserted to have happened,
-/// so the three assertions after it cannot pass by nobody having drawn.
+/// Mikokoro is activated in *response* to the Thug's own trigger, which is the
+/// only moment in this game where the Thug's controller draws a card with the
+/// Thug lying in their graveyard, and so the one moment where Dredge 4 is
+/// offered (CR 702.52a): the question comes, the Thug is on its menu, and it
+/// is declined here -- declining is drawing, so the draw is made, the Thug
+/// stays in the graveyard and nothing is milled. (This test pinned "dredge 4
+/// is not written" while the card was Partial; the dredge itself is played in
+/// `golgari_thug.rs`.)
 #[test]
 #[allow(clippy::too_many_lines)] // the replacement only shows itself against a draw that follows it in the same game
-fn a_dying_thug_puts_its_own_corpse_on_top_and_replaces_no_draw() {
+fn a_dying_thug_puts_its_own_corpse_on_top_and_declining_the_dredge_draws() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, quiet_creature())
         .battlefield(0, &[golgari_thug(), mikokoro(), swamp(), swamp()])
@@ -788,23 +787,46 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_replaces_no_draw() {
         )
         .expect("two Swamps pay the {2}");
     pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Dredge,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the loop above waited for exactly this")
+    };
+    assert_eq!(player, p0, "the drawing player is asked");
+    assert_eq!(
+        options,
+        vec![corpse],
+        "the Thug lying in the graveyard is the dredge card on offer"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("dredge is optional: naming none declines");
+    pass_until(&mut engine, |e| {
         cards_in(e, crate::zone::ZoneLocation::Hand(p0)) > hand_before
     });
     assert_eq!(
         cards_in(&engine, crate::zone::ZoneLocation::Hand(p0)),
         hand_before + 1,
-        "the draw dredge would have replaced really happened"
+        "declining dredge is drawing: the card was drawn"
     );
     assert_eq!(
         in_graveyard(&engine, p0, golgari_thug()),
         Some(corpse),
-        "dredge 4 is not written: the Thug stayed in the graveyard instead of \
-         coming back to hand off that draw"
+        "the Thug stayed in the graveyard instead of coming back to hand"
     );
     assert_eq!(
         cards_in(&engine, crate::zone::ZoneLocation::Graveyard(p0)),
         yard_before,
-        "and nothing was milled: dredge 4 would have put four cards here"
+        "and nothing was milled: a dredge would have put four cards here"
     );
 
     pass_until(&mut engine, stack_is_empty);

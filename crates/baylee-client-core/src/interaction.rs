@@ -807,6 +807,13 @@ pub fn table_losses(
 /// band with one that has banding (CR 702.22c). Its noun says what choosing
 /// does; naming none attacks without a band.
 ///
+/// `Dredge` and `DrawReplacement` are asked about one card draw at a time
+/// (CR 121.2) and are whole sentences in [`cards_line`], as the entry
+/// replacements are; their arm here only keeps the match exhaustive. The
+/// question a draw can also raise through `Discard` (Chains of Mephistopheles)
+/// and `PutOnBottom` (Aladdin's Lamp's top cards, the one left is drawn) is
+/// said by those prompts' own nouns, which read true there.
+///
 /// `RevealOrEnterTapped` is a reveal land asking which card from hand to
 /// show. Its noun says what happens to the card and not what declining
 /// costs, which is the opposite of `LeaveTapped`'s reasoning and right for
@@ -893,6 +900,8 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         | ChoicePrompt::CommandCard
         | ChoicePrompt::EntryOrder
         | ChoicePrompt::EntryReplacement
+        | ChoicePrompt::Dredge
+        | ChoicePrompt::DrawReplacement
         | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }
@@ -909,17 +918,18 @@ fn cards_line(
     statics: Option<&GameStatic>,
     name: &dyn Fn(ObjectId) -> Option<String>,
 ) -> String {
-    if matches!(
-        reason,
-        ChoicePrompt::EntryOrder | ChoicePrompt::EntryReplacement
-    ) {
-        return if reason == ChoicePrompt::EntryOrder {
-            Phrase::ChooseEntryOrder
-        } else {
-            Phrase::ChooseEntryReplacement
-        }
-        .text(lang)
-        .to_owned();
+    // Whole sentences, not counted nouns: the question is which of several
+    // rules applies (CR 616.1) or whether a draw is replaced at all
+    // (CR 702.52a), and "up to 1 card" says neither.
+    let sentence = match reason {
+        ChoicePrompt::EntryOrder => Some(Phrase::ChooseEntryOrder),
+        ChoicePrompt::EntryReplacement => Some(Phrase::ChooseEntryReplacement),
+        ChoicePrompt::Dredge => Some(Phrase::ChooseDredge),
+        ChoicePrompt::DrawReplacement => Some(Phrase::ChooseDrawReplacement),
+        _ => None,
+    };
+    if let Some(phrase) = sentence {
+        return phrase.text(lang).to_owned();
     }
     if let ChoicePrompt::CostTapExactlyOrNone { count } = reason {
         return Phrase::ChooseExactlyOrNoTaps.fill(lang, &[&count.to_string()]);

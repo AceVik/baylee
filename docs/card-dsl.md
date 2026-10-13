@@ -4004,3 +4004,38 @@ Effects:
   source and those cards from the graveyards.
 - A spell's mana value on the stack counts X as chosen (CR 202.3e): Whir of
   Invention cast for X=2 has mana value 5 there.
+
+### An Aura's trigger about its creature (Infinite Authority)
+
+- `Trigger::AttachedBlocksOrBecomesBlockedBy(&filter)` — "Whenever enchanted
+  (equipped) creature blocks or becomes blocked by a creature [filter]": the
+  Aura's own triggered ability, never `Modifier::GrantTriggered` (its
+  controller is the Aura's, CR 603.3a, and a creature that lost its abilities
+  still has it fire). Once per pair; the other creature is
+  `TargetSpec::EventObject`, the attached creature as it was then is the
+  trigger's subject.
+- `Effect::AtNextEndStepAboutSubject { effects }` — "at the beginning of the
+  next end step, … the first creature": a delayed trigger about that subject,
+  carried through delayed triggers made in between (`AtEndOfCombat`); in
+  `effects` it is the event object and `Filter::Reference`
+  (`Effect::AddCounterFilter { filter: &Filter::Reference, .. }`).
+
+### Replacing a draw: dredge, Chains of Mephistopheles, Aladdin's Lamp (K12)
+
+- `AbilityDef::Replacement(ReplacementRule::Dredge(n))` — "Dredge N"
+  (CR 702.52a). It works from the owner's graveyard only and needs at least
+  N cards in their library (702.52b); the engine offers it on every draw of
+  theirs, card by card, as "mill N and return this card to your hand
+  instead".
+- `AbilityDef::Replacement(ReplacementRule::DiscardInsteadOfLaterDraws)` —
+  Chains of Mephistopheles' whole sentence: every player's draws but the
+  first of their draw step; discard a card, then draw; with an empty hand,
+  mill a card instead of drawing. Several Chains each apply once.
+- `Effect::NextDrawLooksAtTop { count: Amount }` — Aladdin's Lamp's "The
+  next time you would draw a card this turn, instead look at the top X cards
+  of your library, put all but one of them on the bottom of your library in
+  a random order, then draw a card". With `x_value = ActivationX::AtLeast(1)`
+  on the `activated!` for "X can't be 0" (as Lair of the Hydra).
+- The drawing player orders several replacements of one draw (CR 616.1);
+  the engine asks when the order matters.
+

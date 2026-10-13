@@ -464,18 +464,11 @@ pub(super) fn resume_yes_no_inner(
     // card, and the next waiting draw may be asked in turn. The
     // instruction that drew has run, so nothing advances here.
     if matches!(res.awaiting, Some(AwaitingOp::SkipDraw { .. })) {
-        let Some(AwaitingOp::SkipDraw {
-            source,
-            mut declined,
-        }) = res.awaiting.take()
-        else {
+        let Some(AwaitingOp::SkipDraw { source }) = res.awaiting.take() else {
             unreachable!("just matched")
         };
-        if let Some((player, next)) = state.draw_offer_answered(source, answer, &mut declined) {
-            res.awaiting = Some(AwaitingOp::SkipDraw {
-                source: next,
-                declined,
-            });
+        if let Some((player, next)) = state.draw_offer_answered(source, answer) {
+            res.awaiting = Some(AwaitingOp::SkipDraw { source: next });
             return Flow::Wait(state.draw_offer_question(player, next));
         }
         return run(state, res);

@@ -214,6 +214,7 @@ fn dauthi_does_not_outlive_a_destroy_all_instruction_in_the_same_resolution() {
         event_mana: None,
         retarget_left: None,
         loot: None,
+        draw_watch: None,
         this_way_from: None,
     };
     assert!(matches!(

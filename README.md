@@ -3,14 +3,21 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: a moonlit conservatory garden with the gateway list" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: signing in at a gateway, in a moonlit garden" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
 
 <p align="center">
-  A rules-enforcing engine and 3D table for playing Magic: The Gathering with friends and against a house AI.<br>
-  Free, open source (AGPL-3.0), unofficial fan content.
+  A free 3D table for playing Magic: The Gathering with friends, against a house AI or against a language model,<br>
+  with a rules engine that knows the rules so you don't have to argue about them.<br>
+  Open source (AGPL-3.0), unofficial fan content.
+</p>
+
+<p align="center">
+  <a href="https://baylee.acevik.de/"><b>Website</b></a> ·
+  <a href="https://github.com/AceVik/baylee/releases"><b>Download</b></a> ·
+  <a href="https://discord.gg/4pP3uAwgY"><b>Discord</b></a>
 </p>
 
 <p align="center">
@@ -20,113 +27,149 @@
 </p>
 
 > [!NOTE]
-> **Baylee is in closed beta.** The current build is
-> [v0.1.0-beta.2](https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.2), a pre-release.
-> The public gateway, **[CLOSED BETA] Baylee Sanctuary** at `https://baylee.acevik.de`,
-> takes new players only with a closed-beta key. Without a key you can
-> still play offline against the house AI.
+> **Baylee is in closed beta.** This page describes version **0.1.0-beta.7**, a
+> pre-release for **Windows, macOS and Linux** computers. The public server,
+> **Baylee Sanctuary** at `https://baylee.acevik.de`, takes new players only
+> with a closed-beta key. Without a key you can still play offline against
+> the house AI, build decks, or run a server of your own for your group.
 
 ## Contents
 
 - [What Baylee is](#what-baylee-is)
+- [New in beta.7](#new-in-beta7)
 - [Screenshots](#screenshots)
 - [Installing](#installing)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux](#linux)
-  - [Phones, tablets and the browser](#phones-tablets-and-the-browser)
-  - [Checking the download](#checking-the-download)
-  - [Updating](#updating)
-- [Getting in: closed-beta keys](#getting-in-closed-beta-keys)
-- [Playing](#playing)
+- [Your first game](#your-first-game)
+- [Playing with friends](#playing-with-friends)
+- [Friends and chat](#friends-and-chat)
+- [Replays](#replays)
+- [Playing against a language model](#playing-against-a-language-model)
 - [Reporting a problem](#reporting-a-problem)
+- [Where the cards stand](#where-the-cards-stand)
 - [Running your own gateway](#running-your-own-gateway)
 - [Building from source](#building-from-source)
-- [Playing against a language model](#playing-against-a-language-model)
 - [How it fits together](#how-it-fits-together)
 - [Contributing](#contributing)
 - [License and legal](#license-and-legal)
 
 ## What Baylee is
 
-Baylee is a Magic: The Gathering platform written in Rust. It has two halves.
+Baylee is a program for playing Magic: The Gathering on your computer. You
+start it, pick a deck and sit down at a table, either alone against the
+computer or with friends over the internet.
 
-**A rules engine that enforces the game.** The engine applies the
-Comprehensive Rules: priority and the stack, the layer system, replacement
-effects, triggers, state-based actions and combat. The client never decides
-what is legal. At every step the engine lists the choices a player has, and
-the client offers exactly those. The engine is **deterministic**: a seeded
-random-number generator, no clock and no hash-map order in the rules, so the
-same game with the same answers always ends the same way. Every hosted game
-is recorded move by move, and the record can be replayed to the same state.
+**The game knows the rules.** Baylee has a rules engine that follows Magic's
+Comprehensive Rules: priority and the stack, triggers, replacement effects,
+layers, combat and the many small checks in between. At every moment it
+tells you what you may do, and the table offers exactly that, so nobody has
+to look anything up or argue. You can play with the mouse or entirely with
+the keyboard.
 
-**A 3D table** built with [Bevy](https://bevyengine.org/). It draws the
-battlefield, hands, stack and graveyards, and a lobby for accounts, decks and
-rooms.
+**It is fair by construction.** Your computer is only sent what you may see.
+Your opponents' hands and the libraries arrive as counts, never as cards, so
+a modified program cannot peek: the information simply is not there.
 
-Some things that set it apart:
+What you can do with it:
 
-- **Hidden information is hidden by construction.** A player's client is sent
-  only what that player may see: libraries and other players' hands arrive as
-  counts, and a face-down card carries no identity unless the player is
-  entitled to it. A modified client cannot peek, because the data never
-  reaches it.
-- **Two to eight seats.** Duels, free-for-all tables and team tables. The
-  host puts chairs on sides, and the sides need not be even (3 v 2 works).
-  Teams keep separate turns and life totals; this is not Two-Headed Giant.
-  Teammates can choose to show each other their hands.
-- **Commander and freeform.** A deck that names a commander plays Commander,
-  and any other deck plays freeform. Banlists and format-legality checks do
-  not exist yet.
-- **A house AI at five levels**: novice, casual, steady, sharp and expert
-  ([docs/house-ai.md](docs/house-ai.md)). It plays from the same view a
-  human gets.
-- **One process per game.** A game runs in its own engine process, which a
-  separate agent starts. The gateway that handles accounts and rooms runs no
-  rules itself.
-- **Card text in 19 languages** when the gateway has the card catalog. The
-  interface is available in English and German.
+- **Play offline** against the house AI, at five levels from *novice* to
+  *expert*, with no account and no internet connection.
+- **Play online** on a *gateway* (a Baylee server): 2 to 8 players at one
+  table, free-for-all or in teams (uneven teams such as 3 against 2 work
+  too), with or without AI players in the empty chairs. A deck that names a
+  commander plays Commander; any other deck plays freeform.
+- **Add friends and chat** with them, end-to-end encrypted.
+- **Watch** a friend's running table, and **watch your own games again** as
+  replays.
+- **Seat a language model** at your table, on your own key, or one the
+  server's operator offers.
+- **Build decks** with a search over every card in the pool, mana curve and
+  land statistics, and import or export in common text formats.
+- **Read the cards in 19 languages** when the gateway has the card catalog.
+  The program itself speaks English and German.
 
-The card pool grows batch by batch; this build knows about 2,700 cards. The
-deck builder can show only playable cards, and it warns when a deck holds
-cards that are not fully implemented yet and will not play as printed.
+Baylee is free and stays free: no paywall, no ads, nothing to buy. It is a
+non-commercial fan project and not affiliated with Wizards of the Coast.
+
+## New in beta.7
+
+- **Friends and chat.** Friend requests, whispers, groups, a chat for each
+  table and each team, and who of your friends is online and where. Every
+  message is end-to-end encrypted ([details](#friends-and-chat)).
+- **The game log is a tab of the chat window.** At a table the window has
+  tabs for *All*, *Log*, *Table*, *Team*, *Private* and *Group*. The log
+  names phases, modes and targets, and every card in it is a link to its
+  picture.
+- **Replays.** Every online game you played can be watched again from any
+  computer, from your seat, from the table's public view, or from any
+  player's seat if that player agreed to share their hidden cards
+  ([details](#replays)). Games against the house are kept on your computer.
+- **Watching.** A table can let others watch; the lobby shows a *Watch*
+  button and how many are watching.
+- **A new payment window.** When something asks you to pay (a spell, an
+  ability, a "pay or …" tax), you first tap your lands as a plan, nothing
+  happens yet, and then pay everything at once. A land tapped by mistake is
+  simply taken back.
+- **Reveals stand up.** When another player reveals a card, it is shown to
+  you in the middle of the table until you put it away.
+- **Easier to read at a glance.** Keywords that protect a card wear borders
+  around it, each with its own colour and pattern (indestructible, hexproof,
+  shroud, defender); a creature with summoning sickness shows a slow wave of
+  moonlight; a phased-out permanent is drawn grey and faded.
+- **Cards with unusual faces.** Adventures, flip cards, split and Aftermath
+  cards and battles are shown the way they are read; holding <kbd>Shift</kbd>
+  over a preview turns or rotates the card to its other half.
+- **Language models hosted by the server.** A server operator can offer
+  models of their own, and decide per player who may seat them.
+- **For operators:** an admin console in the browser (accounts, bans,
+  password resets, ending games, blocking cards, beta keys, hosted models,
+  server load), per-gateway terms of use and a link to the operator's legal
+  notice (Impressum).
+- **An Intel Mac build.** Six downloads now: Windows (x64, ARM64), macOS
+  (Apple silicon, Intel) and Linux (x86-64, ARM64).
+- **500 more cards play exactly as printed** (2,702 in beta.6, 3,202
+  now), most of them partial cards finished; partial cards went from 571 to
+  68 ([Where the cards stand](#where-the-cards-stand)).
+
+This release is for desktop computers only. The browser version and the
+phone apps are not part of beta.7 ([docs/mobile.md](docs/mobile.md) says
+where they stand).
 
 ## Screenshots
 
 The screenshots show Baylee's **text view**, which draws each card from its
 rules text instead of the printed card image ([License and legal](#license-and-legal)
-explains why). In the game, the card images come from Scryfall, and `T`
-switches between the two views. The screenshots were taken with version
-0.1.0-beta.2 against a local test gateway with made-up players; the picture at the top and
-the sign-in panel show the real Baylee Sanctuary gateway.
+explains why). In the game, the card images come from Scryfall, and <kbd>T</kbd>
+switches between the two views. In the text view a card far off on the table
+shows only its colour, its cost and its marks; pointing at it shows its text
+large. The pictures were taken with 0.1.0-beta.7 on a local test server, with
+card images switched off and made-up players.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Sign-in panel of the closed-beta gateway"><br><sub><b>Signing in.</b> The closed-beta gateway asks new players for a key; returning players sign in with username and password. The fan-content notice and the source link stay at the bottom.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby with a deck and open tables"><br><sub><b>The lobby.</b> Your decks on the left, open tables on the right, and <i>Play the house</i> for a quick game against the AI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="The lobby with an open table, a table invite, the friends drawer and a private chat"><br><sub><b>The lobby, with friends and chat.</b> A friend invites you to her table, the friends drawer shows who is online and where, and the private chat is end-to-end encrypted.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel in progress with the chat window open on its All tab"><br><sub><b>At the table.</b> The chat window holds the game log as a tab; <i>All</i> mixes log lines and table chat, and every card name is a link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: seats, AI levels, starting life"><br><sub><b>Arranging a table.</b> The host sets chairs, starting life and mulligans, and gives each AI chair a level from novice to expert.</sub></td>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deck builder with statistics and card search"><br><sub><b>The deck builder.</b> Commander, main deck and sideboard, mana curve and land statistics, and a search over the whole pool. (The picture slots are empty here because card scans were switched off for these screenshots.)</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: one seat taken, an empty seat offering AI and Language model"><br><sub><b>Arranging a table.</b> Rules, teams and seats; an empty chair takes another player, the house AI or a language model.</sub></td>
+    <td width="50%"><img src="docs/images/readme/payment.webp" alt="The payment window: a tax is owed and one land is staged"><br><sub><b>The payment window.</b> A tax is owed: the lands you click are staged, nothing taps until you press <i>Pay</i>, and <i>Untap all</i> takes them back.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="A duel in progress, card preview in text view"><br><sub><b>A duel</b> against the house AI. Hovering a card shows it large; here in the text view.</sub></td>
-    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="The game log beside the table"><br><sub><b>The game log</b> (<kbd>L</kbd>) reads like a chat, with each card name a link to its preview.</sub></td>
+    <td width="50%"><img src="docs/images/readme/replay.webp" alt="A replay with its timeline, transport controls and the Watch from menu"><br><sub><b>Replays.</b> One cell per turn, play and pause, steps and speeds, and <i>Watch from…</i>: your seat, another player's, the table or all hands.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder with a search for walls and a 60-card deck grouped by type"><br><sub><b>The deck builder.</b> A search over the whole pool (here: playable walls), the deck grouped by type, and Import, Export and History.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="A four-seat table"><br><sub><b>Four seats.</b> Larger tables sit in a ring around the felt.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Report form with a checkbox for each attachment"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox; all start ticked, and you untick what you would rather keep.</sub></td>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Five creatures on the battlefield, each with its own border or shimmer"><br><sub><b>Read at a glance.</b> From the left: shroud (violet mist), indestructible (golden rim), summoning sickness (a pale wave of moonlight), defender and hexproof together (a stone wall inside a thin blue line), and summoning sickness again.</sub></td>
   </tr>
 </table>
 
 ## Installing
 
 Download Baylee for your system from the
-**[releases page](https://github.com/AceVik/baylee/releases)**. Pre-releases
-are listed there too. Each system has an **installer**, which is the easy
-way, and an **archive** with the same game to unpack anywhere. Baylee
-updates itself wherever it may write its own folder
-([Updating](#updating)).
+**[releases page](https://github.com/AceVik/baylee/releases)** (pre-releases
+are listed there too), or from the [website](https://baylee.acevik.de/),
+which picks the right file for you. Each system has an **installer**, which
+is the easy way, and an **archive** with the same game to unpack anywhere.
+Baylee then updates itself ([Updating](#updating)).
 
 | System | Installer | Archive |
 | --- | --- | --- |
@@ -168,13 +211,13 @@ The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
 ### macOS
 
 Apple silicon Macs (M1 and later) take the `aarch64` build, Intel Macs the
-`x86_64` one (Apple menu > About This Mac names the chip or processor).
-macOS 11 or later is required. Each build updates itself to the next
-release of the same kind.
+`x86_64` one (Apple menu → About This Mac names the chip or processor).
+macOS 11 or later is required.
 
-1. Open `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) and drag **Baylee** onto
-   **Applications**. Then eject the disk image. With the zip instead,
-   unpack it and drag `Baylee.app` into **Applications** the same way.
+1. Open `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) and drag
+   **Baylee** onto **Applications**. Then eject the disk image. With the zip
+   instead, unpack it and drag `Baylee.app` into **Applications** the same
+   way.
 2. Open Baylee from Applications. The first time, macOS refuses because the
    app is not notarised.
 3. Open **System Settings → Privacy & Security**, scroll down to the message
@@ -186,18 +229,13 @@ Or, in Terminal:
 xattr -dr com.apple.quarantine /Applications/Baylee.app
 ```
 
-Moving it to Applications first is not required, but an app opened where it
-lies after the download (the disk image, or the unpacked folder in
-Downloads) is run by macOS from a hidden read-only copy each time. Baylee
-still updates itself then. Its settings screen says so and offers **Move to
-my Applications folder**: Baylee copies itself into the Applications folder
-in your home folder (`~/Applications`, which needs no password), checks that
-the copy's signature is intact, removes the download mark from the copy
-(not from the original), starts the copy and closes itself. The copy starts
-without macOS asking again. On its first start it asks whether to move the
-old copy to the Trash; nothing is deleted unless you say so. Where you may
-write to the main `Applications` folder, a second button puts it there
-instead.
+If you start Baylee straight from the download (the disk image, or the
+unpacked folder in Downloads), macOS runs it from a hidden read-only copy.
+Baylee still updates itself then, and its settings screen offers **Move to
+my Applications folder**: it copies itself to `~/Applications` (no password
+needed), checks the copy, starts it and closes. On its first start the copy
+asks whether to move the old one to the Trash; nothing is deleted unless you
+say so.
 
 ### Linux
 
@@ -232,27 +270,6 @@ binaries are built on Ubuntu 22.04 and run on any distribution with glibc
 2.35 or newer. Like the Windows one, the x86-64 build needs a CPU with
 x86-64-v2.
 
-### Phones, tablets and the browser
-
-There are **no mobile builds to download yet.**
-
-- **Android:** the client builds and runs on a real phone
-  (`scripts/mobile/android-build.sh`), but the lobby is not usable by touch
-  yet, so you cannot sign in on the phone.
-- **iOS:** the client runs only in the simulator
-  (`scripts/mobile/ios-sim-run.sh`).
-- **Browser:** play in the browser at **<https://baylee.acevik.de/play/>**,
-  on the Sanctuary gateway; a new account there still needs a
-  [closed-beta key](#getting-in-closed-beta-keys). The page needs WebGPU:
-  Chrome or Edge 113 or later, Safari 26 or later (macOS, iOS, iPadOS), or
-  Firefox 141 or later on Windows and 145 or later on macOS. Firefox on
-  Linux and Android does not offer WebGPU yet, and a browser without it is
-  told so instead of shown a blank page. The browser build plays only on the
-  gateway that serves it; for other gateways use the desktop client.
-
-[docs/mobile.md](docs/mobile.md) describes exactly what works and what does
-not.
-
 ### Checking the download
 
 Next to each installer and archive on the release page there is a `.sha256`
@@ -273,155 +290,351 @@ and compare the result with the number in the `.sha256` file.
 ### Updating
 
 Baylee updates itself. It asks GitHub for a newer release at start and every
-six hours, downloads it, checks its signature, and installs it when you quit;
-the lobby's corner and the table's menu say "Update X ready – installs when you
-quit", and the next start says "Updated to X" once. An update whose signature
-does not verify is never installed. The settings screen has two switches,
-"Update automatically" and "Check for updates automatically" (off: Baylee asks
+six hours, downloads it, checks its signature, and installs it when you
+quit; the lobby says "Update X ready – installs when you quit", and the next
+start says "Updated to X" once. An update whose signature does not verify is
+never installed. The settings screen has two switches, "Update
+automatically" and "Check for updates automatically" (off: Baylee asks
 GitHub nothing until you press "Check for updates"); `docs/privacy.md` says
 what GitHub sees.
 
 Updates are kept in your own state folder (`~/.local/state/baylee`, or
 `%LOCALAPPDATA%\baylee` on Windows), never written into the program's
-folder. So the Windows setup's per-user installation updates itself, and so
-does a Mac app wherever you started it, even one macOS runs from a hidden
-read-only copy. An **AppImage** updates itself too when the folder holding
-the `.AppImage` file is yours (`~/Apps`, say); the file itself stays as it
-is, and the newer version starts from the state folder.
+folder, so the Windows setup's installation, a Mac app wherever it lies and
+an AppImage in a folder of your own all update themselves. Where the
+program's folder belongs to someone else (the `.deb`'s `/opt/baylee`, for
+example), Baylee never asks for administrator rights: it links to the
+release page, and you update by hand by installing the new package over the
+old one. Releases up to 0.1.0-beta.5 did not update on a Mac while macOS ran
+them from that read-only copy: move such a `Baylee.app` into Applications
+once by hand.
 
-Baylee only links to the release page, and you update by hand, when the
-folder its program lies in is not writable for your user: then someone else
-manages that installation, and Baylee never asks for administrator rights.
-The `.deb`'s `/opt/baylee` is such a folder. The notice names the folder and
-what the system answered; on a Mac it offers **Move to my Applications
-folder** (see above), after which it updates itself. To update by hand, run
-the new installer over the old installation (the `.deb` with `sudo apt
-install`, the AppImage by replacing the file), or download the new archive
-and replace the old folder (or `Baylee.app`) with the new one. A newer
-version installed by hand always starts in place of an older one Baylee had
-downloaded itself.
+**Where your things are.** Replacing the program keeps your settings,
+because they are not stored next to it: on Windows in `%APPDATA%\Baylee`, on
+Linux and macOS in `~/.config/baylee/` (`$XDG_CONFIG_HOME/baylee` if you set
+that variable). There you find
 
-Releases up to 0.1.0-beta.5 did not update while macOS ran them from that
-read-only copy, and their launcher stays in the app: move such a
-`Baylee.app` into Applications by hand once (or replace it with a new
-download), and it updates from then on.
-
-Replacing the program keeps your settings, because they are not stored next
-to it. On Windows, the client keeps them in `%APPDATA%\Baylee`; on Linux
-and macOS, in `~/.config/baylee/`. Setting `$XDG_CONFIG_HOME` overrides
-that location with `$XDG_CONFIG_HOME/baylee` on all three systems. The files are:
-
-- `client-settings.json`: language, gateway list, report consent, and a
-  guest's session;
+- `client-settings.json`: language, your list of gateways, report consent,
+  and a guest's session;
 - `preferences.json`: key bindings and standing answers;
-- `offline-decks.json`: decks built offline.
-- `update.json`: the two update switches.
+- `offline-decks.json`: decks built offline;
+- `update.json`: the two update switches;
+- `records/`: your last 20 games against the house, for replays
+  (`records/archive/` keeps the ones you archived);
+- `chat/`: your chat history, encrypted, and your device's chat key where
+  the system has no keychain for it;
+- `llm-seat.json` and `llm-spend.json`, once you set up a language model.
 
 Card images are cached separately, in `~/Library/Caches/baylee` (macOS),
-`%LOCALAPPDATA%\baylee` (Windows) or `~/.cache/baylee` (Linux). Your account
-and the decks you built online are stored on the gateway, not on your
-computer. When you sign in, your key bindings and preferences are loaded from
-the gateway.
+`%LOCALAPPDATA%\baylee` (Windows) or `~/.cache/baylee` (Linux). Your account,
+your online decks, your friends and your replays live on the gateway, so
+they are there on any computer you sign in on.
 
-Every build shows its version and commit in the lobby. A new minor version
-(0.1 → 0.2) may be unable to talk to an older gateway, so update when a new
-release comes out.
+Every build shows its version and commit in the lobby. A new version may be
+unable to talk to an older gateway, so update when a new release comes out.
 
-## Getting in: closed-beta keys
+## Your first game
 
-The Baylee Sanctuary gateway is a closed beta. **A new account and a new
-guest each need a key** of the form `BAYLEE-XXXX-XXXX-XXXX-XXXX`. Keys are
-handed out by the project owner ([@AceVik](https://github.com/AceVik)); there
-is no public sign-up form.
+When Baylee starts, you stand at its **front door**: a list of gateways
+(servers) and the way to play offline. A short guided tour shows you around
+the first time, and <kbd>?</kbd> shows every key that works right now, on
+any screen.
 
-With a key:
+**Offline, right away.** Choose **Play offline**. You get the lobby with
+your offline decks, the deck builder, and **Play the house**, which starts a
+game against the house AI at once. The small arrow on that button picks how
+strongly the AI plays.
 
-1. Start Baylee. The front door already lists **Baylee Sanctuary**; choose it.
-2. Choose **Create account**. Pick a *username* (3–24 letters, digits, `_ - .`), a
-   *display name* and a password, and paste the key. Upper and lower case,
-   spaces and dashes in the key do not matter.
-3. Or choose **Play as guest**: a display name and a key are enough. A guest can
-   build decks and play, but cannot upload sleeves or playmats. A guest is
-   deleted when it signs out or after 30 days without use.
+**Online.** Choose a gateway from the list (**Baylee Sanctuary** is already
+in it, and you can add others by their address), then sign in:
 
-Signing up **asks for no e-mail address**: an account is a username and a
-password. The username is private: other
-players see only your display name and a short tag, such as `Alice#af03`.
-Once you have an account, you sign in with your username and password and need
-no key. You can delete the account from the client at any time
-(`DELETE /account`).
+- **Create account**: a *username* (3–24 letters, digits, `_ - .`), a
+  *display name* and a password. No e-mail address is asked for. The
+  username is private: other players only see your display name and a short
+  tag, such as `Alice#af03`.
+- **Play as guest**: a display name is enough. A guest can build decks and
+  play, but cannot upload sleeves or playmats, and is deleted when it signs
+  out or after 30 days without use.
 
-## Playing
+You can delete your account from the client at any time; everything that
+belongs to it goes with it.
 
-**Offline**, without any gateway: choose *Play offline* on the front door.
-You get the same lobby with your offline decks, the deck builder and a
-table of house-AI opponents. *Play the house* starts a duel right away with
-the two bundled decks.
+A gateway may have **terms of use**: you are shown them when you create an
+account, and again when they change. Where the operator names a legal notice
+(Impressum), the client links it on the front door's *About*, beside the
+terms and under *Settings → Network*.
 
-**Online**, signed in to a gateway:
+### Getting in: closed-beta keys
 
-- **Decks.** Build a deck in the deck builder: search the pool (optionally
-  only cards that are fully playable), set main deck, sideboard and commander,
-  watch the mana curve, and pick a printing for each card. A deck is stored as
-  one text line per card, such as `1 Lightning Bolt (M11) 149`
-  ([docs/deck-format.md](docs/deck-format.md)).
-  The gateway keeps each deck's version history. A registered account can give
-  a deck its own sleeve and playmat.
-- **Rooms.** Open a room with 2 to 8 chairs and, if you like, a name and a
-  password. As host you decide who sits where: another player, or the house AI
-  at one of its five levels. You also set the sides, the starting life, free
-  mulligans, starting permanents and the clock (`casual`, `standard`, `blitz`
-  or `untimed`). Every player chooses their own deck and says *ready*, and the
-  host starts the game. When it ends, the table can play again.
-- **At the table.** The engine asks and you answer. You can play with the
-  mouse or entirely with the keyboard:
+Baylee Sanctuary is a closed beta: **a new account and a new guest each
+need a key** of the form `BAYLEE-XXXX-XXXX-XXXX-XXXX`. Keys are handed out by
+the project owner ([@AceVik](https://github.com/AceVik)); there is no public
+sign-up form. Paste the key when you create the account or the guest;
+upper and lower case, spaces and dashes do not matter. Once you have an
+account, you sign in with username and password and need no key again.
+
+## Playing with friends
+
+**Decks.** In the deck builder you search the pool (if you like, only cards
+that play exactly as printed), set main deck, sideboard and commander,
+watch the mana curve, and pick a printing for each card. A deck can be
+imported from and exported to text (Baylee's own, JSON, YAML and
+Moxfield's text export; [docs/deck-format.md](docs/deck-format.md)). The
+gateway keeps every version of an online deck, and a registered account can
+give a deck its own sleeve and playmat. A card the gateway's operator has
+blocked is marked, with the reason.
+
+**Rooms.** In the lobby, open a table with 2 to 8 chairs and, if you like,
+a name and a password. As host you decide who sits where: another player,
+the house AI at one of its five levels, or a language model. You also set
+the teams, the starting life, free mulligans and the clock (`casual`,
+`standard`, `blitz` or `untimed`), and whether others may watch. Every
+player picks their deck and says *Ready*, and the host starts. When the
+game ends, the table can play again.
+
+**At the table.** The game asks and you answer: the cards you can play
+light up, and the bar at the bottom says what is being asked. With
+teammates you can choose to show each other your hands. The most important
+keys:
 
 | Key | Does |
 | --- | --- |
-| <kbd>Space</kbd> | Confirm / pass priority |
+| <kbd>Space</kbd> | Confirm / pass priority / pay |
 | <kbd>Enter</kbd> | Act on the card under the cursor, else pass |
 | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, <kbd>E</kbd> | Move the card cursor; play or select the card under it |
-| <kbd>Esc</kbd> | Cancel (step by step) |
+| <kbd>Esc</kbd> | Cancel (step by step), put away a revealed card |
 | <kbd>Tab</kbd> / <kbd>⇧ Tab</kbd> | Fast-forward to the next phase / next turn (decisions stay yours) |
 | <kbd>F6</kbd> / <kbd>F7</kbd> | Let the stack resolve / nothing more this turn |
 | <kbd>K</kbd> / <kbd>B</kbd>, <kbd>Y</kbd> / <kbd>N</kbd> | Mulligan: keep / put a card on the bottom; yes / no |
-| <kbd>T</kbd>, hold <kbd>Cmd</kbd>/<kbd>Alt</kbd> | Card text instead of art (switch on/off / only while held) |
+| <kbd>T</kbd>, hold <kbd>Cmd</kbd>/<kbd>Alt</kbd> | Card text instead of the picture (switch / only while held) |
+| <kbd>Shift</kbd> over a preview | Turn the card to its back or other half |
 | <kbd>G</kbd>, <kbd>L</kbd> | Zone browser (graveyards, exile, stack), game log |
 | <kbd>F8</kbd> | Report a problem |
+| <kbd>?</kbd> | Every key that works right now |
 
 Every key can be rebound in the settings, and a signed-in account keeps its
-bindings on the gateway. [docs/keyboard-map.md](docs/keyboard-map.md) has the
-complete list, including combat and the ability sheet.
+bindings on the gateway. [docs/keyboard-map.md](docs/keyboard-map.md) has
+the complete list.
+
+**Watching.** If a table allows it, anyone signed in to the gateway can
+press *Watch* in the lobby and follow the game from the public view: no
+hands, no hidden cards. The players see how many are watching.
+
+**If your connection drops**, your chair waits for you: the client
+reconnects by itself, and the other players see a countdown. If you are not
+back in time, the house AI plays your chair until you return.
+
+## Friends and chat
+
+On a gateway with chat (Baylee Sanctuary has it), the **friends drawer** on
+the right of the lobby lists your friends and whether they are online,
+playing or watching. Add a friend by name and tag (`Alice#af03`), or from
+the players you recently sat with. From a friend's row you can whisper to them,
+watch their table or invite them to yours. Groups are chats for several
+friends. At a table, everyone seated has a table chat, and every team its
+own.
+
+**What is encrypted.** Messages are **end-to-end encrypted**: they are
+locked on the sender's computer for the computers of the people in the
+conversation, and only those can open them. Here, honestly, is what that
+means:
+
+- **The server cannot read your messages.** It passes them on and keeps
+  them, still encrypted, until they are delivered, for at most 14 days
+  (the operator can choose 1 to 30; a guest's are kept for 1 day).
+- **The server does see** who writes to whom and when, how long a message
+  is, who is in a group and what the group is called, who is friends with
+  whom, and who is online and at which table. It keeps no log of any of
+  this.
+- **Your devices are the weak point.** A message can be read on every
+  device the people in the conversation use Baylee on, as long as those
+  devices really are theirs. To be sure, compare **safety numbers** with a
+  friend (the lock line at the top of the chat opens them). Anyone who can
+  use your computer can read the chat history kept on it.
+- **Table chat** goes only to the people seated at the table. Spectators,
+  the house AI and language models never receive chat, and chat is never
+  part of a game record or a replay.
+- **Reporting a message** sends that one message, and nothing else of the
+  conversation, to the gateway's moderators.
+
+The chat window docks in the lower right of the lobby; at a table it is the
+same window as the game log. Its settings (*Chat & privacy* in the friends
+drawer) hold who may whisper to you, how long your history is kept, sounds,
+and the list of your devices. [docs/privacy.md](docs/privacy.md) lists
+exactly what the gateway keeps.
+
+## Replays
+
+The **Replays** tab in the lobby lists every game you can watch again:
+
+- **Games against the house**, kept on your computer (the last 20, and any
+  you archive).
+- **Online games** you sat at, from the gateway, on any computer you sign
+  in on.
+
+A replay has its own controls at the bottom of the table: a timeline with
+one cell per turn, play and pause, a moment or a turn back and forward,
+start and end, and speeds from ½× to 8× (the keys: <kbd>Space</kbd>,
+<kbd>←</kbd> <kbd>→</kbd>, <kbd>⇧ ←</kbd> <kbd>⇧ →</kbd>, <kbd>Home</kbd>
+<kbd>End</kbd>, <kbd>-</kbd> <kbd>=</kbd>). The seat chip chooses **whose
+view** you see: your own seat, the public table, every hand at once, or any
+other player's seat.
+
+**Who sees your hidden cards.** For each online game you decide whether the
+other players may see your hand and library in that game's replays. For
+games played from beta.7 on, sharing is **on** unless you switch it off
+(the end-of-game screen shows it ticked, and the game's menu in the Replays
+tab changes it at any time). For games played before beta.7 it is off,
+because nobody was asked then. The house and language models always share.
+A seat whose player said no shows a lock, and its hand stays hidden.
+
+**Nothing is deleted.** *Archive* moves a game out of your list (and
+*Unarchive* brings it back); the record stays on the gateway, because game
+records are used to train the house AI and to balance decks
+([docs/privacy.md](docs/privacy.md) says what a record holds: no chat, and
+no names once an account is deleted). A replay is played again by today's
+version of the engine; where that cannot be checked against what the table
+showed back then, the timeline marks it.
+
+## Playing against a language model
+
+A chair can be played by a language model, such as one behind the
+Anthropic or an OpenAI-compatible API, or a local model in LM Studio. It
+plays from exactly what that seat would see, through the same questions a
+person answers. No player's name is ever sent to a model: the seats are
+called `P1`, `P2`, … and the model's own seat "you". The room shows which
+model sits in which chair before anyone says *Ready*.
+
+There are two ways.
+
+### A model the server offers
+
+Some gateways offer **hosted models**, which the server's operator runs and
+pays for. The operator decides, for each model, which players may seat it.
+If you may, an empty chair in your room offers **Hosted model**: pick one,
+and it sits down. You need nothing on your computer.
+
+### Your own model, on your own key
+
+This works in the desktop client, on any gateway, and costs whatever your
+provider charges.
+
+1. **Set up a profile.** Open **Settings → Language models** and choose
+   *Add an adapter*: Anthropic, OpenAI, DeepSeek, LM Studio on this
+   computer, or an agent CLI you are signed in to (Claude Code, for
+   example). A profile says which provider and model play and how hard the
+   model thinks.
+2. **Give it a key.** Paste the key into the key box and press *Keep*. The
+   key goes into your system's keychain (macOS Keychain, Windows Credential
+   Manager, the Secret Service on Linux), never into a file, and the panel
+   never shows it again. A local model in LM Studio needs no key.
+3. **Set caps.** Daily and monthly limits in dollars or tokens, plus a
+   budget per game. Each game reserves its budget before it sits down and
+   settles afterwards; the panel shows what you spent today and this month.
+4. **Seat it.** In a room you host, press **Language model** on an empty
+   chair, pick the profile, model and deck, and wait until the chair says
+   *Ready*: the bridge first checks that the model answers.
+
+How it gets in: your client asks the gateway for a short-lived **chair
+ticket** for that chair and hands it to the seat bridge (`baylee-seat`,
+which ships with the client). The model sits in the chair as *your*
+delegate, named `LLM-…`, without an account of its own, so when you are
+signed in with an account this works on a closed-beta gateway too. If the model fails, runs out of time or answers
+something illegal, the house answers that one question for it.
+
+**For tinkerers**, the same bridge runs from a terminal. Start a local
+gateway and agent ([Running your own gateway](#running-your-own-gateway)),
+then:
+
+```bash
+cargo run -p xtask -- dev-table --bridge profile:<name> --play   # you in chair 0, the model in chair 1
+cargo run -p xtask -- dev-table --bridge house --play             # the house through the same bridge, as a check
+```
+
+The bridge writes what it asked and what the model answered to
+`target/seat-transcripts/`. The settings file, the caps, the providers and
+the CLIs are all described in [docs/llm-seat.md](docs/llm-seat.md).
 
 ## Reporting a problem
 
 Press <kbd>F8</kbd> at the table or in the lobby, or use the report button in
-the menu. A report is sent to the gateway you are signed in to. It always
+the menu. A report goes to the gateway you are signed in to. It always
 includes its kind, your text, the client version and, at a table, the game's
 id.
 
-Anything more has **one checkbox each**, and every box starts ticked: untick
-what you would rather keep before you press Send. The boxes are system and
-hardware, the table as you see it, your game log (with players renamed to
-"Player A", "Player B", …), your settings, a picture of the Baylee window
-only, and at a table the game's whole record (every move and every seat's
-cards, no names). "Show what is sent" shows every byte. Session tokens are never sent. After a crash, the next start asks
-once whether crash reports may be sent. If you are not signed in to any
-gateway, the report goes straight to the feedback service the build names,
-and with none named nothing is sent.
+Anything more has **one checkbox each**, and every box starts ticked:
+untick what you would rather keep before you press *Send*. The boxes are
+system and hardware, the table as you see it, your game log (with players
+renamed to "Player A", "Player B", …), your settings, a picture of the
+Baylee window only, and at a table the game's whole record (every move and
+every seat's cards, no names). "Show what is sent" shows every byte. Session
+tokens and chat are never sent. After a crash, the next start asks once
+whether crash reports may be sent. If you are not signed in to any gateway,
+the report goes straight to the feedback service the build names, and with
+none named nothing is sent.
 
 [docs/privacy.md](docs/privacy.md) lists everything the client, the gateway
-and the feedback service keep.
+and the feedback service keep. A card that plays wrongly is the most useful
+report you can send; you can also
+[open an issue on GitHub](https://github.com/AceVik/baylee/issues).
+
+## Where the cards stand
+
+Every card in Baylee is code: one file per card, written in a small rules
+language, and played in a test. There is no interpreter guessing at card
+text, which is why the pool grows batch by batch instead of all at once.
+
+Counted on the beta.7 release candidate (13 October 2026):
+
+| | Cards |
+| --- | --- |
+| Play **exactly as printed** (`Implemented`) | **3,202** |
+| Play, but **not every sentence** yet (`Partial`, the deck builder warns) | 68 |
+| In the pool, **no rules yet** (the deck builder warns) | 48 |
+| **Never built** on purpose (ante, dexterity and subgame cards) | 13 |
+| **All Magic cards** we are working towards (every distinct card, one per Oracle text) | 33,694 |
+
+So about **one card in ten** of all of Magic plays today. The deck builder
+can show only playable cards, and it warns when a deck holds cards that will
+not play as printed.
+
+**Sets.** Cards are built set by set in the order Magic printed them, each
+card counted in the set it first appeared in:
+
+| Set | Cards | Play as printed | Partial | No rules yet | Not in the pool yet | Never built |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Limited Edition Alpha (and the two cards Beta added) | 292 | 288 | 0 | 0 | 0 | 4 |
+| Arabian Nights | 77 | 64 | 11 | 0 | 0 | 2 |
+| Antiquities | 85 | 81 | 3 | 0 | 0 | 1 |
+| Legends | 310 | 277 | 24 | 6 | 0 | 3 |
+| The Dark | 119 | 19 | 0 | 2 | 98 | 0 |
+| Fallen Empires | 102 | 23 | 0 | 0 | 79 | 0 |
+
+**Alpha is complete**: every card that can be played plays exactly as
+printed (the four left out are Chaos Orb, a dexterity card, and three ante
+cards). Arabian Nights, Antiquities and Legends are in the pool in full;
+their partial cards are being finished now. The Dark, Fallen Empires and
+Ice Age come next. Cards from later sets that are already playable came in
+with earlier batches.
+
+**Known gaps.** No banlists or format-legality checks yet; the
+variant formats' special objects (planes, schemes, vanguards, conspiracies,
+dungeons) are not built. The [website](https://baylee.acevik.de/#cards)
+shows every set and card with its status, and for a partial card what it
+does not do yet;
+[docs/mechanics-roadmap.md](docs/mechanics-roadmap.md) §E8 is the plan, and
+[data/card-pool.txt](data/card-pool.txt) the list of cards in the pool.
 
 ## Running your own gateway
 
-A gateway is the server players sign in to. A game runs as three kinds of
-process:
+A gateway is the server players sign in to. You can run one for your own
+group: everything the public one does, on your own machine. A game runs as
+three kinds of process:
 
-- **`baylee-gateway`** handles accounts, decks, rooms and routing. It runs no
-  rules and needs PostgreSQL.
+- **`baylee-gateway`** handles accounts, decks, rooms, friends, chat and
+  replays. It runs no rules itself and needs PostgreSQL.
 - **`baylee-agent`** starts one engine process per game when the gateway
-  asks for one. It knows no rules either.
+  asks for one.
 - **`baylee-engine-server`** is one game. It dials back to the gateway.
 
 This section is a guide. The normative references are
@@ -472,6 +685,10 @@ arguments it is an unauthenticated development harness.
 | `BAYLEE_GUESTS=off` | Refuse guest accounts. `BAYLEE_GUEST_CAP` limits live guests (default 1000). |
 | `BAYLEE_TRUSTED_PROXIES` | Address of your reverse proxy, so rate limits see the real client IP. |
 | `BAYLEE_ART_PATH` / `BAYLEE_DECK_IMAGE_PATH` | Where card art is cached and uploaded sleeves/mats are stored (`off` disables them). |
+| `BAYLEE_SOCIAL` / `BAYLEE_SOCIAL_KEEP_DAYS` | Friends and chat (`off` turns them off); how many days an undelivered message is held (1–30, default 14). |
+| `BAYLEE_REPLAY_JOBS` | Replays computed at once (default 4; `0` turns replays off). |
+| `BAYLEE_TERMS_PATH` | Your terms of use: one Markdown file, or a folder of `terms.<lang>.md` files with `terms.en.md` among them. Players accept them at sign-up and after a change. |
+| `BAYLEE_IMPRESSUM_URL` | A link to your legal notice (Impressum), which clients show. |
 | `BAYLEE_ENGINE_URL` | Set it when the agent runs on another machine. |
 | `BAYLEE_SOURCE_URL` | Where your build's source is published, if you changed it (AGPL §13). |
 | `BAYLEE_FEEDBACK_URL`, `…_TOKEN`, `…_KEY` | Optional: forward <kbd>F8</kbd> reports to a feedback service. |
@@ -493,7 +710,8 @@ baylee-gateway invite revoke <id>
 The command only needs `DATABASE_URL`; the gateway does not have to be
 running. Each key is printed once and only its hash is stored. On a server
 set up with `scripts/server/baylee-deploy`, the wrapper
-`sudo baylee-invite …` reads the gateway's settings for you.
+`sudo baylee-invite …` reads the gateway's settings for you. The admin
+console below does the same in the browser.
 
 ### 5. Card text (optional)
 
@@ -509,8 +727,8 @@ RUST_LOG=baylee_catalog=info cargo run --release -p baylee-catalog -- ingest --e
 ### 6. HTTPS in front
 
 The gateway speaks plain HTTP and WebSocket, so put a TLS proxy in front of
-it. The repository ships no proxy configuration; this minimal
-[Caddy](https://caddyserver.com/) example is a starting point:
+it. This minimal [Caddy](https://caddyserver.com/) example is a starting
+point (`scripts/server/` has the ones the public server uses):
 
 ```caddyfile
 baylee.example.org {
@@ -523,12 +741,30 @@ Caddy obtains a certificate, passes WebSockets through and sets
 gateway. The gateway authenticates with bearer tokens and sets no cookies,
 so no further CORS or cookie configuration is needed.
 
-### 7. Bug reports (optional)
+### 7. Bug reports and the admin console (optional)
 
 `baylee-feedback` is a separate service that collects the reports gateways
-forward, with a small web UI for reading them. Setting it up is described in
-[docs/feedback.md § Running it](docs/feedback.md#running-it). Without it, the
-gateway refuses reports with "reports are not configured".
+forward, with a web interface for reading them. The same interface is the
+**admin console** for one gateway, for admins you create with
+`baylee-feedback admin add`: an overview with the server's load, who is
+online and at which table, accounts (reset a password, ban, delete), ending
+a running game, blocking a card from play for a while or for good (players
+are told why), beta keys, and the hosted language models (which seat agent
+runs which model, their keys, and which players may seat each). The
+gateway's side of it listens only on the local machine
+(`BAYLEE_ADMIN_TOKEN`, `BAYLEE_ADMIN_BIND`). Setting it up is described in
+[docs/feedback.md § Running it](docs/feedback.md#running-it); without it,
+the gateway refuses reports with "reports are not configured".
+
+### 8. Hosted language models (optional)
+
+To offer models to your players, run a **seat agent** (`baylee-seathost`)
+beside the gateway, with `BAYLEE_SEATHOST_TOKEN` set on both. Its models,
+their keys and their spending caps live on the seat agent's machine; the
+admin console sets them up and decides who may seat which model.
+[docs/llm-seat.md § A hosted seat](docs/llm-seat.md#a-hosted-seat) and
+[docs/protocol.md](docs/protocol.md) §"Hosted language-model seats" have
+the details.
 
 ## Building from source
 
@@ -542,13 +778,12 @@ cd baylee
 cargo run --release -p baylee-client          # the game; offline play needs nothing else
 ```
 
-- **Browser build:** `trunk serve index.html --release`, run from
-  `crates/baylee-client/`. Always use `--release`: a debug wasm is about
-  350 MB.
-- **Android / iOS simulator:** `scripts/mobile/android-build.sh`,
-  `scripts/mobile/ios-sim-run.sh` ([docs/mobile.md](docs/mobile.md)).
 - **A local table with seats:** start a gateway and an agent (above), then
   run `cargo run -p xtask -- dev-table --seats 4 --ai sharp --play`.
+- **The browser and phone builds** still compile
+  (`trunk serve index.html --release` in `crates/baylee-client/`;
+  `scripts/mobile/`), but they are not part of this release
+  ([docs/mobile.md](docs/mobile.md)).
 
 For contributors, the checks CI runs:
 
@@ -558,93 +793,6 @@ cargo fmt --all
 DATABASE_URL=… ./scripts/gate.sh               # the full gate: fmt, clippy, nextest, validate
 DATABASE_URL=… ./scripts/gate-features.sh      # the non-default feature builds
 ```
-
-## Playing against a language model
-
-A chair can be played by a language model through the seat bridge
-(`baylee-seat`). It sits at the table as an ordinary socket player and hands
-its questions to a model: a local one in LM Studio, or one behind an
-OpenAI-compatible or Anthropic API. Everything below is for a local test
-table; the full reference is [docs/llm-seat.md](docs/llm-seat.md).
-
-**1. A local gateway and agent.** Start them as in
-[Running your own gateway](#running-your-own-gateway), at the default address
-`http://127.0.0.1:28766`, then build the bridge:
-
-```bash
-cargo build -p baylee-seat -p xtask
-```
-
-**2. A settings file.** The bridge reads `llm-seat.json` from the client's
-config directory (`~/.config/baylee/` on macOS and Linux,
-`%APPDATA%\Baylee\` on Windows), or the file `BAYLEE_SEAT_CONFIG` names. Keys
-never go in this file: a profile names the environment variable its key is
-read from. Unknown fields are refused. An example with a local model and
-DeepSeek:
-
-```json
-{
-  "default": "lmstudio",
-  "caps": { "day_usd": 5, "month_usd": 30, "day_tokens": 50000000, "month_tokens": 500000000 },
-  "profiles": {
-    "lmstudio": {
-      "provider": "openai",
-      "model": "google/gemma-4-26b-a4b-qat",
-      "base_url": "http://127.0.0.1:1234/v1",
-      "answer": "tools",
-      "effort": "low",
-      "game_tokens": 40000000
-    },
-    "deepseek": {
-      "provider": "openai",
-      "model": "deepseek-flash",
-      "base_url": "https://api.deepseek.com/v1",
-      "key_env": "DEEPSEEK_API_KEY",
-      "answer": "json",
-      "game_tokens": 5000000
-    }
-  }
-}
-```
-
-- **LM Studio:** start its server (Developer tab, or `lms server start`). The
-  model id is whatever `curl http://127.0.0.1:1234/v1/models` lists. LM Studio
-  needs no key, but the bridge wants a non-empty one:
-  `export BAYLEE_LLM_API_KEY=lm-studio`. Use `"answer": "tools"`; LM Studio
-  refuses the plain JSON mode. The first question loads the model, which can
-  take a minute. A 26B model on an M1 Max thinks 30–60 s a decision at full
-  effort; `"effort": "low"` shortens that.
-- **DeepSeek:** `export DEEPSEEK_API_KEY=…` in the shell you start the table
-  from. A model the bridge has no price for plays only under `game_tokens`
-  (or a `price` in its profile).
-- **Claude Code on a subscription:** a profile such as
-  `"cc": {"provider": "cli", "model": "claude:opus", "command": "/Users/<you>/.local/share/claude/versions/<version>", "game_calls": 300}`
-  plays through the `claude` you signed in to by hand, on that login and with
-  no key (`key_env`, `base_url` and `price` are refused). Pin `command` to a
-  version's own file, since `~/.local/bin/claude` is a link the tool moves on
-  every update. A game counts tokens (20,000,000 by default) and calls
-  (`game_calls`, 500 by default); see
-  [docs/llm-seat.md](docs/llm-seat.md#a-cli-as-the-model).
-- **Caps:** the `caps` hold across games. Each game reserves its budget in
-  `llm-spend.json` beside the settings file before it sits down, and settles
-  after.
-
-**3. Play against it.** This seats you in chair 0 (the client opens) and the
-profile's model in chair 1:
-
-```bash
-cargo run -p xtask -- dev-table --bridge profile:lmstudio --play
-```
-
-- `--bridge house` seats the house AI through the same bridge, a quick check
-  that the table works before a model is involved.
-- `--bridge profile:deepseek` plays the DeepSeek profile, `--bridge profile:cc`
-  Claude Code.
-- The bridge writes what it asked and what the model answered to
-  `target/seat-transcripts/`. That is the first place to look when a model
-  plays strangely.
-- When the model fails, times out or answers something illegal, the house
-  answers that question for it, and the transcript says so.
 
 ## How it fits together
 
@@ -659,19 +807,26 @@ flowchart LR
   core --> clientcore[baylee-client-core]
   view --> clientcore
   protocol[baylee-protocol] --> clientcore
+  seal[baylee-seal] --> clientcore
   clientcore --> client[baylee-client<br/>Bevy]
+  clientcore --> seat[baylee-seat]
   protocol --> gateway[baylee-gateway]
   protocol --> agent[baylee-agent]
   db[baylee-db] --> gateway
   catalog[baylee-catalog] --> gateway
+  seal --> gateway
 ```
 
-Each arrow drops a capability. The **engine** is synchronous and pure: no
-I/O, no async, no clock. **gamehost** builds each seat's view from it, and
-that view hides what the seat may not see. **client-core** is the client's
-logic without a renderer, and holds most of the client's tests. The
-**gateway** and the **agent** link no rules at all. Cards are Rust code,
-written in a small DSL, one file per card under `crates/baylee-cards/src/cards/`.
+Each arrow drops a capability. The **engine** is synchronous and
+deterministic: no I/O, no clock, a seeded random-number generator, so the
+same game with the same answers always ends the same way, which is what
+makes records and replays possible. **gamehost** builds each seat's view
+from it, and that view hides what the seat may not see. **client-core** is
+the client's logic without a renderer and holds most of the client's tests;
+the 3D table is built with [Bevy](https://bevyengine.org/). **seal** is the
+chat's encryption. The **gateway** and the **agent** link no rules at all.
+Cards are Rust code, written in a small DSL, one file per card under
+`crates/baylee-cards/src/cards/`.
 
 Where to read on:
 
@@ -679,10 +834,11 @@ Where to read on:
 | --- | --- |
 | Overall plan | [docs/architecture.md](docs/architecture.md) |
 | Engine internals (layers, events, cleanup, loops) | [docs/engine-internals.md](docs/engine-internals.md) |
-| Wire protocol, gateway, rooms, keys | [docs/protocol.md](docs/protocol.md) |
+| Wire protocol, gateway, rooms, chat, replays, keys | [docs/protocol.md](docs/protocol.md) |
 | The client | [docs/client.md](docs/client.md) |
 | Writing cards | [docs/card-dsl.md](docs/card-dsl.md), [docs/card-identity.md](docs/card-identity.md) |
 | House AI | [docs/house-ai.md](docs/house-ai.md) |
+| Language-model seats | [docs/llm-seat.md](docs/llm-seat.md) |
 | Privacy | [docs/privacy.md](docs/privacy.md) |
 | Legal | [docs/legal.md](docs/legal.md) |
 | Releasing | [docs/releasing.md](docs/releasing.md) |
@@ -690,9 +846,11 @@ Where to read on:
 ## Contributing
 
 Issues and pull requests are welcome on
-[GitHub](https://github.com/AceVik/baylee). Before you start, read
-[AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md): they are the project's
-working rules, for people and coding agents alike. A few points:
+[GitHub](https://github.com/AceVik/baylee), and the
+[Discord](https://discord.gg/4pP3uAwgY) is the place to talk and find
+opponents. Before you start on code, read [AGENTS.md](AGENTS.md) and
+[CLAUDE.md](CLAUDE.md): they are the project's working rules, for people and
+coding agents alike. A few points:
 
 - Run the gate before you push. CI also builds for Windows, macOS, wasm32 and
   the minimum Rust version.
@@ -714,11 +872,12 @@ non-commercial, and no feature will ever be sold.
 **Fan content.** Baylee is unofficial Fan Content permitted under the
 [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
 Not approved/endorsed by Wizards. Portions of the materials used are property
-of Wizards of the Coast. ©Wizards of the Coast LLC. Baylee is not affiliated
-with Wizards of the Coast, and no Wizards of the Coast asset is shipped in
-this repository.
+of Wizards of the Coast. ©Wizards of the Coast LLC. Magic: The Gathering,
+card names, set names, card images and mana symbols are property of Wizards
+of the Coast LLC. Baylee is not affiliated with Wizards of the Coast, and no
+Wizards of the Coast asset is shipped in this repository.
 
-**Scryfall.** Card data and images are provided by
+**Scryfall.** Card data and images provided by
 [Scryfall](https://scryfall.com). The client loads card images from Scryfall
 while you play; they are not part of this repository and are not
 redistributed. For that reason the screenshots above use Baylee's own text
@@ -729,8 +888,8 @@ with Scryfall.
 
 **Third-party material.** [NOTICE](NOTICE) lists the bundled fonts (Alegreya
 Sans, Faustina, Font Awesome Free and the Mana font, all SIL OFL 1.1);
-[docs/legal.md](docs/legal.md) §5 covers the CC0 instrument samples the music
-is played with. NOTICE also names the external,
-GPL-licensed card-script corpus that code generation may read from a
-developer's own checkout. No file of that corpus is ever copied into this
-repository or shipped with a build.
+[docs/legal.md](docs/legal.md) §5 covers the CC0 instrument recordings the
+music is played with. NOTICE also names the external, GPL-licensed
+card-script corpus that code generation may read from a developer's own
+checkout. No file of that corpus is ever copied into this repository or
+shipped with a build.

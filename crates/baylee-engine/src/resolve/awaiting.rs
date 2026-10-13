@@ -793,16 +793,15 @@ pub enum AwaitingOp {
         /// What the instruction does once answered.
         then: super::DiscardThen,
     },
-    /// The drawing player decides whether Island Sanctuary replaces the
-    /// first waiting draw (`GameState::draws_to_offer`). The instruction
-    /// that drew has already run, so the answer advances nothing: it
-    /// settles that card and the resolution goes on where it was.
+    /// The drawing player answers a question about the first waiting draw
+    /// (`GameState::draws_to_offer`): a skip, a dredge, which replacement
+    /// applies next, a discard or a Lamp's bottom. The instruction that
+    /// drew has already run, so the answer advances nothing: it settles
+    /// that card and the resolution goes on where it was. What the draw has
+    /// been through is `GameState::draw_front`.
     SkipDraw {
-        /// The Sanctuary asking.
+        /// The question asked.
         source: crate::state::DrawReplacement,
-        /// The player's other Sanctuaries already declined for this draw
-        /// (CR 614.5: one opportunity each).
-        declined: Vec<ObjectId>,
     },
     /// Commanders whose owners have still to answer CR 903.9b for the
     /// operation at `res.pc`, which has not run yet.

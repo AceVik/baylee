@@ -11,7 +11,7 @@ use baylee_protocol::social::{SocialSettings, WhispersFrom};
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
-use super::window::{ChatSurface, G_PANEL};
+use super::window::ChatSurface;
 use super::{ChatUi, SocialHost};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, palette, tf, tf_bold};
@@ -415,7 +415,7 @@ fn sync(
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
-            GlobalZIndex(G_PANEL + 50),
+            super::window::stacked(50),
         ))
         .id();
     let card = commands

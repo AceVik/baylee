@@ -306,6 +306,10 @@ impl<L: CardLookup> Engine<L> {
                     {
                         obj.set_controller(owner);
                     }
+                    // The delayed trigger's controller puts it there.
+                    self.state
+                        .entries
+                        .begin_event(self.state.journal.last_seq(), Some(controller));
                     let _ = self.state.move_object(
                         card,
                         ZoneLocation::Battlefield,
@@ -400,6 +404,7 @@ impl<L: CardLookup> Engine<L> {
                 text,
                 object,
                 version,
+                subject,
             } => {
                 // The trigger is about the object as it was (CR 603.7c): one
                 // that has left its zone since is named with the identity it
@@ -429,6 +434,7 @@ impl<L: CardLookup> Engine<L> {
                         0
                     };
                     trigger.event_object_identity = Some((version, power));
+                    trigger.event_subject = subject;
                 }
                 false
             }
@@ -451,6 +457,7 @@ impl<L: CardLookup> Engine<L> {
                 text,
                 source_version,
                 related_objects: None,
+                event_subject: None,
                 event_ability: None,
                 event_object_identity: None,
                 counter_source_version: None,

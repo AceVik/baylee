@@ -47,6 +47,55 @@ const ALL_LOG_ROWS: usize = 150;
 /// report form (1000).
 pub(crate) const G_PANEL: i32 = 900;
 
+/// A chat surface's place in the stacking order, as its offset over
+/// [`G_PANEL`]: at the table over the table's own bands, in the lobby
+/// between the page and the shell's popovers (`shellkit::tokens::z`), so the
+/// account menu, a modal and a notice stand over the docked chat (#RC:
+/// the account menu opened under the friends list and the chat window
+/// hid "Open table").
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct Stack(pub(crate) i32);
+
+/// The global index and its [`Stack`] for a surface `offset` over
+/// [`G_PANEL`] at the table.
+pub(crate) fn stacked(offset: i32) -> (GlobalZIndex, Stack) {
+    (GlobalZIndex(G_PANEL + offset), Stack(offset))
+}
+
+/// Where a surface `offset` over [`G_PANEL`] at the table stands in the
+/// lobby: the window and the drawer just over the page, the chat's own
+/// menus under the shell's popovers, its sheets with the shell's sheets and
+/// its toasts with the shell's toasts.
+pub(crate) fn lobby_z(offset: i32) -> i32 {
+    use crate::shellkit::tokens::z;
+    match offset {
+        0 => z::PAGE + 2,
+        1 => z::PAGE + 3,
+        40 => z::TOAST,
+        50 => z::SHEET + 1,
+        menu => (z::PAGE + 5 + menu / 15).min(z::POPOVER - 1),
+    }
+}
+
+/// Moves every chat surface to its band for where the player is, before
+/// the stacking is worked out.
+pub(crate) fn restack(
+    phase: Option<Res<State<DuelPhase>>>,
+    mut surfaces: Query<(&Stack, &mut GlobalZIndex)>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
+    for (stack, mut z) in &mut surfaces {
+        let want = if at_table {
+            G_PANEL + stack.0
+        } else {
+            lobby_z(stack.0)
+        };
+        if z.0 != want {
+            z.0 = want;
+        }
+    }
+}
+
 /// A press on one of the window's controls.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub(crate) enum ChatPress {
@@ -179,6 +228,7 @@ impl Frame {
 
 /// Installs the window's systems.
 pub(crate) fn install(app: &mut App) {
+    app.add_systems(PostUpdate, restack.before(bevy::ui::UiSystems::Prepare));
     app.init_resource::<Windows>().add_systems(
         Update,
         (
@@ -841,7 +891,7 @@ fn sync_lobby_window(
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
-                GlobalZIndex(G_PANEL),
+                stacked(0),
                 Visibility::Visible,
                 Pop::default(),
             ))
@@ -1646,7 +1696,7 @@ fn group_bar(
                 },
                 BackgroundColor(inks.ground),
                 BorderColor::all(inks.line),
-                GlobalZIndex(G_PANEL + 20),
+                stacked(20),
             ))
             .id();
         for (id, name, unread) in groups {
@@ -2428,7 +2478,7 @@ fn composer_parts(
                 },
                 BackgroundColor(inks.ground),
                 BorderColor::all(inks.accent.with_alpha(0.6)),
-                GlobalZIndex(G_PANEL + 30),
+                stacked(30),
             ))
             .id();
         for (i, label) in suggest.iter().take(6).enumerate() {
@@ -2732,7 +2782,7 @@ fn filter_dialog(
             },
             BackgroundColor(inks.ground),
             BorderColor::all(inks.accent.with_alpha(0.6)),
-            GlobalZIndex(G_PANEL + 45),
+            stacked(45),
         ))
         .id();
     let title = commands

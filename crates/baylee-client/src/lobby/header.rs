@@ -480,6 +480,11 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 ..default()
             },
             GlobalZIndex(tokens::z::POPOVER),
+            // The menu inside stands at the same global index, and a tie
+            // between the two put this bare holder on top for the pointer:
+            // every row's click landed on it, and Sign out, Shortcuts and
+            // Report did nothing (RC, 13.10.). The holder only places.
+            Pickable::IGNORE,
         ))
         .id();
     commands.entity(holder).add_child(surface);
