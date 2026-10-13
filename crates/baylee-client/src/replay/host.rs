@@ -185,6 +185,8 @@ impl ReplayHost {
                     seat: perspective.seat().get(),
                     game: file.clone(),
                     recorded_by: String::new(),
+                    own: true,
+                    hands: Vec::new(),
                 };
                 let (bytes, names) = (Arc::clone(bytes), names.clone());
                 let (progress, cancel) = (Arc::clone(&progress), Arc::clone(&cancel));

@@ -43,6 +43,9 @@ fn order(record: Vec<u8>) -> v1::ProjectRecord {
         verify: v1::project_record::Verify::Stop as i32,
         game_id: "g".into(),
         recorded_by: String::new(),
+        own: true,
+        hands: Vec::new(),
+        others: vec![1],
     }
 }
 
@@ -427,4 +430,274 @@ fn a_record_cut_off_is_a_tape_that_stops_cut() {
             .any(|line| matches!(line, tape::Line::Over { .. }))
     );
     assert!(views(&sent).len() > 20);
+}
+
+// ---- which hidden cards a tape may hold (docs/protocol.md §"Replays")
+
+/// The views a tape holds as seat views.
+fn player_views(sent: &Sent) -> Vec<baylee_view::PlayerView> {
+    views(sent)
+        .iter()
+        .map(|view| serde_json::from_str(view.json.get()).expect("a seat's view"))
+        .collect()
+}
+
+/// What the host itself tells for `perspective`, the views' bytes and the
+/// input each follows.
+fn direct_views(
+    record: &[u8],
+    perspective: baylee_gamehost::replay::Perspective,
+) -> Vec<(Option<u64>, String)> {
+    let mut direct = Vec::new();
+    baylee_gamehost::replay::project(
+        record,
+        vec!["You".into(), "House".into()],
+        perspective,
+        baylee_gamehost::replay::Verify::Stop,
+        |moment| {
+            for env in &moment.frames {
+                if let Some(v1::envelope::Msg::StateDelta(delta)) = &env.msg {
+                    direct.push((
+                        moment.input,
+                        String::from_utf8(delta.view_json.clone()).unwrap(),
+                    ));
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        },
+    )
+    .expect("projects");
+    direct
+}
+
+fn bytes_of(sent: &Sent) -> Vec<(Option<u64>, String)> {
+    views(sent)
+        .iter()
+        .map(|view| (view.n, view.json.get().to_owned()))
+        .collect()
+}
+
+fn seats_of(of: &[u8]) -> baylee_core::ids::SeatSet {
+    let mut set = baylee_core::ids::SeatSet::new();
+    for &seat in of {
+        set.insert(PlayerId::new(seat));
+    }
+    set
+}
+
+/// An order that withholds the drawn seat's own cards: the header says so, no
+/// view holds a hand or a looked-at card, and the views are the host's
+/// public table drawn from that seat, byte for byte.
+#[test]
+fn an_order_that_withholds_the_seats_own_cards_sends_the_public_table_drawn_from_it() {
+    let record = recorded_duel();
+    for seat in [0_u32, 1] {
+        let mut full = order(gzip(&record));
+        full.seat = seat;
+        let full = job(&full);
+        assert!(header(&full).own);
+        assert!(
+            player_views(&full).iter().any(|view| !view.hand.is_empty()),
+            "the seat's own tape holds its hand, or this proves nothing"
+        );
+
+        let mut masked = order(gzip(&record));
+        masked.seat = seat;
+        masked.own = false;
+        let sent = job(&masked);
+        let head = header(&sent);
+        assert_eq!(head.perspective, Perspective::Seat);
+        assert_eq!(head.seat, seat as u8);
+        assert!(!head.own);
+        assert!(head.hands.is_empty());
+        assert_eq!(sent.stop.stop, StopKind::End);
+
+        let shown = player_views(&sent);
+        assert!(shown.len() > 50);
+        for view in &shown {
+            assert!(view.hand.is_empty(), "a hand in a masked tape");
+            assert!(view.looking_at.is_empty());
+            assert!(view.shared_hands.iter().all(|hand| hand.public));
+            assert_eq!(u32::from(view.seat.get()), seat);
+        }
+        assert_eq!(
+            bytes_of(&sent),
+            direct_views(
+                &record,
+                baylee_gamehost::replay::Perspective::Shown {
+                    seat: PlayerId::new(seat as u8),
+                    own: false,
+                    hands: seats_of(&[]),
+                    others: seats_of(&[]),
+                }
+            )
+        );
+        // The payload is the spectators' print table, drawn from the seat.
+        let tape::Line::Static { json, .. } = sent
+            .lines
+            .iter()
+            .find(|line| matches!(line, tape::Line::Static { .. }))
+            .expect("an opening payload")
+        else {
+            unreachable!()
+        };
+        let payload: baylee_view::GameStatic = serde_json::from_str(json.get()).unwrap();
+        assert_eq!(u32::from(payload.your_seat.get()), seat);
+        assert!(
+            payload.prints.iter().filter(|p| p.is_some()).count() < payload.prints.len() / 2,
+            "the whole decklist went out in a masked tape's payload"
+        );
+        // And the log is not the seat's: no line the log holds for the seat
+        // alone.
+        let masked_log = sent
+            .lines
+            .iter()
+            .filter_map(|line| match line {
+                tape::Line::View(view) => view.log.as_ref().map(|log| log.get().to_owned()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let full_log = full
+            .lines
+            .iter()
+            .filter_map(|line| match line {
+                tape::Line::View(view) => view.log.as_ref().map(|log| log.get().to_owned()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(!masked_log.is_empty());
+        assert_ne!(masked_log, full_log, "the seat's own log in a masked tape");
+    }
+}
+
+/// `own` omitted is `false` (proto3): an order that does not say is masked.
+/// The gateway always sets it; this is the failure that costs nothing.
+#[test]
+fn an_order_that_leaves_own_out_is_masked() {
+    let record = recorded_duel();
+    let omitted = v1::ProjectRecord {
+        job: "replay-x".into(),
+        record: gzip(&record),
+        perspective: v1::project_record::Perspective::Seat as i32,
+        seat: 0,
+        names: vec!["You".into(), "House".into()],
+        verify: v1::project_record::Verify::Stop as i32,
+        game_id: "g".into(),
+        ..Default::default()
+    };
+    assert!(!omitted.own && omitted.hands.is_empty());
+    let sent = job(&omitted);
+    assert!(!header(&sent).own);
+    let shown = player_views(&sent);
+    assert!(shown.len() > 50);
+    assert!(shown.iter().all(|view| view.hand.is_empty()));
+}
+
+/// All hands with hands `[1]`: the header says so, and each view has seat 1's
+/// hand beside the seat's own, as the host tells it.
+#[test]
+fn an_all_hands_order_shows_the_hands_it_names() {
+    let record = recorded_duel();
+    let mut asked = order(gzip(&record));
+    asked.perspective = v1::project_record::Perspective::AllHands as i32;
+    asked.hands = vec![1];
+    let sent = job(&asked);
+    let head = header(&sent);
+    assert_eq!(head.perspective, Perspective::AllHands);
+    assert_eq!(head.seat, 0);
+    assert!(head.own);
+    assert_eq!(head.hands, vec![1]);
+    assert_eq!(sent.stop.stop, StopKind::End);
+
+    let shown = player_views(&sent);
+    assert!(shown.len() > 50);
+    let mut held = 0;
+    for view in &shown {
+        let hands: Vec<_> = view.shared_hands.iter().filter(|h| !h.public).collect();
+        assert_eq!(hands.len(), 1);
+        assert_eq!(hands[0].player.get(), 1);
+        held += usize::from(!hands[0].cards.is_empty());
+    }
+    assert!(held > 30);
+    assert!(
+        shown.iter().any(|view| !view.hand.is_empty()),
+        "its own hand"
+    );
+    let want = direct_views(
+        &record,
+        baylee_gamehost::replay::Perspective::AllHands(PlayerId::new(0)),
+    );
+    assert_eq!(bytes_of(&sent), want);
+
+    // The same hands asked of a plain seat tape are the same views; only the
+    // header's label differs.
+    let mut seat = order(gzip(&record));
+    seat.hands = vec![1];
+    let labelled = job(&seat);
+    assert_eq!(header(&labelled).perspective, Perspective::Seat);
+    assert_eq!(header(&labelled).hands, vec![1]);
+    assert_eq!(bytes_of(&labelled), want);
+
+    // Hands asked of a seat whose own cards are withheld: seat 0 masked, the
+    // hand of seat 1 beside it.
+    let mut masked = order(gzip(&record));
+    masked.perspective = v1::project_record::Perspective::AllHands as i32;
+    masked.own = false;
+    masked.hands = vec![1];
+    let sent = job(&masked);
+    assert!(!header(&sent).own);
+    assert_eq!(header(&sent).hands, vec![1]);
+    assert!(
+        player_views(&sent)
+            .iter()
+            .all(|view| view.hand.is_empty() && view.shared_hands.iter().any(|h| !h.public))
+    );
+}
+
+/// The hands of an order are cleaned before they reach the header or the
+/// views: sorted, each once, never the drawn seat, never past a set's bound.
+#[test]
+fn the_hands_of_an_order_are_sorted_deduplicated_and_bounded() {
+    let record = recorded_duel();
+    // Drawn seat 1: its own number (1), a duplicate (0 twice), numbers that
+    // are no seat and past a set's bound (16, 99, 300).
+    let mut asked = order(gzip(&record));
+    asked.perspective = v1::project_record::Perspective::AllHands as i32;
+    asked.seat = 1;
+    asked.hands = vec![99, 0, 1, 300, 16, 0, 15];
+    let sent = job(&asked);
+    assert_eq!(header(&sent).hands, vec![0, 15]);
+    for view in player_views(&sent) {
+        let owners: Vec<_> = view.shared_hands.iter().map(|h| h.player.get()).collect();
+        assert_eq!(owners, vec![0], "only a seat the table has is shown");
+    }
+
+    // Nothing left of the hands: the seat's own tape, as `Seat` tells it.
+    let mut none = order(gzip(&record));
+    none.hands = vec![0, 16, 99, 300];
+    let sent = job(&none);
+    assert!(header(&sent).hands.is_empty());
+    assert_eq!(
+        bytes_of(&sent),
+        bytes_of(&job(&order(gzip(&record)))),
+        "a hand of the drawn seat is no hand"
+    );
+}
+
+/// The public perspective has no seat's cards to withhold or to add: `own`
+/// and `hands` change nothing about it, not even its header.
+#[test]
+fn a_public_order_ignores_own_and_hands() {
+    let record = recorded_duel();
+    let mut plain = order(gzip(&record));
+    plain.perspective = v1::project_record::Perspective::Public as i32;
+    let plain = job(&plain);
+    let mut odd = order(gzip(&record));
+    odd.perspective = v1::project_record::Perspective::Public as i32;
+    odd.own = false;
+    odd.hands = vec![1];
+    let odd = job(&odd);
+    assert_eq!(header(&odd), header(&plain));
+    assert!(header(&odd).own && header(&odd).hands.is_empty());
+    assert_eq!(bytes_of(&odd), bytes_of(&plain));
 }

@@ -123,6 +123,25 @@ pub struct Header {
     pub game: String,
     /// The build that played and recorded the game (the record header's).
     pub recorded_by: String,
+    /// Whether the drawn seat's own hidden cards are in the views (its hand,
+    /// what it looked at, its face-down cards). `false`: the public table
+    /// drawn from that seat, because it did not share them
+    /// (`docs/protocol.md` §"Replays"). Absent reads `true`.
+    #[serde(default = "shown", skip_serializing_if = "is_shown")]
+    pub own: bool,
+    /// The other seats whose hands are shown beside the drawn seat's (as
+    /// `shared_hands`). Absent reads none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hands: Vec<u8>,
+}
+
+const fn shown() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde's skip_serializing_if hands a reference
+const fn is_shown(own: &bool) -> bool {
+    *own
 }
 
 /// A `view` line: one `StateDelta` as the perspective was sent it.
@@ -336,6 +355,8 @@ mod tests {
                 seat: 1,
                 game: "0199c8".into(),
                 recorded_by: "0.8.0+build.198 (77b01e2a90)".into(),
+                own: false,
+                hands: vec![0, 2],
             }),
             Line::Static {
                 at: 40,
@@ -403,6 +424,93 @@ mod tests {
             ),
             "{text}"
         );
+    }
+
+    /// A header written before `own` and `hands` existed: the whole table
+    /// of the drawn seat, no other hand.
+    const OLD_HEADER: &str = r#"{"kind":"tape","tape":1,"view":76,"build":"b","source":"hosted","perspective":"seat","seat":1,"game":"g","recorded_by":"r"}"#;
+
+    fn header_of(text: &str) -> Header {
+        match parse_line(text).expect("a header") {
+            Line::Header(header) => header,
+            other => panic!("not a header: {}", encode_line(&other)),
+        }
+    }
+
+    fn a_header(own: bool, hands: Vec<u8>) -> Header {
+        Header {
+            tape: TAPE_VERSION,
+            view: 76,
+            build: "b".into(),
+            source: Source::Hosted,
+            perspective: Perspective::Seat,
+            seat: 1,
+            game: "g".into(),
+            recorded_by: "r".into(),
+            own,
+            hands,
+        }
+    }
+
+    #[test]
+    fn a_header_without_own_and_hands_reads_as_the_seats_own_and_no_hand() {
+        let header = header_of(OLD_HEADER);
+        assert!(
+            header.own,
+            "absent `own` is true: the drawn seat's own cards"
+        );
+        assert!(header.hands.is_empty(), "absent `hands` is none");
+        // And what it writes back is the header it was, byte for byte.
+        assert_eq!(encode_line(&Line::Header(header)), OLD_HEADER);
+        // An explicit `own: true` reads the same.
+        let explicit = OLD_HEADER.replace(r#""seat":1,"#, r#""seat":1,"own":true,"hands":[],"#);
+        let header = header_of(&explicit);
+        assert!(header.own && header.hands.is_empty());
+    }
+
+    #[test]
+    fn a_header_that_withholds_nothing_does_not_write_own_or_hands() {
+        let text = encode_line(&Line::Header(a_header(true, Vec::new())));
+        assert!(
+            !text.contains("\"own\"") && !text.contains("\"hands\""),
+            "{text}"
+        );
+        assert_eq!(text, OLD_HEADER);
+        // Hands alone are written, own (true) still is not.
+        let text = encode_line(&Line::Header(a_header(true, vec![0])));
+        assert!(
+            text.contains(r#""hands":[0]"#) && !text.contains("\"own\""),
+            "{text}"
+        );
+        // Own alone: withheld, no hands.
+        let text = encode_line(&Line::Header(a_header(false, Vec::new())));
+        assert!(
+            text.contains(r#""own":false"#) && !text.contains("\"hands\""),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_header_that_withholds_the_seats_own_cards_or_shows_hands_reads_back() {
+        for (own, hands) in [
+            (false, Vec::new()),
+            (false, vec![0, 2]),
+            (true, vec![2]),
+            (true, vec![0, 3, 15]),
+        ] {
+            let header = a_header(own, hands.clone());
+            let text = encode_line(&Line::Header(header));
+            let back = header_of(&text);
+            assert_eq!((back.own, &back.hands), (own, &hands), "{text}");
+            assert_eq!(encode_line(&Line::Header(back)), text);
+        }
+        // A reader of a later tape passes over what it does not know, own
+        // and hands included.
+        let later =
+            OLD_HEADER.replace(r#""seat":1,"#, r#""seat":1,"own":false,"hands":[2],"x":1,"#);
+        let header = header_of(&later);
+        assert!(!header.own);
+        assert_eq!(header.hands, vec![2]);
     }
 
     #[test]

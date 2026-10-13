@@ -16,7 +16,7 @@
 use std::io::{Read as _, Write as _};
 use std::ops::ControlFlow;
 
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_gamehost::replay::{self, Moment, Perspective, Projection, Verify};
 use baylee_protocol::tape::{self, Header, Line, Stop, StopKind};
 use baylee_protocol::v1::{self, Envelope};
@@ -153,6 +153,56 @@ fn stop_of(projection: &Projection, full: bool) -> Stop {
     }
 }
 
+/// The perspective an order asks, with the hidden cards the gateway may
+/// show: the drawn seat's own where `own`, and the hands of `hands` (sorted,
+/// the drawn seat and seats past a set's bound left out). The projection
+/// shows nothing more. `None` for no perspective.
+fn perspective_of(order: &v1::ProjectRecord) -> (Option<Perspective>, Vec<u8>) {
+    // The hidden cards the gateway may show: the drawn seat's own where
+    // `own`, and the hands of `hands`. The projection shows nothing more.
+    let hands: Vec<u8> = {
+        let mut hands: Vec<u8> = order
+            .hands
+            .iter()
+            .filter_map(|&h| u8::try_from(h).ok())
+            .filter(|&h| u32::from(h) != order.seat && h <= SeatSet::MAX_SEAT)
+            .collect();
+        hands.sort_unstable();
+        hands.dedup();
+        hands
+    };
+    let shown = |seat: u8| {
+        let mut set = SeatSet::new();
+        for &h in &hands {
+            set.insert(PlayerId::new(h));
+        }
+        let mut others = SeatSet::new();
+        for &o in &order.others {
+            if let Ok(o) = u8::try_from(o)
+                && o <= SeatSet::MAX_SEAT
+                && o != seat
+            {
+                others.insert(PlayerId::new(o));
+            }
+        }
+        Perspective::Shown {
+            seat: PlayerId::new(seat),
+            own: order.own,
+            hands: set,
+            others,
+        }
+    };
+    let asked = v1::project_record::Perspective::try_from(order.perspective);
+    let perspective = match asked {
+        Ok(v1::project_record::Perspective::Seat | v1::project_record::Perspective::AllHands) => {
+            u8::try_from(order.seat).ok().map(shown)
+        }
+        Ok(v1::project_record::Perspective::Public) => Some(Perspective::Public),
+        _ => None,
+    };
+    (perspective, hands)
+}
+
 /// Runs one projection job: inflates the record, plays it again for the
 /// order's perspective, and hands `emit` the tape's pieces in order, the last
 /// with `last` set. Always ends on a `stop` line: a record that cannot be
@@ -171,13 +221,7 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
     let inflated = MultiGzDecoder::new(order.record.as_slice())
         .take(MAX_RECORD_UNPACKED + 1)
         .read_to_end(&mut record);
-    let perspective = match v1::project_record::Perspective::try_from(order.perspective) {
-        Ok(v1::project_record::Perspective::Seat) => u8::try_from(order.seat)
-            .ok()
-            .map(|seat| Perspective::Seat(PlayerId::new(seat))),
-        Ok(v1::project_record::Perspective::Public) => Some(Perspective::Public),
-        _ => None,
-    };
+    let (perspective, hands) = perspective_of(order);
     let verify = match v1::project_record::Verify::try_from(order.verify) {
         Ok(v1::project_record::Verify::Note) => Verify::Note,
         _ => Verify::Stop,
@@ -190,16 +234,23 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
         view: baylee_view::VIEW_VERSION,
         build: build.to_owned(),
         source: tape::Source::Hosted,
-        perspective: match perspective {
-            Some(Perspective::Public) => tape::Perspective::Public,
+        perspective: match v1::project_record::Perspective::try_from(order.perspective) {
+            Ok(v1::project_record::Perspective::Public) => tape::Perspective::Public,
+            Ok(v1::project_record::Perspective::AllHands) => tape::Perspective::AllHands,
             _ => tape::Perspective::Seat,
         },
         seat: match perspective {
-            Some(Perspective::Seat(seat) | Perspective::AllHands(seat)) => seat.get(),
+            Some(Perspective::Shown { seat, .. }) => seat.get(),
             _ => 0,
         },
         game: order.game_id.clone(),
         recorded_by,
+        own: !matches!(perspective, Some(Perspective::Shown { own: false, .. })),
+        hands: if matches!(perspective, Some(Perspective::Shown { .. })) {
+            hands.clone()
+        } else {
+            Vec::new()
+        },
     }));
     let usable = inflated.is_ok() && (record.len() as u64) <= MAX_RECORD_UNPACKED;
     let stop = match perspective.filter(|_| usable) {

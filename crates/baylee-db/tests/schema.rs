@@ -2616,7 +2616,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
 
     // Alice: the two she sat at, the newer first; the bridge game is not
     // hers, and what she is told of each is what was stored.
-    let (games, total) = records::seated_games(db, a, 0, 10).await.unwrap();
+    let (games, total) = records::seated_games(db, a, false, 0, 10).await.unwrap();
     assert_eq!(total, 2);
     assert_eq!(
         games.iter().map(|g| g.game_id.as_str()).collect::<Vec<_>>(),
@@ -2637,6 +2637,8 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
     assert_eq!(old.turn, Some(7));
     assert_eq!(old.end_reason.as_deref(), Some("Conceded"));
     assert_eq!(old.bytes, 12);
+    // Started on 2026-10-01, before the migration that stores the cutoff
+    // ran in this schema: nobody said, so no seat is shared.
     assert_eq!(
         old.seats,
         vec![
@@ -2648,6 +2650,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: Some(("alice".to_owned(), tag_a)),
                 colours: Some("UB".to_owned()),
                 commander: None,
+                shared: false,
             },
             ListedSeat {
                 seat: 1,
@@ -2657,6 +2660,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: Some(("bob".to_owned(), tag_b)),
                 colours: Some("G".to_owned()),
                 commander: Some(4242),
+                shared: false,
             },
             ListedSeat {
                 seat: 2,
@@ -2666,6 +2670,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: None,
                 colours: Some(String::new()),
                 commander: None,
+                shared: false,
             },
         ]
     );
@@ -2688,23 +2693,23 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
     assert_eq!(new.seats[1].name, None);
 
     // Pages: offset and limit, the total of all of them.
-    let (page, total) = records::seated_games(db, a, 1, 1).await.unwrap();
+    let (page, total) = records::seated_games(db, a, false, 1, 1).await.unwrap();
     assert_eq!((page.len(), total), (1, 2));
     assert_eq!(page[0].game_id, "old");
-    let (page, total) = records::seated_games(db, a, 2, 10).await.unwrap();
+    let (page, total) = records::seated_games(db, a, false, 2, 10).await.unwrap();
     assert_eq!((page.len(), total), (0, 2));
 
     // Bob has the one; Carol three, the two begun together by id.
-    let (games, total) = records::seated_games(db, b, 0, 10).await.unwrap();
+    let (games, total) = records::seated_games(db, b, false, 0, 10).await.unwrap();
     assert_eq!((games.len(), total), (1, 1));
-    let (games, total) = records::seated_games(db, c, 0, 10).await.unwrap();
+    let (games, total) = records::seated_games(db, c, false, 0, 10).await.unwrap();
     assert_eq!(total, 3);
     assert_eq!(
         games.iter().map(|g| g.game_id.as_str()).collect::<Vec<_>>(),
         ["tie-a", "tie-b", "bridge-only"]
     );
     // And somebody who sat nowhere has none.
-    let (games, total) = records::seated_games(db, Uuid::now_v7(), 0, 10)
+    let (games, total) = records::seated_games(db, Uuid::now_v7(), false, 0, 10)
         .await
         .unwrap();
     assert_eq!((games.len(), total), (0, 0));
@@ -2766,7 +2771,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
     // Alice goes: Bob's list keeps the game, her seat a person's with no
     // account and no name, and the deck's colours stay (card data).
     baylee_db::accounts::delete(db, a).await.unwrap();
-    let (games, total) = records::seated_games(db, b, 0, 10).await.unwrap();
+    let (games, total) = records::seated_games(db, b, false, 0, 10).await.unwrap();
     assert_eq!(total, 1);
     let gone = &games[0].seats[0];
     assert_eq!(gone.account, None);
@@ -2845,7 +2850,9 @@ async fn the_opening_is_kept_the_end_is_noted_and_bad_values_are_refused() {
     )
     .await
     .unwrap();
-    let (games, _) = records::seated_games(db, me_id, 0, 10).await.unwrap();
+    let (games, _) = records::seated_games(db, me_id, false, 0, 10)
+        .await
+        .unwrap();
     assert_eq!(games[0].build.as_deref(), Some("first"));
     assert!(games[0].checked);
     assert_eq!(games[0].allow_spectators, Some(false));
@@ -2859,7 +2866,7 @@ async fn the_opening_is_kept_the_end_is_noted_and_bad_values_are_refused() {
         .unwrap();
     records::finish(db, "g", &[], None, "Draw").await.unwrap();
     let ended = |game: &'static str| async move {
-        records::seated_games(db, me_id, 0, 10)
+        records::seated_games(db, me_id, false, 0, 10)
             .await
             .unwrap()
             .0
@@ -2978,6 +2985,530 @@ async fn the_opening_is_kept_the_end_is_noted_and_bad_values_are_refused() {
         .await
         .unwrap();
     assert_eq!(ended("g").await.seats[0].seated, Seated::Unknown);
+
+    sandbox.close().await;
+}
+
+/// Rows of `table` for `game_id`.
+async fn rows_of(db: &DatabaseConnection, table: &str, game_id: &str) -> i64 {
+    db.query_one_raw(Statement::from_string(
+        DbBackend::Postgres,
+        format!("SELECT count(*) AS n FROM {table} WHERE game_id = '{game_id}'"),
+    ))
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap()
+}
+
+/// A count, from any statement that answers one `n`.
+async fn count(db: &DatabaseConnection, sql: &str) -> i64 {
+    db.query_one_raw(Statement::from_string(
+        DbBackend::Postgres,
+        format!("SELECT count(*) AS n FROM ({sql}) AS q"),
+    ))
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap()
+}
+
+/// Replays (13.10.2026): a seat's consent to show its hidden cards is one
+/// row per game and seat, written over by the next word; a seat that never
+/// said is shared in a game recorded from the cutoff on.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_seats_consent_is_one_row_per_game_and_seat_and_none_follows_the_cutoff() {
+    use baylee_db::records::{self, Seat};
+
+    let sandbox = Sandbox::open("replay_share").await;
+    let db = &sandbox.db;
+    let (alice, bob) = (an_account("a@example.com"), an_account("b@example.com"));
+    let (a, b) = (alice.id.clone().unwrap(), bob.id.clone().unwrap());
+    for account in [alice, bob] {
+        Account::insert(account).exec(db).await.expect("an account");
+    }
+    for game in ["g", "h"] {
+        records::open(
+            db,
+            game,
+            &[Seat::played_by(a), Seat::played_by(b), Seat::default()],
+        )
+        .await
+        .unwrap();
+    }
+    let shared = |game: &'static str| async move {
+        records::seats_of(db, game)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|seat| seat.shared)
+            .collect::<Vec<_>>()
+    };
+    // Recorded after the cutoff (the migration ran before the test began),
+    // nobody having said: everyone shares, and no row says so.
+    assert_eq!(shared("g").await, [true, true, true], "nobody has said");
+    assert_eq!(rows_of(db, "game_record_share", "g").await, 0);
+
+    // Bob unticks: his seat reads false, no other seat and no other game
+    // moves.
+    assert!(records::set_share(db, "g", 1, false).await.unwrap());
+    assert_eq!(shared("g").await, [true, false, true]);
+    assert_eq!(shared("h").await, [true, true, true]);
+    // And again: the same row.
+    assert!(records::set_share(db, "g", 1, false).await.unwrap());
+    assert_eq!(rows_of(db, "game_record_share", "g").await, 1);
+    // He ticks it again: written over, not added, and the row says so.
+    assert!(records::set_share(db, "g", 1, true).await.unwrap());
+    assert_eq!(shared("g").await, [true, true, true]);
+    assert_eq!(rows_of(db, "game_record_share", "g").await, 1);
+    assert_eq!(
+        count(db, "SELECT 1 FROM game_record_share WHERE shared").await,
+        1,
+        "an explicit yes is a row, not the default"
+    );
+    assert!(records::set_share(db, "g", 1, false).await.unwrap());
+    // Alice says too: her own row.
+    assert!(records::set_share(db, "g", 0, false).await.unwrap());
+    assert_eq!(shared("g").await, [false, false, true]);
+    assert_eq!(rows_of(db, "game_record_share", "g").await, 2);
+
+    // The list reads the same.
+    let (games, _) = records::seated_games(db, a, false, 0, 10).await.unwrap();
+    let g = games.iter().find(|g| g.game_id == "g").unwrap();
+    assert_eq!(
+        g.seats.iter().map(|s| s.shared).collect::<Vec<_>>(),
+        [false, false, true]
+    );
+
+    // A game with no record: nothing is written.
+    assert!(!records::set_share(db, "nowhere", 0, false).await.unwrap());
+    assert_eq!(rows_of(db, "game_record_share", "nowhere").await, 0);
+    assert_eq!(count(db, "SELECT 1 FROM game_record_share").await, 2);
+
+    // A seat is a number of a set: 0 to 15 (a seat the table lacks is the
+    // caller's to refuse, as `seat_of` does).
+    assert!(records::set_share(db, "g", 15, true).await.unwrap());
+    assert!(
+        records::set_share(db, "g", 16, true).await.is_err(),
+        "a seat past a set's bound"
+    );
+    for bad in [-1_i32, 16, 300] {
+        let refused = db
+            .execute_unprepared(&format!(
+                "INSERT INTO game_record_share (game_id, seat) VALUES ('h', {bad})"
+            ))
+            .await;
+        assert!(refused.is_err(), "seat {bad}");
+    }
+    db.execute_unprepared("INSERT INTO game_record_share (game_id, seat) VALUES ('h', 0)")
+        .await
+        .expect("seat 0 is a seat; shared defaults to true");
+    assert_eq!(shared("h").await, [true, true, true]);
+    assert!(
+        db.execute_unprepared("INSERT INTO game_record_share (game_id, seat) VALUES ('h', 0)")
+            .await
+            .is_err(),
+        "one row per game and seat"
+    );
+
+    sandbox.close().await;
+}
+
+/// Replays (13.10.2026): a seat that never said is shared in a game recorded
+/// from the cutoff on, not shared in one recorded before it, and an explicit
+/// word beats either default.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn a_seat_that_never_said_is_shared_from_the_cutoff_on_and_not_before() {
+    use baylee_db::records::{self, Seat};
+
+    let sandbox = Sandbox::open("replay_cutoff").await;
+    let db = &sandbox.db;
+    let (alice, bob) = (an_account("a@example.com"), an_account("b@example.com"));
+    let (a, b) = (alice.id.clone().unwrap(), bob.id.clone().unwrap());
+    for account in [alice, bob] {
+        Account::insert(account).exec(db).await.expect("an account");
+    }
+    for game in ["early", "exact", "late"] {
+        records::open(db, game, &[Seat::played_by(a), Seat::played_by(b)])
+            .await
+            .unwrap();
+    }
+    let at = |game: &'static str, when: &'static str| async move {
+        db.execute_unprepared(&format!(
+            "UPDATE game_record SET started_at = {when} WHERE game_id = '{game}'"
+        ))
+        .await
+    };
+    at(
+        "early",
+        "(SELECT at FROM replay_share_cutoff) - interval '1 microsecond'",
+    )
+    .await
+    .unwrap();
+    at("exact", "(SELECT at FROM replay_share_cutoff)")
+        .await
+        .unwrap();
+    at(
+        "late",
+        "(SELECT at FROM replay_share_cutoff) + interval '1 hour'",
+    )
+    .await
+    .unwrap();
+    let shared = |game: &'static str| async move {
+        records::seats_of(db, game)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|seat| seat.shared)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(shared("early").await, [false, false], "before: not shared");
+    assert_eq!(shared("exact").await, [true, true], "at the cutoff: shared");
+    assert_eq!(shared("late").await, [true, true], "after: shared");
+    // And in the list, which is the other reader of the same column.
+    let (games, _) = records::seated_games(db, a, false, 0, 10).await.unwrap();
+    let flags = |id: &str| -> Vec<bool> {
+        games
+            .iter()
+            .find(|g| g.game_id == id)
+            .unwrap()
+            .seats
+            .iter()
+            .map(|s| s.shared)
+            .collect()
+    };
+    assert_eq!(flags("early"), [false, false]);
+    assert_eq!(flags("exact"), [true, true]);
+    assert_eq!(flags("late"), [true, true]);
+
+    // Explicit words beat the default both ways, for the seat that spoke.
+    assert!(records::set_share(db, "early", 1, true).await.unwrap());
+    assert!(records::set_share(db, "late", 0, false).await.unwrap());
+    assert_eq!(shared("early").await, [false, true]);
+    assert_eq!(shared("late").await, [false, true]);
+    // Saying no where the default is no is a row, and stays no.
+    assert!(records::set_share(db, "early", 0, false).await.unwrap());
+    assert_eq!(shared("early").await, [false, true]);
+
+    // The cutoff is a moment, not a flag: moved past every game, every
+    // unsaid seat is not shared; moved back before them, all are.
+    db.execute_unprepared("UPDATE replay_share_cutoff SET at = now() + interval '1 day'")
+        .await
+        .unwrap();
+    assert_eq!(shared("exact").await, [false, false]);
+    assert_eq!(shared("late").await, [false, false], "what was said stands");
+    db.execute_unprepared("UPDATE replay_share_cutoff SET at = '-infinity'")
+        .await
+        .unwrap();
+    assert_eq!(shared("early").await, [false, true]);
+    assert_eq!(shared("exact").await, [true, true]);
+    // A schema with no cutoff row (nothing deletes it) reads every game as
+    // recorded after it, rather than failing.
+    db.execute_unprepared("DELETE FROM replay_share_cutoff")
+        .await
+        .unwrap();
+    assert_eq!(
+        shared("exact").await,
+        [true, true],
+        "-infinity: all after it"
+    );
+
+    sandbox.close().await;
+}
+
+/// Replays (13.10.2026): the migration stores the cutoff once, at the moment
+/// it runs, and a game recorded before it reads as not shared where nobody
+/// said.
+#[tokio::test]
+async fn the_cutoff_is_written_once_by_the_migration_that_adds_it() {
+    use baylee_db::records::{self, Seat};
+
+    // The schema as it was before the consent tables, holding a game.
+    let before = u32::try_from(Migrator::migrations().len() - 1).expect("a handful");
+    let sandbox = Sandbox::open_at("replay_cutoff_once", Some(before)).await;
+    let db = &sandbox.db;
+    let alice = an_account("a@example.com");
+    let a = alice.id.clone().unwrap();
+    Account::insert(alice).exec(db).await.expect("an account");
+    records::open(db, "old", &[Seat::played_by(a), Seat::default()])
+        .await
+        .unwrap();
+    assert_eq!(
+        count(db, "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() \
+                   AND table_name IN ('replay_share_cutoff', 'game_record_share', 'replay_archived')")
+            .await,
+        0,
+        "the consent tables are not there yet"
+    );
+
+    Migrator::up(db, None).await.expect("the last migration");
+    let cutoff = |db: &DatabaseConnection| {
+        let db = db.clone();
+        async move {
+            db.query_one_raw(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT at::text AS at, count(*) OVER () AS n FROM replay_share_cutoff",
+            ))
+            .await
+            .unwrap()
+            .map(|row| {
+                (
+                    row.try_get::<String>("", "at").unwrap(),
+                    row.try_get::<i64>("", "n").unwrap(),
+                )
+            })
+        }
+    };
+    let (first, rows) = cutoff(db).await.expect("the migration wrote the cutoff");
+    assert_eq!(rows, 1);
+    assert_eq!(
+        count(
+            db,
+            "SELECT 1 FROM replay_share_cutoff WHERE at > now() - interval '1 minute' AND at <= now()"
+        )
+        .await,
+        1,
+        "the moment the migration ran"
+    );
+
+    // The game recorded before it: nobody said, so nobody shared. A game
+    // recorded after: shared.
+    let shared = |game: &'static str| async move {
+        records::seats_of(db, game)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|seat| seat.shared)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(shared("old").await, [false, false]);
+    records::open(db, "new", &[Seat::played_by(a), Seat::default()])
+        .await
+        .unwrap();
+    assert_eq!(shared("new").await, [true, true]);
+
+    // Run again, as a restart does: the first moment stays.
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    Migrator::up(db, None).await.expect("a second migrate");
+    assert_eq!(cutoff(db).await, Some((first.clone(), 1)));
+    // The migration's own statements, run a second time on the live schema
+    // (each is idempotent): the same.
+    for statement in [
+        "CREATE TABLE IF NOT EXISTS replay_share_cutoff ( \
+             only_row boolean PRIMARY KEY DEFAULT true \
+                 CONSTRAINT replay_share_cutoff_one CHECK (only_row), \
+             at timestamptz NOT NULL DEFAULT now() )",
+        "INSERT INTO replay_share_cutoff (only_row) VALUES (true) ON CONFLICT DO NOTHING",
+    ] {
+        db.execute_unprepared(statement).await.unwrap();
+    }
+    assert_eq!(cutoff(db).await, Some((first, 1)));
+    assert_eq!(shared("old").await, [false, false]);
+    assert_eq!(shared("new").await, [true, true]);
+
+    // It is one row, whatever is written.
+    assert!(
+        db.execute_unprepared("INSERT INTO replay_share_cutoff (only_row) VALUES (false)")
+            .await
+            .is_err(),
+        "the check admits only the one row"
+    );
+    assert!(
+        db.execute_unprepared(
+            "INSERT INTO replay_share_cutoff (only_row, at) VALUES (true, now())"
+        )
+        .await
+        .is_err(),
+        "and the key admits it once"
+    );
+
+    sandbox.close().await;
+}
+
+/// Replays (13.10.2026): archiving a game moves it to one account's archived
+/// list and takes it off its main one, and does nothing else; the record, the
+/// seats and every other account's lists stay.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn archiving_a_game_moves_it_between_one_accounts_lists_and_nothing_else() {
+    use baylee_db::records::{self, Seat};
+
+    let sandbox = Sandbox::open("replay_archive").await;
+    let db = &sandbox.db;
+    let (alice, bob, carol) = (
+        an_account("a@example.com"),
+        an_account("b@example.com"),
+        an_account("c@example.com"),
+    );
+    let (a, b, c) = (
+        alice.id.clone().unwrap(),
+        bob.id.clone().unwrap(),
+        carol.id.clone().unwrap(),
+    );
+    for account in [alice, bob, carol] {
+        Account::insert(account).exec(db).await.expect("an account");
+    }
+    for (game, at) in [
+        ("g1", "2026-10-01T00:00:00Z"),
+        ("g2", "2026-10-02T00:00:00Z"),
+    ] {
+        records::open(db, game, &[Seat::played_by(a), Seat::played_by(b)])
+            .await
+            .unwrap();
+        db.execute_unprepared(&format!(
+            "UPDATE game_record SET started_at = '{at}' WHERE game_id = '{game}'"
+        ))
+        .await
+        .unwrap();
+    }
+    let listed = |who: Uuid, archived: bool, offset: u64, limit: u64| async move {
+        let (games, total) = records::seated_games(db, who, archived, offset, limit)
+            .await
+            .unwrap();
+        (
+            games.into_iter().map(|g| g.game_id).collect::<Vec<_>>(),
+            total,
+        )
+    };
+    let two = || vec!["g2".to_owned(), "g1".to_owned()];
+    assert_eq!(listed(a, false, 0, 10).await, (two(), 2));
+    assert_eq!(listed(a, true, 0, 10).await, (Vec::new(), 0));
+
+    records::set_archived(db, a, "g2", true).await.unwrap();
+    assert_eq!(
+        listed(a, false, 0, 10).await,
+        (vec!["g1".into()], 1),
+        "the total too"
+    );
+    assert_eq!(listed(a, true, 0, 10).await, (vec!["g2".into()], 1));
+    assert_eq!(
+        listed(a, false, 1, 10).await,
+        (Vec::<String>::new(), 1),
+        "pages count what is left"
+    );
+    assert_eq!(listed(a, true, 1, 10).await, (Vec::<String>::new(), 1));
+    assert_eq!(listed(a, false, 0, 1).await, (vec!["g1".into()], 1));
+    // Bob's lists are whole; Carol sat nowhere, in neither list.
+    assert_eq!(listed(b, false, 0, 10).await, (two(), 2));
+    assert_eq!(listed(b, true, 0, 10).await, (Vec::new(), 0));
+    assert_eq!(listed(c, false, 0, 10).await, (Vec::new(), 0));
+    assert_eq!(listed(c, true, 0, 10).await, (Vec::new(), 0));
+
+    // Twice is once.
+    records::set_archived(db, a, "g2", true).await.unwrap();
+    assert_eq!(count(db, "SELECT 1 FROM replay_archived").await, 1);
+
+    // Only the lists: the record, the seats and what the job reads stay, and
+    // the archived game's seat is still hers (her tape is still answered).
+    assert_eq!(records::seat_of(db, "g2", a).await.unwrap(), Some(0));
+    assert_eq!(records::seats_of(db, "g2").await.unwrap().len(), 2);
+    assert!(records::for_projection(db, "g2").await.unwrap().is_some());
+    assert_eq!(rows_of(db, "game_record", "g2").await, 1);
+
+    // Everyone archives on their own.
+    records::set_archived(db, b, "g2", true).await.unwrap();
+    assert_eq!(listed(b, false, 0, 10).await, (vec!["g1".into()], 1));
+    assert_eq!(listed(b, true, 0, 10).await, (vec!["g2".into()], 1));
+    assert_eq!(listed(a, true, 0, 10).await, (vec!["g2".into()], 1));
+    // A game that is not there is no row.
+    assert!(records::set_archived(db, a, "nowhere", true).await.is_err());
+    // Taking out what was never put in, or a game that is not there, is
+    // nothing.
+    records::set_archived(db, c, "g1", false).await.unwrap();
+    records::set_archived(db, a, "nowhere", false)
+        .await
+        .unwrap();
+
+    // Back out: Alice's one row goes, Bob's stays; twice is once.
+    records::set_archived(db, a, "g2", false).await.unwrap();
+    records::set_archived(db, a, "g2", false).await.unwrap();
+    assert_eq!(listed(a, false, 0, 10).await, (two(), 2));
+    assert_eq!(listed(a, true, 0, 10).await, (Vec::new(), 0));
+    assert_eq!(listed(b, true, 0, 10).await, (vec!["g2".into()], 1));
+
+    // The account goes: its archive goes (the row is its own), the other
+    // account's stays, the record stays.
+    records::set_archived(db, a, "g1", true).await.unwrap();
+    baylee_db::accounts::delete(db, a).await.unwrap();
+    let rows: Vec<(Uuid, String)> = db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT account_id, game_id FROM replay_archived",
+        ))
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                row.try_get("", "account_id").unwrap(),
+                row.try_get("", "game_id").unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(rows, vec![(b, "g2".to_owned())]);
+    assert_eq!(rows_of(db, "game_record", "g1").await, 1);
+
+    sandbox.close().await;
+}
+
+/// Replays (13.10.2026): a consent belongs to the record, which is never
+/// deleted, so it stays when its account goes, and keeps governing the seat.
+#[tokio::test]
+async fn a_consent_stays_when_its_account_goes() {
+    use baylee_db::records::{self, Seat};
+
+    let sandbox = Sandbox::open("replay_share_kept").await;
+    let db = &sandbox.db;
+    let (alice, bob) = (an_account("a@example.com"), an_account("b@example.com"));
+    let (a, b) = (alice.id.clone().unwrap(), bob.id.clone().unwrap());
+    for account in [alice, bob] {
+        Account::insert(account).exec(db).await.expect("an account");
+    }
+    records::open(db, "g", &[Seat::played_by(a), Seat::played_by(b)])
+        .await
+        .unwrap();
+    records::open(db, "early", &[Seat::played_by(a), Seat::played_by(b)])
+        .await
+        .unwrap();
+    db.execute_unprepared(
+        "UPDATE game_record SET started_at = (SELECT at FROM replay_share_cutoff) - interval '1 day' \
+         WHERE game_id = 'early'",
+    )
+    .await
+    .unwrap();
+    assert!(records::set_share(db, "g", 1, false).await.unwrap());
+    assert!(records::set_share(db, "g", 0, true).await.unwrap());
+    assert!(records::set_share(db, "early", 1, true).await.unwrap());
+    records::set_archived(db, b, "g", true).await.unwrap();
+
+    baylee_db::accounts::delete(db, b).await.unwrap();
+    assert_eq!(
+        rows_of(db, "game_record_share", "g").await,
+        2,
+        "both consents"
+    );
+    assert_eq!(rows_of(db, "game_record_share", "early").await, 1);
+    let seats = records::seats_of(db, "g").await.unwrap();
+    assert_eq!(seats[1].account, None, "his seat is a former player's");
+    assert!(!seats[1].shared, "and still his word");
+    assert!(seats[0].shared);
+    // What he said before the cutoff game stands too, over its default; what
+    // nobody said there is still the default (Alice's).
+    let early = records::seats_of(db, "early").await.unwrap();
+    assert_eq!((early[0].shared, early[1].shared), (false, true));
+    assert_eq!(
+        count(db, "SELECT 1 FROM replay_archived").await,
+        0,
+        "his archive went"
+    );
+    // A game he left is still Alice's.
+    let (games, total) = records::seated_games(db, a, false, 0, 10).await.unwrap();
+    assert_eq!((games.len(), total), (2, 2));
+    assert!(!games.iter().find(|g| g.game_id == "g").unwrap().seats[1].shared);
 
     sandbox.close().await;
 }

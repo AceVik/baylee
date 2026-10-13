@@ -224,14 +224,21 @@ impl Session {
             .is_some_and(|&told| told < self.log.len())
     }
 
-    /// [`Session::seat_view`] with every other seat's hand beside the seat's
-    /// own, as a teammate's shared hand is shown (`SharedHand { public:
-    /// false }`): a replay's *all hands* (`project.rs`), for a record its
-    /// holder already holds whole. Never for a live seat.
-    pub(super) fn seat_view_showing_all(&self, seat: PlayerId) -> PlayerView {
-        let mut view = self.seat_view(seat);
+    /// Puts the hands of `hands` (but `seat`'s own) beside `view`, as a
+    /// teammate's shared hand is shown (`SharedHand { public: false }`): a
+    /// replay's *all hands* (`project.rs`), for seats whose hidden cards the
+    /// replay may show. Never for a live seat.
+    pub(super) fn show_hands_of(
+        &self,
+        view: &mut PlayerView,
+        seat: PlayerId,
+        hands: baylee_core::ids::SeatSet,
+    ) {
         for owner in (0..self.seats.len()).map(|i| PlayerId::new(seat_byte(i))) {
-            if owner != seat && !view.shared_hands.iter().any(|hand| hand.player == owner) {
+            if owner != seat
+                && hands.contains(owner)
+                && !view.shared_hands.iter().any(|hand| hand.player == owner)
+            {
                 view.shared_hands.push(baylee_view::SharedHand {
                     public: false,
                     player: owner,
@@ -240,7 +247,6 @@ impl Session {
             }
         }
         view.shared_hands.sort_by_key(|hand| hand.player);
-        view
     }
 
     /// The log lines `seat` has not been sent yet, as it may know them, and
