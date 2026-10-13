@@ -102,6 +102,7 @@ pub(super) fn count(
                 ThisWay::ReturnedToHand(filter),
             ) => u32::from(was(state, res, *object, filter, &mine)),
             (GameEvent::Discarded { player, .. }, ThisWay::Discarded) => u32::from(mine(*player)),
+            (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
             (
                 GameEvent::ZoneChanged {
                     object,

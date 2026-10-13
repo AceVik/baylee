@@ -198,6 +198,21 @@ pub enum Condition {
     ControlCount(&'static Filter, u8),
     /// At least this many controlled matches, excluding the exact event object.
     ControlCountExceptEvent(&'static Filter, u8),
+    /// About the triggering event's creature: at least one creature other
+    /// than this source blocking it matches `some`, and no creature blocking
+    /// it matches `none` (Wall of Caltrops: "if at least one other Wall
+    /// creature is blocking that creature and no non-Wall creatures are
+    /// blocking that creature").
+    EventBlockedByOthers {
+        /// What at least one other blocker is.
+        some: &'static Filter,
+        /// What no blocker may be.
+        none: &'static Filter,
+    },
+    /// A combat phase of this turn has ended and none is under way ("Cast
+    /// this spell only after combat", Glyph of Reincarnation): the
+    /// postcombat main phase or the end phase of a turn that had combat.
+    AfterCombat,
     /// You control **at most** N permanents matching the filter —
     /// Glimmervoid's "if you control no artifacts" and Thran Quarry's "if
     /// you control no creatures", both at nought.
@@ -503,6 +518,11 @@ pub enum Trigger {
     /// A source matching the filter deals combat damage to a player
     /// (Sword of Hearth and Home: the equipped creature).
     DealsCombatDamageToPlayer(&'static Filter),
+    /// A source matching the filter deals combat damage to **you**, the
+    /// ability's controller — once for each such source (Contested War
+    /// Zone: "whenever a creature deals combat damage to you"). The source
+    /// is the event object.
+    DealsCombatDamageToYou(&'static Filter),
     /// Once per damaged player and simultaneous combat-damage event.
     OneOrMoreDealCombatDamageToPlayer(&'static Filter),
     /// A source matching the filter deals combat damage to an **opponent**

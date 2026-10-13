@@ -686,6 +686,15 @@ pub enum AwaitingOp {
     HandToBottom,
     /// The player `Effect::ChoosePlayerFrom` asked for.
     ChoosePlayerFrom,
+    /// Where `Effect::MoveTargetAuraToAnother` attaches the Aura.
+    MoveAura {
+        /// The targeted Aura.
+        aura: ObjectId,
+    },
+    /// Which spell `Effect::DealHalfOfSpellDamage` reads.
+    HalfSpell(Box<super::half_damage::Spells>),
+    /// One graveyard's picks of `Effect::ReturnPerBlockedDeath`.
+    BlockedReturns(Box<super::blocked_returns::Returns>),
     /// The card `Effect::ReturnFromGraveyardOf` returns.
     ReturnFromGraveyardOf,
     /// One pick of `Effect::RevealTopPutOntoBattlefield`.

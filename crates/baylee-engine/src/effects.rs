@@ -200,6 +200,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
+        | Modifier::MustBeBlockedByAllAbleMatching(_)
+        | Modifier::AssignsNoCombatDamage
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
@@ -1355,6 +1357,8 @@ mod tests {
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
+            Modifier::MustBeBlockedByAllAbleMatching(&Filter::CREATURE),
+            Modifier::AssignsNoCombatDamage,
             Modifier::BlocksEachAttackerIfAble,
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::CountersPreventDamage(baylee_cards_dsl::CounterKind::P1P1),
@@ -1434,7 +1438,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            131,
+            133,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1499,8 +1503,9 @@ mod tests {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
         // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
-        // modifier registered on the one object it names.
-        assert_eq!((locking, all.len() - locking), (45, 86));
+        // modifier registered on the one object it names; 88 since
+        // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`.
+        assert_eq!((locking, all.len() - locking), (45, 88));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

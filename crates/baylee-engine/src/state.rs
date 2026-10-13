@@ -284,6 +284,21 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "Whenever that creature is dealt damage by [a source the filter
+    /// matches] this turn" (Glyph of Life): each time `card`, as the object
+    /// it was at `version`, is dealt damage after `after` by such a source,
+    /// as it deals it. Not spent by triggering; dropped as the next turn
+    /// begins or once the object is gone.
+    DealtDamageThisTurn {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// Which sources count.
+        by: &'static baylee_cards_dsl::Filter,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// "When this Aura leaves the battlefield" (Animate Dead): the next time
     /// `card`, as the object it was at `version`, leaves the battlefield for
     /// any zone. Read off the journal like [`Self::DiesOrIsExiled`], after
@@ -574,6 +589,59 @@ pub struct PerTurn {
     /// `Engine::declare_attackers` and nothing else, so a creature put onto
     /// the battlefield attacking is not in it (CR 508.4).
     pub attacked: Vec<(ObjectId, u32, PlayerId)>,
+    /// Every block this turn: blocker and attacker as the objects they were
+    /// (CR 400.7), and who controlled the attacker as it became blocked
+    /// (Glyph of Reincarnation's "the player who controlled that creature
+    /// the last time it became blocked by that Wall"). Written by
+    /// `GameState::declare_block` and nothing else.
+    pub blocks: Vec<BlockRecord>,
+    /// Every positive amount of damage dealt this turn, after prevention,
+    /// with its source as it was when it dealt it (`Amount::DamageThisTurn`,
+    /// `Filter::DealtDamageToSourceThisTurn`, Backdraft).
+    pub damage_log: Vec<DamageLogEntry>,
+}
+
+/// One block declared this turn ([`PerTurn::blocks`]).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct BlockRecord {
+    /// The blocking creature as it was.
+    pub blocker: baylee_core::ids::DamageSourceRef,
+    /// The creature it blocked as it was.
+    pub attacker: baylee_core::ids::DamageSourceRef,
+    /// Who controlled the attacker as it became blocked.
+    pub attacker_controller: PlayerId,
+}
+
+/// One amount of damage dealt this turn ([`PerTurn::damage_log`]).
+#[derive(Clone, Debug)]
+pub struct DamageLogEntry {
+    /// The source as the object it was.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// The source as it was when it dealt the damage: its characteristics
+    /// and controller then, which "by artifacts" and "red sources you
+    /// controlled" are asked of.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+    /// What was dealt it.
+    pub to: crate::event::DamageTarget,
+    /// The recipient's incarnation, when it is an object.
+    pub to_version: Option<u32>,
+    /// How much.
+    pub amount: u32,
+    /// Combat damage.
+    pub combat: bool,
+}
+
+impl std::hash::Hash for DamageLogEntry {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (
+            self.source,
+            self.to,
+            self.to_version,
+            self.amount,
+            self.combat,
+        )
+            .hash(state);
+    }
 }
 
 /// One card played or cast from a graveyard under a
@@ -688,6 +756,8 @@ impl PerTurn {
             camouflage: false,
             cant_regenerate: Vec::new(),
             attacked: Vec::new(),
+            blocks: Vec::new(),
+            damage_log: Vec::new(),
         }
     }
 
@@ -765,6 +835,8 @@ impl PerTurn {
         self.camouflage = false;
         self.cant_regenerate.clear();
         self.attacked.clear();
+        self.blocks.clear();
+        self.damage_log.clear();
     }
 }
 
@@ -1118,6 +1190,13 @@ pub struct GameState {
     ///
     /// Written and cleared exactly where [`Self::ltb_abilities`] is.
     pub ltb_characteristics: Vec<(ObjectId, crate::object::Characteristics)>,
+    /// Who a permanent was in combat with the moment it left the
+    /// battlefield: each partner as the object it was, and whether that
+    /// partner was blocking it (`true`) or blocked by it (`false`). Written
+    /// and cleared where [`Self::ltb_characteristics`] is;
+    /// `Filter::BlockingSource` and `BlockedBySource` read it once the
+    /// source is gone (Abu Ja'far).
+    pub ltb_combat: Vec<(ObjectId, Vec<(baylee_core::ids::DamageSourceRef, bool)>)>,
     /// Objects that have ceased to exist but whose triggers have not fired.
     ///
     /// CR 111.7 says it in a parenthesis, and the parenthesis is the whole
@@ -1387,6 +1466,7 @@ impl GameState {
             ltb_attachments,
             ltb_counters,
             ltb_characteristics,
+            ltb_combat,
             ceased,
             reflexive,
             discovered,
@@ -1498,6 +1578,7 @@ impl GameState {
                 "state.ltb_characteristics",
                 format!("{ltb_characteristics:?}"),
             ),
+            ("state.ltb_combat", format!("{ltb_combat:?}")),
             ("state.ceased", format!("{ceased:?}")),
             ("state.reflexive", format!("{reflexive:?}")),
             ("state.discovered", format!("{discovered:?}")),
@@ -2169,6 +2250,14 @@ impl GameState {
         if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
             *tally = tally.saturating_add(amount);
         }
+        self.log_damage(
+            source,
+            None,
+            crate::event::DamageTarget::Player(player),
+            None,
+            amount,
+            is_combat,
+        );
         self.journal.record(GameEvent::DamageDealt {
             source: Some(source),
             target: crate::event::DamageTarget::Player(player),
@@ -2648,9 +2737,29 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Blocking
         | Filter::BlockingSource
         | Filter::BlockedBySource
+        | Filter::BlockingReference
         | Filter::Unblocked => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) => filter_reads_board_state(f),
+        _ => false,
+    }
+}
+
+/// Whether a filter is relative to a resolution's reference object
+/// (`Filter::Reference` and its family), which only a resolution or a target
+/// choice can supply.
+pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::SharesTypeWithReference(_) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
+        Filter::Not(f) | Filter::AttachedTo(f) | Filter::BlockedThisTurnBy(f) => {
+            filter_reads_reference(f)
+        }
         _ => false,
     }
 }

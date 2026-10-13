@@ -39,6 +39,8 @@ mod graveyard_choice;
 mod landwalk;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
+mod half_damage;
+mod blocked_returns;
 mod life;
 pub(crate) mod linked_counters;
 pub mod loot;
@@ -762,7 +764,11 @@ pub(super) fn bound_now_with_context(
     context: crate::text_changes::RuleContext,
     only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
-    if !crate::effects::locks_its_set(modifier) {
+    // A filter that names the resolution's reference object (Feint's "that
+    // creature and each creature blocking it") can only be read now: the
+    // reference is gone once the resolution is, so the set is bound here
+    // whatever the modifier.
+    if !crate::effects::locks_its_set(modifier) && !crate::state::filter_reads_reference(filter) {
         debug_assert!(
             only.is_none(),
             "a dynamic effect cannot carry the seat its card named",
@@ -1511,7 +1517,7 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
 ///
 /// Summoning sickness restarts where control moved (CR 302.6), as the
 /// projection moves it; the journal says who has each object now.
-fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
+pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
     let before: Vec<(ObjectId, PlayerId)> = changes
         .iter()
         .filter_map(|&(id, _)| state.object(id).map(|o| (id, o.controller)))

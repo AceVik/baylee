@@ -41,9 +41,13 @@ impl<L: CardLookup> Engine<L> {
             self.state.turn.active = next;
             self.state.turn.number += 1;
             // "When that creature dies this turn" watches no other turn.
-            self.state
-                .delayed
-                .retain(|d| !matches!(d.when, crate::state::DelayedWhen::DiesThisTurn { .. }));
+            self.state.delayed.retain(|d| {
+                !matches!(
+                    d.when,
+                    crate::state::DelayedWhen::DiesThisTurn { .. }
+                        | crate::state::DelayedWhen::DealtDamageThisTurn { .. }
+                )
+            });
         }
         // Only the seat whose turn this is: summoning sickness is measured
         // against *their* most recent turn (CR 302.6), so an opponent's

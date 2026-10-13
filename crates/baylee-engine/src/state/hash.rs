@@ -60,6 +60,7 @@ impl GameState {
             ltb_attachments,
             ltb_counters,
             ltb_characteristics,
+            ltb_combat,
             // Empty again before any question is out; the field says why.
             ceased: _,
             // Empty whenever a question is out, by a rule the build
@@ -251,6 +252,7 @@ impl GameState {
         }
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
+        ltb_combat.hash(&mut h);
         synthetic_copies.hash(&mut h);
         hash_unordered(&mut h, restriction_info.iter(), |(id, provenance)| {
             let mut one = Hasher::new();
@@ -1984,6 +1986,25 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(29);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));
             h.bytes(name.as_bytes());
+        }
+        // Relational filters (partials wave 2), tagged from 120 so a
+        // neighbouring lane's next tag cannot collide.
+        F::Reference => h.u8(120),
+        F::BlockingReference => h.u8(121),
+        F::BlockedByReferenceThisTurn => h.u8(122),
+        F::BlockedReferenceThisTurn => h.u8(123),
+        F::AttachedTo(inner) => {
+            h.u8(124);
+            filter_hash(h, inner);
+        }
+        F::SharesTypeWithReference(types) => {
+            h.u8(125);
+            h.u32(u32::from(types.bits()));
+        }
+        F::DealtDamageToSourceThisTurn => h.u8(126),
+        F::BlockedThisTurnBy(inner) => {
+            h.u8(127);
+            filter_hash(h, inner);
         }
     }
 }

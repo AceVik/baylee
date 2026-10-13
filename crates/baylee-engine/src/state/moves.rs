@@ -235,6 +235,29 @@ impl GameState {
         {
             self.ltb_counters.push((id, counters));
         }
+        // Who it was in combat with (Abu Ja'far: "destroy all creatures
+        // blocking or blocked by it", read as it last existed, CR 608.2h).
+        self.ltb_combat.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield {
+            let partners: Vec<(baylee_core::ids::DamageSourceRef, bool)> = self
+                .combat
+                .blockers
+                .iter()
+                .filter_map(|b| {
+                    let (partner, blocks_it) = if b.attacker == id {
+                        (b.blocker, true)
+                    } else if b.blocker == id {
+                        (b.attacker, false)
+                    } else {
+                        return None;
+                    };
+                    self.source_identity(partner).map(|r| (r, blocks_it))
+                })
+                .collect();
+            if !partners.is_empty() {
+                self.ltb_combat.push((id, partners));
+            }
+        }
         // What it was.
         self.ltb_characteristics.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield

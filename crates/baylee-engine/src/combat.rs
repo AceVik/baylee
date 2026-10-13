@@ -1097,7 +1097,9 @@ impl<'a> BlockRules<'a> {
             match fx.modifier {
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
-                Modifier::MustBeBlockedByAllAble => rules.lures.push(fx),
+                Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
+                    rules.lures.push(fx);
+                }
                 Modifier::BlocksEachAttackerIfAble => rules.each.push(fx),
                 _ => {}
             }
@@ -1151,6 +1153,23 @@ impl<'a> BlockRules<'a> {
                 effects
                     .iter()
                     .filter(|fx| crate::effects::applies_to(state, fx, obj))
+                    // Marble Priest's lure binds only the blockers its
+                    // filter names (Walls), read with the effect's
+                    // controller as "you".
+                    .filter(|fx| match fx.modifier {
+                        baylee_cards_dsl::Modifier::MustBeBlockedByAllAbleMatching(filter) => {
+                            state.object(blocker).is_some_and(|b| {
+                                crate::eval::matches(
+                                    filter,
+                                    state,
+                                    b,
+                                    fx.controller,
+                                    fx.source.unwrap_or(attacker),
+                                )
+                            })
+                        }
+                        _ => true,
+                    })
                     .count()
             })
         };
@@ -1445,7 +1464,9 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
         }
     }
     for blocker in blocking_creatures(state) {
-        if !strikes_now(state, blocker, first_strike_step) {
+        if !strikes_now(state, blocker, first_strike_step)
+            || assigns_no_combat_damage(state, blocker)
+        {
             continue;
         }
         let amount = power_of(state, blocker);
@@ -1522,7 +1543,9 @@ pub(crate) fn collect_combat_damage(
     prepare_damage_step(state, first_strike_step);
     let mut assignments = Vec::new();
     for info in state.combat.attackers() {
-        if strikes_now(state, info.creature, first_strike_step) {
+        if strikes_now(state, info.creature, first_strike_step)
+            && !assigns_no_combat_damage(state, info.creature)
+        {
             assign_attacker_damage(
                 state,
                 info.creature,
@@ -1549,6 +1572,19 @@ pub(crate) fn collect_combat_damage(
     state.combat.divisions.clear();
     state.combat.prepared_damage = None;
     assignments
+}
+
+/// "This creature assigns no combat damage this turn" (Floral Spuzzem; the
+/// card overrides CR 510.1a's "assigns combat damage equal to its power",
+/// CR 101.1): it is left out of the step's assignments altogether, so there
+/// is nothing to deal, prevent or redirect.
+fn assigns_no_combat_damage(state: &GameState, creature: ObjectId) -> bool {
+    state.object(creature).is_some_and(|obj| {
+        state.effects.iter().any(|fx| {
+            fx.modifier == baylee_cards_dsl::Modifier::AssignsNoCombatDamage
+                && crate::effects::applies_to(state, fx, obj)
+        })
+    })
 }
 
 /// Assign every source before prevention can change a creature's power.
@@ -1638,6 +1674,13 @@ impl GameState {
             return;
         };
         self.combat.declare_block(blocker_ref, attacker_ref);
+        if let Some(controller) = self.object(attacker).map(|o| o.controller) {
+            self.per_turn.blocks.push(crate::state::BlockRecord {
+                blocker: blocker_ref,
+                attacker: attacker_ref,
+                attacker_controller: controller,
+            });
+        }
         self.journal.record(crate::event::GameEvent::BecameBlocker {
             object: blocker,
             attacker,
