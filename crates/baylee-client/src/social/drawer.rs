@@ -73,7 +73,13 @@ pub(crate) fn install(app: &mut App) {
     app.init_resource::<DrawerSlide>()
         .add_systems(
             Update,
-            (asks, presses, sync_door, sync_drawer)
+            (
+                drawer_follows_the_room,
+                asks,
+                presses,
+                sync_door,
+                sync_drawer,
+            )
                 .chain()
                 .run_if(resource_exists::<UiFonts>),
         )
@@ -108,6 +114,37 @@ impl DrawerSlide {
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct Squeezed(pub Val);
 
+/// The friends list, open by default in the lobby, steps aside when a game
+/// opens (it would lie over the opponents' side of the table, RC 13.10.)
+/// and comes back with the lobby; opened at the table, it is the player's.
+fn drawer_follows_the_room(
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    mut ui: ResMut<ChatUi>,
+    mut was: Local<Option<bool>>,
+    mut reopen: Local<bool>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    if *was == Some(at_table) {
+        return;
+    }
+    match (*was, at_table) {
+        (Some(false), true) => {
+            *reopen = ui.drawer;
+            if ui.drawer {
+                ui.drawer = false;
+            }
+        }
+        (Some(true), false) => {
+            if *reopen && !ui.drawer {
+                ui.drawer = true;
+            }
+            *reopen = false;
+        }
+        _ => {}
+    }
+    *was = Some(at_table);
+}
+
 /// Where the shell's notice lane stood before the chat moved it.
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct LaneBase {
@@ -120,7 +157,7 @@ pub(crate) struct LaneBase {
 /// (RC: they were clipped by the list). A phone's lane hangs from the top
 /// and is left alone; without a session, or at a table, it stands where the
 /// shell put it.
-#[allow(clippy::type_complexity)] // the lane, its node and where it stood
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a Bevy system: the lane, its node and where it stood
 fn clear_the_lane(
     mut commands: Commands,
     host: Res<SocialHost>,
@@ -190,6 +227,7 @@ fn slide_the_drawer(
     kids: Query<&Children>,
     mut content: Query<(&mut Node, Option<&Squeezed>), Without<Drawer>>,
     mut commands: Commands,
+    mut wide: Local<f32>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let open = ui.drawer && host.active();
@@ -246,13 +284,19 @@ fn slide_the_drawer(
         });
     }
     // The lobby's content beside the header (the header keeps the whole
-    // width) gives the drawer its room: each sibling lets go of a fixed
-    // width, which a margin would only push past the edge, and gets it back
-    // when the drawer is in again.
+    // width) gives the drawer its room. A sibling written at a percentage of
+    // the width gets that share of what is left, in pixels (a width let go
+    // to `Auto` shrank a centred room to its content, and its Ready switch
+    // lay over the deck); any other keeps its width and takes a margin.
+    // Each gets its own back when the drawer is in again.
     let margin = if at_table { 0.0 } else { room };
-    for (header, role, _, parent) in &headers {
+    for (header, role, computed, parent) in &headers {
         if *role != crate::shellkit::role::Role::Header {
             continue;
+        }
+        let measured = computed.size().x * computed.inverse_scale_factor();
+        if measured > 0.0 {
+            *wide = measured;
         }
         let Ok(siblings) = kids.get(parent.parent()) else {
             continue;
@@ -268,12 +312,24 @@ fn slide_the_drawer(
                 continue;
             }
             if margin > 0.0 {
+                let base = squeezed.map_or(node.width, |s| s.0);
                 if squeezed.is_none() {
                     commands.entity(*kid).insert(Squeezed(node.width));
-                    node.width = Val::Auto;
                 }
-                if node.margin.right != Val::Px(margin) {
-                    node.margin.right = Val::Px(margin);
+                let (width, right) = match base {
+                    // The margin too: a parent that centres its children
+                    // would otherwise stand the narrower node in the middle,
+                    // half of it under the drawer.
+                    Val::Percent(share) if *wide > 0.0 => {
+                        (Val::Px(*wide * share / 100.0 - margin), Val::Px(margin))
+                    }
+                    _ => (Val::Auto, Val::Px(margin)),
+                };
+                if node.width != width {
+                    node.width = width;
+                }
+                if node.margin.right != right {
+                    node.margin.right = right;
                 }
             } else if let Some(Squeezed(width)) = squeezed {
                 node.width = *width;
