@@ -402,6 +402,8 @@ export interface AccountPage {
 
 export interface AccountFilter {
   q?: string;
+  /** One exact tag in hex (`af03`): the sender a chat report names. */
+  tag?: string;
   kind?: AccountKind;
   sort?: AccountSort;
   online?: boolean;
@@ -441,11 +443,24 @@ export function accountQuery(filter: AccountFilter): string {
   const params = new URLSearchParams();
   const q = filter.q?.trim();
   if (q) params.set("q", q);
+  const tag = senderTag(filter.tag);
+  if (tag !== null) params.set("tag", tag);
   if (filter.kind && filter.kind !== "all") params.set("kind", filter.kind);
   if (filter.sort && filter.sort !== "newest") params.set("sort", filter.sort);
   if (filter.online) params.set("online", "true");
   if (filter.offset !== undefined && filter.offset > 0) params.set("offset", String(filter.offset));
   return params.toString();
+}
+
+/**
+ * A tag as the gateway draws it (lowercase hex, `#` and a name before it
+ * dropped), or `null` for anything that is not one. A chat report's
+ * `client.chat.sender_tag` and the accounts filter both go through here.
+ */
+export function senderTag(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const bare = value.trim().split("#").pop()?.toLowerCase() ?? "";
+  return /^[0-9a-f]{1,8}$/.test(bare) ? bare : null;
 }
 
 /** An account search read back from a query string. */
@@ -454,6 +469,8 @@ export function parseAccountFilter(search: string): AccountFilter {
   const filter: AccountFilter = {};
   const q = params.get("q");
   if (q) filter.q = q;
+  const tag = senderTag(params.get("tag"));
+  if (tag !== null) filter.tag = tag;
   const kind = oneOf(ACCOUNT_KINDS, params.get("kind"));
   if (kind) filter.kind = kind;
   const sort = oneOf(ACCOUNT_SORTS, params.get("sort"));

@@ -267,11 +267,6 @@ struct Join {
     /// Sit at a table that gives a question 30 seconds or fewer.
     #[arg(long)]
     allow_blitz: bool,
-    /// Played for a gateway's seat agent (a hosted seat): name no player
-    /// to the mind, only `P1…Pn`, because the others at the table did not
-    /// choose the provider its prompts go to.
-    #[arg(long)]
-    hosted: bool,
 }
 
 /// What decides.
@@ -1330,7 +1325,6 @@ async fn play_out(
         think: Duration::from_secs(seated.think_secs),
         allow_blitz: join.allow_blitz,
         house: seated.profile,
-        pseudonymous: join.hosted,
         ..BridgeConfig::default()
     };
     let core = seat_core(config, &seated.deck, &*seated.mind).with_mind(seated.declared.clone());

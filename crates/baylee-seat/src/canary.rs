@@ -48,7 +48,6 @@ pub fn question(budget: Duration) -> Request {
             seat: me,
             seats: 2,
             teams: vec![None, None],
-            names: vec![String::new(), String::new()],
             format: FormatId::Freeform,
             deck: DeckList::default(),
             decision_secs: None,

@@ -973,55 +973,65 @@ fn a_command_is_a_file_that_runs() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A session's directory is this user's alone, holds an empty `work` and a
-/// `tmp`, takes only safe characters of the game's name, and is gone when
-/// dropped.
+/// Whether `text` is exactly 32 lowercase hexadecimal characters.
+fn is_simple_uuid(text: &str) -> bool {
+    text.len() == 32 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// A session's directory is this user's alone, holds an empty `work`, a
+/// `tmp` and a `support`, is named for the seat and a random id and for
+/// nothing else, and is gone when dropped.
 #[cfg(unix)]
 #[test]
 fn a_session_directory_is_private_and_removed_with_it() {
     use std::os::unix::fs::PermissionsExt;
-    let dir = SessionDir::new("../../etc/pass wd-1", 3).unwrap();
+    let dir = SessionDir::new(3).unwrap();
     let root = dir.root.clone();
     let name = root.file_name().unwrap().to_str().unwrap().to_string();
     assert_eq!(root.parent().unwrap(), std::env::temp_dir(), "{root:?}");
-    assert!(name.starts_with("baylee-cli-etcpasswd-1-3-"), "{name}");
-    for part in [&root, &dir.work(), &dir.tmp()] {
+    let id = name
+        .strip_prefix("baylee-cli-3-")
+        .unwrap_or_else(|| panic!("{name}"));
+    assert!(is_simple_uuid(id), "{name}");
+    assert!(
+        !is_simple_uuid("0123456789abcdef0123456789ABCDEF"),
+        "upper case"
+    );
+    assert!(!is_simple_uuid("0123456789abcdef"), "short");
+    for part in [&root, &dir.work(), &dir.tmp(), &dir.support()] {
         let mode = std::fs::metadata(part).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o700, "{part:?}");
     }
     assert_eq!(std::fs::read_dir(dir.work()).unwrap().count(), 0);
-    let (a, b) = (
-        SessionDir::new("x", 0).unwrap(),
-        SessionDir::new("x", 0).unwrap(),
-    );
+    let (a, b) = (SessionDir::new(0).unwrap(), SessionDir::new(0).unwrap());
     assert_ne!(a.root, b.root, "unique");
     drop(dir);
     assert!(!root.exists());
-    let long = SessionDir::new(&"g".repeat(100), 0).unwrap();
-    let tag = long.root.file_name().unwrap().to_str().unwrap().to_string();
-    assert!(
-        tag.starts_with(&format!("baylee-cli-{}-0-", "g".repeat(24))),
-        "{tag}"
-    );
 }
 
 /// A seat's conversation store is this user's alone, holds an empty
-/// `work` and a `data`, and is gone when dropped.
+/// `work` and a `data`, is named for the seat and a random id and for
+/// nothing else, and is gone when dropped.
 #[cfg(unix)]
 #[test]
 fn a_conversation_store_is_private_and_removed_with_it() {
     use std::os::unix::fs::PermissionsExt;
-    let store = Store::new("../g 1", 2).unwrap();
+    let store = Store::new(2).unwrap();
     let root = store.root.clone();
     let name = root.file_name().unwrap().to_str().unwrap().to_string();
     assert_eq!(root.parent().unwrap(), std::env::temp_dir(), "{root:?}");
-    assert!(name.starts_with("baylee-cli-store-g1-2-"), "{name}");
+    let id = name
+        .strip_prefix("baylee-cli-store-2-")
+        .unwrap_or_else(|| panic!("{name}"));
+    assert!(is_simple_uuid(id), "{name}");
     for part in [&root, &store.work(), &store.data()] {
         let mode = std::fs::metadata(part).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o700, "{part:?}");
     }
     assert_eq!(std::fs::read_dir(store.work()).unwrap().count(), 0);
     assert_eq!(std::fs::read_dir(store.data()).unwrap().count(), 0);
+    let other = Store::new(2).unwrap();
+    assert_ne!(other.root, root, "unique");
     drop(store);
     assert!(!root.exists());
 }

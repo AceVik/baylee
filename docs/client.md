@@ -3954,6 +3954,20 @@ only when it passes `gateway_info::web_address` again at the door
 answer is the thing being drawn; otherwise the line stays plain text.
 `docs/legal.md` §6 is the reason for the line.
 
+**The gateway's legal notice** (13.10.2026): a gateway that names an
+Impressum in `/info` (`impressum`, `docs/protocol.md` §"Which gateway is
+this?") gets a link `Legal notice (Impressum) · <host>`
+(`Phrase::ImpressumLink`) on the front door's About sheet (under the
+source line), on the terms sheet (under its title) and in Settings →
+Network (beside the gateway's facts). The host is always in the words, so
+the player sees where it leads. It is kept only when it passes
+`gateway_info::legal_address` (`https://`, a host, no user before it, no
+whitespace, control or bidi character, at most 200 characters), and a
+press (`FrontPress::OpenImpressum`, `SettingsPress::OpenImpressum`) opens
+exactly that address through `lobby::source::open`, which asks
+`front::impressum_link` again. A gateway that names none, or has not
+answered, draws nothing.
+
 **Framing and empty states.** The front-door composition uses vertical auto
 margins above the fixed legal footer on tablet and desktop. Spare height centres
 the logo and form together; when height runs out, the margins collapse and the
@@ -9046,7 +9060,8 @@ The form is a kit sheet now (`report/form.rs`, `windows-b6/DESIGN.md`
 `GlobalZIndex(1000)`, the kind a segmented control, the text field
 (`report/field.rs`: six lines growing to twelve, two to four on a phone),
 one small line under it (`n / 20000 characters · # a card · @ a player`),
-the route line, the Attachments disclosure with its consent rows, and a
+the route line, the Attachments disclosure with its attachment boxes (a choice before
+sending, not a consent; `docs/privacy.md`), and a
 sticky footer: **What is sent** (the body, with the "Always sent" sentence
 it replaced in the form), **Copy as text** where a report can go nowhere,
 Close and Send (disabled with its reason). The confirmation replaces the

@@ -246,6 +246,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                         | FrontPress::TermsStay
                         | FrontPress::TermsRetry
                         | FrontPress::TermsDecline
+                        | FrontPress::OpenImpressum
                 ) | Press::Shared(SharedPress::PickerNothing)
             )
         {
@@ -254,8 +255,9 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         if state.about_open
             && !matches!(
                 press,
-                Press::Front(FrontPress::About(_) | FrontPress::OpenSource)
-                    | Press::Shared(SharedPress::PickerNothing)
+                Press::Front(
+                    FrontPress::About(_) | FrontPress::OpenSource | FrontPress::OpenImpressum
+                ) | Press::Shared(SharedPress::PickerNothing)
             )
         {
             return;

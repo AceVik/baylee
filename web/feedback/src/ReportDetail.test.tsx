@@ -312,3 +312,40 @@ describe("triage", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("no such report");
   });
 });
+
+const chat = (verified: boolean, sender_tag: string | null) =>
+  fullReport({
+    kind: "chat",
+    text: "rude: you are all useless",
+    client: { chat: { verified, sender_tag, message: "you are all useless", conversation: "whisper" } },
+  });
+
+describe("the sender of a reported chat message", () => {
+  const id = "0199aaaa-0000-7000-8000-000000000001";
+  test("is named by tag, with a link to the accounts page filtered to it", async () => {
+    start(chat(true, "0001"));
+    render(<ReportDetail id={id} />);
+    const sender = await screen.findByTestId("chat-sender");
+    expect(sender.textContent).toContain("#0001");
+    const link = within(sender).getByRole("link", { name: "Find sender's account" });
+    expect(link.getAttribute("href")).toBe("/admin/accounts?tag=0001");
+    await userEvent.click(link);
+    expect(window.location.pathname).toBe("/admin/accounts");
+    expect(window.location.search).toBe("?tag=0001");
+  });
+
+  test("is not named when the message could not be verified, and there is no link", async () => {
+    start(chat(false, null));
+    render(<ReportDetail id={id} />);
+    const sender = await screen.findByTestId("chat-sender");
+    expect(sender.textContent).toBe("not verified, so not named");
+    expect(within(sender).queryByRole("link")).toBeNull();
+  });
+
+  test("is not a row at all for a report that is no chat message", async () => {
+    start(fullReport());
+    render(<ReportDetail id={id} />);
+    expect(await screen.findByText("The Swamp untapped by itself.")).toBeTruthy();
+    expect(screen.queryByTestId("chat-sender")).toBeNull();
+  });
+});

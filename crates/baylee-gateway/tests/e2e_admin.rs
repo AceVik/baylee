@@ -575,6 +575,126 @@ fn live_and_days(c: &Console, game_id: &str) {
     assert_eq!(daily[29]["guests"], 1, "{stats}");
 }
 
+/// The one account a `tag=` lookup names, as the console answers it.
+fn by_tag(c: &Console, tag: &str) -> serde_json::Value {
+    let (status, body) = admin(c, "GET", &format!("/admin/accounts?tag={tag}"), "");
+    assert_eq!(status, 200, "tag={tag}: {body}");
+    json(&body)
+}
+
+/// A reported chat message names its sender by tag, and the console finds
+/// exactly that account from it: registered or guest, with or without the
+/// `#` and a name before it, and the padded `#0001` the handles draw is a
+/// search that finds it too. A tag nobody holds finds nobody, and a value
+/// that is no tag is refused.
+#[test]
+#[allow(clippy::too_many_lines)] // one set of accounts, looked up each way
+fn an_account_is_found_by_its_exact_tag_and_by_the_padded_tag_in_its_handle() {
+    let c = console("admin_tag", &[]);
+    let port = c.gw.port;
+    let _alice = common::login(port, "alice", "Alice");
+    let _bob = common::login(port, "bob", "Bob");
+    let (status, guest) = http(
+        port,
+        "POST",
+        "/auth/guest",
+        None,
+        r#"{"display_name":"Visitor"}"#,
+    );
+    assert_eq!(status, 200, "{guest}");
+    // A tag with letters in it, and one past four digits, on top of the
+    // small ones the identity column handed out first.
+    c.gw.sql("UPDATE account SET tag = 44803 WHERE username = 'bob'");
+    c.gw.sql("UPDATE account SET tag = 65536 WHERE guest");
+
+    let (_, body) = admin(&c, "GET", "/admin/accounts?sort=oldest", "");
+    let all = json(&body);
+    let rows = all["accounts"].as_array().unwrap();
+    assert_eq!(rows.len(), 3, "{all}");
+    let row = |name: &str| {
+        rows.iter()
+            .find(|r| r["display_name"] == name)
+            .unwrap_or_else(|| panic!("{name}: {all}"))
+            .clone()
+    };
+    let (alice, bob, visitor) = (row("Alice"), row("Bob"), row("Visitor"));
+    assert_eq!(
+        alice["handle"], "Alice#0001",
+        "padded to four digits: {alice}"
+    );
+    assert_eq!(bob["handle"], "Bob#af03", "{bob}");
+    assert_eq!(visitor["handle"], "Visitor#10000", "{visitor}");
+
+    // Exactly that account, whichever way the tag is spelled, and the row
+    // is the one a search gives.
+    let (_, searched) = admin(&c, "GET", "/admin/accounts?q=bob", "");
+    let searched = json(&searched);
+    for spelled in ["af03", "AF03", "%23af03", "Bob%23af03", "Nobody%23af03"] {
+        let found = by_tag(&c, spelled);
+        assert_eq!(found["total"], 1, "tag={spelled}: {found}");
+        assert_eq!(found["accounts"].as_array().unwrap().len(), 1, "{found}");
+        assert_eq!(found["accounts"][0]["id"], bob["id"], "tag={spelled}");
+        assert_eq!(
+            found["accounts"][0], searched["accounts"][0],
+            "the same row as a search gives, tag={spelled}"
+        );
+    }
+    for field in [
+        "handle", "online", "in_lobby", "playing", "guest", "username",
+    ] {
+        assert!(bob.get(field).is_some(), "{field} is in the row: {bob}");
+    }
+
+    // A small tag, with or without its padding; a guest; a long tag.
+    for spelled in ["0001", "1", "%230001", "Alice%230001"] {
+        let found = by_tag(&c, spelled);
+        assert_eq!(found["total"], 1, "tag={spelled}: {found}");
+        assert_eq!(found["accounts"][0]["id"], alice["id"], "tag={spelled}");
+    }
+    for spelled in ["10000", "Visitor%2310000"] {
+        let found = by_tag(&c, spelled);
+        assert_eq!(found["total"], 1, "tag={spelled}: {found}");
+        assert_eq!(found["accounts"][0]["id"], visitor["id"], "tag={spelled}");
+        assert_eq!(found["accounts"][0]["guest"], true, "{found}");
+    }
+
+    // A tag nobody holds finds nobody; the other filters still apply.
+    let none = by_tag(&c, "beef");
+    assert_eq!(none["total"], 0, "{none}");
+    assert!(none["accounts"].as_array().unwrap().is_empty(), "{none}");
+    let (_, body) = admin(&c, "GET", "/admin/accounts?tag=af03&kind=guest", "");
+    assert_eq!(json(&body)["total"], 0, "Bob is no guest: {body}");
+
+    // Not a tag, or too long to be anything.
+    let too_long = "a".repeat(101);
+    for bad in ["zz", "Bob%23", "%23", "af03%20x", "ffffffffff", &too_long] {
+        let (status, body) = admin(&c, "GET", &format!("/admin/accounts?tag={bad}"), "");
+        assert_eq!(status, 400, "tag={bad}: {body}");
+    }
+    // Blank is no filter at all.
+    let (status, body) = admin(&c, "GET", "/admin/accounts?tag=", "");
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(json(&body)["total"], 3, "{body}");
+
+    // The tag a handle draws is a search that finds it. On the old query
+    // `to_hex(1)` ('1') was compared with the typed '0001' and no padded
+    // handle was ever found.
+    for (typed, id) in [
+        ("%230001", &alice["id"]),
+        ("Alice%230001", &alice["id"]),
+        ("%23af03", &bob["id"]),
+        ("%23AF03", &bob["id"]),
+        ("%2310000", &visitor["id"]),
+    ] {
+        let (_, body) = admin(&c, "GET", &format!("/admin/accounts?q={typed}"), "");
+        let found = json(&body);
+        assert_eq!(found["total"], 1, "q={typed}: {found}");
+        assert_eq!(&found["accounts"][0]["id"], id, "q={typed}");
+    }
+    let (_, body) = admin(&c, "GET", "/admin/accounts?q=%230002", "");
+    assert_eq!(json(&body)["total"], 0, "no account holds 0002: {body}");
+}
+
 #[test]
 fn a_change_names_its_admin_and_is_refused_in_the_commands_words() {
     let c = console("admin_orders", &[]);

@@ -234,7 +234,7 @@ impl Launcher for ProcessLauncher {
                 .arg("join")
                 .arg(&job.game_id)
                 .args(["--chair", &job.seat.to_string()])
-                .args(["--chair-ticket", "--tethered", "--hosted"])
+                .args(["--chair-ticket", "--tethered"])
                 .args(["--gateway", &job.gateway_url])
                 .arg("--config")
                 .arg(&settings)

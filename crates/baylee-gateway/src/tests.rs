@@ -1,6 +1,7 @@
 use super::*;
 use crate::routes::{
-    EXISTS_UNPLAYABLE, MAX_NAME_CHARS, MAX_SOURCE_CHARS, loaded_deck, no_such_card,
+    EXISTS_UNPLAYABLE, MAX_IMPRESSUM_CHARS, MAX_NAME_CHARS, MAX_SOURCE_CHARS, loaded_deck,
+    no_such_card,
 };
 
 /// A store written before most of its fields existed still loads.
@@ -365,6 +366,72 @@ fn a_source_address_is_the_repository_unless_an_operator_names_a_web_address() {
     ] {
         assert!(
             source_url(Some(refused)).is_err(),
+            "{refused:?} is not an address that shows as what it is"
+        );
+    }
+}
+
+/// An operator's legal notice (Impressum), `BAYLEE_IMPRESSUM_URL`.
+///
+/// Unset and blank are none (`/info` says `null`). What is set is shown to
+/// players as a link with its host, so it must be an `https://` address
+/// that displays as what it is, with a host and nobody before it: anything
+/// else refuses startup rather than being trimmed.
+#[test]
+fn an_impressum_address_is_none_or_an_https_address_that_shows_as_what_it_is() {
+    assert_eq!(impressum_url(None), Ok(None));
+    assert_eq!(impressum_url(Some("")), Ok(None));
+    assert_eq!(impressum_url(Some(" \t\n ")), Ok(None), "blank is unset");
+    assert_eq!(
+        impressum_url(Some("  https://example.org/impressum \n")),
+        Ok(Some("https://example.org/impressum".to_owned())),
+        "the ends are trimmed"
+    );
+    for fine in [
+        "https://example.org",
+        "https://example.org:8443/legal?lang=de#top",
+        "https://example.org?lang=de",
+        "https://example.org#top",
+        "https://[::1]/impressum",
+    ] {
+        assert_eq!(
+            impressum_url(Some(fine)),
+            Ok(Some(fine.to_owned())),
+            "{fine}"
+        );
+    }
+
+    // The limit is in characters, at the edge on both sides.
+    let longest = format!("https://{}", "a".repeat(MAX_IMPRESSUM_CHARS - 8));
+    assert_eq!(longest.chars().count(), MAX_IMPRESSUM_CHARS);
+    assert_eq!(impressum_url(Some(&longest)), Ok(Some(longest.clone())));
+    assert!(
+        impressum_url(Some(&format!("{longest}a"))).is_err(),
+        "one more"
+    );
+
+    for refused in [
+        "http://example.org/impressum",
+        "HTTPS://example.org/impressum",
+        "example.org/impressum",
+        "ftp://example.org/impressum",
+        "javascript:alert(1)",
+        "https://",
+        "https:///impressum",
+        "https://?x=1",
+        "https://#top",
+        "https://user@example.org/impressum",
+        "https://bank.example@evil.example/",
+        "https://user:pass@example.org/",
+        "https://example.org/imp ressum",
+        "https://example.org/\nimpressum",
+        "https://example.org/\timpressum",
+        "https://example.org/\u{7}impressum",
+        "https://example.org/\u{202E}mussertpmi",
+        "https://example.org/\u{2066}impressum",
+    ] {
+        assert!(
+            impressum_url(Some(refused)).is_err(),
             "{refused:?} is not an address that shows as what it is"
         );
     }

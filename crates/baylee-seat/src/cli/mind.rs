@@ -325,7 +325,7 @@ impl CliMind {
             old.end(self.limits.grace);
         }
         if fresh && self.launch.dialect.resumes() {
-            let store = Store::new(&context.game_id, context.seat.get()).map_err(|e| {
+            let store = Store::new(context.seat.get()).map_err(|e| {
                 format!(
                     "{}'s conversation store could not be made: {e}",
                     self.tool()
@@ -422,7 +422,7 @@ impl CliMind {
         conversation: Option<&Conversation>,
     ) -> Result<Session, String> {
         let tool = self.tool();
-        let dir = SessionDir::new(&context.game_id, context.seat.get())
+        let dir = SessionDir::new(context.seat.get())
             .map_err(|e| format!("{tool}'s private directory could not be made: {e}"))?;
         let store = conversation.map(|going| &going.store);
         let env = self.launch.env(
@@ -755,7 +755,7 @@ impl CliMind {
         let Some(args) = self.launch.dialect.probe_args() else {
             return Ok(());
         };
-        let dir = SessionDir::new("probe", 0)
+        let dir = SessionDir::new(0)
             .map_err(|_| format!("{tool}'s login check found no place to run"))?;
         // A tool that keeps conversations keeps the check's in its own
         // directory too, never in the user's.

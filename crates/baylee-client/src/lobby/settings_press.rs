@@ -118,6 +118,8 @@ pub(crate) enum SettingsPress {
     SwitchGateway,
     /// Network: the diagnostics onto the clipboard.
     CopyDiagnostics,
+    /// Network: the gateway's legal notice (Impressum) in the browser.
+    OpenImpressum,
     /// Privacy: what a report may carry.
     Consent(baylee_client_core::bugreport::Category),
     /// Privacy: the anonymous offline count on or off.
@@ -350,6 +352,9 @@ impl SettingsPress {
             SettingsPress::CopyDiagnostics => {
                 state.settings_view.copy = Some(state.diagnostics());
             }
+            SettingsPress::OpenImpressum => {
+                super::source::open(super::front::FrontPress::OpenImpressum, state);
+            }
             SettingsPress::SwitchGateway => {
                 state.settings = SettingsPane::Closed;
                 if state.lobby.token().is_some() || state.lobby.offline() {
@@ -493,6 +498,7 @@ impl SettingsPress {
             | SettingsPress::ProfileAdvanced
             | SettingsPress::CopyHandle
             | SettingsPress::CopyDiagnostics
+            | SettingsPress::OpenImpressum
             | SettingsPress::SwitchGateway
             | SettingsPress::RebindShell(_)
             | SettingsPress::ResetShell(_)

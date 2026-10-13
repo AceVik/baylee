@@ -148,6 +148,55 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
     );
 }
 
+/// A gateway's legal notice (Impressum) is on `/info` for the client to
+/// link: `null` when the operator set none, the address when one is set,
+/// and an address that would not show as what it is stops the start before
+/// the database is touched.
+#[tokio::test(flavor = "multi_thread")]
+async fn info_carries_the_operators_impressum_and_a_bad_one_stops_the_start() {
+    let unset = spawn_gateway("info-no-impressum");
+    let (status, body) = http(unset.port, "GET", "/info", None, "");
+    assert_eq!(status, 200, "info: {body}");
+    let info: serde_json::Value = serde_json::from_str(&body).expect("json");
+    assert!(
+        info.get("impressum")
+            .is_some_and(serde_json::Value::is_null),
+        "the field is there and says none: {body}"
+    );
+
+    let set = spawn_gateway_with(
+        "info-impressum",
+        &[(
+            "BAYLEE_IMPRESSUM_URL",
+            "  https://example.org/impressum ".into(),
+        )],
+    );
+    let (status, body) = http(set.port, "GET", "/info", None, "");
+    assert_eq!(status, 200, "info: {body}");
+    assert_eq!(
+        json_field(&body, "impressum"),
+        "https://example.org/impressum",
+        "the operator's address, trimmed: {body}"
+    );
+
+    for bad in [
+        "http://example.org/impressum",
+        "https://user@example.org/",
+        "https://example.org/\u{202E}x",
+    ] {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+            .env_clear()
+            .env("PATH", std::env::var("PATH").unwrap_or_default())
+            .env("DATABASE_URL", "postgres://nobody@127.0.0.1:1/nothing")
+            .env("BAYLEE_IMPRESSUM_URL", bad)
+            .output()
+            .expect("the gateway runs");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!out.status.success(), "{bad:?} started");
+        assert!(stderr.contains("BAYLEE_IMPRESSUM_URL"), "{bad:?}: {stderr}");
+    }
+}
+
 /// #279: gateways started side by side each find a port of their own. The
 /// helper used to choose a port for a gateway and let go of it before the
 /// gateway bound it, which is the gap a neighbour fell into; now each

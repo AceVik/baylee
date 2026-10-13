@@ -560,6 +560,21 @@ pub(crate) fn network(out: &mut Out, view: &View) {
         crate::lobby::gateway_facts(state, lang)
     };
     let shown = out.words(&facts, false);
+    // The gateway operator's legal notice, where it names one (`/info`
+    // `impressum`): a link with the host it opens in sight.
+    let shown = match crate::lobby::front::impressum_link(state).filter(|_| !state.lobby.offline())
+    {
+        Some((_, host)) => {
+            let link = out.button(
+                "impressum",
+                &Phrase::ImpressumLink.fill(lang, &[&host]),
+                Weight::Ghost,
+                Press::Settings(SettingsPress::OpenImpressum),
+            );
+            out.wrap(&[shown, link])
+        }
+        None => shown,
+    };
     out.row(Row::Gateway, shown);
     let switch = out.button(
         "switch-gateway",

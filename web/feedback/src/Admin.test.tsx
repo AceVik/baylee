@@ -214,6 +214,36 @@ describe("the people pages", () => {
     });
   });
 
+  test("a tag filter asks for that tag alone, shows as a chip and clears with its button", async () => {
+    const calls = serve((call) =>
+      call.url.startsWith("/ui/api/admin/accounts")
+        ? { body: { total: 1, online: 1, accounts: [row] } }
+        : undefined,
+    );
+    window.history.replaceState(null, "", "/admin/accounts?tag=0001");
+    render(<Admin lang="en" section="accounts" search="?tag=0001" />);
+    expect((await screen.findByTestId("account")).textContent).toContain("Alice#0001");
+    expect(calls[0]?.url).toBe("/ui/api/admin/accounts?limit=50&tag=0001");
+    const chip = screen.getByTestId("tag-filter");
+    expect(chip.textContent).toContain("Only the account tagged #0001");
+    await userEvent.click(within(chip).getByRole("button", { name: "Clear" }));
+    await waitFor(() => {
+      expect(window.location.search).toBe("");
+    });
+  });
+
+  test("without a tag there is no chip", async () => {
+    serve((call) =>
+      call.url.startsWith("/ui/api/admin/accounts")
+        ? { body: { total: 1, online: 1, accounts: [row] } }
+        : undefined,
+    );
+    window.history.replaceState(null, "", "/admin/accounts");
+    render(<Admin lang="en" section="accounts" search="" />);
+    await screen.findByTestId("account");
+    expect(screen.queryByTestId("tag-filter")).toBeNull();
+  });
+
   test("one account shows its decks and games, and nothing of a deck's cards", async () => {
     serve((call) =>
       call.url === `/ui/api/admin/accounts/${row.id}`

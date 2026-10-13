@@ -2208,3 +2208,133 @@ async fn a_session_codex_or_junie_cannot_go_on_with_begins_again() {
         assert_eq!(rig.new_in_home(&before), Vec::<String>::new(), "{tool}");
     }
 }
+
+// ---------------------------------------------------------------------
+// What a CLI is never told: the game
+// ---------------------------------------------------------------------
+
+/// The host's id for the game, which the bridge keeps for itself.
+const GAME: &str = "game-ZZZ-4711";
+
+/// The pieces of [`GAME`] no text a CLI reaches may carry.
+const GAME_PIECES: [&str; 2] = [GAME, "ZZZ"];
+
+/// The pieces of the game's id `text` carries.
+fn game_in(text: &str) -> Vec<&'static str> {
+    GAME_PIECES
+        .into_iter()
+        .filter(|piece| text.contains(piece))
+        .collect()
+}
+
+/// `base` in a game the host calls [`GAME`].
+fn in_the_game(base: &Request) -> Request {
+    let mut request = base.clone();
+    request.context = Arc::new(GameContext {
+        game_id: GAME.into(),
+        ..(*base.context).clone()
+    });
+    request
+}
+
+/// Every string a started process could read the game from: its working
+/// directory, each argument, each variable's name and value.
+fn what_a_start_holds(start: &Value) -> Vec<String> {
+    let mut held = vec![start["cwd"].as_str().unwrap().to_string()];
+    held.extend(
+        start["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|arg| arg.as_str().unwrap().to_string()),
+    );
+    for (name, value) in start["env"].as_object().unwrap() {
+        held.push(name.clone());
+        held.push(value.as_str().unwrap().to_string());
+    }
+    held
+}
+
+/// The game's id, which the bridge keeps to key its own state, is told to
+/// no CLI: not in the session directory's name (the working directory),
+/// not in an argument, not in a variable, not in the message it reads or
+/// in the files written beside it, for a CLI that talks on a stream and
+/// for one that answers a message a process.
+#[tokio::test]
+async fn the_game_s_id_reaches_no_cli() {
+    let base = a_priority().await;
+    // The controls: the search finds the id, and the request really has it.
+    assert_eq!(
+        game_in(&format!("/tmp/baylee-cli-0-{GAME}/work")),
+        GAME_PIECES
+    );
+    assert_eq!(game_in("a game-ZZZ"), ["ZZZ"]);
+    assert!(game_in("baylee-cli-3-0123456789abcdef0123456789abcdef").is_empty());
+    assert_ne!(base.context.game_id, GAME, "the base is another game");
+    let request = in_the_game(&ask(&base, 1, base.view.turn, 20));
+    assert_eq!(request.context.game_id, GAME, "the id is in what is sent");
+
+    for (tool, profile) in [
+        ("stream", cli(json!({"effort": "low"}))),
+        ("codex", one_shot("codex")),
+    ] {
+        let rig = Rig::new(
+            &format!("game-id-{tool}"),
+            profile,
+            &json!({"steps": [pass(1, "hold")]}),
+        );
+        let mind = rig.mind(Limits::default());
+        let answer = mind.decide(request.clone()).await.unwrap();
+        assert_eq!(answer.action, PlayerAction::PassPriority, "{tool}");
+
+        let starts = rig.starts();
+        assert_eq!(starts.len(), 1, "{tool}: {starts:?}");
+        let held = what_a_start_holds(&starts[0]);
+        assert!(held.len() > 10, "{tool}: the start was read");
+        for text in &held {
+            assert!(game_in(text).is_empty(), "{tool}: {text}");
+        }
+        let cwd = starts[0]["cwd"].as_str().unwrap();
+        assert!(
+            cwd.contains("baylee-cli-"),
+            "{tool}: a session's own: {cwd}"
+        );
+
+        // What it read: the message told the game (the prefix is there)
+        // and named no id; the files beside the work hold none either.
+        let mut read: Vec<String> = rig.messages().into_iter().map(|(_, text)| text).collect();
+        read.extend(rig.prompts().into_iter().map(|(_, text)| text));
+        assert!(
+            read.iter().any(|text| text.contains("THE GAME")),
+            "{tool}: the prefix was told: {read:?}"
+        );
+        for text in &read {
+            assert!(game_in(text).is_empty(), "{tool}: {text}");
+        }
+        let written: Vec<String> = rig
+            .log()
+            .iter()
+            .filter_map(|line| line.get("support_text"))
+            .flat_map(|files| files.as_object().unwrap().values())
+            .map(|text| text.as_str().unwrap().to_string())
+            .collect();
+        if tool == "codex" {
+            assert!(
+                written.iter().any(|text| text.len() > 100),
+                "the files beside the work were read: {written:?}"
+            );
+        }
+        for text in &written {
+            assert!(game_in(text).is_empty(), "{tool}: {text}");
+        }
+        // And nothing at all the fake logged, whatever it was.
+        let everything = rig
+            .log()
+            .iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(game_in(&everything).is_empty(), "{tool}: it is in the log");
+        drop(mind);
+    }
+}

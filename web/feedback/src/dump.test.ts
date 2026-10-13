@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { readBuild, readCrash, readLog, readRefs, readScreenshot, readSystem } from "./dump";
+import { readBuild, readChatSender, readCrash, readLog, readRefs, readScreenshot, readSystem } from "./dump";
 import { formatBytes, formatClock, formatTime, isBase64 } from "./format";
 import { fullReport } from "./test-utils";
 
@@ -151,5 +151,38 @@ describe("the text's references", () => {
     expect(readRefs({})).toBeNull();
     expect(readRefs({ refs: { cards: [], players: [] } })).toBeNull();
     expect(readRefs({ refs: "nonsense" })).toBeNull();
+  });
+});
+
+describe("a chat report's sender", () => {
+  test("a verified message names its sender's tag", () => {
+    expect(readChatSender({ chat: { verified: true, sender_tag: "0001", message: "hi" } })).toEqual({
+      verified: true,
+      tag: "0001",
+    });
+  });
+
+  test("an unverified message names nobody, even if a tag came along", () => {
+    expect(readChatSender({ chat: { verified: false, sender_tag: null } })).toEqual({ verified: false, tag: null });
+    expect(readChatSender({ chat: { verified: false, sender_tag: "af03" } })).toEqual({
+      verified: false,
+      tag: null,
+    });
+    expect(readChatSender({ chat: {} })).toEqual({ verified: false, tag: null });
+  });
+
+  test("a verified message whose tag is no tag names nobody", () => {
+    expect(readChatSender({ chat: { verified: true, sender_tag: "not a tag" } })).toEqual({
+      verified: true,
+      tag: null,
+    });
+    expect(readChatSender({ chat: { verified: true } })).toEqual({ verified: true, tag: null });
+  });
+
+  test("a report without a chat part, or with one of the wrong shape, has no sender", () => {
+    expect(readChatSender({})).toBeNull();
+    expect(readChatSender(fullReport().client)).toBeNull();
+    expect(readChatSender({ chat: "af03" })).toBeNull();
+    expect(readChatSender({ chat: null })).toBeNull();
   });
 });

@@ -371,7 +371,6 @@ pub(crate) mod tests {
             seat: ME,
             seats: 2,
             teams: vec![None, None],
-            names: vec!["TEST-a".into(), "TEST-b".into()],
             format: FormatId::Freeform,
             deck: crate::DeckList::default(),
             decision_secs: None,
