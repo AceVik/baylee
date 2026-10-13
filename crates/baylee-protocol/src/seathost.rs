@@ -278,7 +278,8 @@ pub struct Definition {
     pub canary: bool,
     /// Another profile of the same seat agent that takes a game over when
     /// this one's model is rate limited or busy, and that a new game
-    /// starts on while this one is at `max_games` or limited: both models
+    /// starts on while this one is not available (at `max_games`, limited,
+    /// failing, …): both models
     /// behind an API. `None` = none. The fallback's own fallback is not
     /// followed (`docs/protocol.md` §"A fallback profile").
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -397,7 +398,8 @@ pub struct Reported {
     #[serde(default)]
     pub last_ok_unix: Option<i64>,
     /// The fallback a new game of this profile starts on now, because the
-    /// profile is at `max_games` or limited and its fallback is available:
+    /// profile is not available (at `max_games`, limited, failing, signed
+    /// out, being checked, switched off) and its fallback is:
     /// the profile is then reported `available`, with its own games and
     /// bound (`docs/protocol.md` §"A fallback profile"). `None` = a new
     /// game plays the profile itself, or not at all.

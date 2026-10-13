@@ -21,7 +21,8 @@
 //! game of the profile takes it along (a second settings file, the
 //! fallback's own spend book), and the bridge plays on with it when the
 //! model is rate limited. A new game starts on the fallback outright while
-//! the profile is at `max_games` or limited and the fallback is available
+//! the profile is not available (at `max_games`, limited, failing, signed
+//! out, being checked or switched off) and the fallback is
 //! ([`Host::place`]); the game then counts as the fallback's, and its chair
 //! keeps the ordered profile's name.
 
@@ -124,6 +125,8 @@ pub struct Host {
 struct Own {
     state: State,
     until: Option<i64>,
+    /// Why its check failed, or its last failure: for the log's reason.
+    error: Option<String>,
     games: u32,
     facts: Facts,
     day: baylee_client_core::llmseat::ledger::Spent,
@@ -363,6 +366,7 @@ impl Host {
                 let own = Own {
                     state,
                     until,
+                    error: rt.failing.clone().or_else(|| rt.last_error.clone()),
                     games: rt.games,
                     facts,
                     day,
@@ -374,8 +378,10 @@ impl Host {
     }
 
     /// Where a new game of `id` starts on its fallback, and why: the
-    /// profile at its `max_games` or limited (a cap of its book, or the
-    /// provider), its fallback available.
+    /// profile not available, whatever the reason (at its `max_games`,
+    /// limited by a cap of its book or by the provider, failing its check,
+    /// signed out, being checked, switched off), and its fallback available
+    /// (owner, 13.10.2026: it is to run steadily).
     fn diverts(
         inner: &Inner,
         own: &BTreeMap<String, Own>,
@@ -383,7 +389,7 @@ impl Host {
         at: i64,
     ) -> Option<(String, String)> {
         let mine = own.get(id)?;
-        if !matches!(mine.state, State::Busy | State::Exhausted) {
+        if mine.state == State::Available {
             return None;
         }
         let fallback = fallback_of(&inner.defs, id)?.ok()?;
@@ -391,18 +397,27 @@ impl Host {
             return None;
         }
         let left = |until: Option<i64>| until.map_or(0, |until| (until - at).max(0));
+        let said = |what: &str| match &mine.error {
+            Some(error) => format!("primary {what}: {error}"),
+            None => format!("primary {what}"),
+        };
         let why = match mine.state {
             State::Busy => match mine.facts.max_games {
                 Some(max) if mine.games >= max => {
                     format!("primary at max_games {}/{max}", mine.games)
                 }
-                _ => return None,
+                _ => "primary busy".to_string(),
             },
-            _ if mine.facts.capped_until.is_some() => format!(
+            State::Exhausted if mine.facts.capped_until.is_some() => format!(
                 "primary's spend cap reached for another {} s",
                 left(mine.until)
             ),
-            _ => format!("primary limited for another {} s", left(mine.until)),
+            State::Exhausted => format!("primary limited for another {} s", left(mine.until)),
+            State::Failing => said("failing"),
+            State::NeedsLogin => said("needs login"),
+            State::Probing => "primary being checked".to_string(),
+            State::Disabled => "primary switched off".to_string(),
+            State::Available => return None,
         };
         Some((fallback.to_string(), why))
     }
@@ -431,10 +446,8 @@ impl Host {
                 diverted: None,
             });
         }
-        if matches!(state, State::Busy | State::Exhausted) {
-            // Said in the log here, at an order, not at every report.
-            let _ = usable_fallback(&inner.defs, id);
-        }
+        // Said in the log here, at an order, not at every report.
+        let _ = usable_fallback(&inner.defs, id);
         match Self::diverts(&inner, &own, id, at) {
             Some((fallback, why)) => Ok(Placement {
                 plays: fallback,

@@ -3157,9 +3157,11 @@ as where the game data goes, and the fallback plays on in that chair.
   never hands back. Where it cannot take over (its book refuses, no key),
   the house answers, as without one. `docs/llm-seat.md` §"A fallback
   profile".
-- **At the start of a game.** While the profile is at its `max_games` or
-  limited (a cap of its book, or a provider's limit its check or a bridge
-  reported) and the fallback is `available`, the seat agent starts a new
+- **At the start of a game.** While the profile is not `available`, for
+  any reason (owner, 13.10.2026: it is to run steadily): at its
+  `max_games`, limited (a cap of its book, or a provider's limit its check
+  or a bridge reported), failing its check, signed out, being checked or
+  switched off, and the fallback is `available`, the seat agent starts a new
   game on the fallback outright, for the whole game, and reports the
   profile `available` with `diverts: "<fallback>"`; the gateway's pick takes
   such a profile at its bound (the seat agent holds the fallback's), and a

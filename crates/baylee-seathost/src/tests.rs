@@ -883,8 +883,14 @@ async fn a_limit_a_check_found_or_a_spent_cap_sends_the_next_game_to_the_fallbac
         lifts_secs: Some(1200),
     });
     host.control(PRIMARY, ControlAction::Probe).unwrap();
+    // While the check runs the profile diverts too (being checked): wait
+    // for what it found.
     eventually("the check is read", || {
-        reported(&host, PRIMARY).diverts.is_some()
+        host.place(PRIMARY).is_ok_and(|p| {
+            p.diverted
+                .as_deref()
+                .is_some_and(|why| why.starts_with("primary limited"))
+        })
     })
     .await;
     assert_eq!(
@@ -1000,24 +1006,118 @@ async fn a_full_profile_is_refused_as_busy_when_its_fallback_cannot_take_the_gam
     refused_busy(&host, &mut rx, "o2", PRIMARY, "busy").await;
 }
 
-/// Only a profile that is busy or limited is replaced by its fallback: one an
-/// admin switched off, or whose check failed, is refused as the state says
-/// (`disabled`, `failing`), not played elsewhere.
-#[tokio::test]
-async fn a_profile_that_is_off_or_failing_is_not_replaced_by_its_fallback() {
-    let (host, fake, mut rx) = pair("off-failing", None, None);
-    host.control(PRIMARY, ControlAction::Disable).unwrap();
-    refused_busy(&host, &mut rx, "o1", PRIMARY, "disabled").await;
-    assert_eq!(reported(&host, PRIMARY).state, State::Disabled);
-    host.control(PRIMARY, ControlAction::Enable).unwrap();
+/// Places a new game of [`PRIMARY`], expecting it to start on [`BACKUP`]
+/// for `why`; seats it as `order` and checks the bridge plays the fallback
+/// alone, counted on the fallback and not on the profile.
+async fn diverted_for(
+    host: &Arc<Host>,
+    fake: &Fake,
+    rx: &mut mpsc::UnboundedReceiver<Frame>,
+    order: &str,
+    why: &str,
+) {
+    let placed = host.place(PRIMARY).expect("the fallback takes the game");
+    assert_eq!(
+        (placed.plays.as_str(), placed.diverted.as_deref()),
+        (BACKUP, Some(why))
+    );
+    let p = reported(host, PRIMARY);
+    assert_eq!(
+        (p.state, p.diverts.as_deref()),
+        (State::Available, Some(BACKUP))
+    );
+    seat(host, rx, order, PRIMARY).await;
+    job(fake, order, |j| {
+        assert_eq!(j.plays, BACKUP);
+        assert!(j.fallback.is_none(), "no further fallback");
+    });
+    assert_eq!(
+        (reported(host, PRIMARY).games, reported(host, BACKUP).games),
+        (0, 1)
+    );
+}
 
+/// A profile an admin switched off hands its new games to its fallback
+/// (owner, 13.10.2026: it is to run steadily), and is still reported off.
+/// Before, the order was refused as `busy: the profile is disabled`.
+#[tokio::test]
+async fn a_switched_off_profile_hands_new_games_to_its_fallback() {
+    let (host, fake, mut rx) = pair("divert-off", None, None);
+    host.control(PRIMARY, ControlAction::Disable).unwrap();
+    diverted_for(&host, &fake, &mut rx, "o1", "primary switched off").await;
+    assert!(!reported(&host, PRIMARY).enabled);
+}
+
+/// A profile whose check failed hands its new games to its fallback, the
+/// log's reason saying what failed. Before, the order was refused as
+/// `busy: the profile is failing`.
+#[tokio::test]
+async fn a_failing_profile_hands_new_games_to_its_fallback() {
+    let (host, fake, mut rx) = pair("divert-failing", None, None);
     *fake.probe.lock().unwrap() = Some(Probe::Failing("no key".into()));
     host.control(PRIMARY, ControlAction::Probe).unwrap();
+    // Its own state, before the fallback is looked at: what `place` reads.
     eventually("the check failed", || {
-        reported(&host, PRIMARY).state == State::Failing
+        host.place(PRIMARY)
+            .is_ok_and(|p| p.diverted.as_deref() != Some("primary being checked"))
     })
     .await;
-    refused_busy(&host, &mut rx, "o2", PRIMARY, "failing").await;
+    diverted_for(&host, &fake, &mut rx, "o1", "primary failing: no key").await;
+}
+
+/// A profile whose CLI-style check says it is signed out hands its new
+/// games to its fallback. Before, the order was refused as `busy: the
+/// profile is needs_login`.
+#[tokio::test]
+async fn a_signed_out_profile_hands_new_games_to_its_fallback() {
+    let (host, fake, mut rx) = pair("divert-login", None, None);
+    *fake.probe.lock().unwrap() = Some(Probe::SignedOut("not signed in".into()));
+    host.control(PRIMARY, ControlAction::Probe).unwrap();
+    eventually("the check said signed out", || {
+        host.place(PRIMARY)
+            .is_ok_and(|p| p.diverted.as_deref() != Some("primary being checked"))
+    })
+    .await;
+    diverted_for(
+        &host,
+        &fake,
+        &mut rx,
+        "o1",
+        "primary needs login: not signed in",
+    )
+    .await;
+}
+
+/// A profile being checked hands a new game to its fallback rather than
+/// keep the chair waiting. Before, the order was refused as `busy: the
+/// profile is probing`.
+#[tokio::test]
+async fn a_profile_being_checked_hands_new_games_to_its_fallback() {
+    let (host, fake, mut rx) = pair("divert-probing", None, None);
+    // The check runs on a task of its own: until that task runs, the
+    // profile is being checked.
+    host.control(PRIMARY, ControlAction::Probe).unwrap();
+    let placed = host.place(PRIMARY).expect("the fallback takes the game");
+    assert_eq!(
+        (placed.plays.as_str(), placed.diverted.as_deref()),
+        (BACKUP, Some("primary being checked"))
+    );
+    host.handle(start_on("o1", PRIMARY));
+    assert_eq!(
+        status(&mut rx).await,
+        ("o1".to_string(), SeatStatusKind::Started, String::new())
+    );
+    job(&fake, "o1", |j| assert_eq!(j.plays, BACKUP));
+}
+
+/// Where the fallback cannot take the game either, a profile that is not
+/// available is refused as its state says, as it always was.
+#[tokio::test]
+async fn a_profile_that_is_off_with_its_fallback_off_too_is_refused_as_ever() {
+    let (host, fake, mut rx) = pair("divert-both-off", None, None);
+    host.control(PRIMARY, ControlAction::Disable).unwrap();
+    host.control(BACKUP, ControlAction::Disable).unwrap();
+    refused_busy(&host, &mut rx, "o1", PRIMARY, "disabled").await;
     assert_eq!(reported(&host, PRIMARY).diverts, None);
     assert!(fake.jobs.lock().unwrap().is_empty(), "no bridge started");
 }
