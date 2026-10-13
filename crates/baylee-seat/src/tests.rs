@@ -662,3 +662,471 @@ fn a_kept_key_sits_a_model_down_without_the_environment() {
     assert!(pick(&store).is_ok());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A game that ended with these counts: a win with 20 answers by the mind,
+/// 2 by the house and 1 by the least answer, on 2 sockets.
+fn played(fallback: Option<bridge::FellBack>) -> bridge::Played {
+    use baylee_seat::seat::{AnsweredCounts, FallbackCounts, StandingCounts, Stats};
+    bridge::Played {
+        stats: Stats {
+            turns: 9,
+            questions: 40,
+            standing: StandingCounts {
+                nothing_to_do: 11,
+                ..StandingCounts::default()
+            },
+            wakes: 6,
+            continuations: 2,
+            planned: 3,
+            refused_by_referee: 3,
+            refused_by_table: 1,
+            answered: AnsweredCounts {
+                mind: 20,
+                house: 2,
+                least: 1,
+                ..AnsweredCounts::default()
+            },
+            fallbacks: FallbackCounts {
+                unavailable: 3,
+                ..FallbackCounts::default()
+            },
+            model_ms: 1500,
+            outcome: Some(Outcome::Won),
+            ..Stats::default()
+        },
+        result: None,
+        dials: 2,
+        fallback,
+    }
+}
+
+/// The closing line says, at its very end and only where a fallback profile
+/// took over, how often the fallback answered and from which turn; with
+/// none it is the line it always was, word for word, which a seat agent
+/// keeps in its operator's log.
+#[test]
+fn the_closing_line_names_the_fallback_only_where_one_took_over() {
+    let without = summary_line(&played(None));
+    assert_eq!(
+        without,
+        "won after 9 turns: 40 questions, 11 answered by standing orders, 6 wakes and 2 payment \
+         steps, 3 questions in a plan; the mind answered 20, the house 2, the least answer 1; \
+         3 fallbacks, 4 refused, 1500 ms of model time, 2 sockets"
+    );
+    assert!(without.ends_with(" sockets"));
+    let fell_back = bridge::FellBack {
+        label: "backup".into(),
+        turn: 3,
+        answered: 12,
+    };
+    let with = summary_line(&played(Some(fell_back)));
+    assert_eq!(
+        with,
+        format!("{without}; the fallback (backup) answered 12 from turn 3"),
+        "everything it said before, then the fallback"
+    );
+}
+
+/// A bridge that sat down on `args` plays no model of its own here: the
+/// fallback's command line is made from it.
+fn fallback_of(args: &[&str]) -> Join {
+    let join = join_args(args).unwrap();
+    let profile = join.fallback_profile.clone().expect("a fallback profile");
+    fallback_join(&join, &profile)
+}
+
+/// The fallback plays its own profile whole: its command line is the
+/// model's with the profile replaced and every flag that tunes the model
+/// cleared (the profile's answer mode, effort, budgets and think time are
+/// the fallback's, never the model's), while what is not tuning (the
+/// transcripts, the house's level, the blitz switch) is carried over.
+#[test]
+fn a_fallback_takes_its_profile_and_none_of_the_models_tuning() {
+    let tuned = [
+        "--config",
+        "/m/llm-seat.json",
+        "--ledger",
+        "/m/book.json",
+        "--profile",
+        "primary",
+        "--effort",
+        "high",
+        "--answer",
+        "json",
+        "--max-tokens",
+        "9000",
+        "--spend-usd",
+        "1.5",
+        "--spend-tokens",
+        "1000",
+        "--spend-calls",
+        "9",
+        "--price-in",
+        "1",
+        "--price-out",
+        "2",
+        "--think-secs",
+        "12",
+        "--transcripts",
+        "/t",
+        "--level",
+        "sharp",
+        "--allow-blitz",
+        "--fallback-profile",
+        "backup",
+    ];
+    let model = join_args(&tuned).unwrap();
+    assert_ne!(
+        model.overrides(),
+        Overrides::default(),
+        "the premise: the model is tuned"
+    );
+    let fallback = fallback_join(&model, "backup");
+    assert_eq!(fallback.overrides(), Overrides::default());
+    assert!(fallback.mind.is_none());
+    assert_eq!(fallback.profile.as_deref(), Some("backup"));
+    assert_eq!(fallback.config, Some(PathBuf::from("/m/llm-seat.json")));
+    assert_eq!(fallback.ledger, Some(PathBuf::from("/m/book.json")));
+    assert!(fallback.fallback_profile.is_none());
+    assert!(fallback.fallback_config.is_none());
+    assert!(fallback.fallback_ledger.is_none());
+    assert_eq!(fallback.transcripts, Some(PathBuf::from("/t")));
+    assert_eq!(fallback.level, "sharp");
+    assert!(fallback.allow_blitz);
+
+    // `--default-effort` cannot go with `--effort`: its own check.
+    let default_effort = fallback_of(&["--default-effort", "--fallback-profile", "backup"]);
+    assert!(!default_effort.default_effort);
+    assert_eq!(default_effort.overrides(), Overrides::default());
+}
+
+/// The fallback's settings file is the model's unless `--fallback-config`
+/// names another, and its spend book is the model's `--ledger` only where
+/// both are in one file, else the one `--fallback-ledger` names, else the
+/// book beside its own file.
+#[test]
+fn a_fallback_reads_the_models_file_unless_told_otherwise() {
+    let paths = |args: &[&str]| {
+        let fallback = fallback_of(args);
+        (fallback.config, fallback.ledger)
+    };
+    let some = |path: &str| Some(PathBuf::from(path));
+    assert_eq!(paths(&["--fallback-profile", "fb"]), (None, None));
+    assert_eq!(
+        paths(&["--config", "A", "--fallback-profile", "fb"]),
+        (some("A"), None)
+    );
+    assert_eq!(
+        paths(&["--config", "A", "--ledger", "L", "--fallback-profile", "fb"]),
+        (some("A"), some("L")),
+        "one file, one book"
+    );
+    assert_eq!(
+        paths(&[
+            "--config",
+            "A",
+            "--ledger",
+            "L",
+            "--fallback-profile",
+            "fb",
+            "--fallback-config",
+            "B"
+        ]),
+        (some("B"), None),
+        "the model's book is not the book of another file"
+    );
+    assert_eq!(
+        paths(&[
+            "--config",
+            "A",
+            "--fallback-profile",
+            "fb",
+            "--fallback-config",
+            "B",
+            "--fallback-ledger",
+            "M"
+        ]),
+        (some("B"), some("M"))
+    );
+    assert_eq!(
+        paths(&[
+            "--config",
+            "A",
+            "--ledger",
+            "L",
+            "--fallback-profile",
+            "fb",
+            "--fallback-ledger",
+            "M"
+        ]),
+        (some("A"), some("M"))
+    );
+}
+
+/// A fallback's own file and book are meaningless without a fallback
+/// profile, and the command line says so rather than ignoring them.
+#[test]
+fn a_fallbacks_file_or_book_without_a_fallback_profile_is_refused() {
+    for flag in ["--fallback-config", "--fallback-ledger"] {
+        let refused = join_args(&[flag, "/x/llm-seat.json"])
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("--fallback-profile"), "{refused}");
+    }
+    assert!(join_args(&["--fallback-profile", "fb"]).is_ok());
+}
+
+/// The model's settings file (`primary`, an Anthropic-protocol endpoint of
+/// a model `model-a` that is never called, at an explicit price) and the
+/// fallback's in a directory of its own (a book sits beside its file, so two
+/// directories are two books): `backup` (an OpenAI-compatible endpoint that
+/// is never called) at $2 a game under a day's cap of $3, `cli` (an agent
+/// CLI whose program is this very one, never started) and `keyless` (a
+/// profile whose key is in no variable).
+fn fallback_files_in(dir: &Path) -> (PathBuf, PathBuf) {
+    let model = dir.join("llm-seat.json");
+    let primary = serde_json::json!({
+        "default": "primary",
+        "caps": {"day_usd": 3},
+        "profiles": {
+            "primary": {
+                "provider": "anthropic", "model": "model-a",
+                "price": {"input": 1.0, "output": 5.0}, "game_usd": 2, "think_secs": 30
+            }
+        }
+    });
+    std::fs::write(&model, primary.to_string()).unwrap();
+    let apart = dir.join("fallback");
+    std::fs::create_dir_all(&apart).unwrap();
+    let fallback = apart.join("llm-seat.json");
+    let program = std::env::current_exe().unwrap();
+    let file = serde_json::json!({
+        "caps": {"day_usd": 3},
+        "profiles": {
+            "backup": {
+                "provider": "openai", "model": "model-b",
+                "base_url": "https://api.example.invalid/v1", "key_env": "TEST_FB_KEY",
+                "price": {"input": 0.3, "output": 1.1}, "game_usd": 2, "think_secs": 25
+            },
+            "cli": {"provider": "cli", "model": "claude", "command": program},
+            "keyless": {
+                "provider": "openai", "model": "model-b",
+                "base_url": "https://api.example.invalid/v1", "key_env": "TEST_FB_MISSING",
+                "price": {"input": 0.3, "output": 1.1}, "game_usd": 2
+            }
+        }
+    });
+    std::fs::write(&fallback, file.to_string()).unwrap();
+    (model, fallback)
+}
+
+/// The key of the fallback's profile `backup`, and nothing else.
+fn fallback_key(name: &str) -> Option<String> {
+    (name == "TEST_FB_KEY").then(|| "TEST-fallback-key-value".to_string())
+}
+
+/// What a model behind an API says it is, for the table.
+fn api_model() -> SeatMind {
+    SeatMind {
+        kind: seat_mind::Kind::LlmApi as i32,
+        provider: "anthropic".into(),
+        model: "model-a".into(),
+        ..SeatMind::default()
+    }
+}
+
+/// `standby` for `join`, a model behind an API, with `env` and no stored
+/// keys.
+fn standing_by(
+    join: &Join,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<Option<bridge::Standby>, String> {
+    standby(
+        join,
+        &api_model(),
+        &[],
+        env,
+        &MemoryKeys::default(),
+        &Fallen::default(),
+    )
+}
+
+/// Without `--fallback-profile` nothing stands by and nothing is asked of
+/// the settings file: the bridge plays as it always did.
+#[test]
+fn without_a_fallback_profile_nothing_stands_by() {
+    let dir = scratch("standby-none");
+    let (model, _) = fallback_files_in(&dir);
+    let join = join_args(&["--config", model.to_str().unwrap()]).unwrap();
+    assert!(standing_by(&join, &placeholder).unwrap().is_none());
+    assert!(
+        Book::beside(&model).read().unwrap().games.is_empty(),
+        "nothing was reserved"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A fallback takes over from a language model behind an API, and from
+/// nothing else: the house, a script and an agent CLI have no limit to
+/// hand over, so the chair plays without one and says why.
+#[test]
+fn a_fallback_stands_by_only_behind_a_model_behind_an_api() {
+    let dir = scratch("standby-primary");
+    let (model, fallback) = fallback_files_in(&dir);
+    let join = join_args(&[
+        "--config",
+        model.to_str().unwrap(),
+        "--fallback-profile",
+        "backup",
+        "--fallback-config",
+        fallback.to_str().unwrap(),
+    ])
+    .unwrap();
+    let cli = SeatMind {
+        kind: seat_mind::Kind::LlmCli as i32,
+        provider: "example".into(),
+        ..SeatMind::default()
+    };
+    for primary in [declare::house("steady"), declare::scripted(), cli] {
+        let refused = standby(
+            &join,
+            &primary,
+            &[],
+            &fallback_key,
+            &MemoryKeys::default(),
+            &Fallen::default(),
+        )
+        .unwrap_err();
+        assert!(refused.contains("behind an API"), "{refused}");
+    }
+    // The premise: behind an API it stands by.
+    let standing = standing_by(&join, &fallback_key).unwrap();
+    assert_eq!(standing.expect("a fallback").label, "backup");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A fallback profile that is an agent CLI is refused with the sentence
+/// that says why (its program is found first, so a program that is there
+/// is what this reaches), and a profile the file lacks, or whose key is
+/// missing, leaves no fallback either; none of them reserves anything.
+#[test]
+fn a_fallback_that_cannot_play_is_refused_when_the_chair_sits_down() {
+    let dir = scratch("standby-refused");
+    let (model, fallback) = fallback_files_in(&dir);
+    let fallback_book = Book::beside(&fallback);
+    let refused = |profile: &str, env: &dyn Fn(&str) -> Option<String>| {
+        let join = join_args(&[
+            "--config",
+            model.to_str().unwrap(),
+            "--fallback-profile",
+            profile,
+            "--fallback-config",
+            fallback.to_str().unwrap(),
+        ])
+        .unwrap();
+        standing_by(&join, env).map(|_| ()).unwrap_err()
+    };
+    let cli = refused("cli", &fallback_key);
+    assert!(cli.contains("agent CLI"), "{cli}");
+    assert!(cli.contains("«cli»"), "{cli}");
+    let unknown = refused("nope", &fallback_key);
+    assert!(unknown.contains("no profile «nope»"), "{unknown}");
+    let keyless = refused("keyless", &fallback_key);
+    assert!(keyless.contains("set TEST_FB_MISSING"), "{keyless}");
+    let no_key_at_all = refused("backup", &|_: &str| None);
+    assert!(no_key_at_all.contains("set TEST_FB_KEY"), "{no_key_at_all}");
+    assert!(fallback_book.read().unwrap().games.is_empty());
+    assert!(Book::beside(&model).read().unwrap().games.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The fallback's game is reserved in its own book, in its own file's
+/// caps, at the moment it takes over and not before; it brings its own
+/// profile's think time and says what it is to the table; and a book that
+/// refuses at that moment leaves the limit to the house, as `Err`.
+#[test]
+fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
+    let dir = scratch("standby-arm");
+    let (model, fallback) = fallback_files_in(&dir);
+    let join = join_args(&[
+        "--config",
+        model.to_str().unwrap(),
+        "--fallback-profile",
+        "backup",
+        "--fallback-config",
+        fallback.to_str().unwrap(),
+    ])
+    .unwrap();
+    let limit = bridge::Limit {
+        turn: 3,
+        why: "429: slow down".into(),
+        lifts_in: Some(Duration::from_secs(120)),
+    };
+    let fallen = Fallen::default();
+    let standing = standby(
+        &join,
+        &api_model(),
+        &[],
+        &fallback_key,
+        &MemoryKeys::default(),
+        &fallen,
+    )
+    .unwrap()
+    .expect("a fallback");
+    assert_eq!(standing.label, "backup");
+    let own = Book::beside(&fallback);
+    assert!(own.read().unwrap().games.is_empty(), "not reserved yet");
+
+    let swap = (standing.arm)(&limit).expect("it takes over");
+    let declared = swap.declared.as_ref().expect("it says what it is");
+    assert_eq!(declared.kind, seat_mind::Kind::LlmApi as i32);
+    assert_eq!(
+        (declared.provider.as_str(), declared.model.as_str()),
+        ("openai", "model-b")
+    );
+    assert_eq!(
+        swap.think,
+        Some(Duration::from_secs(25)),
+        "its own profile's"
+    );
+    let games = own.read().unwrap().games;
+    assert_eq!(games.len(), 1);
+    assert_eq!(games[0].profile.as_deref(), Some("backup"));
+    assert!(
+        Book::beside(&model).read().unwrap().games.is_empty(),
+        "the model's book is not the fallback's"
+    );
+    {
+        let spent = fallen.lock().unwrap();
+        assert!(spent.booked.is_some() && spent.tally.is_some());
+    }
+
+    // The day's cap of $3: the first game holds $2, the next takes what is
+    // left, and the one after finds nothing. A reservation is settled when
+    // the spend it was kept in is dropped, so each is kept.
+    let another = |kept: &Fallen| {
+        standby(
+            &join,
+            &api_model(),
+            &[],
+            &fallback_key,
+            &MemoryKeys::default(),
+            kept,
+        )
+        .unwrap()
+        .expect("a fallback")
+    };
+    let (kept_second, kept_third) = (Fallen::default(), Fallen::default());
+    let second = (another(&kept_second).arm)(&limit).expect("what the day's cap left");
+    let refused = (another(&kept_third).arm)(&limit).map(|_| ()).unwrap_err();
+    assert!(refused.contains("the day's cap of $3.00"), "{refused}");
+    assert_eq!(
+        own.read().unwrap().games.len(),
+        2,
+        "the refusal reserved nothing"
+    );
+    assert!(kept_third.lock().unwrap().booked.is_none());
+    drop((swap, second, fallen, kept_second, kept_third));
+    let _ = std::fs::remove_dir_all(&dir);
+}

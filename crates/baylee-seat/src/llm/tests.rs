@@ -7,7 +7,7 @@ use crate::mind::{Refusal, RefusedBy};
 use crate::narrator::tests::{THEM, board, card, context, id, priority, request};
 use axum::Router;
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode, Uri};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use baylee_engine::choice::{Pending, TargetPrompt};
 use baylee_view::LogTail;
@@ -24,6 +24,9 @@ struct Scripted {
     status: u16,
     body: Value,
     delay: Duration,
+    /// Headers beside `content-type`, as a provider sets them
+    /// (`retry-after`).
+    headers: Vec<(&'static str, &'static str)>,
 }
 
 impl Scripted {
@@ -32,7 +35,22 @@ impl Scripted {
             status: 200,
             body,
             delay: Duration::ZERO,
+            headers: Vec::new(),
         }
+    }
+
+    /// An answer with `status`, which is not a success.
+    fn failing(status: u16, body: Value) -> Self {
+        Self {
+            status,
+            ..Self::ok(body)
+        }
+    }
+
+    /// The same answer with a header of its own.
+    fn header(mut self, name: &'static str, value: &'static str) -> Self {
+        self.headers.push((name, value));
+        self
     }
 
     fn slow(mut self, delay: Duration) -> Self {
@@ -99,7 +117,15 @@ async fn answer(
     let echoed = key.or(bearer).unwrap_or_default();
     let text = next.body.to_string().replace("ECHO_KEY", &echoed);
     let status = StatusCode::from_u16(next.status).expect("a status");
-    (status, [("content-type", "application/json")], text).into_response()
+    let mut set = HeaderMap::new();
+    set.insert("content-type", HeaderValue::from_static("application/json"));
+    for (name, value) in next.headers {
+        set.insert(
+            HeaderName::from_static(name),
+            HeaderValue::from_static(value),
+        );
+    }
+    (status, set, text).into_response()
 }
 
 /// A stand-in provider on a free port of this machine.
@@ -529,6 +555,7 @@ async fn no_key_reaches_an_error_or_a_transcript() {
             "type": "authentication_error", "message": "invalid x-api-key: ECHO_KEY"
         }}),
         delay: Duration::ZERO,
+        headers: Vec::new(),
     });
     let dir = std::env::temp_dir().join(format!("baylee-seat-llm-{}", std::process::id()));
     let mind = mind(&base, Provider::Anthropic, |s| {
@@ -569,6 +596,7 @@ async fn the_check_before_ready_asks_once_and_says_why() {
             status,
             body: json!({"error": {"message": "ECHO_KEY"}}),
             delay: Duration::ZERO,
+            headers: Vec::new(),
         });
         let checked = mind(&base, Provider::Anthropic, |_| {}).check().await;
         match said {
@@ -916,6 +944,7 @@ async fn a_conversation_the_provider_turned_down_is_started_again() {
             "type": "invalid_request_error", "message": "TEST: messages.1: a bad replay"
         }}),
         delay: Duration::ZERO,
+        headers: Vec::new(),
     });
     provider.script(Scripted::ok(claude(&[(
         "toolu_3",
@@ -1201,6 +1230,7 @@ async fn an_openai_compatible_endpoint_answers_by_json_schema() {
             status: 400,
             body: json!({"error": "'response_format.type' must be 'json_schema' or 'text'"}),
             delay: Duration::ZERO,
+            headers: Vec::new(),
         });
         let refused = mind(&base, Provider::OpenAi, |s| {
             s.answer = mode;
@@ -1400,6 +1430,7 @@ async fn a_call_whose_bill_is_unknown_counts_at_its_worst() {
         status: 500,
         body: json!({"error": {"type": "api_error", "message": "overloaded"}}),
         delay: Duration::ZERO,
+        headers: Vec::new(),
     });
     let mut next = a_priority();
     next.question = 13;
@@ -1413,6 +1444,229 @@ async fn a_call_whose_bill_is_unknown_counts_at_its_worst() {
         "an error answered is not billed"
     );
     assert_eq!(after.held, Worst::default());
+}
+
+/// A 429 whose body names the limit is `Limited`, which a fallback profile
+/// takes over on, with the provider's words and the seconds `Retry-After`
+/// gives; it costs nothing, as any error answered. (Before, every failed
+/// answer was `Unavailable("429: …")`, and the seconds were dropped.)
+#[tokio::test]
+async fn a_429_with_a_rate_limit_code_is_a_limit_that_says_when_it_lifts() {
+    let (base, provider) = stand_in().await;
+    provider.script(
+        Scripted::failing(
+            429,
+            json!({"error": {"code": "rate_limited", "message": "slow down"}}),
+        )
+        .header("retry-after", "120"),
+    );
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let error = mind.decide(a_priority()).await.expect_err("a limit");
+    let MindError::Limited { why, lifts_in } = error else {
+        panic!("a limit, not another failure: {error:?}");
+    };
+    assert_eq!(lifts_in, Some(Duration::from_secs(120)));
+    assert!(
+        why.starts_with("429:") && why.contains("slow down"),
+        "{why}"
+    );
+    assert_eq!(provider.seen().len(), 1, "a limit is not asked again here");
+    let tally = lock(&mind.tally()).clone();
+    assert_eq!((tally.calls, tally.failed), (1, 1));
+    assert_eq!(
+        tally.unsure,
+        Worst::default(),
+        "an error answered is not billed"
+    );
+}
+
+/// Whatever its status, an error code of `busy` is a limit too, and with no
+/// `Retry-After` the limit says nothing of when it lifts. (Before, a 503 was
+/// `Unavailable` like any other.)
+#[tokio::test]
+async fn a_503_whose_body_says_busy_is_a_limit_with_no_time_given() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::failing(
+        503,
+        json!({"error": {"code": "busy", "message": "every seat is taken"}}),
+    ));
+    let mind = mind(&base, Provider::OpenAi, |_| {});
+    let error = mind.decide(a_priority()).await.expect_err("a limit");
+    let MindError::Limited { why, lifts_in } = error else {
+        panic!("a limit, not another failure: {error:?}");
+    };
+    assert_eq!(lifts_in, None);
+    assert!(
+        why.starts_with("503:") && why.contains("every seat"),
+        "{why}"
+    );
+}
+
+/// A server error that names no limit is the mind unavailable, as before,
+/// whatever a `Retry-After` beside it says: only the status and the codes
+/// make a limit.
+#[tokio::test]
+async fn a_500_that_names_no_limit_stays_unavailable() {
+    let (base, provider) = stand_in().await;
+    provider.script(
+        Scripted::failing(
+            500,
+            json!({"error": {"type": "api_error", "message": "overloaded"}}),
+        )
+        .header("retry-after", "30"),
+    );
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let error = mind.decide(a_priority()).await.expect_err("a failure");
+    assert!(
+        matches!(&error, MindError::Unavailable(why) if why.starts_with("500:")),
+        "{error:?}"
+    );
+}
+
+/// The provider's words in a limit are blanked of the key like any error's,
+/// even when a careless proxy echoes it into the message.
+#[tokio::test]
+async fn a_limit_s_words_carry_no_key() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::failing(
+        429,
+        json!({"error": {"type": "rate_limited", "message": "slow down, key ECHO_KEY"}}),
+    ));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let error = mind.decide(a_priority()).await.expect_err("a limit");
+    let MindError::Limited { why, .. } = &error else {
+        panic!("a limit, not another failure: {error:?}");
+    };
+    assert!(why.contains("slow down"), "{why}");
+    assert!(!why.contains("0123456789"), "{why}");
+    assert!(!error.to_string().contains("0123456789"), "{error}");
+    // The stand-in did echo it: the scrubber is what kept it out.
+    assert_eq!(provider.seen()[0].key.as_deref(), Some(KEY));
+}
+
+/// What `call` makes of a plain-text page answered with `status` and a
+/// `Retry-After` of 7 seconds.
+async fn failed_page(status: StatusCode) -> Failed {
+    let page = move || async move { (status, [("retry-after", "7")], "Too many requests") };
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, Router::new().fallback(page))
+            .await
+            .unwrap();
+    });
+    let failed = tokio::task::spawn_blocking(move || {
+        let agent = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .new_agent();
+        call(
+            &agent,
+            &url,
+            &[],
+            b"{}",
+            Duration::from_secs(2),
+            Api::OpenAi,
+            AnswerMode::Json,
+        )
+    })
+    .await
+    .unwrap()
+    .unwrap_err();
+    server.abort();
+    failed
+}
+
+/// A 429 from a proxy that answers with a plain page, no JSON, is a limit
+/// all the same (the status says it), with its `Retry-After`; a 502 from the
+/// same proxy is not, and its `Retry-After` is not read as one.
+#[tokio::test]
+async fn a_429_page_that_is_not_json_is_still_a_limit() {
+    let limited = failed_page(StatusCode::TOO_MANY_REQUESTS).await;
+    assert!(
+        matches!(limited.limited, Some(Lifts(Some(lifts))) if lifts == Duration::from_secs(7)),
+        "{:?}",
+        limited.limited
+    );
+    assert!(!limited.unknown_bill, "an error answered is not billed");
+    assert!(
+        matches!(limited.error(None), MindError::Limited { why, .. } if why.starts_with("429:")),
+    );
+    let down = failed_page(StatusCode::BAD_GATEWAY).await;
+    assert!(down.limited.is_none(), "{:?}", down.limited);
+    assert!(matches!(down.error(None), MindError::Unavailable(_)));
+}
+
+/// A limit is the HTTP status 429, or an error code of `rate_limited` or
+/// `busy` in the body's `error.code`, `error.type` or top-level `code`,
+/// whatever the status; nothing else is, a number or a near miss included.
+#[test]
+fn a_limit_is_the_status_429_or_a_code_that_says_so() {
+    let api_error = json!({"error": {"type": "api_error"}});
+    assert!(limited_by(429, None), "429 needs no body");
+    assert!(limited_by(429, Some(&api_error)));
+    assert!(!limited_by(503, None), "a bare 503 is only a failure");
+    assert!(!limited_by(500, Some(&api_error)));
+    for code in ["rate_limited", "busy"] {
+        for shape in [
+            json!({"error": {"code": code}}),
+            json!({"error": {"type": code}}),
+            json!({"code": code}),
+        ] {
+            assert!(limited_by(500, Some(&shape)), "{shape}");
+            assert!(limited_by(400, Some(&shape)), "{shape}");
+        }
+    }
+    for shape in [
+        json!({"error": {"code": "overloaded"}}),
+        json!({"error": {"code": "rate_limit_exceeded", "type": "api_error"}}),
+        json!({"error": {"code": 429}}),
+        json!({"error": "rate_limited"}),
+        json!({"message": "busy"}),
+        json!({"error": {"message": "rate_limited"}}),
+        json!([]),
+    ] {
+        assert!(!limited_by(500, Some(&shape)), "{shape}");
+    }
+}
+
+/// `Retry-After` is read as whole seconds, trimmed, at most a day; a date,
+/// a fraction, a negative number or nothing is no time given.
+#[test]
+fn a_retry_after_is_whole_seconds_up_to_a_day() {
+    let secs = |text| retry_after(Some(text)).map(|lifts| lifts.as_secs());
+    assert_eq!(secs("120"), Some(120));
+    assert_eq!(secs(" 7 "), Some(7));
+    assert_eq!(secs("0"), Some(0));
+    assert_eq!(secs("86400"), Some(86_400));
+    assert_eq!(secs("86401"), Some(86_400), "capped at a day");
+    assert_eq!(secs("999999999999"), Some(86_400));
+    for unread in ["Wed, 21 Oct 2026 07:28:00 GMT", "1.5", "-5", "", "soon"] {
+        assert_eq!(secs(unread), None, "«{unread}»");
+    }
+    assert_eq!(retry_after(None), None);
+}
+
+/// A limit says so in its sentence, which is what the transcript and the
+/// closing lines read, and how long it lasts when the provider said.
+#[test]
+fn a_limit_says_it_is_one_and_when_it_lifts() {
+    let limited = |lifts_in| MindError::Limited {
+        why: "429: slow down".into(),
+        lifts_in,
+    };
+    assert_eq!(
+        limited(None).to_string(),
+        "the mind is rate limited: 429: slow down"
+    );
+    assert_eq!(
+        limited(Some(Duration::from_millis(120_900))).to_string(),
+        "the mind is rate limited: 429: slow down (it lifts in 120 s)"
+    );
+    assert_eq!(
+        MindError::Unavailable("429: slow down".into()).to_string(),
+        "the mind is unavailable: 429: slow down"
+    );
 }
 
 mod plan;
@@ -1474,6 +1728,7 @@ async fn an_expired_managed_session_is_recreated_only_on_the_next_decision() {
         status: 410,
         body: json!({"error":{"message":"session expired"}}),
         delay: Duration::ZERO,
+        headers: Vec::new(),
     });
     assert!(mind.decide(a_priority()).await.is_err());
     assert_eq!(
