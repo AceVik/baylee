@@ -26,6 +26,10 @@ card!(
     oracle_id = "0efb0d7e-dea0-4817-a243-15066e9ef333",
     scryfall_id = "1925dc45-4dee-4772-aa16-3b4ca54be6c7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    // The static below works outside the game too (CR 113.6c), so before the
+    // game Grist is a legendary creature card, and a legendary creature card
+    // may be a commander (CR 903.3).
+    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grist, the Hunger Tide",
