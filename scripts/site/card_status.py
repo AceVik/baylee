@@ -28,11 +28,21 @@ output are reused, else the page shows the code.
 
 Card pictures: the page builds a `cards.scryfall.io` URL from a printing id
 (`docs/legal.md` §3; the browser loads it from Scryfall, nothing is
-re-hosted). A pool card has the id its card file names. `--bulk` names a
-Scryfall `default_cards` (or `oracle_cards`) bulk file; then every card gets
-the printing from the set it is listed under where one exists, else any. The
-file is read line by line (Scryfall writes one card per line). Without it the
-ids already in the previous output are kept for cards the pool lacks.
+re-hosted). Only a card in the pool (implemented, partial, unimplemented)
+or on the never-built list has one, and never a Universes Beyond printing
+(Scryfall's `security_stamp` "triangle", or a set in `UB_SETS`): every other
+card is listed by name only, and its entry carries no Scryfall printing id.
+A pool card has the id its card file names; `--bulk` names a Scryfall
+`default_cards` (or `oracle_cards`) bulk file, which gives the printing from
+the set it is listed under where one exists, else any (read line by line,
+Scryfall writes one card per line). Without it the ids already in the
+previous output are kept.
+
+Where the printing's own Scryfall payload is at hand (the bulk file, or
+the per-card cache `--card-cache`, default `data/scryfall-cache`, which
+codegen fills), a pictured card also gets `uri`, its page on scryfall.com
+(artist and printing; the page links each tile there), and `artist`; its
+`security_stamp` decides Universes Beyond.
 
 Standard library only. Writes `<out>/sets.json` (the overview) and
 `<out>/sets/set-<code>.json` (one set's cards, fetched when it is opened; the
@@ -69,6 +79,55 @@ STRING = re.compile(r'"((?:[^"\\]|\\.)*)"', re.S)
 STUB_MARKER = "GENERATED STUB"
 
 UA = "baylee-site-card-status/1 (+https://github.com/AceVik/baylee)"
+
+# Statuses that may show a picture: the pool, and the never-built list.
+PICTURED = ("implemented", "partial", "unimplemented", "never")
+
+# Universes Beyond sets (crossovers with other rights holders, whose pictures
+# are not Wizards' to permit; docs/legal.md §3). The security stamp catches
+# them and the crossover drops of other sets (Secret Lair); this list holds
+# where a printing's payload is not at hand.
+UB_SETS = frozenset(
+    "ltr ltc who pip acr fin fic 40k bot rex msh msc spe tla tle ptla clu".split()
+)
+
+
+def pictured(status, listed_set, img, facts):
+    """The picture a card may show: `img` (a printing id) when the card is in
+    the pool or on the never-built list and the printing is no Universes
+    Beyond one, by its stamp, else by its set, else by the set the card is
+    listed under; else None."""
+    if not img or status not in PICTURED:
+        return None
+    stamp, _uri, _artist, pset = facts.get(img, (None, None, None, None))
+    if stamp == "triangle" or (pset or listed_set) in UB_SETS or listed_set in UB_SETS:
+        return None
+    return img
+
+
+def printing_facts(path):
+    """{printing id: (security_stamp, scryfall_uri, artist, set)} from a
+    directory of Scryfall card payloads, one JSON object per file."""
+    facts = {}
+    if not path or not os.path.isdir(path):
+        return facts
+    for fn in os.listdir(path):
+        if not fn.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(path, fn), encoding="utf-8") as f:
+                c = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(c, dict) and UUID.match(str(c.get("id", ""))):
+            facts[c["id"]] = fact(c)
+    return facts
+
+
+def fact(c):
+    uri = (c.get("scryfall_uri") or "").split("?")[0]
+    artist = c.get("artist") or ((c.get("card_faces") or [{}])[0].get("artist"))
+    return (c.get("security_stamp"), uri if uri.startswith("https://scryfall.com/card/") else None, artist, c.get("set"))
 
 
 def tree(rev, paths):
@@ -164,9 +223,11 @@ def scryfall_sets(cache, fetch):
     return {s["code"]: s for s in doc["data"]}
 
 
-def bulk_printings(path, wanted):
-    """{oracle_id: {set: id, '*': id}} from a Scryfall bulk file, read a line at a time."""
+def bulk_printings(path, wanted, facts=None):
+    """{oracle_id: {set: id, '*': id}} from a Scryfall bulk file, read a line at a time;
+    each chosen printing's facts (`fact`) go into `facts`."""
     best = {}
+    every = {}
     opener = gzip.open if path.endswith(".gz") else open
     with opener(path, "rt", encoding="utf-8") as f:
         for line in f:
@@ -182,12 +243,20 @@ def bulk_printings(path, wanted):
             # A printing's front picture: on the card, or on its first face.
             if "image_uris" not in c and not any("image_uris" in x for x in c.get("card_faces") or []):
                 continue
-            key = (c.get("promo", False), c.get("digital", False), num_key(c.get("collector_number", "")))
+            # never a Universes Beyond printing where another exists
+            key = (c.get("security_stamp") == "triangle", c.get("promo", False), c.get("digital", False), num_key(c.get("collector_number", "")))
+            if facts is not None:
+                every[c["id"]] = fact(c)
             slot = best.setdefault(oid, {})
             for s in (c["set"], "*"):
                 if s not in slot or key < slot[s][0]:
                     slot[s] = (key, c["id"])
-    return {o: {s: v[1] for s, v in slots.items()} for o, slots in best.items()}
+    chosen = {o: {s: v[1] for s, v in slots.items()} for o, slots in best.items()}
+    if facts is not None:
+        for slots in chosen.values():
+            for pid in slots.values():
+                facts[pid] = every[pid]
+    return chosen
 
 
 def fetch_bulk(cache_dir):
@@ -227,6 +296,7 @@ def main():
     ap.add_argument("--no-fetch", action="store_true", help="never ask Scryfall for the set list")
     ap.add_argument("--bulk", help="a Scryfall default_cards/oracle_cards bulk file (.json, .jsonl, .jsonl.gz) for every card's picture")
     ap.add_argument("--fetch-bulk", action="store_true", help="download default_cards into target/site-cache/ (once) and use it as --bulk")
+    ap.add_argument("--card-cache", default=os.path.join(repo, "data/scryfall-cache"), help="codegen's per-card Scryfall payloads, for each pictured printing's page, artist and stamp")
     args = ap.parse_args()
     os.chdir(repo)
 
@@ -299,7 +369,9 @@ def main():
     if args.fetch_bulk and not args.bulk:
         args.bulk = fetch_bulk(os.path.dirname(args.sets_cache))
     meta = scryfall_sets(args.sets_cache, not args.no_fetch)
-    printings = bulk_printings(args.bulk, ledger_ids) if args.bulk else {}
+    facts = printing_facts(args.card_cache)
+    printings = bulk_printings(args.bulk, ledger_ids, facts) if args.bulk else {}
+    dropped_ub, uri_count = 0, 0
 
     order, by_set = [], {}
     for idx, oid, code, name in rows:
@@ -320,11 +392,24 @@ def main():
             img = prev_ids.get(oid)
         if img is not None and not UUID.match(img):
             sys.exit(f"{name}: {img!r} is not a Scryfall id")
+        # a picture only for the pool and the never-built list, never for
+        # Universes Beyond: the printing's stamp, else its set or the set
+        # the card is listed under
+        shown = pictured(status, code, img, facts)
+        if img and not shown and status in PICTURED:
+            dropped_ub += 1
+        img = shown
+        _stamp, uri, artist, _pset = facts.get(img, (None, None, None, None)) if img else (None, None, None, None)
         card = {"name": name, "oracle_id": oid, "status": status}
         if note:
             card["note"] = note
         if img:
             card["img"] = img
+            if uri:
+                card["uri"] = uri
+                uri_count += 1
+            if artist:
+                card["artist"] = artist
         by_set[code].append(card)
 
     for code, cards in by_set.items():
@@ -377,7 +462,7 @@ def main():
     unnamed = [s["code"] for s in overview if s["name"] == s["code"].upper()]
     print(f"rev {rev[:12]}: {len(rows)} cards in {len(order)} sets, pool {len(pool)} card files")
     print("  " + ", ".join(f"{k} {v}" for k, v in totals.items()))
-    print(f"  {with_img} cards with a picture id; {len(unnamed)} sets without a name {unnamed[:8]}")
+    print(f"  {with_img} cards with a picture id ({uri_count} with their Scryfall page), {dropped_ub} Universes Beyond printings by name only; {len(unnamed)} sets without a name {unnamed[:8]}")
     in_pool = totals["implemented"] + totals["partial"] + totals["unimplemented"]
     if in_pool != len(pool):
         sys.exit(f"pool {len(pool)} != implemented+partial+unimplemented {in_pool}")
