@@ -9,6 +9,7 @@ mod holds;
 mod log;
 mod mulligans;
 mod printings;
+mod project;
 mod refusals;
 mod scouting;
 mod shared_hand;
