@@ -259,6 +259,7 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
     let mut back = Vec::new();
     let mut dfc = Vec::new();
     let mut facts = BTreeMap::new();
+    let mut turned = BTreeMap::new();
     let mut walked = 0usize;
     for name in &names {
         let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
@@ -274,6 +275,10 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
             reference_print_facts(root, name, def, &card)?,
         );
         let sides = card.sides().map_err(anyhow::Error::msg)?;
+        let turns = card.quarter_turns();
+        if turns.iter().any(|turn| *turn != 0) {
+            turned.insert(def.index.get(), turns);
+        }
         walked += 1;
         if sides.back_image {
             back.push(def.index.get());
@@ -302,6 +307,15 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
     );
     back.sort_unstable();
     dfc.sort_unstable();
+    // Fire // Ice, the Room and the battle were in the pool when this table
+    // was first written, and the pool only grows; a few hundred would be a
+    // reader turning ordinary cards.
+    anyhow::ensure!(
+        (3..400).contains(&turned.len()),
+        "{} cards read sideways or upside down — the reader has stopped reading or is turning \
+         ordinary cards",
+        turned.len()
+    );
 
     let mut out = String::new();
     out.push_str(
@@ -348,6 +362,7 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
         }
         out.push_str("];\n\n");
     }
+    render_turns(&mut out, &turned);
     out.push_str("/// Verified physical facts of each reference printing, sorted by card id.\n");
     out.push_str("pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferencePrintRules)] = &[\n");
     for (index, (marks, is_un)) in facts {
@@ -358,6 +373,27 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
     }
     out.push_str("];\n");
     Ok(out)
+}
+
+/// The `TURNS` static of the sides table: each card with a face that is not
+/// read upright, and how each of its faces is turned.
+fn render_turns(out: &mut String, turned: &BTreeMap<u32, Vec<u8>>) {
+    use std::fmt::Write as _;
+    out.push_str(
+        "/// How each face's picture is turned to be read, in quarter turns clockwise\n\
+         /// from the portrait scan, for every card with a face that is not upright\n\
+         /// (`ScryfallCard::quarter_turns`), sorted by card id.\n",
+    );
+    out.push_str("pub static TURNS: &[(CardIndex, &[u8])] = &[\n");
+    for (index, turns) in turned {
+        let turns = turns
+            .iter()
+            .map(u8::to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(out, "    (CardIndex::new({index}), &[{turns}]),");
+    }
+    out.push_str("];\n\n");
 }
 
 /// Renders `crates/baylee-cards/src/generated_tokens.rs`: the token ledger.

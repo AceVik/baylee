@@ -305,15 +305,36 @@ fn picture(
     cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let lang = env.lang();
-    let height = width / baylee_client_core::layout::CARD_ASPECT;
     let reads_text = env.ui().reads_text;
+    // How the printing is read (owner, 13.10.2026): a split card or a battle
+    // lies across the pane, as wide as an upright card is, and a flip or an
+    // Aftermath card rotates to its other half. Only a scan is turned.
+    let reading = if reads_text {
+        crate::flip::Reading::UPRIGHT
+    } else {
+        crate::flip::Reading::of(
+            baylee_cards::sides::quarter_turns(baylee_core::ids::CardIndex::new(card.index)),
+            0,
+            picker
+                .current()
+                .is_some_and(baylee_client_core::deckbuilder::Printing::has_back_image),
+        )
+    };
+    let width = if reading.lies_across() {
+        width * baylee_client_core::layout::CARD_ASPECT
+    } else {
+        width
+    };
+    let height = width / baylee_client_core::layout::CARD_ASPECT;
     let frame = commands
         .spawn((
             Role::Art,
             crate::flip::Flip {
                 turn: if env.ui().window_back { 1.0 } else { 0.0 },
                 held: env.ui().window_back,
+                reading,
             },
+            crate::flip::rest_transform(reading),
             Node {
                 width: px_fixed(width),
                 height: px_fixed(height),
@@ -325,8 +346,29 @@ fn picture(
             Pickable::IGNORE,
         ))
         .id();
+    // A card lying across stands in a landscape box, centred, and is turned
+    // into it.
+    let outer = if reading.lies_across() {
+        let holder = commands
+            .spawn((
+                Node {
+                    width: px_fixed(height),
+                    height: px_fixed(width),
+                    flex_shrink: 0.0,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(holder).add_child(frame);
+        holder
+    } else {
+        frame
+    };
     let Some(cards) = cards else {
-        return frame;
+        return outer;
     };
     let finish = treatment(picker.finish());
     // The text face first: it is what stands there while a picture loads,
@@ -360,7 +402,7 @@ fn picture(
     crate::face::spawn_ui(commands, node, lang, &face, &laid, env.kit.fonts);
     commands.entity(frame).add_child(node);
     if reads_text {
-        return frame;
+        return outer;
     }
     let entry = |p: &baylee_client_core::deckbuilder::Printing| baylee_view::PrintEntry {
         scryfall_id: p.scryfall_id.clone(),
@@ -375,7 +417,7 @@ fn picture(
         )
     });
     let (Some(url), Some(assets)) = (url, assets) else {
-        return frame;
+        return outer;
     };
     let back = picker
         .current()
@@ -411,7 +453,7 @@ fn picture(
             Pickable::IGNORE,
         ));
     }
-    frame
+    outer
 }
 
 /// The printing strip: five thumbnails a page, the chosen one ringed

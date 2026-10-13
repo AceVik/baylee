@@ -209,6 +209,10 @@ fn villainous_hideout_connive_is_not_offered_with_a_spell_on_the_stack() {
 fn villainous_hideout_connive_is_not_offered_on_the_opponents_turn() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let (mut e, _shredder) = connive_board();
+    assert!(
+        connive_offered(&e),
+        "control: the same Hideout, Villain and floating {{3}} offer the ability in p0's own main phase"
+    );
     pass_until(&mut e, |e| {
         e.state().turn.active == p1
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
@@ -217,6 +221,16 @@ fn villainous_hideout_connive_is_not_offered_on_the_opponents_turn() {
         .mana_pool
         .add(ManaColor::Colorless, 3);
     e.refresh_offer();
+    let hideout = on_battlefield(&e, p0, villainous_hideout()).expect("Hideout");
+    assert!(
+        !is_tapped(&e, hideout),
+        "control: the Hideout is untapped, so only the turn withholds the ability"
+    );
+    assert_eq!(
+        e.state().players[0].mana_pool.total(),
+        3,
+        "control: the {{3}} is floating, so only the turn withholds the ability"
+    );
     assert!(
         !connive_offered(&e),
         "\"only as a sorcery\": not on the opponent's turn"

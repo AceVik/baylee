@@ -1838,6 +1838,43 @@ impl Interaction {
         }
     }
 
+    /// Whether the question this seat is answering picks among objects and
+    /// leaves `id` out: neither something it may take nor something already
+    /// taken. The table dims such a card for as long as the question is open
+    /// (the owner, 13.10.2026), beside the light on the ones it will take.
+    ///
+    /// Only this seat's own question, so another player's choice dims
+    /// nothing at this table. Combat counts both halves of a pair, as
+    /// [`Self::is_selectable`] does: the creatures a declaration may take
+    /// and what they are declared against, and in a block every creature
+    /// that may block some attacker, not only the one in aim, so a blocker
+    /// does not go dark and light again as the aim walks. A question whose
+    /// options are left implicit (a discard from the hand) or that names no
+    /// object at all leaves nothing out; nor does an ordering, whose cards
+    /// lie in the zone dialog.
+    #[must_use]
+    pub fn leaves_out(&self, id: ObjectId) -> bool {
+        if !self.is_mine() || self.is_selected(id) {
+            return false;
+        }
+        match &self.mode {
+            Mode::Objects { options, max, .. } => {
+                *max > 0 && !options.is_empty() && !options.contains(&id)
+            }
+            Mode::Attackers {
+                candidates,
+                defenders,
+                ..
+            } => !candidates.contains(&id) && !defenders.contains(&Defender::Planeswalker(id)),
+            Mode::Blockers {
+                candidates,
+                attackers,
+                ..
+            } => !candidates.contains(&id) && !attackers.contains(&id),
+            _ => false,
+        }
+    }
+
     /// The current selection, in the order it was made.
     ///
     /// Objects only; [`Self::selected_players`] is the other half and

@@ -25,7 +25,18 @@ fn apple_keyboard() -> bool {
 }
 
 /// A footer with equal columns, unaffected by the preview's flip transform.
-pub(super) fn spawn(commands: &mut Commands, fonts: &UiFonts, lang: Lang, width: f32) -> Entity {
+///
+/// What Shift does follows the card's [`crate::flip::Reading`]: it turns a
+/// card over, rotates a flip or an Aftermath card to its other half, and does
+/// nothing to a split card, whose halves are read at once — so that column is
+/// left out rather than promising a key that does not do the thing.
+pub(super) fn spawn(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    width: f32,
+    reading: crate::flip::Reading,
+) -> Entity {
     let root = commands
         .spawn((
             PreviewKeys,
@@ -40,12 +51,24 @@ pub(super) fn spawn(commands: &mut Commands, fonts: &UiFonts, lang: Lang, width:
             Pickable::IGNORE,
         ))
         .id();
-    let phrases = if width < 280.0 {
-        [Phrase::PreviewTurnCompact, Phrase::PreviewAlternateCompact]
-    } else {
-        [Phrase::PreviewTurn, Phrase::PreviewAlternate]
+    let compact = width < 280.0;
+    let shift = match (reading.over, reading.rest == reading.turned, compact) {
+        (true, _, false) => Some(Phrase::PreviewTurn),
+        (true, _, true) => Some(Phrase::PreviewTurnCompact),
+        (false, false, false) => Some(Phrase::PreviewRotate),
+        (false, false, true) => Some(Phrase::PreviewRotateCompact),
+        (false, true, _) => None,
     };
-    for (option, phrase) in [false, true].into_iter().zip(phrases) {
+    let option = if compact {
+        Phrase::PreviewAlternateCompact
+    } else {
+        Phrase::PreviewAlternate
+    };
+    let columns = shift
+        .map(|phrase| (false, phrase))
+        .into_iter()
+        .chain([(true, option)]);
+    for (option, phrase) in columns {
         let item = commands
             .spawn((
                 Node {

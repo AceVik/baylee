@@ -198,24 +198,17 @@ pub struct SceneIndex {
     /// The quad every light is drawn on: [`floormat::quad_size`], one mesh
     /// for the whole table.
     pub(super) floor_quad: Option<Handle<Mesh>>,
-    /// The shells round each protected permanent: indestructible's steel
-    /// and hexproof's or shroud's dome, each with the ring it lies down to,
-    /// all children of the card, and how each stands. [`fit_the_shells`]
+    /// The shells round each protected or summoning-sick permanent: its
+    /// keywords' border with the ring it lies down to, and its wave, all
+    /// children of the card, and how each stands. [`fit_the_shells`]
     /// decides that every frame, from where every card is.
     pub(super) shells: HashMap<ObjectId, Shell>,
     /// One material per look of shell.
     pub(super) shell_materials: HashMap<ShellLook, Handle<ShellMaterial>>,
-    /// The rim's mesh, one for the whole table.
-    pub(super) rim_mesh: Option<Handle<Mesh>>,
-    /// A ring's mesh for each part of its band.
-    pub(super) ring_meshes: HashMap<Band, Handle<Mesh>>,
-    /// Each dome's mesh at each of its steps.
-    pub(super) dome_meshes: HashMap<(shellmat::Dome, usize), Handle<Mesh>>,
-    /// Each dome's shadow on the felt at each step it stands on the felt at.
-    pub(super) dome_shades: HashMap<(shellmat::Dome, usize), Handle<Mesh>>,
-    /// Defender's wall, one for the whole table, and its shadow.
-    pub(super) wall_mesh: Option<Handle<Mesh>>,
-    pub(super) wall_shade: Option<Handle<Mesh>>,
+    /// A standing border's mesh for each number of layers.
+    pub(super) border_meshes: HashMap<u32, Handle<Mesh>>,
+    /// The ring a border lies down to, for each number of layers.
+    pub(super) ring_meshes: HashMap<u32, Handle<Mesh>>,
     /// Summoning sickness's wave, one for the whole table.
     pub(super) wave_mesh: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
@@ -244,6 +237,9 @@ pub struct SceneIndex {
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     pub(super) face_materials: HashMap<CardLook, Handle<CardMaterial>>,
+    /// Each drawn permanent's passing states over time
+    /// ([`crate::cardmat::VeilTrack`]), so a change fades rather than jumps.
+    pub(super) veils: HashMap<ObjectId, crate::cardmat::VeilTrack>,
     /// Whether the two caches above were filled to hold still.
     ///
     /// The same trick as [`UiCardMaterials`](crate::cardmat::UiCardMaterials):

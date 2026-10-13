@@ -173,6 +173,7 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
 #[test]
 fn room_tab_visits_only_expanded_inputs_in_both_directions() {
     let mut app = headless();
+    hold_the_clock(&mut app);
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
     to_gateway_face(&mut app);
@@ -230,6 +231,17 @@ fn room_tab_visits_only_expanded_inputs_in_both_directions() {
     assert_eq!(round(&mut app, true), Vec::<Field>::new());
 }
 
+/// A still clock for a test that presses Apply in an open room. The room's
+/// two-second re-read of the table list (`systems::watch`; offline there is
+/// no feed) marks the lobby busy for a few frames, and an Apply pressed in
+/// one of them is refused: on the wall clock those frames fell wherever a
+/// loaded machine put them.
+fn hold_the_clock(app: &mut App) {
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::ZERO,
+    ));
+}
+
 /// Opens (or shuts) a seat's drawer the way the host does: its `⋯`, then
 /// Starting position.
 fn open_drawer(app: &mut App, seat: u8) {
@@ -260,6 +272,7 @@ fn five_lands(app: &mut App) {
 #[test]
 fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
     let mut app = headless();
+    hold_the_clock(&mut app);
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
     to_gateway_face(&mut app);

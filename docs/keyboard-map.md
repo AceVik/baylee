@@ -23,7 +23,8 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, toggles nothing else, and does not declare an empty attack or block) | `Space` | implemented |
-| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer, then a visit (home), then — only while the view names a cast (`PlayerView::casting`: its own questions and its payment window) — the cast itself (CR 732; the shelf's last answer "Abbrechen" / "Cancel cast" is the same door) | `Esc` | implemented |
+| In this seat's payment window (CR 605.3a): pay — sends the staged taps as one `PayWindow` when they and the pool cover the cost, otherwise "Pay now", which stages the plan for the rest and sends nothing. A click (or `Enter`/`E` on a card) stages a land and takes a staged one back | `Space` / `Enter` | implemented |
+| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then every tap staged in this seat's payment window (all at once; nothing was sent), then half-built answer, then a visit (home), then — only while the view names a cast (`PlayerView::casting`: its own questions and its payment window) — the cast itself (CR 732; the shelf's last answer "Abbrechen" / "Cancel cast" is the same door) | `Esc` | implemented |
 | Put away cards another seat revealed (the sheet at the top; it also goes by itself after 7 s, longer for more cards) | `Esc`, or a press on the sheet | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
@@ -456,10 +457,36 @@ key can never take a way out the sheet does not show.
 | The click / confirm | `Enter` / `Space` | presses the lead answer — *play again* at a gateway's table, *back to the lobby* offline |
 | Cancel | `Esc` | always the way back to the lobby |
 
+A replay's end sheet leads with *Watch again*; `Esc` is *Back to replays*.
+
 It lives in the lobby plugin and not in `input.rs` because the verdict is the
 duel's to say and the way *out* is the shell's: `DuelPlugin` is embeddable in
 an application with no lobby behind it, and there the sheet's exit row stays
 empty. Reading the row is what makes both cases one rule.
+
+## A replay
+
+While the table plays a replay (`Duel::replay`, `docs/client.md`
+§"Replays") five of the table's actions mean the replay's thing and the live
+handler is handed them stripped (`keys::REPLAY_BORROWS`); seven actions of
+its own resolve to nothing at a live table, and are removed in
+`Keymap::legacy()`. Resolved in `keys::replay_asks`, sent by
+`hud::replay_bar::replay_keys`.
+
+| Action | Default | Notes |
+|---|---|---|
+| Play / pause | `Space` | `Confirm`; over the end sheet it stays the sheet's lead answer |
+| Next phase / next turn | `Tab` / `Shift+Tab` | `NextPhase` / `NextTurn` |
+| One moment back / on | `←` `↓` / `→` `↑` | `NumberDown` / `NumberUp`; `PgUp`/`PgDn` keep the stack sentence |
+| A turn back / on | `Shift+←` / `Shift+→` | `ReplayTurnBack`, `ReplayTurnForward` (mid-turn, back is the turn's start) |
+| Start / end | `Home` / `End` | `ReplayStart`, `ReplayEnd` |
+| Slower / faster | `-` / `=` | `ReplaySlower`, `ReplayFaster` (0.5×, 1×, 2×, 4×, 8×) |
+| Perspective | `V` | `ReplayPerspective`: your seat, the table, all hands (what the source offers) |
+| Stop waiting for a tape | `Esc` | while it is being made |
+| Leave | the game menu's *Leave replay* | `Esc` keeps its live rungs and never leaves |
+
+The hub's Replays tab is `4` (`ShellAction::GoReplays`, desktop only); `/`
+focuses its search.
 
 ## Rules
 

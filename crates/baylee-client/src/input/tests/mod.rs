@@ -43,6 +43,7 @@ mod hover;
 mod keep_targets;
 mod keyboard;
 mod menu;
+mod pay_keys;
 mod taps;
 mod targets;
 mod tray;
@@ -533,6 +534,7 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                 HostMessage::Failed(why) => panic!("the host refused: {why}"),
                 HostMessage::Curtain => duel.curtain_up = true,
                 HostMessage::Preparing { .. }
+                | HostMessage::Jump
                 | HostMessage::AiLog(_)
                 | HostMessage::Spectators(_)
                 | HostMessage::Closed(_) => {}
