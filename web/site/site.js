@@ -914,7 +914,19 @@
     de: "Kartenbild bereitgestellt von Scryfall, unverändert. Baylee ist weder mit Scryfall noch mit Wizards of the Coast verbunden."
   };
   var cardOf = window.WeakMap ? new WeakMap() : null;
-  function imgOf(c, size) { return c.img && SCRYFALL_ID.test(c.img) ? IMG_HOST + "/" + size + "/front/" + c.img[0] + "/" + c.img[1] + "/" + c.img + ".jpg" : null; }
+  // A picture only for a card in the pool, and only where the data names
+  // one: card_status.py writes none for a card outside the pool or a
+  // Universes Beyond printing (docs/legal.md §3), and this holds it here too.
+  var POOL = { implemented: 1, partial: 1, unimplemented: 1, never: 1 };
+  function imgOf(c, size) {
+    return POOL[c.status] && c.img && SCRYFALL_ID.test(c.img) ? IMG_HOST + "/" + size + "/front/" + c.img[0] + "/" + c.img[1] + "/" + c.img + ".jpg" : null;
+  }
+  // the card's page on Scryfall, where its artist and printing are: the
+  // printing's own page where the data has it, else Scryfall's search for
+  // the card, which opens the card's page
+  function pageOf(c) {
+    return c.uri && /^https:\/\/scryfall\.com\/card\//.test(c.uri) ? c.uri : "https://scryfall.com/search?q=oracleid%3A" + encodeURIComponent(c.oracle_id);
+  }
 
   function tile(c) {
     var st = STATUS[c.status];
@@ -925,10 +937,12 @@
     var badge = el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]);
     // the reason, in both languages like every other run, for assistive technology
     var reason = el("span", { class: "vh" }, [t(" " + whyIn(c, "en"), " " + whyIn(c, "de"))]);
-    var n = el("li", { class: "ctile", tabindex: "-1", "data-group": st.group }, [
-      el("div", { class: "ctile-pic" }, [pic]),
-      el("div", { class: "ctile-cap" }, [el("span", { class: "ctile-name", text: c.name }), badge, reason])
+    // the tile is a link to the card on Scryfall (artist and printing)
+    var link = el("a", { class: "ctile-link", href: pageOf(c), target: "_blank", rel: "noopener", tabindex: "-1" }, [
+      el("span", { class: "ctile-pic" }, [pic]),
+      el("span", { class: "ctile-name", text: c.name })
     ]);
+    var n = el("li", { class: "ctile", "data-group": st.group }, [link, el("div", { class: "ctile-cap" }, [badge, reason])]);
     if (cardOf) cardOf.set(n, c);
     return n;
   }
@@ -938,20 +952,22 @@
   function shown(grid) {
     return [].filter.call(grid.children, function (n) { return n.offsetParent !== null; });
   }
-  // exactly one showing tile is the grid's stop for Tab
+  // exactly one showing tile's link is the grid's stop for Tab; returns it
   function rove(grid, to) {
     var vis = shown(grid);
-    if (!vis.length) return;
-    var cur = to || grid.querySelector(".ctile[tabindex='0']");
+    if (!vis.length) return null;
+    var cur = to || grid.querySelector(".ctile-link[tabindex='0']");
+    cur = cur && cur.closest(".ctile");
     if (!cur || vis.indexOf(cur) < 0) cur = vis[0];
-    for (var i = 0; i < grid.children.length; i++) grid.children[i].setAttribute("tabindex", grid.children[i] === cur ? "0" : "-1");
-    return cur;
+    for (var i = 0; i < grid.children.length; i++) grid.children[i].firstChild.setAttribute("tabindex", grid.children[i] === cur ? "0" : "-1");
+    return cur.firstChild;
   }
   function gridKeys(grid) {
     grid.addEventListener("keydown", function (e) {
       var tileEl = e.target.closest && e.target.closest(".ctile");
       if (!tileEl) return;
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard(tileEl); return; }
+      // Enter follows the link to Scryfall; Space shows the card large here
+      if (e.key === " ") { e.preventDefault(); openCard(tileEl); return; }
       var vis = shown(grid), at = vis.indexOf(tileEl);
       if (at < 0) return;
       var cols = 1;
@@ -960,15 +976,19 @@
       if (to === undefined) return;
       e.preventDefault();
       to = Math.max(0, Math.min(vis.length - 1, to));
-      rove(grid, vis[to]).focus();
+      rove(grid, vis[to].firstChild).focus();
     });
     grid.addEventListener("focusin", function (e) {
       var tileEl = e.target.closest && e.target.closest(".ctile");
       if (tileEl) rove(grid, tileEl);
     });
+    // without a hover (a touch screen) the first tap shows the card large,
+    // with its link to Scryfall; with a mouse the click follows the link
     grid.addEventListener("click", function (e) {
       var tileEl = e.target.closest && e.target.closest(".ctile");
-      if (tileEl) openCard(tileEl);
+      if (!tileEl || hoverable) return;
+      e.preventDefault();
+      openCard(tileEl);
     });
   }
 
@@ -977,15 +997,16 @@
   var hoverable = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   function cardText(c) {
     var st = STATUS[c.status];
-    return [el("strong", { class: "cp-name", text: c.name }), el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]),
+    var out = [el("strong", { class: "cp-name", text: c.name }), el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]),
       el("span", { class: "cp-why" }, [t(whyIn(c, "en"), whyIn(c, "de"))])];
+    if (c.artist) out.push(el("span", { class: "cp-artist" }, [t("Illustrated by ", "Illustriert von "), c.artist]));
+    return out;
   }
   function credit() { return el("p", { class: "cp-credit" }, [t(CARD_CREDIT.en, CARD_CREDIT.de)]); }
+  // the large picture, or nothing for a card shown by name only
   function bigPic(c) {
     var src = imgOf(c, "normal");
-    return src
-      ? el("img", { src: src, alt: "", width: "488", height: "680", decoding: "async", referrerpolicy: "no-referrer" })
-      : el("span", { class: "ctile-blank", "aria-hidden": "true" }, [c.name]);
+    return src ? el("div", { class: "cp-pic" }, [el("img", { src: src, alt: "", width: "488", height: "680", decoding: "async", referrerpolicy: "no-referrer" })]) : null;
   }
   function showPreview(tileEl, x, y) {
     var c = cardOf && cardOf.get(tileEl);
@@ -996,8 +1017,10 @@
     }
     if (previewFor !== tileEl) {
       clear(preview);
-      preview.appendChild(el("div", { class: "cp-pic" }, [bigPic(c)]));
+      var pic = bigPic(c);
+      if (pic) preview.appendChild(pic);
       preview.appendChild(el("div", { class: "cp-cap" }, cardText(c)));
+      preview.appendChild(el("p", { class: "cp-go" }, [t("Click for the artist and printing on Scryfall.", "Klick: Künstler und Druck bei Scryfall.")]));
       preview.appendChild(credit());
       previewFor = tileEl;
     }
@@ -1037,7 +1060,7 @@
   document.addEventListener("focusin", function (e) {
     var tileEl = e.target.closest && e.target.closest(".ctile");
     if (!tileEl) { hidePreview(); return; }
-    if (tileEl.matches(":focus-visible")) { clearTimeout(previewTimer); showPreview(tileEl); }
+    if (e.target.matches && e.target.matches(":focus-visible")) { clearTimeout(previewTimer); showPreview(tileEl); }
   });
   document.addEventListener("focusout", function (e) { if (e.target.closest && e.target.closest(".ctile")) hidePreview(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") hidePreview(); });
@@ -1051,10 +1074,12 @@
     hidePreview();
     var body = document.getElementById("cardview-body");
     clear(body);
-    body.appendChild(el("div", { class: "cp-pic" }, [bigPic(c)]));
+    var pic = bigPic(c);
+    if (pic) body.appendChild(el("a", { href: pageOf(c), target: "_blank", rel: "noopener", tabindex: "-1", class: "cp-piclink" }, [pic]));
     var cap = el("div", { class: "cp-cap" }, cardText(c));
     cap.firstChild.id = "cardview-name";
     body.appendChild(cap);
+    body.appendChild(el("p", { class: "cp-go" }, [el("a", { href: pageOf(c), target: "_blank", rel: "noopener", class: "button button-ghost" }, [t("Artist and printing on Scryfall", "Künstler und Druck bei Scryfall")])]));
     body.appendChild(credit());
     cardFrom = tileEl;
     cardview.showModal();
@@ -1063,7 +1088,7 @@
   if (cardview) {
     document.getElementById("cardview-close").addEventListener("click", function () { cardview.close(); });
     cardview.addEventListener("click", function (e) { if (e.target === cardview) cardview.close(); });
-    cardview.addEventListener("close", function () { if (cardFrom && document.contains(cardFrom)) cardFrom.focus(); });
+    cardview.addEventListener("close", function () { if (cardFrom && document.contains(cardFrom)) cardFrom.firstChild.focus(); });
   }
 
   function filterBar(grid, s) {
@@ -1106,11 +1131,11 @@
         grid.setAttribute("aria-label", tt("Cards of ", "Karten aus ") + s.name);
         gridKeys(grid);
         body.appendChild(filterBar(grid, s));
-        body.appendChild(el("p", { class: "small cgrid-hint" }, [t("Arrow keys move between cards; Enter shows a card large.", "Pfeiltasten wechseln die Karte; Enter zeigt sie groß.")]));
+        body.appendChild(el("p", { class: "small cgrid-hint" }, [t("Arrow keys move between cards; Space shows one large, Enter opens it on Scryfall.", "Pfeiltasten wechseln die Karte; die Leertaste zeigt sie groß, Enter öffnet sie bei Scryfall.")]));
         body.appendChild(grid);
         body.appendChild(el("p", { class: "small set-foot" }, [
           el("a", { href: "https://scryfall.com/sets/" + encodeURIComponent(s.code), rel: "noopener" }, [t("This set on Scryfall", "Dieses Set bei Scryfall")]),
-          " · ", t("Images: Scryfall", "Bilder: Scryfall")
+          " · ", t("Images: Scryfall · © Wizards of the Coast", "Bilder: Scryfall · © Wizards of the Coast")
         ]));
         inChunks(doc.cards, tile, grid, function () { rove(grid); });
       })

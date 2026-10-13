@@ -60,9 +60,22 @@ handle @baylee_site {
 	header @page Cache-Control "no-cache"
 	# The card status (data/*.json, scripts/site/card_status.py) is
 	# regenerated with the cards, so it is treated like the code.
-	@code path *.css *.js *.json *.txt
+	# A file the page names with ?v=<its hash> (scripts/site/stamp.py) never
+	# changes under that name: a year, immutable. Unstamped, as before.
+	@stamped {
+		path *.css *.js *.woff2 *.webp *.avif *.png *.jpg *.ico
+		query v=*
+	}
+	header @stamped Cache-Control "public, max-age=31536000, immutable"
+	@code {
+		path *.css *.js *.json *.txt
+		not query v=*
+	}
 	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
-	@assets not path / /site/impressum.html /impressum.html *.css *.js *.json *.txt
+	@assets {
+		not path / /site/impressum.html /impressum.html *.css *.js *.json *.txt
+		not query v=*
+	}
 	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
 
 	# What the page may do: its own files, GitHub's API for the release

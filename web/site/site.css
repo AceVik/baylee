@@ -6,11 +6,11 @@
    everything lives here. Every movement is transform and opacity only, and
    `prefers-reduced-motion` stills all of it. */
 
-@font-face { font-family: "Faustina"; src: url("fonts/Faustina.woff2") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }
-@font-face { font-family: "Faustina"; src: url("fonts/Faustina-Italic.woff2") format("woff2"); font-weight: 300 800; font-style: italic; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Faustina"; src: url("fonts/Faustina.woff2?v=5e1bf9a0c7") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Faustina"; src: url("fonts/Faustina-Italic.woff2?v=78aa6e03e0") format("woff2"); font-weight: 300 800; font-style: italic; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Regular.woff2?v=2f8bb62b1e") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Medium.woff2?v=f2d382c484") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Alegreya Sans"; src: url("fonts/AlegreyaSans-Bold.woff2?v=af19c56947") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 
 /* ---------------------------------------------------------------- tokens */
 :root {
@@ -214,6 +214,18 @@ html:not([data-lang]) p.de { color: var(--ink-faint); }
   box-shadow: 0 10px 30px -20px rgba(0, 0, 0, 0.6);
 }
 .top.solid::before, html:not([data-js]) .top::before { opacity: 0; }
+/* in the light theme the clear bar lies on a light veil: dark words on a
+   light band (white ones measured 3.9:1 there) */
+:root[data-theme="light"] .top::before { background: linear-gradient(180deg, rgba(238, 242, 248, 0.92), rgba(238, 242, 248, 0)); }
+:root[data-theme="light"] .top:not(.solid) .nav a, :root[data-theme="light"] .top:not(.solid) .menu-btn,
+:root[data-theme="light"] .top:not(.solid) .lang-btn:not([aria-pressed="true"]) { color: var(--ink); text-shadow: none; }
+:root[data-theme="light"] .top:not(.solid) .nav a.here { color: var(--title); }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .top::before { background: linear-gradient(180deg, rgba(238, 242, 248, 0.92), rgba(238, 242, 248, 0)); }
+  :root:not([data-theme="dark"]) .top:not(.solid) .nav a, :root:not([data-theme="dark"]) .top:not(.solid) .menu-btn,
+  :root:not([data-theme="dark"]) .top:not(.solid) .lang-btn:not([aria-pressed="true"]) { color: var(--ink); text-shadow: none; }
+  :root:not([data-theme="dark"]) .top:not(.solid) .nav a.here { color: var(--title); }
+}
 .top-inner {
   position: relative;
   max-width: var(--wrap); margin: 0 auto; padding: 0 16px; min-height: var(--top-h);
@@ -272,8 +284,8 @@ html[data-js] .top:not(.solid) .brand { opacity: 0; transform: translateY(-6px) 
 .sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: #0b1322; overflow: hidden; }
 .layer { position: absolute; inset: -4% -3%; will-change: transform; }
 .sky-painting {
-  background: url("img/sanctuary.webp") center 42% / cover no-repeat;
-  background-image: image-set(url("img/sanctuary-1600.avif") type("image/avif"), url("img/sanctuary.webp") type("image/webp"));
+  background: url("img/sanctuary.webp?v=dc56d10e62") center 42% / cover no-repeat;
+  background-image: image-set(url("img/sanctuary-1600.avif?v=156a4b6af7") type("image/avif"), url("img/sanctuary.webp?v=dc56d10e62") type("image/webp"));
   transform: scale(1.06);
 }
 .sky-painting > div { position: absolute; inset: 0; background: inherit; }
@@ -827,19 +839,27 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
 .cgrid[data-filter="partial"] .ctile:not([data-group="partial"]),
 .cgrid[data-filter="none"] .ctile:not([data-group="none"]),
 .cgrid[data-filter="never"] .ctile:not([data-group="never"]) { display: none; }
+/* A card's picture is shown as Scryfall serves it: whole (contain), never
+   blurred, dimmed, faded, desaturated or tinted, whatever its status, which
+   only the badge under it says (docs/legal.md §3; Scryfall's guidelines).
+   No filter, opacity or blend on .ctile-pic, .cp-pic or their images:
+   scripts/site/test_site_page.py holds this. */
 .ctile { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; border-radius: 8px; animation: tile-in 480ms var(--ease) backwards; }
-@keyframes tile-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes tile-in { from { transform: translateY(8px); } }
+.ctile-link { display: flex; flex-direction: column; gap: 0.35rem; color: inherit; text-decoration: none; border-radius: 8px; }
+.ctile-link:hover .ctile-name { color: var(--link-hover); text-decoration: underline; }
 .ctile-pic {
   aspect-ratio: 146 / 204; border-radius: 4.75% / 3.5%; overflow: hidden; background: var(--panel-2); border: 1px solid var(--edge-soft);
   transition: transform 320ms var(--ease), box-shadow 320ms ease;
 }
-.ctile:hover .ctile-pic, .ctile:focus-visible .ctile-pic { transform: translateY(-5px) rotate(-1deg) scale(1.03); box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--edge); }
-.ctile-pic img { width: 100%; height: 100%; object-fit: cover; }
+.ctile-link:hover .ctile-pic, .ctile-link:focus-visible .ctile-pic { transform: translateY(-5px); box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--edge); }
+.ctile-pic { display: block; }
+.ctile-pic img { width: 100%; height: 100%; object-fit: contain; }
 .ctile-blank { display: flex; align-items: center; justify-content: center; text-align: center; height: 100%; padding: 0.6rem; font-family: var(--serif); font-size: 0.95rem; color: var(--ink-faint); }
 .ctile-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; font-family: var(--sans); font-size: 0.85rem; line-height: 1.25; }
 .ctile-name { color: var(--ink); overflow-wrap: anywhere; }
 .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; padding: 0.08em 0.55em; border-radius: 999px; color: var(--bg); }
-.ctile:focus-visible { outline-offset: 2px; }
+.ctile-link:focus-visible { outline-offset: 3px; }
 
 /* ---------------------------------------------------------------- stillness */
 @media (prefers-reduced-motion: reduce) {
@@ -876,19 +896,20 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
 .sets-notes { margin-top: 1.4rem; }
 .cgrid-hint { margin: -0.3rem 0 0.8rem; }
 @media (hover: none) { .cgrid-hint { display: none; } }
-.ctile { cursor: zoom-in; }
 
 /* a card large beside the pointer (site.js places it) */
 .cpreview {
   position: fixed; left: 0; top: 0; z-index: 40; width: 16rem; max-width: calc(100vw - 16px);
   padding: 0.6rem; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--edge);
   box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.75); font-family: var(--sans); font-size: 0.85rem; line-height: 1.35;
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity 160ms ease, visibility 0s linear 160ms;
+  visibility: hidden; pointer-events: none;
 }
-.cpreview.on { opacity: 1; visibility: visible; transition: opacity 160ms ease, visibility 0s; }
+.cpreview.on { visibility: visible; }
 .cp-pic { aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; overflow: hidden; background: var(--panel-2); }
-.cp-pic img { width: 100%; height: 100%; object-fit: cover; }
+.cp-pic img { width: 100%; height: 100%; object-fit: contain; }
+.cp-artist { flex-basis: 100%; color: var(--ink-faint); }
+.cp-go { margin: 0.35rem 0.1rem 0; color: var(--ink-soft); }
+.cp-piclink { display: block; }
 .cp-cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; margin: 0.55rem 0.1rem 0.2rem; }
 .cp-name { color: var(--title); font-size: 0.98rem; }
 .cp-why { flex-basis: 100%; color: var(--ink-soft); }
