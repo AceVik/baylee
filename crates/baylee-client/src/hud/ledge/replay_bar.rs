@@ -79,6 +79,9 @@ pub struct BarLook {
     seat: PlayerId,
 }
 
+/// The bar and its sheet: what a rebuild takes down.
+type BarParts = Or<(With<ReplayBar>, With<ReplaySheet>)>;
+
 /// The bar's revision.
 #[derive(Resource, Default)]
 pub struct ReplayBarRevision(Option<BarLook>);
@@ -183,7 +186,7 @@ pub fn sync_replay_bar(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
     mut revision: ResMut<ReplayBarRevision>,
-    bars: Query<Entity, Or<(With<ReplayBar>, With<ReplaySheet>)>>,
+    bars: Query<Entity, BarParts>,
 ) {
     let lang = Lang::of(&settings.lang);
     let window_w =
@@ -477,7 +480,7 @@ fn control(
         Glyph::Icon(c) => (c.to_string(), icon_tf(fonts, 12.0), px(CONTROL_W)),
         Glyph::Words(w) => (w, tf(fonts, LABEL_PT), Val::Auto),
     };
-    let face = commands
+    commands
         .spawn((
             Button,
             Node {
@@ -505,11 +508,11 @@ fn control(
                 asks.0.push(ask);
             },
         )
-        .id();
-    face
+        .id()
 }
 
 /// The sheet over the bar, when there is something to say.
+#[allow(clippy::too_many_lines)] // one sheet: its words, then its ways
 fn spawn_sheet(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
     let lang = look.lang;
     let (words, play_on, cancel) = if let Some(problem) = &look.problem {

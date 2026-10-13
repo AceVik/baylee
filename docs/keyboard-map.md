@@ -456,10 +456,36 @@ key can never take a way out the sheet does not show.
 | The click / confirm | `Enter` / `Space` | presses the lead answer — *play again* at a gateway's table, *back to the lobby* offline |
 | Cancel | `Esc` | always the way back to the lobby |
 
+A replay's end sheet leads with *Watch again*; `Esc` is *Back to replays*.
+
 It lives in the lobby plugin and not in `input.rs` because the verdict is the
 duel's to say and the way *out* is the shell's: `DuelPlugin` is embeddable in
 an application with no lobby behind it, and there the sheet's exit row stays
 empty. Reading the row is what makes both cases one rule.
+
+## A replay
+
+While the table plays a replay (`Duel::replay`, `docs/client.md`
+§"Replays") five of the table's actions mean the replay's thing and the live
+handler is handed them stripped (`keys::REPLAY_BORROWS`); seven actions of
+its own resolve to nothing at a live table, and are removed in
+`Keymap::legacy()`. Resolved in `keys::replay_asks`, sent by
+`hud::replay_bar::replay_keys`.
+
+| Action | Default | Notes |
+|---|---|---|
+| Play / pause | `Space` | `Confirm`; over the end sheet it stays the sheet's lead answer |
+| Next phase / next turn | `Tab` / `Shift+Tab` | `NextPhase` / `NextTurn` |
+| One moment back / on | `←` `↓` / `→` `↑` | `NumberDown` / `NumberUp`; `PgUp`/`PgDn` keep the stack sentence |
+| A turn back / on | `Shift+←` / `Shift+→` | `ReplayTurnBack`, `ReplayTurnForward` (mid-turn, back is the turn's start) |
+| Start / end | `Home` / `End` | `ReplayStart`, `ReplayEnd` |
+| Slower / faster | `-` / `=` | `ReplaySlower`, `ReplayFaster` (0.5×, 1×, 2×, 4×, 8×) |
+| Perspective | `V` | `ReplayPerspective`: your seat, the table, all hands (what the source offers) |
+| Stop waiting for a tape | `Esc` | while it is being made |
+| Leave | the game menu's *Leave replay* | `Esc` keeps its live rungs and never leaves |
+
+The hub's Replays tab is `4` (`ShellAction::GoReplays`, desktop only); `/`
+focuses its search.
 
 ## Rules
 

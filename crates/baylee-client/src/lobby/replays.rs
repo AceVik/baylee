@@ -594,7 +594,7 @@ fn day_heading(day: i64, today: i64, ms: u64, offset: i32, lang: Lang) -> String
             let at = local_time(ms, offset);
             at.map_or_else(String::new, |at| match lang {
                 Lang::De => format!("{}. {}", at.day(), month(lang, at.month())),
-                _ => format!("{} {}", at.day(), month(lang, at.month())),
+                Lang::En => format!("{} {}", at.day(), month(lang, at.month())),
             })
             .to_uppercase()
         }
@@ -612,7 +612,7 @@ fn month(lang: Lang, month: time::Month) -> &'static str {
     ];
     match lang {
         Lang::De => de[at.min(11)],
-        _ => en[at.min(11)],
+        Lang::En => en[at.min(11)],
     }
 }
 

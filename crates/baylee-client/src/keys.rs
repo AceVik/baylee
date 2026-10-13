@@ -265,6 +265,25 @@ impl Fired {
         !self.0.iter().any(|f| *f)
     }
 
+    /// What the live table hears: everything, or in a replay everything
+    /// but what the replay borrows ([`REPLAY_BORROWS`]; `replay_keys` has
+    /// those).
+    #[must_use]
+    pub fn in_replay(self, replay: bool) -> Self {
+        if replay {
+            self.without(&REPLAY_BORROWS)
+        } else {
+            self
+        }
+    }
+
+    /// [`Fired::in_replay`] for this table: a replay's borrowed keys are
+    /// its own (`replay_keys`).
+    #[must_use]
+    pub fn for_table(self, duel: &crate::Duel) -> Self {
+        self.in_replay(duel.replay.is_some())
+    }
+
     /// The same flags with `actions` taken out: what the live table hears
     /// while a replay borrows them ([`REPLAY_BORROWS`]).
     #[must_use]

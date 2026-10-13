@@ -16,7 +16,11 @@ use crate::Duel;
 
 impl Duel {
     /// Forgets what the frames told, keeps what the player chose.
-    #[allow(clippy::too_many_lines)] // one line per field of `Duel`, by design
+    #[allow(clippy::too_many_lines)]
+    // one line per field of `Duel`, by design
+    // `Default::default()` is what forgetting a field means here, whatever
+    // its type; naming each type would say nothing more.
+    #[allow(clippy::default_trait_access)]
     pub(crate) fn rewind(&mut self) {
         let old = take(self);
         *self = Duel {

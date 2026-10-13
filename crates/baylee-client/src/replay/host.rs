@@ -62,6 +62,11 @@ pub enum ReplaySource {
     Hosted(HostedAccess),
 }
 
+/// The place a new tape opens at: the record input of the step shown
+/// (`None` inside: before the first input).
+#[derive(Clone, Copy, Debug)]
+struct Kept(Option<u64>);
+
 /// A tape being made.
 struct Job {
     /// Behind a lock only because a host must be `Sync`; one thread reads it.
@@ -71,7 +76,7 @@ struct Job {
     perspective: Perspective,
     verify: Verify,
     /// The record input to open at (a switch keeps the place).
-    keep: Option<Option<u64>>,
+    keep: Option<Kept>,
 }
 
 /// A tape being shown.
@@ -153,7 +158,7 @@ impl ReplayHost {
 
     /// Starts making the tape for `perspective` under `verify`, opening at
     /// `keep`'s input once it is made.
-    fn start(&mut self, perspective: Perspective, verify: Verify, keep: Option<Option<u64>>) {
+    fn start(&mut self, perspective: Perspective, verify: Verify, keep: Option<Kept>) {
         if let Some(old) = self.job.take() {
             old.cancel.store(true, Ordering::Relaxed);
         }
@@ -242,11 +247,11 @@ impl ReplayHost {
             Ok(tape) => {
                 let tape = Arc::new(tape);
                 let timeline = Arc::new(Timeline::of(&tape));
-                let at = job.keep.map_or(0, |n| tape.step_at_input(n));
+                let at = job.keep.map_or(0, |Kept(n)| tape.step_at_input(n));
                 let (playing, speed) = self
                     .shown
                     .as_ref()
-                    .map_or((false, Default::default()), |s| {
+                    .map_or((false, baylee_client_core::replay::Speed::default()), |s| {
                         (s.transport.playing, s.transport.speed)
                     });
                 let was_shown = self.shown.is_some();
@@ -350,15 +355,15 @@ impl ReplayHost {
     }
 
     /// The record input of the step shown: what a new tape opens at.
-    fn place_kept(&self) -> Option<Option<u64>> {
+    fn place_kept(&self) -> Option<Kept> {
         let shown = self.shown.as_ref()?;
-        Some(
+        Some(Kept(
             shown
                 .tape
                 .frames
                 .get(shown.transport.at)
                 .and_then(|frame| frame.n),
-        )
+        ))
     }
 
     fn refresh_status(&mut self) {
@@ -499,13 +504,15 @@ impl DuelHost for ReplayHost {
 /// memory, keyed by everything that makes a tape what it is (the session
 /// too: another account on the same gateway is another seat). Nothing is
 /// written to disk.
-static TAPES: LazyLock<Mutex<Vec<(TapeKey, Arc<Vec<u8>>)>>> =
-    LazyLock::new(|| Mutex::new(Vec::new()));
+static TAPES: LazyLock<Mutex<Vec<KeptTape>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// How many fetched tapes are kept.
 const KEPT_TAPES: usize = 3;
 
 type TapeKey = (String, String, String, &'static str, &'static str);
+
+/// A fetched tape, gzipped, under its key.
+type KeptTape = (TapeKey, Arc<Vec<u8>>);
 
 fn tape_key(access: &HostedAccess, perspective: Perspective, verify: Verify) -> TapeKey {
     (

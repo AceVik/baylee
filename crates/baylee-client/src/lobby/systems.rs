@@ -647,12 +647,11 @@ pub(super) fn came_back(
     // again, Watch from…), else back to the Replays tab, read again.
     if matches!(state.lobby.screen(), Screen::Replay(_)) {
         state.lobby.leave_replay();
-        match state.replays.next.take() {
-            Some(next) => state.lobby.watch_replay(next),
-            None => {
-                state.hub = Hub::Replays;
-                state.replays.forget_visit();
-            }
+        if let Some(next) = state.replays.next.take() {
+            state.lobby.watch_replay(next);
+        } else {
+            state.hub = Hub::Replays;
+            state.replays.forget_visit();
         }
         return;
     }

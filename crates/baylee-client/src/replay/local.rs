@@ -147,7 +147,7 @@ pub fn summary(record: &[u8]) -> Option<LocalSummary> {
                     Controller::You | Controller::Player => None,
                 },
                 colours: seat.colours,
-                commander: seat.commander.map(|c| c.get()),
+                commander: seat.commander.map(baylee_core::ids::CardIndex::get),
             })
             .collect(),
     })
@@ -174,7 +174,7 @@ pub fn entries(build: &str, you: &str) -> Vec<Entry> {
             Some(Entry::of_record(&name, &summary, build, you))
         })
         .collect();
-    entries.sort_by(|a, b| b.started.cmp(&a.started));
+    entries.sort_by_key(|e| std::cmp::Reverse(e.started));
     entries
 }
 

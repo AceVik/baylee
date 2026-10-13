@@ -1873,18 +1873,7 @@ fn poll_host(
     let mut jumped = false;
     for message in host.0.poll() {
         match message {
-            // A replay moved other than one step on: the next frames are
-            // another moment, told from the log's first line (§"Replays").
-            HostMessage::Jump => {
-                duel.rewind();
-                jumped = true;
-                if *phase.get() == DuelPhase::Finished {
-                    next.set(DuelPhase::Playing);
-                }
-                if let Some(placing) = placing.as_mut() {
-                    placing.arm();
-                }
-            }
+            HostMessage::Jump => jumped = jump(&mut duel, &phase, &mut next, &mut placing),
             HostMessage::Spectators(count) => {
                 if duel.spectators != count {
                     duel.spectators = count;
@@ -1998,13 +1987,36 @@ fn poll_host(
             }
         }
     }
-    // A replay's place, for the transport bar: written only when it moved.
-    let status = host.0.replay();
+    follow_the_replay(&mut duel, host.0.replay(), jumped);
+}
+
+/// A replay moved other than one step on (`HostMessage::Jump`): the next
+/// frames are another moment, told from the log's first line
+/// (`docs/client.md` §"Replays"). The duel forgets what the frames told it,
+/// a finished table plays again, and the next board is placed, not glided.
+fn jump(
+    duel: &mut Duel,
+    phase: &State<DuelPhase>,
+    next: &mut NextState<DuelPhase>,
+    placing: &mut Option<ResMut<table::Placing>>,
+) -> bool {
+    duel.rewind();
+    if *phase.get() == DuelPhase::Finished {
+        next.set(DuelPhase::Playing);
+    }
+    if let Some(placing) = placing.as_mut() {
+        placing.arm();
+    }
+    true
+}
+
+/// A replay's place, for the transport bar, written only when it moved; and
+/// no cue across a jump, or at 4× and 8×, where they would run into each
+/// other (§7.3).
+fn follow_the_replay(duel: &mut Duel, status: Option<&replay::ReplayStatus>, jumped: bool) {
     if duel.replay.as_ref() != status {
         duel.replay = status.cloned();
     }
-    // No cue across a jump, and none at 4× and 8×, where they would run
-    // into each other (§7.3).
     let quiet = jumped || status.is_some_and(|s| !s.speed.cues());
     if quiet && !duel.cues.pending().is_empty() {
         duel.cues.take();
