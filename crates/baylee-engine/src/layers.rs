@@ -822,7 +822,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // where the subtype they are compared against comes from.
         // Another object's characteristics decide these, so any modifier
         // may move them.
-        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) => true,
+        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) | Filter::SharesAColorWith(_) => true,
+        Filter::OfSourceChosenColor => matches!(
+            modifier,
+            Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
+        ),
         Filter::HasType(_)
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
@@ -1439,6 +1443,7 @@ fn apply(
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)

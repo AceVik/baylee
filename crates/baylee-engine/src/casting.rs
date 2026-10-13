@@ -39,8 +39,9 @@ pub use lands::*;
 pub(crate) use payment::*;
 pub(crate) use permissions::*;
 pub use pricing::{
-    ability_mana_spending, commander_tax, convoke_sources, delve_sources, keyword_reduction,
-    mana_is_wild, mana_spending, printed_reduction, reduction_amount, waterbend_sources,
+    ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
+    keyword_reduction, mana_is_wild, mana_spending, printed_reduction, reduction_amount,
+    tap_to_pay_sources, waterbend_sources,
 };
 pub(crate) use pricing::{
     activation_increase, component_affordable, face_adjustment, face_increase,

@@ -162,7 +162,7 @@ pub fn matches_projected_with_context(
         // three is the one it attacks); for anything else, any opponent of
         // the attacking player during combat, as before.
         Filter::ControlledByDefendingPlayer => {
-            if let Some(defender) = state.combat.last_defender_of(this) {
+            if let Some(defender) = last_defender(state, this) {
                 crate::combat::blocking_player(state, defender) == Some(obj.controller)
             } else {
                 state.turn.phase == crate::turn::Phase::Combat
@@ -325,6 +325,30 @@ pub fn matches_projected_with_context(
             .object(this)
             .and_then(|src| src.chosen_subtype)
             .is_some_and(|s| chars.subtypes.contains(s)),
+        Filter::OfSourceChosenColor => {
+            use baylee_core::color::Color;
+            use baylee_core::mana::ManaColor;
+            let chosen = match state.object(this).and_then(|src| src.chosen_color) {
+                Some(ManaColor::White) => Some(Color::White),
+                Some(ManaColor::Blue) => Some(Color::Blue),
+                Some(ManaColor::Black) => Some(Color::Black),
+                Some(ManaColor::Red) => Some(Color::Red),
+                Some(ManaColor::Green) => Some(Color::Green),
+                Some(ManaColor::Colorless) | None => None,
+            };
+            chosen.is_some_and(|c| chars.colors.contains(c))
+        }
+        // CR 105.2c: a colourless object shares a colour with nothing.
+        Filter::SharesAColorWith(inner) => {
+            !chars.colors.is_empty()
+                && state.battlefield_seen().any(|id| {
+                    id != obj.id
+                        && state.object(id).is_some_and(|other| {
+                            other.characteristics().colors.intersects(chars.colors)
+                                && matches_with_context(inner, state, other, you, context)
+                        })
+                })
+        }
         // The live attachment first, then what `this` was wearing the moment
         // `obj` left the battlefield (CR 603.10a). The fallback is what lets
         // "whenever equipped creature dies" fire at all: the state-based
@@ -512,7 +536,7 @@ pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -
     // Attacking, or attacking earlier this combat and removed since (CR
     // 508.5: "the player that creature was attacking before it was removed
     // from combat").
-    if let Some(defender) = state.combat.last_defender_of(source) {
+    if let Some(defender) = last_defender(state, source) {
         return crate::combat::blocking_player(state, defender).filter(|p| !state.has_left(*p));
     }
     if state.turn.phase != crate::turn::Phase::Combat {
@@ -526,6 +550,22 @@ pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -
         (Some(only), None) => Some(only.id),
         _ => None,
     }
+}
+
+/// What `id` attacks, or attacked before it was removed from combat (CR
+/// 508.5), as long as it is still that creature: one that left the
+/// battlefield is read as it last existed there, but one back on the
+/// battlefield as a new object (CR 400.7) that never attacked this combat
+/// attacked nothing.
+pub(crate) fn last_defender(state: &GameState, id: ObjectId) -> Option<baylee_core::ids::Defender> {
+    if let Some(defender) = state.combat.defender_of(id) {
+        return Some(defender);
+    }
+    let (version, remembered) = state.combat.remembered_defender(id)?;
+    let new_object_here = state
+        .object(id)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version != version);
+    (!new_object_here).then_some(remembered)
 }
 
 /// Whether `partner` was in combat with `source` the moment `source` left
@@ -1070,10 +1110,25 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
-        // This condition requires the triggering incarnation, supplied separately.
-        Condition::ControlCountExceptEvent(_, _) | Condition::EventBlockedByOthers { .. } => false,
+        // These need the triggering incarnation, supplied separately, or a
+        // resolution (`resolve::immediate::resolution_condition`).
+        Condition::ControlCountExceptEvent(_, _)
+        | Condition::EventBlockedByOthers { .. }
+        | Condition::TargetSpellWouldDestroy(_) => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
+        Condition::ChosenOpponentControls(filter) => state
+            .object(source)
+            .and_then(crate::object::GameObject::chosen_opponent)
+            .filter(|p| !state.has_left(*p))
+            .is_some_and(|opponent| {
+                state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|o| {
+                        o.controller == opponent
+                            && matches_with_context(filter, state, o, you, context)
+                    })
+                })
+            }),
         Condition::AfterCombat => matches!(
             state.turn.phase,
             crate::turn::Phase::SecondMain | crate::turn::Phase::Ending

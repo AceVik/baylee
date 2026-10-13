@@ -3793,7 +3793,7 @@ The verbs that go with it:
 - A static ability that "functions everywhere but the battlefield"
   (CR 113.6c; Grist's "as long as Grist isn't on the battlefield, it's a 1/1
   Insect creature in addition to its other types") is
-  `static_ability!(&Filter::This, modifier, zone = ZoneRef::NotBattlefield)`,
+  `static_ability!(Filter::This, modifier, zone = ZoneRef::NotBattlefield)`,
   one per layer (`AddType`, `AddSubtype`, `SetPT`).
 - `resolves_if_targets_illegal = true` on `triggered!` — Gilded Drake's
   "this ability still resolves if its target becomes illegal".
@@ -3919,3 +3919,53 @@ Effects:
   `filter` matches from the graveyard of the player who controlled it as it
   became blocked by the reference Wall; the controller picks after every
   death, all enter at once under their owners' control.
+
+### Tokens attacking, last-turn history, chosen values, would-destroy, improvise (wave 3)
+
+- `Effect::CreateTokenAttacking { token, amount, sacrifice_at_next_end_step }`
+  — "create … tokens that are tapped and attacking" (CR 508.4): during a
+  combat of their controller's turn they enter tapped and attacking, the
+  controller choosing per token which defending player (or planeswalker of
+  theirs) it attacks, asked only with more than one option; they never
+  "attacked" (no attack trigger hears them, CR 508.3a). Outside combat they
+  only enter tapped (CR 506.3b). `sacrifice_at_next_end_step: true` is
+  "Sacrifice them at the beginning of the next end step". Den of the
+  Bugbear's granted trigger: `Trigger::Attacks(&Filter::This)` →
+  `CreateTokenAttacking { token: &tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), sacrifice_at_next_end_step: false }`
+  (check the token constant's exact name in `crate::tokens`).
+- `Effect::WheneverYouAttackThisTurn { effects }` — "whenever you attack this
+  turn" (Dalkovan Encampment): a delayed trigger firing on each of the
+  controller's declarations of attackers for the rest of the turn (ruling:
+  "each time you declare at least one creature as an attacker"), even if the
+  source is gone; nothing on the next turn.
+- `Modifier::CantAttackPlayerIdleLastTurn` — Arboria:
+  `static_ability!(Filter::CREATURE, Modifier::CantAttackPlayerIdleLastTurn)`.
+  A player who neither cast a spell nor put a nontoken permanent onto the
+  battlefield during their last turn (a player who has had no turn yet
+  included) can't be attacked; their planeswalkers can.
+- `Filter::OfSourceChosenColor` — of the colour the source chose as it
+  entered (`EnterModifier::ChooseColor`).
+- `Condition::ChosenOpponentControls(&filter)` — the opponent the source chose
+  as it entered (`EnterModifier::ChooseOpponent`) controls a matching
+  permanent. Jihad: `enter_modifiers = &[EnterModifier::ChooseColor, EnterModifier::ChooseOpponent]`;
+  `static_ability!(WHITE_CREATURE, Modifier::ModifyPT(2, 1), condition = Some(Condition::ChosenOpponentControls(&NONTOKEN_OF_CHOSEN)))`
+  with `NONTOKEN_OF_CHOSEN = Filter::And(&[Filter::Not(&Filter::IsToken), Filter::OfSourceChosenColor])`
+  (a `const`); the state trigger
+  `triggered!(Trigger::State(&Condition::Not(&Condition::ChosenOpponentControls(&NONTOKEN_OF_CHOSEN))), &[Effect::SacrificeSelf])`.
+- `Filter::SharesAColorWith(&filter)` — shares a colour with a battlefield
+  permanent the inner filter matches (a colourless object shares none).
+  Invoke Prejudice: `Trigger::SpellCast(&Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent, Filter::Not(&Filter::SharesAColorWith(&YOUR_CREATURE))]))`
+  → `Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfEvent, mana: Amount::TargetCmc, effect: &Effect::CounterTargetSpell }`
+  with `targets = Some(TargetReq::one(TargetSpec::EventObject))` (as In the
+  Eye of Chaos).
+- `Condition::TargetSpellWouldDestroy(&filter)` — Equinox: a granted
+  `Modifier::GrantActivatedDefinition(&EQUINOX_ABILITY)` whose ability is
+  `activated!(Cost::TAP, &[Effect::IfCondition { condition: Condition::TargetSpellWouldDestroy(&YOUR_LAND), then: &[Effect::CounterTargetSpell], otherwise: &[] }], targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))`
+  (check `activated!`'s target field spelling). It reads the spell's own
+  top-level `Destroy` aimed at its targets and its `DestroyAll` sweeps; not a
+  destruction behind a choice, by damage or by sacrifice (rulings).
+- Improvise (CR 702.126a): `improvise = true` on the face (Whir of
+  Invention); the cast asks which untapped artifacts to tap, each paying {1}
+  of generic mana, through the same tap question as convoke.
+  `Effect::NextSpellThisTurnHasImprovise` (Archway of Innovation) gives the
+  controller's next spell this turn improvise; that cast spends it.

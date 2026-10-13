@@ -15,6 +15,7 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod attacking_tokens;
 mod blocks;
 mod branches;
 mod combat_memory;
@@ -29,6 +30,7 @@ mod preparation;
 mod tokens;
 mod transforms;
 mod triggers;
+mod wave3_rules;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

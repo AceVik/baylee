@@ -292,7 +292,11 @@ impl HeuristicAgent {
         | Filter::BlockedThisTurnBy(_)
         | Filter::AttachedTo(_)
         | Filter::SharesTypeWithReference(_)
-        | Filter::DealtDamageToSourceThisTurn => None,
+        | Filter::DealtDamageToSourceThisTurn
+        // A source's chosen colour is not in a view, and a colour compared
+        // across the board is a gap like the reference family.
+        | Filter::OfSourceChosenColor
+        | Filter::SharesAColorWith(_) => None,
         }
     }
 

@@ -195,6 +195,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)
@@ -1352,6 +1353,7 @@ mod tests {
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::CantAttackPlayerIdleLastTurn,
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttacksEachCombat,
             Modifier::CanBlockAdditional(1),
@@ -1438,7 +1440,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            133,
+            134,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1504,8 +1506,9 @@ mod tests {
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
         // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
         // modifier registered on the one object it names; 88 since
-        // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`.
-        assert_eq!((locking, all.len() - locking), (45, 88));
+        // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`; 89
+        // since `CantAttackPlayerIdleLastTurn` (Arboria).
+        assert_eq!((locking, all.len() - locking), (45, 89));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

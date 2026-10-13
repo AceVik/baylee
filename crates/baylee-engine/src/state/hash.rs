@@ -498,6 +498,8 @@ impl GameState {
             attackers.hash(h);
         }
         self.per_turn.revolt.hash(h);
+        self.per_turn.put_nontoken_permanent.hash(h);
+        self.per_turn.improvise_next_spell.hash(h);
         self.per_turn.main_phases_begun.hash(h);
         self.per_turn.descended.hash(h);
         self.per_turn.sacrificed_subtypes.hash(h);
@@ -1336,6 +1338,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_started,
         turns_to_skip,
         last_turn_attackers,
+        last_turn_acted,
         tried_empty_draw,
         commander_damage,
         loss,
@@ -1357,6 +1360,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turns_started.hash(h);
     turns_to_skip.hash(h);
     last_turn_attackers.hash(h);
+    last_turn_acted.hash(h);
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
     // seats on the same life with twelve and twenty points from the same
@@ -2004,6 +2008,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::DealtDamageToSourceThisTurn => h.u8(126),
         F::BlockedThisTurnBy(inner) => {
             h.u8(127);
+            filter_hash(h, inner);
+        }
+        F::OfSourceChosenColor => h.u8(128),
+        F::SharesAColorWith(inner) => {
+            h.u8(129);
             filter_hash(h, inner);
         }
     }

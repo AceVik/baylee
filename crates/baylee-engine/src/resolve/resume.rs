@@ -548,6 +548,13 @@ pub(super) fn resume_inner(
                 super::attachments::attach_to(state, source, host, false);
             }
         }
+        AwaitingOp::AttackingTokens(tokens) => {
+            if let Some(pending) =
+                super::attacking_tokens::resume_walker(state, res, *tokens, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::BlockedReturns(returns) => {
             if let Some(pending) = super::blocked_returns::resume(state, res, *returns, chosen) {
                 return next_choice(state, res, since, pending);

@@ -52,6 +52,7 @@ pub trait CardLookup {
 
 /// A seat's mutable state.
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)] // Independent per-seat facts, not a state machine.
 pub struct Player {
     /// Seat handle.
     pub id: PlayerId,
@@ -95,6 +96,10 @@ pub struct Player {
     pub turns_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Whether this player cast a spell or put a nontoken permanent onto the
+    /// battlefield during their most recently completed turn (Arboria's
+    /// "during their last turn"); false before their first turn ends.
+    pub last_turn_acted: bool,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
     /// Combat damage this player has taken from each commander over the
@@ -246,6 +251,14 @@ pub enum DelayedWhen {
     /// [`Self::EndOfCombat`] of this turn only (Glyph of Doom's "this
     /// turn's next end of combat"): dropped as the next turn begins.
     EndOfCombatThisTurn,
+    /// "Whenever you attack this turn" (Dalkovan Encampment): each time the
+    /// watch's controller declares one or more attackers after `after`, for
+    /// the rest of the turn. Read off the journal's `BecameAttacker`
+    /// entries; it does not end when it fires.
+    YouAttackThisTurn {
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// At the beginning of the next cleanup step, whoever's turn it is.
     NextCleanup,
     /// During the controller's next actual untap, before untapping permanents.
@@ -319,8 +332,8 @@ pub enum DelayedWhen {
 
 impl DelayedWhen {
     /// A "this turn" watch (`DiesThisTurn`, `DealtDamageThisTurn`,
-    /// `EndOfCombatThisTurn`): it watches no other turn and is dropped as
-    /// the next one begins.
+    /// `EndOfCombatThisTurn`, `YouAttackThisTurn`): it watches no other turn
+    /// and is dropped as the next one begins.
     #[must_use]
     pub const fn lapses_with_the_turn(self) -> bool {
         matches!(
@@ -328,6 +341,7 @@ impl DelayedWhen {
             Self::DiesThisTurn { .. }
                 | Self::DealtDamageThisTurn { .. }
                 | Self::EndOfCombatThisTurn
+                | Self::YouAttackThisTurn { .. }
         )
     }
 }
@@ -518,6 +532,15 @@ pub struct PerTurn {
         std::collections::BTreeMap<(PlayerId, baylee_core::ids::SubtypeId), u32>,
     /// Whether a permanent left under each player's control this turn.
     pub revolt: Vec<bool>,
+    /// Whether each player put a nontoken permanent onto the battlefield
+    /// this turn (Arboria), read as the player it entered under: who puts a
+    /// permanent onto the battlefield is, but for an effect that names
+    /// another player as its controller, the player it enters under.
+    pub put_nontoken_permanent: Vec<bool>,
+    /// Whether each player's next spell this turn has improvise (Archway of
+    /// Innovation, `Effect::NextSpellThisTurnHasImprovise`); spent by that
+    /// player's next cast.
+    pub improvise_next_spell: Vec<bool>,
     /// Whether each player cast an instant or sorcery this turn.
     pub instant_or_sorcery_cast: Vec<bool>,
     /// Source incarnations and players they actually damaged this turn.
@@ -747,6 +770,8 @@ impl PerTurn {
             descended: vec![false; players],
             sacrificed_subtypes: std::collections::BTreeMap::new(),
             revolt: vec![false; players],
+            put_nontoken_permanent: vec![false; players],
+            improvise_next_spell: vec![false; players],
             instant_or_sorcery_cast: vec![false; players],
             player_damage: std::collections::BTreeSet::new(),
             noncreature_spells: vec![0; players],
@@ -825,6 +850,8 @@ impl PerTurn {
         self.descended.fill(false);
         self.sacrificed_subtypes.clear();
         self.revolt.fill(false);
+        self.put_nontoken_permanent.fill(false);
+        self.improvise_next_spell.fill(false);
         self.instant_or_sorcery_cast.fill(false);
         self.player_damage.clear();
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
@@ -2756,7 +2783,8 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::BlockingReference
-        | Filter::Unblocked => true,
+        | Filter::Unblocked
+        | Filter::SharesAColorWith(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) => filter_reads_board_state(f),
         _ => false,
@@ -2775,9 +2803,10 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockedReferenceThisTurn
         | Filter::SharesTypeWithReference(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
-        Filter::Not(f) | Filter::AttachedTo(f) | Filter::BlockedThisTurnBy(f) => {
-            filter_reads_reference(f)
-        }
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::SharesAColorWith(f) => filter_reads_reference(f),
         _ => false,
     }
 }

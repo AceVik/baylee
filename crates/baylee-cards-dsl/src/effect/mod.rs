@@ -2190,6 +2190,42 @@ pub enum Effect {
         /// Grant haste to exactly the created objects until end of turn.
         haste: bool,
     },
+    /// "Create [amount] [token]s that are tapped and attacking" (Den of the
+    /// Bugbear's Goblin, Dalkovan Encampment's Warriors): the tokens enter
+    /// tapped and, during a combat of their controller's turn, attacking
+    /// (CR 508.4): for each one its controller chooses which defending
+    /// player or planeswalker it attacks (asked only with more than one
+    /// option). Put onto the battlefield attacking, they never "attacked":
+    /// no attack trigger hears them (CR 508.3a) and no declaration
+    /// requirement or restriction applies to them (CR 508.4c). Outside
+    /// combat, or under a player who is not attacking, they only enter
+    /// tapped (CR 506.3b). `sacrifice_at_next_end_step`: "Sacrifice them at
+    /// the beginning of the next end step", one delayed trigger per token,
+    /// each naming exactly that token.
+    CreateTokenAttacking {
+        /// The token.
+        token: &'static TokenDef,
+        /// How many, before token-creation replacements.
+        amount: Amount,
+        /// Sacrifice each at the beginning of the next end step.
+        sacrifice_at_next_end_step: bool,
+    },
+    /// "Whenever you attack this turn, [effects]" (Dalkovan Encampment): a
+    /// delayed triggered ability (CR 603.7) of this ability's controller,
+    /// with this ability's source, that triggers each time that player
+    /// declares one or more attacking creatures for the rest of the turn
+    /// (once per declaration, as `Trigger::OneOrMoreAttack` reads one), and
+    /// lapses with the turn.
+    WheneverYouAttackThisTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "The next spell you cast this turn has improvise" (Archway of
+    /// Innovation): the controller's next spell cast this turn is cast with
+    /// improvise (CR 702.126a); it is spent by that cast whether or not an
+    /// artifact was tapped, and lapses with the turn. Instances are
+    /// redundant (CR 702.126c).
+    NextSpellThisTurnHasImprovise,
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.

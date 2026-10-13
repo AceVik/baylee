@@ -256,6 +256,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     discarded::collect(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
     damage_watch_triggers(state, events, &mut triggers);
+    attack_watch_triggers(state, events, &mut triggers);
     cast_copy_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
     for trigger in &mut triggers {
@@ -899,6 +900,67 @@ fn damage_watch_triggers(
                 controller: watch.controller,
                 timestamp: state.object(source).map_or(0, |o| o.timestamp),
                 event_object: Some(damager),
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
+    }
+}
+
+/// "Whenever you attack this turn" (Dalkovan Encampment,
+/// `DelayedWhen::YouAttackThisTurn`): once for each declaration of attackers
+/// after the watch began that holds at least one creature of the watch's
+/// controller. One declaration is one action, and the scan reads each
+/// action's events once, so a scan triggers each watch at most once; a
+/// creature put onto the battlefield attacking journals no `BecameAttacker`
+/// (CR 508.3a).
+fn attack_watch_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for watch in &state.delayed {
+        let crate::state::DelayedWhen::YouAttackThisTurn { after } = watch.when else {
+            continue;
+        };
+        let crate::state::DelayedAction::Trigger {
+            source,
+            source_version,
+            effects,
+            text,
+        } = watch.action
+        else {
+            continue;
+        };
+        let attacked = events
+            .iter()
+            .filter(|entry| entry.seq > after)
+            .any(|entry| {
+                matches!(entry.event, GameEvent::BecameAttacker { object, .. }
+                if state.object(object).is_some_and(|o| o.controller == watch.controller))
+            });
+        if attacked {
+            triggers.push(PendingTrigger {
+                text,
+                source_version: Some(source_version),
+                event_ability: None,
+                event_object_identity: None,
+                related_objects: None,
+                counter_source_version: None,
+                event_amount: None,
+                event_player: Some(watch.controller),
+                event_mana: None,
+                event_mana_value: None,
+                event_departure: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller: watch.controller,
+                timestamp: state.object(source).map_or(0, |o| o.timestamp),
+                event_object: None,
                 implicit_target: None,
                 synthetic_effects: Some(effects),
                 once_per_turn: false,

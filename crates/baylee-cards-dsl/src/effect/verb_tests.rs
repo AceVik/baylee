@@ -530,7 +530,17 @@ fn repeated_and_source_watching_bodies_are_visited() {
         about: TargetSpec::EventObject,
         effects: &[Effect::destroy(TargetSpec::EventObject)],
     }];
-    for list in [REPEAT, WHILE, WATCH, DAMAGE_WATCH, THIS_TURNS_COMBAT] {
+    static ATTACK_WATCH: &[Effect] = &[Effect::WheneverYouAttackThisTurn {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    for list in [
+        REPEAT,
+        WHILE,
+        WATCH,
+        DAMAGE_WATCH,
+        THIS_TURNS_COMBAT,
+        ATTACK_WATCH,
+    ] {
         let mut seen = 0;
         let mut body_seen = false;
         Effect::walk(list, &mut seen, &mut |effect| {
