@@ -1208,4 +1208,71 @@ mod tests {
         );
         assert!(!line.contains("BAYLEE-") && !line.contains("Max"));
     }
+
+    #[test]
+    fn an_access_path_takes_only_a_profiles_id() {
+        assert_eq!(
+            access_path("sonnet-5.5_a").ok().as_deref(),
+            Some("/admin/llm/access/sonnet-5.5_a")
+        );
+        assert!(access_path(&"a".repeat(64)).is_ok());
+        for id in ["", "a/b", "a/../b", "a b", "a?x=1", "a%2Fb", "ä"] {
+            let Err(refused) = access_path(id) else {
+                panic!("{id:?} passed");
+            };
+            assert_eq!(refused.0, StatusCode::BAD_REQUEST, "{id:?}");
+        }
+        assert!(access_path(&"a".repeat(65)).is_err(), "65 characters");
+        // `..` is made of allowed characters; it must still not reach the
+        // gateway as a path segment.
+        assert!(access_path("..").is_err(), "{:?}", access_path("..").ok());
+    }
+
+    #[test]
+    fn a_policys_audit_line_names_the_profile_the_policy_and_the_default() {
+        let order = |policy: &str, default: Option<bool>| AccessPolicy {
+            policy: policy.into(),
+            default_for_registered: default,
+        };
+        assert_eq!(
+            policy_detail("sonnet", &order("registered", None)),
+            "sonnet: registered"
+        );
+        assert_eq!(
+            policy_detail("sonnet", &order("registered", Some(true))),
+            "sonnet: registered, the default"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("listed", Some(false))),
+            "opus: listed, not the default"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("nobody", None)),
+            "opus: nobody"
+        );
+        // Whatever else a caller typed as a policy is never echoed.
+        assert_eq!(
+            policy_detail("opus", &order("<script>alert(1)</script>", None)),
+            "opus: ?"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("", Some(true))),
+            "opus: ?, the default"
+        );
+    }
+
+    #[test]
+    fn a_lists_audit_line_names_ids_only() {
+        let a = Uuid::parse_str("0199aaaa-0000-7000-8000-000000000001").unwrap();
+        let b = Uuid::parse_str("0199aaaa-0000-7000-8000-000000000002").unwrap();
+        assert_eq!(
+            accounts_detail("opus", &[a, b]),
+            "opus: 0199aaaa-0000-7000-8000-000000000001,0199aaaa-0000-7000-8000-000000000002"
+        );
+        assert_eq!(
+            accounts_detail("opus", &[a]),
+            "opus: 0199aaaa-0000-7000-8000-000000000001"
+        );
+        assert_eq!(accounts_detail("opus", &[]), "opus: ");
+    }
 }
