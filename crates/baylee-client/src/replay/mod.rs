@@ -168,10 +168,20 @@ impl ReplayStatus {
     /// here: the spectators' table, and a seat whose player did not share.
     #[must_use]
     pub fn hand_hidden(&self, perspective: Perspective) -> bool {
+        // The tape shown says it itself (§18.3: `own`, whether the drawn
+        // seat's hidden cards are in it); another perspective goes by the
+        // list's consent.
+        if perspective == self.perspective
+            && perspective != Perspective::Public
+            && let Some(header) = &self.header
+        {
+            return !header.own;
+        }
         match perspective {
             Perspective::Public => true,
-            Perspective::Seat(seat) => self.origin.unshared.contains(&seat),
-            Perspective::AllHands(_) => false,
+            Perspective::Seat(seat) | Perspective::AllHands(seat) => {
+                self.origin.unshared.contains(&seat)
+            }
         }
     }
 
