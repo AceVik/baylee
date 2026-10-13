@@ -242,7 +242,8 @@ fn resize(body: &str, win: &mut Window) -> String {
 /// without the focus and lets the real pointer through (hit testing off),
 /// so the owner can watch an agent's checks while using the machine without
 /// a stray hover or click landing in them. Dev-control's injected input is
-/// unaffected: it never came from the OS.
+/// unaffected: it never came from the OS. It stays above other windows
+/// (`standalone`): a covered window draws nothing since bevy 0.20.
 pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
 }

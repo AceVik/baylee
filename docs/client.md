@@ -9706,6 +9706,17 @@ windows, a passive window is not paced as hidden (`quality::note_hidden`):
 it is meant to stand behind, and at one frame a second a click was five
 seconds and a two-frame comparison a guess (12.10.2026).
 
+Since bevy 0.20 it no longer stands behind (13.10.2026): a passive window
+stays **above** other windows (`WindowLevel::AlwaysOnTop`), still unfocused
+and still letting the pointer through. bevy 0.20 activates the app only when
+a window opens focused, so a passive one opened behind the owner's windows,
+and wgpu acquires no drawable for a window macOS reports occluded: covered,
+it drew nothing, and every `/screenshot` came back black (measured: a 0.20
+client black where a 0.19 client started beside it, activated and in front,
+drew the table). Never the active app, it was also napped (priority 4,
+under a frame a second, once a hang of minutes), so it holds a process
+activity against App Nap for the run (`devctl::keep_a_passive_window_awake`).
+
 Seven things about it are load-bearing.
 
 **It is a compile-time feature, not a runtime switch.** A remote-control socket
