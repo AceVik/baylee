@@ -9,7 +9,7 @@
 //!
 //! What is **not** here is the state. A thing that opens needs a `t` and a
 //! direction, and each of them keeps its own — the sheet's [`SheetZoom`], the
-//! drawer's [`DrawerZoom`] — because they are despawned by different systems
+//! drawer's [`DrawerZoom`], the lobby chat's `social::window::Pop` — because they are despawned by different systems
 //! at different times and a shared component would have to be told which.
 //!
 //! [`SheetZoom`]: super::sheet::SheetZoom
@@ -23,21 +23,21 @@ use super::*;
 /// Short enough to be over before a player has finished looking down at it —
 /// the sheet answers a click, and an answer that takes a quarter of a second
 /// to arrive is a delay rather than a movement.
-pub(super) const ZOOM_IN: f32 = 0.16;
+pub(crate) const ZOOM_IN: f32 = 0.16;
 
 /// And to close.
 ///
 /// Shorter still, because the two are not the same event: opening is an
 /// answer arriving and closing is it being dismissed, and a dismissal that
 /// took as long as the answer reads as reluctance.
-pub(super) const ZOOM_OUT: f32 = 0.10;
+pub(crate) const ZOOM_OUT: f32 = 0.10;
 
 /// The size a thing grows from, and shrinks back to.
 ///
 /// Not zero. A sheet that grows out of nothing is a puff of smoke; this is a
 /// page being laid down — it was always this size, and the movement is the
 /// last eighth of it arriving.
-pub(super) const ZOOM_FROM: f32 = 0.88;
+pub(crate) const ZOOM_FROM: f32 = 0.88;
 
 /// The overshoot's shape, as the `c₁` of the usual ease-out-back.
 ///
@@ -66,13 +66,13 @@ pub(super) const ZOOM_TAIL: f32 = 0.55;
 /// the end — see [`ZOOM_BACK`] for why that number and not the usual one.
 /// [`opening`] maps the whole curve onto [`ZOOM_FROM`]..1, so the overshoot
 /// is that share of the *range* and not of the size.
-pub(super) fn pop(t: f32) -> f32 {
+pub(crate) fn pop(t: f32) -> f32 {
     let u = t - 1.0;
     1.0 + (ZOOM_BACK + 1.0) * u * u * u + ZOOM_BACK * u * u
 }
 
 /// The scale a thing that is opening is drawn at.
-pub(super) fn opening(t: f32) -> f32 {
+pub(crate) fn opening(t: f32) -> f32 {
     ZOOM_FROM + (1.0 - ZOOM_FROM) * pop(t)
 }
 
@@ -81,7 +81,7 @@ pub(super) fn opening(t: f32) -> f32 {
 /// Accelerating away, and deliberately not [`pop`] run backwards: the
 /// opening's overshoot would read as a bounce on the way out, which is a
 /// movement asking to be watched by something that is leaving.
-pub(super) fn shutting(t: f32) -> f32 {
+pub(crate) fn shutting(t: f32) -> f32 {
     1.0 - (1.0 - ZOOM_FROM) * t * t
 }
 
@@ -99,7 +99,7 @@ pub(super) fn tail(t: f32) -> f32 {
 /// The same answer `table::glide` and `ShownRig` both give: `reduce_motion`
 /// does not mean "no movement happened", it means the movement is already
 /// over on the frame it started.
-pub(super) fn step(t: f32, span: f32, delta: f32, still: bool) -> f32 {
+pub(crate) fn step(t: f32, span: f32, delta: f32, still: bool) -> f32 {
     if still {
         1.0
     } else {
@@ -140,7 +140,7 @@ pub(super) fn from_bottom(scale: f32) -> Val2 {
 /// the horizontal sign flipped, written out as a function of its own rather
 /// than as a signed parameter here: a sign is a thing a caller gets
 /// backwards, a name is not.
-pub(super) fn from_bottom_right(scale: f32) -> Val2 {
+pub(crate) fn from_bottom_right(scale: f32) -> Val2 {
     Val2::new(
         Val::Percent(50.0 * (1.0 - scale)),
         Val::Percent(50.0 * (1.0 - scale)),

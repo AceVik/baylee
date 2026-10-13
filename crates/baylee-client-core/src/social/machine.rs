@@ -1030,6 +1030,69 @@ impl Social {
         lines.split_off(skip)
     }
 
+    /// The lines `filter` admits, of every conversation, oldest first, the
+    /// latest `limit` (the chat window's tabs, §3; the log's lines are the
+    /// renderer's and are merged there).
+    #[must_use]
+    pub fn lines_where(
+        &self,
+        filter: &super::TabFilter,
+        limit: usize,
+    ) -> Vec<(&ConvId, &ChatLine)> {
+        let mut lines: Vec<(&ConvId, &ChatLine)> = self
+            .convs
+            .iter()
+            .filter(|c| filter.admits_conv(&c.id))
+            .flat_map(|c| {
+                c.lines
+                    .iter()
+                    .filter(|l| filter.admits(&c.id, l))
+                    .map(move |l| (&c.id, l))
+            })
+            .collect();
+        lines.sort_by(|a, b| (a.1.at, &a.1.key.id).cmp(&(b.1.at, &b.1.key.id)));
+        let skip = lines.len().saturating_sub(limit);
+        lines.split_off(skip)
+    }
+
+    /// Unread lines of the conversations `filter` admits that are not
+    /// muted, and whether a whisper or a mention of this player is among
+    /// them (the tab's pill turns rose, §3.2).
+    #[must_use]
+    pub fn unread_where(&self, filter: &super::TabFilter) -> (u32, bool) {
+        let mut count = 0;
+        let mut urgent = false;
+        for conv in self.convs.iter().filter(|c| filter.admits_conv(&c.id)) {
+            if conv.muted || conv.unread == 0 {
+                continue;
+            }
+            count += conv.unread;
+            let unread = usize::try_from(conv.unread).unwrap_or(usize::MAX);
+            let fresh = conv.lines.iter().rev().take(unread);
+            urgent |=
+                matches!(conv.id, Conv::Dm { .. }) || fresh.into_iter().any(|l| l.mentions_me);
+        }
+        (count, urgent)
+    }
+
+    /// The last player who whispered this one (`/r`'s partner), by tag.
+    #[must_use]
+    pub fn last_whisper_partner(&self) -> Option<&str> {
+        self.state.last_whisper.as_deref()
+    }
+
+    /// The person a tag names, as far as this machine knows them.
+    #[must_use]
+    pub fn person(&self, tag: &str) -> Person {
+        self.person_of(tag)
+    }
+
+    /// The table the player is at, as the client last said.
+    #[must_use]
+    pub fn table(&self) -> Option<&TableContext> {
+        self.table.as_ref()
+    }
+
     /// Unread lines of every conversation not muted.
     #[must_use]
     pub fn unread_total(&self) -> u32 {

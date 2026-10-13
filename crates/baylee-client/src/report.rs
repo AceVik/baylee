@@ -60,6 +60,9 @@ pub(crate) use form::DeskScroll;
 pub(crate) use form::{REPORT, REPORT_CONFIRM, ReportAnchor};
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use refs::ReportPreview;
+/// The compiled pool as `#` candidates, which the chat offers away from a
+/// table too.
+pub(crate) use refs::pool_candidates;
 #[cfg(test)]
 mod tests;
 
@@ -453,7 +456,7 @@ fn open_when_asked(
 /// information rule) and the other seats; elsewhere the players of the room
 /// the player sits in, and no card until the first `#` loads the pool
 /// (`refs::fill_the_pool`).
-fn references(
+pub(crate) fn references(
     duel: Option<&crate::Duel>,
     texts: Option<&crate::cardtext::CardTexts>,
     lobby: Option<&LobbyState>,

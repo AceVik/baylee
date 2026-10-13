@@ -51,6 +51,12 @@ pub(crate) enum HeaderPress {
     Report,
     /// The account menu: sign out.
     SignOut,
+    /// The chat button (beta.8): the chat panel, the box's caret.
+    Chat,
+    /// The friends button: the friends drawer.
+    Friends,
+    /// Settings → Privacy's Chat & privacy row: the chat's privacy sheet.
+    ChatPrivacy,
 }
 
 /// Something a header press asks of a system the press handler cannot
@@ -61,6 +67,12 @@ pub(crate) enum ShellAsk {
     Shortcuts,
     /// Open the report form.
     Report,
+    /// Open (or hide) the chat panel.
+    Chat,
+    /// Open or shut the friends drawer.
+    Friends,
+    /// The chat's privacy sheet.
+    ChatPrivacy,
 }
 
 /// One of the header's nav pills.
@@ -204,7 +216,27 @@ fn bar(
             gear,
             Press::Front(FrontPress::FrontMenu),
         );
-        let tools = [gear];
+        let mut tools = vec![gear];
+        if let Some(friends) = state.chat_header {
+            tools.push(chat_tool(
+                commands,
+                kit,
+                crate::hud::glyph::CHAT,
+                Some(Phrase::ShellChat.text(lang)),
+                crate::social::HeaderCount::Chat,
+                Press::Header(HeaderPress::Chat),
+            ));
+            if friends {
+                tools.push(chat_tool(
+                    commands,
+                    kit,
+                    crate::hud::glyph::FRIENDS,
+                    None,
+                    crate::social::HeaderCount::Friends,
+                    Press::Header(HeaderPress::Friends),
+                ));
+            }
+        }
         let look = HeaderLook {
             brand: Phrase::AppName.text(lang),
             // The short form (§2.1); the full one is in the gateway popover.
@@ -247,6 +279,61 @@ fn bar(
             commands.entity(bar).add_child(menu);
         }
     }
+}
+
+/// A chat button in the header (the beta.8 chat window design §4.3): its
+/// glyph, its word, and a count the chat writes into
+/// ([`crate::social::HeaderCount`]) without a rebuild of the header.
+fn chat_tool(
+    commands: &mut Commands,
+    kit: crate::shellkit::controls::Kit,
+    glyph: char,
+    word: Option<&str>,
+    count: crate::social::HeaderCount,
+    action: Press,
+) -> Entity {
+    let face = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_child(icon);
+    if let Some(word) = word {
+        let label = commands
+            .spawn((
+                Text::new(word.to_string()),
+                crate::hud::tf(kit.fonts, kit.m.text),
+                TextColor(tokens::INK),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(label);
+    }
+    let n = commands
+        .spawn((
+            count,
+            Text::new(crate::social::header_count(count)),
+            crate::hud::tf_bold(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_child(n);
+    crate::shellkit::controls::hit(commands, kit, face, action)
 }
 
 /// The strips under the header: seated (not on a Phone, where the header's
@@ -438,6 +525,15 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
+            HeaderPress::Chat => {
+                cx.state.header_menu = None;
+                cx.state.shell_asks.push(ShellAsk::Chat);
+            }
+            HeaderPress::Friends => {
+                cx.state.header_menu = None;
+                cx.state.shell_asks.push(ShellAsk::Friends);
+            }
+            HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
             HeaderPress::SignOut => {
                 cx.state.header_menu = None;
                 HubPress::SignOut.handle(cx);
@@ -846,6 +942,8 @@ pub(super) fn carry_out(
     mut state: ResMut<LobbyState>,
     mut fired: MessageWriter<crate::shellkit::keys::ShellFired>,
     desk: Option<ResMut<crate::report::ReportDesk>>,
+    mut chat: Option<ResMut<crate::social::ChatUi>>,
+    mut host: Option<ResMut<crate::social::SocialHost>>,
 ) {
     if state.shell_asks.is_empty() {
         return;
@@ -861,6 +959,11 @@ pub(super) fn carry_out(
             ShellAsk::Report => {
                 if let Some(desk) = desk.as_mut() {
                     desk.asked = true;
+                }
+            }
+            ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {
+                if let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut()) {
+                    crate::social::header_ask(host, ui, ask);
                 }
             }
         }

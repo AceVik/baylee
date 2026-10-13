@@ -180,6 +180,30 @@ fn at_offers_players_and_taking_one_writes_a_bracketed_mention() {
     assert_eq!(body.mentions[0].tag, "0012");
 }
 
+#[test]
+fn choosing_a_row_takes_that_suggestion_whatever_was_highlighted() {
+    let mut c = composer();
+    c.typed("#l");
+    assert_eq!(c.suggestions().unwrap().highlight, 0);
+    assert!(c.choose(1), "a press on the second row");
+    assert_eq!(c.text(), "[Llanowar Elves] ");
+    assert!(c.suggestions().is_none(), "the popover closes on the pick");
+}
+
+#[test]
+fn choosing_a_row_that_is_not_there_or_with_no_popover_takes_nothing() {
+    let mut c = composer();
+    assert!(!c.choose(0), "no popover");
+    c.typed("#l");
+    let items = c.suggestions().unwrap().items.len();
+    assert!(!c.choose(items), "one past the last row");
+    assert!(!c.choose(usize::MAX));
+    assert_eq!(c.text(), "#l", "nothing was taken");
+    assert_eq!(c.suggestions().unwrap().highlight, 0, "nor moved");
+    assert!(c.choose(0), "and a real row still works afterwards");
+    assert_eq!(c.text(), "[Lightning Bolt] ");
+}
+
 // --- Esc -----------------------------------------------------------------
 
 #[test]

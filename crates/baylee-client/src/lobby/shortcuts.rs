@@ -127,12 +127,14 @@ pub(super) fn write_stack(
     journey: Option<Res<crate::arrival::Journey>>,
     desk: Option<Res<crate::report::ReportDesk>>,
     tour: Option<Res<crate::tour::TourDesk>>,
+    chat: Option<Res<crate::social::ChatUi>>,
     mut shell: ResMut<ShellStack>,
 ) {
     let held = journey.as_ref().is_some_and(|j| j.active())
         || entrance.active()
         || desk.is_some_and(|d| d.holds_keyboard())
-        || tour.is_some_and(|t| t.holds_keyboard());
+        || tour.is_some_and(|t| t.holds_keyboard())
+        || chat.is_some_and(|c| c.holds_keyboard());
     // The seat panel's boxes walk with Tab themselves.
     // So does the account deletion's confirmation over the terms sheet
     // (its Decline): its password box is a lobby field with no stop, and

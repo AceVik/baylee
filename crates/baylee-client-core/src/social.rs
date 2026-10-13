@@ -24,6 +24,7 @@ pub mod keys;
 pub mod notify;
 pub mod sealing;
 pub mod select;
+pub mod tabs;
 pub mod text;
 pub mod vault;
 pub mod words;
@@ -47,7 +48,8 @@ pub use disk::{ChatDisk, MemoryDisk};
 pub use machine::Social;
 pub use notify::{ChatCue, Notify, NotifyContext};
 pub use select::{DrawnLine, Pos, Selection, copy_text};
-pub use table::{RosterSeat, TableContext};
+pub use table::{RosterSeat, TableContext, tag_of};
+pub use tabs::{ChatTab, GroupPick, TabFilter};
 pub use vault::{KeyHome, MemorySecrets, SecretSlot, SecretStore};
 pub use words::ChatPhrase;
 
@@ -84,6 +86,10 @@ pub struct ChatPrefs {
     pub toast_text: bool,
     /// The encryption notice was shown and answered "Got it".
     pub notice_seen: bool,
+    /// What each fixed tab shows, in [`ChatTab::ALL`]'s order (the chat
+    /// window design §3.5). A stored list of another length is read as
+    /// far as it goes; [`ChatPrefs::filter`] fills the rest.
+    pub tabs: Vec<TabFilter>,
 }
 
 impl Default for ChatPrefs {
@@ -94,6 +100,7 @@ impl Default for ChatPrefs {
             sounds: ChatSounds::default(),
             toast_text: true,
             notice_seen: false,
+            tabs: TabFilter::standard_set(),
         }
     }
 }
@@ -101,6 +108,24 @@ impl Default for ChatPrefs {
 impl ChatPrefs {
     /// The history lengths the settings offer.
     pub const HISTORY_DAYS: [u16; 4] = [0, 7, 30, 365];
+
+    /// What `tab` shows: the stored filter, or the tab's standard one.
+    #[must_use]
+    pub fn filter(&self, tab: ChatTab) -> TabFilter {
+        self.tabs
+            .get(tab.index())
+            .cloned()
+            .unwrap_or_else(|| TabFilter::standard(tab))
+    }
+
+    /// Sets what `tab` shows.
+    pub fn set_filter(&mut self, tab: ChatTab, filter: TabFilter) {
+        while self.tabs.len() <= tab.index() {
+            let next = ChatTab::ALL[self.tabs.len()];
+            self.tabs.push(TabFilter::standard(next));
+        }
+        self.tabs[tab.index()] = filter;
+    }
 }
 
 /// Which kinds of line play a sound.

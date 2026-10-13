@@ -95,11 +95,13 @@ pub enum ShellAction {
     /// Go to Replays (`4`, desktop). Last in the enum, so nothing stored
     /// moves; second-to-last in the overlay's order, beside its siblings.
     GoReplays,
+    /// The friends drawer (`f`; the beta.8 social design §12.1).
+    Friends,
 }
 
 impl ShellAction {
     /// Every action, in the overlay's order.
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 23] = [
         Self::GoPlay,
         Self::GoDecks,
         Self::GoReplays,
@@ -122,6 +124,7 @@ impl ShellAction {
         Self::SaveDeck,
         Self::ImportDeck,
         Self::ExportDeck,
+        Self::Friends,
     ];
 
     /// The stable name the stored map keys it by (kebab-case).
@@ -150,6 +153,7 @@ impl ShellAction {
             Self::SaveDeck => "save-deck",
             Self::ImportDeck => "import-deck",
             Self::ExportDeck => "export-deck",
+            Self::Friends => "friends",
         }
     }
 
@@ -196,6 +200,7 @@ impl ShellAction {
             Self::SaveDeck => Phrase::ShellKeySave,
             Self::ImportDeck => Phrase::ImportDeck,
             Self::ExportDeck => Phrase::ShellKeyExport,
+            Self::Friends => Phrase::ShellKeyFriends,
         }
     }
 
@@ -247,6 +252,7 @@ impl ShellAction {
             Self::SaveDeck => vec![C::ch("s").cmd()],
             Self::ImportDeck => vec![C::ch("i").cmd()],
             Self::ExportDeck => vec![C::ch("e").cmd()],
+            Self::Friends => vec![C::ch("f")],
         }
     }
 }
@@ -1198,5 +1204,56 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// `f` opens the friends drawer from every screen that has global keys,
+    /// is the text field's while one has focus, and does not steal the
+    /// Find chord (`Ctrl/Cmd+F`) that shares its letter.
+    #[test]
+    fn f_opens_the_friends_drawer_and_is_a_text_fields_while_one_has_focus() {
+        let map = ShellKeymap::standard();
+        assert_eq!(ShellAction::Friends.name(), "friends");
+        assert_eq!(ShellAction::Friends.context(), Context::Global);
+        assert_eq!(ShellAction::Friends.label(), Phrase::ShellKeyFriends);
+        assert_eq!(ShellAction::Friends.defaults(), vec![ShellChord::ch("f")]);
+        let f = key("KeyF", Some("f"));
+        for screen in [Context::Play, Context::Decks] {
+            assert_eq!(
+                resolve(&map, &f, quiet(screen), false),
+                Some(ShellAction::Friends),
+                "{screen:?}"
+            );
+            // The field owns the letter, shifted or not.
+            let typing = Stack {
+                field: true,
+                ..quiet(screen)
+            };
+            assert_eq!(resolve(&map, &f, typing, false), None, "{screen:?}");
+            assert_eq!(
+                resolve(&map, &shifted("KeyF", "F"), typing, false),
+                None,
+                "{screen:?}"
+            );
+            // A sheet or a menu over the screen blocks it as any global key.
+            let sheet = Stack {
+                modal: true,
+                ..quiet(screen)
+            };
+            assert_eq!(resolve(&map, &f, sheet, false), None, "{screen:?}");
+            let menu = Stack {
+                menu: true,
+                ..quiet(screen)
+            };
+            assert_eq!(resolve(&map, &f, menu, false), None, "{screen:?}");
+        }
+        // Find keeps its chord: Ctrl+F (Cmd+F on a Mac) is Search, not Friends.
+        let ctrl_f = KeyPress {
+            ctrl: true,
+            ..key("KeyF", Some("f"))
+        };
+        assert_eq!(
+            resolve(&map, &ctrl_f, quiet(Context::Play), false),
+            Some(ShellAction::Search)
+        );
     }
 }

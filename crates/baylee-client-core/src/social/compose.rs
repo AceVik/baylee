@@ -217,6 +217,18 @@ impl Composer {
         }
     }
 
+    /// Takes the suggestion at `index` (a press on its row in the popover);
+    /// `false` when there is none there.
+    pub fn choose(&mut self, index: usize) -> bool {
+        match self.suggest.as_mut() {
+            Some(suggest) if index < suggest.items.len() => {
+                suggest.highlight = index;
+                self.take_suggestion()
+            }
+            _ => false,
+        }
+    }
+
     /// Characters typed, for the count drawn from 900 of 1000.
     #[must_use]
     pub fn chars(&self) -> usize {
