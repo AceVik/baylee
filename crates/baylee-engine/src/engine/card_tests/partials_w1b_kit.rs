@@ -109,6 +109,41 @@ pub(super) fn drive(
     panic!("never settled; still at {:?}", engine.pending());
 }
 
+/// Leaves the turn `engine` is in and walks on, passing priority and declaring
+/// nobody, until `seat` holds priority in the first main phase of a *later*
+/// turn. Unlike `walk_to_own_main`, it does not return at once for a seat that
+/// is already in its own first main phase, and it has the room to cross a
+/// table of three.
+#[track_caller]
+pub(super) fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let began = engine.state().turn.number;
+    drive(
+        engine,
+        |e| {
+            let turn = &e.state().turn;
+            turn.number > began
+                && turn.active == seat
+                && matches!(turn.phase, Phase::FirstMain)
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == seat)
+        },
+        |_, _| None,
+    );
+}
+
+/// Lets the engine take one step: the player holding priority passes it once.
+/// State written behind the engine's back (the dev moves of cards between
+/// zones) shows in the characteristics statics give only after the engine has
+/// run a pass of its own (CR 113.6).
+#[track_caller]
+pub(super) fn let_the_engine_step(engine: &mut Engine<RegistryLookup>) {
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine
+        .apply(player, PlayerAction::PassPriority)
+        .expect("passing priority is always legal");
+}
+
 /// Answers a `ChooseCards` question with those of `wanted` it offers (at most
 /// `max` of them); every other question is left to the default.
 pub(super) fn choose_cards(pending: &Pending, wanted: &[ObjectId]) -> Option<PlayerAction> {

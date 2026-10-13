@@ -231,7 +231,7 @@ fn golden_guardian_that_dies_on_a_later_turn_stays_dead() {
     let (mut engine, guardian) = the_guardian_with(&[gray_ogre()], &[]);
     let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("my Ogre");
     fight(&mut engine, guardian, ogre);
-    assert!(walk_to_own_main(&mut engine, p0), "player 0's next turn");
+    kit::walk_to_next_own_main(&mut engine, p0);
     assert!(engine.state().turn.number >= 3, "a later turn");
     assert!(
         kit::is_on_battlefield(&engine, guardian),

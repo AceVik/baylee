@@ -128,45 +128,27 @@ fn the_table_where_owners_and_controllers_differ() -> (Engine<RegistryLookup>, T
 
 /// Casts Hurkyl's Recall off the floating mana and names `target`, reading the
 /// menu it offers on the way: "target player" means every player, the caster
-/// included, and no object.
+/// included. A target that can only be a player is asked as a player choice
+/// (`ChoosePlayer`), not as `ChooseTargets`.
 #[track_caller]
 fn cast_it_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
     let p0 = PlayerId::new(0);
     cast_with_floating(engine, p0, hurkyl_s_recall());
-    let Pending::ChooseTargets {
-        player,
-        options,
-        player_options,
-        min,
-        max,
-        ..
-    } = engine.pending().clone()
-    else {
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
         panic!(
-            "\"target player\" asks the caster for a target; the spell is on the stack \
+            "\"target player\" asks the caster for a player; the spell is on the stack \
              ({}) but the question is {:?}",
             !stack_is_empty(engine),
             engine.pending()
         )
     };
     assert_eq!(player, p0, "the caster names the target");
-    assert_eq!((min, max), (1, 1), "one target");
     assert!(
-        options.is_empty(),
-        "no object is a legal target: {options:?}"
-    );
-    assert!(
-        player_options.contains(&PlayerId::new(0)) && player_options.contains(&PlayerId::new(1)),
-        "any player, the caster too: {player_options:?}"
+        options.contains(&PlayerId::new(0)) && options.contains(&PlayerId::new(1)),
+        "any player, the caster too: {options:?}"
     );
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![target],
-            },
-        )
+        .apply(p0, PlayerAction::ChoosePlayer(target))
         .expect("the named player was on the menu");
     pass_until(engine, stack_is_empty);
 }

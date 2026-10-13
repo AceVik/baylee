@@ -166,15 +166,16 @@ fn the_gate_table(
 }
 
 /// Pays `{1}{B}` and `{T}`, activates the Gate's third ability on `target`
-/// and answers the question of which player with `pick`. Returns who was asked
-/// and the menu they were offered.
+/// and answers the question of which player with `pick`, if it is asked.
+/// Returns who was asked and the menu they were offered, or `None` when no
+/// question was asked (a choice with exactly one candidate is forced).
 #[track_caller]
 fn use_the_gate(
     engine: &mut Engine<RegistryLookup>,
     gate: ObjectId,
     target: ObjectId,
     pick: PlayerId,
-) -> (PlayerId, Vec<PlayerId>) {
+) -> Option<(PlayerId, Vec<PlayerId>)> {
     let p0 = kit::P0;
     tap_mana_except(engine, p0, gate);
     let offered = kit::offered(engine, gate);
@@ -192,7 +193,20 @@ fn use_the_gate(
         }
         other => kit::choose_targets(other, &[target], &[]),
     });
-    asked.expect("the controller is asked which player is meant")
+    asked
+}
+
+/// [`use_the_gate`] for the tests whose point is the question: it must have
+/// been asked.
+#[track_caller]
+fn use_the_gate_and_be_asked(
+    engine: &mut Engine<RegistryLookup>,
+    gate: ObjectId,
+    target: ObjectId,
+    pick: PlayerId,
+) -> (PlayerId, Vec<PlayerId>) {
+    use_the_gate(engine, gate, target, pick)
+        .expect("several players qualify, so the controller is asked which player is meant")
 }
 
 /// Which `(blocker, attacker)` pairs `defender` may declare when `attackers`
@@ -238,7 +252,7 @@ fn the_black_gate_offers_every_player_tied_for_the_most_life() {
     let (p0, p1, p2) = (kit::P0, kit::P1, kit::P2);
     let (mut engine, gate, [target, _], _) = the_gate_table([15, 20, 20]);
 
-    let (asked, menu) = use_the_gate(&mut engine, gate, target, p1);
+    let (asked, menu) = use_the_gate_and_be_asked(&mut engine, gate, target, p1);
 
     assert_eq!(asked, p0, "the Gate's controller chooses");
     assert_eq!(
@@ -258,29 +272,63 @@ fn the_black_gate_offers_every_player_tied_for_the_most_life() {
     );
 }
 
-/// "…a player with the most life": a single leader is the only choice. Player
-/// 1 is on 20 against 12 and 8, so the menu is player 1 alone.
+/// Whether the Gate's restriction holds against `defender`'s creatures: the
+/// Gate is used on a fresh table with these `lives`, where `leader` is the one
+/// player with the most life, and one of the Gate controller's Ogres is sent
+/// at `defender`. A choice with one candidate is forced, so the question is
+/// either not asked or offers exactly `leader`; the asserted behaviour is where
+/// the restriction lands. Returns whether `defender`'s Ogre may block that Ogre.
+#[track_caller]
+fn may_the_defenders_ogre_block(lives: [i32; 3], leader: PlayerId, defender: PlayerId) -> bool {
+    let (mut engine, gate, [target, _], [first, second]) = the_gate_table(lives);
+    if let Some((_, menu)) = use_the_gate(&mut engine, gate, target, leader) {
+        assert_eq!(
+            menu,
+            vec![leader],
+            "a question, if any, offers only the leader"
+        );
+    }
+    let their_ogre = if defender == kit::P1 { first } else { second };
+    let pairs = what_may_block(&mut engine, &[target], defender);
+    pairs.contains(&(their_ogre, target))
+}
+
+/// "…a player with the most life": a single leader is the only choice, so
+/// there is nothing to ask. Player 1 is on 20 against 12 and 8: the choice is
+/// forced, and the restriction lands on player 1 (their Ogre can't block the
+/// target) and on nobody else (player 2's Ogre still can).
 #[test]
-fn the_black_gate_offers_only_the_player_with_the_most_life() {
-    let (p1, _) = (kit::P1, kit::P2);
-    let (mut engine, gate, [target, _], _) = the_gate_table([12, 20, 8]);
+fn the_black_gate_takes_the_only_player_with_the_most_life() {
+    let may_block = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P1);
+    assert!(
+        !may_block,
+        "the sole leader, player 1, was chosen: their Ogre can't block the target"
+    );
 
-    let (_, menu) = use_the_gate(&mut engine, gate, target, p1);
-
-    assert_eq!(menu, vec![p1], "only the strictly highest life total");
+    let may_block = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P2);
+    assert!(
+        may_block,
+        "player 2 was not chosen: their Ogre may block the target"
+    );
 }
 
 /// "Choose a player with the most life…" does not exclude the Gate's own
-/// controller: on 20 against 10 and 5 they are the only player on the menu.
+/// controller: on 20 against 10 and 5 they are the only candidate. The choice
+/// is forced; the restriction lands on the controller's own creatures, which
+/// restricts no opponent: both opponents' Ogres may block the target.
 #[test]
-fn the_black_gate_offers_its_controller_when_they_have_the_most_life() {
-    let p0 = kit::P0;
-    let (mut engine, gate, [target, _], _) = the_gate_table([20, 10, 5]);
+fn the_black_gate_takes_its_controller_when_they_have_the_most_life() {
+    let may_block = may_the_defenders_ogre_block([20, 10, 5], kit::P0, kit::P1);
+    assert!(
+        may_block,
+        "the controller was chosen, not player 1: their Ogre may block"
+    );
 
-    let (asked, menu) = use_the_gate(&mut engine, gate, target, p0);
-
-    assert_eq!(asked, p0);
-    assert_eq!(menu, vec![p0], "the controller leads and is the one choice");
+    let may_block = may_the_defenders_ogre_block([20, 10, 5], kit::P0, kit::P2);
+    assert!(
+        may_block,
+        "and not player 2 either: their Ogre may block the target"
+    );
 }
 
 /// "Target creature can't be blocked by creatures that player controls this
@@ -295,7 +343,7 @@ fn the_black_gate_stops_the_chosen_players_creatures_blocking_the_target() {
     let (p2, p0) = (kit::P2, kit::P0);
     let (mut engine, gate, [target, other], [_, their_ogre]) = the_gate_table([15, 20, 20]);
 
-    let (asked, _) = use_the_gate(&mut engine, gate, target, p2);
+    let (asked, _) = use_the_gate_and_be_asked(&mut engine, gate, target, p2);
     assert_eq!(asked, p0);
     let pairs = what_may_block(&mut engine, &[target, other], p2);
 
@@ -322,7 +370,7 @@ fn the_black_gate_does_not_stop_another_players_creatures_blocking() {
     let (p0, p1, p2) = (kit::P0, kit::P1, kit::P2);
     let (mut engine, gate, [target, _], [_, their_ogre]) = the_gate_table([15, 20, 20]);
 
-    let (asked, _) = use_the_gate(&mut engine, gate, target, p1);
+    let (asked, _) = use_the_gate_and_be_asked(&mut engine, gate, target, p1);
     assert_eq!(asked, p0);
     let pairs = what_may_block(&mut engine, &[target], p2);
 
@@ -339,14 +387,14 @@ fn the_black_gate_does_not_stop_another_players_creatures_blocking() {
 fn the_black_gate_restriction_ends_at_end_of_turn() {
     let (p0, p2) = (kit::P0, kit::P2);
     let (mut engine, gate, [target, _], [_, their_ogre]) = the_gate_table([15, 20, 20]);
-    let _ = use_the_gate(&mut engine, gate, target, p2);
+    let _ = use_the_gate_and_be_asked(&mut engine, gate, target, p2);
     let pairs = what_may_block(&mut engine, &[target], p2);
     assert!(
         !pairs.contains(&(their_ogre, target)),
         "this turn it can't be blocked ({pairs:?})"
     );
 
-    assert!(walk_to_own_main(&mut engine, p0), "back to player 0's turn");
+    kit::walk_to_next_own_main(&mut engine, p0);
     let pairs = what_may_block(&mut engine, &[target], p2);
 
     assert!(

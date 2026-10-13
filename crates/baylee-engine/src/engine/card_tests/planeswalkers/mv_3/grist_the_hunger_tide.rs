@@ -66,6 +66,9 @@ fn grist_is_a_one_one_insect_creature_anywhere_but_on_the_battlefield() {
     let in_the_graveyard = hand_to_graveyard(&mut engine, p0, grist_the_hunger_tide());
     let in_the_library = hand_to_library_top(&mut engine, p0, grist_the_hunger_tide());
     let in_the_hand = in_hand(&engine, p0, grist_the_hunger_tide()).expect("the third copy");
+    // The cards were moved behind the engine's back; a static that works off
+    // the battlefield is brought up to date by the engine's next pass.
+    kit::let_the_engine_step(&mut engine);
 
     for (zone, grist) in [
         ("hand", in_the_hand),
@@ -144,7 +147,7 @@ fn grist_is_no_creature_on_the_battlefield_and_a_creature_again_once_it_leaves()
         "and it entered with 3 loyalty"
     );
 
-    bury(&mut engine, &[grist]);
+    kill(&mut engine, grist);
 
     assert_eq!(kit::zone_of(&engine, grist), Zone::Graveyard);
     assert!(
@@ -284,7 +287,7 @@ fn grist_plus_one_resolves_in_full_even_if_grist_has_left_the_battlefield() {
     let milled = kit::stack_library(&mut engine, p0, &[goliath_beetle(), gray_ogre()]);
 
     activate_nth(&mut engine, grist, 0);
-    bury(&mut engine, &[grist]);
+    kill(&mut engine, grist);
     kit::settle(&mut engine, p0, |_, _| None);
 
     assert_eq!(

@@ -280,10 +280,7 @@ fn reincarnation_does_nothing_for_a_creature_that_dies_after_the_turn_is_over() 
     let elves = hand_to_graveyard(&mut engine, p0, llanowar_elves());
 
     // Through the opponent's turn and into this player's next one.
-    assert!(
-        walk_to_own_main(&mut engine, p0),
-        "p0 reaches its next turn"
-    );
+    kit::walk_to_next_own_main(&mut engine, p0);
     assert!(
         engine.state().turn.number >= 3,
         "a later turn: {}",
