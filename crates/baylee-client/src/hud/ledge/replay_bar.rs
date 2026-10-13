@@ -322,8 +322,9 @@ fn spawn_timeline(
     let track = commands
         .spawn((
             Scrubber,
+            // As wide as the bar less the players' strip's room
+            // (`place_playhead` writes the margin): stretched, not 100 %.
             Node {
-                width: percent(100),
                 height: px(TIMELINE_H),
                 flex_direction: FlexDirection::Row,
                 column_gap: px(2.0),
@@ -1129,16 +1130,32 @@ fn sheet_button(commands: &mut Commands, fonts: &UiFonts, words: &str, lead: boo
         .id()
 }
 
-/// Writes the playhead's place and the step's words, where they moved.
+/// Writes the playhead's place and the step's words, where they moved; and
+/// starts the timeline past the players' strip, which stands on the same
+/// edge at the left (#264), measured off its own layout.
+#[allow(clippy::type_complexity)]
 pub fn place_playhead(
     duel: Res<Duel>,
     settings: Res<crate::settings::ClientSettings>,
-    mut heads: Query<&mut Node, With<Playhead>>,
+    mut heads: Query<&mut Node, (With<Playhead>, Without<Scrubber>)>,
+    mut tracks: Query<&mut Node, (With<Scrubber>, Without<Playhead>)>,
+    strips: Query<&ComputedNode, With<crate::hud::PlayersStrip>>,
     mut labels: Query<&mut Text, With<WhereLabel>>,
 ) {
     let Some(status) = duel.replay.as_ref() else {
         return;
     };
+    let strip = strips
+        .iter()
+        .map(|node| node.size().x * node.inverse_scale_factor())
+        .fold(0.0_f32, f32::max);
+    // The bar's own padding is already between it and the window's edge.
+    let margin = px(if strip > 0.0 { strip + 6.0 - 10.0 } else { 0.0 });
+    for mut track in &mut tracks {
+        if track.margin.left != margin {
+            track.margin.left = margin;
+        }
+    }
     let fraction = status
         .timeline
         .as_ref()

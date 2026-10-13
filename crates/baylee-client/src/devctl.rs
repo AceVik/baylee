@@ -593,7 +593,10 @@ fn replay_ask(body: &str) -> Result<crate::hud::replay_bar::BarAsk, String> {
     use crate::hud::replay_bar::BarAsk;
     use crate::replay::ReplayAsk;
     use baylee_client_core::replay::{Command, Perspective};
-    let number = |key: &str| field(body, key).and_then(|v| v.parse::<i64>().ok());
+    // Read as JSON, not by the hand scanner: `"seat"` is both a key and a
+    // value here (`{"to":"seat","seat":1}`).
+    let parsed: serde_json::Value = serde_json::from_str(body).unwrap_or_default();
+    let number = |key: &str| parsed.get(key).and_then(serde_json::Value::as_i64);
     let by = || number("by").map_or(1, |n| n.clamp(-100, 100) as i8);
     let command = field(body, "command").ok_or("no command")?;
     let ask = match command {
@@ -615,7 +618,7 @@ fn replay_ask(body: &str) -> Result<crate::hud::replay_bar::BarAsk, String> {
         "slower" => ReplayAsk::Transport(Command::Slower),
         "perspective" => {
             let seat = baylee_core::ids::PlayerId::new(number("seat").map_or(0, |n| n as u8));
-            match field(body, "to") {
+            match parsed.get("to").and_then(serde_json::Value::as_str) {
                 Some("seat") => ReplayAsk::Perspective(Perspective::Seat(seat)),
                 Some("public") => ReplayAsk::Perspective(Perspective::Public),
                 Some("all_hands") => ReplayAsk::Perspective(Perspective::AllHands(seat)),

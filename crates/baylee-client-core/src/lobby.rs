@@ -1733,6 +1733,12 @@ impl Lobby {
         self.write(message.into(), Tone::Refusal);
     }
 
+    /// Writes a sentence of this client's own that is news, not a refusal
+    /// (a replay archived), already in the player's language.
+    pub fn note_said(&mut self, message: impl Into<String>) {
+        self.write(message.into(), Tone::Note);
+    }
+
     /// Says one of the client's own sentences, in the language it is set to.
     pub(crate) fn note(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();

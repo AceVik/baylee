@@ -197,7 +197,7 @@ fn archive(state: &mut LobbyState, mailbox: &Mailbox, i: usize, archived: bool) 
     } else {
         ReplayPhrase::UnarchivedNote
     };
-    state.lobby.say(note.text(lang).to_string());
+    state.lobby.note_said(note.text(lang));
 }
 
 #[cfg(not(target_arch = "wasm32"))]
