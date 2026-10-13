@@ -1969,8 +1969,9 @@ always shared. Stored per game and seat
 
 `{"perspective":"seat"|"public"|"all_hands","seat":2,"verify":"stop"|"note"}`
 (`verify` defaults to `stop`; `seat`, the seat the table is drawn from,
-defaults to the asking account's own and is ignored for `public`; a seat the
-table lacks or any other field is `400`) → `200 application/gzip`, the tape
+defaults to the asking account's own and is ignored, even out of range, for
+`public`; for `seat` and `all_hands` a seat the table lacks is `400`, and so
+is any other field) → `200 application/gzip`, the tape
 (`baylee_protocol::tape`, gzip JSON Lines: a header, the `static`, `view`,
 `over` frames the perspective was sent, and a closing `stop` line saying how
 far it is the recorded game).
