@@ -201,9 +201,9 @@ fn question_row(duel: &Duel, lang: Lang, elsewhere: bool) -> Vec<(Says, String)>
         // look alike on purpose; what they have in common is that each of them
         // is a way of saying "not now".
         // A payment window (CR 605.3a) is answered "pay" or "don't": the
-        // confirm taps whatever is still owed and settles it
-        // (`Duel::pay_owed`), and the other passes it unpaid. Lands can
-        // still be tapped one by one before either; the plan is for what is
+        // confirm stages what is still owed, then sends the staging whole
+        // (`Duel::confirm_payment`), and the other passes it unpaid. Lands
+        // can be staged one by one before either; the plan is for what is
         // left.
         Some(Pending::Priority { .. }) if duel.paying() => payment_row(duel, lang),
         Some(Pending::Priority { .. }) => {

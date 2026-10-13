@@ -49,6 +49,7 @@ pub(super) fn stage(body: &str, duel: &mut Duel) -> String {
     let shown = cards.len();
     let entry = LogEntry {
         turn: view.turn,
+        phase: Some(view.phase),
         repeat: 1,
         at: 0,
         event: LogEvent::Revealed { player, cards },
