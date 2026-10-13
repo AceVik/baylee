@@ -12,7 +12,7 @@ mod rematch;
 mod rooms;
 mod seat_socket;
 mod settings;
-mod signin;
+pub(crate) mod signin;
 mod stats;
 mod table_view;
 mod tables;

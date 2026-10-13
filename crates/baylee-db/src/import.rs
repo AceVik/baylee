@@ -276,6 +276,11 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 invite_id: Set(None),
                 terms_version: Set(None),
                 terms_accepted_at: Set(None),
+                must_change_password: Set(false),
+                banned_at: Set(None),
+                banned_until: Set(None),
+                ban_reason: Set(None),
+                banned_by: Set(None),
             }
         })
         .collect();

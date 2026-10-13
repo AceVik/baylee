@@ -87,6 +87,9 @@ request, and is answered back by nothing.
     without terms. Only the last acceptance is kept, and not the language
     the terms were read in (the version is one for all of them). It goes
     with the account.
+  - `must_change_password`, and `banned_at`, `banned_until`, `ban_reason`,
+    `banned_by` (beta.8, below): what an admin set on the account, gone
+    with it.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail
@@ -225,6 +228,38 @@ service's UI).
 - **Seen by:** the feedback service's signed-in admins only. The
   gateway's e2e test holds the answers free of password hashes, tokens
   and addresses.
+
+## What an admin may do to an account (beta.8)
+
+From the feedback service's admin pages, through the gateway's loopback
+console (`docs/protocol.md` §"Acting on an account"): reset a password,
+ban or lift a ban, delete an account, end a running game. The admins are
+the operator's own, signed in at the feedback service; no player can do
+any of it to another.
+
+- **Finding the player:** the console's account search above, which
+  existed already (owner, 09.10.2026). Nothing new lists people.
+- **A reset password** is made by the gateway, answered once to the admin
+  who asked, through the feedback service's memory to their browser, and
+  stored only as its Argon2id hash. Neither service logs or audits it; the
+  admin hands it to the player by a way of their own choosing. Until the
+  player chooses their own (`POST /auth/password`), the account holds
+  `must_change_password`.
+- **A ban** keeps on the account row the admin's reason, its start and
+  end, and the admin's name (`banned_by`), so the player can be told why
+  and until when, and the admins can see it. The reason is shown to that
+  player only, after their password (or to the banned guest's own
+  session), and to the admins. It is overwritten by the next ban, cleared
+  by an unban, and goes with the account. Neither audit holds it.
+- **A deletion** is the player's own deletion, done for them: everything
+  under §"Accounts" goes the same way, in the same statement.
+- **Ending a game** keeps nothing about anybody: the reason is sent to the
+  players at that table and is not stored.
+- **Audit:** the gateway's log (`baylee_gateway::audit`) and the feedback
+  service's `feedback_audit` name the admin, the act, the account's or
+  game's id and a ban's end; never a password or a reason. `feedback_audit`
+  is kept indefinitely, like the rest of it (below); the log as §"Logs"
+  says.
 
 ## Confirmation mail
 

@@ -2279,6 +2279,10 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/sets/{code}` | one set's cards; `404` for a code the ledger has not, `400` for one that is not letters and digits |
 | `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
+| `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
+| `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
+| `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
+| `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
 | `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
 | `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
@@ -2423,6 +2427,107 @@ confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
   "complete", "seat", "chairs": [{"seat", "player", "guest"}]}]`, a chair
   no account holds, the house's or a deleted account's, with `player`
   `null`).
+
+### Acting on an account (beta.8)
+
+The owner asked (12.10.2026) that an admin can reset a player's password,
+ban or delete a player or guest, from the console and not a shell
+(`crates/baylee-gateway/src/moderation.rs`; the columns are migration
+`m20261012_000016_account_moderation`). Finding the player is the search
+`GET /admin/accounts?q=` already does (owner, 09.10.2026); nothing new
+lists people. Every act is a change, so it names its admin
+(`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
+`action=account.password.reset`, `account.ban` (with `until` and whether
+it is a guest), `account.unban`, `account.delete` or `game.close`, the
+admin and the account's or game's id; **never a password, a token or a
+ban's reason**, which may name a person. A domain refusal is `400`, `404`
+or `409`, never `403`, which the feedback service reads as its token
+refused.
+
+- **Reset** (`POST /admin/accounts/{id}/password`, no body): a registered
+  account gets a random password, 80 bits as `XXXX-XXXX-XXXX-XXXX` in
+  Crockford's alphabet, answered once as `200 {"password"}` for the admin
+  to hand on, and stored only as its Argon2id hash. The account's
+  `must_change_password` is set and every session it has is deleted in the
+  same transaction; its lobby sockets close (`departed`). A chair it holds
+  is not touched: a seat runs on its seat token. A guest has no password:
+  `409`; no account: `404`.
+- **Choosing the new one** (`POST /auth/password {username, password,
+  new_password}`, public): proves the password as a sign-in does (the same
+  eight tries per account, the same `401`), then checks `new_password` by
+  the registration rule (`400 invalid password`) and that it differs from
+  the one given (`400`). It stores the new hash, clears the flag, deletes
+  every session of the account, closes its lobby sockets, and answers as
+  `POST /auth/login` does (`{token, expires_at, username, terms_stale?}`).
+  Any account may use it to change its password; one that was reset must.
+- **Sign-in with a reset password**: `POST /auth/login` answers `403
+  {"error": "Your password was reset. Choose a new one to sign in.",
+  "password_change": true}` and makes no session. A session that slipped
+  in between (resolved with the flag set) is refused `401`.
+- **Ban** (`PUT /admin/accounts/{id}/ban {"reason", "until"?}`): `reason`
+  1–500 characters, one line; `until` an RFC 3339 moment in the future,
+  absent or `null` for good (`400` otherwise). Replaces any ban the
+  account had; `200 {"ban": {"reason", "until"}}`, `404` for no account.
+  The account leaves every room and game, its sockets close and its
+  unredeemed chair tickets are spent, as a deleted account's are
+  (`account::forget_accounts`): a running game plays on, the house
+  taking the chair when the reconnect window runs out. A registered
+  account's sessions are deleted with the ban. **A guest keeps its
+  session**, which is the guest: it is refused while the ban holds and is
+  not renewed, so the guest is purged when it lapses (30 days) unless the
+  ban ends first. A guest can of course come back as a new guest; a ban is
+  for accounts.
+- **What a banned player is told**: their sign-in (after the right
+  password, so the reason reaches only them), and every request of a
+  banned guest's session, `POST /ws-ticket` and the lobby socket included,
+  answer `403 {"error": "This account is banned until
+  2026-10-20T18:00:00Z. Reason: …", "ban": {"reason", "until"}}` (`until`
+  `null` and "This account is banned. Reason: …" for good). The sentence is
+  English for a client that reads only `error`; the client says the parts
+  in its own language (`client_core::lobby::ban_sentence`). A ban whose end
+  has passed is no ban, read so at each request; it stays on the row until
+  the next ban or an unban.
+- **Unban** (`DELETE /admin/accounts/{id}/ban`): `204`, `404` for an
+  account with no ban (lapsed counts as one).
+- **Delete** (`DELETE /admin/accounts/{id}`): `account::depart` with
+  `store::delete_account`, exactly the player's own `DELETE /account`
+  (§"Deleting an account (#292)": the cascade, the pictures nobody claims,
+  the chairs and sockets); `204`, `404` for none.
+- **In the console's rows**: `GET /admin/accounts` and `/admin/accounts/{id}`
+  carry `reset_pending` (the account's `must_change_password`: named so
+  that no field of the console's answers says "password") and `ban`
+  (`{"reason", "until", "at", "by"}`,
+  only while in force, else `null`).
+
+`PROTOCOL_VERSION` and `VIEW_VERSION` do not move for this: an HTTP route,
+a refusal with additive fields, and a column, as for chair tickets. A
+client from before it shows the `error` sentence of either refusal, which
+says what happened in English; it cannot choose a new password, and the
+owner hands that player a new client.
+
+### Acting on a game (beta.8)
+
+`POST /admin/games/{id}/close {"reason"}` (1–200 characters, one line)
+ends a running game the way games end, through its engine and never by a
+process killed by hand: `404` for no such table, `409` for one that is
+not being played, else `202`. The gateway sends the game's engine
+`CloseGame { game_id, reason }` (envelope field 38, engine link only). The
+engine (`EngineRunner::close`) sends every attached seat and the
+spectators `GameClosed { reason }` (field 39), the rest of the record as
+its last piece, and `GameEnded` with no winners and the reason `closed by
+an admin`; the gateway then ends the game and stops the engine as for any
+other end. The rules are not asked: nobody won or lost, nothing is
+journaled, and the record ends where the game was closed. An engine that
+has not ended the game after 10 seconds (one from before `CloseGame`
+passes over it), or a game with no engine attached, is ended by the
+gateway itself, as a lost engine's is.
+
+The client shows `GameClosed` on the end screen: "The game was ended",
+and under it "An admin ended it: <reason>" (`HostMessage::Closed`), with
+the end screen's way back to the lobby. `PROTOCOL_VERSION` does not move,
+as it did not for `AiLog`: a client or engine from before these messages
+decodes an envelope with no message and passes over it (that client sees
+its table's socket go quiet and the game marked over in the lobby).
 
 ## Hosted language-model seats (beta.7)
 
@@ -2771,7 +2876,8 @@ from a curl recipe into a contract:
 | sign up | `POST /auth/register` `{username, display_name, password, lang, invite_key?}` | `{"ok":true}`; `409` for a taken username; `403` for a missing or refused key on a closed beta |
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
-| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
+| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}`; `403` with `ban` for a banned account, with `password_change: true` after an admin's reset (§"Acting on an account") |
+| choose a new password | `POST /auth/password` `{username, password, new_password}` | as a sign-in; what an account an admin reset must do first |
 | play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |

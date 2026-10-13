@@ -534,7 +534,8 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                 HostMessage::Curtain => duel.curtain_up = true,
                 HostMessage::Preparing { .. }
                 | HostMessage::AiLog(_)
-                | HostMessage::Spectators(_) => {}
+                | HostMessage::Spectators(_)
+                | HostMessage::Closed(_) => {}
             }
         }
         match duel.interaction.as_ref().map(Interaction::pending) {

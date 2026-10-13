@@ -156,6 +156,8 @@ reaches the built page.
     with its cores and memory; a value the host could not say (anything
     off `/proc` on a Mac) is a dash. Every 5 seconds. Under it the pool's
     progress in short, with the sets being worked on.
+    A running table has End game (`src/admin/Moderation.tsx`, beta.8): a
+    reason the players are shown, asked in a dialog.
   - Sets (`/admin/sets`, `src/admin/Sets.tsx`): how far this build is
     through each set, from the gateway's ledger and compiled pool, in
     release order (sortable by size, by completeness, by what is left;
@@ -168,7 +170,11 @@ reaches the built page.
     registered or guests, online only, five orders, 50 a page, all in the
     query string; a table on a desktop, cards on a phone. One account
     (`/admin/accounts/{id}`): its facts, where it is now, its decks and
-    latest games.
+    latest games, and the acts on it (beta.8, `src/admin/Moderation.tsx`,
+    `docs/feedback.md` §"The admin console"): reset its password (shown
+    once, with Copy), ban it (a reason and an end, or permanently) or lift
+    the ban, delete it (its handle typed to confirm). Each asks first; a
+    banned account is marked in the list and on its page.
   - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
     and, where the browser can, Share), listed and filtered by state
     (never the key, which is kept only as a hash), revoked after a second

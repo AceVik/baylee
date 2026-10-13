@@ -28,6 +28,7 @@ pub mod alive;
 pub mod console;
 pub mod direct;
 pub mod migration;
+pub mod moderation;
 pub mod ui;
 pub mod web;
 

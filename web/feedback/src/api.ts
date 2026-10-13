@@ -351,6 +351,19 @@ export interface AccountRow {
   in_lobby: boolean;
   playing: boolean;
   online: boolean;
+  /** An admin reset its password and it has not chosen its own yet. */
+  reset_pending?: boolean;
+  /** The ban in force, if one is. */
+  ban?: AccountBan | null;
+}
+
+/** A ban in force on an account (`docs/protocol.md` §"Acting on an account"). */
+export interface AccountBan {
+  reason: string;
+  /** RFC 3339, UTC; null for good. */
+  until: string | null;
+  at: string;
+  by: string;
 }
 
 export interface AccountPage {
@@ -574,7 +587,7 @@ export function onSignedOut(listener: Listener): () => void {
   };
 }
 
-async function request(
+export async function request(
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,

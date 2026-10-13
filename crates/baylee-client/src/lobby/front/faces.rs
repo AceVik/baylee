@@ -790,6 +790,45 @@ pub(super) fn guest(commands: &mut Commands, card: Entity, state: &LobbyState, k
     }
 }
 
+/// The new-password face (beta.8): an admin reset the password, and the
+/// player chooses their own, twice, before anything else. `‹ Back` gives
+/// up and returns to the sign-in face.
+pub(super) fn new_password(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let head = face_head(commands, state, kit, Phrase::ChooseNewPassword.text(lang));
+    let line = rule(commands);
+    let why = surfaces::prose(commands, kit, Phrase::PasswordWasReset.text(lang), true);
+    commands.entity(card).add_children(&[head, line, why]);
+    let password = field(
+        commands,
+        state,
+        kit,
+        Field::Password,
+        Phrase::NewPassword,
+        None,
+        None,
+        Some("eye"),
+    );
+    let again = field(
+        commands,
+        state,
+        kit,
+        Field::PasswordAgain,
+        Phrase::PasswordAgain,
+        None,
+        None,
+        Some("eye-again"),
+    );
+    let passwords = pair(commands, kit, password, Some(again));
+    commands.entity(card).add_child(passwords);
+    let go = submit(commands, state, kit, Phrase::SetNewPassword.text(lang));
+    commands.entity(card).add_child(go);
+    if let Some(said) = status(commands, state, kit) {
+        commands.entity(card).add_child(said);
+    }
+}
+
 /// The gateway picker: the saved gateways, the address with Check / Save
 /// beside it, and the status line.
 pub(super) fn gateway(

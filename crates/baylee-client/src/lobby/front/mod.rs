@@ -124,6 +124,8 @@ pub(super) enum Panel {
     Create,
     /// Play there as a guest.
     Guest,
+    /// Choose a new password there, after an admin reset it (beta.8).
+    NewPassword,
 }
 
 impl Panel {
@@ -134,6 +136,7 @@ impl Panel {
                 baylee_client_core::lobby::Face::SignIn => Self::SignIn,
                 baylee_client_core::lobby::Face::Create => Self::Create,
                 baylee_client_core::lobby::Face::Guest => Self::Guest,
+                baylee_client_core::lobby::Face::NewPassword => Self::NewPassword,
             }
         } else {
             Self::Gateway
@@ -148,6 +151,7 @@ impl Panel {
             Self::SignIn => 10,
             Self::Create => 11,
             Self::Guest => 12,
+            Self::NewPassword => 13,
         }
     }
 }
@@ -792,6 +796,7 @@ fn card(
         Panel::SignIn => faces::sign_in(commands, card, state, kit),
         Panel::Create => faces::create(commands, card, state, kit),
         Panel::Guest => faces::guest(commands, card, state, kit),
+        Panel::NewPassword => faces::new_password(commands, card, state, kit),
     }
     let shade = commands
         .spawn((

@@ -21,6 +21,7 @@ mod invite;
 mod lobby;
 mod mail;
 mod metrics;
+mod moderation;
 mod namebook;
 mod pool;
 mod presence;
@@ -778,6 +779,14 @@ struct ErrorBody {
     /// file is a fixed sentence, and making them all allocate to serve the
     /// handful that cannot would be paying for the exception on every path.
     error: std::borrow::Cow<'static, str>,
+    /// The ban an account is refused with (beta.8): only on a `403` from a
+    /// sign-in or a session of a banned account (`moderation.rs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ban: Option<moderation::BanBody>,
+    /// The account must choose a new password first (beta.8): only on the
+    /// `403` a sign-in with an admin's reset password is answered.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    password_change: bool,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -785,6 +794,8 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
         status,
         Json(ErrorBody {
             error: std::borrow::Cow::Borrowed(message),
+            ban: None,
+            password_change: false,
         }),
     )
 }
@@ -798,6 +809,8 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
         status,
         Json(ErrorBody {
             error: std::borrow::Cow::Owned(message),
+            ban: None,
+            password_change: false,
         }),
     )
 }
@@ -926,10 +939,12 @@ async fn authed_session(
 ) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
     let token = bearer_token(headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    store::resolve_token(&state.db, token, auth::now_secs())
+    let session = store::resolve_token(&state.db, token, auth::now_secs())
         .await
         .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
+    moderation::admit(&session)?;
+    Ok(session)
 }
 
 /// A database that refused, as an answer a client can act on.

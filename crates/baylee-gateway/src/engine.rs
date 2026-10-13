@@ -547,7 +547,7 @@ fn refusal(why: &str) -> Envelope {
 }
 
 /// Marks a game finished and releases its engine.
-fn end_game(state: &Shared, game_id: &str) {
+pub(crate) fn end_game(state: &Shared, game_id: &str) {
     {
         let mut lobby = state.lobby.lock();
         if let Some(game) = lobby.games.get_mut(game_id) {
