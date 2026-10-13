@@ -1007,10 +1007,13 @@
         }
       ],
       "completed_cards": [
-        "Floral Spuzzem"
+        "Floral Spuzzem",
+        "Dalkovan Encampment",
+        "Den of the Bugbear"
       ],
       "partials_lane_notes": [
-        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
       ]
     },
     {
@@ -1141,11 +1144,13 @@
         "Syphon Soul",
         "Hellfire",
         "Backdraft",
-        "Reverse Polarity"
+        "Reverse Polarity",
+        "Equinox"
       ],
       "partials_lane_notes": [
         "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
-        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
       ]
     },
     {
@@ -1208,10 +1213,12 @@
       "completed_cards": [
         "Valakut Awakening // Valakut Stoneforge",
         "Recall",
-        "Winds of Change"
+        "Winds of Change",
+        "Arboria"
       ],
       "partials_lane_notes": [
-        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
       ]
     },
     {
@@ -1250,10 +1257,13 @@
       ],
       "completed_cards": [
         "Remove Enchantments",
-        "Enchantment Alteration"
+        "Enchantment Alteration",
+        "Jihad",
+        "Invoke Prejudice"
       ],
       "partials_lane_notes": [
-        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
       ]
     },
     {
@@ -1339,7 +1349,7 @@
     {
       "batch": 64,
       "title": "Special payment procedures",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Whir of Invention",
@@ -1357,6 +1367,13 @@
           "name": "Jandor's Ring",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_6/jandor_s_ring.rs"
         }
+      ],
+      "completed_cards": [
+        "Whir of Invention",
+        "Archway of Innovation"
+      ],
+      "partials_lane_notes": [
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
       ]
     },
     {

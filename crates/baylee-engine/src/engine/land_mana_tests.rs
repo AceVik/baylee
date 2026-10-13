@@ -1412,8 +1412,9 @@ const LANDS: Bounds = Bounds {
     // (8703073ae) were merged into the partials lane, which counted at most
     // 1017 before. 1028 measured 2026-10-13 after wave 1 pair B's lands went
     // Implemented. 1029 after wave 2 pair D's Contested War Zone went
-    // Implemented.
-    promises: 700..=1029,
+    // Implemented; 1032 after wave 3 pair E's Den of the Bugbear, Dalkovan
+    // Encampment and Archway of Innovation.
+    promises: 700..=1032,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

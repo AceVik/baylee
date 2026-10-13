@@ -4479,3 +4479,18 @@ land type"; both are convention tests that fire on a first try.
 - Whir of Invention's mana value on the stack was X-less: `layers::needs_projection` skipped a
   stack object with X that no effect touched (CR 202.3e). A rule-test with a synthetic effect on
   the spell had hidden it; the card test without one found it.
+
+### Partials lane wave 3: pair E (8 cards) and the world rule (2026-10-13)
+
+- Pair E (Den of the Bugbear, Dalkovan Encampment, Whir of Invention, Archway of Innovation,
+  Arboria, Jihad, Equinox, Invoke Prejudice) is Implemented: 61 tests, 13 of 13 ability mutants
+  killed, no card-side finding. The review's test gaps were each a missing negative: "whenever
+  *you* attack" needs an attack by another player that does not fire; "as long as …" needs the
+  condition seen false while the source is still there (a state trigger waits on the stack,
+  CR 603.8, which is the window).
+- The engine findings were older than the pair and only a card reading its rulings exposed them:
+  the world rule (CR 704.5k) was missing for all twelve world cards in the pool (fixed for beta.7
+  on its own branch); "would destroy" ignored a modal spell's chosen mode (CR 700.2a); and "put a
+  permanent onto the battlefield" was credited to the player it entered under instead of the
+  player who put it (Arboria's ruling) — now the event's putter (`entry::Entries::putter`).
+- Each flipped land moves the land census ceiling (1032 now); read the count off the failure.
