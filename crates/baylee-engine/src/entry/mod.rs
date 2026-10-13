@@ -167,6 +167,12 @@ impl Entries {
     pub(crate) fn set_putter(&mut self, player: PlayerId) {
         self.putter = Some(player);
     }
+    /// The player putting permanents onto the battlefield in the current
+    /// event: the controller of the resolving spell or ability, the player
+    /// playing a land. `None` where no event named one.
+    pub(crate) const fn putter(&self) -> Option<PlayerId> {
+        self.putter
+    }
     pub(crate) fn waiting(&self) -> bool {
         self.question.is_some()
     }

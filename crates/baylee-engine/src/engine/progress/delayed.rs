@@ -306,6 +306,10 @@ impl<L: CardLookup> Engine<L> {
                     {
                         obj.set_controller(owner);
                     }
+                    // The delayed trigger's controller puts it there.
+                    self.state
+                        .entries
+                        .begin_event(self.state.journal.last_seq(), Some(controller));
                     let _ = self.state.move_object(
                         card,
                         ZoneLocation::Battlefield,
