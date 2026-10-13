@@ -45,6 +45,8 @@ const CALTROPS: u32 = 7312;
 const WALL: u32 = 7313;
 const FRAIL_WALL: u32 = 7314;
 const DOOM: u32 = 7315;
+const AUTHORITY: u32 = 7316;
+const MUTE: u32 = 7317;
 
 static PARTNERS: Filter = Filter::Or(&[Filter::BlockingSource, Filter::BlockedBySource]);
 
@@ -168,6 +170,55 @@ static DOOM_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
     targets = Some(TargetReq::one(TargetSpec::Object(&WALLS)))
 )];
 
+/// Infinite Authority's shape: "Whenever enchanted creature blocks or
+/// becomes blocked by a creature with toughness 3 or less, destroy the other
+/// creature at end of combat. At the beginning of the next end step, if that
+/// creature was destroyed this way, put a +1/+1 counter on the first
+/// creature."
+static AUTHORITY_ABILITIES: &[AbilityDef] = &[
+    baylee_cards_dsl::spell!(
+        &[Effect::AttachSelf {
+            target: TargetSpec::Object(&Filter::CREATURE)
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    ),
+    baylee_cards_dsl::triggered!(
+        Trigger::AttachedBlocksOrBecomesBlockedBy(&Filter::ToughnessAtMost(3)),
+        &[Effect::AtEndOfCombat {
+            about: TargetSpec::EventObject,
+            effects: &[
+                Effect::destroy(TargetSpec::EventObject),
+                Effect::IfCondition {
+                    condition: baylee_cards_dsl::Condition::AmountAtLeast(
+                        baylee_cards_dsl::Amount::ThisWay(baylee_cards_dsl::ThisWay::Died(
+                            &Filter::Any
+                        )),
+                        1
+                    ),
+                    then: &[Effect::AtNextEndStepAboutSubject {
+                        effects: &[Effect::AddCounterFilter {
+                            filter: &Filter::Reference,
+                            kind: baylee_cards_dsl::CounterKind::P1P1,
+                            amount: baylee_cards_dsl::Amount::Fixed(1),
+                        }],
+                    }],
+                    otherwise: &[],
+                },
+            ],
+        }]
+    ),
+];
+
+/// "{0}: Target creature loses all abilities until end of turn."
+static MUTE_ABILITIES: &[AbilityDef] = &[free(
+    &[Effect::continuous(
+        &Filter::Reference,
+        Modifier::LoseAllAbilities,
+        Duration::UntilEndOfTurn,
+    )],
+    Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+)];
+
 #[allow(clippy::too_many_lines)] // One entry per card the rules here need.
 fn cards() -> Vec<&'static CardDef> {
     vec![
@@ -269,6 +320,21 @@ fn cards() -> Vec<&'static CardDef> {
             face("Trinket", "{0}", TypeSet::ARTIFACT),
             KeywordSet::EMPTY,
             &[],
+        ),
+        card(
+            AUTHORITY,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::enchantment::AURA],
+                ..face("Authority", "{0}", TypeSet::ENCHANTMENT)
+            },
+            KeywordSet::EMPTY,
+            AUTHORITY_ABILITIES,
+        ),
+        card(
+            MUTE,
+            face("Mute", "{0}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            MUTE_ABILITIES,
         ),
         card(
             DOOM_ENGINE,
@@ -761,4 +827,106 @@ fn a_dead_walls_blocks_are_still_read_at_end_of_combat() {
         Some(crate::zone::Zone::Graveyard),
         "the creature it blocked is destroyed at end of combat"
     );
+}
+
+/// A trigger of an Aura about the creature it enchants is the Aura's own
+/// ability (CR 113.1a): its controller is the Aura's (CR 603.3a), and the
+/// creature losing all its abilities does not stop it. My Authority
+/// enchants their Bystander (2/2); it attacks me and my Frail Wall (0/3,
+/// toughness 3) blocks it and survives the combat damage. The trigger is
+/// mine, the Wall is destroyed at end of combat, and at the end step the
+/// counter goes on the Bystander, "the first creature", whether or not it
+/// was muted. On their Ogre, which does not attack, the Authority triggers
+/// nothing.
+#[test]
+fn an_aura_s_trigger_about_its_creature_is_the_aura_s_own() {
+    for (muted, enchant_attacker) in [(false, true), (true, true), (false, false)] {
+        let mut engine = bench(
+            7316,
+            cards(),
+            [
+                Seat::with(&[MUTE, FRAIL_WALL]).holding(&[AUTHORITY]),
+                Seat::with(&[OGRE, BYSTANDER]),
+            ],
+        );
+        let mute = the(&engine, ZoneLocation::Battlefield, MUTE);
+        let wall = the(&engine, ZoneLocation::Battlefield, FRAIL_WALL);
+        let ogre = the(&engine, ZoneLocation::Battlefield, OGRE);
+        let attacker = the(&engine, ZoneLocation::Battlefield, BYSTANDER);
+        to_main(&mut engine, me());
+        let card = the(&engine, ZoneLocation::Hand(me()), AUTHORITY);
+        engine
+            .apply(me(), PlayerAction::CastSpell { card })
+            .expect("the Aura is cast");
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseTargets {
+                    objects: vec![if enchant_attacker { attacker } else { ogre }],
+                    players: vec![],
+                },
+            )
+            .expect("their creature is a legal target");
+        settle(&mut engine, me());
+        let authority = the(&engine, ZoneLocation::Battlefield, AUTHORITY);
+        to_main(&mut engine, them());
+        if muted {
+            walk_until(&mut engine, |e| {
+                e.state().turn.active == them()
+                    && matches!(e.pending(), Pending::Priority { player, .. } if *player == me())
+            });
+            activate_at(&mut engine, me(), mute, 0, attacker);
+            settle(&mut engine, me());
+            assert!(
+                engine
+                    .state()
+                    .object(attacker)
+                    .is_some_and(|o| o.characteristics().abilities_lost.is_some()),
+                "the attacker has lost its abilities"
+            );
+        }
+        attack(&mut engine, them(), &[attacker], me());
+        block(&mut engine, me(), &[(wall, attacker)]);
+        let fired = engine.journal().entries().iter().any(|e| {
+            matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered { source, .. } if source == authority
+            )
+        });
+        assert_eq!(fired, enchant_attacker, "muted {muted}: the trigger");
+        if !enchant_attacker {
+            walk_until(&mut engine, |e| e.state().turn.active == me());
+            assert_eq!(zone_of(&engine, wall), Some(crate::zone::Zone::Battlefield));
+            continue;
+        }
+        walk_until(&mut engine, |e| !e.state().zones.stack_is_empty());
+        let top = *engine
+            .state()
+            .zones
+            .list(ZoneLocation::Stack)
+            .last()
+            .expect("the trigger is on the stack");
+        assert_eq!(
+            engine.state().object(top).map(|o| o.controller),
+            Some(me()),
+            "the Aura's controller controls its trigger (CR 603.3a)"
+        );
+        walk_until(&mut engine, |e| {
+            e.state().turn.step == crate::turn::Step::End
+        });
+        assert_eq!(
+            zone_of(&engine, wall),
+            Some(crate::zone::Zone::Graveyard),
+            "the other creature was destroyed at end of combat"
+        );
+        walk_until(&mut engine, |e| e.state().turn.active == me());
+        assert_eq!(
+            engine
+                .state()
+                .object(attacker)
+                .map(|o| o.counters.get(crate::object::CounterKind::P1P1)),
+            Some(1),
+            "muted {muted}: the counter is on the first creature"
+        );
+    }
 }

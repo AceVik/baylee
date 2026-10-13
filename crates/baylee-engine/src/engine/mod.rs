@@ -732,13 +732,14 @@ enum PlanKind {
         /// one opportunity at the event (CR 614.5).
         declined: Vec<ObjectId>,
     },
-    /// The draw step's draw, offered to one of the active player's skip
-    /// replacements (`ReplacementRule::MaySkipDrawStepDraw`, CR 614.10).
+    /// A question about a waiting draw outside any resolution (the draw
+    /// step's own, CR 504.1, or one queued where nothing could ask): a
+    /// skip, a dredge, an order, a discard or a Lamp's bottom
+    /// (`state::draw_offer`). What the draw has been through is
+    /// `GameState::draw_front`.
     SkipDraw {
-        /// The permanent whose replacement is offered.
+        /// The question asked.
         source: crate::state::DrawReplacement,
-        /// Those already declined for this draw (CR 614.5).
-        declined: Vec<ObjectId>,
     },
     /// Target choice for a synthetic trigger (granted triggered ability).
     SyntheticTriggerTarget {
@@ -1215,6 +1216,9 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(crate::state::structural_fingerprint(
                     &trigger.related_objects,
                 ));
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&trigger.event_subject));
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .abilities

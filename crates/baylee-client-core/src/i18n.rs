@@ -90,6 +90,10 @@ messages! {
     ChooseEntryOrder { en: "Which permanent’s entry replacements will you apply first?", de: "Für welche bleibende Karte möchtest du die Eintrittseffekte zuerst anwenden?" },
     /// Choice among applicable replacements of the same battlefield arrival.
     ChooseEntryReplacement { en: "Which entry replacement will you apply next?", de: "Welchen Ersatzeffekt möchtest du als Nächstes anwenden?" },
+    /// Dredge (CR 702.52a), asked at each card draw it could replace: the cards in the graveyard are the menu, naming none draws. The German is the keyword as the German printings name it ("Ausgraben").
+    ChooseDredge { en: "Dredge a card instead of drawing? Choose one from your graveyard, or confirm without a selection to draw.", de: "Statt zu ziehen eine Karte ausgraben? Wähle sie aus deinem Friedhof oder bestätige ohne Auswahl, um normal zu ziehen." },
+    /// Choice among the replacements that could modify one card draw (CR 616.1): dredge cards, Chains of Mephistopheles, Aladdin's Lamp, Ring of Ma'rûf.
+    ChooseDrawReplacement { en: "Which replacement will you apply to this draw next?", de: "Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?" },
     /// Full sacrifice needed before the announced card can enter the battlefield.
     SacrificeToEnter { en: "Sacrifice {0} eligible permanents so this card can enter?", de: "{0} passende bleibende Karten opfern, damit diese Karte ins Spiel kommt?" },
     /// Number of permanents to sacrifice as an object enters.

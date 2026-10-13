@@ -753,6 +753,18 @@ pub enum ChoicePrompt {
     PutBackOnTop,
     /// A wish: cards from outside the game, or face-up in your exile.
     Wish,
+    /// Dredge (CR 702.52a): the cards in the drawing player's graveyard
+    /// whose dredge could replace the draw at hand. Naming one mills its
+    /// count and returns it to their hand instead of drawing; naming none
+    /// leaves the draw to be made (`min` 0, `max` 1).
+    Dredge,
+    /// Which replacement applies to the draw at hand next, when more than
+    /// one could and the order matters (CR 616.1, 616.1e). The menu holds
+    /// each one's source: a dredge card in the graveyard, a Chains of
+    /// Mephistopheles on the battlefield, the Aladdin's Lamp or Ring of
+    /// Ma'rûf whose effect waits for the draw. Exactly one is named; the
+    /// draw it leaves is asked about again (CR 616.1f).
+    DrawReplacement,
     /// Delve: exile cards from your graveyard, each paying for {1}
     /// (CR 702.66). Not a search and not a discard — the pile is offered so
     /// the caster can spend it.

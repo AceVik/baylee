@@ -23,7 +23,10 @@ pub mod tape;
 /// Version 29 preserves full-width explicit life-payment amounts.
 /// Version 30 adds `PlayerAction::PayWindow`, a payment window paid in one
 /// all-or-nothing action.
-pub const PROTOCOL_VERSION: u32 = 30;
+/// Version 31 asks about draws: `ChoicePrompt::Dredge` and
+/// `ChoicePrompt::DrawReplacement` (dredge, Chains of Mephistopheles,
+/// Aladdin's Lamp).
+pub const PROTOCOL_VERSION: u32 = 31;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

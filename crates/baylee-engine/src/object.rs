@@ -796,6 +796,10 @@ impl Status {
 pub enum Rider {
     /// One exact exiled incarnation remembered by a delayed return on the stack.
     DelayedReturnObject(baylee_core::ids::DamageSourceRef),
+    /// The creature a triggered ability on the stack is about besides its
+    /// event object (`PendingTrigger::event_subject`): Infinite Authority's
+    /// "the first creature".
+    EventSubject(baylee_core::ids::DamageSourceRef),
     /// Face-down cast whose resolved permanent turns face up before tap/damage.
     Masked,
     /// Incarnation of the graveyard card whose printed ability triggered.
@@ -1026,6 +1030,7 @@ impl Rider {
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
+            | Self::EventSubject(_)
             | Self::GrantedActivated
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)

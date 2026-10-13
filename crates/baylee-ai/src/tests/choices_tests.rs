@@ -400,6 +400,73 @@ fn a_price_that_may_be_declined_is_paid_and_an_activation_cost_is_not_overpaid()
     );
 }
 
+/// A card draw (K12): dredge is declined by every profile, and the order of
+/// several replacements gets exactly one source back, the first on the menu
+/// that is no dredge card. Neither may fall to the `max <= 2` default, which
+/// named the first option for both: it dredged every draw it could, and
+/// took the menu's head over a mandatory replacement.
+#[test]
+fn a_draw_dredge_could_replace_is_drawn_and_the_replacement_order_is_answered_once() {
+    use baylee_engine::choice::ChoicePrompt;
+    let me = PlayerId::new(0);
+    let v = view(
+        0,
+        &[20, 20],
+        vec![permanent(obj(1), me, 0), permanent(obj(2), me, 0)],
+    );
+    for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+        let agent = HeuristicAgent::new(profile);
+        let ask = |options: Vec<ObjectId>, min, max, prompt| {
+            agent.act(
+                &v,
+                &Pending::ChooseCards {
+                    player: v.seat,
+                    options,
+                    min,
+                    max,
+                    prompt,
+                    total: None,
+                },
+            )
+        };
+        assert_eq!(
+            ask(vec![obj(1), obj(2)], 0, 1, ChoicePrompt::Dredge),
+            PlayerAction::ChooseObjects { objects: vec![] },
+            "{profile:?} dredged a draw it was free to make"
+        );
+        // Exactly one, the first on the menu while no card on it is dredge.
+        assert_eq!(
+            ask(vec![obj(2), obj(1)], 1, 1, ChoicePrompt::DrawReplacement),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2)]
+            },
+            "{profile:?}"
+        );
+        assert_eq!(
+            ask(vec![obj(1)], 1, 1, ChoicePrompt::DrawReplacement),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            },
+            "{profile:?}"
+        );
+    }
+}
+
+/// What the order of replacements tells a dredge card by: its printed rules.
+/// No pool card has the line yet, so the reader is tested on the rules a
+/// card would print.
+#[test]
+fn dredge_is_read_off_a_cards_printed_rules() {
+    use baylee_cards_dsl::ReplacementRule;
+    assert!(policy::has_dredge(&[AbilityDef::Replacement(
+        ReplacementRule::Dredge(4)
+    )]));
+    assert!(!policy::has_dredge(&[AbilityDef::Replacement(
+        ReplacementRule::MaySkipDrawStepDraw
+    )]));
+    assert!(!policy::has_dredge(&[]));
+}
+
 #[test]
 fn balance_keeps_the_valuable_permanent_or_castable_hand_card() {
     use baylee_engine::choice::ChoicePrompt;

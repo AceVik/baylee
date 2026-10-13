@@ -41,6 +41,8 @@ impl GameState {
             damage_deaths,
             pending_miracle,
             draws_to_offer,
+            draw_front,
+            draws_replaced,
             discard_answers,
             discards_on_top,
             extra_turns,
@@ -188,6 +190,8 @@ impl GameState {
         }
         pending_miracle.hash(&mut h);
         draws_to_offer.hash(&mut h);
+        draw_front.hash(&mut h);
+        draws_replaced.hash(&mut h);
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);
@@ -1644,6 +1648,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         match rider {
             Rider::DelayedReturnObject(reference) => {
                 h.u8(73);
+                reference.hash(h);
+            }
+            Rider::EventSubject(reference) => {
+                h.u8(78);
                 reference.hash(h);
             }
             Rider::Linked { host, until } => {

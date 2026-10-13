@@ -1103,6 +1103,17 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// [`Self::AtNextEndStep`] about the trigger's subject instead of its
+    /// target or source: the creature a `Trigger::AttachedBlocksOrBecomesBlockedBy`
+    /// was about, carried through the delayed triggers made in between
+    /// (CR 603.7c). In `effects` it is the event object and the reference
+    /// (`Filter::Reference`); one that has left the battlefield since is
+    /// not (CR 400.7). Infinite Authority's "put a +1/+1 counter on the
+    /// first creature".
+    AtNextEndStepAboutSubject {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "When that creature dies this turn, [effects]" (Sandals of Abdallah:
     /// "destroy this artifact"): a delayed triggered ability (CR 603.7)
     /// created as this resolves, with this ability's source and controller
@@ -2231,6 +2242,17 @@ pub enum Effect {
     /// artifact was tapped, and lapses with the turn. Instances are
     /// redundant (CR 702.126c).
     NextSpellThisTurnHasImprovise,
+    /// "The next time you would draw a card this turn, instead look at the
+    /// top X cards of your library, put all but one of them on the bottom
+    /// of your library in a random order, then draw a card" (Aladdin's
+    /// Lamp). A replacement effect of the controller's next draw this turn
+    /// (CR 614.1a, 614.11); `count` is read as the effect resolves and
+    /// kept as `Modifier::NextDrawFromTop`. The draw it ends with is a new
+    /// draw other replacements may modify (the card's ruling).
+    NextDrawLooksAtTop {
+        /// How many cards are looked at (X).
+        count: crate::Amount,
+    },
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.

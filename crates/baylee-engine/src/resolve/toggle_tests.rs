@@ -45,6 +45,7 @@ fn a_toggled_target_becomes_what_it_was_not() {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            draw_watch: None,
             this_way_from: None,
         };
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));

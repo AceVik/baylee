@@ -665,6 +665,7 @@ impl GameState {
                     text: crate::text_changes::TextChangeMap::IDENTITY,
                     object: permanent.object,
                     version: permanent.version,
+                    subject: None,
                 },
             });
         }

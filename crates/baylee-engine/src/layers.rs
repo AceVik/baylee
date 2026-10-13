@@ -1487,6 +1487,7 @@ fn apply(
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
         | Modifier::NextDrawWish
+        | Modifier::NextDrawFromTop { .. }
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::IgnoreOpponentsHexproof

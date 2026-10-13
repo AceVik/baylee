@@ -1,12 +1,11 @@
 //! Ring of Ma'rûf replaces one draw, even from an empty library (CR 614.11).
-use super::{
-    GameState, ObjectId, PlayerId, ZoneLocation, ZonePosition, draw_offer::DrawReplacement,
-};
+use super::{GameState, ObjectId, PlayerId, ZoneLocation, ZonePosition};
 use crate::choice::{ChoicePrompt, Pending};
 use baylee_cards_dsl::Modifier;
 use baylee_core::ids::EffectId;
 
 impl GameState {
+    #[cfg(test)]
     pub(crate) fn draw_wish_effect(
         &self,
         player: PlayerId,
@@ -51,34 +50,32 @@ impl GameState {
         }
     }
 
-    /// Consumes exactly one replacement, without recording a draw or revealing the card.
+    /// Consumes exactly one replacement, without recording a draw or
+    /// revealing the card: the front draw is replaced by `chosen`, if it is
+    /// still a card `player` owns outside the game.
     pub(crate) fn draw_wish_answered(
         &mut self,
-        replacement: DrawReplacement,
+        player: PlayerId,
+        effect: EffectId,
         chosen: Option<ObjectId>,
-    ) -> Option<(PlayerId, DrawReplacement)> {
-        let DrawReplacement::Wish(effect) = replacement else {
-            return self.next_draw_offer();
-        };
-        let &(player, _) = self.draws_to_offer.front()?;
-        if self.effects.iter().any(|entry| {
+    ) {
+        if !self.effects.iter().any(|entry| {
             entry.id == effect
                 && entry.controller == player
                 && entry.modifier == Modifier::NextDrawWish
         }) {
-            self.effects.remove_where(|entry| entry.id == effect);
-            if let Some(card) = chosen.filter(|card| self.draw_wish_options(player).contains(card))
-            {
-                let _ = self.move_object(
-                    card,
-                    ZoneLocation::Hand(player),
-                    ZonePosition::Top,
-                    crate::event::Cause::Effect,
-                );
-            }
-            self.take_front_draw();
+            return;
         }
-        self.next_draw_offer()
+        self.effects.remove_where(|entry| entry.id == effect);
+        if let Some(card) = chosen.filter(|card| self.draw_wish_options(player).contains(card)) {
+            let _ = self.move_object(
+                card,
+                ZoneLocation::Hand(player),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            );
+        }
+        self.take_front_draw();
     }
 }
 
