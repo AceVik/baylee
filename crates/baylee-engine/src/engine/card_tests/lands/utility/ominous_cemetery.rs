@@ -89,3 +89,36 @@ fn cemetery_asks_before_shuffling_a_commander_into_its_library() {
         );
     }
 }
+
+/// "Target creature's owner shuffles it into their library.": only creatures
+/// are on the menu, not the artifact or the land on the same side.
+#[test]
+fn cemetery_offers_creatures_only() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                ominous_cemetery(),
+                index::SOL_RING,
+                index::FOREST,
+                index::GRIZZLY_BEARS,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 5);
+    e.refresh_offer();
+    activate(&mut e, p0, ominous_cemetery(), 1);
+    let options = aim_at(&mut e, p0, bear);
+    assert_eq!(
+        options,
+        vec![bear],
+        "a creature's owner shuffles it: no Sol Ring, no Forest"
+    );
+}
