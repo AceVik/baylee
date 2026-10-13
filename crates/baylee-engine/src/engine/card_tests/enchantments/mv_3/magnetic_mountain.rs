@@ -50,6 +50,18 @@ fn obsianus_golem() -> CardIndex {
     card_index("ac41171e-c454-49e9-9004-c082ae099630")
 }
 
+// {3}{R}, 3/3, no rules text: a red creature with power 3.
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+// {1} artifact: "Creatures with power 3 or greater don't untap during their
+// controllers' untap steps." The way to have a tapped creature that is not
+// blue at the upkeep: it stays tapped through the untap step.
+fn meekstone() -> CardIndex {
+    card_index("5ba73182-30a7-4bad-9cb6-c0feecc2db33")
+}
+
 /// What the Mountain asked at an upkeep.
 struct Asked {
     /// Whose turn it is.
@@ -183,13 +195,14 @@ fn cost(text: &str) -> baylee_core::mana::ManaCost {
     baylee_core::mana::ManaCost::parse(text)
 }
 
-/// A game where the opponent's turn (p1, whose upkeep is first) and then p0's
-/// own come next, with the Mountain on p0's side. p0's first main phase has
-/// been reached and `tapped` p0 creatures and `their_tapped` p1 creatures
-/// have been tapped in it.
+/// A game with the Mountain (when `with_mountain`) and the creatures `mine`
+/// on p0's side, `theirs` on p1's, and `my_lands` / `their_lands` Mountain
+/// lands to pay with. p0's first main phase has been reached, and in it
+/// the creatures named in `tap` (`(p0's, p1's)`, by card) were tapped, so that
+/// the next two untap steps, p1's and then p0's own, are real ones the game
+/// plays.
 ///
-/// Returns the engine and the creatures it tapped, as `(p0's, p1's)` in the
-/// order named.
+/// Returns the engine and the objects it tapped, p0's and p1's.
 fn mountain_game(
     mine: &[CardIndex],
     theirs: &[CardIndex],
@@ -330,11 +343,95 @@ fn magnetic_mountain_blue_creatures_stay_tapped_through_their_controllers_untap_
     }
 }
 
+/// First sentence alone, observed without the second: blue creatures don't
+/// untap during their controllers' untap steps. Whatever the upkeep ability
+/// asks on the way is declined, so only the untap steps are being read: after
+/// p1's turn begins p1's blue creature is still tapped and p1's green one is
+/// not, and after p0's own turn begins the same goes for p0's blue,
+/// blue-and-white and colorless creatures. The control is the board without
+/// the Mountain, where every one of them untaps.
+#[test]
+fn magnetic_mountain_blue_creatures_do_not_untap_and_the_rest_do() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let creatures = [
+        merfolk_of_the_pearl_trident(),
+        kasimir_the_lone_wolf(),
+        grizzly_bears(),
+        obsianus_golem(),
+    ];
+    let their_creatures = [merfolk_of_the_pearl_trident(), grizzly_bears()];
+    for with_mountain in [true, false] {
+        let (mut engine, mine, theirs) = mountain_game(
+            &creatures,
+            &their_creatures,
+            0,
+            0,
+            with_mountain,
+            (&creatures, &their_creatures),
+        );
+        let began = engine.state().turn.number;
+        let decline = |_: &Engine<RegistryLookup>, pending: &Pending| {
+            matches!(
+                pending,
+                Pending::ChooseCards {
+                    prompt: ChoicePrompt::Untap,
+                    ..
+                }
+            )
+            .then(|| PlayerAction::ChooseObjects { objects: vec![] })
+        };
+        kit::drive(
+            &mut engine,
+            |e| {
+                e.state().turn.number > began
+                    && e.state().turn.active == p1
+                    && matches!(e.state().turn.phase, Phase::FirstMain)
+            },
+            decline,
+        );
+        let (their_merfolk, their_bears) = (theirs[0], theirs[1]);
+        assert_eq!(
+            is_tapped(&engine, their_merfolk),
+            with_mountain,
+            "p1's blue creature after p1's untap step (Mountain: {with_mountain})"
+        );
+        assert!(
+            !is_tapped(&engine, their_bears),
+            "p1's green creature untapped in p1's untap step either way"
+        );
+
+        kit::drive(
+            &mut engine,
+            |e| {
+                e.state().turn.number > began + 1
+                    && e.state().turn.active == p0
+                    && matches!(e.state().turn.phase, Phase::FirstMain)
+            },
+            decline,
+        );
+        let (merfolk, kasimir, bears, golem) = (mine[0], mine[1], mine[2], mine[3]);
+        assert_eq!(
+            is_tapped(&engine, merfolk),
+            with_mountain,
+            "p0's mono-blue creature after p0's untap step (Mountain: {with_mountain})"
+        );
+        assert_eq!(
+            is_tapped(&engine, kasimir),
+            with_mountain,
+            "p0's white-and-blue creature: blue, so held down (Mountain: {with_mountain})"
+        );
+        assert!(!is_tapped(&engine, bears), "green: untapped either way");
+        assert!(!is_tapped(&engine, golem), "colorless: untapped either way");
+    }
+}
+
 /// Second sentence, whose and which: "that player" is the player whose upkeep
 /// it is, not the Mountain's controller, and the creatures on offer are the
 /// tapped blue creatures *they* control. At p1's upkeep p1 is asked, and the
 /// menu is p1's tapped blue creature alone — not p0's tapped one, not p1's
-/// untapped blue one. At p0's upkeep p0 is asked about p0's two.
+/// untapped blue one, not p1's tapped red one (a Hill Giant a Meekstone keeps
+/// tapped through the untap step, so that "tapped" and "blue" are told
+/// apart). At p0's upkeep p0 is asked about p0's two.
 #[test]
 fn magnetic_mountain_asks_the_upkeeps_player_about_their_own_tapped_blue_creatures() {
     let (p0, p1) = (kit::P0, kit::P1);
@@ -343,19 +440,28 @@ fn magnetic_mountain_asks_the_upkeeps_player_about_their_own_tapped_blue_creatur
             merfolk_of_the_pearl_trident(),
             kasimir_the_lone_wolf(),
             water_elemental(),
-            grizzly_bears(),
+            hill_giant(),
+            meekstone(),
         ],
-        &[merfolk_of_the_pearl_trident(), water_elemental()],
+        &[
+            merfolk_of_the_pearl_trident(),
+            water_elemental(),
+            hill_giant(),
+        ],
         0,
         0,
         true,
         (
-            &[merfolk_of_the_pearl_trident(), kasimir_the_lone_wolf()],
-            &[merfolk_of_the_pearl_trident()],
+            &[
+                merfolk_of_the_pearl_trident(),
+                kasimir_the_lone_wolf(),
+                hill_giant(),
+            ],
+            &[merfolk_of_the_pearl_trident(), hill_giant()],
         ),
     );
-    let (my_merfolk, my_kasimir) = (mine[0], mine[1]);
-    let their_merfolk = theirs[0];
+    let (my_merfolk, my_kasimir, my_giant) = (mine[0], mine[1], mine[2]);
+    let (their_merfolk, their_giant) = (theirs[0], theirs[1]);
     let my_elemental = on_battlefield(&engine, p0, water_elemental()).expect("p0's elemental");
     let their_elemental = on_battlefield(&engine, p1, water_elemental()).expect("p1's elemental");
 
@@ -365,10 +471,14 @@ fn magnetic_mountain_asks_the_upkeeps_player_about_their_own_tapped_blue_creatur
         ask.player, p1,
         "\"that player\": the one whose upkeep it is, not the Mountain's controller"
     );
+    assert!(
+        is_tapped(&engine, their_giant),
+        "the red creature is tapped at the upkeep (the Meekstone kept it down) ..."
+    );
     assert_eq!(
         ask.options,
         vec![their_merfolk],
-        "p1's tapped blue creature, and only it"
+        "... and is not on the menu: p1's tapped blue creature, and only it"
     );
     assert!(
         !ask.options.contains(&my_merfolk) && !ask.options.contains(&their_elemental),
@@ -384,10 +494,14 @@ fn magnetic_mountain_asks_the_upkeeps_player_about_their_own_tapped_blue_creatur
     let ask = walk_to_the_choice(&mut engine, p0).expect("p0 is asked at their upkeep");
     assert_eq!(ask.active, p0, "p0's upkeep");
     assert_eq!(ask.player, p0);
+    assert!(
+        is_tapped(&engine, my_giant),
+        "p0's red creature is tapped at the upkeep too ..."
+    );
     assert_eq!(
         sorted(ask.options.clone()),
         sorted(vec![my_merfolk, my_kasimir]),
-        "p0's two tapped blue creatures, the multicolored one included"
+        "... and is not on the menu: p0's two tapped blue creatures, the multicolored one included"
     );
     assert!(
         !ask.options.contains(&their_merfolk) && !ask.options.contains(&my_elemental),
@@ -591,14 +705,22 @@ fn magnetic_mountain_lets_the_opponent_pay_four_for_their_own_blue_creature() {
 }
 
 /// With nothing tapped and blue there is nothing to choose, and nothing is
-/// asked: a blue creature that is untapped, and a tapped one that is not
-/// blue (a Golem that untaps in its untap step), are neither of them on
-/// offer. The walk crosses both players' upkeeps.
+/// asked: a blue creature that is untapped, and tapped creatures that are not
+/// blue (a Bears and a Golem the game's own tapping left down), are neither
+/// of them on offer, and the walk crosses both players' upkeeps without a
+/// question. The control is the identical board with the blue Merfolk tapped
+/// as well, where p0 *is* asked at their upkeep and is offered exactly it.
 #[test]
 fn magnetic_mountain_asks_nothing_when_no_blue_creature_is_tapped() {
     let p0 = kit::P0;
+    let board = [
+        water_elemental(),
+        merfolk_of_the_pearl_trident(),
+        grizzly_bears(),
+        obsianus_golem(),
+    ];
     let (mut engine, _, _) = mountain_game(
-        &[water_elemental(), grizzly_bears(), obsianus_golem()],
+        &board,
         &[water_elemental()],
         4,
         4,
@@ -607,7 +729,7 @@ fn magnetic_mountain_asks_nothing_when_no_blue_creature_is_tapped() {
     );
     assert!(
         walk_to_the_choice(&mut engine, p0).is_none(),
-        "p1's upkeep: no tapped blue creature, nothing asked"
+        "no tapped blue creature at either upkeep: nothing asked"
     );
     assert_eq!(
         engine.state().turn.active,
@@ -617,5 +739,21 @@ fn magnetic_mountain_asks_nothing_when_no_blue_creature_is_tapped() {
     assert!(
         engine.state().turn.number > 1,
         "and it is a later turn than the one that started"
+    );
+
+    // The control: tap the blue Merfolk too.
+    let (mut engine, tapped, _) = mountain_game(
+        &board,
+        &[water_elemental()],
+        4,
+        4,
+        true,
+        (&[merfolk_of_the_pearl_trident()], &[]),
+    );
+    let ask = walk_to_the_choice(&mut engine, p0).expect("a tapped blue creature is asked about");
+    assert_eq!((ask.active, ask.player), (p0, p0), "at p0's own upkeep");
+    assert_eq!(
+        ask.options, tapped,
+        "and it is the Merfolk and only the Merfolk"
     );
 }

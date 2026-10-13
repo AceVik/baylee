@@ -178,7 +178,7 @@ fn exile_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
 fn sword_of_the_ages_enters_tapped_and_is_usable_from_the_next_turn() {
     let p0 = kit::P0;
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &vec![forest(); 6])
+        .battlefield(0, &[forest(); 6])
         .hand(0, &[sword_of_the_ages()])
         .start();
     keep_mulligans(&mut engine);

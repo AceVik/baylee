@@ -40,19 +40,28 @@ fn ring_is_offered(engine: &Engine<RegistryLookup>, ring: ObjectId) -> bool {
     !kit::offered(engine, ring).is_empty()
 }
 
-/// Activates the one ability the Ring is offered, paying `{2}` out of exactly
-/// the two lands in `pay_with`, and lets it resolve.
+/// Taps `lands` for mana, which floats in p0's pool until the step ends.
+///
+/// An activation with mana in its cost is on offer only while the pool holds
+/// that mana, so every question "is the Ring on offer?" below is asked with
+/// the mana floating: a Ring that is absent from the offer is then absent for
+/// the card it wants and not for the {2}.
 #[track_caller]
-fn activate_ring(engine: &mut Engine<RegistryLookup>, ring: ObjectId, pay_with: &[ObjectId]) {
-    let p0 = kit::P0;
+fn float(engine: &mut Engine<RegistryLookup>, lands: &[ObjectId]) {
+    tap_mana_where(engine, kit::P0, |id| lands.contains(&id));
+}
+
+/// Activates the one ability the Ring is offered, out of the mana already
+/// floating, and lets it resolve.
+#[track_caller]
+fn activate_ring(engine: &mut Engine<RegistryLookup>, ring: ObjectId) {
     let offered = kit::offered(engine, ring);
     assert_eq!(
         offered.len(),
         1,
         "the Ring prints one ability and it is on offer: {offered:?}"
     );
-    tap_mana_where(engine, p0, |id| pay_with.contains(&id));
-    kit::activate_object(engine, p0, ring, offered[0]);
+    kit::activate_object(engine, kit::P0, ring, offered[0]);
     pass_until(engine, stack_is_empty);
 }
 
@@ -123,12 +132,11 @@ fn after_ancestral_recall(rings: usize) -> (Engine<RegistryLookup>, [ObjectId; 3
 
 /// The sentence: "{2}, {T}, Discard the last card you drew this turn: Draw a
 /// card." The control is the first turn, in which the starting player skips
-/// their draw: with the lands untapped and the Ring untapped it is not on
-/// offer, because nothing has been drawn this turn. In the second turn the
-/// draw step draws the Elves, the Ring is on offer, and activating it discards
-/// *that card* (the same object, and not the Bears that has been in hand
-/// since the opening hand), draws another, taps the Ring and costs exactly
-/// two mana.
+/// their draw: with {2} floating and the Ring untapped it is not on offer,
+/// because nothing has been drawn this turn. In the second turn the draw step
+/// draws the Elves, the Ring is on offer, and activating it discards *that
+/// card* (the same object, and not the Bears that has been in hand since the
+/// opening hand), draws another, taps the Ring and costs exactly two mana.
 #[test]
 fn jandors_ring_discards_the_card_drawn_this_turn_and_draws_a_card() {
     let p0 = kit::P0;
@@ -142,9 +150,10 @@ fn jandors_ring_discards_the_card_drawn_this_turn_and_draws_a_card() {
         Zone::Library,
         "the starting player skipped their draw: the Elves is still on top"
     );
+    float(&mut engine, &forests[..2]);
     assert!(
         !ring_is_offered(&engine, ring),
-        "no card drawn this turn: the Ring's cost cannot be paid, mana or no mana"
+        "no card drawn this turn: the Ring's cost cannot be paid, {{2}} floating or not"
     );
 
     // Turn 3: the draw step draws the Elves.
@@ -155,13 +164,14 @@ fn jandors_ring_discards_the_card_drawn_this_turn_and_draws_a_card() {
         "the draw step drew the Elves"
     );
     let bears = in_hand(&engine, p0, grizzly_bears()).expect("the Bears was never drawn this turn");
+    float(&mut engine, &forests[..2]);
     assert!(
         ring_is_offered(&engine, ring),
-        "a card drawn this turn: on offer"
+        "a card drawn this turn and {{2}} floating: on offer"
     );
     let library_before = kit::library_of(&engine, p0).len();
 
-    activate_ring(&mut engine, ring, &forests[..2]);
+    activate_ring(&mut engine, ring);
 
     assert_eq!(
         kit::zone_of(&engine, elves),
@@ -206,8 +216,8 @@ fn jandors_ring_discards_the_card_drawn_this_turn_and_draws_a_card() {
 }
 
 /// "{2}": the generic cost is part of the sentence. With the card drawn and
-/// the Ring untapped, a Ring with two Forests behind it is on offer and a
-/// Ring with one Forest behind it is not.
+/// the Ring untapped, a Ring with two mana floating is on offer and a Ring
+/// with one is not.
 #[test]
 fn jandors_ring_needs_two_mana() {
     let p0 = kit::P0;
@@ -215,10 +225,18 @@ fn jandors_ring_needs_two_mana() {
         let (mut engine, ring, elves) = ring_and_a_card_on_top(forests);
         kit::walk_to_next_own_main(&mut engine, p0);
         assert_eq!(kit::zone_of(&engine, elves), Zone::Hand, "drawn this turn");
+        let lands = all_on_battlefield(&engine, p0, forest());
+        assert_eq!(lands.len(), forests);
+        float(&mut engine, &lands);
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            u64::try_from(forests).expect("small"),
+            "all the mana there is, floating"
+        );
         assert_eq!(
             ring_is_offered(&engine, ring),
             offered,
-            "{forests} Forest(s) behind a Ring whose card was drawn this turn"
+            "{forests} mana behind a Ring whose card was drawn this turn"
         );
     }
 }
@@ -233,8 +251,9 @@ fn jandors_ring_discards_the_last_of_several_cards_drawn_at_once() {
     let ring = on_battlefield(&engine, p0, jandors_ring()).expect("the Ring");
     let forests = all_on_battlefield(&engine, p0, forest());
 
+    float(&mut engine, &forests[..2]);
     assert!(ring_is_offered(&engine, ring));
-    activate_ring(&mut engine, ring, &forests[..2]);
+    activate_ring(&mut engine, ring);
 
     assert_eq!(
         kit::zone_of(&engine, elves),
@@ -262,21 +281,24 @@ fn jandors_ring_discards_the_last_of_several_cards_drawn_at_once() {
 /// card still in your hand, you can't pay the cost." The Elves is the last
 /// card drawn; the Bears and the Sol Ring, drawn earlier the same turn, are in
 /// hand beside it. While the Elves is in hand the Ring is on offer (the
-/// control, with the mana for it there). Once the Elves is cast the Ring is
-/// *not* on offer, although two other cards drawn this turn are right there:
-/// it is the last card or no card, not "the last one still in hand".
+/// control, with the mana for it floating). Once the Elves is cast the Ring is
+/// *not* on offer, although {2} is still floating and two other cards drawn
+/// this turn are right there: it is the last card or no card, not "the last
+/// one still in hand".
 #[test]
 fn jandors_ring_is_not_offered_once_the_last_card_drawn_has_left_the_hand() {
     let p0 = kit::P0;
     let (mut engine, [bears, sol, elves]) = after_ancestral_recall(1);
     let ring = on_battlefield(&engine, p0, jandors_ring()).expect("the Ring");
     let forests = all_on_battlefield(&engine, p0, forest());
+
+    // Three mana: one {G} for the Elves, {2} for the Ring.
+    float(&mut engine, &forests[..3]);
     assert!(
         ring_is_offered(&engine, ring),
         "control: the last card drawn is in hand, and the mana is there"
     );
 
-    tap_mana_where(&mut engine, p0, |id| id == forests[0]);
     cast_with_floating(&mut engine, p0, llanowar_elves());
     pass_until(&mut engine, stack_is_empty);
     assert_ne!(
@@ -286,12 +308,12 @@ fn jandors_ring_is_not_offered_once_the_last_card_drawn_has_left_the_hand() {
     );
     assert_eq!(kit::zone_of(&engine, bears), Zone::Hand);
     assert_eq!(kit::zone_of(&engine, sol), Zone::Hand);
-    assert!(
-        !is_tapped(&engine, forests[1])
-            && !is_tapped(&engine, forests[2])
-            && !is_tapped(&engine, forests[3]),
-        "three Forests are still untapped: the mana for {{2}} is there"
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the Elves took one of the three: {{2}} is still floating"
     );
+    assert!(!is_tapped(&engine, ring), "the Ring is untapped");
     assert!(
         !ring_is_offered(&engine, ring),
         "the last card drawn is gone from the hand, so the cost cannot be paid \
@@ -311,19 +333,21 @@ fn jandors_ring_second_ring_discards_the_card_the_first_ring_drew() {
     assert_eq!(rings.len(), 2, "two Rings");
     let forests = all_on_battlefield(&engine, p0, forest());
 
-    activate_ring(&mut engine, rings[0], &forests[..2]);
+    float(&mut engine, &forests[..2]);
+    activate_ring(&mut engine, rings[0]);
     assert_eq!(
         kit::zone_of(&engine, elves),
         Zone::Graveyard,
         "the first Ring: the Elves"
     );
     let drawn_by_the_first = in_hand(&engine, p0, forest()).expect("the first Ring drew a Forest");
+
+    float(&mut engine, &forests[2..]);
     assert!(
         ring_is_offered(&engine, rings[1]),
         "the last card drawn is now the Forest the first Ring drew"
     );
-
-    activate_ring(&mut engine, rings[1], &forests[2..]);
+    activate_ring(&mut engine, rings[1]);
     assert_eq!(
         kit::zone_of(&engine, drawn_by_the_first),
         Zone::Graveyard,
@@ -348,15 +372,18 @@ fn jandors_ring_second_ring_discards_the_card_the_first_ring_drew() {
 
 /// "The last card you drew *this turn*": a card drawn in an earlier turn
 /// does not count. The Elves, drawn in p0's turn, is still in p0's hand
-/// during the opponent's turn, with the Ring untapped and the Forests
-/// untapped, and the Ring is not on offer then; in p0's own turn, with the
-/// very same card, it was (the control).
+/// during the opponent's turn, with the Ring untapped and {2} floating again
+/// (p0 taps the Forests when p1's upkeep gives p0 priority), and the Ring is
+/// not on offer then; in p0's own turn, with the very same card, it was (the
+/// control).
 #[test]
 fn jandors_ring_does_not_reach_back_to_a_card_drawn_in_an_earlier_turn() {
     let (p0, p1) = (kit::P0, kit::P1);
     let (mut engine, ring, elves) = ring_and_a_card_on_top(4);
+    let forests = all_on_battlefield(&engine, p0, forest());
     kit::walk_to_next_own_main(&mut engine, p0);
     assert_eq!(kit::zone_of(&engine, elves), Zone::Hand, "drawn this turn");
+    float(&mut engine, &forests[..2]);
     assert!(
         ring_is_offered(&engine, ring),
         "control: in the turn it was drawn, the Ring can discard it"
@@ -372,9 +399,18 @@ fn jandors_ring_does_not_reach_back_to_a_card_drawn_in_an_earlier_turn() {
         "the Elves is still in p0's hand"
     );
     assert!(!is_tapped(&engine, ring), "the Ring is untapped");
-    for land in all_on_battlefield(&engine, p0, forest()) {
-        assert!(!is_tapped(&engine, land), "and so are the Forests");
+    for land in &forests[2..] {
+        assert!(
+            !is_tapped(&engine, *land),
+            "and so are the two Forests that paid for nothing in p0's turn"
+        );
     }
+    float(&mut engine, &forests[2..]);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "{{2}} is floating"
+    );
     assert!(
         !ring_is_offered(&engine, ring),
         "p0 drew nothing in p1's turn: there is no last card drawn this turn"
