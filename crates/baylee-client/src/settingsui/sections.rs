@@ -632,6 +632,16 @@ pub(crate) fn privacy(out: &mut Out, view: &View) {
         Press::Header(crate::lobby::HeaderPress::Report),
     );
     out.row(Row::ReportProblem, report);
+    // The chat's own privacy (beta.8): its sheet, where a social session is.
+    if view.state.chat_header.is_some() {
+        let chat = out.button(
+            "chat-privacy",
+            Phrase::ShellChatPrivacy.text(lang),
+            Weight::Secondary,
+            Press::Header(crate::lobby::HeaderPress::ChatPrivacy),
+        );
+        out.row(Row::ChatPrivacy, chat);
+    }
 }
 
 /// Language models: this machine's seat profiles, or one line where the

@@ -305,12 +305,10 @@ fn sync_door(
     mut drawn: Local<Option<(usize, bool, bool)>>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
-    let shell = lobby.is_some_and(|l| {
-        !matches!(
-            l.lobby.screen(),
-            baylee_client_core::lobby::Screen::SignIn { .. }
-        )
-    });
+    // The header has the friends button; the deck builder keeps its own
+    // header (docs/client.md), so there the button floats bottom-right.
+    let shell =
+        lobby.is_some_and(|l| matches!(l.lobby.screen(), baylee_client_core::lobby::Screen::Build));
     // The panel's head has the friends button while the panel stands.
     let panel = ui.open && !ui.minimised;
     let machine = host

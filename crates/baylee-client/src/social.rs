@@ -472,6 +472,106 @@ pub enum Entry {
     InviteToGroup(String),
 }
 
+/// A count in the lobby header's chat buttons (the chat window design
+/// §4.3), written by the chat without rebuilding the header.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeaderCount {
+    /// The chat button's unread count: `· 3`.
+    Chat,
+    /// The friends button: the friends online, and `•` while something waits.
+    Friends,
+}
+
+/// What a header button (or the settings row) asked of the chat.
+pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lobby::ShellAsk) {
+    use crate::lobby::ShellAsk;
+    if !host.active() {
+        return;
+    }
+    match ask {
+        ShellAsk::Chat => {
+            if ui.open && !ui.minimised {
+                ui.open = false;
+                ui.typing = false;
+            } else {
+                window::open_on_chat(host, ui, None);
+                ui.typing = true;
+                ui.field = Field::Composer;
+            }
+        }
+        ShellAsk::Friends => ui.drawer = !ui.drawer,
+        ShellAsk::ChatPrivacy => ui.sheet = Some(sheet::Sheet::Privacy),
+        ShellAsk::Shortcuts | ShellAsk::Report => {}
+    }
+}
+
+/// The lobby's side of the chat: whether the header draws its buttons, the
+/// counts on them, and the shell's `f` and `Enter`.
+#[allow(clippy::too_many_arguments)] // a Bevy system: what it reads and writes
+fn lobby_side(
+    mut lobby: ResMut<LobbyState>,
+    mut host: ResMut<SocialHost>,
+    mut ui: ResMut<ChatUi>,
+    mut counts: Query<(&HeaderCount, &mut Text)>,
+    mut fired: MessageReader<crate::shellkit::keys::ShellFired>,
+    mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
+    stack: Option<Res<crate::shellkit::keys::ShellStack>>,
+    focus: Option<Res<bevy::input_focus::InputFocusVisible>>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+) {
+    use baylee_client_core::shellkeys::ShellAction;
+    let header = host.machine().map(|m| !m.me().guest);
+    if lobby.chat_header != header {
+        lobby.chat_header = header;
+    }
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let asked: Vec<ShellAction> = fired.read().map(|f| f.0).collect();
+    let entered = typed.read().any(|k| {
+        k.state.is_pressed() && !k.repeat && k.logical_key == bevy::input::keyboard::Key::Enter
+    });
+    if !at_table && !ui.holds_keyboard() {
+        for action in asked {
+            if action == ShellAction::Friends && header == Some(true) {
+                ui.drawer = !ui.drawer;
+            }
+        }
+        // Enter opens the chat (§12.1) where nothing else would take it: no
+        // field has the caret, no sheet or menu stands, no focus ring shows
+        // (the walker's Enter is that control's), on a shell screen.
+        let free = stack.as_ref().is_some_and(|s| {
+            s.live && !s.stack.field && !s.stack.modal && !s.stack.menu && !s.stack.typeahead
+        });
+        if entered && free && header.is_some() && !focus.as_ref().is_some_and(|f| f.0) {
+            header_ask(&mut host, &mut ui, crate::lobby::ShellAsk::Chat);
+            ui.swallow = true;
+        }
+    }
+    let Some(machine) = host.machine() else {
+        return;
+    };
+    let (unread, _) = machine.unread_where(&social::TabFilter::standard(ChatTab::All));
+    let chat = if unread > 0 {
+        format!("\u{b7} {}", unread.min(99))
+    } else {
+        String::new()
+    };
+    let online = machine.contacts().online_count();
+    let friends = if machine.contacts().waiting() {
+        format!("{online} \u{2022}")
+    } else {
+        online.to_string()
+    };
+    for (count, mut text) in &mut counts {
+        let want = match count {
+            HeaderCount::Chat => &chat,
+            HeaderCount::Friends => &friends,
+        };
+        if text.0 != *want {
+            text.0.clone_from(want);
+        }
+    }
+}
+
 /// The order things arrived in, for the All tab's merge (§5): never sorted
 /// by time, which the host's and the gateway's clocks would disagree on.
 #[derive(Debug, Default)]
@@ -534,6 +634,7 @@ pub(crate) fn install(app: &mut App) {
             (
                 drive.run_if(resource_exists::<LobbyState>),
                 table_context.run_if(resource_exists::<LobbyState>),
+                lobby_side.run_if(resource_exists::<LobbyState>),
             )
                 .chain(),
         );

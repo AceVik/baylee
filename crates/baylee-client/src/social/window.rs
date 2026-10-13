@@ -1475,7 +1475,9 @@ fn fill_list(
             let lookup = logpanel::LogTexts(texts);
             let wording = logpanel::wording(duel, lang, &lookup);
             let mut run = drawn.run;
-            for line in duel.log.lines_since(drawn.log_lines, &wording) {
+            for (order, line) in
+                (drawn.log_lines..).zip(duel.log.lines_since(drawn.log_lines, &wording))
+            {
                 if let Some(phase) = run.heading(&line) {
                     let heading =
                         logpanel::spawn_phase(commands, fonts, lang, phase, &logpanel::PANEL_INKS);
@@ -1490,6 +1492,9 @@ fn fill_list(
                     &logpanel::PANEL_INKS,
                     Some(swatch),
                 );
+                commands
+                    .entity(row)
+                    .insert(super::menu::Copyable::new(order, log_copy(&line)));
                 commands.entity(list).add_child(row);
             }
             if let Ok(mut follow) = lists.get_mut(list)
@@ -1516,7 +1521,7 @@ fn fill_list(
             commands.entity(list).add_child(empty);
         }
         let mut run = PhaseRun::default();
-        for line in &lines {
+        for (order, line) in lines.iter().enumerate() {
             if let Some(phase) = run.heading(line) {
                 let heading =
                     logpanel::spawn_phase(commands, fonts, lang, phase, &logpanel::PANEL_INKS);
@@ -1531,6 +1536,9 @@ fn fill_list(
                 &logpanel::PANEL_INKS,
                 Some(swatch),
             );
+            commands
+                .entity(row)
+                .insert(super::menu::Copyable::new(order, log_copy(line)));
             commands.entity(list).add_child(row);
         }
         drawn.log_lines = log_len;
@@ -1575,6 +1583,10 @@ fn fill_list(
             commands, fonts, lang, machine, conv, line, &inks, style, swatch,
         );
         let stamp = ui.arrivals.chat.get(&line.key).copied().unwrap_or(0);
+        commands.entity(row).insert(super::menu::Copyable::new(
+            0,
+            rows::plain_text(machine, conv, line),
+        ));
         entries.push((stamp, 1, i, row));
     }
     if with_log && let Some(duel) = duel {
@@ -1593,6 +1605,9 @@ fn fill_list(
                 &logpanel::PANEL_INKS,
                 Some(swatch),
             );
+            commands
+                .entity(row)
+                .insert(super::menu::Copyable::new(0, log_copy(line)));
             entries.push((ui.arrivals.log_stamp(i), 0, i, row));
         }
     }
@@ -1603,6 +1618,15 @@ fn fill_list(
         commands.entity(list).add_child(empty);
     }
     let kids: Vec<Entity> = entries.into_iter().map(|(_, _, _, e)| e).collect();
+    for (order, kid) in kids.iter().enumerate() {
+        commands
+            .entity(*kid)
+            .queue(move |mut entity: EntityWorldMut| {
+                if let Some(mut copy) = entity.get_mut::<super::menu::Copyable>() {
+                    copy.order = order;
+                }
+            });
+    }
     commands.entity(list).add_children(&kids);
     if let Ok(mut follow) = lists.get_mut(list) {
         if first_draw || ui.follow || follow.stuck {
@@ -1610,6 +1634,14 @@ fn fill_list(
         } else {
             follow.unseen = true;
         }
+    }
+}
+
+/// A log line as copy takes it (§6): `HH:MM text`, a heading as its words.
+fn log_copy(line: &baylee_client_core::gamelog::LogLine) -> String {
+    match logpanel::local_clock(line) {
+        Some(clock) if !line.header => format!("{clock} {}", line.text),
+        _ => line.text.clone(),
     }
 }
 

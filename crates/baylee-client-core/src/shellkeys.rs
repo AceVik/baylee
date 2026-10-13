@@ -90,11 +90,13 @@ pub enum ShellAction {
     ImportDeck,
     /// Export (`Ctrl/Cmd+E`, in the builder).
     ExportDeck,
+    /// The friends drawer (`f`; the beta.8 social design §12.1).
+    Friends,
 }
 
 impl ShellAction {
     /// Every action, in the overlay's order.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 22] = [
         Self::GoPlay,
         Self::GoDecks,
         Self::GoSettings,
@@ -116,6 +118,7 @@ impl ShellAction {
         Self::SaveDeck,
         Self::ImportDeck,
         Self::ExportDeck,
+        Self::Friends,
     ];
 
     /// The stable name the stored map keys it by (kebab-case).
@@ -143,6 +146,7 @@ impl ShellAction {
             Self::SaveDeck => "save-deck",
             Self::ImportDeck => "import-deck",
             Self::ExportDeck => "export-deck",
+            Self::Friends => "friends",
         }
     }
 
@@ -188,6 +192,7 @@ impl ShellAction {
             Self::SaveDeck => Phrase::ShellKeySave,
             Self::ImportDeck => Phrase::ImportDeck,
             Self::ExportDeck => Phrase::ShellKeyExport,
+            Self::Friends => Phrase::ShellKeyFriends,
         }
     }
 
@@ -238,6 +243,7 @@ impl ShellAction {
             Self::SaveDeck => vec![C::ch("s").cmd()],
             Self::ImportDeck => vec![C::ch("i").cmd()],
             Self::ExportDeck => vec![C::ch("e").cmd()],
+            Self::Friends => vec![C::ch("f")],
         }
     }
 }

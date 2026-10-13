@@ -310,6 +310,8 @@ pub enum Row {
     UsageCount,
     /// The report form.
     ReportProblem,
+    /// The chat's privacy sheet (beta.8).
+    ChatPrivacy,
 }
 
 /// One row of the map.
@@ -662,6 +664,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::ShellReportProblem,
         P::HelpReportProblem,
+    ),
+    def(
+        Row::ChatPrivacy,
+        S::Privacy,
+        D,
+        P::ShellChatPrivacy,
+        P::HelpChatPrivacy,
     ),
 ];
 

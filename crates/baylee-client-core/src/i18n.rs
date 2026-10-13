@@ -5480,6 +5480,14 @@ messages! {
     ShellSwitchGateway { en: "Switch gateway", de: "Gateway wechseln" },
     /// The account pill's menu: the report form.
     ShellReportProblem { en: "Report a problem", de: "Problem melden" },
+    /// The shell key that opens the friends drawer
+    ShellKeyFriends { en: "Friends", de: "Freunde" },
+    /// The shell key that opens the chat
+    ShellKeyChat { en: "Open the chat", de: "Chat öffnen" },
+    /// The header's chat button
+    ShellChat { en: "Chat", de: "Chat" },
+    /// The settings row that opens the chat's privacy sheet
+    ShellChatPrivacy { en: "Chat & privacy", de: "Chat & Privatsphäre" },
     /// The bell, with nothing in it.
     ShellBellEmpty { en: "Nothing new", de: "Nichts Neues" },
     /// A bell line: somebody sat down at the player's table. `{0}` who.
@@ -6452,6 +6460,8 @@ messages! {
     CrashNever { en: "Never", de: "Nie" },
     /// Privacy: the report form.
     HelpReportProblem { en: "Opens the report form (F8)", de: "\u{d6}ffnet das Berichtsformular (F8)" },
+    /// Help for the chat's privacy row
+    HelpChatPrivacy { en: "Who may whisper you, friend requests, chat history, sounds and this account's chat devices", de: "Wer dir flüstern darf, Freundschaftsanfragen, Chatverlauf, Töne und die Chat-Geräte dieses Kontos" },
     /// Opens the report form.
     ReportOpen { en: "Report a problem", de: "Problem melden" },
     /// Language models on a browser or phone build.

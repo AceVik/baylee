@@ -43,7 +43,7 @@ pub(crate) fn install(app: &mut App) {
 
 /// The frame after the composer let go, the keys are the table's again.
 fn unswallow(mut ui: ResMut<ChatUi>) {
-    if ui.swallow && !ui.typing {
+    if ui.swallow {
         ui.swallow = false;
     }
 }
@@ -165,7 +165,10 @@ fn typing(
             paste_into(&mut host, ui, &text);
         }
     }
-    if !ui.typing || !host.active() {
+    // Keys that arrived while the box did not have the caret, or on the
+    // frame it took it (the key that opened it), are not the box's.
+    if !ui.typing || !host.active() || ui.swallow {
+        typed.clear();
         return;
     }
     let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);

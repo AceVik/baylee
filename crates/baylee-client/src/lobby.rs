@@ -465,6 +465,10 @@ pub struct LobbyState {
     /// Asks a header press made of systems it cannot reach (the overlay,
     /// the report form), carried out by `header::carry_out`.
     pub(crate) shell_asks: Vec<header::ShellAsk>,
+    /// The chat's buttons in the header (beta.8): `None` with no social
+    /// session; `Some(friends)` with one, `friends` for a registered
+    /// account. Written by `social` only when it changes.
+    pub(crate) chat_header: Option<bool>,
     /// The terms sheet (WG-1, `DESIGN-v5` §11): up after a sign-in the
     /// gateway marks stale, or a kept guest's return to newer terms.
     pub(crate) terms: client_core::terms::Terms,
@@ -745,6 +749,7 @@ impl LobbyState {
             retry_feed: false,
             bell: client_core::lobby::strips::Bell::default(),
             shell_asks: Vec::new(),
+            chat_header: None,
             terms: client_core::terms::Terms::default(),
             terms_stale: None,
             about_open: false,
@@ -983,7 +988,7 @@ pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldStops, FieldTail, Masked, text_field, text_field_with};
 pub(crate) use front::FrontPress;
-pub(crate) use header::HeaderPress;
+pub(crate) use header::{HeaderPress, ShellAsk};
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};

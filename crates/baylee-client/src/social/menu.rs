@@ -36,14 +36,214 @@ pub(crate) enum RowPress {
 #[derive(Resource, Default)]
 pub(crate) struct MenuAt(Vec2);
 
-/// Installs the row menu.
+/// Installs the row menu and the history's selection.
 pub(crate) fn install(app: &mut App) {
-    app.init_resource::<MenuAt>().add_systems(
-        Update,
-        (clicks_on_lines, presses, sync)
-            .chain()
-            .run_if(resource_exists::<UiFonts>),
-    );
+    app.init_resource::<MenuAt>()
+        .init_resource::<Selected>()
+        .add_systems(
+            Update,
+            (
+                clicks_on_lines,
+                presses,
+                sync,
+                select_lines.run_if(resource_exists::<Messages<Pointer<Press>>>),
+                paint_selection,
+                copy_selection,
+            )
+                .chain()
+                .run_if(resource_exists::<UiFonts>),
+        );
+}
+
+/// A line of the history as copy takes it (§6): chat lines and log lines
+/// alike, in the list's order.
+#[derive(Component, Clone, Debug)]
+pub(crate) struct Copyable {
+    /// Its place in the list.
+    pub order: usize,
+    /// What copy puts on the clipboard for it.
+    pub text: String,
+    /// Its ground before it was selected.
+    base: Option<Color>,
+}
+
+impl Copyable {
+    /// A row at `order` that copies as `text`.
+    pub(crate) fn new(order: usize, text: String) -> Self {
+        Self {
+            order,
+            text,
+            base: None,
+        }
+    }
+}
+
+/// The history's selection (SOCIAL §11.10, by whole lines in v1): a press
+/// on a line anchors it, dragging over others extends it, `Ctrl`/`Cmd`+`C`
+/// copies it.
+#[derive(Resource, Default, Debug)]
+pub(crate) struct Selected {
+    /// The list it is in.
+    list: Option<Entity>,
+    /// Where the press landed, and where the drag is.
+    span: Option<(usize, usize)>,
+    /// The primary button is down on the history.
+    dragging: bool,
+}
+
+impl Selected {
+    fn range(&self) -> Option<std::ops::RangeInclusive<usize>> {
+        self.span.map(|(a, b)| a.min(b)..=a.max(b))
+    }
+}
+
+/// The copyable row (and its list) a picked entity is in.
+fn row_of(
+    mut entity: Entity,
+    rows: &Query<&Copyable>,
+    parents: &Query<&ChildOf>,
+) -> Option<(Entity, usize)> {
+    for _ in 0..6 {
+        if let Ok(row) = rows.get(entity) {
+            let list = parents.get(entity).ok()?.parent();
+            return Some((list, row.order));
+        }
+        entity = parents.get(entity).ok()?.parent();
+    }
+    None
+}
+
+/// Press and drag over the history's lines.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the pointer's messages
+fn select_lines(
+    mut presses: MessageReader<Pointer<bevy::picking::events::Press>>,
+    mut overs: MessageReader<Pointer<bevy::picking::events::Over>>,
+    rows: Query<&Copyable>,
+    parents: Query<&ChildOf>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    mut selected: ResMut<Selected>,
+    ui: Res<ChatUi>,
+) {
+    for press in presses.read() {
+        if press.button != PointerButton::Primary {
+            continue;
+        }
+        if let Some((list, order)) = row_of(press.entity, &rows, &parents) {
+            let again = selected.list == Some(list) && selected.span == Some((order, order));
+            selected.list = Some(list);
+            // A second press on the one selected line lets it go.
+            selected.span = (!again).then_some((order, order));
+            selected.dragging = !again;
+        }
+    }
+    let held = mouse.is_some_and(|m| m.pressed(MouseButton::Left));
+    if selected.dragging {
+        for over in overs.read() {
+            if let Some((list, order)) = row_of(over.entity, &rows, &parents)
+                && selected.list == Some(list)
+                && let Some((anchor, _)) = selected.span
+            {
+                selected.span = Some((anchor, order));
+            }
+        }
+        if !held {
+            selected.dragging = false;
+        }
+    } else {
+        overs.clear();
+    }
+    // A tab switched or the panel shut: the lines it named are gone.
+    if !ui.open && selected.span.is_some() {
+        selected.span = None;
+    }
+}
+
+/// What the selection was last painted as: its list and its span.
+type Painted = (Option<Entity>, Option<(usize, usize)>);
+
+/// The selected lines wear the selection's ground; the others their own.
+fn paint_selection(
+    selected: Res<Selected>,
+    mut rows: Query<(
+        Entity,
+        &mut Copyable,
+        Option<&mut BackgroundColor>,
+        &ChildOf,
+    )>,
+    mut commands: Commands,
+    mut painted: Local<Option<Painted>>,
+    added: Query<(), Added<Copyable>>,
+) {
+    let now = (selected.list, selected.span);
+    if *painted == Some(now) && added.is_empty() {
+        return;
+    }
+    *painted = Some(now);
+    let range = selected.range();
+    for (entity, mut row, ground, parent) in &mut rows {
+        let on = selected.list == Some(parent.parent())
+            && range.as_ref().is_some_and(|r| r.contains(&row.order));
+        let colour = if on {
+            crate::shellkit::tokens::SELECTED.with_alpha(0.5)
+        } else {
+            row.base.unwrap_or(Color::NONE)
+        };
+        match ground {
+            Some(mut ground) => {
+                if on && row.base.is_none() {
+                    row.base = Some(ground.0);
+                }
+                ground.set_if_neq(BackgroundColor(colour));
+            }
+            None if on => {
+                commands.entity(entity).insert(BackgroundColor(colour));
+            }
+            None => {}
+        }
+    }
+}
+
+/// `Ctrl`/`Cmd`+`C` copies the selected lines, one to a line, while the
+/// box does not have the caret (it copies its own selection then).
+fn copy_selection(
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    selected: Res<Selected>,
+    rows: Query<(&Copyable, &ChildOf)>,
+    ui: Res<ChatUi>,
+    mut host: ResMut<SocialHost>,
+) {
+    let Some(keys) = keys else {
+        return;
+    };
+    let command = keys.any_pressed([
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+        KeyCode::SuperLeft,
+        KeyCode::SuperRight,
+    ]);
+    if !command || !keys.just_pressed(KeyCode::KeyC) || ui.typing {
+        return;
+    }
+    let Some(range) = selected.range() else {
+        return;
+    };
+    let mut lines: Vec<(usize, &str)> = rows
+        .iter()
+        .filter(|(row, parent)| {
+            selected.list == Some(parent.parent()) && range.contains(&row.order)
+        })
+        .map(|(row, _)| (row.order, row.text.as_str()))
+        .collect();
+    lines.sort_by_key(|(order, _)| *order);
+    if !lines.is_empty() {
+        host.copy = Some(
+            lines
+                .into_iter()
+                .map(|(_, text)| text)
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+    }
 }
 
 /// The row (or name) a picked entity belongs to, up its parents.
