@@ -389,7 +389,26 @@ pub(super) struct Believed<'w, 's> {
             &'static bevy::ui::UiGlobalTransform,
         ),
     >,
+    /// The cards a reveal sheet holds up (`hud::revealed`), where a pointer
+    /// would rest on them, and the sheet itself: its entity is reported so a
+    /// caller can see it is the same one from frame to frame, since a sheet
+    /// torn down and stood up again is the reveal's flicker.
+    reveal: RevealParts<'w, 's>,
 }
+
+/// The reveal sheet's cards (their boxes) and the sheet (its entity).
+type RevealParts<'w, 's> = (
+    Query<
+        'w,
+        's,
+        (
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::revealed::RevealCard>,
+    >,
+    Query<'w, 's, Entity, With<crate::hud::revealed::RevealSheet>>,
+);
 
 impl Believed<'_, '_> {
     /// What a node's UI units are multiplied by to be logical window pixels.
@@ -961,8 +980,9 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\
-         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour}}}",
+         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour}}}",
         tour = tour_json(believed, settings),
+        reveal = reveal_json(believed, duel),
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
         dial = dial_json(believed),
@@ -1609,6 +1629,30 @@ fn browser_json(duel: &Duel) -> serde_json::Value {
 /// This exists because the keyboard does not reach all of it. `Yes` and `No`
 /// have no binding at all — see `docs/observed-faults.md` — so without these
 /// coordinates a driven client stops dead at the first shockland.
+/// The reveal sheet standing (`hud::revealed`): which one, its entity (the
+/// same from frame to frame unless it was torn down), and whether the
+/// pointer is on one of its cards (`Duel::hovered_log`).
+fn reveal_json(believed: &Believed, duel: &Duel) -> String {
+    let sheets: Vec<String> = believed
+        .reveal
+        .1
+        .iter()
+        .map(|e| quoted(&format!("{e:?}")))
+        .collect();
+    format!(
+        "{{\"number\":{number},\"waiting\":{waiting},\"sheets\":[{sheets}],\"hovered_log\":{hover}}}",
+        number = duel
+            .reveals
+            .current()
+            .map_or_else(|| "null".to_string(), |r| r.number.to_string()),
+        waiting = duel.reveals.waiting(),
+        sheets = sheets.join(","),
+        hover = duel
+            .hovered_log
+            .map_or_else(|| "null".to_string(), |h| quoted(&format!("{:?}", h.span))),
+    )
+}
+
 fn buttons_json(believed: &Believed) -> String {
     let mut rows: Vec<String> = Vec::new();
     let mut push =
@@ -1684,6 +1728,15 @@ fn buttons_json(believed: &Believed) -> String {
         push(
             "browser-control",
             "Decline".into(),
+            node,
+            place.translation,
+            String::new(),
+        );
+    }
+    for (i, (node, place)) in believed.reveal.0.iter().enumerate() {
+        push(
+            "reveal-card",
+            i.to_string(),
             node,
             place.translation,
             String::new(),

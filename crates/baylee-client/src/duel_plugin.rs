@@ -57,6 +57,7 @@ pub(super) fn add_present_systems(app: &mut App) {
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
         .init_resource::<hud::revealed::RevealRevision>()
+        .init_resource::<hud::TrayCarry>()
         .init_resource::<input::TrayGlide>();
     app.add_systems(
         Update,
@@ -269,6 +270,11 @@ pub(super) fn add_present_systems(app: &mut App) {
                     // Cards another seat revealed, after the shelf for the
                     // log's reason (both hang off the overlay's root).
                     hud::revealed::sync.after(hud::sync_ledge),
+                    // Its hovered card's edge, once the sheet and the hover
+                    // of this frame are both settled.
+                    hud::revealed::light_the_hovered
+                        .after(hud::revealed::sync)
+                        .after(hud::hover_log_links),
                 ),
                 // The tray's doors stand in the shelf's row but not in its
                 // layout, so they need nothing the shelf worked out — but
@@ -300,8 +306,19 @@ pub(super) fn add_present_systems(app: &mut App) {
                 // After the overlay, because it hangs its two nodes off that
                 // system's root; `sync_overlay` passes them over by marker
                 // the way it passes over the shelf and the drawer.
-                hud::sync_tray.after(hud::sync_overlay),
-                hud::dim_the_table.after(hud::sync_overlay),
+                (
+                    hud::sync_tray.after(hud::sync_overlay),
+                    // The rows a rebuild replaced hand their warmth on before
+                    // the buttons are painted (report 11).
+                    hud::carry_the_rows
+                        .after(hud::sync_tray)
+                        .before(crate::ambience::feel),
+                ),
+                // After the dialog too: a veil it has just spawned is painted
+                // on the frame it appears rather than standing clear for one.
+                hud::dim_the_table
+                    .after(hud::sync_overlay)
+                    .after(hud::sync_tray),
                 // The end screen settles as that veil rises, off the very
                 // number `dim_the_table` has just written: one movement, one
                 // rate, one `reduce_motion`.

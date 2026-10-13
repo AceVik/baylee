@@ -209,6 +209,21 @@ pub fn pointer(
                     }
                     None
                 }
+                // A standing instruction for the rest of a copy's new-target
+                // questions; the driver answers this one first (report 10).
+                PromptAction::KeepTargets => {
+                    duel.keep_targets =
+                        duel.view
+                            .as_ref()
+                            .zip(duel.interaction.as_ref())
+                            .and_then(|(v, i)| {
+                                baylee_client_core::keep_targets::KeepTargets::begin(v, i.pending())
+                            });
+                    if duel.keep_targets.is_some() {
+                        duel.stack_stop_requested = false;
+                    }
+                    None
+                }
                 // Aiming changes nothing the engine can hear; it moves the
                 // focus the next declaration will use.
                 PromptAction::AimNext => {

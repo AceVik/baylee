@@ -40,6 +40,7 @@ mod cancel_cast;
 mod combat;
 mod dialog_keys;
 mod hover;
+mod keep_targets;
 mod keyboard;
 mod menu;
 mod taps;
