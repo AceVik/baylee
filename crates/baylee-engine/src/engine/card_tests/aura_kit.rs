@@ -143,16 +143,23 @@ pub(super) fn cast_aura(
 ///
 /// The menu is returned so that a test can read what was *not* on it: a
 /// host the Aura could not legally take is proven by the menu that lacks it,
-/// next to the one that has the right answer.
+/// next to the one that has the right answer. `chooser` is the seat the test
+/// says must be asked; the question is refused if it is another one.
 ///
 /// # Panics
-/// When no such question is pending, or `pick` is not on the menu.
+/// When no such question is pending, it is put to a seat other than
+/// `chooser`, or `pick` is not on the menu.
 #[track_caller]
-pub(super) fn choose_among(engine: &mut Engine<RegistryLookup>, pick: ObjectId) -> Vec<ObjectId> {
+pub(super) fn choose_among(
+    engine: &mut Engine<RegistryLookup>,
+    chooser: PlayerId,
+    pick: ObjectId,
+) -> Vec<ObjectId> {
     match engine.pending().clone() {
         Pending::ChooseCards {
             player, options, ..
         } => {
+            assert_eq!(player, chooser, "the question is put to the chooser");
             assert!(
                 options.contains(&pick),
                 "the permanent this scenario chooses is on the menu: {options:?}"
@@ -170,6 +177,7 @@ pub(super) fn choose_among(engine: &mut Engine<RegistryLookup>, pick: ObjectId) 
         Pending::ChooseTargets {
             player, options, ..
         } => {
+            assert_eq!(player, chooser, "the question is put to the chooser");
             assert!(
                 options.contains(&pick),
                 "the permanent this scenario chooses is on the menu: {options:?}"

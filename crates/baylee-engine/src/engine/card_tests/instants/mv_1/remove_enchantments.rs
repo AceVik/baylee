@@ -57,6 +57,14 @@ struct Scene {
     my_aura_on_homebody: ObjectId,
     /// A Holy Strength seat 0 owns but seat 1 controls, on the homebody.
     my_aura_given_away: ObjectId,
+    /// A Holy Strength seat 0 owns but seat 1 controls, on seat 0's own
+    /// creature: the second clause ("Auras you own attached to permanents you
+    /// control") alone returns it.
+    my_aura_given_on_mine: ObjectId,
+    /// A Holy Strength seat 0 owns but seat 1 controls, on seat 1's attacking
+    /// Bears: the third clause ("Auras you own attached to attacking creatures
+    /// your opponents control") alone returns it.
+    my_aura_given_on_attacker: ObjectId,
     /// Holy Strengths seat 1 owns, on seat 0's creature, on the attacker, on the homebody.
     their_aura_on_mine: ObjectId,
     their_aura_on_attacker: ObjectId,
@@ -72,6 +80,8 @@ fn assert_the_scene_is_as_built(scene: &Scene) {
         (scene.my_aura_on_attacker, scene.attacker),
         (scene.my_aura_on_homebody, scene.homebody),
         (scene.my_aura_given_away, scene.homebody),
+        (scene.my_aura_given_on_mine, scene.mine_creature),
+        (scene.my_aura_given_on_attacker, scene.attacker),
         (scene.their_aura_on_mine, scene.mine_creature),
         (scene.their_aura_on_attacker, scene.attacker),
         (scene.their_aura_on_homebody, scene.homebody),
@@ -86,6 +96,29 @@ fn assert_the_scene_is_as_built(scene: &Scene) {
         scene.engine.state().combat.is_attacking(scene.attacker),
         "seat 1's Bears are an attacking creature"
     );
+}
+
+/// The fixture: a change of control, so that an object is controlled by one
+/// player and owned by the other. Each object in `to_me` ends up controlled by
+/// seat 0 and each in `to_them` by seat 1, and each is checked to be owned by
+/// the other seat.
+#[track_caller]
+fn change_hands(engine: &mut Engine<RegistryLookup>, to_me: &[ObjectId], to_them: &[ObjectId]) {
+    let moves: Vec<(ObjectId, PlayerId)> = to_me
+        .iter()
+        .map(|id| (*id, P0))
+        .chain(to_them.iter().map(|id| (*id, P1)))
+        .collect();
+    crate::resolve::gain_control(
+        engine.dev_state_mut(P0).expect("the harness may set up"),
+        &moves,
+    );
+    engine.refresh_offer();
+    for (id, now) in moves {
+        let owner = if now == P0 { P1 } else { P0 };
+        assert_eq!(kit::controller_of(engine, id), now, "{id:?} changed hands");
+        assert_eq!(kit::owner_of(engine, id), owner, "{id:?} is still owned");
+    }
 }
 
 /// Builds the scene, up to seat 0 holding priority in the declare-attackers
@@ -108,6 +141,8 @@ fn scene(cast_the_spell: bool) -> Scene {
             index::HOLY_STRENGTH,
             index::HOLY_STRENGTH,
             index::HOLY_STRENGTH,
+            index::HOLY_STRENGTH,
+            index::HOLY_STRENGTH,
             remove_enchantments(),
         ],
         &[
@@ -124,22 +159,26 @@ fn scene(cast_the_spell: bool) -> Scene {
     assert_eq!(crusades.len(), 2, "seat 1 has two Crusades to start");
     let (their_crusade, stolen_crusade) = (crusades[0], crusades[1]);
 
-    // Seat 0's turn: its three Auras, one on each of three creatures.
+    // Seat 0's turn: its Auras, then three of them handed to seat 1.
     let my_aura_at_home = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, mine_creature, &W);
     let my_aura_on_attacker = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, attacker, &W);
     let my_aura_on_homebody = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, homebody, &W);
     let my_aura_given_away = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, homebody, &W);
-    // One of seat 1's Crusades is seat 0's to control, not to own.
-    crate::resolve::gain_control(
-        engine.dev_state_mut(P0).expect("the harness may set up"),
-        &[(stolen_crusade, P0), (my_aura_given_away, P1)],
+    let my_aura_given_on_mine =
+        kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, mine_creature, &W);
+    let my_aura_given_on_attacker =
+        kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, attacker, &W);
+    // One of seat 1's Crusades is seat 0's to control, not to own; and three
+    // of seat 0's Holy Strengths are seat 1's to control, not to own.
+    change_hands(
+        &mut engine,
+        &[stolen_crusade],
+        &[
+            my_aura_given_away,
+            my_aura_given_on_mine,
+            my_aura_given_on_attacker,
+        ],
     );
-    engine.refresh_offer();
-    assert_eq!(kit::controller_of(&engine, stolen_crusade), P0);
-    assert_eq!(kit::owner_of(&engine, stolen_crusade), P1);
-    // The other way round: seat 0's own Aura, in seat 1's hands.
-    assert_eq!(kit::controller_of(&engine, my_aura_given_away), P1);
-    assert_eq!(kit::owner_of(&engine, my_aura_given_away), P0);
 
     // Seat 1's turn: its three Auras, then the attack.
     pass_until(&mut engine, |e| {
@@ -183,6 +222,8 @@ fn scene(cast_the_spell: bool) -> Scene {
         my_aura_on_attacker,
         my_aura_on_homebody,
         my_aura_given_away,
+        my_aura_given_on_mine,
+        my_aura_given_on_attacker,
         their_aura_on_mine,
         their_aura_on_attacker,
         their_aura_on_homebody,
@@ -190,28 +231,46 @@ fn scene(cast_the_spell: bool) -> Scene {
     assert_the_scene_is_as_built(&scene);
     let mut scene = scene;
     if cast_the_spell {
-        lk::float(&mut scene.engine, P0, &W);
-        cast_with_floating(&mut scene.engine, P0, remove_enchantments());
-        assert!(
-            !matches!(scene.engine.pending(), Pending::ChooseTargets { .. }),
-            "it targets nothing: {:?}",
-            scene.engine.pending()
-        );
-        pass_until(&mut scene.engine, stack_is_empty);
+        cast_the_spell_and_resolve(&mut scene.engine);
     }
     scene
 }
 
+/// Seat 0 casts Remove Enchantments (it targets nothing, so no question is
+/// asked) and lets it resolve.
+#[track_caller]
+fn cast_the_spell_and_resolve(engine: &mut Engine<RegistryLookup>) {
+    lk::float(engine, P0, &W);
+    cast_with_floating(engine, P0, remove_enchantments());
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "it targets nothing: {:?}",
+        engine.pending()
+    );
+    pass_until(engine, stack_is_empty);
+}
+
 /// "Return to your hand all enchantments you both own and control, all Auras
 /// you own attached to permanents you control, and all Auras you own attached
-/// to attacking creatures your opponents control." Seat 0's own Crusade and
-/// its three Holy Strengths (on its own creature, on the opposing attacker
-/// and on the opposing creature that stays home) are back in its hand, still
-/// its cards. The last one is the first clause, not the other two: an Aura is
-/// an enchantment, seat 0 cast it so owns and controls it (CR 303.4e: an
-/// Aura's controller is separate from the enchanted object's), and the clause
-/// says nothing about where it is attached. The control: before the spell
-/// they were all on the battlefield.
+/// to attacking creatures your opponents control." Each of the three clauses
+/// decides an object of its own, and every one is back in seat 0's hand, still
+/// its card:
+/// - first clause: seat 0's Crusade, and its three Holy Strengths it also
+///   controls (on its own creature, on the opposing attacker and on the
+///   opposing creature that stays home). An Aura is an enchantment, seat 0
+///   cast it so owns and controls it (CR 303.4e: an Aura's controller is
+///   separate from the enchanted object's), and the clause says nothing about
+///   where it is attached;
+/// - second clause: a Holy Strength seat 0 owns but seat 1 controls, on seat
+///   0's own creature (a permanent it controls), which the first clause does
+///   not reach;
+/// - third clause: one seat 0 owns and seat 1 controls on seat 1's attacking
+///   Bears (an attacking creature its opponents control), which neither the
+///   first nor the second reaches.
+///
+/// The control: before the spell they were all on the battlefield, and
+/// without the second and third clauses the last two would have been
+/// destroyed by the "then destroy" half instead.
 #[test]
 fn what_you_own_comes_back_to_your_hand() {
     let before = scene(false);
@@ -222,6 +281,14 @@ fn what_you_own_comes_back_to_your_hand() {
         (
             "seat 0's Aura on the creature that stays home",
             before.my_aura_on_homebody,
+        ),
+        (
+            "seat 0's Aura that seat 1 controls, on seat 0's creature",
+            before.my_aura_given_on_mine,
+        ),
+        (
+            "seat 0's Aura that seat 1 controls, on the attacker",
+            before.my_aura_given_on_attacker,
         ),
     ] {
         assert_eq!(
@@ -245,6 +312,14 @@ fn what_you_own_comes_back_to_your_hand() {
         (
             "an Aura you own and control on a creature that is neither yours nor attacking (an enchantment you both own and control)",
             after.my_aura_on_homebody,
+        ),
+        (
+            "an Aura you own and an opponent controls, attached to a permanent you control",
+            after.my_aura_given_on_mine,
+        ),
+        (
+            "an Aura you own and an opponent controls, attached to an attacking creature your opponents control",
+            after.my_aura_given_on_attacker,
         ),
     ] {
         assert_eq!(

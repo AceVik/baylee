@@ -389,6 +389,98 @@ fn gauntlets_do_nothing_when_a_target_is_gone_by_resolution() {
     }
 }
 
+/// Ruling 2009-10-01: "As the ability resolves, both targets will be legal
+/// only if they are two artifacts, two creatures, or two lands at that time as
+/// well, though they may be a different type than they were at the time the
+/// ability was activated." (CR 608.2b: targets are checked again as the
+/// ability resolves.)
+///
+/// My Sol Ring wears an Animate Artifact, so when the ability is activated it
+/// is an artifact creature. Aimed at it, with their creature as the second
+/// target, the two share a type. In response a Disenchant destroys the Aura:
+/// the Sol Ring is a plain artifact when the ability resolves.
+/// - Their Ornithopter (an artifact creature) shares **artifact** with it now
+///   and **creature and artifact** before, so the targets are legal and the
+///   control changes hands, though the type they share is not the one they
+///   shared when the ability was activated. This is the case that tells a
+///   re-check from a remembered type.
+/// - Their Hill Giant (a creature) shared **creature** with it before and
+///   shares nothing now, so the second target is illegal, the exchange does not
+///   happen and nothing changes hands.
+#[test]
+fn gauntlets_check_the_shared_type_again_as_they_resolve() {
+    for (their_card, exchanged) in [(index::ORNITHOPTER, true), (index::HILL_GIANT, false)] {
+        let mut engine = table(
+            &[index::SOL_RING],
+            &[their_card],
+            &[index::ANIMATE_ARTIFACT, index::DISENCHANT],
+        );
+        let ring = ours(&engine, index::SOL_RING);
+        let other = theirs(&engine, their_card);
+        let animation = kit::cast_aura(
+            &mut engine,
+            P0,
+            index::ANIMATE_ARTIFACT,
+            ring,
+            &[(ManaColor::Blue, 1), (ManaColor::Colorless, 3)],
+        );
+        let is_creature = |engine: &Engine<RegistryLookup>, id: ObjectId| {
+            engine
+                .state()
+                .object(id)
+                .expect("the object exists")
+                .characteristics()
+                .types
+                .contains(TypeSet::CREATURE)
+        };
+        assert!(
+            is_creature(&engine, ring),
+            "control: the animated Sol Ring is a creature when the ability is activated ({their_card:?})"
+        );
+
+        pay_five(&mut engine);
+        activate(&mut engine, P0, gauntlets(), 0);
+        aim_at(&mut engine, P0, ring);
+        let menu = aim_at(&mut engine, P0, other);
+        assert!(
+            menu.contains(&other),
+            "control: their {their_card:?} shares a type with the animated Sol Ring when the \
+             ability is activated: {menu:?}"
+        );
+        assert!(!stack_is_empty(&engine), "the ability waits on the stack");
+
+        // In response: Disenchant the Aura, and the Sol Ring stops being a creature.
+        lk::float(
+            &mut engine,
+            P0,
+            &[(ManaColor::White, 1), (ManaColor::Colorless, 1)],
+        );
+        cast_with_floating(&mut engine, P0, index::DISENCHANT);
+        aim_at(&mut engine, P0, animation);
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(
+            !kit::on_the_table(&engine, animation),
+            "control: the Disenchant destroyed the Aura ({their_card:?})"
+        );
+        assert!(
+            !is_creature(&engine, ring),
+            "control: and the Sol Ring is a plain artifact as the ability resolves ({their_card:?})"
+        );
+        let (ring_now, other_now) = if exchanged { (P1, P0) } else { (P0, P1) };
+        assert_eq!(
+            kit::controller_of(&engine, ring),
+            ring_now,
+            "my Sol Ring against their {their_card:?}: exchanged = {exchanged}"
+        );
+        assert_eq!(
+            kit::controller_of(&engine, other),
+            other_now,
+            "their {their_card:?} against my Sol Ring: exchanged = {exchanged}"
+        );
+    }
+}
+
 /// "{5}": the ability is on the offer with five mana and not with four. Four
 /// Forests is the whole board of the second duel, so the refusal is for want
 /// of the fifth mana and for no other reason; the first duel (five Forests,

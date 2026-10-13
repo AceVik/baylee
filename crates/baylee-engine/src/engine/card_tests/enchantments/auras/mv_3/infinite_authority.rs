@@ -358,6 +358,69 @@ fn a_creature_that_regenerates_is_not_destroyed_this_way_and_gives_no_counter() 
     }
 }
 
+/// "… if that creature was destroyed this way": an indestructible creature is
+/// not destroyed by "destroy" (CR 702.12b), so there is no counter. Seat 0's
+/// Grizzly Bears wear the Aura and are blocked by seat 1's Wall of Wood, so
+/// the Aura triggers (a toughness of 3) and the Wall takes two damage, which
+/// does not kill a 0/3. In one duel seat 1 does nothing more and the Wall is
+/// destroyed at end of combat, so the Bears grow (the control, and the same
+/// board); in the other, with the trigger on the stack, seat 1 casts Heroic
+/// Intervention, the Wall is indestructible when end of combat comes, and it
+/// stays, with nothing for the Bears.
+#[test]
+fn an_indestructible_blocker_is_not_destroyed_this_way_and_gives_no_counter() {
+    for protected in [false, true] {
+        let mut engine = lk::game(
+            SEED,
+            &[index::GRIZZLY_BEARS],
+            &[index::WALL_OF_WOOD],
+            &[infinite_authority()],
+            &[index::HEROIC_INTERVENTION],
+        );
+        let bears = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+        let wood = lk::obj(&engine, P1, index::WALL_OF_WOOD);
+        kit::cast_aura(&mut engine, P0, infinite_authority(), bears, &WWW);
+        lk::attack(&mut engine, &[bears]);
+        lk::block(&mut engine, &[(wood, bears)]);
+        assert!(
+            !stack_is_empty(&engine),
+            "the Aura's trigger is on the stack (protected = {protected})"
+        );
+        if protected {
+            engine.apply(P0, PlayerAction::PassPriority).unwrap();
+            assert!(
+                matches!(engine.pending(), Pending::Priority { player, .. } if *player == P1),
+                "seat 1 may respond to the trigger: {:?}",
+                engine.pending()
+            );
+            lk::float(
+                &mut engine,
+                P1,
+                &[(ManaColor::Green, 1), (ManaColor::Colorless, 1)],
+            );
+            cast_with_floating(&mut engine, P1, index::HEROIC_INTERVENTION);
+        }
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            keywords(&engine, wood).contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE),
+            protected,
+            "the Wall is indestructible exactly when seat 1 cast the spell"
+        );
+
+        through_step(&mut engine, false, P0, Step::End);
+        assert_eq!(
+            kit::on_the_table(&engine, wood),
+            protected,
+            "the Wall survives the destruction exactly when it was indestructible"
+        );
+        assert_eq!(
+            plus_counters(&engine, bears),
+            u16::from(!protected),
+            "and the Bears get their counter exactly when it was destroyed"
+        );
+    }
+}
+
 /// Ruling (2006): "Moving the enchantment after the ability triggers will not
 /// affect which creatures are affected." The Bears wear the Aura and are
 /// blocked by a Wall of Wood; with the trigger on the stack, seat 0 casts
@@ -388,7 +451,7 @@ fn moving_the_aura_after_it_triggers_changes_nothing_about_who_is_affected() {
     cast_with_floating(&mut engine, P0, enchantment_alteration());
     lk::aim(&mut engine, &[aura], &[]);
     pass_until(&mut engine, kit::asks_for_a_permanent);
-    kit::choose_among(&mut engine, giant);
+    kit::choose_among(&mut engine, P0, giant);
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         kit::attached_to(&engine, aura),

@@ -58,16 +58,22 @@ fn cast_at_aura(
 
 /// Lets the spell resolve. When it asks where the Aura goes the answer is
 /// `pick` (the test says which, or `None` to say it expects no question) and
-/// the menu it was asked from is returned; when the engine settles the
+/// the menu it was asked from is returned; the question must be put to
+/// `chooser`, the spell's controller (CR 608.2c-d: the controller follows its
+/// instructions and announces the choices they offer). When the engine settles the
 /// choice itself (a single legal host, or none) the result is `None`.
 #[track_caller]
-fn resolve(engine: &mut Engine<RegistryLookup>, pick: Option<ObjectId>) -> Option<Vec<ObjectId>> {
+fn resolve(
+    engine: &mut Engine<RegistryLookup>,
+    chooser: PlayerId,
+    pick: Option<ObjectId>,
+) -> Option<Vec<ObjectId>> {
     pass_until(engine, |e| {
         kit::asks_for_a_permanent(e) || stack_is_empty(e)
     });
     let menu = if kit::asks_for_a_permanent(engine) {
         let pick = pick.expect("this scenario expects no question about where the Aura goes");
-        Some(kit::choose_among(engine, pick))
+        Some(kit::choose_among(engine, chooser, pick))
     } else {
         None
     };
@@ -101,7 +107,7 @@ fn an_aura_on_a_creature_moves_to_another_creature_even_the_opponents() {
         targets.contains(&strength),
         "the Aura on a creature is a legal target: {targets:?}"
     );
-    let menu = resolve(&mut engine, Some(wood)).expect("two other creatures: it asks");
+    let menu = resolve(&mut engine, P0, Some(wood)).expect("two other creatures: it asks");
     assert_eq!(
         sorted(menu),
         sorted(vec![giant, wood]),
@@ -153,7 +159,7 @@ fn an_aura_on_a_land_moves_to_another_land_and_only_a_land() {
         targets.contains(&growth),
         "the Aura on a land is a legal target: {targets:?}"
     );
-    let menu = resolve(&mut engine, Some(mountain)).expect("two other lands: it asks");
+    let menu = resolve(&mut engine, P0, Some(mountain)).expect("two other lands: it asks");
     assert_eq!(
         sorted(menu),
         sorted(vec![forests[1], mountain]),
@@ -219,7 +225,7 @@ fn the_new_host_is_not_targeted_so_hexproof_does_not_stop_it() {
     let strength = kit::cast_aura(&mut engine, P0, index::HOLY_STRENGTH, bears, &W);
 
     cast_at_aura(&mut engine, P0, strength);
-    let menu = resolve(&mut engine, Some(caryatid)).expect("two other creatures: it asks");
+    let menu = resolve(&mut engine, P0, Some(caryatid)).expect("two other creatures: it asks");
     assert_eq!(
         sorted(menu),
         sorted(vec![giant, caryatid]),
@@ -260,7 +266,7 @@ fn an_aura_on_a_hexproof_creature_can_be_aimed_at_by_an_opponent() {
         targets.contains(&strength),
         "the opponent may aim at the Aura even though its creature has hexproof: {targets:?}"
     );
-    let menu = resolve(&mut engine, Some(their_bears)).expect("two other creatures: it asks");
+    let menu = resolve(&mut engine, P1, Some(their_bears)).expect("two other creatures: it asks");
     assert_eq!(
         sorted(menu),
         sorted(vec![giant, their_bears]),
@@ -302,7 +308,7 @@ fn with_no_other_creature_the_aura_stays_where_it_is() {
             "still a legal target: {targets:?}"
         );
         let giant = on_battlefield(&engine, P0, index::HILL_GIANT);
-        resolve(&mut engine, giant);
+        resolve(&mut engine, P0, giant);
 
         if moves {
             assert_eq!(
@@ -353,7 +359,7 @@ fn an_aura_only_moves_to_a_creature_it_could_have_enchanted() {
         let stone = on_battlefield(&engine, P1, index::WALL_OF_STONE);
 
         cast_at_aura(&mut engine, P0, animate);
-        let menu = resolve(&mut engine, stone);
+        let menu = resolve(&mut engine, P0, stone);
 
         if other_wall {
             let stone = stone.expect("the other Wall is out");
