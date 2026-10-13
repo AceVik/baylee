@@ -187,6 +187,21 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         let answer: Option<(PlayerId, PlayerAction, ByPolicy)> = match &self.pending {
+            // A payment window has priority's shape and none of its
+            // meaning: the seat is in the middle of paying (CR 601.2g,
+            // 605.3a), and a pass there ends the payment with whatever is
+            // floating. No hold or yield the seat set for the *stack* may
+            // say that for it — a hold left on "until the stack is empty"
+            // closed an Esper Sentinel tax window its seat had just said
+            // yes to, and the opponent drew (report of 12.10.2026).
+            Pending::Priority { player, .. }
+                if self
+                    .mana_window
+                    .as_ref()
+                    .is_some_and(|window| window.player == *player) =>
+            {
+                None
+            }
             Pending::Priority { player, legal } => {
                 let settings = self.automation(*player);
                 let top = self.state.zones.list(ZoneLocation::Stack).last().copied();

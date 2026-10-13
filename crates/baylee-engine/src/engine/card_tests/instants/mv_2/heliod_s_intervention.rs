@@ -149,17 +149,27 @@ fn heliods_intervention_destroys_exactly_the_x_artifacts_or_enchantments_it_targ
     );
 }
 
-/// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
-/// the player it then names, and the cast is reversed.
+/// With nothing left to tap, Heliod's Intervention is offered only the X its
+/// pool pays (a seat with a source left gets an open X and the CR 601.2g
+/// payment window instead, `cast_wizard::pool_x_tests`). All four Plains are
+/// tapped here and float, which pay the fixed `{W}{W}` and an X of 2, so the
+/// question offers 0 to 2, and 3 is refused with the question left where it
+/// was. X = 2 then
+/// completes the cast (the spell stands on the stack, the pool is empty) and,
+/// on resolution, the player the lifegain mode named gains twice X.
 ///
-/// A total cost the caster cannot pay makes the cast illegal: it is reversed
-/// (CR 601.2h, 732.1), with the mana back in the pool and the card back in
-/// hand. Choosing the offered maximum still exceeds the pool once the
-/// spell's fixed {W}{W} is included, so the resource-bounded X menu must
-/// preserve the same rollback behavior.
+/// The version of this test before the fix pinned the defect itself: the
+/// question offered the pool's size, the test picked that maximum, and the
+/// cast was reversed at payment (CR 601.2h, 732.1) for want of the fixed
+/// `{W}{W}`. A cast paid from the floating pool alone no longer offers such
+/// an X. The reversal is still covered where it can still happen, in a
+/// payment window that closes short:
+/// `cancel_cast_tests::a_window_passed_short_is_reversed_like_a_cancel` and
+/// `pay_in_cast_tests::a_cast_its_window_cannot_pay_goes_back_to_the_hand`.
 #[test]
-fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
+fn heliods_intervention_is_offered_only_the_x_its_pool_pays() {
     let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains(), plains(), plains()])
         .hand(0, &[heliods_intervention()])
@@ -167,19 +177,33 @@ fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     tap_all_mana(&mut engine, p0);
-    let floating = engine.state().players[0].mana_pool.total();
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+    let life_before = engine.state().players[1].life;
     cast_with_floating(&mut engine, p0, heliods_intervention());
-    let mut named = None;
+    let mut named = false;
     for _ in 0..12 {
         match engine.pending().clone() {
-            Pending::ChooseNumber { player, max, .. } => {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
+                assert_eq!(player, p0, "the caster names X");
+                assert_eq!(
+                    (min, max),
+                    (0, 2),
+                    "four mana pay the fixed {{W}}{{W}} and an X of 2"
+                );
                 assert!(
-                    u64::from(max) > floating.saturating_sub(2),
-                    "the offered X plus fixed {{W}}{{W}} must exceed the pool: {max} over {floating}"
+                    engine.apply(player, PlayerAction::ChooseNumber(3)).is_err(),
+                    "X = 3 would cost five"
+                );
+                assert!(
+                    matches!(engine.pending(), Pending::ChooseNumber { max: 2, .. }),
+                    "the refusal leaves the X question where it was: {:?}",
+                    engine.pending()
                 );
                 engine
                     .apply(player, PlayerAction::ChooseNumber(max))
-                    .expect("an X the question offers is an answer");
+                    .expect("the greatest X on offer");
             }
             Pending::ChooseCastMode {
                 player, options, ..
@@ -193,36 +217,32 @@ fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
                     .unwrap();
             }
             Pending::ChoosePlayer { player, options } => {
-                let chosen = options[0];
+                assert!(options.contains(&p1), "the opponent can be named");
                 engine
-                    .apply(player, PlayerAction::ChoosePlayer(chosen))
+                    .apply(player, PlayerAction::ChoosePlayer(p1))
                     .expect("a player the question offers is an answer");
-                named = Some(chosen);
+                named = true;
                 break;
             }
             other => panic!("unexpected while casting Heliod's Intervention: {other:?}"),
         }
     }
+    assert!(named, "the lifegain mode never asked for its player");
     assert!(
-        named.is_some(),
-        "the lifegain mode never asked for its player"
-    );
-    assert!(
-        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "the reversed cast gave the caster their priority back: {:?}",
+        on_stack(&engine, heliods_intervention()).is_some(),
+        "the cast completed: {:?}",
         engine.pending()
-    );
-    assert!(
-        engine.state().zones.stack_is_empty(),
-        "the unpayable spell reached the stack"
     );
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
-        floating,
-        "the reversed cast spent nothing"
+        0,
+        "X = 2 and the {{W}}{{W}} took all four"
     );
-    assert!(
-        in_hand(&engine, p0, heliods_intervention()).is_some(),
-        "the card went back to hand"
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        life_before + 4,
+        "the named player gains twice X"
     );
 }

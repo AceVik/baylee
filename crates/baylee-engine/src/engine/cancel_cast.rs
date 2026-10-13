@@ -97,9 +97,11 @@ impl<L: CardLookup> Engine<L> {
         {
             object.x_value = 0;
         }
-        self.state
-            .journal
-            .record(GameEvent::CastCancelled { player, card });
+        self.state.journal.record(GameEvent::CastCancelled {
+            player,
+            card,
+            reason: crate::event::CastCancelReason::Withdrawn,
+        });
         self.after_action(player);
         Ok(())
     }

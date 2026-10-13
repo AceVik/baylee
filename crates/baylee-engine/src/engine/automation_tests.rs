@@ -7,11 +7,12 @@
 //! game-losing decision made for it.
 
 use super::testkit::{
-    Duel, RegistryLookup, card_index, cast_from_hand, keep_mulligans, on_battlefield, pass_until,
-    stack_is_empty, walk_to_own_main,
+    Duel, RegistryLookup, card_index, cast_from_hand, cast_with_floating, keep_mulligans,
+    on_battlefield, pass_until, reach_their_main_phase, stack_is_empty, tap_all_mana,
+    tap_mana_where, walk_to_own_main,
 };
 use super::*;
-use crate::choice::{PriorityHold, StandingAnswer};
+use crate::choice::{PriorityHold, StandingAnswer, YesNoPrompt};
 use baylee_core::ids::{AbilityRef, CardIndex};
 
 fn forest() -> CardIndex {
@@ -24,6 +25,16 @@ fn ondu_cleric() -> CardIndex {
 
 fn plains() -> CardIndex {
     card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+
+fn llanowar_elves() -> CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+
+/// "Whenever an opponent casts a spell, you may draw a card unless that
+/// player pays {1}."
+fn rhystic_study() -> CardIndex {
+    card_index("53236dd7-845a-444c-96d5-f41ed7325d8f")
 }
 
 fn started(builder: Duel) -> Engine<RegistryLookup> {
@@ -811,5 +822,113 @@ fn a_standing_answer_is_recorded_with_the_trigger_that_asked() {
             .object(object)
             .is_none_or(|o| o.ability.is_some_and(|loc| loc.index == 0)),
         "the object named is not the trigger that asked"
+    );
+}
+
+/// A seat that told the game to resolve the stack for it and then says yes to
+/// a mana tax with nothing floating is still paying. The yes opens the
+/// payment window (CR 605.3a) with the seat holding priority in it, and a
+/// hold set for the *stack* must not pass it: the old engine did, closing the
+/// window with the tax unpaid, and the Study's controller drew.
+///
+/// The hold is `UntilStackEmpty { depth: 2 }`, set while the Elves and the
+/// Study's trigger are both on the stack, and the Elves are still under the
+/// trigger when it asks, so the hold is alive at the question (asserted: a
+/// hold that had expired would pass nothing, on old code too). After the yes
+/// the window stays open for the seat, which taps its untapped Forest and
+/// passes, and the {1} comes out of that mana.
+#[test]
+fn a_stack_hold_does_not_pass_the_payment_window_a_tax_yes_opens() {
+    let mut engine = started(
+        Duel::new(21, forest())
+            .battlefield(0, &[rhystic_study()])
+            .battlefield(1, &[forest(), forest()])
+            .hand(1, &[llanowar_elves()]),
+    );
+    reach_their_main_phase(&mut engine, P1);
+    let forests: Vec<_> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == P1 && o.card.is_some_and(|c| c.index == forest()))
+        })
+        .collect();
+    assert_eq!(forests.len(), 2, "seat 1's two Forests");
+    let spent = forests[0];
+    tap_mana_where(&mut engine, P1, |id| id == spent);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
+
+    // One Forest paid for the Elves, the other stands untapped, and the pool
+    // is empty: the tax can only be paid by making mana in the window.
+    cast_with_floating(&mut engine, P1, llanowar_elves());
+    assert_eq!(engine.state().players[1].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        2,
+        "the Elves and the Study's trigger"
+    );
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player, .. } if *player == P1
+    ));
+    let hold = PriorityHold::UntilStackEmpty { depth: 2 };
+    engine
+        .apply(P1, PlayerAction::SetPriorityHold(hold))
+        .expect("setting a hold is always legal");
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    assert_eq!(
+        engine.automation(P1).hold,
+        hold,
+        "the hold is alive at the question: the Elves are still on the stack"
+    );
+    engine
+        .apply(P1, PlayerAction::YesNo(true))
+        .expect("seat 1 says it will pay");
+
+    assert!(
+        matches!(engine.payment_window(), Some((seat, _)) if seat == P1),
+        "the yes opened a window and the hold left it open: {:?}",
+        engine.pending()
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == P1),
+        "seat 1 holds priority in its window: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before,
+        "nothing is unpaid yet, so nobody drew"
+    );
+
+    assert_eq!(tap_all_mana(&mut engine, P1), 1, "the Forest left standing");
+    engine
+        .apply(P1, PlayerAction::PassPriority)
+        .expect("passing ends the payment");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "the tax took the {{1}} the Forest made"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before,
+        "paid, so the Study's controller drew nothing"
     );
 }
