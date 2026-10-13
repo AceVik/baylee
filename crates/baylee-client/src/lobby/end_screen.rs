@@ -195,12 +195,32 @@ fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bo
             ),
         ))
         .with_children(|row| {
+            // A drawn box: the icon face has a filled square only, which
+            // reads as ticked either way.
             row.spawn((
-                Text::new(if shared { "\u{f14a}" } else { "\u{f0c8}" }),
-                crate::hud::icon_tf(fonts, 14.0),
-                TextColor(ink),
+                Node {
+                    width: px(16),
+                    height: px(16),
+                    border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(3)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BorderColor::all(ink),
+                BackgroundColor(if shared { ink } else { Color::NONE }),
                 Pickable::IGNORE,
-            ));
+            ))
+            .with_children(|tick| {
+                if shared {
+                    tick.spawn((
+                        Text::new("\u{f00c}"),
+                        crate::hud::icon_tf(fonts, 9.0),
+                        TextColor(crate::hud::palette::PARCHMENT),
+                        Pickable::IGNORE,
+                    ));
+                }
+            });
             row.spawn((
                 Text::new(ReplayPhrase::ShareHand.text(lang)),
                 crate::hud::tf(fonts, 14.0),

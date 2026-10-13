@@ -528,7 +528,7 @@ static TAPES: LazyLock<Mutex<Vec<KeptTape>>> = LazyLock::new(|| Mutex::new(Vec::
 /// How many fetched tapes are kept.
 const KEPT_TAPES: usize = 3;
 
-type TapeKey = (String, String, String, &'static str, &'static str);
+type TapeKey = (String, String, String, &'static str, u8, &'static str);
 
 /// A fetched tape, gzipped, under its key.
 type KeptTape = (TapeKey, Arc<Vec<u8>>);
@@ -539,6 +539,10 @@ fn tape_key(access: &HostedAccess, perspective: Perspective, verify: Verify) -> 
         access.token.clone(),
         access.game.clone(),
         perspective.wire(),
+        // Any seat's view (§18.3): two seats are two tapes. Found live: a
+        // switch to the house's seat was answered from the cache with the
+        // viewer's own tape.
+        perspective.seat().get(),
         verify.wire(),
     )
 }

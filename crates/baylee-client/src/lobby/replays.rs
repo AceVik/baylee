@@ -425,11 +425,13 @@ pub(super) fn open_replay(
                         token: token.to_string(),
                         game: game.clone(),
                     }),
+                    // From an end sheet there is no entry yet: what any
+                    // hosted game offers (§18.3), masked by the gateway.
                     entry.as_ref().map_or(
                         Perspectives {
                             seat: true,
                             public: true,
-                            all_hands: false,
+                            all_hands: true,
                         },
                         |e| e.can,
                     ),
