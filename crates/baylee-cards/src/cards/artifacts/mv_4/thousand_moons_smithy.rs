@@ -15,7 +15,10 @@ static ARTIFACTS_OR_CREATURES: Filter =
 static BACK_MANA: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
     triggered!(
-        Trigger::SpellCastUsingSourceMana(&Filter::ARTIFACT_OR_CREATURE),
+        Trigger::SpellCastUsingSourceMana(&Filter::And(&[
+            Filter::ARTIFACT_OR_CREATURE,
+            Filter::ControlledByYou
+        ])),
         &[Effect::CreateToken {
             token: &generated_tokens::GNOME_SOLDIER_WHITE_DYNAMIC
         }]

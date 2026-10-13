@@ -188,6 +188,11 @@ fn westvale_abbey_sacrifices_five_real_creatures_and_untaps_the_same_object() {
     let object = e.state().object(abbey).unwrap();
     assert_eq!((object.version, object.face_index), (version, 1));
     assert_eq!(pt(&e, abbey), (9, 7));
+    assert_eq!(
+        e.state().object(abbey).unwrap().characteristics().colors,
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Black),
+        "Ormendahl has a black color indicator and no mana cost, so it is black and only black (CR 202.2e)"
+    );
     assert!(!is_tapped(&e, abbey));
     assert!(
         keywords(&e, abbey).contains(

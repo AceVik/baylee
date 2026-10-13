@@ -30,6 +30,7 @@ card!(
             subtypes = &[subtypes::creature::GOBLIN, subtypes::creature::SHAMAN],
             power = Some(2),
             toughness = Some(2),
+            color_indicator = ColorSet::from_slice(&[Color::Red]),
             castable_from_hand = false,
             abilities = &[activated!(
                 cost!("{1}", TapSelf),

@@ -145,3 +145,49 @@ fn gardens_requires_its_chosen_x_and_keeps_the_copy_after_the_turn() {
         TypeSet::ARTIFACT
     );
 }
+
+/// "target nontoken artifact you control with mana value X": a Treasure token
+/// is an artifact you control with mana value 0 and still not a target for
+/// X = 0, where the nontoken Mox beside it is.
+#[test]
+fn gardens_never_offers_a_token_artifact_as_the_copy_target() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                the_mycosynth_gardens(),
+                index::FOUNTAINPORT,
+                index::MOX_OPAL,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let mox = on_battlefield(&e, p0, index::MOX_OPAL).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 4);
+    e.refresh_offer();
+    activate(&mut e, p0, index::FOUNTAINPORT, 3);
+    pass_until(&mut e, stack_is_empty);
+    let tokens = tokens_of(&e, p0);
+    assert_eq!(tokens.len(), 1, "Fountainport made its Treasure");
+    let treasure = tokens[0];
+    let made = e.state().object(treasure).unwrap().characteristics();
+    assert!(
+        made.types.contains(TypeSet::ARTIFACT) && made.mana_value() == 0,
+        "the Treasure is an artifact of mana value 0, a match for everything but \"nontoken\""
+    );
+
+    activate(&mut e, p0, the_mycosynth_gardens(), 2);
+    assert!(matches!(e.pending(), Pending::ChooseNumber { .. }));
+    e.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+    let options = aim_at(&mut e, p0, mox);
+    assert_eq!(
+        options,
+        vec![mox],
+        "X = 0: the nontoken Mox is the only target, the Treasure token is not"
+    );
+}

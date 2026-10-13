@@ -41,6 +41,7 @@ mod disease_carriers;
 mod dragon_whelp;
 mod dungeon_shade;
 mod ekundu_griffin;
+mod emeritus_of_woe;
 mod erhnam_djinn;
 mod ertai_resurrected;
 mod fetid_horror;

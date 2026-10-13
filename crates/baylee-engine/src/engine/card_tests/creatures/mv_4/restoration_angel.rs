@@ -156,3 +156,36 @@ fn restoration_angel_keeps_a_stolen_creature_and_its_owner_keeps_owning_it() {
     );
     assert!(in_graveyard(&engine, p0, llanowar_elves()).is_none());
 }
+
+/// "target non-Angel creature you control": the blink menu holds the
+/// Angel's controller's own creatures and nothing of the opponent's, whose
+/// Grizzly Bears here were never stolen.
+#[test]
+fn restoration_angel_does_not_offer_a_creature_its_opponent_controls() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[restoration_angel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::White, 4);
+    engine.refresh_offer();
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let their_bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    cast_with_floating(&mut engine, p0, restoration_angel());
+    let options = pass_until_targets(&mut engine, p0);
+    let angel = on_battlefield(&engine, p0, restoration_angel()).expect("the Angel entered");
+    assert!(
+        options.contains(&elves),
+        "your own non-Angel creature is on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_bears),
+        "target non-Angel creature YOU CONTROL: an opponent's Grizzly Bears is not: {options:?}"
+    );
+    assert!(!options.contains(&angel), "not an Angel: {options:?}");
+}

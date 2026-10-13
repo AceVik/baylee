@@ -145,3 +145,58 @@ fn treasure_map_removes_all_landmarks_and_doubles_only_the_created_treasures() {
     assert_eq!(e.state().object(map).unwrap().face_index, 1);
     assert!(is_tapped(&e, map));
 }
+
+/// "{T}, Sacrifice a Treasure: Draw a card." (the back face, Treasure Cove).
+#[test]
+fn treasure_cove_sacrifices_a_treasure_to_draw_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[treasure_map(), forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let map = on_battlefield(&e, p0, treasure_map()).unwrap();
+    crate::replacement::put_counters(
+        e.dev_state_mut(p0).unwrap(),
+        map,
+        baylee_cards_dsl::counters::LANDMARK,
+        2,
+    );
+    tap_all_mana_but(&mut e, p0, Some(treasure_map()));
+    activate(&mut e, p0, treasure_map(), 0);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    let Pending::Arrange { cards, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    e.apply(p0, look_answer(&cards, &[])).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().object(map).unwrap().face_index,
+        1,
+        "Treasure Cove"
+    );
+    assert_eq!(tokens_of(&e, p0).len(), 3);
+
+    // Untap the Cove (it was tapped to pay for the transform) and use it.
+    e.dev_state_mut(p0).unwrap().set_tapped(map, false);
+    e.refresh_offer();
+    let hand = e.state().zones.list(ZoneLocation::Hand(p0)).len();
+    activate(&mut e, p0, treasure_map(), 1);
+    if let Pending::ChooseCards { options, .. } = e.pending().clone() {
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    }
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand + 1,
+        "draws a card"
+    );
+    assert_eq!(tokens_of(&e, p0).len(), 2, "and sacrificed one Treasure");
+    assert!(is_tapped(&e, map), "the Cove tapped to pay");
+}

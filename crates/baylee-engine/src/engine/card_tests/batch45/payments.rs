@@ -138,3 +138,47 @@ fn batch45_bloodsoaked_counts_losses_without_netting_gains_and_limits_the_spendi
     assert_eq!(e.state.object(borrowed).unwrap().zone, Zone::Graveyard);
     assert_eq!(e.state.object(borrowed).unwrap().zone_owner, Some(P1));
 }
+
+/// "Target opponent exiles the top three cards of their library": exactly the
+/// top three of p1's library leave it, for p1's exile zone; the fourth card
+/// and p0's own library are untouched.
+#[test]
+fn batch45_bloodsoaked_exiles_exactly_the_top_three_cards_of_the_opponents_library() {
+    let mut e = prepared(&[index::BLOODSOAKED_INSIGHT], &[], &[]);
+    let theirs = library(&e, P1);
+    let mine = library(&e, P0);
+    let (len, my_len) = (theirs.len(), mine.len());
+    assert!(
+        len > 4,
+        "control: a library deep enough to tell three from four"
+    );
+    let top_three: Vec<ObjectId> = theirs[len - 3..].to_vec();
+    let fourth = theirs[len - 4];
+    cast_with_floating(&mut e, P0, index::BLOODSOAKED_INSIGHT);
+    e.apply(P0, PlayerAction::ChoosePlayer(P1)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        library(&e, P1).len(),
+        len - 3,
+        "three cards left the library, not two or four"
+    );
+    let mut exiled = e.state.zones.list(ZoneLocation::Exile(P1)).clone();
+    exiled.sort();
+    let mut expected = top_three;
+    expected.sort();
+    assert_eq!(
+        exiled, expected,
+        "exactly the top three, in p1's exile zone"
+    );
+    assert_eq!(
+        library(&e, P1).last().copied(),
+        Some(fourth),
+        "the fourth card is the new top of the library"
+    );
+    assert_eq!(
+        library(&e, P0).len(),
+        my_len,
+        "\"target opponent\" exiles theirs, not mine"
+    );
+    assert!(e.state.zones.list(ZoneLocation::Exile(P0)).is_empty());
+}

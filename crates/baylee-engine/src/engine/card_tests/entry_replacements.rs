@@ -445,3 +445,63 @@ fn entry_token_copy_keeps_its_entry_counter_after_choosing_zero_forests() {
     assert_eq!(entries(&e, token), 1);
     assert_eq!(pt(&e, wood), (1, 1));
 }
+
+#[test]
+fn entry_wood_elemental_offers_only_untapped_forests_of_its_controller() {
+    // Four Forests (one tapped) and an Island of P0, and a Forest of P1.
+    let mut e = prepared(
+        &[index::WOOD_ELEMENTAL],
+        &[
+            index::FOREST,
+            index::FOREST,
+            index::FOREST,
+            index::FOREST,
+            index::ISLAND,
+        ],
+        &[index::FOREST],
+    );
+    let board = mine(&e);
+    let (tapped, untapped, island) = (board[0], board[1..4].to_vec(), board[4]);
+    let their_forest = on_battlefield(&e, P1, index::FOREST).unwrap();
+    assert_eq!(
+        e.state().object(island).unwrap().card.unwrap().index,
+        index::ISLAND
+    );
+    e.dev_state_mut(P0).unwrap().set_tapped(tapped, true);
+    e.refresh_offer();
+    cast_with_floating(&mut e, P0, index::WOOD_ELEMENTAL);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseNumber { .. })
+    });
+    assert!(
+        matches!(
+            e.pending(),
+            Pending::ChooseNumber {
+                min: 0,
+                max: 3,
+                reason: crate::choice::NumberPrompt::Sacrifices,
+                ..
+            }
+        ),
+        "any number of untapped Forests: three, not the four Forests you control: {:?}",
+        e.pending()
+    );
+    e.apply(P0, PlayerAction::ChooseNumber(3)).unwrap();
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        panic!("the Forests to sacrifice: {:?}", e.pending())
+    };
+    let mut offered = options.clone();
+    offered.sort();
+    let mut want = untapped.clone();
+    want.sort();
+    assert_eq!(
+        offered, want,
+        "exactly the three untapped Forests you control are offered"
+    );
+    assert!(!offered.contains(&tapped), "a tapped Forest is not offered");
+    assert!(!offered.contains(&island), "an Island is not offered");
+    assert!(
+        !offered.contains(&their_forest),
+        "an opponent's Forest is not offered"
+    );
+}

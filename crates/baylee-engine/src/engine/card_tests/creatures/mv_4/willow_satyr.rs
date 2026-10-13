@@ -96,3 +96,36 @@ fn control_duration_ends_permanently_on_untap_blink_or_phase_out() {
         );
     }
 }
+
+#[test]
+fn satyr_offers_only_legendary_creatures_as_targets() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::WILLOW_SATYR, grizzly_bears()])
+        .battlefield(1, &[index::RAMIREZ_DE_PIETRO, grizzly_bears()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let satyr = on_battlefield(&e, p0, index::WILLOW_SATYR).unwrap();
+    let legend = on_battlefield(&e, p1, index::RAMIREZ_DE_PIETRO).unwrap();
+    let their_bears = on_battlefield(&e, p1, grizzly_bears()).unwrap();
+    let my_bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    activate(&mut e, p0, index::WILLOW_SATYR, 1);
+    let options = aim_at(&mut e, p0, legend);
+    assert!(
+        options.contains(&legend),
+        "the opponent's legendary creature is a legal target"
+    );
+    assert!(
+        !options.contains(&their_bears),
+        "target legendary creature: a non-legendary opposing creature is not offered"
+    );
+    assert!(
+        !options.contains(&my_bears),
+        "nor is one of your own non-legendary creatures"
+    );
+    assert!(
+        !options.contains(&satyr),
+        "the non-legendary Willow Satyr cannot target itself"
+    );
+}

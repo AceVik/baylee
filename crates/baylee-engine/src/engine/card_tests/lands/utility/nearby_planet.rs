@@ -107,3 +107,44 @@ fn nearby_planet_has_all_land_types_and_produces_each_color_but_not_colorless() 
         assert!(stack_is_empty(&e));
     }
 }
+
+/// "When this land enters, sacrifice it unless you pay {1}." Declining the
+/// payment sacrifices it and leaves the mana where it was; with nothing to
+/// pay with, the land is sacrificed whichever way the question is answered.
+#[test]
+fn nearby_planet_is_sacrificed_unless_the_tax_is_paid() {
+    let p0 = PlayerId::new(0);
+    for (floating, pay) in [(1_u32, false), (0, false), (0, true)] {
+        let mut e = Duel::new(SEED, forest())
+            .hand(0, &[nearby_planet()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Colorless, floating);
+        e.refresh_offer();
+        let planet = play_land(&mut e, p0, nearby_planet());
+        pass_until(&mut e, |e| {
+            matches!(
+                e.pending(),
+                Pending::YesNo {
+                    prompt: YesNoPrompt::PayTax { .. },
+                    ..
+                }
+            )
+        });
+        e.apply(p0, PlayerAction::YesNo(pay)).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().object(planet).unwrap().zone,
+            Zone::Graveyard,
+            "unpaid ({floating} floating, answered {pay}): sacrificed"
+        );
+        assert_eq!(
+            e.state().players[0].mana_pool.total(),
+            u64::from(floating),
+            "nothing was spent"
+        );
+    }
+}

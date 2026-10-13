@@ -153,3 +153,39 @@ fn a_stolen_fable_returns_under_the_thiefs_control() {
         "under your control: the thief's, by default, and still seat 0's card"
     );
 }
+
+/// Fable of the Mirror-Breaker // Reflection of Kiki-Jiki: the back face
+/// prints no mana cost and a red color indicator, and "an object is each
+/// color denoted by its color indicator" (CR 202.2e). Without the indicator
+/// the Reflection was a colorless 2/2.
+#[test]
+fn reflection_of_kiki_jiki_is_red_after_the_flip() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(8303, forest())
+        .battlefield(0, &[fable_of_the_mirror_breaker()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let saga = on_battlefield(&e, p0, fable_of_the_mirror_breaker())
+        .expect("Fable of the Mirror-Breaker is on the battlefield");
+    let colors =
+        |e: &Engine<RegistryLookup>| e.state().object(saga).unwrap().characteristics().colors;
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Red),
+        "the Saga is red by its {{2}}{{R}} cost"
+    );
+
+    let def = baylee_cards::by_index(fable_of_the_mirror_breaker()).unwrap();
+    assert!(e.dev_state_mut(p0).unwrap().transform(saga, def, 1));
+    assert_eq!(
+        e.state().object(saga).unwrap().face_index,
+        1,
+        "the Reflection is up"
+    );
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Red),
+        "Reflection of Kiki-Jiki has no mana cost and a red color indicator, so it is red and only red (CR 202.2e)"
+    );
+}

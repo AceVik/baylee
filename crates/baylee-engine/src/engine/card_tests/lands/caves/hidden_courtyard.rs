@@ -34,3 +34,9 @@ fn hidden_courtyard_enters_tapped_and_taps_for_white() {
 fn hidden_courtyard_pays_its_colored_cost_and_discovers_four() {
     hidden_cave_discovers(hidden_courtyard(), ManaColor::White, false);
 }
+
+/// "Activate only as a sorcery" and "{T}" are part of the discover ability.
+#[test]
+fn hidden_courtyard_discover_is_refused_on_a_stack_an_opponents_turn_or_a_tapped_cave() {
+    hidden_cave_refuses_discover(hidden_courtyard(), ManaColor::White);
+}

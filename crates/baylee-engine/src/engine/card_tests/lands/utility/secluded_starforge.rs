@@ -74,3 +74,28 @@ fn secluded_starforge_taps_for_colorless() {
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, starforge));
 }
+
+/// "{2}, {T}, Tap X untapped artifacts you control: Target creature gets
+/// +X/+0 until end of turn. Activate only as a sorcery." With a creature to
+/// target, untapped artifacts and the {2} floating, the pump is on offer in
+/// the own main phase and in neither the stack-holding window nor the
+/// opponent's turn.
+#[test]
+fn secluded_starforge_pump_is_sorcery_timing_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut e = kit::game(
+        952,
+        &[
+            secluded_starforge(),
+            index::GRIZZLY_BEARS,
+            index::SOL_RING,
+            index::MIND_STONE,
+        ],
+        &[],
+        &[llanowar_elves()],
+        &[],
+    );
+    let forge = kit::obj(&e, kit::P0, secluded_starforge());
+    assert_sorcery_timing_only(&mut e, forge, 1, &[(ManaColor::Colorless, 2)]);
+}

@@ -74,3 +74,47 @@ fn uthros_stations_to_twelve_and_counts_only_your_artifacts() {
     activate(&mut engine, kit::P0, uthros_titanic_godcore(), 1);
     assert_eq!(kit::pool_of(&engine, kit::P0, ManaColor::Blue), 2);
 }
+
+/// "Station only as a sorcery" — but the 12+ ability is a mana ability, which
+/// has no timing restriction: with an untapped creature to tap, twelve charge
+/// counters and a {U} to pay, Station is on offer in p0's main phase and not
+/// in p1's turn, while the 12+ mana ability is on offer in both.
+#[test]
+fn uthros_station_is_sorcery_timing_only_but_its_twelve_plus_mana_ability_is_not() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(
+        984,
+        &[uthros_titanic_godcore(), llanowar_elves(), sol_ring()],
+        &[],
+        &[],
+        &[],
+    );
+    let planet = kit::obj(&e, kit::P0, uthros_titanic_godcore());
+    crate::replacement::put_counters(
+        e.dev_state_mut(kit::P0).unwrap(),
+        planet,
+        CounterKind::Charge,
+        12,
+    );
+    kit::float(&mut e, kit::P0, &[(ManaColor::Blue, 1)]);
+    assert!(
+        planet_offered(&e, planet, 2),
+        "control: Station at sorcery timing"
+    );
+    assert!(
+        planet_offered(&e, planet, 1),
+        "control: 12+ at sorcery timing"
+    );
+
+    to_instant_timing(&mut e);
+    kit::float(&mut e, kit::P0, &[(ManaColor::Blue, 1)]);
+    assert!(
+        !planet_offered(&e, planet, 2),
+        "Station only as a sorcery: not in the opponent's turn"
+    );
+    assert_activation_refused(&mut e, planet, 2);
+    assert!(
+        planet_offered(&e, planet, 1),
+        "the 12+ ability is a mana ability: on offer at instant timing"
+    );
+}
