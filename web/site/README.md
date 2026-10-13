@@ -30,7 +30,7 @@ when a release carries them, the archives otherwise.
 
 The "Sets and card status" list under the cards section reads
 `data/sets.json` (every set in release order, its counts) and, when a visitor
-opens a set, `data/sets/<code>.json` (that set's cards: name, oracle id,
+opens a set, `data/sets/set-<code>.json` (the `set-` prefix keeps a code such as `con` from naming a reserved Windows file; that set's cards: name, oracle id,
 status, the reason for a partial or never-built card, and a Scryfall printing
 id). `scripts/site/card_status.py` writes both from one git revision of the
 repository, never from the working tree:

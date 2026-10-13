@@ -35,7 +35,8 @@ file is read line by line (Scryfall writes one card per line). Without it the
 ids already in the previous output are kept for cards the pool lacks.
 
 Standard library only. Writes `<out>/sets.json` (the overview) and
-`<out>/sets/<code>.json` (one set's cards, fetched when it is opened).
+`<out>/sets/set-<code>.json` (one set's cards, fetched when it is opened; the
+prefix keeps a code such as `con` from naming a reserved Windows file).
 """
 
 import argparse
@@ -288,7 +289,7 @@ def main():
     prev_ids = {}
     if not args.bulk:
         for code in previous:
-            p = os.path.join(args.out, "sets", f"{code}.json")
+            p = os.path.join(args.out, "sets", f"set-{code}.json")
             if os.path.exists(p):
                 with open(p, encoding="utf-8") as f:
                     for c in json.load(f)["cards"]:
@@ -351,12 +352,12 @@ def main():
             **counts,
         }
         overview.append(entry)
-        with open(os.path.join(args.out, "sets", f"{code}.json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(args.out, "sets", f"set-{code}.json"), "w", encoding="utf-8") as f:
             json.dump({"code": code, "cards": cards}, f, ensure_ascii=False, separators=(",", ":"))
             f.write("\n")
     # Remove set files no set names any more.
     for fn in os.listdir(os.path.join(args.out, "sets")):
-        if fn.endswith(".json") and fn[:-5] not in by_set:
+        if not (fn.startswith("set-") and fn.endswith(".json") and fn[4:-5] in by_set):
             os.remove(os.path.join(args.out, "sets", fn))
 
     doc = {
