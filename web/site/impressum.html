@@ -43,7 +43,12 @@
     <h2 class="de" lang="de">Angaben gemäß § 5 DDG</h2>
     <p class="en">This website is a private, non-commercial project of a private individual. Baylee is free and open source; there is no advertising and nothing to buy.</p>
     <p class="de" lang="de">Diese Website ist ein privates, nicht kommerzielles Projekt einer Privatperson. Baylee ist kostenlos und quelloffen; es gibt keine Werbung und nichts zu kaufen.</p>
-    <div class="imp-box glass" id="imp-provider" aria-live="polite">
+    <div class="imp-box glass" id="imp-provider" data-endpoint="/site/impressum" data-endpoint-local="http://127.0.0.1:28780/site/impressum">
+      <p class="imp-why"><span class="en">To keep address harvesters away, the details load only when you ask for them; your browser works out a small puzzle for it, which takes a moment.</span><span class="de" lang="de">Damit Adresssammler leer ausgehen, werden die Angaben erst auf deinen Wunsch geladen; dein Browser löst dafür ein kleines Rätsel, das einen Moment dauert.</span></p>
+      <button type="button" class="button imp-show" id="imp-show" hidden><span class="en">Show the details</span><span class="de" lang="de">Impressum anzeigen</span></button>
+      <progress class="imp-progress" id="imp-progress" max="1" value="0" hidden></progress>
+      <p class="imp-status" id="imp-show-status" role="status" aria-live="polite"></p>
+      <a class="hp" href="/site/impressum/kontakt" tabindex="-1" aria-hidden="true" rel="nofollow">Kontakt</a>
       <p class="nojs-note en">Please turn on JavaScript or use the <a href="/#contact">contact form</a>.</p>
       <p class="nojs-note de" lang="de">Bitte JavaScript aktivieren oder das <a href="/#contact">Kontaktformular</a> nutzen.</p>
       <p class="imp-failed" hidden><span class="en">The details could not be loaded. Please reload the page or use the <a href="/#contact">contact form</a>.</span><span class="de" lang="de">Die Angaben konnten nicht geladen werden. Bitte lade die Seite neu oder nutze das <a href="/#contact">Kontaktformular</a>.</span></p>

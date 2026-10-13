@@ -3,9 +3,10 @@
 # Directives for the gateway's own site block, served ahead of the gateway:
 # exactly `/` is the page, `/favicon.ico` its icon (browsers ask for it
 # unasked, and the gateway would answer 404), `/robots.txt`, everything under
-# /site/ its files (the Impressum is /site/impressum.html), the Impressum's
-# private details at /private/impressum.bin (below), and everything else stays the gateway's (/info, /lobby, /health,
-# /terms, /catalog, …) or the browser client's (/play/,
+# /site/ its files (the Impressum is /site/impressum.html, its details come
+# from the feedback service under /site/impressum/, below), and everything
+# else stays the gateway's (/info, /lobby, /health, /terms, /catalog, …) or
+# the browser client's (/play/,
 # scripts/server/play.caddy). /site/ is no route of the gateway's, so the
 # two never meet.
 #
@@ -15,13 +16,6 @@
 #   cp -R web/site /opt/baylee/web/site.new
 #   rm -rf /opt/baylee/web/site && mv /opt/baylee/web/site.new /opt/baylee/web/site
 #   install -m644 scripts/server/site.caddy /etc/caddy/baylee-site.caddy
-#   install -d -m755 /etc/baylee/site-private
-#   install -m644 /tmp/impressum.bin /etc/baylee/site-private/impressum.bin
-#
-# The last line needs the blob, which is never in the repository: build it
-# where the private data is, with scripts/site/impressum_blob.py, and copy it
-# to the server's /tmp first (web/site/README.md §"The Impressum"). Without
-# it the Impressum page says the details could not be loaded.
 #
 # and in the gateway's site block (the file under /etc/caddy/sites/), import
 # it beside the play snippet, before the proxy's `handle`, so no two of them
@@ -41,7 +35,26 @@
 # repeat the copy and the rename; nothing in Caddy changes.
 #
 # No `log` here, on purpose, like the other snippets: the page keeps nothing
-# about a visitor, and an access log would.
+# about a visitor, and an access log would. The one exception is opt-in and
+# separate: scripts/server/impressum-honeypot.caddy logs the addresses that
+# ask the Impressum's honeypot, for fail2ban.
+
+# The Impressum's details (web/site/impressum.html): the feedback service
+# hands them out for a solved proof of work and answers a honeypot, all
+# under /site/impressum/ (crates/baylee-feedback/src/impressum.rs,
+# docs/feedback.md §"The Impressum"). Passed on from here, so the page asks
+# its own origin and the service sees `Sec-Fetch-Site: same-origin`. Ahead
+# of the page's handle below: Caddy keeps named matchers in file order, and
+# /site/impressum.html is not under /site/impressum/, so the two never meet.
+# The service needs FEEDBACK_TRUSTED_PROXIES=127.0.0.1 (it has it for the
+# contact form) to count the visitor's address and not Caddy's.
+@baylee_impressum path /site/impressum /site/impressum/*
+handle @baylee_impressum {
+	request_body {
+		max_size 8KiB
+	}
+	reverse_proxy 127.0.0.1:28780
+}
 
 @baylee_site path / /favicon.ico /robots.txt /site/*
 handle @baylee_site {
@@ -85,32 +98,5 @@ handle @baylee_site {
 	header @impressum X-Robots-Tag "noindex, noarchive, nosnippet"
 
 	encode zstd gzip
-	file_server
-}
-
-# The Impressum's details: the blob scripts/site/impressum_blob.py writes from
-# the owner's private data, kept in a directory only the server has (never
-# under /opt/baylee/web, which a page update replaces, and never in the
-# repository). web/site/impressum.js fetches it and writes the text into the
-# page. Only a same-origin fetch gets it: browsers send `Sec-Fetch-Site:
-# same-origin` with that fetch, and `none`, `cross-site` or nothing at all
-# with a typed address, another site's request or a plain curl, which get 403.
-# (A Referer check would be useless: the page sends no referrer.) Anybody can
-# forge the header; the point is that a harvester walking links gets nothing,
-# and that what it would get is no text (the blob's own comment). Never
-# cached, never indexed.
-handle /private/impressum.bin {
-	header {
-		Cache-Control "no-store"
-		X-Robots-Tag "noindex, noarchive, nosnippet"
-		X-Content-Type-Options nosniff
-		Referrer-Policy no-referrer
-		Cross-Origin-Resource-Policy same-origin
-		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
-	}
-	@foreign not header Sec-Fetch-Site same-origin
-	respond @foreign 403
-	root * /etc/baylee/site-private
-	uri strip_prefix /private
 	file_server
 }

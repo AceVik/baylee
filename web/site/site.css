@@ -869,3 +869,12 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
   .imp-dl dd + dt { margin-top: 0.6rem; }
 }
 .imp-status:empty { min-height: 0; margin: 0; }
+.imp-why { font-family: var(--sans); color: var(--ink-soft); font-size: 0.95rem; }
+html:not([data-js]) .imp-why { display: none; }
+.imp-progress { display: block; width: min(18rem, 100%); height: 6px; margin: 0.8rem 0 0; accent-color: var(--gold); }
+.imp-progress[hidden] { display: none; }
+.imp-loaded .imp-why { display: none; }
+/* the honeypot: a link no person sees, for robots that follow every href
+   (crates/baylee-feedback/src/impressum.rs) */
+.hp { display: none !important; }
+.imp-show[hidden] { display: none; }

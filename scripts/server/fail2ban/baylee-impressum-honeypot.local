@@ -1,0 +1,20 @@
+# fail2ban jail for the Impressum's honeypot. Opt-in and an owner decision:
+# a ban shuts the whole host for that address, and an address can be shared
+# (scripts/server/impressum-honeypot.caddy says why the defaults are short).
+#
+# Install (as root):
+#
+#   install -m644 scripts/server/fail2ban/baylee-impressum-honeypot.conf /etc/fail2ban/filter.d/
+#   install -m644 scripts/server/fail2ban/baylee-impressum-honeypot.local /etc/fail2ban/jail.d/
+#   systemctl reload fail2ban
+#   fail2ban-client status baylee-impressum-honeypot
+
+[baylee-impressum-honeypot]
+enabled  = true
+filter   = baylee-impressum-honeypot
+logpath  = /var/log/caddy/baylee-impressum-honeypot.log
+backend  = polling
+port     = http,https
+maxretry = 2
+findtime = 1h
+bantime  = 1h
