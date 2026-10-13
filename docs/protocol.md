@@ -1891,22 +1891,27 @@ the gateway's unit removes when it stops.
 A signed-in account (guests too) can watch again every hosted game it sat
 at, from any device: the gateway has the game's record (§"The game record
 (#315)"), and an engine plays it again on **today's** build and sends back
-what one perspective was sent. Nothing is stored: a replay is computed when
-asked, and the record never leaves the gateway but to that engine.
+what one perspective was sent. No tape is stored: a replay is computed when
+asked, and the record never leaves the gateway but to that engine. The
+record itself is **never deleted** (it trains the house AI and balances
+decks); a player's "delete" hides a game from their own list
+(§"`DELETE /replays/{game}`"), and an account's deletion anonymises its seats
+(the account link is cut). Which seats' hidden cards a tape may hold is each
+seat's own choice (§"Sharing a seat's hidden cards").
 
 ### `GET /replays?offset=0&limit=20`
 
 The account's seated games (a seat it played; one its seat bridge played
-does not count), newest first (`started_at desc, game_id`), `limit` at most
-50 (default 20):
+does not count) that it has not hidden, newest first (`started_at desc,
+game_id`), `limit` at most 50 (default 20):
 
 ```json
 {"games":[{"game":"0199c8…","started_at":"2026-10-13T18:31:02Z","ended_at":"2026-10-13T19:02:40Z",
   "complete":true,"seat":1,"turn":12,"result":"lost","public":true,
   "check":"exact","build":"0.8.0+build.212 (3f9a1c7e21)",
-  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null},
-           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null},
-           {"seat":2,"who":"house","name":"House AI","commander":null}]}],
+  "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null,"shared":false,"mine":false},
+           {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null,"shared":true,"mine":true},
+           {"seat":2,"who":"house","name":"House AI","commander":null,"shared":true,"mine":false}]}],
  "total":57}
 ```
 
@@ -1925,20 +1930,63 @@ does not count), newest first (`started_at desc, game_id`), `limit` at most
   an `unverified` game with `verify: note` at once.
 - `public`: whether the account may ask the public perspective; every
   seated account may in v1.
+- `shared`: the seat's consent to show its hidden cards in this game's
+  replays (§"Sharing a seat's hidden cards"); always `true` for `house` and
+  `model`. `mine`: the asking account played this seat.
+
+### `DELETE /replays/{game}`
+
+Hides the game from the asking account's list, and nothing else: the record
+stays (it is never deleted), other players' lists are unchanged, and the
+account's own tapes of it are still answered. `204` (also when already
+hidden); `403` the account sat at no seat of that game; `404` no such game.
+One `replay_hidden` row, which goes with the account. No unhide in v1.
+
+### Sharing a seat's hidden cards
+
+`PUT /replays/{game}/share` `{"shared": true|false}` (any other field is
+`400`) sets whether the other players may see the asking account's **own**
+seat's hidden cards (its hand, what it looked at, its face-down cards, its
+deck as the print table earns it) in that game's replays. The seat is the
+one `game_record_seat` names for the account, never the request's. `200
+{"seat": n, "shared": bool}`; `403` the account sat at no seat of that game;
+`404` no such game. Any time, also while the game is played (the end-of-game
+dialog asks it). Default **not shared**; an AI seat (the house, a host's
+seat bridge, a hosted model) is always shared. Stored per game and seat
+(`game_record_share`); a consent stays when the account is deleted.
 
 ### `POST /replays/{game}/tape`
 
-`{"perspective":"seat"|"public","verify":"stop"|"note"}` (`verify` defaults
-to `stop`; any other field is `400`: there is no seat field, the seat is the
-one `game_record_seat` names for the account, never the request's) →
-`200 application/gzip`, the tape (`baylee_protocol::tape`, gzip JSON Lines: a
-header, the `static`, `view`, `over` frames the perspective was sent, and a
-closing `stop` line saying how far it is the recorded game).
+`{"perspective":"seat"|"public"|"all_hands","seat":2,"verify":"stop"|"note"}`
+(`verify` defaults to `stop`; `seat`, the seat the table is drawn from,
+defaults to the asking account's own and is ignored for `public`; a seat the
+table lacks or any other field is `400`) → `200 application/gzip`, the tape
+(`baylee_protocol::tape`, gzip JSON Lines: a header, the `static`, `view`,
+`over` frames the perspective was sent, and a closing `stop` line saying how
+far it is the recorded game).
+
+**Whose hidden cards a tape holds** is decided by the gateway and enforced
+by the projection: a seat's hidden cards appear only where that seat is the
+asker's own, an AI seat, or `shared`. With **S** that set of seats:
+
+- `seat`, the drawn seat in **S**: exactly what a socket at that seat was
+  sent (its hand, what it looked at, its face-down cards, its log).
+- `seat`, the drawn seat not in **S**: the public table drawn from that
+  seat: a `PlayerView` made from the spectator view (no hand, nothing looked
+  at), the spectators' log, a print table earned in public.
+- `all_hands`: the `seat` view as above, plus every other seat in **S** as a
+  `shared_hands` entry (`public: false`); hands only.
+- `public`: the spectators' stream (`SpectatorView` payloads).
+
+The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,
+`own` (whether the drawn seat's own hidden cards are in it; absent = `true`)
+and `hands` (the other seats whose hands are shown; absent = `[]`). Every
+`seat` and `all_hands` tape carries `PlayerView` payloads.
 
 | Answer | When |
 | --- | --- |
 | `200` | the tape; one that stops early (diverged, refused) says why on its `stop` line |
-| `400` | a body that is not a tape request |
+| `400` | a body that is not a tape request, or a seat the table lacks |
 | `403` | the account sat at no seat of that game |
 | `404` | no record of that game |
 | `409` | the game is still being played |
@@ -1949,9 +1997,9 @@ closing `stop` line saying how far it is the recorded game).
 | `504` | no tape in 60 s (`BAYLEE_REPLAY_JOB_SECS`, `1..=600`); the job's engine is told to stop |
 
 A game that ended in the last 10 s whose last piece is not stored yet is
-waited for up to 3 s. A seat's tape is that seat's view and log exactly as a
-socket at it was sent them (its own hand, the log as the seat may know it);
-the public tape is the spectators' stream (no hand, a print table that
+waited for up to 3 s. A full seat's tape is that seat's view and log exactly
+as a socket at it was sent them (its own hand, the log as the seat may know
+it); the public tape is the spectators' stream (no hand, a print table that
 starts empty). What a re-run leaves out, because the record does not hold
 it: a teammate's hand shared by choice, clocks, `lost` seats, the debug
 `AiLog`, the spectator count, chat.
