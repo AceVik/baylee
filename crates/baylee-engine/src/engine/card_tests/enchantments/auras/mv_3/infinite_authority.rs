@@ -16,6 +16,7 @@
 use super::*;
 use crate::engine::card_tests::aura_kit as kit;
 use crate::engine::card_tests::legends_kit as lk;
+use crate::object::ObjectKind;
 use crate::turn::Step;
 use baylee_cards_dsl::CounterKind;
 use baylee_core::generated::index;
@@ -28,6 +29,11 @@ fn infinite_authority() -> CardIndex {
 // oracle_id = "c80935bf-c17f-4940-ad9f-3f4e3e8f71bc"
 fn enchantment_alteration() -> CardIndex {
     card_index("c80935bf-c17f-4940-ad9f-3f4e3e8f71bc")
+}
+
+// oracle_id = "7e7ec3d6-a84f-4cc3-93f4-4d181d41e126"
+fn final_showdown() -> CardIndex {
+    card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
 }
 
 const P0: PlayerId = PlayerId::new(0);
@@ -476,4 +482,248 @@ fn moving_the_aura_after_it_triggers_changes_nothing_about_who_is_affected() {
         0,
         "and not to the creature the Aura moved to"
     );
+}
+
+// ---------------------------------------------------------------------------
+// The trigger is the Aura's own: seat 0 wears the Aura on seat 1's creature.
+// ---------------------------------------------------------------------------
+
+/// The abilities waiting on the stack, bottom to top, each as the permanent
+/// that is its source and the player who controls it.
+fn stack_abilities(engine: &Engine<RegistryLookup>) -> Vec<(ObjectId, PlayerId)> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .filter_map(|id| {
+            let object = engine.state().object(*id)?;
+            (object.kind == ObjectKind::AbilityOnStack).then(|| {
+                let ability = object.ability.expect("an ability on the stack says which");
+                (ability.source, object.controller)
+            })
+        })
+        .collect()
+}
+
+/// Seat 0 casts Infinite Authority on seat 1's `host_card` in its own main
+/// phase (with `extra` in its hand besides the Aura). `blocker_card` is seat
+/// 0's own creature, which will block. Returns the engine with the Aura, the
+/// host and the blocker, on seat 0's turn.
+#[track_caller]
+fn aura_on_their_creature(
+    host_card: CardIndex,
+    blocker_card: CardIndex,
+    extra: &[CardIndex],
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let mut hand = vec![infinite_authority()];
+    hand.extend_from_slice(extra);
+    let mut engine = lk::game(SEED, &[blocker_card], &[host_card], &hand, &[]);
+    let host = lk::obj(&engine, P1, host_card);
+    let blocker = lk::obj(&engine, P0, blocker_card);
+    let aura = kit::cast_aura(&mut engine, P0, infinite_authority(), host, &WWW);
+    assert_eq!(kit::controller_of(&engine, aura), P0, "seat 0 casts it");
+    assert_eq!(
+        kit::controller_of(&engine, host),
+        P1,
+        "on seat 1's creature"
+    );
+    (engine, aura, host, blocker)
+}
+
+/// On seat 1's turn the host attacks seat 0, and the declare-attackers step
+/// runs until seat 0 holds priority in it: before blockers, with room to
+/// respond.
+#[track_caller]
+fn they_attack_with(engine: &mut Engine<RegistryLookup>, host: ObjectId) {
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1),
+    );
+    engine
+        .apply(
+            P1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(host, Defender::Player(P0))],
+            },
+        )
+        .expect("the enchanted creature attacks seat 0");
+    pass_until(engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+}
+
+/// Seat 0 blocks `host` with `blocker`; the stack is left as it stands, with
+/// the Aura's trigger on it.
+#[track_caller]
+fn we_block_with(engine: &mut Engine<RegistryLookup>, host: ObjectId, blocker: ObjectId) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    lk::block(engine, &[(blocker, host)]);
+}
+
+/// "Whenever enchanted creature blocks or becomes blocked by a creature with
+/// toughness 3 or less, destroy the other creature at end of combat. At the
+/// beginning of the next end step, if that creature was destroyed this way,
+/// put a +1/+1 counter on the first creature." The trigger is printed on the
+/// Aura, not granted to the creature, so it is the Aura's: its source is the
+/// Aura (CR 113.1a: an object's abilities are defined by its rules text, and
+/// the card does not say "has" or "gains") and its controller is whoever
+/// controlled that source when it triggered (CR 603.3a, 113.8), seat 0,
+/// though the Aura enchants seat 1's creature. The two delayed triggers it
+/// creates are controlled by the player who controlled the ability as it
+/// resolved (CR 603.7e): seat 0 as well.
+///
+/// Seat 0 puts the Aura on seat 1's Grizzly Bears, which attack it on seat
+/// 1's turn; seat 0's Wall of Wood blocks. The three things that trigger on
+/// the way are each read off the stack.
+#[test]
+fn the_trigger_is_the_auras_own_and_belongs_to_the_auras_controller() {
+    let (mut engine, aura, host, wood) =
+        aura_on_their_creature(index::GRIZZLY_BEARS, index::WALL_OF_WOOD, &[]);
+    they_attack_with(&mut engine, host);
+    we_block_with(&mut engine, host, wood);
+    assert_eq!(
+        stack_abilities(&engine),
+        vec![(aura, P0)],
+        "one trigger: the Aura's own, and seat 0's"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    play_until(&mut engine, false, |e| {
+        e.state().turn.step == Step::CombatEnd && matches!(e.pending(), Pending::Priority { .. })
+    });
+    let at_end_of_combat = stack_abilities(&engine);
+    assert!(
+        !at_end_of_combat.is_empty(),
+        "the delayed destruction is on the stack as end of combat begins"
+    );
+    assert!(
+        at_end_of_combat
+            .iter()
+            .all(|(_, controller)| *controller == P0),
+        "seat 0 controls it, as it resolved the ability that created it: {at_end_of_combat:?}"
+    );
+    lk::settle(&mut engine);
+
+    play_until(&mut engine, false, |e| {
+        e.state().turn.active == P1
+            && e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    let at_the_end_step = stack_abilities(&engine);
+    assert!(
+        !at_the_end_step.is_empty(),
+        "the delayed counter is on the stack as the end step begins"
+    );
+    assert!(
+        at_the_end_step
+            .iter()
+            .all(|(_, controller)| *controller == P0),
+        "and so is that one: {at_the_end_step:?}"
+    );
+}
+
+/// "… destroy the other creature at end of combat … put a +1/+1 counter on
+/// the first creature." With the Aura on seat 1's creature and seat 1's
+/// creature attacking, the other creature is seat 0's blocker and the first
+/// creature is seat 1's. The Wall of Wood (0/3; two damage from the Bears do
+/// not kill it) is destroyed as end of combat begins, into its owner seat 0's
+/// graveyard, and not before; the Bears grow at the next end step, and not
+/// before; seat 0's Aura stays on them.
+#[test]
+fn the_blocker_is_destroyed_and_the_enchanted_creature_of_the_opponent_grows() {
+    let (mut engine, aura, host, wood) =
+        aura_on_their_creature(index::GRIZZLY_BEARS, index::WALL_OF_WOOD, &[]);
+    they_attack_with(&mut engine, host);
+    we_block_with(&mut engine, host, wood);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        kit::on_the_table(&engine, wood),
+        "the trigger only promises the destruction: the Wall is still here"
+    );
+
+    through_step(&mut engine, false, P1, Step::CombatEnd);
+    assert!(
+        in_graveyard(&engine, P0, index::WALL_OF_WOOD).is_some(),
+        "the other creature, seat 0's blocker, is destroyed into seat 0's graveyard"
+    );
+    assert_eq!(
+        plus_counters(&engine, host),
+        0,
+        "no counter yet: it comes at the next end step"
+    );
+
+    through_step(&mut engine, false, P1, Step::End);
+    assert_eq!(
+        plus_counters(&engine, host),
+        1,
+        "the first creature, seat 1's enchanted Bears, gets the counter"
+    );
+    assert_eq!(kit::controller_of(&engine, host), P1);
+    assert_eq!(
+        kit::attached_to(&engine, aura),
+        Some(host),
+        "and seat 0's Aura is still on it"
+    );
+}
+
+/// Because the trigger is the Aura's own, a creature that loses all
+/// abilities does not lose it (CR 613.1f applies to the creature's abilities;
+/// the Aura's are not its abilities). Seat 0's Aura is on seat 1's Elvish
+/// Archers (2/1 first strike), which attack. Before blockers seat 0 casts
+/// Final Showdown for its first mode: all creatures lose all abilities until
+/// end of turn. Then the Wall of Wood blocks.
+/// - The control: seat 0 does nothing in the declare-attackers step, so the
+///   Archers still have first strike, the Aura triggers, the Wall is
+///   destroyed at end of combat and the Archers get the counter.
+/// - With Final Showdown the Archers have lost first strike (so it did take
+///   their abilities) and exactly the same happens.
+///
+/// A trigger granted to the creature would be gone in the second run.
+#[test]
+fn an_enchanted_creature_that_loses_all_abilities_still_triggers_the_aura() {
+    for blanked in [false, true] {
+        let (mut engine, _aura, archers, wood) = aura_on_their_creature(
+            index::ELVISH_ARCHERS,
+            index::WALL_OF_WOOD,
+            &[final_showdown()],
+        );
+        they_attack_with(&mut engine, archers);
+        if blanked {
+            lk::float(
+                &mut engine,
+                P0,
+                &[(ManaColor::White, 1), (ManaColor::Colorless, 1)],
+            );
+            cast_with_floating(&mut engine, P0, final_showdown());
+            choose_modes(&mut engine, P0, 0b001);
+            pass_until(&mut engine, stack_is_empty);
+        }
+        assert_eq!(
+            keywords(&engine, archers).contains(KeywordSet::FIRST_STRIKE),
+            !blanked,
+            "the Archers keep their first strike exactly when seat 0 did not cast the spell"
+        );
+
+        we_block_with(&mut engine, archers, wood);
+        assert!(
+            !stack_is_empty(&engine),
+            "the Aura triggers as the Wall blocks (blanked = {blanked})"
+        );
+        pass_until(&mut engine, stack_is_empty);
+        through_step(&mut engine, false, P1, Step::CombatEnd);
+        assert!(
+            !kit::on_the_table(&engine, wood),
+            "the Wall is destroyed at end of combat (blanked = {blanked})"
+        );
+        through_step(&mut engine, false, P1, Step::End);
+        assert_eq!(
+            plus_counters(&engine, archers),
+            1,
+            "and the Archers get their counter (blanked = {blanked})"
+        );
+    }
 }
