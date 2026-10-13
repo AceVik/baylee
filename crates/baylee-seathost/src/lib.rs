@@ -847,7 +847,7 @@ impl Host {
                     Heard::Limited { lifts_secs } => {
                         tracing::info!(profile = plays, lifts_secs, "the model is rate limited");
                         if let Some(rt) = host.inner().rt.get_mut(&plays) {
-                            rt.limit(lifts_secs, now());
+                            rt.heard_limit(lifts_secs, now());
                         }
                         host.report_all();
                     }

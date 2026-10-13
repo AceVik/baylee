@@ -116,6 +116,22 @@ impl Runtime {
         self.next_probe = Some(until);
     }
 
+    /// A bridge said its model is limited ([`crate::launch::Heard`]). One
+    /// limit is heard by every game it meets, so while one stands it is
+    /// not stepped up again: only a later end the provider named moves it.
+    pub fn heard_limit(&mut self, lifts_secs: Option<i64>, now: i64) {
+        match self.limited_until {
+            Some(until) if until > now => {
+                if let Some(secs) = lifts_secs {
+                    let later = until.max(now + secs.max(1));
+                    self.limited_until = Some(later);
+                    self.next_probe = Some(later);
+                }
+            }
+            _ => self.limit(lifts_secs, now),
+        }
+    }
+
     /// A game ended: well, or with what its bridge said last.
     pub fn ended(&mut self, outcome: Result<(), Probe>, now: i64) {
         self.games = self.games.saturating_sub(1);
@@ -317,6 +333,33 @@ mod tests {
         failing.probed(Probe::Ok, NOW + 5);
         assert_eq!(state(&failing, on(), NOW + 5).0, State::Available);
         assert_eq!(failing.last_ok, Some(NOW + 5));
+    }
+
+    /// One limit that every game it meets hears (`Heard::Limited`) is
+    /// stepped up once: while it stands, hearing it again moves nothing but
+    /// to a later end the provider named, and once it has passed the next
+    /// hearing is a new limit, one step on.
+    #[test]
+    fn a_limit_many_games_hear_is_stepped_up_once() {
+        let mut rt = Runtime::default();
+        rt.heard_limit(None, NOW);
+        assert_eq!(rt.limited_until, Some(NOW + 300));
+        rt.heard_limit(None, NOW + 10);
+        rt.heard_limit(None, NOW + 20);
+        assert_eq!((rt.limited_until, rt.backoff_step), (Some(NOW + 300), 1));
+        rt.heard_limit(Some(60), NOW + 30);
+        assert_eq!(
+            rt.limited_until,
+            Some(NOW + 300),
+            "an earlier end moves nothing"
+        );
+        rt.heard_limit(Some(900), NOW + 30);
+        assert_eq!(
+            (rt.limited_until, rt.next_probe),
+            (Some(NOW + 930), Some(NOW + 930))
+        );
+        rt.heard_limit(None, NOW + 1000);
+        assert_eq!(rt.limited_until, Some(NOW + 1000 + 600));
     }
 
     /// A limit that names no end is waited out 5, 10, 20, 40, then 60
