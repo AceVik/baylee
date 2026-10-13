@@ -887,6 +887,7 @@ fn chip(commands: &mut Commands, fonts: &UiFonts, look: Chip, ask: BarAsk) -> En
 
 /// The seat picker: every perspective the replay offers, a lock beside a
 /// seat whose hidden cards stay hidden; over the bar's right end.
+#[allow(clippy::too_many_lines)] // one panel, its rows top to bottom
 fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
     let lang = look.lang;
     let panel = commands

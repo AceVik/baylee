@@ -555,6 +555,7 @@ pub(super) fn leave_clicks(
 /// `Confirm` and `Primary` — Space and Enter by default — press the lead
 /// answer, which is what the brass button on the sheet is; `Cancel` always
 /// leaves, because the way out is the thing nobody may be stuck without.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the keys, the sheet and where each way goes
 pub(super) fn leave_keys(
     keys: Res<ButtonInput<KeyCode>>,
     prefs: Res<crate::prefs::Prefs>,

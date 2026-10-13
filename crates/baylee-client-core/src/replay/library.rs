@@ -147,6 +147,7 @@ pub enum EntrySource {
 
 /// Who a player in an entry is.
 #[derive(Clone, PartialEq, Eq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // independent facts about one seat
 pub struct Player {
     /// The seat.
     pub seat: u8,
@@ -342,9 +343,9 @@ impl Entry {
         }
     }
 
-    /// Whether the entry can be hidden from the viewer's list
-    /// (`DELETE /replays/{game}`, §18.1): a hosted game; its record stays
-    /// on the server.
+    /// Whether the entry is archived on the server
+    /// (`PUT /replays/{game}/archived`, §18.1): a hosted game; archiving
+    /// only moves it to the viewer's "Archived" list, its record stays.
     #[must_use]
     pub const fn hideable(&self) -> bool {
         matches!(self.source, EntrySource::Hosted { .. })
