@@ -614,7 +614,7 @@ mod tests {
         let mut command = tokio::process::Command::new("sh");
         command.args([
             "-c",
-            "read ticket; echo \"sits in chair\"; \
+            "read ticket; echo \"sits in chair\"; sleep 0.3; \
              echo \"won after 3 turns: the mind answered 7, the house 1; \
              key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\"; \
              echo \"house answers: 7x unavailable: 504\"; \
@@ -634,5 +634,306 @@ mod tests {
             "{said}"
         );
         assert!(!said.contains("abcdefghijklmnop"), "{said}");
+    }
+
+    /// A job as the seat agent builds it for a chair ordered as
+    /// `primary`: with `fallback`, the game plays the profile and
+    /// `backup` stands by; without, `backup` plays it outright.
+    fn job(fallback: bool) -> SeatJob {
+        SeatJob {
+            order: "order-7".into(),
+            game_id: "game-9".into(),
+            seat: 2,
+            profile: "primary".into(),
+            plays: if fallback { "primary" } else { "backup" }.into(),
+            name: "Model-A".into(),
+            chair_ticket: "the-secret-chair-ticket".into(),
+            gateway_url: "http://127.0.0.1:28766".into(),
+            deck_text: None,
+            settings: r#"{"default":"settings-of-the-player"}"#.into(),
+            ledger: PathBuf::from("/state/spend/own.json"),
+            fallback: fallback.then(|| FallbackJob {
+                profile: "backup".into(),
+                settings: r#"{"default":"settings-of-the-fallback"}"#.into(),
+                ledger: PathBuf::from("/state/spend/backup.json"),
+            }),
+            heard: None,
+        }
+    }
+
+    fn launcher() -> ProcessLauncher {
+        ProcessLauncher {
+            bridge: PathBuf::from("/opt/baylee/baylee-seat"),
+            work: PathBuf::from("/state/run"),
+            env: vec![
+                ("HOME".into(), "/home/seat".into()),
+                ("BAYLEE_KEY_STORE".into(), "file:/x".into()),
+            ],
+        }
+    }
+
+    fn args_of(command: &tokio::process::Command) -> Vec<String> {
+        command
+            .as_std()
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    /// The bridge is started with the profile that plays and its own files,
+    /// the chair's name, and, where one stands by, the fallback's profile,
+    /// settings file and spend book: nothing about the ticket, a key or the
+    /// settings' text in its arguments, and only the allowlisted variables
+    /// set. (Before, a fallback reached the bridge in no way.)
+    #[test]
+    fn the_bridge_is_started_with_the_profile_that_plays_and_its_fallback() {
+        let files = JobFiles {
+            settings: PathBuf::from("/run/seat-order-7/llm-seat.json"),
+            deck: None,
+            fallback: Some(PathBuf::from("/run/seat-order-7/llm-seat-fallback.json")),
+        };
+        let command = launcher().join_command(&job(true), &files);
+        assert_eq!(
+            command.as_std().get_program(),
+            std::ffi::OsStr::new("/opt/baylee/baylee-seat")
+        );
+        assert_eq!(
+            args_of(&command),
+            [
+                "join",
+                "game-9",
+                "--chair",
+                "2",
+                "--chair-ticket",
+                "--tethered",
+                "--gateway",
+                "http://127.0.0.1:28766",
+                "--config",
+                "/run/seat-order-7/llm-seat.json",
+                "--profile",
+                "primary",
+                "--ledger",
+                "/state/spend/own.json",
+                "--name",
+                "Model-A",
+                "--fallback-profile",
+                "backup",
+                "--fallback-config",
+                "/run/seat-order-7/llm-seat-fallback.json",
+                "--fallback-ledger",
+                "/state/spend/backup.json",
+            ]
+        );
+        let joined = args_of(&command).join(" ");
+        assert!(
+            !joined.contains("secret-chair-ticket"),
+            "the ticket is on stdin"
+        );
+        assert!(
+            !joined.contains("settings-of"),
+            "a settings file's text is no argument"
+        );
+
+        let mut set: Vec<(String, Option<String>)> = command
+            .as_std()
+            .get_envs()
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().into_owned(),
+                    v.map(|v| v.to_string_lossy().into_owned()),
+                )
+            })
+            .collect();
+        set.sort();
+        assert_eq!(
+            set,
+            [
+                ("BAYLEE_KEY_STORE".to_string(), Some("file:/x".to_string())),
+                ("HOME".to_string(), Some("/home/seat".to_string())),
+            ],
+            "the allowlist and nothing else"
+        );
+    }
+
+    /// A game that plays the profile ordered, when the fallback is not
+    /// standing by, and one with a deck, are started with exactly those
+    /// arguments: no fallback flag where there is no fallback, the deck's file
+    /// where there is a deck. The profile that plays is the one named, not
+    /// the one ordered.
+    #[test]
+    fn a_bridge_without_a_fallback_is_given_no_fallback_flags_and_the_profile_that_plays() {
+        let files = JobFiles {
+            settings: PathBuf::from("/run/s/llm-seat.json"),
+            deck: Some(PathBuf::from("/run/s/deck.txt")),
+            fallback: None,
+        };
+        // Ordered as the primary, played by the fallback: `plays` is named.
+        let command = launcher().join_command(&job(false), &files);
+        let args = args_of(&command);
+        let at = |flag: &str| {
+            let place = args.iter().position(|a| a == flag).expect(flag);
+            args[place + 1].as_str()
+        };
+        assert_eq!(at("--profile"), "backup");
+        assert_eq!(at("--ledger"), "/state/spend/own.json");
+        assert_eq!(at("--name"), "Model-A");
+        assert_eq!(at("--deck"), "/run/s/deck.txt");
+        assert!(
+            args.iter().all(|a| !a.starts_with("--fallback")),
+            "{args:?}"
+        );
+    }
+
+    /// The files a job needs are written `0600`, the fallback's settings in a
+    /// file of their own beside the player's, and only when one stands by.
+    #[cfg(unix)]
+    #[test]
+    fn a_jobs_files_are_written_privately_the_fallbacks_beside_the_players() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = std::env::temp_dir().join(format!("baylee-launch-files-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut with_deck = job(true);
+        with_deck.deck_text = Some("60 Forest".into());
+
+        let files = ProcessLauncher::write_job(&dir, &with_deck).unwrap();
+
+        let (settings, fallback) = (files.settings.clone(), files.fallback.clone().unwrap());
+        assert_ne!(settings, fallback);
+        assert_eq!(
+            std::fs::read_to_string(&settings).unwrap(),
+            r#"{"default":"settings-of-the-player"}"#
+        );
+        assert_eq!(
+            std::fs::read_to_string(&fallback).unwrap(),
+            r#"{"default":"settings-of-the-fallback"}"#
+        );
+        assert_eq!(
+            std::fs::read_to_string(files.deck.unwrap()).unwrap(),
+            "60 Forest"
+        );
+        for path in [&settings, &fallback] {
+            let mode = std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "{}", path.display());
+        }
+        let alone = ProcessLauncher::write_job(&dir, &job(false)).unwrap();
+        assert_eq!(alone.fallback, None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Nothing of the seat agent's environment reaches a bridge but what the
+    /// launcher names: run, the bridge's environment holds `HOME` and the key
+    /// store's switch and not what the test process itself was started with.
+    /// (`get_envs` lists only what was set, and cannot tell a cleared
+    /// environment from an inherited one: this reads what a process sees.)
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_bridge_sees_the_allowlisted_environment_and_nothing_else() {
+        // Cargo sets this in every test process it runs.
+        assert!(std::env::var_os("CARGO_MANIFEST_DIR").is_some());
+        let mut launch = launcher();
+        launch.bridge = PathBuf::from("/bin/sh");
+        let mut command = launch.command();
+        let out = command
+            .args(["-c", "export -p"])
+            .output()
+            .await
+            .expect("sh runs");
+        let seen = String::from_utf8_lossy(&out.stdout).into_owned();
+        assert!(
+            seen.contains("HOME") && seen.contains("/home/seat"),
+            "{seen}"
+        );
+        assert!(seen.contains("BAYLEE_KEY_STORE"), "{seen}");
+        assert!(!seen.contains("CARGO_MANIFEST_DIR"), "inherited: {seen}");
+        assert!(
+            !seen.contains("ANTHROPIC") && !seen.contains("_API_KEY"),
+            "{seen}"
+        );
+    }
+
+    /// The bridge's own words that its model is rate limited and its fallback
+    /// asked to take over are read, with the seconds when the provider named
+    /// them, from the line wherever it stands in it; no other line is.
+    #[test]
+    fn a_rate_limited_primary_is_heard_with_the_seconds_it_names() {
+        assert_eq!(
+            heard_in("the primary is rate limited (it lifts in 120 s)"),
+            Some(Heard::Limited {
+                lifts_secs: Some(120)
+            })
+        );
+        assert_eq!(
+            heard_in("seat: the primary is rate limited; the fallback backup plays on"),
+            Some(Heard::Limited { lifts_secs: None }),
+            "no parenthesis, no seconds"
+        );
+        assert_eq!(
+            heard_in("12:01:07 note: the primary is rate limited (it lifts in 45 s) so"),
+            Some(Heard::Limited {
+                lifts_secs: Some(45)
+            }),
+            "a prefix does not matter"
+        );
+        assert_eq!(
+            heard_in("the primary is rate limited (it lifts in soon s)"),
+            Some(Heard::Limited { lifts_secs: None }),
+            "seconds that are no number are none"
+        );
+        for line in [
+            "sits in chair",
+            "",
+            "the model is rate limited",
+            "won after 3 turns: the mind answered 7, the house 1",
+        ] {
+            assert_eq!(heard_in(line), None, "«{line}»");
+        }
+    }
+
+    /// What a running bridge says reaches the channel of its job: its rate
+    /// limited line, said on either of its streams, is sent as `Heard`, while
+    /// the seat agent's other business (sitting, closing lines) is unharmed.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_bridge_that_says_it_is_limited_is_heard_by_its_job() {
+        let (heard, mut listening) = tokio::sync::mpsc::unbounded_channel();
+        let mut job = job(true);
+        job.heard = Some(heard);
+        let mut command = tokio::process::Command::new("sh");
+        command.args([
+            "-c",
+            "read ticket; echo \"sits in chair\"; \
+             echo \"the primary is rate limited (it lifts in 120 s)\" >&2; \
+             echo \"the game is settled in the spend book\"",
+        ]);
+        let (started, _started_rx) = oneshot::channel();
+        let (_stop, stop) = oneshot::channel();
+        let Exit::Ended(said) = play(command, &job, started, stop).await else {
+            panic!("the bridge ended well");
+        };
+        assert_eq!(
+            listening.try_recv(),
+            Ok(Heard::Limited {
+                lifts_secs: Some(120)
+            })
+        );
+        assert!(listening.try_recv().is_err(), "said once, heard once");
+        assert!(said.contains("the primary is rate limited"), "{said}");
+    }
+
+    /// A job's debug line, which the seat agent logs at every start, names
+    /// the profile that plays when it is not the one ordered and the fallback
+    /// that stands by, and never the ticket.
+    #[test]
+    fn a_jobs_debug_line_names_where_it_plays_and_never_the_ticket() {
+        let mut diverted = job(false);
+        let line = format!("{diverted:?}");
+        assert!(line.contains("primary plays backup"), "{line}");
+        assert!(!line.contains("fallback"), "{line}");
+        diverted = job(true);
+        let line = format!("{diverted:?}");
+        assert!(line.contains("fallback backup"), "{line}");
+        assert!(!line.contains("plays"), "{line}");
+        assert!(!line.contains("secret-chair-ticket"), "{line}");
     }
 }

@@ -1228,6 +1228,82 @@ mod tests {
         assert_eq!(registry.pick("p"), None);
     }
 
+    /// A seat agent at a profile's `max_games` is not picked for it, counting
+    /// the orders still starting, unless it reports that new games of the
+    /// profile start on its fallback (`diverts`, whose bound the seat agent
+    /// holds): then it is, however many are starting. Its capacity still
+    /// binds, and a diverting profile that is not reported available is not
+    /// picked either. (Before, every profile at its bound was refused.)
+    #[test]
+    fn a_profile_at_its_bound_is_picked_only_while_it_diverts() {
+        let mut full = reported("primary", ProfileState::Available, 1, Some(1));
+        let mut registry = Registry::default();
+        registry
+            .hosts
+            .insert("a".into(), host(vec![full.clone()], 0));
+        assert_eq!(
+            registry.pick("primary"),
+            None,
+            "at its bound, and diverting nowhere"
+        );
+
+        full.diverts = Some("backup".into());
+        registry
+            .hosts
+            .insert("a".into(), host(vec![full.clone()], 0));
+        assert_eq!(registry.pick("primary").as_deref(), Some("a"), "diverting");
+        // Orders still starting count against a bound, not against a diversion.
+        let seat_agent = registry.hosts.get_mut("a").unwrap();
+        for order in ["o1", "o2", "o3"] {
+            seat_agent.starting.insert(order.into(), "primary".into());
+        }
+        assert_eq!(registry.pick("primary").as_deref(), Some("a"));
+
+        // The seat agent's own capacity still binds: one bridge, one order
+        // already starting.
+        registry
+            .hosts
+            .insert("capped".into(), host(vec![full.clone()], 1));
+        registry
+            .hosts
+            .get_mut("capped")
+            .unwrap()
+            .starting
+            .insert("o4".into(), "primary".into());
+        assert_eq!(
+            registry.pick("primary").as_deref(),
+            Some("a"),
+            "capped is skipped"
+        );
+        registry.hosts.remove("a");
+        assert_eq!(
+            registry.pick("primary"),
+            None,
+            "no capacity, whatever it diverts"
+        );
+
+        // A profile that does not read available is never picked.
+        full.state = ProfileState::Exhausted;
+        let mut registry = Registry::default();
+        registry.hosts.insert("a".into(), host(vec![full], 0));
+        assert_eq!(registry.pick("primary"), None);
+    }
+
+    /// A seat agent that diverts is preferred like any other by the games it
+    /// holds, and one that does not divert at its bound is passed over for
+    /// one that does: the order goes where it can be placed.
+    #[test]
+    fn an_order_goes_to_the_seat_agent_that_can_place_it() {
+        let mut diverting = reported("primary", ProfileState::Available, 1, Some(1));
+        diverting.diverts = Some("backup".into());
+        let full = reported("primary", ProfileState::Available, 1, Some(1));
+        let mut registry = Registry::default();
+        // "a" sorts first and is full; "b" diverts.
+        registry.hosts.insert("a".into(), host(vec![full], 0));
+        registry.hosts.insert("b".into(), host(vec![diverting], 0));
+        assert_eq!(registry.pick("primary").as_deref(), Some("b"));
+    }
+
     #[test]
     fn the_seathost_token_is_its_own_secret() {
         assert_eq!(token_from_env(None, &[]), Ok(None));
