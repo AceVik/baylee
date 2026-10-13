@@ -91,3 +91,47 @@ fn kavaron_stations_by_power_then_unlocks_its_robot_and_team_pump() {
         "the newly created Robot receives the pump too"
     );
 }
+
+/// "Station only as a sorcery" — but the 12+ ability prints no such
+/// restriction: with an untapped creature to tap, twelve charge counters, a
+/// land to sacrifice and the mana, Station is on offer in p0's main phase and
+/// not in p1's turn, while the 12+ ability is on offer in both.
+#[test]
+fn kavaron_station_is_sorcery_timing_only_but_its_twelve_plus_ability_is_not() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(
+        982,
+        &[kavaron_memorial_world(), serra_angel(), forest()],
+        &[],
+        &[],
+        &[],
+    );
+    let planet = kit::obj(&e, kit::P0, kavaron_memorial_world());
+    crate::replacement::put_counters(
+        e.dev_state_mut(kit::P0).unwrap(),
+        planet,
+        CounterKind::Charge,
+        12,
+    );
+    kit::float(&mut e, kit::P0, &[(ManaColor::Red, 2)]);
+    assert!(
+        planet_offered(&e, planet, 2),
+        "control: Station at sorcery timing"
+    );
+    assert!(
+        planet_offered(&e, planet, 1),
+        "control: 12+ at sorcery timing"
+    );
+
+    to_instant_timing(&mut e);
+    kit::float(&mut e, kit::P0, &[(ManaColor::Red, 2)]);
+    assert!(
+        !planet_offered(&e, planet, 2),
+        "Station only as a sorcery: not in the opponent's turn"
+    );
+    assert_activation_refused(&mut e, planet, 2);
+    assert!(
+        planet_offered(&e, planet, 1),
+        "the printed 12+ ability has no timing restriction: it is on offer at instant timing"
+    );
+}
