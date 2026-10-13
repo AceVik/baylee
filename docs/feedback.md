@@ -32,7 +32,7 @@ The body, frozen:
 
 ```json
 {
-  "kind": "bug" | "improvement" | "feedback" | "crash" | "other",
+  "kind": "bug" | "improvement" | "feedback" | "crash" | "other",   // a gateway also sends "chat"
   "text": "…",                 // at most 20000 characters
   "game_id": "…" | null,        // the game the report is about, if any; at most 128 characters
   "client": { … },              // anything the client wants to say; at most 2 MiB serialized
@@ -108,6 +108,30 @@ Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
 never change it, if reports of one player should stay linkable).
 
+## A reported chat message: `POST /social/reports` (beta.8)
+
+A chat message a player reports goes through its own gateway route, never
+`POST /reports`, whose body stays frozen. The player's client sends the
+message as it was delivered, its message key and the body it decrypted to;
+the gateway checks the sender's signature and that the key opens the
+ciphertext to exactly that body (`baylee_seal::verify_report`,
+`docs/protocol.md` §"Friends and chat (beta.8)"), then forwards to the
+intake as any report with `kind: "chat"`:
+
+- `text`: the reporter's note, then the message's text;
+- `game_id`: the table's game for a table or team message, else none;
+- `client.chat`: `{verified, conversation ("whisper" | "group" | "table" |
+  "team"), sender (the sender's pseudonym, made with the reporter key, or
+  null when the sending device is gone), sent_at (the sender's clock, ms),
+  message, note}`;
+- no record.
+
+`verified: false` means the check failed or could not run (the sender's
+device was removed since): say so before acting on it. 10 reports an hour
+per account; `503` without `BAYLEE_FEEDBACK_URL`. Deploy the service (which
+knows the `chat` kind since its migration `m0006_chat_kind`) before the
+gateway. `POST /client/reports` refuses `chat`: only a gateway can check one.
+
 ## The service: `baylee-feedback` (#308)
 
 One binary with a Postgres database of its own. It binds to loopback by
@@ -115,7 +139,7 @@ default and is meant to sit behind a TLS reverse proxy.
 
 | variable | meaning |
 | --- | --- |
-| `FEEDBACK_DATABASE_URL` | required; its own database. Its tables are `feedback_report`, `feedback_admin`, `feedback_session`, `feedback_audit` and `feedback_migrations`, so it can share a database with a gateway, but should not |
+| `FEEDBACK_DATABASE_URL` | required; its own database. Its tables are `feedback_report`, `feedback_contact`, `feedback_admin`, `feedback_session`, `feedback_audit` and `feedback_migrations`, so it can share a database with a gateway, but should not |
 | `FEEDBACK_GATEWAY_TOKENS` | `name=token,name=token`: one intake token per gateway. A name is letters, digits, `.`, `-`, `_`, at most 64 |
 | `FEEDBACK_READ_TOKEN` | reads reports |
 | `FEEDBACK_ADMIN_TOKEN` | reads, changes a report's status, deletes reports |
@@ -124,6 +148,7 @@ default and is meant to sit behind a TLS reverse proxy.
 | `FEEDBACK_WEB_DIR` | the built web UI (`web/feedback/dist`); unset = no page, `/` is `404` |
 | `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter and the direct route's allowance believe; an entry that is not an address refuses startup |
 | `FEEDBACK_DIRECT_KEY` | turns on `POST /client/reports` and keys its reporter pseudonyms; at least 16 characters and none of the tokens. Unset, the route answers `503`. Never change it if a device's reports should stay linkable |
+| `FEEDBACK_CONTACT_ORIGINS` | turns on `POST /site/contact` for the pages served at these origins, comma-separated: each `https://host[:port]`, or `http://` for `localhost`, `127.0.0.1` or `[::1]` only (a page tried on this machine); a path, a trailing slash, credentials or plain `http://` to anywhere else refuses startup. Unset, the route answers `503` |
 
 Every token is at least 16 characters and no token may be given twice; the
 service refuses to start otherwise. Tokens are kept as SHA-256 and compared in
@@ -224,6 +249,68 @@ the client sends nothing.
 The admin overview shows the count ("Offline now"), from
 `GET /ui/api/admin/offline` (`{"offline_now": n, "window_secs": 150}`), for a
 signed-in admin; it needs no gateway console.
+
+### The landing page's contact form: `POST /site/contact`
+
+The landing page (`web/site`, `#contact`) has a form for a message to the
+people behind Baylee. The page is served from the gateway's host, the
+service from its own, so the form posts across origins with `fetch`; the
+page's CSP names the service in `connect-src` (`scripts/server/site.caddy`).
+Off until `FEEDBACK_CONTACT_ORIGINS` is set. The body, every field named
+and no other taken:
+
+```json
+{
+  "name": "…" | null,      // optional, at most 100 characters, no control character
+  "email": "…" | null,     // optional, at most 254, one @ and a dot after it, no whitespace
+  "message": "…",          // 1–5000 characters after trimming; line breaks and tabs only
+  "language": "en" | "de", // the page's language when it was sent
+  "website": ""            // the honeypot: the page hides it from people
+}
+```
+
+| answer | when |
+| --- | --- |
+| `201 {"ok": true}` | taken; also when `website` is filled, and then nothing is stored |
+| `400` | not JSON, an unknown field, an empty message, a malformed name or address, another language |
+| `403` | the request's `Origin` is missing or not one of `FEEDBACK_CONTACT_ORIGINS` |
+| `413` | a field over its bound, or the body over 32 KiB |
+| `429` | 5 messages from one address in the last hour, or 100 from everyone together |
+| `503` | `FEEDBACK_CONTACT_ORIGINS` is not set |
+
+Every answer says `Vary: Origin` and names the asking origin in
+`Access-Control-Allow-Origin` only when it is a configured one, never with
+credentials; the preflight (`OPTIONS`) answers `204` to those and `403` to
+any other. A browser always sends an `Origin` with such a `fetch`, so a
+request without one is refused too. The allowance counts every request
+past the origin check, a refused one too, in memory only, under the address
+the direct reports use (`X-Forwarded-For` from a trusted proxy, else the
+peer), never written down or logged. There is no CAPTCHA and no third
+party: the honeypot, the allowances and the bounds are the defence.
+
+What is stored (`feedback_contact`): the message, the name and the address
+if given (blanks are none), the language, when it came, whether an admin
+has dealt with it (`new` or `done`, and since when). Nothing about the
+request. A message is deleted 90 days after it was marked done and a year
+after it came in any case (`contact::sweep`, run before a message is taken
+and before the list is read), or earlier by an admin. The log says that a
+message was taken, by id only.
+
+The admins read them in the web UI's *Contact* page (`/contact`, every
+admin, no gateway console needed):
+
+| route | what |
+| --- | --- |
+| `GET /ui/api/contact?status=new\|done` | `{"open", "total", "messages": […]}`: the newest 500 the filter matches, and how many are open |
+| `GET /ui/api/contact/{id}` | one message with its `audit` |
+| `PATCH /ui/api/contact/{id}` | `{"status": "new" \| "done"}`; answers the message |
+| `DELETE /ui/api/contact/{id}` | `204` |
+
+A change and a deletion are audit rows (`feedback_audit.contact_id`, the
+admin, the time, `status` with the new status or `delete`), never with the
+text or the address; they outlive the message. The console's audit list
+leaves them out. An answer goes by the admin's own mail (the page's
+*Reply by e-mail* is a `mailto:` link); the service sends no mail.
 
 ### References in the text
 
@@ -405,6 +492,7 @@ route below is `401`.
 | `GET /ui/api/stats` | `{"days": 30, "rows": [{"day", "kind", "count"}]}`: reports per UTC day and kind over the last 30 days, by day then kind, for the overview's chart of bugs and crashes; counts only |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
 | `/ui/api/admin/…` | the admin console, below |
+| `/ui/api/contact…` | the landing page's contact messages, above |
 
 The UI links an issue by number and opens GitHub's own "new issue" page;
 the admin submits it there. The service holds no GitHub token and never
@@ -437,8 +525,11 @@ one set's cards, each a chip to its Scryfall page with its picture on
 hover from Scryfall's host, as a report's card chips are, `docs/legal.md`
 §3), **Accounts** (`/admin/accounts`: searched, filtered and sorted in the
 query string; `/admin/accounts/{id}`: one account, its decks and latest
-games) and **Beta keys** (`/admin/keys`), so the owner needs a shell for
-none of it.
+games), **Blocked cards** (`/admin/cards`: a card of the gateway's pool
+found by name and blocked without an end or until a moment, with a reason
+the players are told; the blocks in force, each lifted; the earlier ones;
+`docs/protocol.md` §"Blocked cards") and **Beta keys** (`/admin/keys`), so
+the owner needs a shell for none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which
@@ -453,12 +544,20 @@ the browser never sees:
 | `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
 | `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
+| `DELETE /ui/api/admin/accounts/{id}` | the gateway's `DELETE /admin/accounts/{id}`: the account deleted as its player's own deletion does (beta.8) |
+| `POST /ui/api/admin/accounts/{id}/password` | the gateway's reset: `200 {"password"}`, the one time the new password is shown; nothing here writes it down (beta.8) |
+| `PUT /ui/api/admin/accounts/{id}/ban` | `{"reason", "until"?}`, read into those two fields and written out again; `DELETE` the same path lifts the ban (beta.8) |
+| `POST /ui/api/admin/games/{id}/close` | `{"reason"}`: the gateway ends the running game through its engine; `202` (beta.8) |
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
 | `POST /ui/api/admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}` as `invite create` takes them (`"30d"`, `"12h"`); `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`, the only time a key is shown |
 | `DELETE /ui/api/admin/invites/{id}` | revokes one: `204`, or `404` for no key not already revoked |
+| `GET /ui/api/admin/cards/search?q=` | the gateway's `GET /admin/cards/search`; `q` is read and written out again (anything else `400`) |
+| `GET /ui/api/admin/cards/blocks` | every card block, newest first, as the gateway lists them |
+| `POST /ui/api/admin/cards/blocks` | `{"index", "reason", "until"?}` (`until` RFC 3339; absent for no end); `201` with the block; `409` when the card is blocked already |
+| `DELETE /ui/api/admin/cards/blocks/{id}` | lifts one: `204`, or `404` for no block still in force |
 | `GET /ui/api/admin/audit` | the 50 latest changes made here, `[{"at", "actor", "action", "detail"}]`, newest first |
 
-- **Who.** A live session on every route (`401` without), and on the two
+- **Who.** A live session on every route (`401` without), and on those
   that change something the CSRF rule above too (`403`). The read and admin
   tokens open none of them.
 - **Configured by** `FEEDBACK_GATEWAY_ADMIN_URL` (`http://127.0.0.1:28767`)
@@ -467,8 +566,8 @@ the browser never sees:
   characters at least and is none of the service's own tokens or its direct
   key. Unset, the routes answer `404` and the Overview tab is not drawn.
 - **What reaches the gateway.** The service builds every request itself: a
-  body is read into the four fields and written out again (anything else is
-  `400` here), an id must be a UUID, and only `Authorization` (the
+  body is read into the fields the gateway takes and written out again
+  (anything else is `400` here), an id must be a UUID, and only `Authorization` (the
   service's token) and `X-Baylee-Admin` (the signed-in admin's name) are
   sent, never the cookie or `Origin`. Proxy settings in the environment and
   redirects are ignored, so the token goes to that address and nowhere else.
@@ -479,16 +578,37 @@ the browser never sees:
 - **Audit.** Every change that succeeded is a row in `feedback_audit`
   without a report (action `gateway.invite.create` or
   `gateway.invite.revoke`, the admin, the time, and the ids, uses and
-  expiry; never a key or a note) and an `info` line in the log; the gateway
-  logs its own line too. A key's note may name a person, so it is kept only
-  at the gateway, as the command keeps it.
+  expiry; never a key or a note; `gateway.card.block` with the card's name
+  and index, the end and the block's id, or `gateway.card.unblock` with the
+  id; never the reason) and an `info` line in the log; the gateway logs its
+  own line too. A key's note and a block's reason may name a person, so
+  they are kept only at the gateway. The acts on an account or a game
+  (beta.8, `crates/baylee-feedback/src/moderation.rs`) are rows too:
+  `gateway.account.password.reset`, `gateway.account.ban` (with the ban's
+  end), `gateway.account.unban`, `gateway.account.delete` and
+  `gateway.game.close`, each with the account's or game's id; never the
+  password, nor a ban's or game's reason, which may name a person and is
+  kept only on the account row (the ban's) or nowhere (the game's).
 - **The page.** Mobile first (one column on a phone, 44 px targets, safe-area
   insets, a sticky bar that folds as the page scrolls), light and dark as
   the system says, English or German as the browser asks. The numbers are
   asked again every 15 seconds while the page is visible and not while it
   is hidden. New keys are shown once with Copy, Copy all and, where the
   browser has it, Share; there is no invite link, because the client takes
-  a key only typed into its sign-up form. Revoking asks once more.
+  a key only typed into its sign-up form. Revoking asks once more, and so
+  do blocking and unblocking a card.
+- **Acting on an account or a game** (beta.8, `src/admin/Moderation.tsx`).
+  An account's page has *Act on this account*: **Reset password**
+  (registered accounts only; asks first, then shows the new password once
+  in a dialog with Copy and says it is not shown again), **Ban** (a reason,
+  shown to the player, and an end: a moment in the browser's time zone,
+  sent in UTC, or permanently; asks in its form) or **Lift ban** while one
+  holds (asks first), and **Delete account** (its handle typed out before
+  the button wakes; then back to the list). The page shows a ban in force
+  with its end, its admin and its reason, and a reset still to be finished.
+  A running table on Live has **End game** (a reason, prefilled, shown to
+  the players; asks in its dialog). Every dialog is the browser's own
+  `<dialog>`: focus held inside, Escape cancels.
 
 #### Hosted models (`/ui/api/admin/llm/…`)
 
@@ -561,6 +681,12 @@ served.
   It has no column for an address or a player's name, and no request's
   address is logged. A direct report's pseudonym is the device's, keyed;
   the addresses its allowance counts are in memory for an hour.
+- **A contact message** from the landing page is kept as typed (the name
+  and the address only if given), with its language and when it came,
+  until 90 days after an admin marked it done, a year after it came at the
+  latest, or until an admin deletes it. Its audit rows (who changed or
+  deleted it, when) hold neither its text nor its address and are kept.
+  The addresses its allowance counts are in memory for an hour.
 - **The client** keeps the records of the last 20 games it hosted itself
   (at most 64 MiB together, gzipped) in `records/` beside its settings, and
   the random device id it sends direct reports under in its settings file.
@@ -591,6 +717,7 @@ FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
+FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
 FEEDBACK_GATEWAY_ADMIN_TOKEN=<the gateway's BAYLEE_ADMIN_TOKEN>
 RUST_LOG=info
@@ -605,6 +732,10 @@ lines to the second, and leaves both files `0600`; the token is never
 printed or put on a command line. The service restarts with it at once,
 the gateway when `finish` restarts it (until then the Overview says the
 gateway did not answer).
+
+The contact form needs `POST /site/contact` on the public site too (the
+same Caddy file) and the landing page's CSP naming the service
+(`scripts/server/site.caddy`, `connect-src`).
 
 Direct reports also need the route on the public site
 (`scripts/server/feedback-direct.caddy`, whose header says how to install

@@ -1957,3 +1957,45 @@ fn imported_missing_or_unexpected_circles_block_save_without_dropping_rows() {
         assert!(!b.picker_confirm());
     }
 }
+
+fn blocked(index: u32, name: &str) -> crate::lobby::BlockedCard {
+    crate::lobby::BlockedCard {
+        index,
+        name: name.to_string(),
+        reason: "misprinted".to_string(),
+        until: None,
+    }
+}
+
+#[test]
+fn blocked_cards_are_marked_by_index_and_replaced_as_a_whole() {
+    let mut b = builder();
+    assert!(b.blocked(3).is_none(), "a fresh builder knows no block");
+    b.set_blocked(vec![blocked(3, "Lightning Bolt"), blocked(5, "Sol Ring")]);
+    assert_eq!(
+        b.blocked(3).map(|c| c.name.as_str()),
+        Some("Lightning Bolt")
+    );
+    assert_eq!(b.blocked(5).map(|c| c.name.as_str()), Some("Sol Ring"));
+    assert!(b.blocked(1).is_none());
+    b.set_blocked(vec![blocked(5, "Sol Ring")]);
+    assert!(b.blocked(3).is_none(), "replaced, not merged");
+    assert!(b.blocked(5).is_some());
+}
+
+/// A block is marked, never acted on here: the pool and the results stand.
+#[test]
+fn a_blocked_card_stays_in_the_pool() {
+    let mut b = builder();
+    let before = b.results().len();
+    b.set_blocked(vec![blocked(3, "Lightning Bolt")]);
+    assert_eq!(b.results().len(), before);
+}
+
+#[test]
+fn forgetting_the_pool_forgets_the_blocked_cards() {
+    let mut b = builder();
+    b.set_blocked(vec![blocked(3, "Lightning Bolt")]);
+    b.forget_pool();
+    assert!(b.blocked(3).is_none());
+}

@@ -15,6 +15,7 @@ TARGETS = {
     "x86_64-pc-windows-msvc": "zip",
     "aarch64-pc-windows-msvc": "zip",
     "aarch64-apple-darwin": "zip",
+    "x86_64-apple-darwin": "zip",
 }
 
 # What scripts/package-installers.sh writes beside each archive. Players
@@ -31,6 +32,7 @@ INSTALLERS = {
     "x86_64-pc-windows-msvc": ("Baylee-Setup-{version}-x64.exe",),
     "aarch64-pc-windows-msvc": ("Baylee-Setup-{version}-arm64.exe",),
     "aarch64-apple-darwin": ("Baylee-{version}-aarch64.dmg",),
+    "x86_64-apple-darwin": ("Baylee-{version}-x86_64.dmg",),
 }
 
 
@@ -91,7 +93,7 @@ def verify_run(run_id):
             + ", ".join(missing)
             + "); a docs-only push runs fewer jobs, so tag a commit whose main CI ran in full"
         )
-    # This workflow has five packages (an archive and its installers each);
+    # This workflow has six packages (an archive and its installers each);
     # other CI artifacts may coexist.
     artifacts = pages(f"repos/{repo}/actions/runs/{run_id}/artifacts", "artifacts")
     for target in TARGETS:

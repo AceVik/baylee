@@ -34,6 +34,7 @@ use flate2::write::GzEncoder;
 
 mod clocks;
 mod frames;
+pub mod projection;
 
 pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};
 pub use frames::{curtain, seat_frame};
@@ -427,8 +428,40 @@ impl EngineRunner {
             Some(v1::envelope::Msg::SeatFrame(frame)) => self.seat_frame(&frame),
             Some(v1::envelope::Msg::SpectatorsChanged(changed)) => self.spectators_changed(changed),
             Some(v1::envelope::Msg::FlushRecord(flush)) => self.flush_record(flush.nonce),
+            Some(v1::envelope::Msg::CloseGame(close)) => self.close(&close.reason),
             _ => Vec::new(),
         }
+    }
+
+    /// An admin ended the game from the console (`docs/protocol.md`
+    /// §"Acting on a game"): every attached seat and the spectators are
+    /// told why ([`v1::GameClosed`]), the rest of the record goes as its
+    /// last piece, and then `GameEnded` with no winners. The rules are not
+    /// asked: nobody won or lost, and the record ends where the game was
+    /// closed. A game already over is left alone.
+    fn close(&mut self, reason: &str) -> Vec<Envelope> {
+        if self.ended {
+            return Vec::new();
+        }
+        self.ended = true;
+        let closed = Envelope {
+            msg: Some(v1::envelope::Msg::GameClosed(v1::GameClosed {
+                reason: reason.to_owned(),
+            })),
+        };
+        let mut out: Vec<Envelope> = self
+            .attached
+            .iter()
+            .map(|&seat| seat_frame(seat, &closed))
+            .collect();
+        if self.spectators > 0 {
+            out.push(frames::spectator_frame(&closed));
+        }
+        if let Some(data) = self.session.as_mut().map(Session::take_record) {
+            out.push(self.record_chunk(&data, true));
+        }
+        out.push(ended(&self.game_id, "closed by an admin"));
+        out
     }
 
     /// The gateway asked for the record as it stands (#323), for a bug
@@ -1097,6 +1130,7 @@ impl EngineRunner {
             .map(|p| u32::from(p.get()))
             .collect();
         let reason = format!("{:?}", result.reason);
+        let turn = session.state().turn.number;
         vec![
             self.record_chunk(&data, true),
             Envelope {
@@ -1104,6 +1138,7 @@ impl EngineRunner {
                     game_id: self.game_id.clone(),
                     winners,
                     reason,
+                    turn,
                 })),
             },
         ]

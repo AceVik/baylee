@@ -785,3 +785,177 @@ fn a_house_decks_history_is_read_only_and_closes_back_to_the_list() {
     // Nobody's deck and no house deck: no history.
     assert_eq!(lobby.browse_deck_history("elsewhere"), None);
 }
+
+fn blocked_card(index: u32, name: &str, until: Option<&str>) -> BlockedCard {
+    BlockedCard {
+        index,
+        name: name.to_string(),
+        reason: "misprinted".to_string(),
+        until: until.map(str::to_string),
+    }
+}
+
+/// The gateway writes RFC 3339; a player reads the date, the minute and the
+/// zone, and a spelling that is not that is shown as it came.
+#[test]
+fn a_blocks_end_is_said_as_a_date_and_a_time() {
+    let at = |until: Option<&str>| blocked_card(1, "Mana Drain", until).until_said();
+    assert_eq!(at(None), None);
+    assert_eq!(
+        at(Some("2026-10-20T18:00:00Z")),
+        Some("2026-10-20 18:00 UTC".to_string())
+    );
+    // Not UTC-with-Z, not a date and a time, or too short to be either:
+    // passed through, never panicking on a slice.
+    for odd in [
+        "2026-10-20T18:00:00+02:00",
+        "2026-10-20 18:00:00Z",
+        "next tuesday",
+        "Z",
+        "",
+        "2026-10-20ö18:00Z",
+    ] {
+        assert_eq!(at(Some(odd)), Some(odd.to_string()), "{odd:?}");
+    }
+}
+
+#[test]
+fn a_block_without_an_end_says_why_in_both_languages() {
+    let card = blocked_card(1, "Mana Drain", None);
+    assert_eq!(
+        card.sentence(Lang::En),
+        "Mana Drain is blocked on this server: misprinted"
+    );
+    assert_eq!(
+        card.sentence(Lang::De),
+        "Mana Drain ist auf diesem Server gesperrt: misprinted"
+    );
+}
+
+#[test]
+fn a_block_with_an_end_names_when_in_both_languages() {
+    let card = blocked_card(1, "Mana Drain", Some("2026-10-20T18:00:00Z"));
+    assert_eq!(
+        card.sentence(Lang::En),
+        "Mana Drain is blocked on this server until 2026-10-20 18:00 UTC: misprinted"
+    );
+    assert_eq!(
+        card.sentence(Lang::De),
+        "Mana Drain ist auf diesem Server bis 2026-10-20 18:00 UTC gesperrt: misprinted"
+    );
+    // An end that is not a timestamp is still said, as it came.
+    let odd = blocked_card(1, "Mana Drain", Some("soon"));
+    assert_eq!(
+        odd.sentence(Lang::En),
+        "Mana Drain is blocked on this server until soon: misprinted"
+    );
+}
+
+/// A gateway that predates blocking says nothing about it; the row reads and
+/// the list is empty, while a newer one is read as written.
+#[test]
+fn a_deck_row_reads_with_and_without_its_blocked_cards() {
+    let older: DeckSummary = serde_json::from_str(r#"{"id":"d1","name":"Old"}"#).expect("row");
+    assert!(older.blocked.is_empty());
+
+    let newer: DeckSummary = serde_json::from_str(
+        r#"{"id":"d1","name":"New","blocked":[
+            {"index":7,"name":"Mana Drain","reason":"misprinted","until":null},
+            {"index":8,"name":"Black Lotus","reason":"banned","until":"2026-10-20T18:00:00Z"}
+        ]}"#,
+    )
+    .expect("row");
+    assert_eq!(
+        newer.blocked,
+        vec![
+            blocked_card(7, "Mana Drain", None),
+            BlockedCard {
+                reason: "banned".to_string(),
+                ..blocked_card(8, "Black Lotus", Some("2026-10-20T18:00:00Z"))
+            },
+        ]
+    );
+    // The reason and the end are optional on the wire.
+    let bare: DeckSummary =
+        serde_json::from_str(r#"{"id":"d1","name":"x","blocked":[{"index":3,"name":"Sol Ring"}]}"#)
+            .expect("row");
+    assert_eq!(
+        bare.blocked,
+        vec![BlockedCard {
+            index: 3,
+            name: "Sol Ring".to_string(),
+            reason: String::new(),
+            until: None,
+        }]
+    );
+}
+
+#[test]
+fn a_house_deck_reads_with_and_without_its_blocked_cards() {
+    use crate::lobby::library::HouseDeck;
+    let base = r#""id":"h1","name":"House","version":1,"cards":3,"sideboard":0"#;
+    let older: HouseDeck = serde_json::from_str(&format!("{{{base}}}")).expect("house deck");
+    assert!(older.blocked.is_empty());
+
+    let newer: HouseDeck = serde_json::from_str(&format!(
+        r#"{{{base},"blocked":[{{"index":7,"name":"Mana Drain","reason":"misprinted","until":null}}]}}"#
+    ))
+    .expect("house deck");
+    assert_eq!(newer.blocked, vec![blocked_card(7, "Mana Drain", None)]);
+}
+
+#[test]
+fn the_blocked_cards_reach_the_builder() {
+    let mut lobby = seated_lobby();
+    assert!(
+        lobby.builder().blocked(7).is_none(),
+        "nothing before the event"
+    );
+    lobby.apply(LobbyEvent::BlockedCards(vec![
+        blocked_card(7, "Mana Drain", None),
+        blocked_card(8, "Black Lotus", Some("2026-10-20T18:00:00Z")),
+    ]));
+    assert_eq!(
+        lobby.builder().blocked(7),
+        Some(&blocked_card(7, "Mana Drain", None))
+    );
+    assert_eq!(
+        lobby.builder().blocked(8).map(|b| b.name.as_str()),
+        Some("Black Lotus")
+    );
+    assert!(lobby.builder().blocked(9).is_none(), "only what was named");
+}
+
+/// The gateway's answer is the whole list: a card it lifted the block on
+/// disappears with the next one.
+#[test]
+fn a_second_list_of_blocked_cards_replaces_the_first() {
+    let mut lobby = seated_lobby();
+    lobby.apply(LobbyEvent::BlockedCards(vec![
+        blocked_card(7, "Mana Drain", None),
+        blocked_card(8, "Black Lotus", None),
+    ]));
+    lobby.apply(LobbyEvent::BlockedCards(vec![blocked_card(
+        8,
+        "Black Lotus",
+        None,
+    )]));
+    assert!(lobby.builder().blocked(7).is_none(), "lifted");
+    assert!(lobby.builder().blocked(8).is_some());
+    lobby.apply(LobbyEvent::BlockedCards(Vec::new()));
+    assert!(lobby.builder().blocked(8).is_none(), "all lifted");
+}
+
+/// What one gateway blocks says nothing about the next: signing out forgets it.
+#[test]
+fn signing_out_forgets_the_blocked_cards() {
+    let mut lobby = seated_lobby();
+    lobby.apply(LobbyEvent::BlockedCards(vec![blocked_card(
+        7,
+        "Mana Drain",
+        None,
+    )]));
+    assert!(lobby.builder().blocked(7).is_some());
+    lobby.sign_out();
+    assert!(lobby.builder().blocked(7).is_none());
+}

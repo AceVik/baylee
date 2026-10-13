@@ -194,3 +194,116 @@ fn a_commander_in_the_command_zone_is_drawn_with_the_offer_made_for_it() {
         "three lands pay for the commander and it was drawn {offer:?}"
     );
 }
+
+/// Three distinct permanents of seat 0 (distinct names, so none piles with
+/// another) under a question `pending`, drawn.
+fn under_question(pending: baylee_engine::choice::Pending) -> (crate::Duel, Vec<Placement>) {
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            vec![
+                token(10, 0, "Alpha", 1, 1),
+                token(11, 0, "Beta", 2, 2),
+                token(12, 0, "Gamma", 3, 3),
+            ],
+        )
+        .build();
+    let mut duel = crate::Duel::default();
+    duel.receive_view(view);
+    duel.receive_choice(pending);
+    duel.layout = Some(TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None));
+    crate::rebuild_board(&mut duel);
+    let drawn = placements(&duel);
+    (duel, drawn)
+}
+
+fn choosing(drawn: &[Placement], slot: u32) -> bool {
+    drawn
+        .iter()
+        .find(|p| p.object == baylee_core::ids::ObjectId::new(slot, 0))
+        .unwrap_or_else(|| panic!("object {slot} is drawn"))
+        .offer
+        .choosable
+}
+
+/// Report 09: while a `ChooseTargets` question stands, a permanent it will
+/// take is lit on the felt (`glow::CHOOSABLE`), one already chosen is not,
+/// and one outside the options is not. On the old code `Offer` had no such
+/// claim: nothing was ever choosable and `glow_of` never gave the light.
+#[test]
+fn a_question_lights_the_permanents_it_will_take_and_not_the_ones_chosen() {
+    use crate::cardmat::{Offer, glow, glow_of};
+    use baylee_core::ids::ObjectId;
+    let (mut duel, drawn) = under_question(baylee_engine::choice::Pending::ChooseTargets {
+        player: PlayerId::new(0),
+        options: vec![ObjectId::new(10, 0), ObjectId::new(11, 0)],
+        player_options: vec![],
+        min: 0,
+        max: 2,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    });
+    assert!(choosing(&drawn, 10), "an option nobody has chosen");
+    assert!(choosing(&drawn, 11));
+    assert!(!choosing(&drawn, 12), "not among the options");
+
+    let view = duel.view.clone().expect("the view");
+    let of = |drawn: &[Placement], slot: u32| {
+        let p = drawn
+            .iter()
+            .find(|p| p.object == ObjectId::new(slot, 0))
+            .expect("drawn");
+        glow_of(view.object(p.object), p.offer)
+    };
+    assert_eq!(of(&drawn, 10), glow::CHOOSABLE, "lit on the felt");
+    assert_eq!(of(&drawn, 12), 0, "and an unselectable one is not");
+    let armed = Offer {
+        armed: true,
+        ..drawn
+            .iter()
+            .find(|p| p.object == ObjectId::new(10, 0))
+            .expect("drawn")
+            .offer
+    };
+    assert_eq!(
+        glow_of(view.object(ObjectId::new(10, 0)), armed),
+        glow::ARMED,
+        "an armed card keeps its own light"
+    );
+
+    // Chosen, a card stops asking to be.
+    duel.interaction
+        .as_mut()
+        .expect("the question")
+        .toggle(ObjectId::new(10, 0));
+    let drawn = placements(&duel);
+    assert!(!choosing(&drawn, 10), "chosen");
+    assert!(choosing(&drawn, 11), "the other still is");
+    assert_eq!(of(&drawn, 10), 0);
+}
+
+/// Combat's declarations are their own picture: in attack declaration mode
+/// the candidates are not lit as "choosable" (`bounds()` is `None` there),
+/// and a priority window lights nothing either.
+#[test]
+fn attack_declaration_and_a_quiet_window_light_nothing_as_choosable() {
+    use baylee_core::ids::{Defender, ObjectId};
+    let (_, drawn) = under_question(baylee_engine::choice::Pending::ChooseAttackers {
+        player: PlayerId::new(0),
+        attackers: vec![ObjectId::new(10, 0), ObjectId::new(11, 0)],
+        defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
+    });
+    assert!(!drawn.is_empty());
+    assert!(
+        drawn.iter().all(|p| !p.offer.choosable),
+        "no attacker candidate is lit as a choice"
+    );
+
+    let (_, drawn) = under_question(baylee_engine::choice::Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::default(),
+    });
+    assert!(drawn.iter().all(|p| !p.offer.choosable));
+}

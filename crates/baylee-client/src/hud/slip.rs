@@ -200,8 +200,9 @@ pub(super) struct Slip {
 
 /// What the slip under the preview should say, if anything.
 ///
-/// `None` for everything that is not an object on the stack — a card in hand,
-/// a permanent, a pile's top card, a row in the zone browser. A stack entry's
+/// For an object on the stack, its sentence; for a permanent granted
+/// abilities, what it was granted ([`granted`]); `None` for everything else —
+/// a card in hand, a pile's top card, a row in the zone browser. A stack entry's
 /// *target* qualifies only when it is itself on the stack, which is the case
 /// a counterspell makes and is right: the same object is about to resolve.
 pub(super) fn says(
@@ -212,14 +213,18 @@ pub(super) fn says(
     faces: &FaceCtx<'_>,
     hovered: Option<ObjectId>,
 ) -> Option<Slip> {
+    let id = hovered?;
+    // Not on the stack: what a permanent has been granted, which no face
+    // prints — the text face included, so this is asked before the latch.
+    let Some(item) = board.stack.iter().find(|item| item.id == id) else {
+        return granted(view, statics, lang, faces.texts, id);
+    };
     // The face is the slip when the player has asked for it. Not
     // `preview_face(..).is_some()`: that is also how a card with no art yet
     // is drawn, which is every card offline.
     if faces.always() {
         return None;
     }
-    let id = hovered?;
-    let item = board.stack.iter().find(|item| item.id == id)?;
     let seat = statics.seat_name(item.controller).to_string();
     match item.kind {
         baylee_client_core::board::StackKind::Ability { source, .. } => {
@@ -268,6 +273,75 @@ pub(super) fn says(
                 blocks,
             })
         }
+    }
+}
+
+/// The abilities another permanent has handed this one (report 22: *"when
+/// Great Divide Guide grants another Ally its ability, the other Allies don't
+/// show they can now do it too"*), one paragraph a grant: the grantor's name
+/// and the sentence on its card that grants it (CR 113.10), in the player's
+/// language where it has arrived, else in English. Read off
+/// [`baylee_view::PublicObject::grants`], which the host fills from the
+/// effect table; nothing here works out what a card grants.
+///
+/// A grantor this seat may not see is "Granted ability" and nothing more,
+/// and two grants by one sentence (a grantor's ability granting two) are one
+/// paragraph. `None` for a permanent granted nothing: its picture says it all.
+fn granted(
+    view: &PlayerView,
+    statics: &GameStatic,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    id: ObjectId,
+) -> Option<Slip> {
+    let object = view.object(id)?;
+    let mut blocks: Vec<Vec<TextBlock>> = Vec::new();
+    for grant in &object.grants {
+        let para = grant_paragraph(grant, texts, lang);
+        if !blocks.contains(&para) {
+            blocks.push(para);
+        }
+    }
+    if blocks.is_empty() {
+        return None;
+    }
+    Some(Slip {
+        says: id,
+        kind: Some(Phrase::GrantedAbilities.text(lang).to_string()),
+        seat: statics.seat_name(object.controller).to_string(),
+        blocks,
+    })
+}
+
+/// One grant's paragraph: `Grantor: the sentence`, the grantor alone where
+/// its card wrote this grant in no sentence the client can name, and the
+/// bare "Granted ability" where the grantor is hidden from this seat.
+fn grant_paragraph(
+    grant: &baylee_view::GrantSource,
+    texts: &crate::cardtext::CardTexts,
+    lang: Lang,
+) -> Vec<TextBlock> {
+    let bare = || {
+        vec![TextBlock::Rules(
+            Phrase::GrantedAbility.text(lang).to_string(),
+        )]
+    };
+    let Some(rules) = grant.rules else {
+        return bare();
+    };
+    let Some(name) = texts.face(rules.card, rules.face).map(|text| text.name) else {
+        return bare();
+    };
+    match grant
+        .text
+        .and_then(|at| crate::cardtext::said(Some(texts), rules.card, at))
+    {
+        Some((sentence, _)) => {
+            let mut para = vec![TextBlock::Rules(format!("{name}: "))];
+            para.extend(sentence);
+            para
+        }
+        None => vec![TextBlock::Rules(name)],
     }
 }
 
@@ -967,6 +1041,226 @@ mod tests {
             );
         }
         assert!(says(&board, &view, &statics, Lang::De, &faces, None).is_none());
+    }
+
+    // ---- what a permanent was granted (report 22) -------------------------
+
+    /// A table whose only permanent (id 7) was granted `grants`, and the
+    /// slip `says` gives for hovering it under `faces`.
+    fn grant_slip(
+        grants: Vec<baylee_view::GrantSource>,
+        texts: &crate::cardtext::CardTexts,
+        settings: &crate::settings::ClientSettings,
+        lang: Lang,
+    ) -> Option<Slip> {
+        use baylee_client_core::board::Openings;
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+        let mut land = printed(7, 0, "Forest", 7);
+        land.grants = grants;
+        let view = ViewBuilder::new(2).with_battlefield(0, vec![land]).build();
+        let board = baylee_client_core::BoardModel::from_view(
+            &view,
+            Openings::none(),
+            &[],
+            crate::cardart::registry(),
+        );
+        let mode = crate::face::FaceMode::default();
+        let statics = baylee_client_core::test_support::statics(8);
+        says(
+            &board,
+            &view,
+            &statics,
+            lang,
+            &ctx(texts, &mode, settings, &view),
+            Some(ObjectId::new(7, 0)),
+        )
+    }
+
+    /// The grant Great Divide Guide's one sentence makes, as the host fills it.
+    fn guide_grant() -> baylee_view::GrantSource {
+        baylee_view::GrantSource {
+            rules: Some(baylee_view::RulesFace {
+                card: crate::cardtext::fixture::card("Great Divide Guide"),
+                face: 0,
+            }),
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 1,
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// The paragraphs of a slip, each as the text of its blocks.
+    fn paragraphs(slip: &Slip) -> Vec<String> {
+        slip.blocks
+            .iter()
+            .map(|para| para.iter().map(TextBlock::text).collect())
+            .collect()
+    }
+
+    /// Report 22: Great Divide Guide hands every Ally and land its mana
+    /// ability and nothing on them said so. A permanent that is not on the
+    /// stack used to get no slip at all; now it gets one headed "Granted
+    /// abilities", with the grantor's name leading the sentence that grants.
+    #[test]
+    fn a_permanent_granted_an_ability_says_who_granted_it() {
+        let slip = grant_slip(
+            vec![guide_grant()],
+            &crate::cardtext::CardTexts::default(),
+            &crate::settings::ClientSettings::default(),
+            Lang::En,
+        )
+        .expect("a permanent with a grant gets a slip");
+        assert_eq!(slip.says, ObjectId::new(7, 0));
+        assert_eq!(
+            slip.kind.as_deref(),
+            Some("Granted abilities"),
+            "the heading is the one the grants are listed under"
+        );
+        assert_eq!(slip.blocks.len(), 1, "one grant, one paragraph");
+        assert_eq!(
+            slip.blocks[0].first(),
+            Some(&TextBlock::Rules("Great Divide Guide: ".to_string())),
+            "the paragraph opens with the grantor's name"
+        );
+        let said = &paragraphs(&slip)[0];
+        assert!(
+            said.contains("Add one mana of any color"),
+            "and goes on with the sentence of its card that grants it: {said:?}"
+        );
+    }
+
+    /// The slip speaks the player's language where the grantor's text has
+    /// arrived: its name and its sentence both, not the English of the pool.
+    #[test]
+    fn a_grant_is_said_in_the_players_language_when_the_text_has_arrived() {
+        const SATZ: &str = "Jedes Land und jeder Verbündete unter deiner Kontrolle hat \"{T}: Füge ein Mana einer beliebigen Farbe hinzu.\"";
+        let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Great Divide Guide",
+            "Führerin der Großen Kluft",
+            Some(SATZ),
+        ));
+        let slip = grant_slip(
+            vec![guide_grant()],
+            &texts,
+            &crate::settings::ClientSettings::default(),
+            Lang::De,
+        )
+        .expect("a permanent with a grant gets a slip");
+        assert_eq!(slip.kind.as_deref(), Some("Verliehene Fähigkeiten"));
+        assert_eq!(
+            paragraphs(&slip),
+            vec![format!("Führerin der Großen Kluft: {SATZ}")],
+            "the German name and the German sentence, joined as the English pair is"
+        );
+    }
+
+    /// A grantor this seat may not see carries no `rules`: the slip still
+    /// says the permanent was granted something, and says no more.
+    #[test]
+    fn a_grant_from_a_hidden_grantor_is_the_bare_words() {
+        let slip = grant_slip(
+            vec![baylee_view::GrantSource::default()],
+            &crate::cardtext::CardTexts::default(),
+            &crate::settings::ClientSettings::default(),
+            Lang::En,
+        )
+        .expect("a grant is a grant, seen or not");
+        assert_eq!(
+            slip.blocks,
+            vec![vec![TextBlock::Rules("Granted ability".to_string())]],
+            "nothing of the hidden card leaks into the paragraph"
+        );
+    }
+
+    /// A grantor whose card wrote the grant in no sentence the client can
+    /// name is listed by its name alone, with no colon dangling.
+    #[test]
+    fn a_grant_with_no_sentence_is_listed_by_the_grantors_name() {
+        let mut grant = guide_grant();
+        grant.text = None;
+        let slip = grant_slip(
+            vec![grant],
+            &crate::cardtext::CardTexts::default(),
+            &crate::settings::ClientSettings::default(),
+            Lang::En,
+        )
+        .expect("a permanent with a grant gets a slip");
+        assert_eq!(
+            slip.blocks,
+            vec![vec![TextBlock::Rules("Great Divide Guide".to_string())]]
+        );
+    }
+
+    /// One effect that grants twice (a land and an Ally both the grantor's
+    /// doing, or a grant listed once per slot) is one thing to read, not two
+    /// identical paragraphs; a different grantor is a paragraph of its own.
+    #[test]
+    fn identical_grants_are_one_paragraph_and_different_ones_are_two() {
+        let texts = crate::cardtext::CardTexts::default();
+        let settings = crate::settings::ClientSettings::default();
+        let mut twice = guide_grant();
+        twice.slot = 1;
+        let slip = grant_slip(vec![guide_grant(), twice], &texts, &settings, Lang::En)
+            .expect("a permanent with grants gets a slip");
+        assert_eq!(
+            slip.blocks.len(),
+            1,
+            "the same sentence of the same card, said once: {:?}",
+            paragraphs(&slip)
+        );
+
+        let mut other = guide_grant();
+        other.rules = Some(baylee_view::RulesFace {
+            card: crate::cardtext::fixture::card("Ondu Cleric"),
+            face: 0,
+        });
+        other.text = None;
+        let slip = grant_slip(vec![guide_grant(), other], &texts, &settings, Lang::En)
+            .expect("a permanent with grants gets a slip");
+        assert_eq!(
+            slip.blocks.len(),
+            2,
+            "a second grantor is a second paragraph: {:?}",
+            paragraphs(&slip)
+        );
+    }
+
+    /// A permanent granted nothing has its picture and nothing else; the slip
+    /// would be an empty sheet.
+    #[test]
+    fn a_permanent_granted_nothing_gets_no_slip() {
+        assert!(
+            grant_slip(
+                Vec::new(),
+                &crate::cardtext::CardTexts::default(),
+                &crate::settings::ClientSettings::default(),
+                Lang::En,
+            )
+            .is_none()
+        );
+    }
+
+    /// The text face prints the card's own words and no face prints a grant,
+    /// so the latch that withdraws a stack slip does not withdraw this one.
+    #[test]
+    fn a_grant_is_listed_even_with_the_text_face_latched() {
+        let settings = crate::settings::ClientSettings {
+            prefer_text_view: true,
+            ..Default::default()
+        };
+        let slip = grant_slip(
+            vec![guide_grant()],
+            &crate::cardtext::CardTexts::default(),
+            &settings,
+            Lang::En,
+        );
+        assert!(
+            slip.is_some(),
+            "the grant is on no face, so the text face cannot have drawn it"
+        );
     }
 
     /// The wipe is paced by the reading and clamped at both ends: a one-line

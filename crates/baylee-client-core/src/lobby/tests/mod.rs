@@ -4,6 +4,7 @@ mod fields;
 mod guests;
 mod hosted;
 mod invites;
+mod moderation;
 mod offline;
 mod rooms;
 mod seating;

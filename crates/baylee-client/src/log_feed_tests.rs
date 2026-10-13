@@ -81,6 +81,7 @@ fn tail(from: u32, count: u32) -> LogTail {
                 event: LogEvent::TurnStarted {
                     active: PlayerId::new(0),
                 },
+                phase: None,
             })
             .collect(),
     }

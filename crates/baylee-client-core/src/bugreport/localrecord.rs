@@ -116,7 +116,7 @@ impl LocalRecord {
         Some(Self {
             complete,
             plain: Arc::from(plain),
-            gzip_base64: Arc::from(super::base64::encode(&gzip)),
+            gzip_base64: Arc::from(baylee_seal::b64::std_padded::encode(&gzip)),
             gzip_bytes: gzip.len(),
         })
     }
@@ -318,9 +318,9 @@ mod tests {
         assert_eq!(open.plain(), RECORD);
         let wire = serde_json::to_value(&open).expect("json");
         assert_eq!(wire["complete"], false);
-        let gzip = crate::bugreport::base64::decode_for_tests(
-            wire["gzip_base64"].as_str().expect("base64"),
-        );
+        let gzip =
+            baylee_seal::b64::std_padded::decode(wire["gzip_base64"].as_str().expect("base64"))
+                .expect("padded base64");
         assert_eq!(gzip.len(), open.gzip_bytes());
         assert_eq!(unzip(&gzip), RECORD);
         assert_eq!(wire.as_object().map(serde_json::Map::len), Some(2));

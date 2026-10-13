@@ -120,6 +120,14 @@ pub fn run() {
         ..default()
     });
 
+    // A driven run is silent unless asked (`devctl::silent`).
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    let plugins = if crate::devctl::silent() {
+        plugins.disable::<bevy::audio::AudioPlugin>()
+    } else {
+        plugins
+    };
+
     let mut app = App::new();
     // A queued command whose entity a rebuild despawned in the same frame
     // panics under bevy's default handler. A test or debug build keeps that,

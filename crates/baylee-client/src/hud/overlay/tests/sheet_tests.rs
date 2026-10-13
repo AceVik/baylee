@@ -561,23 +561,177 @@ fn the_end_screens_veil_is_not_torn_down_with_the_dialogs() {
         "opening the zone dialog despawned the end screen's veil"
     );
 
-    // And the counter-test: the dialog's own veil *is* torn down, so the
-    // assertion above is about the marker and not about a teardown that
-    // has quietly stopped happening.
-    let mut ours = app.world_mut().query_filtered::<Entity, With<TrayVeil>>();
-    let ours: Vec<Entity> = ours.iter(app.world()).collect();
-    assert_eq!(ours.len(), 1, "the dialog drew a veil of its own");
-    app.world_mut()
-        .resource_mut::<Duel>()
-        .browser
-        .push_filter('a');
+    // And the counter-test: the dialog's own veil *is* torn down when the
+    // dialog is, so the assertion above is about the marker and not about a
+    // teardown that has quietly stopped happening. (A rebuild no longer
+    // replaces it, `the_dialogs_veil_survives_a_tick_in_its_rows`; shutting the
+    // dialog is what takes it.)
+    app.world_mut().resource_mut::<Duel>().browser.close();
     app.update();
     let mut now = app.world_mut().query_filtered::<Entity, With<TrayVeil>>();
-    let now: Vec<Entity> = now.iter(app.world()).collect();
-    assert!(
-        now.len() == 1 && now[0] != ours[0],
-        "the dialog's own veil survived its rebuild, so this test would \
+    assert_eq!(
+        now.iter(app.world()).count(),
+        0,
+        "the dialog's own veil outlived the dialog, so this test would \
          pass on a teardown that despawns nothing at all"
+    );
+    assert!(
+        app.world().get_entity(theirs).is_ok(),
+        "shutting the zone dialog despawned the end screen's veil"
+    );
+}
+
+/// A target sheet with one row (the spell on the stack, object 1), open and
+/// drawn.
+fn a_target_sheet() -> App {
+    use baylee_engine::choice::{Pending, TargetPrompt};
+    let view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_stack(vec![baylee_client_core::test_support::printed(
+            1, 0, "Spell", 1,
+        )])
+        .build();
+    let mut duel = Duel {
+        view: Some(view),
+        statics: Some(baylee_client_core::test_support::statics(8)),
+        ..Duel::default()
+    };
+    duel.receive_choice(Pending::ChooseTargets {
+        player: PlayerId::new(0),
+        options: vec![ObjectId::new(1, 0)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    });
+    bar_of(duel)
+}
+
+/// Every row standing, with the entity that is it, what the pointer made of
+/// it, and its object.
+fn target_rows(
+    app: &mut App,
+) -> Vec<(
+    Entity,
+    ObjectId,
+    f32,
+    Option<bevy::picking::hover::PickingInteraction>,
+)> {
+    let mut q = app.world_mut().query::<(
+        Entity,
+        &TrayCard,
+        &crate::ambience::Feel,
+        Option<&bevy::picking::hover::PickingInteraction>,
+    )>();
+    q.iter(app.world())
+        .map(|(entity, card, feel, held)| (entity, card.object, feel.warmth, held.copied()))
+        .collect()
+}
+
+/// Ticking a row rebuilds the dialog's rows, and the row just ticked is the
+/// row under the pointer: it came back a new entity at warmth 0 with no
+/// picking state, went dark and lit again on every choice (report 11).
+/// Warmth and picking state are carried to the row that replaces it.
+#[test]
+fn a_tick_rebuilds_the_row_under_the_pointer_still_lit() {
+    use bevy::picking::hover::PickingInteraction;
+    let mut app = a_target_sheet();
+    let before = target_rows(&mut app);
+    assert_eq!(before.len(), 1, "the sheet draws its one row: {before:?}");
+    let (row, object, ..) = before[0];
+
+    // The pointer is on the row, and the row has lit up to meet it.
+    app.world_mut()
+        .entity_mut(row)
+        .insert(PickingInteraction::Hovered)
+        .get_mut::<crate::ambience::Feel>()
+        .expect("a row lights under the pointer")
+        .warmth = 1.0;
+
+    // The tick: what the click does, and what makes the dialog rebuild.
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .interaction
+        .as_mut()
+        .expect("the question is open")
+        .toggle(object);
+    app.update();
+
+    let after = target_rows(&mut app);
+    assert_eq!(after.len(), 1, "one row after the tick: {after:?}");
+    assert_ne!(
+        after[0].0, row,
+        "the tick did not rebuild the row, so this test measures nothing"
+    );
+    assert_eq!(after[0].1, object, "the same object's row");
+    assert!(
+        (after[0].2 - 1.0).abs() < 1e-6,
+        "the new row came back at warmth {}, not the 1.0 the old one had",
+        after[0].2
+    );
+    assert_eq!(
+        after[0].3,
+        Some(PickingInteraction::Hovered),
+        "the new row came back without the pointer on it"
+    );
+}
+
+/// A row nobody had the pointer on is carried as it was: cold and untouched,
+/// and not handed somebody else's warmth.
+#[test]
+fn a_tick_leaves_a_row_the_pointer_was_not_on_cold() {
+    let mut app = a_target_sheet();
+    let object = target_rows(&mut app)[0].1;
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .interaction
+        .as_mut()
+        .expect("the question is open")
+        .toggle(object);
+    app.update();
+    let after = target_rows(&mut app);
+    assert_eq!(after.len(), 1, "one row after the tick: {after:?}");
+    assert!(
+        after[0].2.abs() < 1e-6,
+        "the rebuilt row is warm at {} with nothing on it",
+        after[0].2
+    );
+    assert_eq!(
+        after[0].3, None,
+        "and carries a picking state nobody gave it"
+    );
+}
+
+/// The same tick also rebuilt the table's veil, and a veil spawned again
+/// comes up clear until `dim_the_table` paints it: the table behind a dialog
+/// blinked on every choice. One stands, so it is kept.
+#[test]
+fn the_dialogs_veil_survives_a_tick_in_its_rows() {
+    let mut app = a_target_sheet();
+    let veils = |app: &mut App| {
+        let mut q = app.world_mut().query_filtered::<Entity, With<TrayVeil>>();
+        q.iter(app.world()).collect::<Vec<_>>()
+    };
+    let was = veils(&mut app);
+    assert_eq!(was.len(), 1, "the dialog draws one veil: {was:?}");
+    let row = target_rows(&mut app)[0];
+
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .interaction
+        .as_mut()
+        .expect("the question is open")
+        .toggle(row.1);
+    app.update();
+
+    assert_ne!(
+        target_rows(&mut app)[0].0,
+        row.0,
+        "the tick did not rebuild the dialog, so this test measures nothing"
+    );
+    assert_eq!(
+        veils(&mut app),
+        was,
+        "the rebuild spawned the veil again instead of keeping the one that stands"
     );
 }
 

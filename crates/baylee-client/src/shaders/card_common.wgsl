@@ -276,6 +276,7 @@ const GLOW_ACTIVATABLE: u32 = 8u;
 const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
 const GLOW_REACHABLE: u32 = 8388608u;
+const GLOW_CHOOSABLE: u32 = 16777216u;
 
 /// How far past the card's edge an offer's light reaches on the felt, and
 /// the band next to the edge it keeps at full strength, in card widths.
@@ -366,6 +367,13 @@ fn floor_light(uv: vec2<f32>, glow: u32, t: f32, m: f32, now: f32) -> vec3<f32> 
     if (glow & GLOW_WILL_TAP) != 0u {
         let pulse = 0.70 + 0.30 * sin(now * 2.2 - 0.9) * m;
         out = out + vec3<f32>(0.56, 0.60, 0.98) * band * 0.40 * pulse;
+    }
+    // A card the question will take: a steady pale ring that breathes, on
+    // the unscaled clock and damped by the motion like the plan's taps, so
+    // a still table still shows which cards answer.
+    if (glow & GLOW_CHOOSABLE) != 0u {
+        let breath = 0.80 + 0.20 * sin(now * 1.8) * m;
+        out = out + vec3<f32>(0.86, 0.94, 1.00) * pow(band, 0.6) * 0.55 * breath;
     }
     return out;
 }

@@ -250,6 +250,7 @@ async fn stand_in_engine(start: v1::StartEngine) {
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
+                build: String::new(),
             })),
         },
     )

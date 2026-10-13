@@ -24,6 +24,7 @@ export const CATEGORY_TITLES: Record<Kind, string> = {
   feedback: "Feedback",
   crash: "Crash",
   other: "Report",
+  chat: "Chat",
 };
 
 /** The first line of `text`, cut to `chars` with an ellipsis. */

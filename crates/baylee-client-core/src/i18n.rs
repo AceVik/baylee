@@ -45,17 +45,20 @@ pub use lang::Lang;
 pub use names::{ai_name, own_seat_name, seat_name};
 pub use refusal::Refusal;
 
-/// Defines [`Phrase`] with one arm per language, so a missing translation is
-/// a compilation error rather than a fallback.
+/// Defines a phrase enum (the name it is given: [`Phrase`] here, the chat's
+/// `ChatPhrase` in `social::words`) with one arm per language, so a missing
+/// translation is a compilation error rather than a fallback. Its own list
+/// keeps the chat's words out of [`Phrase`]'s one long list, which every
+/// lane edits.
 macro_rules! messages {
-    ($($(#[$doc:meta])* $key:ident { en: $en:literal, de: $de:literal $(,)? }),* $(,)?) => {
-        /// One thing the interface says.
+    ($(#[$enum_doc:meta])* $name:ident; $($(#[$doc:meta])* $key:ident { en: $en:literal, de: $de:literal $(,)? }),* $(,)?) => {
+        $(#[$enum_doc])*
         #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-        pub enum Phrase {
+        pub enum $name {
             $($(#[$doc])* $key,)*
         }
 
-        impl Phrase {
+        impl $name {
             /// Every phrase, for the tests that hold this file honest.
             pub const ALL: &'static [Self] = &[$(Self::$key,)*];
 
@@ -72,8 +75,11 @@ macro_rules! messages {
         }
     };
 }
+pub(crate) use messages;
 
 messages! {
+    /// One thing the interface says.
+    Phrase;
     /// Army selected without targeting for amass.
     NounArmyToAmass { en: "Army to amass", de: "Armee zum Aufmarschieren" },
     /// Plural label for the amass choice.
@@ -1037,6 +1043,47 @@ messages! {
         en: "the two passwords differ",
         de: "die beiden Passwörter sind verschieden",
     },
+    /// A sign-in refused for a ban with an end (beta.8): `{0}` the end,
+    /// `{1}` the admin's reason.
+    BannedUntil {
+        en: "This account is banned until {0}. Reason: {1}",
+        de: "Dieses Konto ist bis {0} gesperrt. Grund: {1}",
+    },
+    /// A sign-in refused for a ban for good: `{0}` the admin's reason.
+    BannedForGood {
+        en: "This account is banned. Reason: {0}",
+        de: "Dieses Konto ist gesperrt. Grund: {0}",
+    },
+    /// The face that asks for a new password after an admin reset it.
+    ChooseNewPassword {
+        en: "Choose a new password",
+        de: "Neues Passwort wählen",
+    },
+    /// What that face says, under its title.
+    PasswordWasReset {
+        en: "An admin reset your password. Choose a new one to sign in.",
+        de: "Ein Admin hat dein Passwort zurückgesetzt. Wähle ein neues, um dich anzumelden.",
+    },
+    /// The new password's caption, in capitals as every caption is.
+    NewPassword {
+        en: "NEW PASSWORD",
+        de: "NEUES PASSWORT",
+    },
+    /// That face's button.
+    SetNewPassword {
+        en: "Set password and sign in",
+        de: "Passwort setzen und anmelden",
+    },
+    /// The new password is the one the admin gave.
+    NewPasswordIsTheOld {
+        en: "choose a password other than the one you were given",
+        de: "wähle ein anderes Passwort als das, das du bekommen hast",
+    },
+    /// Sending the new password.
+    SettingPassword {
+        en: "setting your password…",
+        de: "dein Passwort wird gesetzt…",
+    },
     /// This gateway does not take sign-ups.
     NoSignUps {
         en: "this gateway is not taking new accounts",
@@ -1940,6 +1987,12 @@ messages! {
     DeclinePayment { en: "Don't pay", de: "Nicht zahlen" },
     /// Settle a payment window the pool already covers.
     PayNow { en: "Pay", de: "Zahlen" },
+    /// A payment the client could not complete: it leaves the window open
+    /// rather than pass it short, which would refuse the payment (#01).
+    PaymentShort {
+        en: "Not enough mana is floating to pay. Tap the rest, or choose \"Don't pay\".",
+        de: "Es schwebt nicht genug Mana zum Bezahlen. Tappe den Rest oder wähle „Nicht zahlen“.",
+    },
     /// The AI log's heading line for one entry: whose mind it is.
     AiSaidHead { en: "{0} thinks", de: "{0} denkt" },
     /// What the model thought before it answered.
@@ -2088,6 +2141,10 @@ messages! {
     AttackRemaining { en: "Attack with all remaining → {0}", de: "Mit allen übrigen angreifen → {0}" },
     /// Clears the draft without submitting it.
     AttackWithdrawAll { en: "Withdraw all attackers", de: "Alle Angreifer zurückziehen" },
+    /// The attack chooser's fold row while its rows show (report 25).
+    AttackListHide { en: "Hide the list \u{25be}", de: "Liste ausblenden \u{25be}" },
+    /// The fold row while folded. `{0}` is how many rows it holds.
+    AttackListShow { en: "Show the list ({0}) \u{25b8}", de: "Liste zeigen ({0}) \u{25b8}" },
     /// A single unassigned creature.
     AttackSend { en: "Attack: {0} → {1}", de: "Angreifen: {0} → {1}" },
     /// A single assigned creature, naming its existing defender.
@@ -2099,6 +2156,17 @@ messages! {
     },
     /// Declare blockers
     DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
+    /// Instructions over the block list (report 31).
+    BlockDraftHint {
+        en: "Choose an attacker, then the creatures that block it. Choose a blocker again to take it back. Confirm when ready.",
+        de: "Angreifer wählen, dann die Kreaturen, die ihn blocken. Erneut wählen nimmt einen Blocker zurück. Zum Schluss bestätigen.",
+    },
+    /// An attacker in the block list, and how many creatures block it so far.
+    BlockAim { en: "Attacker: {0} · {1} blocking", de: "Angreifer: {0} · {1} blocken" },
+    /// A creature that may block the attacker in aim.
+    BlockSend { en: "Block: {0} → {1}", de: "Blocken: {0} → {1}" },
+    /// A creature already blocking, naming the attacker it blocks.
+    BlockWithdraw { en: "Take back: {0} → {1}", de: "Zurücknehmen: {0} → {1}" },
     /// Discard {0} card
     DiscardCard { en: "Discard {0} card", de: "Wirf {0} Karte ab" },
     /// Discard {0} cards
@@ -2433,6 +2501,15 @@ messages! {
     KeepCurrentTarget { en: "Keep current target", de: "Bisheriges Ziel behalten" },
     /// Confirm a selected replacement target.
     ChangeTarget { en: "Change target", de: "Ziel ändern" },
+    /// The shelf's question while a copy's targets are asked one by one and
+    /// this one may be kept. `{0}` of `{1}`.
+    RetargetKeepOrChange { en: "Target {0} of {1}: keep it, or choose a new one", de: "Ziel {0} von {1}: behalten oder ein neues wählen" },
+    /// The same, for a target that may not be kept (another target of the
+    /// copy already holds it, or the engine asks for a new one).
+    RetargetMustChange { en: "Target {0} of {1}: choose a new one", de: "Ziel {0} von {1}: wähle ein neues" },
+    /// Keep this target and every later one of the copy that may be kept;
+    /// `{0}` is how many that is at most, this one included.
+    KeepRemainingTargets { en: "Keep all remaining ({0})", de: "Alle übrigen behalten ({0})" },
     /// Optional payment permits only zero or the entire tap group.
     ChooseExactlyOrNoTaps { en: "Choose exactly {0} permanents to tap, or choose none", de: "Wähle genau {0} bleibende Karten zum Tappen oder keine" },
     /// Choose {0} {1}
@@ -2521,6 +2598,14 @@ messages! {
     HintClickBoard { en: "Click what you are choosing", de: "Klicke an, was du wählst" },
     /// Type to narrow the list
     HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
+    /// A permanent's label: it has lost all its abilities (report 21).
+    NoAbilities { en: "No abilities", de: "Keine Fähigkeiten" },
+    /// A leveler's label, short (report 30). `{0}` is its level.
+    LevelShort { en: "LV {0}", de: "St. {0}" },
+    /// The same label under the pointer, in full.
+    LevelLong { en: "Level {0}", de: "Stufe {0}" },
+    /// What an empty search box in the question's sheet says (report 16).
+    FilterPlaceholder { en: "type to search…", de: "zum Suchen tippen…" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
     /// The first card in a graveyard ordering will be on top of the others.
@@ -2665,6 +2750,21 @@ messages! {
     YouAreWatching { en: "You are watching", de: "Du schaust zu" },
     /// Concede, armed and waiting for the second press.
     ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
+    /// The game menu's way up from a running table without conceding
+    /// (report 33).
+    LeaveTable { en: "Leave the table", de: "Tisch verlassen" },
+    /// The lobby's note after a player left a running table from its menu.
+    LeftTheTable { en: "You left the table", de: "Du hast den Tisch verlassen" },
+    /// Leaving a networked table, armed: the house plays the chair on.
+    LeaveTableConfirm {
+        en: "Leave? The house plays on for you. Press again",
+        de: "Verlassen? Das Haus spielt für dich weiter. Nochmal drücken",
+    },
+    /// Leaving a game this client hosts offline, armed: it ends with it.
+    LeaveTableConfirmOffline {
+        en: "Leave? This game ends. Press again",
+        de: "Verlassen? Die Partie endet. Nochmal drücken",
+    },
     /// The game log panel's title (#262). Not a `Log…` phrase: those are the
     /// book's own sentences, which `gamelog` writes; these are the panel's.
     GameLogTitle { en: "Game log", de: "Spielprotokoll" },
@@ -2678,6 +2778,13 @@ messages! {
     RevealedBy { en: "{0} reveals", de: "{0} zeigt offen vor" },
     /// Under that head: how many more reveals wait behind this one.
     RevealedWaiting { en: "{0} more to come", de: "{0} weitere folgen" },
+    /// Under that head, while nothing waits: how to see a card larger.
+    RevealedHint { en: "Point at a card to enlarge it", de: "Zeige auf eine Karte, um sie zu vergrößern" },
+    /// The reveal sheet's answer while more reveals wait behind it: puts
+    /// this one away and stands the next one up.
+    RevealNext { en: "Next", de: "Nächste" },
+    /// The reveal sheet's answer for the last reveal standing: puts it away.
+    RevealDone { en: "Done", de: "Fertig" },
     /// The indicator that says this seat is not being asked right now.
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.
@@ -2971,6 +3078,13 @@ messages! {
         en: "This card cannot be played in this window",
         de: "Diese Karte lässt sich in diesem Zeitfenster nicht spielen",
     },
+    /// A "choose one" spell whose printed-price mode has no legal target,
+    /// so only its mode with a price of its own (overload) can be cast, and
+    /// the mana in reach does not pay that price (#00).
+    OnlyDearerModeLeft {
+        en: "No legal target for its normal mode, so only its costlier mode (such as overload) can be cast, and your mana does not pay for that",
+        de: "Der normale Modus hat kein legales Ziel; nur der teurere Modus (etwa Überladen) ist möglich, und dein Mana reicht dafür nicht",
+    },
     /// The current resources do not cover the card's costs (#112).
     CardCostsUnavailable {
         en: "The resources to pay for this card are not available",
@@ -3165,6 +3279,9 @@ messages! {
     /// the card to be numbered by, so "Ability 1" would be a lie about a
     /// printed ability that is also there.
     GrantedAbility { en: "Granted ability", de: "Verliehene Fähigkeit" },
+    /// The head of the sheet under a permanent's preview that lists what
+    /// other permanents have granted it, one grantor's sentence a paragraph.
+    GrantedAbilities { en: "Granted abilities", de: "Verliehene Fähigkeiten" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 
@@ -3246,6 +3363,17 @@ messages! {
     TheGameIsADraw {
         en: "The game is a draw",
         de: "Das Spiel endet unentschieden",
+    },
+    /// The end screen's verdict for a game an admin ended (beta.8): nobody
+    /// won or lost.
+    GameClosedVerdict {
+        en: "The game was ended",
+        de: "Das Spiel wurde beendet",
+    },
+    /// The line under it: `{0}` the admin's reason.
+    GameClosedReason {
+        en: "An admin ended it: {0}",
+        de: "Ein Admin hat es beendet: {0}",
     },
     /// Why a game ended: one seat outlived every other
     /// (`EndReason::LastPlayerStanding`).
@@ -3717,6 +3845,20 @@ messages! {
         en: "{0} put an ability of {1} on the stack",
         de: "{0} hat eine Fähigkeit auf den Stapel gelegt: {1}",
     },
+    /// The reading seat activated an ability (CR 602). `{1}` is its source.
+    LogActivatedYou { en: "{7} activated {1}", de: "{7} hast {1} aktiviert" },
+    /// Another seat activated an ability.
+    LogActivated { en: "{0} activated {1}", de: "{0} hat {1} aktiviert" },
+    /// An ability the reading seat controls triggered (CR 603). `{1}` is its
+    /// source.
+    LogTriggeredYou { en: "{1} triggered for {8}", de: "{1} hat für {8} ausgelöst" },
+    /// An ability another seat controls triggered.
+    LogTriggered { en: "{1} triggered for {0}", de: "{1} hat für {0} ausgelöst" },
+    /// Under a line dealing damage to a player: where it left their life,
+    /// 1. `{2}` is it, `{1}` what it was.
+    LogLifeNowPoint { en: "now at {2} life (from {1})", de: "jetzt {2} Lebenspunkt (vorher {1})" },
+    /// The same, at any other total.
+    LogLifeNowPoints { en: "now at {2} life (from {1})", de: "jetzt {2} Lebenspunkte (vorher {1})" },
     /// A spell was countered. `{1}` is the spell.
     LogCountered { en: "{1} was countered", de: "{1} wurde neutralisiert" },
     /// A spell or ability left the stack without resolving. `{1}` is it.
@@ -3869,6 +4011,9 @@ messages! {
     LogPlayerCountersYou { en: "{7} went to {1} {2} (from {3})", de: "{7} hattest danach {1} {2} (vorher {3})" },
     /// Another player's public counter total changed.
     LogPlayerCounters { en: "{0} went to {1} {2} (from {3})", de: "{0} hatte danach {1} {2} (vorher {3})" },
+    /// A permanent that had no counters of a kind got some: object, count,
+    /// counter noun.
+    LogCountersGot { en: "{1} got {2} {3}", de: "{1} hat {2} {3} bekommen" },
     /// Counters on a permanent changed: object, new count, counter noun, old count.
     LogCounters { en: "{1} went to {2} {3} (from {4})", de: "{1} hatte danach {2} {3} (vorher {4})" },
     /// One +X/+Y counter. `{0}` is X and `{1}` is Y.
@@ -4006,6 +4151,34 @@ messages! {
     LogMonarchYou { en: "{7} became the monarch", de: "{7} bist der Monarch geworden" },
     /// Another seat became the monarch.
     LogMonarch { en: "{0} became the monarch", de: "{0} ist der Monarch geworden" },
+    /// The one mode chosen for a spell or an ability (CR 601.2b, 603.3c).
+    /// `{1}` is it: the card's own words in quotes ([`Phrase::LogQuoted`]),
+    /// or its number.
+    LogAimedMode { en: "mode: {1}", de: "Modus: {1}" },
+    /// Several modes chosen at once. `{1}` is them, joined by " + ".
+    LogAimedModes { en: "modes: {1}", de: "Modi: {1}" },
+    /// The one target of a spell or an ability (CR 601.2c). `{1}` is it.
+    LogAimedTarget { en: "targeting {1}", de: "Ziel: {1}" },
+    /// Several targets. `{1}` is the list.
+    LogAimedTargets { en: "targeting {1}", de: "Ziele: {1}" },
+    /// A spell's modes or targets, on a line of their own (changed while it
+    /// was on the stack). `{1}` is the spell, `{2}` what it was announced
+    /// with: [`Phrase::LogAimedMode`] and [`Phrase::LogAimedTarget`] parts.
+    LogAimedSpell { en: "{1}: {2}", de: "{1}: {2}" },
+    /// The same for an ability. `{1}` is its source.
+    LogAimedAbility { en: "Ability of {1}: {2}", de: "Fähigkeit von {1}: {2}" },
+    /// A card's own words, quoted. `{0}` is them.
+    LogQuoted { en: "\u{201c}{0}\u{201d}", de: "\u{201e}{0}\u{201c}" },
+    /// A turn's phase, as the log groups a turn's lines under it.
+    LogPhaseBeginning { en: "Beginning", de: "Beginn" },
+    /// The precombat main phase.
+    LogPhaseFirstMain { en: "Main phase", de: "Hauptphase" },
+    /// The combat phase.
+    LogPhaseCombat { en: "Combat", de: "Kampf" },
+    /// The postcombat main phase.
+    LogPhaseSecondMain { en: "Second main phase", de: "Zweite Hauptphase" },
+    /// The ending phase.
+    LogPhaseEnding { en: "End of turn", de: "Ende des Zuges" },
 
     // ---- reports (#309, #310) ------------------------------------------
     /// The button, the form's title and the keymap row that opens it.
@@ -5652,6 +5825,27 @@ messages! {
     DecksUnplayableOne { en: "{0} card won\u{2019}t play", de: "{0} Karte spielt nicht" },
     /// A tile's badge: cards that will not play. `{0}` the count.
     DecksUnplayableMany { en: "{0} cards won\u{2019}t play", de: "{0} Karten spielen nicht" },
+    /// A tile's badge: the deck holds a card blocked on this gateway.
+    /// `{0}` the card's name.
+    DecksBlockedOne { en: "{0} blocked here", de: "{0} hier gesperrt" },
+    /// A tile's badge: the deck holds several cards blocked on this
+    /// gateway. `{0}` the count.
+    DecksBlockedMany { en: "{0} cards blocked here", de: "{0} Karten hier gesperrt" },
+    /// Why a deck cannot be played on this gateway, or a card is marked in
+    /// the builder: a block without an end. `{0}` the card, `{1}` the
+    /// operator's reason.
+    CardBlocked {
+        en: "{0} is blocked on this server: {1}",
+        de: "{0} ist auf diesem Server gesperrt: {1}",
+    },
+    /// The same, for a block that ends. `{0}` the card, `{1}` the reason,
+    /// `{2}` when it ends (`2026-10-20 18:00 UTC`).
+    CardBlockedUntil {
+        en: "{0} is blocked on this server until {2}: {1}",
+        de: "{0} ist auf diesem Server bis {2} gesperrt: {1}",
+    },
+    /// The deck builder's mark on a card blocked on this gateway.
+    BuildBlocked { en: "blocked here", de: "hier gesperrt" },
     /// The shelf's search box, while empty.
     DecksSearchHint { en: "Search decks…", de: "Decks suchen …" },
     /// Play's table sort button. `{0}` the order (German: the order alone,
@@ -6197,6 +6391,9 @@ messages! {
     ReportRefShown { en: "Shown", de: "Gezeigt" },
     /// A `#` suggestion's zone: a revealed library top.
     ReportRefLibraryTop { en: "Library top", de: "Bibliothek oben" },
+    /// A suggestion's place: a card seen earlier in the game, named by the
+    /// game log and no longer in sight (#14).
+    ReportRefLogged { en: "Seen this game", de: "In dieser Partie gesehen" },
     /// Whose a `#` suggestion is, when it is the reader's.
     ReportRefYours { en: "yours", de: "deine" },
     /// The confirmation: how many cards the text names, one.

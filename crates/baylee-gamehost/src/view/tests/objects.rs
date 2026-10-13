@@ -352,3 +352,83 @@ fn prepared_view_uses_the_exiled_spells_face_after_its_permanent_changes() {
         assert_eq!(view.object(copy).unwrap().name, "Peer Review");
     }
 }
+
+/// Report 21: a creature under "loses all abilities" (Oko, Thief of
+/// Crowns's +1, Final Showdown, Tishana's Tidebinder) carries
+/// `ObjectStatus::NO_ABILITIES` in every seat's view, an ordinary one does
+/// not, and a face-down permanent never has it (its characteristics are not
+/// the seat's to read). On the old code `status_of` did not exist: the view
+/// carried only the engine's four public statuses, so the first assertion
+/// fails.
+#[test]
+fn a_creature_that_lost_all_its_abilities_says_so_in_every_seats_view() {
+    use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+    use baylee_engine::object::Status;
+    use baylee_view::ObjectStatus;
+
+    let bears = baylee_cards::by_oracle_id("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+        .expect("Grizzly Bears is in the pool")
+        .index;
+    let entry = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: bears,
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![entry, entry, entry];
+    let mut state = GameState::from_preset(&preset, &Registry).unwrap();
+    let bears: Vec<ObjectId> = state.zones.list(ZoneLocation::Battlefield).clone();
+    let [lost, ordinary, hidden] = bears[..] else {
+        panic!("three Grizzly Bears on the battlefield, got {bears:?}");
+    };
+    state
+        .object_mut(hidden)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    for target in [lost, hidden] {
+        let filter = EffectFilter::object(&state, target);
+        let modifier = baylee_cards_dsl::Modifier::LoseAllAbilities;
+        state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: Some(target),
+            controller: PlayerId::new(0),
+            origin: EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 1_000,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
+    }
+    state.refresh_characteristics();
+
+    for seat in [PlayerId::new(0), PlayerId::new(1)] {
+        let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
+        let status = |id: ObjectId| {
+            view.battlefield
+                .iter()
+                .find(|o| o.id == id)
+                .unwrap_or_else(|| panic!("{id:?} is on the shared battlefield"))
+                .status
+        };
+        assert!(
+            status(lost).has_no_abilities(),
+            "{seat:?} is told the creature lost its abilities"
+        );
+        assert!(
+            !status(ordinary).has_no_abilities(),
+            "{seat:?}: an ordinary creature is not"
+        );
+        assert!(
+            !status(hidden).has_no_abilities(),
+            "{seat:?}: a face-down permanent never carries the bit"
+        );
+        assert!(
+            status(hidden).contains(ObjectStatus::FACE_DOWN),
+            "the face-down bit itself still rides"
+        );
+    }
+}

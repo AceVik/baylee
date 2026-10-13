@@ -673,6 +673,46 @@ impl HeuristicAgent {
         if let Some(action) = self.ability_targets(view, offer, context) {
             return Some(action);
         }
+        // A flicker is worth what the flicker does to the one it names —
+        // its entering again, its counters lost (CR 400.7), its owner taking
+        // it home — and not what the creature is worth: ranked by size it
+        // exiled a Soulherder grown on its own triggers over a bare token
+        // beside it (#07). Only the ones worth more than nothing are named
+        // where the count lets it be none ("you may exile another target").
+        if players.is_empty()
+            && context
+                .effects
+                .iter()
+                .any(|e| matches!(e, Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep))
+            && let Some(source) = context.source
+        {
+            let mut scored: Vec<(i64, ObjectId)> = objects
+                .iter()
+                .filter_map(|&id| {
+                    self.effects_worth(
+                        view,
+                        crate::worth::Origin::of(view, source),
+                        context.effects,
+                        crate::worth::Aim::Object(id),
+                        context.x,
+                    )
+                    .map(|worth| (worth, id))
+                })
+                .collect();
+            if scored.len() == objects.len() {
+                scored.sort_by_key(|&(worth, id)| (std::cmp::Reverse(worth), id));
+                let take = scored
+                    .iter()
+                    .take_while(|(worth, _)| *worth > 0)
+                    .count()
+                    .max(usize::try_from(min).unwrap_or(usize::MAX))
+                    .min(usize::try_from(max).unwrap_or(usize::MAX));
+                return Some(PlayerAction::ChooseTargets {
+                    objects: scored.into_iter().take(take).map(|(_, id)| id).collect(),
+                    players: vec![],
+                });
+            }
+        }
         // A same-name removal spell can destroy our own copies as well.
         // Rank its whole exchange, not just the permanent named as target.
         if context

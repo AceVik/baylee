@@ -37,7 +37,7 @@ pub(crate) async fn watch_ws(
         .ticket
         .as_deref()
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing ticket"))?;
-    let wsticket::Grant::Watch { .. } = spend_ticket(
+    let wsticket::Grant::Watch { session, .. } = spend_ticket(
         &state,
         ticket,
         &wsticket::Door::Watch {
@@ -60,9 +60,16 @@ pub(crate) async fn watch_ws(
     if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
         return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
     }
+    // Whose socket it is, for the friends list's "watching" (`social/`):
+    // the session that bought the ticket, if it still stands.
+    let watcher = crate::store::resolve_digest(&state.db, session, crate::auth::now_secs())
+        .await
+        .ok()
+        .flatten()
+        .map(|session| session.account_id);
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
-        .on_upgrade(move |socket| run_watch_socket(state, id, socket)))
+        .on_upgrade(move |socket| run_watch_socket(state, id, watcher, socket)))
 }
 
 /// Moves the game's spectator count by `by` and tells its engine; `joined`
@@ -91,7 +98,12 @@ fn recount(state: &Shared, game_id: &str, joined: bool) -> Option<lobby::EngineL
 }
 
 /// One spectator's socket: the game's public stream out, nothing in.
-pub(crate) async fn run_watch_socket(state: Shared, game_id: String, mut socket: WebSocket) {
+pub(crate) async fn run_watch_socket(
+    state: Shared,
+    game_id: String,
+    watcher: Option<String>,
+    mut socket: WebSocket,
+) {
     let (mut rx, mut ready) = {
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(&game_id) else {
@@ -106,6 +118,9 @@ pub(crate) async fn run_watch_socket(state: Shared, game_id: String, mut socket:
     // with is not missed.
     if recount(&state, &game_id, true).is_none() {
         return;
+    }
+    if let Some(account) = &watcher {
+        state.social.watch_start(account, &game_id);
     }
     tracing::info!(game_id, "spectator socket opened");
     loop {
@@ -148,6 +163,9 @@ pub(crate) async fn run_watch_socket(state: Shared, game_id: String, mut socket:
         }
     }
     let _ = socket.send(Message::Close(None)).await;
+    if let Some(account) = &watcher {
+        state.social.watch_end(account, &game_id);
+    }
     recount(&state, &game_id, false);
     tracing::info!(game_id, "spectator socket closed");
 }

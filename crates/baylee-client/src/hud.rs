@@ -587,6 +587,11 @@ pub enum MenuAction {
     ArrangementMenu,
     /// Leave the game (sends the engine's own concession).
     Concede,
+    /// Get up from a running table without conceding (report 33): the
+    /// house plays the chair on from here, as for a client that quit
+    /// (`POST /lobby/depart`), and the table closes. Two presses, like the
+    /// concession; offline the game this client hosts ends with it.
+    LeaveGame,
     /// Offer a draw: every other player still in the game has to accept
     /// (CR 104.4i).
     OfferDraw,
@@ -2168,6 +2173,15 @@ pub struct OverlayTree<'w, 's> {
     /// rebuilt, which a sweep on every pointer move would undo.
     pub(crate) log: Query<'w, 's, Entity, With<ledge::log::LogPanel>>,
     pub(crate) ai_log: Query<'w, 's, Entity, With<ledge::ai_log::AiLogPanel>>,
+    /// The sheet holding up another seat's reveal ([`revealed`]), on the
+    /// log's argument and with a louder symptom: it is drawn on a gate of its
+    /// own (`revealed::RevealRevision`), and a sweep took it on every rebuild
+    /// of this tree — which a pointer resting on one of its cards *causes*,
+    /// since the preview it opens is part of this tree. The sheet stood up
+    /// again, the card under the pointer was a new entity, the preview closed
+    /// and opened, and so on while the pointer rested: the reveal flickered
+    /// and the preview with it (owner, 12.10.2026).
+    pub(crate) reveal: Query<'w, 's, Entity, With<revealed::RevealSheet>>,
     /// The drawer's **panel**, as a box rather than as an entity — and the one
     /// field here that is not about surviving the sweep.
     ///
@@ -2268,13 +2282,13 @@ pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
-pub(crate) use ledge::drawer::sheet_asked;
+pub(crate) use ledge::drawer::{ATTACK_LIST_FOLD, sheet_asked};
 pub use ledge::drawer::{
     DrawerRevision, DrawerRoot, SheetPill, SheetSource, SheetTitle, sync_drawer, zoom_the_drawer,
 };
 pub use ledge::log::{
-    LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log, hover_log_links,
-    sync_log,
+    CardLens, LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log,
+    hover_log_links, sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub(crate) use ledge::players::STRIPS_H;
@@ -2299,6 +2313,7 @@ pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
+pub(crate) use seatbar::attached::clip_only_level;
 pub use seatbar::attached::{PlateBeside, PlateMark, PlateMarkKind, PlateTab, plate_beside};
 pub use seatbar::plateclock::{PlateClock, PlateClockRoot, sync_plate_clocks, tick_plate_clocks};
 pub use seatbar::{
@@ -2317,7 +2332,7 @@ pub use stack::{
 };
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
-pub use tray::{TrayReveal, TrayRevision, reveal_tray, sync_tray};
+pub use tray::{TrayCarry, TrayReveal, TrayRevision, carry_the_rows, reveal_tray, sync_tray};
 
 pub(crate) use seatbar::attached::describe_phase;
 pub(crate) use seatbar::attached::highlight_player;

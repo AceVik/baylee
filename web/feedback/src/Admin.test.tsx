@@ -363,12 +363,14 @@ describe("the app's sections", () => {
     });
     const { unmount } = render(<App />);
     await screen.findByText("viktor");
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // Reports and the contact messages are every admin's; the console only where configured.
+    const plain = await screen.findByRole("navigation");
+    expect(within(plain).getAllByRole("link").map((a) => a.textContent)).toEqual(["Reports", "Contact"]);
     unmount();
     console = true;
     render(<App />);
     const nav = await screen.findByRole("navigation");
-    expect(within(nav).getAllByRole("link")).toHaveLength(2);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Reports", "Contact", "Admin"]);
   });
 });
 

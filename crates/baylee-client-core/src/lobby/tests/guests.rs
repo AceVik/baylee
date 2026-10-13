@@ -226,3 +226,36 @@ fn a_kept_guests_token_is_never_printed() {
     assert!(!printed.contains("guest-tok"), "{printed}");
     assert!(printed.contains("Casper#0007"), "{printed}");
 }
+
+/// Leaving a table on purpose tells the gateway with the session that
+/// leaves, an account's or a guest's; offline and signed out there is
+/// nobody to tell (report 33).
+#[test]
+fn leaving_a_table_tells_the_gateway_who_left() {
+    let account = seated_lobby();
+    assert_eq!(
+        account.depart(),
+        Some(LobbyRequest::Depart {
+            token: "tok".to_string()
+        })
+    );
+
+    let mut guest = welcoming();
+    guest.keep_guest(Some(kept()));
+    guest.play_as_guest();
+    assert_eq!(
+        guest.depart(),
+        Some(LobbyRequest::Depart {
+            token: "guest-tok".to_string()
+        })
+    );
+
+    assert_eq!(Lobby::new().depart(), None, "signed out");
+    let mut offline = Lobby::new();
+    offline.play_offline();
+    assert_eq!(offline.depart(), None, "offline");
+
+    let mut gone = seated_lobby();
+    gone.sign_out();
+    assert_eq!(gone.depart(), None, "after signing out");
+}

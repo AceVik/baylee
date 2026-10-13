@@ -49,6 +49,9 @@ pub enum HostMessage {
     AiLog(baylee_protocol::v1::AiLog),
     /// How many watch this table (`docs/protocol.md` §"Spectators").
     Spectators(u32),
+    /// An admin ended the game (`docs/protocol.md` §"Acting on a game"),
+    /// and why: nobody won or lost. The last thing the table says.
+    Closed(String),
     /// Human preparation progress and departure relative to receipt, clock corrected.
     Preparing {
         /// Prepared human seats.
@@ -237,6 +240,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
         v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
         v1::envelope::Msg::AiLog(ai_log) => HostMessage::AiLog(ai_log),
         v1::envelope::Msg::Spectators(s) => HostMessage::Spectators(s.count),
+        v1::envelope::Msg::GameClosed(closed) => HostMessage::Closed(closed.reason),
         _ => return None,
     })
 }
@@ -882,6 +886,7 @@ pub(crate) mod tests {
                 event: LogEvent::TurnStarted {
                     active: PlayerId::new(1),
                 },
+                phase: None,
             }],
         };
         let Some(HostMessage::View(_, Some(got))) =

@@ -219,8 +219,8 @@ fn the_panel_survives_the_rebuild_the_arming_press_causes() {
     let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
     assert!(shown, "the menu is open");
     assert_eq!(
-        rows, 9,
-        "two ways out, the report row, the tour's row, music controls, the \
+        rows, 10,
+        "three ways out, the report row, the tour's row, music controls, the \
          priority sound's switch, a rule, the version and Scryfall's attribution"
     );
     // The shelf's own children, less the two casts: those are spawned
@@ -422,5 +422,105 @@ fn the_menu_offers_no_way_out_of_a_game_that_has_ended() {
     assert!(
         !lines.contains(&glyph::BARS.to_string()),
         "and the door itself is gone with the column it stood in: {lines:?}"
+    );
+}
+
+/// Opens the game menu through the door a click uses.
+fn open_the_menu(app: &mut App) {
+    crate::input::menu_click(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        MenuAction::ToggleGameMenu,
+        false,
+    );
+    app.update();
+}
+
+/// Report 33: a player's menu offers "Leave the table" and, armed, says what
+/// leaving does: at a networked table the house plays on for you, in a game
+/// this client hosts the game ends. A spectator's way out is "Stop watching"
+/// and the menu offers no second one. On the old code there was no such row.
+#[test]
+fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
+    let leave = Phrase::LeaveTable.text(Lang::En).to_string();
+    let networked = Phrase::LeaveTableConfirm.text(Lang::En).to_string();
+    let house = Phrase::LeaveTableConfirmOffline.text(Lang::En).to_string();
+    assert_eq!(networked, "Leave? The house plays on for you. Press again");
+    assert_eq!(house, "Leave? This game ends. Press again");
+    let pressed = |lines: &[String], row: &str| lines.iter().any(|l| l == row);
+
+    // A seat at a gateway's table.
+    let mut app = bar_of(duel_with(false));
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(pressed(&lines, &leave), "a row to leave by: {lines:?}");
+    assert!(!pressed(&lines, &networked) && !pressed(&lines, &house));
+    crate::input::menu_click(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        MenuAction::LeaveGame,
+        false,
+    );
+    assert!(app.world().resource::<Duel>().leave_armed);
+    app.update();
+    let lines = said(&mut app);
+    assert!(
+        pressed(&lines, &networked),
+        "armed, the networked wording: {lines:?}"
+    );
+    assert!(!pressed(&lines, &house));
+    assert!(
+        !pressed(&lines, &leave),
+        "and the row now asks for the second press, not the first"
+    );
+
+    // A game this client hosts: the same row, the other wording.
+    let mut app = bar_of(duel_with(false));
+    let host = crate::host::LocalHost::new(
+        &crate::host::tests::duel_preset(),
+        PlayerId::new(0),
+        &["You", "AI"],
+    )
+    .expect("host");
+    app.insert_resource(crate::InstalledHost(Box::new(host)));
+    open_the_menu(&mut app);
+    crate::input::menu_click(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        MenuAction::LeaveGame,
+        false,
+    );
+    app.update();
+    let lines = said(&mut app);
+    assert!(
+        pressed(&lines, &house),
+        "a house game ends with its player: {lines:?}"
+    );
+    assert!(!pressed(&lines, &networked));
+
+    // German, once.
+    app.world_mut()
+        .resource_mut::<crate::settings::ClientSettings>()
+        .lang = Lang::De.code().to_string();
+    open_the_menu(&mut app);
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(
+        pressed(&lines, Phrase::LeaveTableConfirmOffline.text(Lang::De)),
+        "{lines:?}"
+    );
+
+    // A spectator has "Stop watching" and nothing to leave.
+    let mut duel = duel_with(false);
+    duel.watching = true;
+    let mut app = bar_of(duel);
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(
+        !pressed(&lines, &leave),
+        "a spectator gets no second way out: {lines:?}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|l| l == Phrase::StopWatching.text(Lang::En)),
+        "but still its own: {lines:?}"
     );
 }

@@ -180,12 +180,18 @@ pub(crate) fn validate_the_dev_board() {
 pub(crate) fn validate_the_dev_board() {}
 
 /// Preset for a human-vs-AI game (house AI plays Victory).
+///
+/// Neither deck may hold a card blocked on this gateway (`blocks.rs`).
 pub(crate) fn ai_preset(
+    blocks: &crate::blocks::Blocks,
     deck: &Deck,
     seed: u64,
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
+    let now = time::OffsetDateTime::now_utc();
     let house = house_deck()?;
     let player = loaded_deck(deck)?;
+    blocks.check_loaded(&player, now)?;
+    blocks.check_loaded(&house, now)?;
     let mut preset = baylee_cards::decks::preset_for(seed, &player, &house);
     deal_the_dev_board(&mut preset)?;
     Ok(preset)
@@ -204,6 +210,11 @@ pub(crate) async fn own_deck(
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
     }
+    // A deck holding a blocked card is not chosen for a room here
+    // (`blocks.rs`); the player is told which card and why.
+    state
+        .blocks
+        .check_stored(&deck, time::OffsetDateTime::now_utc())?;
     Ok((deck.name.clone(), deck))
 }
 
@@ -213,17 +224,24 @@ pub(crate) async fn own_deck(
 /// presets every chair as an AI, which is right for the print table and wrong
 /// for everyone at the table who is a person.
 pub(crate) fn room_preset(
+    blocks: &crate::blocks::Blocks,
     seats: &[lobby::LobbySeat],
     seed: u64,
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
+    let now = time::OffsetDateTime::now_utc();
     let mut loaded = Vec::with_capacity(seats.len());
     for seat in seats {
-        match &seat.deck {
-            Some(deck) => loaded.push(loaded_deck(deck)?),
+        let deck = match &seat.deck {
+            Some(deck) => loaded_deck(deck)?,
             // Only reachable for an AI seat the host left alone; a human seat
             // with no deck is not ready and the room has not started.
-            None => loaded.push(house_deck()?),
-        }
+            None => house_deck()?,
+        };
+        // Every deck at the table, the house's included, is asked again
+        // here: a card blocked after a deck was chosen, or after everyone
+        // said ready, still keeps the game from starting (`blocks.rs`).
+        blocks.check_loaded(&deck, now)?;
+        loaded.push(deck);
     }
     let refs: Vec<&baylee_cards::decks::LoadedDeck> = loaded.iter().collect();
     let mut preset = baylee_cards::decks::preset_for_all(seed, &refs);
@@ -355,7 +373,7 @@ pub(crate) async fn try_start(
         if game.state != LobbyState::Waiting || !game.all_ready() {
             return Ok(false);
         }
-        let mut preset = room_preset(&game.seats, seed)?;
+        let mut preset = room_preset(&state.blocks, &game.seats, seed)?;
         preset.house_rules = game.house_rules.clone();
         baylee_cards::decks::apply_room_setup(&mut preset, &game.setup)
             .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
@@ -372,7 +390,7 @@ pub(crate) async fn try_start(
         if game.state != LobbyState::Waiting || !game.all_ready() {
             return Ok(false);
         }
-        let mut current = room_preset(&game.seats, seed)?;
+        let mut current = room_preset(&state.blocks, &game.seats, seed)?;
         current.house_rules = game.house_rules.clone();
         baylee_cards::decks::apply_room_setup(&mut current, &game.setup)
             .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;

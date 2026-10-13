@@ -27,6 +27,15 @@ the pointers, because line numbers move.
 | Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
+| Chat devices (public keys, the OS family as a label, when added and last seen) | Postgres `social_device` | until removed | the player (Settings → Chat & privacy), or the account's deletion |
+| Friends, friend requests, blocks | Postgres `friendship`, `friend_request`, `social_block` | until changed | the player, or either account's deletion |
+| Groups (name, members, invites) | Postgres `chat_group`, `group_member`, `group_invite` | until the group is deleted | the owner; a group nobody is left in; an account's deletion removes its membership |
+| Undelivered messages (encrypted; the gateway can't read them) and who they're for | Postgres `chat_message`, `chat_delivery` | until delivered, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30; 1 day to a guest) | delivery, the sweep, the sender's or recipient's deletion |
+| Whisper and request settings, "show my table to friends" | Postgres `account` (`whispers_from`, `requests_open`, `share_table`) | until changed | the account's deletion |
+| Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
+| Chat keys | the player's device: the OS credential store (`baylee-chat`), or a `0600` file where there is none | until the device is forgotten | the player, or a guest's sign-out |
+| Chat history and state (encrypted) | the player's device, `chat/` beside the settings | 30 days by default (the player chooses off, 7, 30 or 365) | the client's pruning, or the player |
+| A reported chat message (its text, whether its signature checked, the sender's pseudonym) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
@@ -37,6 +46,7 @@ the pointers, because line numbers move.
 | A report the player sends | leaves the device for the gateway (`POST /reports`), or, signed in nowhere, for the feedback service (`POST /client/reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
 | Record of a game the client hosted (against the house) | the player's device, `records/` beside the settings (native only) | the last 20 games, at most 64 MiB together | the client, oldest first; the player |
 | Anonymous offline count: one random value per offline game, nothing else (`POST /client/alive`) | leaves the device for the feedback service once a minute while a game it hosts runs; kept in the service's memory | 150 s after the last beat; a restart forgets it | switching "Send anonymous usage count" off (Settings › Privacy & Data; default on); no feedback service known sends nothing |
+| A message sent with the landing page's contact form (its text, the name and e-mail address only if given, the page's language, when) | the feedback service's Postgres, `feedback_contact` | 90 days after an admin marked it done, a year after it came at most | `contact::sweep` (before a message is taken and before the list is read); an admin's deletion. See [Contact messages](#contact-messages) |
 | Device id for direct reports (random) | the player's device, `client-settings.json` (`report_device`) | until the player removes it | the player |
 | Which terms version this device accepted at each gateway (a copy) | the player's device, `client-settings.json` (`terms`, by gateway address) | until the next acceptance there replaces it | the player |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
@@ -44,6 +54,39 @@ the pointers, because line numbers move.
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
 | Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
 | Where the player was, across "Restart now" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
+
+## Friends and chat (beta.8)
+
+**What the gateway can't read.** Message text, card links and mentions are
+end-to-end encrypted on the sender's device for the recipients' devices
+(`docs/protocol.md` §"Friends and chat (beta.8)"). The gateway stores the
+ciphertext until each device has it, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14
+unless set, 1 to 30; 1 day to a guest), and holds no key that opens it.
+
+**What it does see and keep.** Who is friends with whom, requests and
+blocks; the name and members of each group; which devices an account has
+(public keys and an OS family); which account sent a message to which
+conversation, when, and how large it was, until it is delivered; who is
+online, what status they chose and at which table they are, in memory, and
+shown only to their friends. None of this is logged: a log line carries
+counts, never a tag, handle, conversation or ciphertext.
+
+**What leaves the device on purpose.** A report of a message sends its text
+and the key of that one message, so that the gateway can check that the
+sender really wrote it. A report never carries other messages or the
+history. The feedback service is sent the text, whether the check held, and
+the sender as a pseudonym (the same keyed hash reporters get), never an
+account id or handle.
+
+**What is never chat.** The engine, game records (#315), record exports,
+the AI's view and bug reports never contain chat. AI and language-model
+seats receive none: a table's members are the accounts in its chairs, and
+those seats have no account.
+
+**Deletion.** Deleting an account deletes its devices, friendships,
+requests, blocks, group memberships and every message still waiting for or
+from it. Its groups pass to the member who joined first. Signing a guest
+out deletes it, and the client deletes its local chat folder and keys.
 
 ## Hosted models
 
@@ -87,6 +130,9 @@ request, and is answered back by nothing.
     without terms. Only the last acceptance is kept, and not the language
     the terms were read in (the version is one for all of them). It goes
     with the account.
+  - `must_change_password`, and `banned_at`, `banned_until`, `ban_reason`,
+    `banned_by` (beta.8, below): what an admin set on the account, gone
+    with it.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail
@@ -225,6 +271,38 @@ service's UI).
 - **Seen by:** the feedback service's signed-in admins only. The
   gateway's e2e test holds the answers free of password hashes, tokens
   and addresses.
+
+## What an admin may do to an account (beta.8)
+
+From the feedback service's admin pages, through the gateway's loopback
+console (`docs/protocol.md` §"Acting on an account"): reset a password,
+ban or lift a ban, delete an account, end a running game. The admins are
+the operator's own, signed in at the feedback service; no player can do
+any of it to another.
+
+- **Finding the player:** the console's account search above, which
+  existed already (owner, 09.10.2026). Nothing new lists people.
+- **A reset password** is made by the gateway, answered once to the admin
+  who asked, through the feedback service's memory to their browser, and
+  stored only as its Argon2id hash. Neither service logs or audits it; the
+  admin hands it to the player by a way of their own choosing. Until the
+  player chooses their own (`POST /auth/password`), the account holds
+  `must_change_password`.
+- **A ban** keeps on the account row the admin's reason, its start and
+  end, and the admin's name (`banned_by`), so the player can be told why
+  and until when, and the admins can see it. The reason is shown to that
+  player only, after their password (or to the banned guest's own
+  session), and to the admins. It is overwritten by the next ban, cleared
+  by an unban, and goes with the account. Neither audit holds it.
+- **A deletion** is the player's own deletion, done for them: everything
+  under §"Accounts" goes the same way, in the same statement.
+- **Ending a game** keeps nothing about anybody: the reason is sent to the
+  players at that table and is not stored.
+- **Audit:** the gateway's log (`baylee_gateway::audit`) and the feedback
+  service's `feedback_audit` name the admin, the act, the account's or
+  game's id and a ban's end; never a password or a reason. `feedback_audit`
+  is kept indefinitely, like the rest of it (below); the log as §"Logs"
+  says.
 
 ## Confirmation mail
 
@@ -561,10 +639,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   (who played a seat, or whose seat bridge did), which goes with the
   account. What stays after that is a game between
   numbered seats, with their decks and every card they held.
-- **No seat or lobby route reads a record.** The one reader a route
-  reaches is `POST /reports`, which attaches a game's record only when the
-  reporter sat at that game (`docs/protocol.md` §"The game record"). The
-  other is the operator's export below, which no route reaches.
+- **No seat or lobby route reads a record.** Two readers a route reaches:
+  `POST /reports`, which attaches a game's record only when the reporter sat
+  at that game (`docs/protocol.md` §"The game record"), and a replay job,
+  which hands it only to an engine (below: a replay is a projection, never
+  the record). The other is the operator's export below, which no route
+  reaches.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
@@ -608,6 +688,22 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   or the service; the admin reads it over on GitHub before submitting. The
   audit names the admin who changed a report; it names no player. Its
   Overview shows a gateway's numbers (counts only, above) and its keys.
+- **Replays** (`docs/protocol.md` §"Replays") read a record only to hand it
+  to an engine on the engine link, which plays it again and sends back a
+  projection: what one seat (or a spectator) was shown, never the record. A
+  replay is a projection, never the record. A seat's tape goes only to the
+  account `game_record_seat` names for that seat; the public tape only to an
+  account that sat at the game. No tape is stored, on the gateway or on a
+  device, and the job's log names no account. `GET /replays` shows a seated
+  account the current handles of the people it sat with, as the table
+  showed them, and a former player's seat as "Former player" once that
+  account is gone. Beside the record the gateway keeps what the list shows
+  (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
+  `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
+  game and card data, not personal, kept with the record. A deleted
+  account's games are gone from its list and its tapes, because the seat
+  link that authorises them is the one deletion cuts. Asks are counted per
+  account in memory for a minute.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 
@@ -710,6 +806,32 @@ report once it has it is theirs to describe.
 - **Game records (#315):** the gateway keeps each game's full record in
   its database without a time limit; the record numbers its seats and
   names nobody (see "Game records and reports" above).
+
+## Contact messages
+
+The landing page at the gateway's host (`web/site`, `#contact`) has a form
+that posts, from the visitor's browser, to the feedback service's
+`POST /site/contact` (`crates/baylee-feedback/src/contact.rs`,
+`docs/feedback.md` §"The landing page's contact form").
+
+| What | Where | Kept | Removed by |
+| --- | --- | --- | --- |
+| The message, the name and the e-mail address if given (a blank one is none), the page's language (`en`/`de`), when it came, whether and since when an admin marked it done | the feedback service's Postgres, `feedback_contact` | 90 days after it was marked done (`contact::DONE_KEPT`), 365 days after it came at most (`contact::KEPT`) | `contact::sweep`, run before each message is taken and each time the admins' list is read; `DELETE /ui/api/contact/{id}` by an admin |
+| Who changed or deleted a message, when, and to what status (never its text or address) | `feedback_audit` (`contact_id`) | indefinitely, also after the message is gone | nothing yet |
+| Messages per address and in all (the honeypot's and the refused ones too) | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
+
+- **Nothing about the request is stored:** no address, no user agent, no
+  cookie, no device id. The log line says that a message was taken, by id.
+- **The name and the address are optional,** and the form says so; the
+  address is there only to answer. An answer is written by an admin from
+  their own mail; the service sends no mail and passes nothing on.
+- **A filled honeypot** (a field hidden from people) is answered as taken
+  and nothing is stored.
+- **The page says it beside the form,** in both languages, with a link
+  here: what is kept, that no IP address, cookie or tracker is involved,
+  and the two time limits.
+- **Who can read them:** the admins of the feedback service's web UI
+  (`baylee-feedback admin add`), signed in.
 
 ## Open points
 

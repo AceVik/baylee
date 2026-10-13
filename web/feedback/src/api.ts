@@ -2,7 +2,7 @@
 // request is same-origin and carries the session cookie; every change also
 // carries `X-Baylee-CSRF: 1`, which a form on another site cannot send.
 
-export const KINDS = ["bug", "improvement", "feedback", "crash", "other"] as const;
+export const KINDS = ["bug", "improvement", "feedback", "crash", "other", "chat"] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const STATUSES = [
@@ -50,6 +50,34 @@ export interface Summary {
 
 export interface Report extends Summary {
   client: Record<string, unknown>;
+}
+
+/** A message from the landing page's contact form (`docs/feedback.md`). */
+export interface ContactMessage {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string | null;
+  email: string | null;
+  message: string;
+  language: "en" | "de";
+  status: ContactStatus;
+  done_at: string | null;
+}
+
+export const CONTACT_STATUSES = ["new", "done"] as const;
+export type ContactStatus = (typeof CONTACT_STATUSES)[number];
+
+/** `GET /ui/api/contact`: the newest messages the filter matches. */
+export interface ContactListing {
+  open: number;
+  total: number;
+  messages: ContactMessage[];
+}
+
+/** `GET /ui/api/contact/{id}`: one message and what was done with it. */
+export interface ContactDetail extends ContactMessage {
+  audit: AuditEntry[];
 }
 
 export interface Listing {
@@ -351,6 +379,19 @@ export interface AccountRow {
   in_lobby: boolean;
   playing: boolean;
   online: boolean;
+  /** An admin reset its password and it has not chosen its own yet. */
+  reset_pending?: boolean;
+  /** The ban in force, if one is. */
+  ban?: AccountBan | null;
+}
+
+/** A ban in force on an account (`docs/protocol.md` §"Acting on an account"). */
+export interface AccountBan {
+  reason: string;
+  /** RFC 3339, UTC; null for good. */
+  until: string | null;
+  at: string;
+  by: string;
 }
 
 export interface AccountPage {
@@ -452,6 +493,49 @@ export interface MadeKeys {
   uses: number;
   expires_at: string | null;
   note: string | null;
+}
+
+/** A card's block as the gateway tells it: `until` null for no end. */
+export interface BlockNote {
+  index: number;
+  name: string;
+  reason: string;
+  until: string | null;
+}
+
+/** A card of the gateway's pool, found by name. */
+export interface CardHit {
+  index: number;
+  name: string;
+  type_line: string;
+  mana_cost: string;
+  coverage: string;
+  scryfall_id: string;
+  blocked: BlockNote | null;
+}
+
+export const CARD_BLOCK_STATES = ["active", "expired", "lifted"] as const;
+export type CardBlockState = (typeof CARD_BLOCK_STATES)[number];
+
+/** A block the console made, in force or not any more. */
+export interface CardBlock {
+  id: string;
+  index: number;
+  name: string;
+  reason: string;
+  created_at: string;
+  created_by: string;
+  until: string | null;
+  lifted_at: string | null;
+  lifted_by: string | null;
+  state: CardBlockState;
+}
+
+/** What blocking a card takes: `until` an ISO moment, absent for no end. */
+export interface BlockOrder {
+  index: number;
+  reason: string;
+  until?: string;
 }
 
 /** A hosted profile's states, best first, as the player list orders them. */
@@ -574,7 +658,7 @@ export function onSignedOut(listener: Listener): () => void {
   };
 }
 
-async function request(
+export async function request(
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
@@ -689,6 +773,16 @@ export const api = {
     await request("DELETE", `/ui/api/reports/${encodeURIComponent(id)}`);
   },
   recordUrl: (id: string) => `/ui/api/reports/${encodeURIComponent(id)}/record`,
+  contact: {
+    list: (status?: ContactStatus) =>
+      json<ContactListing>("GET", status === undefined ? "/ui/api/contact" : `/ui/api/contact?status=${status}`),
+    one: (id: string) => json<ContactDetail>("GET", `/ui/api/contact/${encodeURIComponent(id)}`),
+    mark: (id: string, status: ContactStatus) =>
+      json<ContactDetail>("PATCH", `/ui/api/contact/${encodeURIComponent(id)}`, { status }),
+    remove: async (id: string) => {
+      await request("DELETE", `/ui/api/contact/${encodeURIComponent(id)}`);
+    },
+  },
   admin: {
     stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
     live: () => json<Live>("GET", "/ui/api/admin/live"),
@@ -710,6 +804,15 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    cards: {
+      search: async (q: string) =>
+        (await json<{ cards: CardHit[] }>("GET", `/ui/api/admin/cards/search?q=${encodeURIComponent(q)}`)).cards,
+      blocks: () => json<CardBlock[]>("GET", "/ui/api/admin/cards/blocks"),
+      block: (order: BlockOrder) => json<CardBlock>("POST", "/ui/api/admin/cards/blocks", order),
+      unblock: async (id: string) => {
+        await request("DELETE", `/ui/api/admin/cards/blocks/${encodeURIComponent(id)}`);
+      },
+    },
     llm: {
       seathosts: async () => (await json<{ seathosts: SeatHost[] }>("GET", "/ui/api/admin/llm/seathosts")).seathosts,
       write: async (host: string, id: string, definition: LlmDefinition) => {

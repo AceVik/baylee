@@ -45,6 +45,19 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         return;
     }
     let token = state.lobby.token();
+    // The builder marks the cards this gateway blocked (`GET
+    // /cards/blocked`); asked beside the pool, off the one-request chain,
+    // and never offline, where nothing is blocked.
+    if pool && let Some(token) = token {
+        ask_aside::<BlockedBody>(
+            &state.gateway,
+            "/cards/blocked",
+            token,
+            state.gateway_epoch,
+            mailbox,
+            |body| Reply::Event(LobbyEvent::BlockedCards(body.blocked)),
+        );
+    }
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
     fetch(
         request,
@@ -101,6 +114,22 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
+        LobbyRequest::ChangePassword {
+            username,
+            password,
+            new_password,
+        } => (
+            json_post(
+                &format!("{base}/auth/password"),
+                &serde_json::json!({
+                    "username": username,
+                    "password": password,
+                    "new_password": new_password,
+                }),
+            ),
+            // Answered as a sign-in is: a session.
+            Expect::LoggedIn,
+        ),
         LobbyRequest::PlayAsGuest {
             display_name,
             invite_key,
@@ -118,6 +147,15 @@ pub(super) fn build(
         LobbyRequest::LogOut { token } => (
             bearer(
                 json_post(&format!("{base}/auth/logout"), &serde_json::json!({})),
+                Some(&token),
+            ),
+            Expect::LoggedOut,
+        ),
+        // Fire and forget, as a sign-out: the table is already closed here,
+        // and a gateway that did not hear it waits out the reconnect window.
+        LobbyRequest::Depart { token } => (
+            bearer(
+                json_post(&format!("{base}/lobby/depart"), &serde_json::json!({})),
                 Some(&token),
             ),
             Expect::LoggedOut,
@@ -409,11 +447,20 @@ fn fetch(
             }
             _ => None,
         };
+        let refused = match &result {
+            Ok(response) if !response.ok => {
+                client_core::lobby::account_refusal(response.status, &response.bytes)
+            }
+            _ => None,
+        };
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
             // form it means the password was wrong.
             Ok(response) if signed && response.status == 401 => Reply::Expired,
+            // A ban, or a password an admin reset (beta.8): the account's
+            // own answer, said in the player's words.
+            Ok(_) if refused.is_some() => Reply::Event(refused.unwrap_or(LobbyEvent::GatewayLost)),
             // A proxy answering for a gateway that is not behind it.
             Ok(response) if matches!(response.status, 502 | 504) => {
                 Reply::Event(LobbyEvent::GatewayLost)
@@ -563,6 +610,12 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         Expect::Left => LobbyEvent::Left,
         Expect::HostedProfiles => decode_hosted(lang, body),
     }
+}
+
+/// `GET /cards/blocked`: `{"blocked": [...]}`.
+#[derive(serde::Deserialize)]
+struct BlockedBody {
+    blocked: Vec<client_core::lobby::BlockedCard>,
 }
 
 /// `GET /pool`.

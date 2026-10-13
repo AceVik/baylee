@@ -52,6 +52,7 @@ baylee-feedback = { path = "crates/baylee-feedback" }
 baylee-update = { path = "crates/baylee-update" }
 baylee-seat = { path = "crates/baylee-seat" }
 baylee-seathost = { path = "crates/baylee-seathost" }
+baylee-seal = { path = "crates/baylee-seal" }
 # Without `play` by default: its one dependent, xtask, reads only the card rule.
 baylee-train = { path = "crates/baylee-train", default-features = false }
 
@@ -173,6 +174,17 @@ base64 = "0.22"
 # lzma or AES.
 semver = "1"
 ed25519-dalek = { version = "3", default-features = false, features = ["fast", "zeroize"] }
+# Chat's end-to-end encryption (`baylee-seal`, beta.8 social design §4):
+# X25519 key agreement, XChaCha20-Poly1305 and HKDF-SHA256, all RustCrypto or
+# dalek, pure Rust. Default features off on both: their `getrandom` would
+# break the browser build, and `baylee-seal` draws no randomness itself (its
+# callers hand bytes in). `ed25519-dalek` and `sha2` above are reused.
+x25519-dalek = { version = "3", default-features = false, features = ["static_secrets", "zeroize"] }
+chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
+hkdf = "0.13"
+# Only for its `zeroize` feature: HKDF's HMAC states are wiped when dropped.
+hmac = "0.13"
+zeroize = "1"
 zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 tar = { version = "0.4", default-features = false }
 # Card text fetch in the client. Tiny, and the only HTTP client that works

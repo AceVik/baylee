@@ -283,6 +283,15 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     if crate::targeting::provably_targetless(view, card.card) {
         return Some(Phrase::CardHasNoTarget);
     }
+    // A "choose one" spell whose mode at its printed price has no legal
+    // target, leaving the mode with a price of its own (Cyclonic Rift with
+    // no nonland permanent to bounce leaves only overload, `{6}{U}`), which
+    // the mana in reach does not pay (#00). Saying "the resources are not
+    // available" about a `{1}{U}` card with five lands open reads as a
+    // defect; this says which way is left and why it is out of reach.
+    if crate::targeting::only_a_dearer_mode_is_left(view, card.card) {
+        return Some(Phrase::OnlyDearerModeLeft);
+    }
     let priority = duel.interaction.as_ref().is_some_and(|i| {
         matches!(
         i.pending(), baylee_engine::choice::Pending::Priority { player, .. }

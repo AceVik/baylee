@@ -1380,3 +1380,184 @@ fn contextual_batch47_effects_do_not_become_guaranteed_value() {
         None
     );
 }
+
+// --- Flicker targets (#07) and counted mana (#15) --------------------------
+
+/// The explanation the engine gives with the target question of `card`'s
+/// triggered ability `index`, put on the stack by `source`.
+fn triggered(card: &str, index: u32, source: ObjectId) -> DecisionContext<'static> {
+    let at = baylee_cards::decks::by_name(card).expect("a card of that name");
+    let Some(AbilityDef::Triggered { effects, .. }) = baylee_cards::by_index(at)
+        .expect("a registered card")
+        .abilities_for_face(0)
+        .get(usize::try_from(index).unwrap())
+    else {
+        panic!("{card} has no triggered ability {index}");
+    };
+    DecisionContext {
+        source: Some(source),
+        printed: baylee_engine::object::PrintedFace::new(at, 0),
+        ability_index: Some(index),
+        effects,
+        ..Default::default()
+    }
+}
+
+/// Up to one of `options`, as Soulherder's "you may exile another target
+/// creature you control" asks it.
+fn up_to_one_of(options: Vec<ObjectId>) -> Pending {
+    Pending::ChooseTargets {
+        player: ME,
+        options,
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    }
+}
+
+fn names_nothing() -> PlayerAction {
+    PlayerAction::ChooseTargets {
+        objects: vec![],
+        players: vec![],
+    }
+}
+
+/// This seat's end step on a board of: a Soulherder grown to 3/3 on two
+/// counters (1), a Phantasmal Image (2, which is sacrificed when targeted),
+/// a bare creature (3), and a second Soulherder, an Image that copied one
+/// (4), whose end-step trigger is the one asking.
+fn soulherder_board() -> PlayerView {
+    let mut grown = card(1, ME, "Soulherder", TypeSet::CREATURE);
+    grown.counters = vec![baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::Plus {
+            power: 1,
+            toughness: 1,
+        },
+        count: 2,
+    }];
+    grown.power = Some(3);
+    grown.toughness = Some(3);
+    let image = card(2, ME, "Phantasmal Image", TypeSet::CREATURE);
+    let bare = permanent(obj(3), ME, 2);
+    let copy = copying(
+        card(4, ME, "Phantasmal Image", TypeSet::CREATURE),
+        "Soulherder",
+    );
+    let mut v = view(0, &[20, 20], vec![grown, image, bare, copy]);
+    v.active = ME;
+    v.phase = baylee_view::Phase::Ending;
+    v.step = baylee_view::Step::End;
+    v
+}
+
+/// Report 07: beside a bare creature, a Soulherder with two counters is not
+/// the one to flicker, since the counters would be lost (CR 400.7). Ranked
+/// by size, as before the fix, the agent named obj(1).
+#[test]
+fn a_soulherder_flickers_the_bare_creature_and_not_the_one_with_counters() {
+    let v = soulherder_board();
+    let context = triggered("Soulherder", 1, obj(4));
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(1), obj(3)]), &context),
+        names(3)
+    );
+}
+
+/// Report 07: when the only creature on offer is the one with counters,
+/// "you may" is answered with no target at all (before the fix a target was
+/// always named).
+#[test]
+fn a_soulherder_names_nothing_when_the_only_choice_would_lose_its_counters() {
+    let v = soulherder_board();
+    let context = triggered("Soulherder", 1, obj(4));
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(1)]), &context),
+        names_nothing()
+    );
+}
+
+/// Report 07: a Phantasmal Image is sacrificed the moment it is targeted, so
+/// naming it flickers nothing; it is no choice, whichever creature it copied.
+#[test]
+fn a_soulherder_does_not_name_a_phantasmal_image_that_dies_when_targeted() {
+    let context = triggered("Soulherder", 1, obj(4));
+    let v = soulherder_board();
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(2)]), &context),
+        names_nothing()
+    );
+
+    let mut v = soulherder_board();
+    v.battlefield[1] = copying(v.battlefield[1].clone(), "Grizzly Bears");
+    v.battlefield[1].power = Some(2);
+    v.battlefield[1].toughness = Some(2);
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(2)]), &context),
+        names_nothing(),
+        "an Image that copied a Grizzly Bears is still sacrificed"
+    );
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(2), obj(3)]), &context),
+        names(3)
+    );
+}
+
+/// Report 07: a bare creature beside two Soulherders is worth flickering,
+/// since each exile puts a counter on both of them.
+#[test]
+fn a_soulherder_flickers_a_bare_creature_because_the_exile_grows_the_soulherders() {
+    let v = soulherder_board();
+    let context = triggered("Soulherder", 1, obj(4));
+    assert_eq!(
+        expert().act_with_context(&v, &up_to_one_of(vec![obj(3)]), &context),
+        names(3)
+    );
+}
+
+/// The `effects` of `card`'s ability `index`, whatever shape it has.
+fn effects_of(card: &str, index: usize) -> &'static [baylee_cards_dsl::Effect] {
+    let at = baylee_cards::decks::by_name(card).expect("a card of that name");
+    match baylee_cards::by_index(at)
+        .expect("a registered card")
+        .abilities_for_face(0)
+        .get(index)
+    {
+        Some(
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. },
+        ) => effects,
+        other => panic!("{card} ability {index} has no effects to read: {other:?}"),
+    }
+}
+
+/// An Ally creature on `controller`'s side.
+fn ally(id: u32, controller: PlayerId) -> PublicObject {
+    let mut object = permanent(obj(id), controller, 1);
+    object.subtypes.insert(creature_type::ALLY);
+    object
+}
+
+/// Report 15: Harabaz Druid pours as many mana as the Allies its controller
+/// has, counted off the view: three here (itself and two more), not the
+/// opponent's. A fixed `{T}: Add {G}` pours one.
+#[test]
+fn harabaz_druid_pours_one_mana_per_ally_its_controller_has() {
+    let mut druid = card(1, ME, "Harabaz Druid", TypeSet::CREATURE);
+    druid.subtypes.insert(creature_type::ALLY);
+    let elves = card(5, ME, "Llanowar Elves", TypeSet::CREATURE);
+    let v = view(
+        0,
+        &[20, 20],
+        vec![druid, ally(2, ME), ally(3, ME), ally(4, THEM), elves],
+    );
+    assert_eq!(
+        crate::mana_poured(&v, obj(1), effects_of("Harabaz Druid", 0)),
+        Some(3)
+    );
+    assert_eq!(
+        crate::mana_poured(&v, obj(5), effects_of("Llanowar Elves", 0)),
+        Some(1)
+    );
+}

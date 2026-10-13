@@ -8,7 +8,7 @@
 # target/package/baylee-client-<version>-<triple>/ and writes, beside it,
 # one file per line on stdout:
 #
-#   aarch64-apple-darwin    Baylee-<version>-aarch64.dmg
+#   *-apple-darwin          Baylee-<version>-{aarch64,x86_64}.dmg
 #   *-pc-windows-msvc       Baylee-Setup-<version>-{x64,arm64}.exe
 #   *-unknown-linux-gnu     Baylee-<version>-{x86_64,aarch64}.AppImage
 #                           baylee_<version>_{amd64,arm64}.deb

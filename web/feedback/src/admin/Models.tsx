@@ -87,7 +87,7 @@ function Meter({ value, max }: { value: number; max: number | null }) {
 }
 
 /** A modal on the browser's own `<dialog>`: focus held inside, Escape closes. */
-function Modal({
+export function Modal({
   labelledBy,
   alert = false,
   className = "",

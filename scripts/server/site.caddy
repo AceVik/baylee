@@ -58,12 +58,14 @@ handle @baylee_site {
 	# What the page may do: its own files, GitHub's API for the release
 	# list and the CI status (site.js), and card pictures straight from
 	# Scryfall's image host when a visitor opens a set in the card status
-	# (docs/legal.md §3; never Scryfall's API, nothing re-hosted). No inline
+	# (docs/legal.md §3; never Scryfall's API, nothing re-hosted), and the
+	# feedback service's POST /site/contact for the contact form (fetch;
+	# docs/feedback.md §"The landing page's contact form"). No inline
 	# style or script, nothing else from any other host; the downloads are
 	# links the browser follows, which no CSP directive governs. The
 	# gateway's /info and /health are 'self'.
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self' https://api.github.com https://feedback.baylee.acevik.de; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 	}

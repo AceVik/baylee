@@ -88,7 +88,7 @@ impl Agents {
     /// Ties break on the id rather than on iteration order — a `HashMap` has
     /// no order to speak of, and "whichever one came out first" is not a
     /// scheduling policy anybody could reason about.
-    fn pick(&self) -> Option<String> {
+    pub(crate) fn pick(&self) -> Option<String> {
         self.connected
             .iter()
             .filter(|(_, agent)| agent.has_room())
@@ -102,7 +102,7 @@ impl Agents {
     }
 
     /// Sends one order to one agent, if it is still there.
-    fn tell(&self, agent_id: &str, envelope: Envelope) -> bool {
+    pub(crate) fn tell(&self, agent_id: &str, envelope: Envelope) -> bool {
         self.connected
             .get(agent_id)
             .is_some_and(|agent| agent.tx.send(envelope).is_ok())
@@ -306,7 +306,11 @@ fn report(state: &Shared, status: &v1::EngineStatus) {
                 "engine failed to start"
             );
             // Nobody is coming. Saying so beats a table that waits forever.
-            end_game(state, &status.game_id);
+            if status.game_id.starts_with(crate::replays::JOB_PREFIX) {
+                crate::replays::failed(state, &status.game_id);
+            } else {
+                end_game(state, &status.game_id);
+            }
         }
         _ => tracing::info!(
             game_id = status.game_id,
@@ -329,10 +333,15 @@ pub async fn engine_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Res
 /// (see `SEAT_READ_BUFFER`), so its 128 KiB default cost more than it saved.
 const ENGINE_READ_BUFFER: usize = 32 << 10;
 
+#[allow(clippy::too_many_lines)] // the attach, in the order it happens
 async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
     let Some(v1::envelope::Msg::EngineHello(hello)) = hello_of(&mut socket).await else {
         return;
     };
+    if hello.game_id.starts_with(crate::replays::JOB_PREFIX) {
+        run_job_socket(&state, socket, &hello).await;
+        return;
+    }
     let game_id = hello.game_id.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let setup = {
@@ -374,16 +383,41 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
             let seats = game
                 .seats
                 .iter()
-                .map(|s| {
+                .enumerate()
+                .map(|(i, s)| {
                     let id = |a: &str| Uuid::parse_str(a).ok();
-                    baylee_db::records::Seat {
-                        account: s.account_id.as_deref().and_then(id),
-                        delegated_by: s.delegate.as_ref().and_then(|d| id(&d.by)),
-                    }
+                    let spec = preset.seats.get(i);
+                    (
+                        baylee_db::records::Seat {
+                            account: s.account_id.as_deref().and_then(id),
+                            delegated_by: s.delegate.as_ref().and_then(|d| id(&d.by)),
+                        },
+                        baylee_db::records::SeatFacts {
+                            seated: if s.delegate.is_some() {
+                                baylee_db::records::Seated::Model
+                            } else if s.kind == crate::lobby::SeatKind::Ai {
+                                baylee_db::records::Seated::House
+                            } else {
+                                baylee_db::records::Seated::Person
+                            },
+                            colours: spec.map(crate::replays::deck_colours),
+                            commander: spec
+                                .and_then(|spec| spec.commanders.first())
+                                .map(|entry| entry.card.get()),
+                        },
+                    )
                 })
-                .collect();
+                .collect::<Vec<_>>();
+            // An engine that says its build is of this release or later,
+            // and writes `seen` into the record (`docs/protocol.md`
+            // §"Replays").
+            let opening = baylee_db::records::Opening {
+                build: Some(hello.build.clone()).filter(|b| !b.is_empty()),
+                checked: !hello.build.is_empty(),
+                allow_spectators: Some(game.allow_spectators),
+            };
             Ok((
-                seats,
+                (opening, seats),
                 Envelope {
                     msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
                         game_id: game_id.clone(),
@@ -394,7 +428,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
             ))
         }
     };
-    let (seats, setup) = match setup {
+    let ((opening, seats), setup) = match setup {
         Ok(setup) => setup,
         Err(why) => {
             let _ = send(&mut socket, &refusal(&why)).await;
@@ -421,7 +455,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
         }
     }
     tracing::info!(game_id, "engine attached");
-    let mut record = crate::record::Sink::open(state.db.clone(), &game_id, seats);
+    let mut record = crate::record::Sink::open(state.db.clone(), &game_id, opening, seats);
     pump_engine(&state, &game_id, &mut socket, &mut rx, &mut record).await;
     // The socket is the game's lifeline: its state lives in that process and
     // nowhere else, so a link that closes before `GameEnded` is a game that
@@ -500,6 +534,15 @@ async fn pump_engine(
                     }
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
+                        record.ended(crate::record::Ending {
+                            winners: ended
+                                .winners
+                                .iter()
+                                .filter_map(|&w| u8::try_from(w).ok())
+                                .collect(),
+                            turn: Some(ended.turn).filter(|&t| t != 0),
+                            reason: ended.reason.clone(),
+                        });
                         end_game(state, game_id);
                         return;
                     }
@@ -509,6 +552,44 @@ async fn pump_engine(
             }
         }
     }
+}
+
+/// The engine an agent started for a replay job (`replays.rs`): sent the
+/// job's order once its token is the job's, and heard until the tape's last
+/// piece. Never a game: nothing here touches the lobby.
+async fn run_job_socket(state: &Shared, mut socket: WebSocket, hello: &v1::EngineHello) {
+    let job_id = hello.game_id.as_str();
+    let Some(order) = crate::replays::order_for(state, job_id, &hello.token) else {
+        tracing::warn!(job = job_id, "replay engine attach refused");
+        return;
+    };
+    let mut gather = crate::replays::Gather::new(job_id);
+    if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
+        tracing::error!(job = job_id, why, "replay engine refused");
+        let _ = send(&mut socket, &refusal(&why)).await;
+        gather.finish(state, false);
+        return;
+    }
+    let order = Envelope {
+        msg: Some(v1::envelope::Msg::ProjectRecord(order)),
+    };
+    if send(&mut socket, &order).await.is_err() {
+        gather.finish(state, false);
+        return;
+    }
+    let whole = loop {
+        match next_envelope(socket.recv().await) {
+            Incoming::Msg(v1::envelope::Msg::TapeChunk(piece)) => {
+                if gather.take(&piece) {
+                    break piece.last;
+                }
+            }
+            Incoming::Msg(_) | Incoming::Ignored => {}
+            Incoming::Closed => break false,
+        }
+    };
+    gather.finish(state, whole);
+    let _ = futures_util::SinkExt::close(&mut socket).await;
 }
 
 /// Seat `seat`'s channel in `game_id`, from `cache` or the lobby. `None` for
@@ -547,7 +628,7 @@ fn refusal(why: &str) -> Envelope {
 }
 
 /// Marks a game finished and releases its engine.
-fn end_game(state: &Shared, game_id: &str) {
+pub(crate) fn end_game(state: &Shared, game_id: &str) {
     {
         let mut lobby = state.lobby.lock();
         if let Some(game) = lobby.games.get_mut(game_id) {

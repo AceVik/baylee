@@ -48,6 +48,7 @@ pub fn pointer(
         // rule is one line and cannot be forgotten by a widget added later:
         // a half-pressed concession survives exactly nothing.
         let was_armed = std::mem::take(&mut duel.concede_armed);
+        let was_leaving = std::mem::take(&mut duel.leave_armed);
         // A board the tear is moving takes no press until it docks
         // (DESIGN-v8 §2.4, the owner's tear): the card under the finger is
         // on its way somewhere else.
@@ -126,7 +127,11 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
-            menu_click(&mut duel, button.action, was_armed);
+            if button.action == MenuAction::LeaveGame {
+                leave_click(&mut duel, was_leaving);
+            } else {
+                menu_click(&mut duel, button.action, was_armed);
+            }
             continue;
         }
         if sheet_click(&mut duel, e, &sheet, &parents) {
@@ -180,7 +185,10 @@ pub fn pointer(
                     .and_then(|i| i.answer_mulligan(false)),
                 // In a payment window confirm pays: the lands still owed
                 // are tapped and the window settled after the last tap.
-                PromptAction::Confirm if duel.pay_owed() => None,
+                PromptAction::Confirm if duel.paying() => {
+                    duel.confirm_payment();
+                    None
+                }
                 PromptAction::Confirm => {
                     let answer = committed_answer(&duel);
                     if answer.is_none() {
@@ -202,6 +210,21 @@ pub fn pointer(
                                 baylee_client_core::combat_auto::CombatAuto::begin(v, i.pending())
                             });
                     if duel.combat_auto.is_some() {
+                        duel.stack_stop_requested = false;
+                    }
+                    None
+                }
+                // A standing instruction for the rest of a copy's new-target
+                // questions; the driver answers this one first (report 10).
+                PromptAction::KeepTargets => {
+                    duel.keep_targets =
+                        duel.view
+                            .as_ref()
+                            .zip(duel.interaction.as_ref())
+                            .and_then(|(v, i)| {
+                                baylee_client_core::keep_targets::KeepTargets::begin(v, i.pending())
+                            });
+                    if duel.keep_targets.is_some() {
                         duel.stack_stop_requested = false;
                     }
                     None
@@ -264,6 +287,7 @@ pub fn pointer(
         // What the loop takes from every click, taken once here for the same
         // reason: a half-pressed concession survives no tap either.
         duel.concede_armed = false;
+        duel.leave_armed = false;
         let answer = activate_card(&mut duel, object);
         crate::touch::answer(&mut touched, answer);
     }

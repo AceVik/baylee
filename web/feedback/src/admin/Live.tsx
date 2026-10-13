@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 import { api, SignedOut, type Live as LiveData, type LiveTable, type Metrics, type OnlinePlayer } from "../api";
 import { formatAgo, formatCount, t, type Lang } from "../i18n";
 import { adminPath } from "../router";
+import { EndGame } from "./Moderation";
 import { ServerPanel } from "./Server";
 import { PoolPanel } from "./Sets";
 import { Badge, describe, Freshness, Link, LIVE_MS, Panel, useNow, useVisibleInterval } from "./shared";
@@ -97,6 +98,11 @@ export function TableCard({ lang, table, compact = false }: { lang: Lang; table:
           {table.engine ? t(lang, "live.engine") : t(lang, "live.noEngine")}
           {table.agent !== null && ` · ${table.agent}`}
           {table.engine_local && ` · ${t(lang, "live.local")}`}
+        </p>
+      )}
+      {!compact && table.state === "playing" && (
+        <p className="row-actions">
+          <EndGame lang={lang} gameId={table.id} />
         </p>
       )}
     </article>

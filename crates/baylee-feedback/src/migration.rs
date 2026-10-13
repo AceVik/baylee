@@ -21,6 +21,8 @@ impl MigratorTrait for Migrator {
             Box::new(Admins),
             Box::new(Channels),
             Box::new(ConsoleAudit),
+            Box::new(Contact),
+            Box::new(ChatKind),
         ]
     }
 }
@@ -221,6 +223,101 @@ impl MigrationTrait for ConsoleAudit {
         for statement in [
             "DELETE FROM feedback_audit WHERE report_id IS NULL",
             "ALTER TABLE feedback_audit ALTER COLUMN report_id SET NOT NULL",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The fifth migration: messages from the landing page's contact form
+/// (`crate::contact`), and their changes in the audit.
+///
+/// A message is what its sender typed (a name and an e-mail address only
+/// if they gave one), the page's language and whether an admin has dealt
+/// with it; no address, no device, nothing about the request. The audit
+/// names a message by `contact_id` and never carries its text or address.
+struct Contact;
+
+impl MigrationName for Contact {
+    fn name(&self) -> &'static str {
+        "m0005_contact"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Contact {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "CREATE TABLE IF NOT EXISTS feedback_contact ( \
+                 id uuid PRIMARY KEY, \
+                 created_at timestamptz NOT NULL DEFAULT now(), \
+                 updated_at timestamptz NOT NULL DEFAULT now(), \
+                 name text, \
+                 email text, \
+                 message text NOT NULL, \
+                 language text NOT NULL CHECK (language IN ('en', 'de')), \
+                 status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'done')), \
+                 done_at timestamptz)",
+            "CREATE INDEX IF NOT EXISTS feedback_contact_by_time ON feedback_contact (created_at)",
+            "CREATE INDEX IF NOT EXISTS feedback_contact_by_status ON feedback_contact (status)",
+            "ALTER TABLE feedback_audit ADD COLUMN IF NOT EXISTS contact_id uuid",
+            "CREATE INDEX IF NOT EXISTS feedback_audit_by_contact ON feedback_audit (contact_id)",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DELETE FROM feedback_audit WHERE contact_id IS NOT NULL",
+            "DROP INDEX IF EXISTS feedback_audit_by_contact",
+            "ALTER TABLE feedback_audit DROP COLUMN IF EXISTS contact_id",
+            "DROP TABLE IF EXISTS feedback_contact",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The sixth migration: a report may be of a chat message (`kind = 'chat'`,
+/// beta.8), which only a gateway sends. The first migration's check was
+/// unnamed, so Postgres named it `feedback_report_kind_check`; it is
+/// replaced by one that also takes `chat`.
+struct ChatKind;
+
+impl MigrationName for ChatKind {
+    fn name(&self) -> &'static str {
+        "m0006_chat_kind"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ChatKind {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_kind_check",
+            "ALTER TABLE feedback_report ADD CONSTRAINT feedback_report_kind_check \
+             CHECK (kind IN ('bug', 'improvement', 'feedback', 'crash', 'other', 'chat'))",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    /// Chat reports go with the kind.
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DELETE FROM feedback_report WHERE kind = 'chat'",
+            "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_kind_check",
+            "ALTER TABLE feedback_report ADD CONSTRAINT feedback_report_kind_check \
+             CHECK (kind IN ('bug', 'improvement', 'feedback', 'crash', 'other'))",
         ] {
             db.execute_unprepared(statement).await?;
         }

@@ -193,6 +193,8 @@ pub struct MenuRevision {
     house: bool,
     /// Whether this client only watches: its way out is *Stop watching*.
     watching: bool,
+    /// Whether *Leave the table* is waiting for its second press.
+    leaving: bool,
 }
 
 /// Where the panel stands.
@@ -334,6 +336,7 @@ pub fn sync_menu(
             .as_deref()
             .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
         watching: duel.watching,
+        leaving: duel.leave_armed,
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -404,6 +407,21 @@ pub fn sync_menu(
         action: MenuAction::Concede,
     });
     commands.entity(panel).add_child(concede);
+
+    // Getting up without conceding (report 33): a spectator's *Stop
+    // watching* above already is that, so a player's chair only.
+    if !next.watching {
+        let (words, weight) = match (next.leaving, next.house) {
+            (true, true) => (Phrase::LeaveTableConfirmOffline, Weight::Danger),
+            (true, false) => (Phrase::LeaveTableConfirm, Weight::Danger),
+            (false, _) => (Phrase::LeaveTable, Weight::Secondary),
+        };
+        let leave = answer(&mut commands, &fonts, words.text(lang), weight, None);
+        commands.entity(leave).insert(MenuButton {
+            action: MenuAction::LeaveGame,
+        });
+        commands.entity(panel).add_child(leave);
+    }
 
     // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is
     // the switcher's only door, the pill standing nowhere there.

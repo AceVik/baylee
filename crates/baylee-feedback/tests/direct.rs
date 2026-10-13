@@ -453,9 +453,10 @@ async fn a_browser_may_post_a_direct_report_from_any_origin() {
 }
 
 /// The proxy's part (`scripts/server/feedback-direct.caddy`) passes the
-/// direct route alone to the service where it binds by default, bounds a
-/// body no tighter than the service does (a report the service takes is
-/// never cut off before it), and keeps no access log.
+/// direct route and the contact form's route, and nothing else, to the
+/// service where it binds by default, bounds each body no tighter than the
+/// service does (a report or a message the service takes is never cut off
+/// before it), and keeps no access log.
 #[test]
 fn the_proxy_passes_the_direct_route_alone_and_bounds_it_no_tighter() {
     let caddy = std::fs::read_to_string(
@@ -470,13 +471,33 @@ fn the_proxy_passes_the_direct_route_alone_and_bounds_it_no_tighter() {
         .collect();
     assert!(directives.contains(&"@baylee_direct_report path /client/reports"));
     assert!(directives.contains(&"handle @baylee_direct_report {"));
+    assert!(directives.contains(&"@baylee_contact path /site/contact"));
+    assert!(directives.contains(&"handle @baylee_contact {"));
     assert_eq!(
         directives
             .iter()
             .filter(|l| l.starts_with("reverse_proxy"))
             .collect::<Vec<_>>(),
-        [&"reverse_proxy 127.0.0.1:28780"],
-        "one proxy, to the service's default bind"
+        [
+            &"reverse_proxy 127.0.0.1:28780",
+            &"reverse_proxy 127.0.0.1:28780"
+        ],
+        "one proxy per route, to the service's default bind"
+    );
+    assert_eq!(
+        directives.iter().filter(|l| l.starts_with('@')).count(),
+        2,
+        "two routes and no other"
+    );
+    let contact_kib: usize = directives
+        .iter()
+        .filter_map(|l| l.strip_prefix("max_size "))
+        .find_map(|s| s.strip_suffix("KiB"))
+        .and_then(|n| n.parse().ok())
+        .expect("a bound on the contact form's body, in KiB");
+    assert!(
+        contact_kib * 1024 >= baylee_feedback::contact::MAX_BODY_BYTES,
+        "{contact_kib} KiB would cut off a message the service takes"
     );
     assert!(
         !directives.iter().any(|l| l.starts_with("log")),

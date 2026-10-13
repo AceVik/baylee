@@ -38,6 +38,20 @@ enum Entry {
     /// Everything before this is what a report waits for (#323): resolved
     /// once every piece handed in before it has been written.
     Flushed(oneshot::Sender<()>),
+    /// How the game ended, from its engine's `GameEnded`: noted once the
+    /// pieces before it are stored, so the row it updates exists.
+    Ended(Ending),
+}
+
+/// How a game ended, for the replay list (`docs/protocol.md` §"Replays").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ending {
+    /// The winning seats; empty for a draw.
+    pub winners: Vec<u8>,
+    /// The turn it ended on, where the engine said.
+    pub turn: Option<u32>,
+    /// Why, as the engine names the reason.
+    pub reason: String,
 }
 
 /// Where the writer puts the pieces: the database, or a test's list.
@@ -49,20 +63,35 @@ trait Store {
         &mut self,
         piece: v1::GameRecordChunk,
     ) -> impl Future<Output = Result<(), String>> + Send;
+    /// Notes how the game ended.
+    fn finish(&mut self, ending: Ending) -> impl Future<Output = Result<(), String>> + Send;
 }
 
 /// The gateway's database.
 struct Database {
     db: sea_orm::DatabaseConnection,
     game_id: String,
-    seats: Vec<baylee_db::records::Seat>,
+    opening: baylee_db::records::Opening,
+    seats: Vec<(baylee_db::records::Seat, baylee_db::records::SeatFacts)>,
 }
 
 impl Store for Database {
     async fn open(&mut self) -> Result<(), String> {
-        baylee_db::records::open(&self.db, &self.game_id, &self.seats)
+        baylee_db::records::open_with(&self.db, &self.game_id, &self.opening, &self.seats)
             .await
             .map_err(|e| e.to_string())
+    }
+
+    async fn finish(&mut self, ending: Ending) -> Result<(), String> {
+        baylee_db::records::finish(
+            &self.db,
+            &self.game_id,
+            &ending.winners,
+            ending.turn,
+            &ending.reason,
+        )
+        .await
+        .map_err(|e| e.to_string())
     }
 
     async fn append(&mut self, piece: v1::GameRecordChunk) -> Result<(), String> {
@@ -101,6 +130,12 @@ async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut stor
             Entry::Flushed(done) => {
                 let _ = done.send(());
             }
+            // A game that stored nothing has no row to note it on.
+            Entry::Ended(ending) => {
+                if opened && let Err(e) = store.finish(ending).await {
+                    tracing::error!(game_id, "noting how the game ended: {e}");
+                }
+            }
         }
     }
 }
@@ -120,11 +155,13 @@ impl Sink {
     pub fn open(
         db: sea_orm::DatabaseConnection,
         game_id: &str,
-        seats: Vec<baylee_db::records::Seat>,
+        opening: baylee_db::records::Opening,
+        seats: Vec<(baylee_db::records::Seat, baylee_db::records::SeatFacts)>,
     ) -> Self {
         let store = Database {
             db,
             game_id: game_id.to_owned(),
+            opening,
             seats,
         };
         Self::writing(game_id, store)
@@ -171,6 +208,12 @@ impl Sink {
     /// will be", which is as true.
     pub fn flushed(&mut self, done: oneshot::Sender<()>) {
         let _ = self.tx.send(Entry::Flushed(done));
+    }
+
+    /// The game ended so (`GameEnded`): noted after every piece handed in
+    /// before it is stored.
+    pub fn ended(&mut self, ending: Ending) {
+        let _ = self.tx.send(Entry::Ended(ending));
     }
 }
 
@@ -258,7 +301,7 @@ mod tests {
         std::iter::from_fn(|| rx.try_recv().ok())
             .map(|e| match e {
                 Entry::Piece(p) => p.seq,
-                Entry::Flushed(_) => u32::MAX,
+                Entry::Flushed(_) | Entry::Ended(_) => u32::MAX,
             })
             .collect()
     }
@@ -316,6 +359,12 @@ mod tests {
         async fn append(&mut self, piece: v1::GameRecordChunk) -> Result<(), String> {
             dawdle().await;
             self.0.0.lock().push(format!("piece {}", piece.seq));
+            Ok(())
+        }
+
+        async fn finish(&mut self, ending: Ending) -> Result<(), String> {
+            dawdle().await;
+            self.0.0.lock().push(format!("ended {:?}", ending.winners));
             Ok(())
         }
     }
