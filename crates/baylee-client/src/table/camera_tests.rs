@@ -1297,3 +1297,36 @@ fn on_no_seat_s_place_in(
         }
     }
 }
+
+/// The table camera is spawned with `Tonemapping::Linear`, not `None`.
+///
+/// Everything on the table is unlit and display-referred, so no tone curve
+/// may touch it. In bevy 0.19 `None` meant exactly that; in 0.20 `None` is a
+/// full passthrough that also drops the deband dither and the clamp of
+/// negative channels, and `Linear` is the old `None`. A camera that went
+/// back to `None` would compile, run, and draw the felt's gradients with
+/// visible banding. Runs `spawn_stage` itself on empty asset stores, which
+/// needs no GPU, and reads the component off the entity that carries
+/// `TableCamera`.
+#[test]
+fn the_table_camera_is_toned_linear_not_none() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_asset::<Mesh>()
+        .init_asset::<StandardMaterial>()
+        .init_asset::<CardMaterial>()
+        .init_asset::<Image>()
+        .init_resource::<SceneIndex>()
+        .add_systems(Update, spawn_stage);
+    app.update();
+    let mut cameras = app
+        .world_mut()
+        .query_filtered::<&Tonemapping, With<TableCamera>>();
+    let tones: Vec<_> = cameras.iter(app.world()).collect();
+    assert_eq!(tones.len(), 1, "one table camera, with a tone mapping");
+    assert!(
+        matches!(tones[0], Tonemapping::Linear),
+        "the table camera's tone mapping is {:?}, not Linear",
+        tones[0]
+    );
+}

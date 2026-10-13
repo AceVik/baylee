@@ -3097,4 +3097,226 @@ struct Globals { time: f32 };
             "a constructed face was dressed as a card back"
         );
     }
+
+    /// The directory the client's shaders live in.
+    fn shader_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/shaders")
+    }
+
+    /// The files in the shader directory with the given extension, sorted.
+    fn shader_files(extension: &str) -> Vec<std::path::PathBuf> {
+        let mut files: Vec<_> = std::fs::read_dir(shader_dir())
+            .expect("the shaders directory")
+            .map(|e| e.expect("an entry").path())
+            .filter(|p| p.extension().is_some_and(|x| x == extension))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// Every `.rs` file under a directory, however deep.
+    fn rust_files(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("a source directory") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                rust_files(&path, found);
+            } else if path.extension().is_some_and(|x| x == "rs") {
+                found.push(path);
+            }
+        }
+    }
+
+    /// The shaders are WESL, and a `.wgsl` file is not.
+    ///
+    /// Bevy 0.20 hands a `.wgsl` file to wgpu verbatim, with no composition
+    /// at all, so a `naga_oil` directive or a `baylee_client::shaders::…`
+    /// import left in one fails only when the pipeline is built, on a GPU,
+    /// long after every test has passed. Nothing here is meant to be plain
+    /// WGSL; a file with that extension is a shader that was not moved over.
+    #[test]
+    fn the_shaders_are_wesl_and_none_is_left_as_wgsl() {
+        let wgsl = shader_files("wgsl");
+        assert!(
+            wgsl.is_empty(),
+            "a .wgsl file reaches wgpu uncomposed in bevy 0.20; rename it to .wesl and convert \
+             its directives: {wgsl:#?}"
+        );
+        let wesl = shader_files("wesl").len();
+        assert!(wesl >= 20, "only {wesl} .wesl shaders found");
+    }
+
+    /// The code of a shader: its source without `//` comments, which are
+    /// free to say "#import" (and do, explaining what replaced it).
+    fn code_of(source: &str) -> String {
+        source
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// No shader still speaks `naga_oil`.
+    ///
+    /// WESL has `import`, `@if` and constants where `naga_oil` had `#import`,
+    /// `#ifdef`, `#define_import_path` and `#{…}` substitution. WESL does
+    /// not read the old directives: they stay in the source as text that is
+    /// not WGSL, and the shader fails when its pipeline is built.
+    #[test]
+    fn no_shader_still_uses_naga_oil_directives() {
+        let mut faults = Vec::new();
+        for path in shader_files("wesl") {
+            let source = std::fs::read_to_string(&path).expect("a shader");
+            for (n, line) in code_of(&source).lines().enumerate() {
+                let line = line.trim_start();
+                let old = ["#import", "#ifdef", "#define_import_path"]
+                    .into_iter()
+                    .any(|directive| line.starts_with(directive))
+                    || line.contains("#{");
+                if old {
+                    faults.push(format!(
+                        "{}:{}: `{line}`",
+                        path.file_name().unwrap_or_default().to_string_lossy(),
+                        n + 1
+                    ));
+                }
+            }
+        }
+        assert!(
+            faults.is_empty(),
+            "naga_oil syntax in a WESL shader: {faults:#?}"
+        );
+    }
+
+    /// The bevy 0.20 shader modules this client imports, as WESL paths.
+    const BEVY_MODULES: [&str; 6] = [
+        "bevy_pbr::render::forward_io",
+        "bevy_pbr::render::mesh_view_bindings",
+        "bevy_pbr::render::mesh_functions",
+        "bevy_pbr::render::view_transformations",
+        "bevy_render::globals",
+        "bevy_ui_render::ui_vertex_output",
+    ];
+
+    /// Every `import` in every shader names a module that exists.
+    ///
+    /// An import of a path that is not there fails when the shader is
+    /// composed, which is at pipeline build, on a GPU. Ours are checked
+    /// against the files; bevy's against the list of modules this client
+    /// uses, taken from the bevy 0.20 sources, so a path that moved in a
+    /// later bevy is found by this test rather than by a black screen.
+    #[test]
+    fn every_shader_import_names_a_module_that_exists() {
+        let mut imports = 0;
+        let mut faults = Vec::new();
+        for path in shader_files("wesl") {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            let source = std::fs::read_to_string(&path).expect("a shader");
+            // A statement runs to its `;`, which may be lines later.
+            let code = code_of(&source);
+            let mut statement: Option<String> = None;
+            for line in code.lines() {
+                if statement.is_none() && line.starts_with("import ") {
+                    statement = Some(String::new());
+                }
+                if let Some(text) = statement.as_mut() {
+                    text.push_str(line.trim());
+                    if line.contains(';') {
+                        let full = statement.take().unwrap_or_default();
+                        imports += 1;
+                        let path_text = full
+                            .trim_start_matches("import ")
+                            .split(';')
+                            .next()
+                            .unwrap_or("")
+                            .replace(' ', "");
+                        let module = match path_text.split_once("::{") {
+                            Some((module, _)) => module.to_string(),
+                            None => path_text
+                                .rsplit_once("::")
+                                .map_or(path_text.clone(), |(module, _)| module.to_string()),
+                        };
+                        if module.starts_with("baylee_client::shaders::") {
+                            let target = module.split("::").nth(2).unwrap_or("");
+                            if !shader_dir().join(format!("{target}.wesl")).is_file() {
+                                faults.push(format!(
+                                    "{name}: `{module}` has no src/shaders/{target}.wesl"
+                                ));
+                            }
+                        } else if !BEVY_MODULES.contains(&module.as_str()) {
+                            faults.push(format!(
+                                "{name}: `{module}` is not a module this client is known to \
+                                 import; check the module path against the bevy 0.20 sources \
+                                 (and add it to BEVY_MODULES if it is right)"
+                            ));
+                        }
+                    }
+                }
+            }
+            assert!(statement.is_none(), "{name}: an import with no `;`");
+        }
+        assert!(imports >= 30, "only {imports} imports found");
+        assert!(faults.is_empty(), "{faults:#?}");
+    }
+
+    /// Every shader the Rust side names is a file that exists.
+    ///
+    /// A shader is embedded with `embedded_asset!` and asked for by an
+    /// `embedded://` path; the two are strings that agree only by being typed
+    /// the same. A path to a file that was renamed to `.wesl` (or not
+    /// renamed) is no compile error: the pipeline waits for a shader that
+    /// never loads and the material draws nothing. The patterns are put
+    /// together here so this file does not find itself.
+    #[test]
+    fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
+        let embed = ["embedded_asset", "!("].concat();
+        let url = ["\"embedded", "://baylee_client/shaders/"].concat();
+        let mut sources = Vec::new();
+        rust_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut sources,
+        );
+        let (mut embedded, mut asked) = (0, 0);
+        let mut faults = Vec::new();
+        for path in sources {
+            let source = std::fs::read_to_string(&path).expect("a source file");
+            let file = path.file_name().unwrap_or_default().to_string_lossy();
+            let mut check = |name: &str, how: &str| {
+                let is_wesl = std::path::Path::new(name)
+                    .extension()
+                    .is_some_and(|extension| extension == "wesl");
+                if !is_wesl || !shader_dir().join(name).is_file() {
+                    faults.push(format!("{file}: {how} names `{name}`, no .wesl shader"));
+                }
+            };
+            for (at, _) in source.match_indices(&embed) {
+                let call = &source[at + embed.len()..];
+                let Some(open) = call.find('"') else { continue };
+                // `app, "shaders/x.wesl"`: the literal is the call's second
+                // argument; anything else before the quote is not a call.
+                if call[..open].contains(')') {
+                    continue;
+                }
+                let name = call[open + 1..].split('"').next().unwrap_or("");
+                embedded += 1;
+                check(
+                    name.strip_prefix("shaders/").unwrap_or(name),
+                    "an embedded asset",
+                );
+            }
+            for (at, _) in source.match_indices(&url) {
+                let name = source[at + url.len()..].split('"').next().unwrap_or("");
+                asked += 1;
+                check(name, "an embedded:// path");
+            }
+        }
+        assert!(
+            (20..=80).contains(&(embedded + asked)),
+            "{embedded} embedded and {asked} asked-for shaders found"
+        );
+        assert!(
+            embedded >= 10 && asked >= 10,
+            "{embedded} embedded and {asked} asked-for shaders found"
+        );
+        assert!(faults.is_empty(), "{faults:#?}");
+    }
 }

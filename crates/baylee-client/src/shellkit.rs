@@ -206,6 +206,185 @@ fn world_bounds(clip_rect: &bevy::ui::CalculatedClipRect) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::math::Affine2;
+    use bevy::ui::CalculatedClip;
+
+    /// Slack for the float arithmetic of taking a rectangle through an
+    /// inverse transform.
+    const EPS: f32 = 1e-3;
+
+    /// Both ends of two rectangles agree to within [`EPS`] — slack on both
+    /// sides, so a rectangle too small fails as surely as one too big.
+    fn assert_rect(got: Rect, want: Rect) {
+        assert!(
+            got.min.abs_diff_eq(want.min, EPS) && got.max.abs_diff_eq(want.max, EPS),
+            "got {got:?}, wanted {want:?}"
+        );
+    }
+
+    /// A clip made of the given rectangles, each with its transform from
+    /// window space into the clipping node's own.
+    fn clip_of(rects: &[(Rect, Affine2)]) -> CalculatedClip {
+        let mut clip = CalculatedClip::default();
+        for &(rect, world_to_clip_local) in rects {
+            clip.push_rect(rect, world_to_clip_local);
+        }
+        clip
+    }
+
+    /// A node under no clipping ancestor has no visible band to speak of.
+    ///
+    /// The virtualised lists read `None` as "draw everything"; answering
+    /// `Some(empty)` there would hide every row of an unclipped list, and
+    /// answering a huge rectangle would make the answer depend on a magic
+    /// number.
+    #[test]
+    fn a_node_with_no_clipping_ancestor_has_no_clip_bounds() {
+        assert_eq!(clip_bounds(&CalculatedClip::default()), None);
+    }
+
+    /// A fully clipped node sees nothing: an empty rectangle, which a row
+    /// test reads as "not visible", rather than `None`, which would read as
+    /// "not clipped at all".
+    #[test]
+    fn a_fully_clipped_node_has_an_empty_clip_bounds() {
+        let bounds = clip_bounds(&CalculatedClip::FullyClipped).expect("a rectangle");
+        assert!(bounds.is_empty(), "{bounds:?}");
+    }
+
+    /// With the clipping node's space the window's, the clip is its
+    /// rectangle, unchanged.
+    #[test]
+    fn a_clip_in_window_space_is_its_own_rectangle() {
+        let rect = Rect::new(10.0, 20.0, 110.0, 70.0);
+        let clip = clip_of(&[(rect, Affine2::IDENTITY)]);
+        assert_rect(clip_bounds(&clip).expect("a rectangle"), rect);
+    }
+
+    /// The rectangle is in the clipping node's own space, and the transform
+    /// goes from the window into it: an ancestor standing at (100, 50) has
+    /// `world_to_clip_local` a translation by (-100, -50), and its local
+    /// (0, 0)-(40, 20) is the window's (100, 50)-(140, 70). Taking the
+    /// transform the wrong way round would put it at (-100, -50).
+    #[test]
+    fn a_clip_is_taken_back_from_the_ancestors_space_to_the_window() {
+        let clip = clip_of(&[(
+            Rect::new(0.0, 0.0, 40.0, 20.0),
+            Affine2::from_translation(Vec2::new(-100.0, -50.0)),
+        )]);
+        assert_rect(
+            clip_bounds(&clip).expect("a rectangle"),
+            Rect::new(100.0, 50.0, 140.0, 70.0),
+        );
+    }
+
+    /// `world_to_clip_local` scaling by 2 means local = 2 * window, so the
+    /// window is half the local size: (0, 0)-(40, 20) is the window's
+    /// (0, 0)-(20, 10). With a shift as well, local = 2 * window - (10, 6),
+    /// so window = (local + (10, 6)) / 2. Multiplying by the transform
+    /// instead of its inverse would double the rectangle.
+    #[test]
+    fn a_scaled_ancestors_clip_is_taken_back_through_the_inverse() {
+        let clip = clip_of(&[(
+            Rect::new(0.0, 0.0, 40.0, 20.0),
+            Affine2::from_scale(Vec2::splat(2.0)),
+        )]);
+        assert_rect(
+            clip_bounds(&clip).expect("a rectangle"),
+            Rect::new(0.0, 0.0, 20.0, 10.0),
+        );
+        let clip = clip_of(&[(
+            Rect::new(0.0, 0.0, 40.0, 20.0),
+            Affine2::from_scale_angle_translation(Vec2::splat(2.0), 0.0, Vec2::new(-10.0, -6.0)),
+        )]);
+        assert_rect(
+            clip_bounds(&clip).expect("a rectangle"),
+            Rect::new(5.0, 3.0, 25.0, 13.0),
+        );
+    }
+
+    /// Two clipping ancestors leave what both leave: the intersection of
+    /// their window-space rectangles, each taken through its own transform.
+    #[test]
+    fn two_clips_leave_their_intersection() {
+        let clip = clip_of(&[
+            (Rect::new(0.0, 0.0, 100.0, 100.0), Affine2::IDENTITY),
+            (
+                // Stands at (60, 30): window (60, 30)-(160, 80).
+                Rect::new(0.0, 0.0, 100.0, 50.0),
+                Affine2::from_translation(Vec2::new(-60.0, -30.0)),
+            ),
+        ]);
+        assert_rect(
+            clip_bounds(&clip).expect("a rectangle"),
+            Rect::new(60.0, 30.0, 100.0, 80.0),
+        );
+    }
+
+    /// Two clips that do not meet leave nothing, however far apart.
+    #[test]
+    fn two_clips_that_do_not_meet_leave_nothing() {
+        let clip = clip_of(&[
+            (Rect::new(0.0, 0.0, 10.0, 10.0), Affine2::IDENTITY),
+            (Rect::new(50.0, 50.0, 60.0, 60.0), Affine2::IDENTITY),
+        ]);
+        let bounds = clip_bounds(&clip).expect("a rectangle");
+        assert!(bounds.is_empty(), "{bounds:?}");
+    }
+
+    /// A quarter turn keeps the clip a rectangle: window = R⁻¹ * local, and
+    /// a 90 degree turn of (0, 0)-(40, 20) by -90 degrees is
+    /// (0, -40)-(20, 0).
+    #[test]
+    fn a_quarter_turned_clip_is_the_turned_rectangle() {
+        let clip = clip_of(&[(
+            Rect::new(0.0, 0.0, 40.0, 20.0),
+            Affine2::from_angle(std::f32::consts::FRAC_PI_2),
+        )]);
+        assert_rect(
+            clip_bounds(&clip).expect("a rectangle"),
+            Rect::new(0.0, -40.0, 20.0, 0.0),
+        );
+    }
+
+    /// A clip turned by an angle that is no multiple of a quarter is the
+    /// axis-aligned bounds of the turned rectangle: a superset, which the
+    /// doc comment says it is. All four turned corners are inside it (so
+    /// nothing visible is cut), and it is no bigger than the bounds of
+    /// those corners (so it is not a looser box than documented).
+    #[test]
+    fn a_turned_clip_is_the_bounds_of_the_turned_rectangle() {
+        let angle = std::f32::consts::FRAC_PI_4;
+        let local = Rect::new(0.0, 0.0, 40.0, 20.0);
+        let world_to_clip_local = Affine2::from_angle(angle);
+        let bounds = clip_bounds(&clip_of(&[(local, world_to_clip_local)])).expect("a rectangle");
+        let to_world = world_to_clip_local.inverse();
+        let corners = [
+            local.min,
+            Vec2::new(local.max.x, local.min.y),
+            local.max,
+            Vec2::new(local.min.x, local.max.y),
+        ]
+        .map(|corner| to_world.transform_point2(corner));
+        for corner in corners {
+            assert!(
+                corner.x >= bounds.min.x - EPS
+                    && corner.x <= bounds.max.x + EPS
+                    && corner.y >= bounds.min.y - EPS
+                    && corner.y <= bounds.max.y + EPS,
+                "{corner:?} lies outside {bounds:?}"
+            );
+        }
+        let (lo, hi) = corners.iter().fold(
+            (Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)),
+            |(lo, hi), c| (lo.min(*c), hi.max(*c)),
+        );
+        assert_rect(bounds, Rect { min: lo, max: hi });
+        assert!(
+            bounds.size().x * bounds.size().y > local.size().x * local.size().y,
+            "a rotated rectangle's bounds are bigger than the rectangle"
+        );
+    }
 
     /// The shell's five steps are the face's five, in order (WP6 reads
     /// `FaceMode::step`; the shell's setting writes it).

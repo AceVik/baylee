@@ -40,3 +40,32 @@ pub(crate) type LegacyInteraction = bevy::ui::DeprecatedInteraction;
     AccessibilityNode(AccessKitNode::new(Role::Button))
 )]
 pub(crate) struct LegacyButton;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Spawning the marker alone gives the entity what bevy 0.19's `Button`
+    /// required: a node to lay out, a focus policy that blocks the press, an
+    /// interaction state for `ui_focus_system` to keep, and the "button" role
+    /// for accessibility. Lose one of them and a button either never
+    /// updates its interaction, lets a press through to what is behind it,
+    /// or is not announced as a button — none of which a compile notices.
+    #[test]
+    fn a_legacy_button_brings_what_the_old_button_required() {
+        let mut world = World::new();
+        let button = world.spawn(LegacyButton).id();
+        let entity = world.entity(button);
+        assert!(entity.contains::<Node>(), "a node to lay out");
+        assert_eq!(entity.get::<FocusPolicy>(), Some(&FocusPolicy::Block));
+        assert_eq!(
+            entity.get::<LegacyInteraction>(),
+            Some(&LegacyInteraction::None),
+            "an interaction that starts untouched"
+        );
+        let accessible = entity
+            .get::<AccessibilityNode>()
+            .expect("an accessibility node");
+        assert_eq!(accessible.role(), Role::Button);
+    }
+}
