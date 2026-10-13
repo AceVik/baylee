@@ -176,10 +176,20 @@ fn perspective_of(order: &v1::ProjectRecord) -> (Option<Perspective>, Vec<u8>) {
         for &h in &hands {
             set.insert(PlayerId::new(h));
         }
+        let mut others = SeatSet::new();
+        for &o in &order.others {
+            if let Ok(o) = u8::try_from(o)
+                && o <= SeatSet::MAX_SEAT
+                && o != seat
+            {
+                others.insert(PlayerId::new(o));
+            }
+        }
         Perspective::Shown {
             seat: PlayerId::new(seat),
             own: order.own,
             hands: set,
+            others,
         }
     };
     let asked = v1::project_record::Perspective::try_from(order.perspective);

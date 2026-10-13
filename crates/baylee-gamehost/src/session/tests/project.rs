@@ -2,6 +2,7 @@
 //! replays: what a seat was sent, what a spectator was sent, what no one was
 //! sent, and how far each moment is known to be the recorded game's.
 
+use std::collections::BTreeSet;
 use std::ops::ControlFlow;
 
 use crate::Session;
@@ -12,7 +13,7 @@ use crate::replay::{
     summary,
 };
 use crate::session::RegistryLookup;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::GameState;
@@ -665,6 +666,370 @@ fn the_all_hands_projection_shows_the_other_hand_as_the_engine_held_it() {
     }));
 }
 
+// ---- Shown: a seat's own cards by consent, the public table otherwise
+
+/// A set of seats.
+fn seats(of: &[PlayerId]) -> SeatSet {
+    let mut set = SeatSet::new();
+    for &seat in of {
+        set.insert(seat);
+    }
+    set
+}
+
+/// Every number under an `id` key and every one under an `index` key
+/// anywhere in a JSON value: the objects and the cards a payload names.
+fn names_in(value: &serde_json::Value, ids: &mut BTreeSet<u64>, cards: &mut BTreeSet<u64>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, inner) in map {
+                match (key.as_str(), inner.as_u64()) {
+                    ("id", Some(n)) => {
+                        ids.insert(n);
+                    }
+                    ("index", Some(n)) => {
+                        cards.insert(n);
+                    }
+                    _ => {}
+                }
+                names_in(inner, ids, cards);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for inner in items {
+                names_in(inner, ids, cards);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The objects and cards the views and log tails of `moment` name.
+fn named_by(moment: &Moment, ids: &mut BTreeSet<u64>, cards: &mut BTreeSet<u64>) {
+    for delta in deltas(moment) {
+        for bytes in [&delta.view_json, &delta.log_json] {
+            if !bytes.is_empty() {
+                let json: serde_json::Value = serde_json::from_slice(bytes).expect("json");
+                names_in(&json, ids, cards);
+            }
+        }
+    }
+}
+
+/// The printings a payload holds.
+fn printings(statics: &GameStatic) -> BTreeSet<usize> {
+    statics
+        .prints
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.is_some())
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// A seat that does not share its own cards is the public table drawn from
+/// it, at every input: no hand, nothing looked at, the spectators' log and
+/// the spectators' print table, and nothing of the seat's hand anywhere.
+#[test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+fn a_seat_shown_without_its_own_cards_is_the_public_table_drawn_from_it() {
+    let record = played(3).take_record();
+    let (_, public) = whole(&record, Perspective::Public);
+    for (drawn, other) in [(THEM, ME), (ME, THEM)] {
+        let (projection, moments) = whole(
+            &record,
+            Perspective::Shown {
+                seat: drawn,
+                own: false,
+                hands: SeatSet::new(),
+                others: SeatSet::new(),
+            },
+        );
+        assert_eq!(projection.stop, Stop::End);
+        assert_eq!(moments.len(), public.len());
+
+        let mut shadow = Shadow::new(&record);
+        let (mut shown_log, mut public_log) = (Vec::new(), Vec::new());
+        let (mut shown_ids, mut shown_cards) = (BTreeSet::new(), BTreeSet::new());
+        let (mut public_ids, mut public_cards) = (BTreeSet::new(), BTreeSet::new());
+        let (mut shown_statics, mut public_statics): (Option<GameStatic>, Option<GameStatic>) =
+            (None, None);
+        let (mut views, mut secret_cards, mut hidden_ids) = (0, 0, 0);
+        for (moment, spectated) in moments.iter().zip(&public) {
+            let state = shadow.at(moment.input);
+            assert_eq!(moment.input, spectated.input);
+            assert_eq!(
+                moment.frames.is_empty(),
+                spectated.frames.is_empty(),
+                "the two streams tell at the same inputs ({:?})",
+                moment.input
+            );
+            // Only the kinds of frame a spectator is told; a question only
+            // as the end.
+            for env in &moment.frames {
+                match &env.msg {
+                    Some(v1::envelope::Msg::GameStatic(_) | v1::envelope::Msg::StateDelta(_)) => {}
+                    Some(v1::envelope::Msg::ChoiceRequest(choice)) => assert!(
+                        choice.pending_json.starts_with(br#"{"GameOver""#),
+                        "a question went to a seat shown no cards at {:?}",
+                        moment.input
+                    ),
+                    other => panic!("an unexpected frame at {:?}: {other:?}", moment.input),
+                }
+            }
+
+            // The log is the spectators' log, tail for tail.
+            assert_eq!(
+                tails(moment),
+                tails(spectated),
+                "at {:?} the log is not the spectators'",
+                moment.input
+            );
+            for tail in tails(moment) {
+                append(&mut shown_log, tail);
+            }
+            for tail in tails(spectated) {
+                append(&mut public_log, tail);
+            }
+            assert_eq!(shown_log, public_log);
+
+            // The print table is the spectators', drawn from the seat.
+            assert_eq!(statics(moment).is_some(), statics(spectated).is_some());
+            if let Some(statics) = statics(moment) {
+                assert_eq!(statics.your_seat, drawn);
+                shown_statics = Some(statics);
+            }
+            if let Some(statics) = statics(spectated) {
+                public_statics = Some(statics);
+            }
+            if let (Some(shown), Some(public)) = (&shown_statics, &public_statics) {
+                assert_eq!(
+                    printings(shown),
+                    printings(public),
+                    "a printing the spectators lack at {:?}",
+                    moment.input
+                );
+                assert!(printings(shown).len() < shown.prints.len(), "the decklist");
+            }
+
+            named_by(moment, &mut shown_ids, &mut shown_cards);
+            named_by(spectated, &mut public_ids, &mut public_cards);
+            assert!(
+                shown_ids.is_subset(&public_ids) && shown_cards.is_subset(&public_cards),
+                "the shown stream names an object or card the spectators were not shown at {:?}",
+                moment.input
+            );
+
+            let Some(view) = seat_view(moment) else {
+                continue;
+            };
+            views += 1;
+            let raw = deltas(spectated).last().copied().expect("a view");
+            let spectator: SpectatorView = serde_json::from_slice(&raw.view_json).unwrap();
+            assert_eq!(
+                with_seq_of(spectator.into_player_view(drawn), &view),
+                view,
+                "the view is the spectators' table drawn from {drawn:?} at {:?}",
+                moment.input
+            );
+            assert_eq!(view.seat, drawn);
+            assert!(view.hand.is_empty() && view.looking_at.is_empty());
+            assert!(view.hand_shared_with.is_empty() && view.hand_requested.is_empty());
+            assert!(view.hand_requests.is_empty() && view.owed.is_none());
+            assert!(
+                view.shared_hands.iter().all(|hand| hand.public),
+                "a private hand in {:?}",
+                view.shared_hands
+            );
+
+            // The seat's hand, from the engine: not an object the views
+            // name, not a card nobody saw.
+            let hand = hand_ids(state, drawn);
+            let on_table = ids_on_the_table(&view);
+            for id in &hand {
+                hidden_ids += 1;
+                assert!(
+                    !on_table.contains(id)
+                        && !view.library_tops.iter().any(|o| o.id == *id)
+                        && !view
+                            .shared_hands
+                            .iter()
+                            .any(|h| h.cards.iter().any(|c| c.id == *id)),
+                    "{drawn:?}'s hand card {id:?} is in the view at {:?}",
+                    moment.input
+                );
+            }
+            for index in hand_cards(state, drawn) {
+                if !public_cards.contains(&u64::from(index.get())) {
+                    secret_cards += 1;
+                    assert!(
+                        !shown_cards.contains(&u64::from(index.get())),
+                        "{drawn:?}'s card {index:?}, which no spectator saw, is in the stream at {:?}",
+                        moment.input
+                    );
+                }
+            }
+            // And the other seat is only counts too.
+            assert_eq!(
+                view.seat(other).map(|s| s.hand_count),
+                Some(u32::try_from(hand_ids(state, other).len()).unwrap())
+            );
+        }
+        assert!(views > 50, "{views} views");
+        assert!(
+            hidden_ids > 100,
+            "{hidden_ids} hand cards held against the views"
+        );
+        assert!(
+            secret_cards > 100,
+            "{secret_cards} hand cards no spectator saw"
+        );
+    }
+}
+
+/// `Seat(p)` is `Shown { p, own, no hands }`, and `AllHands(p)` is the same
+/// with every other seat's hand: frame for frame, for a human's chair and for
+/// the house's.
+#[test]
+fn shown_with_its_own_cards_is_the_seat_projection_and_all_hands() {
+    let record = played(3).take_record();
+    for (drawn, other) in [(ME, THEM), (THEM, ME)] {
+        let frames = |perspective| -> Vec<(Option<u64>, Vec<Envelope>)> {
+            whole(&record, perspective)
+                .1
+                .into_iter()
+                .map(|moment| (moment.input, moment.frames))
+                .collect()
+        };
+        let seat = frames(Perspective::Seat(drawn));
+        assert!(seat.iter().filter(|(_, f)| !f.is_empty()).count() > 50);
+        assert_eq!(
+            frames(Perspective::Shown {
+                seat: drawn,
+                own: true,
+                hands: SeatSet::new(),
+                others: seats(&[other]),
+            }),
+            seat,
+            "{drawn:?}: own, no hands is Seat"
+        );
+        // Naming the drawn seat's own hand among the hands adds nothing.
+        assert_eq!(
+            frames(Perspective::Shown {
+                seat: drawn,
+                own: true,
+                hands: seats(&[drawn]),
+                others: seats(&[other]),
+            }),
+            seat,
+            "{drawn:?}: its own hand among the hands"
+        );
+        let all = frames(Perspective::AllHands(drawn));
+        assert_ne!(all, seat, "the other hand makes a difference");
+        assert_eq!(
+            frames(Perspective::Shown {
+                seat: drawn,
+                own: true,
+                hands: seats(&[other]),
+                others: seats(&[other]),
+            }),
+            all,
+            "{drawn:?}: own and the other hand is AllHands"
+        );
+    }
+}
+
+/// A seat's own cards withheld and another's hand shown: that hand is the
+/// engine's at every input, with its printings earned, and the seat's own is
+/// nowhere.
+#[test]
+fn a_hand_is_shown_beside_a_table_that_withholds_the_seats_own() {
+    let record = played(3).take_record();
+    for (drawn, other) in [(ME, THEM), (THEM, ME)] {
+        let mut shadow = Shadow::new(&record);
+        let mut payload: Option<GameStatic> = None;
+        let (mut checked, mut non_empty) = (0, 0);
+        let (mut ids, mut cards) = (BTreeSet::new(), BTreeSet::new());
+        project(
+            &record,
+            names(),
+            Perspective::Shown {
+                seat: drawn,
+                own: false,
+                hands: seats(&[other]),
+                others: SeatSet::new(),
+            },
+            Verify::Stop,
+            |moment| {
+                let state = shadow.at(moment.input);
+                if let Some(statics) = statics(&moment) {
+                    assert_eq!(statics.your_seat, drawn);
+                    payload = Some(statics);
+                }
+                named_by(&moment, &mut ids, &mut cards);
+                let Some(view) = seat_view(&moment) else {
+                    return ControlFlow::Continue(());
+                };
+                assert!(view.hand.is_empty() && view.looking_at.is_empty());
+                let shown: Vec<_> = view
+                    .shared_hands
+                    .iter()
+                    .filter(|hand| hand.player == other)
+                    .collect();
+                assert_eq!(
+                    shown.len(),
+                    1,
+                    "one entry for the hand at {:?}",
+                    moment.input
+                );
+                assert!(!shown[0].public, "a consented hand is not a public one");
+                assert_eq!(
+                    shown[0].cards.iter().map(|c| c.id).collect::<Vec<_>>(),
+                    hand_ids(state, other)
+                );
+                assert_eq!(
+                    shown[0]
+                        .cards
+                        .iter()
+                        .map(|c| c.card.index)
+                        .collect::<Vec<_>>(),
+                    hand_cards(state, other),
+                    "at {:?}",
+                    moment.input
+                );
+                checked += 1;
+                non_empty += usize::from(!shown[0].cards.is_empty());
+                let payload = payload.as_ref().expect("the payload comes first");
+                for card in &shown[0].cards {
+                    assert!(
+                        payload
+                            .prints
+                            .get(card.card.print.get() as usize)
+                            .is_some_and(Option::is_some),
+                        "{:?}'s printing is not in the payload at {:?}",
+                        card.name,
+                        moment.input
+                    );
+                }
+                // The seat's own hand: no entry for it, no id of it.
+                assert!(view.shared_hands.iter().all(|hand| hand.player != drawn));
+                let mine = hand_ids(state, drawn);
+                let on_table = ids_on_the_table(&view);
+                for id in &mine {
+                    assert!(
+                        !on_table.contains(id),
+                        "{drawn:?}'s own hand card {id:?} is shown at {:?}",
+                        moment.input
+                    );
+                }
+                ControlFlow::Continue(())
+            },
+        )
+        .expect("projects");
+        assert!(checked > 30 && non_empty > 20, "{checked}, {non_empty}");
+    }
+}
+
 // ---- how far a moment is the recorded game
 
 /// The record's own hashes make every moment exact; a record that carries
@@ -1280,4 +1645,112 @@ fn a_log_line_with_no_new_view_is_still_told_at_its_input() {
             "{perspective:?}: no moment wrote only a log line"
         );
     }
+}
+
+// ---- what a seat was shown of another seat's hidden cards
+
+/// A game in which seat 0 casts Thoughtseize at seat 1: the house plays
+/// seat 0's chair, so the choice among seat 1's hand is asked of seat 0, who
+/// is shown cards it does not own (`PlayerView::looking_at`). Returns the
+/// record, played to its end, and how many of seat 0's questions showed a
+/// card of seat 1's.
+fn thoughtseized(seed: u64) -> (Vec<u8>, usize) {
+    use baylee_cards::decks::{DevZone, deal_named};
+    let mut preset = table(seed);
+    for (spec, zone) in [
+        ("Swamp", DevZone::Battlefield),
+        ("Thoughtseize", DevZone::Hand),
+        (
+            "1:Sol Ring; 1:Llanowar Elves; 1:Lightning Bolt; 1:Forest",
+            DevZone::Hand,
+        ),
+    ] {
+        deal_named(&mut preset, spec, zone).expect("the cards are in the pool");
+    }
+    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    session.describe("g".into(), names());
+    session.tell_time(1_000);
+    session.pump();
+    let mut foreign = 0;
+    for asked in 0..2_000_u32 {
+        if matches!(session.pending(), Pending::GameOver(_)) {
+            return (session.take_record(), foreign);
+        }
+        session.tell_time(1_000 + u64::from(asked));
+        foreign += usize::from(
+            session
+                .seat_view(ME)
+                .looking_at
+                .iter()
+                .any(|object| object.owner == THEM),
+        );
+        let action = session.house_action(ME).expect("a question has an answer");
+        session.act(ME, action).expect("the answer stands");
+    }
+    panic!("the game did not end");
+}
+
+/// Seat 0 looks at seat 1's hand and chooses from it. Drawn from seat 0 with
+/// `others` leaving seat 1 out, that sight is taken out of every view and
+/// nothing else is; with seat 1 among `others` it is the seat projection.
+#[test]
+fn what_a_seat_was_shown_of_another_is_kept_only_for_the_seats_named() {
+    let (record, shown_live) = thoughtseized(3);
+    assert!(
+        shown_live > 0,
+        "the game never showed seat 0 a foreign card"
+    );
+    let frames = |perspective| whole(&record, perspective).1;
+    let seat = frames(Perspective::Seat(ME));
+    let shown = |others| {
+        frames(Perspective::Shown {
+            seat: ME,
+            own: true,
+            hands: SeatSet::new(),
+            others,
+        })
+    };
+
+    // Not vacuous: the seat projection holds the hand as seat 0 saw it.
+    let kept = seat
+        .iter()
+        .filter_map(seat_view)
+        .filter(|view| view.looking_at.iter().any(|o| o.owner == THEM))
+        .count();
+    assert!(kept > 0, "no moment of the seat projection looks at seat 1");
+
+    // Seat 1 among the seats named: the seat projection, frame for frame.
+    let named: Vec<_> = shown(seats(&[THEM]))
+        .into_iter()
+        .map(|m| (m.input, m.frames))
+        .collect();
+    let plain: Vec<_> = seat.iter().map(|m| (m.input, m.frames.clone())).collect();
+    assert_eq!(named, plain, "naming seat 1 changes nothing");
+
+    // No seat named: the same views less what seat 0 was shown of seat 1.
+    let without = shown(SeatSet::new());
+    assert_eq!(without.len(), seat.len());
+    let mut views = 0;
+    for (cut, whole) in without.iter().zip(&seat) {
+        assert_eq!(cut.input, whole.input);
+        let (Some(cut_view), Some(mut whole_view)) = (seat_view(cut), seat_view(whole)) else {
+            assert_eq!(seat_view(cut), seat_view(whole));
+            continue;
+        };
+        views += 1;
+        assert!(
+            cut_view.looking_at.iter().all(|o| o.owner == ME),
+            "a card of seat 1's survived at {:?}",
+            cut.input
+        );
+        assert!(cut_view.controlled_hands.is_empty());
+        whole_view.looking_at.retain(|o| o.owner == ME);
+        whole_view.controlled_hands.clear();
+        assert_eq!(
+            cut_view, whole_view,
+            "more than the sight changed at {:?}",
+            cut.input
+        );
+    }
+    assert!(views > 50, "{views} views compared");
 }

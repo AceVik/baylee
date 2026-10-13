@@ -709,7 +709,11 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   **not shared** in one recorded before, whose terms promised nobody at the
   table the recording; an AI seat is always shared): a tape drawn from a seat
   that unticked it, or all hands, holds only the public table for that
-  seat, enforced on the gateway's side. A player's own seat is always shown
+  seat, enforced on the gateway's side. A shared seat shows its whole seat
+  view (its hand, its deck list as printings, what it looked at, its
+  face-down cards, its log; `docs/protocol.md` §"Replays", "What a shown
+  seat reveals"); in *all hands* the other shared seats show their hand
+  only. A player's own seat is always shown
   to that player. A player archives a game in the Replays list
   (`replay_archived`; still watchable from the archived list); the record
   is never deleted. Beside the record the gateway keeps what the list shows

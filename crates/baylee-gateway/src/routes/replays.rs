@@ -258,6 +258,7 @@ struct Lens {
     perspective: baylee_protocol::v1::project_record::Perspective,
     own: bool,
     hands: Vec<u8>,
+    others: Vec<u8>,
     names: Vec<String>,
 }
 
@@ -287,6 +288,7 @@ impl Lens {
                 perspective,
                 own: false,
                 hands: Vec::new(),
+                others: Vec::new(),
                 names,
             });
         }
@@ -299,9 +301,21 @@ impl Lens {
             perspective,
             own: shown.contains(&seat),
             hands: if perspective == Perspective::AllHands {
-                shown.into_iter().filter(|&s| s != seat).collect()
+                shown.iter().copied().filter(|&s| s != seat).collect()
             } else {
                 Vec::new()
+            },
+            // My own seat is shown whole, what it was shown of others
+            // included; another seat's view keeps only what it was shown of
+            // seats in S.
+            others: if seat == mine {
+                seats
+                    .iter()
+                    .map(|s| s.seat)
+                    .filter(|&s| s != seat)
+                    .collect()
+            } else {
+                shown.into_iter().filter(|&s| s != seat).collect()
             },
             names,
         })
@@ -412,6 +426,7 @@ pub(crate) async fn replay_tape(
             perspective: lens.perspective,
             own: lens.own,
             hands: lens.hands,
+            others: lens.others,
             note: ask.verify == VerifyArg::Note,
             names: lens.names,
         },

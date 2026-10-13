@@ -212,6 +212,9 @@ pub struct Ask {
     pub own: bool,
     /// The other seats whose hands may be shown (only with `all_hands`).
     pub hands: Vec<u8>,
+    /// The other seats whose hidden cards the drawn seat's own view may
+    /// still show where it was shown them in the game.
+    pub others: Vec<u8>,
     /// Whether to play on past a divergence.
     pub note: bool,
     /// The seats' names for the opening payload.
@@ -247,6 +250,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
         perspective: ask.perspective as i32,
         own: ask.own,
         hands: ask.hands.iter().map(|&h| u32::from(h)).collect(),
+        others: ask.others.iter().map(|&o| u32::from(o)).collect(),
         seat: u32::from(ask.seat),
         names: ask.names,
         verify: if ask.note {

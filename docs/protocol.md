@@ -1950,8 +1950,9 @@ was); `403` the account sat at no seat of that game; `404` no such game. One
 
 `PUT /replays/{game}/share` `{"shared": true|false}` (any other field is
 `400`) sets whether the other players may see the asking account's **own**
-seat's hidden cards (its hand, what it looked at, its face-down cards, its
-deck as the print table earns it) in that game's replays. The seat is the
+seat's hidden cards in that game's replays: its whole seat view (the list
+under §"`POST /replays/{game}/tape`", "What a shown seat reveals").
+ The seat is the
 one `game_record_seat` names for the account, never the request's. `200
 {"seat": n, "shared": bool}`; `403` the account sat at no seat of that game;
 `404` no such game. Any time, also while the game is played (the end-of-game
@@ -1969,8 +1970,9 @@ always shared. Stored per game and seat
 
 `{"perspective":"seat"|"public"|"all_hands","seat":2,"verify":"stop"|"note"}`
 (`verify` defaults to `stop`; `seat`, the seat the table is drawn from,
-defaults to the asking account's own and is ignored for `public`; a seat the
-table lacks or any other field is `400`) → `200 application/gzip`, the tape
+defaults to the asking account's own and is ignored, even out of range, for
+`public`; for `seat` and `all_hands` a seat the table lacks is `400`, and so
+is any other field) → `200 application/gzip`, the tape
 (`baylee_protocol::tape`, gzip JSON Lines: a header, the `static`, `view`,
 `over` frames the perspective was sent, and a closing `stop` line saying how
 far it is the recorded game).
@@ -1980,14 +1982,42 @@ by the projection: a seat's hidden cards appear only where that seat is the
 asker's own, an AI seat, or `shared` (as said, else by default: yes from
 the beta.7 deploy on, no before). With **S** that set of seats:
 
-- `seat`, the drawn seat in **S**: exactly what a socket at that seat was
-  sent (its hand, what it looked at, its face-down cards, its log).
+- `seat`, the drawn seat in **S**: what a socket at that seat was sent
+  (the list below), less what it was shown of a seat outside **S**. The
+  asker's own seat is shown whole.
 - `seat`, the drawn seat not in **S**: the public table drawn from that
   seat: a `PlayerView` made from the spectator view (no hand, nothing looked
   at), the spectators' log, a print table earned in public.
 - `all_hands`: the `seat` view as above, plus every other seat in **S** as a
-  `shared_hands` entry (`public: false`); hands only.
+  `shared_hands` entry (`public: false`): of those seats their **hand only**
+  (and the printings of the cards in it), not the rest of their seat view.
 - `public`: the spectators' stream (`SpectatorView` payloads).
+
+**What a shown seat reveals** (the drawn seat in **S**, its `PlayerView`
+as `Session::seat_view` builds it for a socket at it):
+
+1. its **hand**, every card, at every moment;
+2. its **deck list**: the opening payload's print table holds the printing
+   of every card of its deck, sideboard, starting hand and starting
+   battlefield from the first frame (printings, not counts or order);
+3. what it **looked at** (`looking_at`: a searched or scried library, cards
+   revealed to it alone) while it was asked about them, kept only for cards
+   owned by itself or a seat in **S**;
+4. its **face-down cards** (a morph or manifest it controls, a card it
+   exiled face down and may look at), by name;
+5. its **log** as it was told it: its draws and the cards it was shown, by
+   name;
+6. a hand it saw while **controlling** another player (CR 720,
+   `controlled_hands`), only where that player is in **S**;
+7. its own answers' bookkeeping (what its policies answered, whether the
+   clock or a stand-in answered for it).
+
+Not shown: its library's order beyond what it looked at (it did not know
+it either), clocks, chat. Known limits (v1): the log of a shown seat may
+name a card it was shown privately of a seat outside **S** (an effect that
+revealed that player's hand to it alone), and a face-down card of a player
+it controlled (CR 720) keeps its name; both need a log line or object
+filter of their own (v2).
 
 The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,
 `own` (whether the drawn seat's own hidden cards are in it; absent = `true`)
