@@ -21,7 +21,7 @@ use std::ops::ControlFlow;
 
 use super::{SeatKind, Session, choice_envelope};
 use crate::record::{self, Line, RECORD_VERSION, hex};
-use baylee_core::ids::{CardIndex, PlayerId};
+use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
 use baylee_core::preset::{SeatController, SeatSpec};
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::Envelope;
@@ -42,6 +42,65 @@ pub enum Perspective {
     /// house): the caller decides; this crate cannot know where a record
     /// came from.
     AllHands(PlayerId),
+    /// One seat, showing only the hidden cards the caller may show: the
+    /// seat's own where `own` (else the public table drawn from that seat:
+    /// no hand, nothing looked at, the spectators' log and print table), and
+    /// beside it the hands of `hands` (`docs/protocol.md` §"Replays": the
+    /// seats that consented, are AI, or are the asker's). `Seat(p)` is
+    /// `Shown { seat: p, own: true, hands: ∅ }`; the caller decides who
+    /// consented, this crate shows nothing more than it is told.
+    Shown {
+        /// The seat the table is drawn from.
+        seat: PlayerId,
+        /// Whether that seat's own hidden cards are shown.
+        own: bool,
+        /// The other seats whose hands are shown beside it.
+        hands: SeatSet,
+    },
+}
+
+/// What a projection tells, normalised from a [`Perspective`].
+#[derive(Clone, Copy, Debug)]
+enum Lens {
+    /// The spectators' stream.
+    Public,
+    /// A seat, with or without its own hidden cards, and other hands.
+    Seat {
+        seat: PlayerId,
+        own: bool,
+        hands: SeatSet,
+    },
+}
+
+impl Lens {
+    fn of(perspective: Perspective, seats: usize) -> Self {
+        let all = |seat: PlayerId| {
+            let mut set = SeatSet::new();
+            for other in (0..seats)
+                .filter_map(|i| u8::try_from(i).ok())
+                .map(PlayerId::new)
+            {
+                if other != seat {
+                    set.insert(other);
+                }
+            }
+            set
+        };
+        match perspective {
+            Perspective::Public => Self::Public,
+            Perspective::Seat(seat) => Self::Seat {
+                seat,
+                own: true,
+                hands: SeatSet::new(),
+            },
+            Perspective::AllHands(seat) => Self::Seat {
+                seat,
+                own: true,
+                hands: all(seat),
+            },
+            Perspective::Shown { seat, own, hands } => Self::Seat { seat, own, hands },
+        }
+    }
 }
 
 /// What a check that fails does.
@@ -181,7 +240,7 @@ enum Last {
 /// The session and the perspective it is told from.
 struct Teller {
     session: Session,
-    perspective: Perspective,
+    lens: Lens,
     last: Last,
 }
 
@@ -191,30 +250,38 @@ impl Teller {
     fn frames(&mut self) -> Vec<Envelope> {
         let session = &mut self.session;
         let over = matches!(session.engine.pending(), Pending::GameOver(_));
-        match self.perspective {
-            Perspective::Seat(seat) | Perspective::AllHands(seat) => {
-                let view = if matches!(self.perspective, Perspective::AllHands(_)) {
-                    session.seat_view_showing_all(seat)
-                } else {
+        match self.lens {
+            Lens::Seat { seat, own, hands } => {
+                let mut view = if own {
                     session.seat_view(seat)
+                } else {
+                    session.spectator_view().into_player_view(seat)
+                };
+                session.show_hands_of(&mut view, seat, hands);
+                let untold = if own {
+                    session.log_untold(seat)
+                } else {
+                    session.gallery.told < session.log.len()
                 };
                 let same = match &self.last {
-                    Last::Seat(last) => {
-                        !over && !session.log_untold(seat) && same_seat_view(last, &view)
-                    }
+                    Last::Seat(last) => !over && !untold && same_seat_view(last, &view),
                     _ => false,
                 };
                 if same {
                     return Vec::new();
                 }
-                let mut out = session.seat_envelopes(seat, &view);
+                let mut out = if own {
+                    session.seat_envelopes(seat, &view)
+                } else {
+                    session.public_envelopes_for(seat, &view)
+                };
                 if over {
                     out.push(choice_envelope(session.seq, session.engine.pending()));
                 }
                 self.last = Last::Seat(Box::new(view));
                 out
             }
-            Perspective::Public => {
+            Lens::Public => {
                 let view = session.spectator_view();
                 let same = match &self.last {
                     Last::Public(last) => {
@@ -237,13 +304,17 @@ impl Teller {
     /// What the perspective is sent before any input: the opening payload,
     /// the view and the log.
     fn opening(&mut self) -> Vec<Envelope> {
-        match self.perspective {
-            Perspective::Seat(seat) | Perspective::AllHands(seat) => {
-                let mut out = vec![self.session.game_static_envelope(seat)];
+        match self.lens {
+            Lens::Seat { seat, own, .. } => {
+                let mut out = vec![if own {
+                    self.session.game_static_envelope(seat)
+                } else {
+                    self.session.public_game_static(seat)
+                }];
                 out.extend(self.frames());
                 out
             }
-            Perspective::Public => {
+            Lens::Public => {
                 let out = self.session.spectator_snapshot();
                 self.last = Last::Public(Box::new(self.session.spectator_view()));
                 out
@@ -302,13 +373,14 @@ pub fn project(
     };
     let mut session = Session::new(&preset).ok_or(ReplayError::Unbuildable)?;
     session.describe("replay".into(), names);
-    if let Perspective::Seat(seat) | Perspective::AllHands(seat) = perspective {
+    let lens = Lens::of(perspective, session.seats.len());
+    if let Lens::Seat { seat, own, .. } = lens {
         match session.seats.get(seat.get() as usize) {
             None => return Err(ReplayError::NoSuchSeat { seat: seat.get() }),
             // An AI chair is told nothing over a socket; taken over it is
             // told what a socket at it would be, and nothing pumps, so the
             // house plays only what the record says it played.
-            Some(SeatKind::Ai(_)) => {
+            Some(SeatKind::Ai(_)) if own => {
                 session.take_over(seat);
             }
             Some(_) => {}
@@ -333,7 +405,7 @@ pub fn project(
     };
     let mut teller = Teller {
         session,
-        perspective,
+        lens,
         last: Last::Nothing,
     };
     let frames = teller.opening();

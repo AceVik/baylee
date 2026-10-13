@@ -204,10 +204,14 @@ pub fn admit<'a>(jobs: &'a Jobs, account: &str) -> Result<Slot<'a>, Refused> {
 pub struct Ask {
     /// The game.
     pub game_id: String,
-    /// The seat (`Seat`), or 0 for the public view.
+    /// The seat the table is drawn from, or 0 for the public view.
     pub seat: u8,
-    /// Whether the public view is asked for.
-    pub public: bool,
+    /// Seat, public, or all hands.
+    pub perspective: v1::project_record::Perspective,
+    /// Whether `seat`'s own hidden cards may be shown.
+    pub own: bool,
+    /// The other seats whose hands may be shown (only with `all_hands`).
+    pub hands: Vec<u8>,
     /// Whether to play on past a divergence.
     pub note: bool,
     /// The seats' names for the opening payload.
@@ -240,11 +244,9 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
     let order = v1::ProjectRecord {
         job: job_id.clone(),
         record: record.data,
-        perspective: if ask.public {
-            v1::project_record::Perspective::Public
-        } else {
-            v1::project_record::Perspective::Seat
-        } as i32,
+        perspective: ask.perspective as i32,
+        own: ask.own,
+        hands: ask.hands.iter().map(|&h| u32::from(h)).collect(),
         seat: u32::from(ask.seat),
         names: ask.names,
         verify: if ask.note {

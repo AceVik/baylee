@@ -118,6 +118,8 @@ fn header() -> Header {
         seat: 0,
         game: FILE.to_string(),
         recorded_by: String::new(),
+        own: true,
+        hands: Vec::new(),
     }
 }
 

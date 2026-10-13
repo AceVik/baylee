@@ -2648,6 +2648,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: Some(("alice".to_owned(), tag_a)),
                 colours: Some("UB".to_owned()),
                 commander: None,
+                shared: None,
             },
             ListedSeat {
                 seat: 1,
@@ -2657,6 +2658,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: Some(("bob".to_owned(), tag_b)),
                 colours: Some("G".to_owned()),
                 commander: Some(4242),
+                shared: None,
             },
             ListedSeat {
                 seat: 2,
@@ -2666,6 +2668,7 @@ async fn a_players_games_are_listed_newest_first_with_what_the_engine_said() {
                 name: None,
                 colours: Some(String::new()),
                 commander: None,
+                shared: None,
             },
         ]
     );
