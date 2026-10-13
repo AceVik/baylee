@@ -97,6 +97,7 @@ fn mikaeus_ignores_damage_its_controllers_human_deals_to_an_opponent() {
             life - 1,
             "the Human did deal damage, to the opponent"
         );
+        advance(&mut e);
         pass_until(&mut e, stack_is_empty);
         assert!(
             on_battlefield(&e, P0, index::ROYAL_ASSASSIN).is_some(),

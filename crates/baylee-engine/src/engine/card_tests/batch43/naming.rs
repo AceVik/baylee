@@ -191,6 +191,7 @@ fn batch43_nebuchadnezzar_discards_only_the_revealed_cards_that_carry_the_named_
     // X reveals the whole three-card hand, and the name picks two of the three.
     let mut e = nebuchadnezzar_against(&[index::GRIZZLY_BEARS, index::FOREST, index::FOREST]);
     assert_eq!(e.state().zones.list(ZoneLocation::Hand(P1)).len(), 3);
+    let bears = in_hand(&e, P1, index::GRIZZLY_BEARS).unwrap();
     activate(&mut e, P0, index::NEBUCHADNEZZAR, 0);
     for _ in 0..3 {
         match e.pending() {
@@ -223,9 +224,8 @@ fn batch43_nebuchadnezzar_discards_only_the_revealed_cards_that_carry_the_named_
         3,
         "X = 3 reveals all three cards of the hand"
     );
-    let bears = in_hand(&e, P1, index::GRIZZLY_BEARS);
     assert!(
-        bears.is_some_and(|id| revealed.contains(&id)),
+        revealed.contains(&bears),
         "the Bears were revealed too: only their name keeps them from the graveyard"
     );
     let forests_discarded = e
@@ -249,7 +249,7 @@ fn batch43_nebuchadnezzar_discards_only_the_revealed_cards_that_carry_the_named_
     );
     assert_eq!(
         e.state().zones.list(ZoneLocation::Hand(P1)),
-        &[bears.unwrap()],
+        &[bears],
         "only the Bears are left in the hand"
     );
 }
