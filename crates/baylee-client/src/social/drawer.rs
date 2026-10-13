@@ -14,7 +14,7 @@ use baylee_protocol::social::{Place, Shown, Status};
 use bevy::prelude::*;
 use bevy::ui::{RelativeCursorPosition, ScrollPosition};
 
-use super::window::{ChatSurface, G_PANEL};
+use super::window::ChatSurface;
 use super::{ChatUi, Entry, Field, SocialHost, UiAsk};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, palette, tf, tf_bold, tf_italic};
@@ -83,7 +83,8 @@ pub(crate) fn install(app: &mut App) {
         // every lobby press, paused-clock diff, 13.10.).
         .add_systems(
             PostUpdate,
-            slide_the_drawer
+            (slide_the_drawer, clear_the_lane)
+                .chain()
                 .before(bevy::ui::UiSystems::Prepare)
                 .run_if(resource_exists::<UiFonts>),
         );
@@ -106,6 +107,62 @@ impl DrawerSlide {
 /// had before.
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct Squeezed(pub Val);
+
+/// Where the shell's notice lane stood before the chat moved it.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct LaneBase {
+    right: Val,
+    bottom: Val,
+}
+
+/// Keeps the shell's notices ("Bob sat down at your table") in the content
+/// area: left of the friends list and above the chat's pill or window
+/// (RC: they were clipped by the list). A phone's lane hangs from the top
+/// and is left alone; without a session, or at a table, it stands where the
+/// shell put it.
+#[allow(clippy::type_complexity)] // the lane, its node and where it stood
+fn clear_the_lane(
+    mut commands: Commands,
+    host: Res<SocialHost>,
+    ui: Res<ChatUi>,
+    slide: Res<DrawerSlide>,
+    zoom: Res<super::zoom::Zoom>,
+    windows: Query<&Window>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    mut lanes: Query<(Entity, &mut Node, Option<&LaneBase>), With<crate::lobby::ToastLane>>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let window_h = windows.iter().next().map_or(720.0, Window::height);
+    for (lane, mut node, base) in &mut lanes {
+        let base = base.copied().unwrap_or_else(|| {
+            let base = LaneBase {
+                right: node.right,
+                bottom: node.bottom,
+            };
+            commands.entity(lane).insert(base);
+            base
+        });
+        let (Val::Px(right), Val::Px(bottom)) = (base.right, base.bottom) else {
+            continue;
+        };
+        let (right, bottom) = if host.active() && !at_table {
+            let chat = if ui.open && !ui.minimised {
+                super::window::lobby_panel_height(window_h) + 16.0
+            } else {
+                64.0 * zoom.0
+            };
+            (right + slide.room(zoom.0), bottom.max(chat))
+        } else {
+            (right, bottom)
+        };
+        if node.right != Val::Px(right) {
+            node.right = Val::Px(right);
+        }
+        if node.bottom != Val::Px(bottom) {
+            node.bottom = Val::Px(bottom);
+        }
+    }
+}
 
 /// How long the drawer takes to slide in or out.
 const SLIDE_SECS: f32 = 0.18;
@@ -503,7 +560,7 @@ fn sync_door(
                 BackgroundColor(super::rows::LOBBY_GROUND),
                 BorderColor::all(tokens::BORDER),
                 Feel::new(super::rows::LOBBY_GROUND),
-                GlobalZIndex(G_PANEL + 1),
+                super::window::stacked(1),
             ))
             .id()
     };
@@ -836,7 +893,7 @@ fn sync_drawer(
                 // A hair translucent over the painting (owner, 13.10.).
                 BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.92)),
                 BorderColor::all(tokens::BORDER),
-                GlobalZIndex(G_PANEL + 10),
+                super::window::stacked(10),
                 Visibility::Hidden,
             ))
             .id()
