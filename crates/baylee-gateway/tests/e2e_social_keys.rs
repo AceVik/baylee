@@ -89,7 +89,7 @@ fn try_register(port: u16, who: &Account, tag: &str, seed: u64) -> (u16, String)
 fn device(port: u16, who: &Account, seed: u64) -> String {
     let (status, body) = try_register(port, who, &who.tag, seed);
     assert_eq!(status, 201, "register a device: {body}");
-    let id = baylee_seal::testkit::device(seed).device_id();
+    let id = baylee_seal::testkit::device(seed).device_id().to_string();
     assert_eq!(json_field(&body, "id"), id);
     id
 }

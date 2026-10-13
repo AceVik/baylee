@@ -96,6 +96,7 @@ pub mod seatplate;
 pub mod settings_map;
 pub mod shellkeys;
 pub mod sky;
+pub mod social;
 pub mod source_choice;
 pub mod strike;
 pub mod tabletop;

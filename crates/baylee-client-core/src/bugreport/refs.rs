@@ -149,6 +149,9 @@ pub struct PlayerRef {
     pub name: String,
     /// The seat number the view uses; never an account.
     pub seat: Option<u8>,
+    /// The account's tag, where the chat knows it (a friend, a member, a
+    /// handle `Name#tag` at a table); a report leaves it out.
+    pub tag: Option<String>,
 }
 
 /// Everything a report's text may name, as gathered when the form opened.
@@ -325,6 +328,7 @@ pub fn table_players(statics: &GameStatic, me: PlayerId) -> Vec<PlayerRef> {
         .map(|seat| PlayerRef {
             name: seat.display_name.clone(),
             seat: Some(seat.player.get()),
+            tag: None,
         })
         .collect()
 }
@@ -582,6 +586,10 @@ pub struct PlayerMention {
     /// The seat number the view uses; never an account.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seat: Option<u8>,
+    /// The account's tag (the chat's mentions); `None` in a report, which
+    /// then serialises exactly as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
 }
 
 /// The references a report's text makes: `client.refs`.
@@ -626,6 +634,7 @@ pub fn refs_for(text: &str, candidates: &Candidates, picked: &[CardRef]) -> Opti
                 text: inner.trim_start_matches('@').to_string(),
                 at,
                 seat: player.seat,
+                tag: player.tag,
             }),
         }
     }
@@ -752,6 +761,7 @@ mod tests {
             vec![PlayerRef {
                 name: "steady 1".into(),
                 seat: Some(1),
+                tag: None,
             }],
         );
         let text = "cast [Lightning Bolt] at [@steady 1], not [x] or [@nobody] or [lightning bolt]";
@@ -781,6 +791,7 @@ mod tests {
             vec![PlayerRef {
                 name: "Jörg#00a1".into(),
                 seat: None,
+                tag: None,
             }],
         );
         let refs = refs_for("für [Lightning Bolt] [@Jörg#00a1]", &candidates, &[])
@@ -954,7 +965,8 @@ mod tests {
             players,
             [PlayerRef {
                 name: "steady 1".into(),
-                seat: Some(1)
+                seat: Some(1),
+                tag: None,
             }]
         );
         assert_eq!(best_players(&players, "st"), [0]);

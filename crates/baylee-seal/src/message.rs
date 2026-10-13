@@ -4,6 +4,21 @@
 //! One body is sealed under a random message key `mk`, which is wrapped for
 //! each recipient device through one ephemeral X25519 key per message. The
 //! sender's identity key signs `C_MSG ‖ u32be(len hdr) ‖ hdr ‖ n ‖ epk ‖ ct`.
+//!
+//! Two additions to §4.2, from the crypto review:
+//!
+//! - **`ct` commits to `mk`**: `ct = SHA-256(C_COMMIT ‖ mk) ‖ AEAD(mk, n,
+//!   body, aad = hdr)`. Poly1305 is not key-committing, so without it a
+//!   sender could hand two recipients two wraps of two keys under which one
+//!   signed ciphertext reads as two different bodies; a report's "verified"
+//!   would then say only what the reporter saw. With it, every recipient's
+//!   key is the one the signature covers.
+//! - **The randomness is hedged**: `mk ‖ n ‖ e_seed` is HKDF-SHA256 with the
+//!   88 drawn bytes as salt, the identity key's seed as input, and
+//!   `C_HEDGE ‖ SHA-256(hdr) ‖ SHA-256(body)` as info. A good `Entropy`
+//!   makes them random; a broken one that repeats still gives each header
+//!   (which names a new id) its own key and nonce.
+//!
 //! The wraps are not signed (§4.3): each device is handed only its own, and
 //! a changed wrap can only make the message undecryptable, never change what
 //! it says or where it is addressed (the header names the conversation, and
@@ -19,12 +34,14 @@ use zeroize::Zeroizing;
 
 use crate::device::identity_key;
 use crate::{
-    C_MSG, C_WRAP, DeviceSecrets, Entropy, Error, KEY_LEN, NONCE_LEN, SIG_LEN, TAG_LEN, WRAP_LEN,
+    C_COMMIT, C_HEDGE, C_MSG, C_WRAP, DeviceSecrets, Entropy, Error, KEY_LEN, NONCE_LEN, SIG_LEN,
+    TAG_LEN, WRAP_LEN,
 };
 
 /// A device a message is sealed for: its id and its X25519 key, both as
-/// fetched (and checked with [`crate::verify_device`]) from the key
-/// directory.
+/// fetched from the key directory and checked with
+/// [`crate::DevicePublic::verify`] (which ties the id to the key). An id
+/// that isn't the device's own only makes its wrap unopenable.
 #[derive(Clone, Copy, Debug)]
 pub struct Recipient<'a> {
     /// The device's id ([`crate::device_id`]).
@@ -47,7 +64,8 @@ pub struct Wrap {
 pub struct Sealed {
     /// The body's nonce.
     pub n: [u8; NONCE_LEN],
-    /// The body, sealed under `mk` with the header as associated data.
+    /// The body: `SHA-256(C_COMMIT ‖ mk)` (32 bytes), then the body sealed
+    /// under `mk` with the header as associated data.
     pub ct: Vec<u8>,
     /// The message's ephemeral X25519 key.
     pub epk: [u8; KEY_LEN],
@@ -110,9 +128,11 @@ impl std::fmt::Debug for Opened {
 /// Seals `body` under the header `hdr` for every device in `recipients`,
 /// signed by `sender`.
 ///
-/// Draws 88 bytes from `rng`, in this order: `mk` (32), the body's nonce
-/// `n` (24), the ephemeral secret `e_seed` (32). Every other byte follows
-/// from them, so a seeded `rng` gives the same output every time.
+/// Draws 88 bytes from `rng` at once, hedges them with the sender's key and
+/// the message (see the module's notes) and splits the result into `mk`
+/// (32), the body's nonce `n` (24) and the ephemeral secret `e_seed` (32).
+/// Every other byte follows from them, so a seeded `rng` gives the same
+/// output every time.
 ///
 /// # Errors
 ///
@@ -126,22 +146,26 @@ pub fn seal(
     recipients: &[Recipient<'_>],
     rng: &mut dyn Entropy,
 ) -> Result<Sealed, Error> {
+    let drawn = hedged(sender, hdr, body, rng);
     let mut mk = Zeroizing::new([0u8; KEY_LEN]);
-    rng.fill(&mut mk[..]);
+    mk.copy_from_slice(&drawn[..KEY_LEN]);
     let mut n = [0u8; NONCE_LEN];
-    rng.fill(&mut n);
+    n.copy_from_slice(&drawn[KEY_LEN..KEY_LEN + NONCE_LEN]);
     let mut e_seed = Zeroizing::new([0u8; KEY_LEN]);
-    rng.fill(&mut e_seed[..]);
+    e_seed.copy_from_slice(&drawn[KEY_LEN + NONCE_LEN..]);
 
-    let ct = aead(&mk)
-        .encrypt(
-            &XNonce::from(n),
-            Payload {
-                msg: body,
-                aad: hdr,
-            },
-        )
-        .map_err(|_| Error::Length)?;
+    let mut ct = commitment(&mk).to_vec();
+    ct.extend(
+        aead(&mk)
+            .encrypt(
+                &XNonce::from(n),
+                Payload {
+                    msg: body,
+                    aad: hdr,
+                },
+            )
+            .map_err(|_| Error::Length)?,
+    );
     let e = StaticSecret::from(*e_seed);
     let epk = PublicKey::from(&e).to_bytes();
     let salt = Sha256::digest(hdr);
@@ -216,9 +240,7 @@ pub fn open(
     verify(sender_ik, envelope, &fields)?;
 
     let my_dk = me.dk();
-    let shared = me
-        .static_secret()
-        .diffie_hellman(&PublicKey::from(fields.epk));
+    let shared = me.agreement().diffie_hellman(&PublicKey::from(fields.epk));
     if !shared.was_contributory() {
         return Err(Error::NonContributory);
     }
@@ -228,7 +250,7 @@ pub fn open(
         shared.as_bytes(),
         &fields.epk,
         &my_dk,
-        &me.device_id(),
+        me.device_id(),
     );
     let unwrapped = Zeroizing::new(
         aead(&kek)
@@ -246,18 +268,11 @@ pub fn open(
         return Err(Error::Wrap);
     }
     mk.copy_from_slice(&unwrapped);
-
-    let body = Zeroizing::new(
-        aead(&mk)
-            .decrypt(
-                &XNonce::from(fields.n),
-                Payload {
-                    msg: envelope.ct,
-                    aad: envelope.hdr,
-                },
-            )
-            .map_err(|_| Error::Body)?,
-    );
+    // A key the signature's commitment doesn't name is not this message's.
+    if !committed(&mk, envelope.ct) {
+        return Err(Error::Wrap);
+    }
+    let body = decrypt_body(&mk, envelope, &fields).map_err(|_| Error::Body)?;
     Ok(Opened { body, mk })
 }
 
@@ -293,17 +308,10 @@ pub fn verify_report(
 ) -> Result<(), Error> {
     let fields = Fields::of(envelope)?;
     verify(sender_ik, envelope, &fields)?;
-    let plain = Zeroizing::new(
-        aead(mk)
-            .decrypt(
-                &XNonce::from(fields.n),
-                Payload {
-                    msg: envelope.ct,
-                    aad: envelope.hdr,
-                },
-            )
-            .map_err(|_| Error::Body)?,
-    );
+    if !committed(mk, envelope.ct) {
+        return Err(Error::Body);
+    }
+    let plain = decrypt_body(mk, envelope, &fields).map_err(|_| Error::Body)?;
     if plain.len() == body.len() && bool::from(plain.as_slice().ct_eq(body)) {
         Ok(())
     } else {
@@ -320,7 +328,7 @@ struct Fields {
 
 impl Fields {
     fn of(envelope: &Envelope<'_>) -> Result<Self, Error> {
-        if envelope.ct.len() < TAG_LEN {
+        if envelope.ct.len() < COMMIT_LEN + TAG_LEN {
             return Err(Error::Length);
         }
         Ok(Self {
@@ -384,7 +392,65 @@ fn wrap_key(
     (kek, nonce)
 }
 
-/// XChaCha20-Poly1305 under `key`; the cipher wipes its copy when dropped.
+/// XChaCha20-Poly1305 under `key`, built from a slice so no unwiped copy
+/// of the key is made on the way; the cipher wipes its own when dropped.
 pub(crate) fn aead(key: &[u8; KEY_LEN]) -> XChaCha20Poly1305 {
-    XChaCha20Poly1305::new(&(*key).into())
+    XChaCha20Poly1305::new_from_slice(key).expect("a 32-byte key")
 }
+
+/// The bytes at the front of `ct` that name its key: `SHA-256(C_COMMIT ‖ mk)`.
+const COMMIT_LEN: usize = 32;
+
+fn commitment(mk: &[u8; KEY_LEN]) -> [u8; COMMIT_LEN] {
+    Sha256::new()
+        .chain_update(C_COMMIT)
+        .chain_update(mk)
+        .finalize()
+        .into()
+}
+
+/// Whether `ct` commits to `mk`, compared in constant time.
+fn committed(mk: &[u8; KEY_LEN], ct: &[u8]) -> bool {
+    ct.len() >= COMMIT_LEN && bool::from(commitment(mk).ct_eq(&ct[..COMMIT_LEN]))
+}
+
+/// The body under `mk`: the AEAD after the commitment, `hdr` as its
+/// associated data.
+fn decrypt_body(
+    mk: &[u8; KEY_LEN],
+    envelope: &Envelope<'_>,
+    fields: &Fields,
+) -> Result<Zeroizing<Vec<u8>>, chacha20poly1305::Error> {
+    aead(mk)
+        .decrypt(
+            &XNonce::from(fields.n),
+            Payload {
+                msg: &envelope.ct[COMMIT_LEN..],
+                aad: envelope.hdr,
+            },
+        )
+        .map(Zeroizing::new)
+}
+
+/// `mk ‖ n ‖ e_seed`: 88 bytes drawn from `rng`, hedged with the sender's
+/// identity seed and the message (the module's notes).
+fn hedged(
+    sender: &DeviceSecrets,
+    hdr: &[u8],
+    body: &[u8],
+    rng: &mut dyn Entropy,
+) -> Zeroizing<[u8; DRAWN]> {
+    let mut drawn = Zeroizing::new([0u8; DRAWN]);
+    rng.fill(&mut drawn[..]);
+    let mut out = Zeroizing::new([0u8; DRAWN]);
+    Hkdf::<Sha256>::new(Some(&drawn[..]), sender.ik_seed())
+        .expand_multi_info(
+            &[C_HEDGE, &Sha256::digest(hdr), &Sha256::digest(body)],
+            &mut out[..],
+        )
+        .expect("88 bytes is far under HKDF-SHA256's limit of 8160");
+    out
+}
+
+/// What a message draws: `mk` (32), `n` (24) and `e_seed` (32).
+const DRAWN: usize = KEY_LEN + NONCE_LEN + KEY_LEN;

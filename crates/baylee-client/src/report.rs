@@ -487,6 +487,7 @@ fn references(
                     seat.player.clone().map(|name| bugreport::PlayerRef {
                         name,
                         seat: u8::try_from(seat.seat).ok(),
+                        tag: None,
                     })
                 })
                 .collect()

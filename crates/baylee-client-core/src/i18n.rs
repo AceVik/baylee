@@ -45,17 +45,20 @@ pub use lang::Lang;
 pub use names::{ai_name, own_seat_name, seat_name};
 pub use refusal::Refusal;
 
-/// Defines [`Phrase`] with one arm per language, so a missing translation is
-/// a compilation error rather than a fallback.
+/// Defines a phrase enum (the name it is given: [`Phrase`] here, the chat's
+/// `ChatPhrase` in `social::words`) with one arm per language, so a missing
+/// translation is a compilation error rather than a fallback. Its own list
+/// keeps the chat's words out of [`Phrase`]'s one long list, which every
+/// lane edits.
 macro_rules! messages {
-    ($($(#[$doc:meta])* $key:ident { en: $en:literal, de: $de:literal $(,)? }),* $(,)?) => {
-        /// One thing the interface says.
+    ($(#[$enum_doc:meta])* $name:ident; $($(#[$doc:meta])* $key:ident { en: $en:literal, de: $de:literal $(,)? }),* $(,)?) => {
+        $(#[$enum_doc])*
         #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-        pub enum Phrase {
+        pub enum $name {
             $($(#[$doc])* $key,)*
         }
 
-        impl Phrase {
+        impl $name {
             /// Every phrase, for the tests that hold this file honest.
             pub const ALL: &'static [Self] = &[$(Self::$key,)*];
 
@@ -72,8 +75,11 @@ macro_rules! messages {
         }
     };
 }
+pub(crate) use messages;
 
 messages! {
+    /// One thing the interface says.
+    Phrase;
     /// Army selected without targeting for amass.
     NounArmyToAmass { en: "Army to amass", de: "Armee zum Aufmarschieren" },
     /// Plural label for the amass choice.
