@@ -10268,11 +10268,32 @@ chosen").
   choice accepts and has not taken yet wears `glow::CHOOSABLE`, a pale
   breathing ring of light on the felt (`floor_light`), chosen over every
   other offer but the armed one (`table::placement::choosable`). The report
-  asked for the others darkened: darkening a print tints a Scryfall image,
-  which the image terms rule out (`docs/legal.md` §"Nothing we paint lies on
-  a card image"), so the legal ones are lit instead and the rest stay as
-  they are. A press on one the choice will not take answers nothing, as it
-  did (`activate_card` falls through to `Answer::Refused`).
+  asked for the others darkened, which was first refused as tinting a
+  Scryfall image; the owner has since ruled that the image rule is about
+  lasting alteration (13.10.2026, `docs/legal.md` §3), so the others are
+  now dimmed too, for as long as the question is open ("A passing state lies
+  on the print", below). A press on one the choice will not take answers
+  nothing, as it did (`activate_card` falls through to `Answer::Refused`).
+- **A passing state lies on the print (the owner, 13.10.2026).** A state
+  that comes and goes with the game is one term in each card shader after
+  the finish (`card_common.wgsl`'s `veiled`), weighed by the card's
+  `CardParams::veil` and zero on every other card, which then draws exactly
+  as before; the guard `cardmat::nothing_but_the_finish_is_drawn_on_the_print`
+  allows that term and nothing else. Its bits (`cardmat::veil`): **dimmed**
+  (`DIM`), a permanent this seat's own question leaves out
+  (`Interaction::leaves_out`: not a legal choice and not chosen; in combat
+  neither a creature the declaration may take nor what it is declared
+  against, and in a block every creature that may block some attacker, so
+  nothing darkens and lights again as the aim walks), keeping 0.38 of its
+  light and losing a third of its colour. Only the asking seat's table dims,
+  only permanents (the hand has its own halo), not for a choice whose
+  options are left implicit or an ordering. It comes on over
+  `veil::DIM_FADE` (0.18 s) and goes at once when the question is answered.
+  The state rides in the material key (`CardLook::veil`), on its way as a
+  transient look like a sweep (`VeilTrack`, per card in
+  `SceneIndex::veils`, the clock `globals.time` is written from), then
+  settled, the one look every card in that state shares; a still table
+  (`reduce_motion`) cuts. `PHASED` and `ASLEEP` are the next two.
 - **The name and type choosers' box looks like a search box (report 16):**
   a magnifier, the words typed or "type to search…" in the quieter ink, a
   caret, at least 280 wide (`drawer::filter_field`).

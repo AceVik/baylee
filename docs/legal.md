@@ -261,6 +261,22 @@ Urheber- und Medienrecht.
    off. `cardmat::nothing_but_the_finish_is_drawn_on_the_print` holds both
    card shaders to that; `docs/client.md` §"The print fills the card" has
    the rest.
+
+   **Owner decision (13.10.2026): the rule is about lasting alteration.**
+   Scryfall's "not tinted or stamped" forbids changing the image for good;
+   the owner reads it so, and a *passing* visual state may lie on the print
+   for as long as it lasts ("gilt nur für permanent, für vorübergehend ist
+   es voll okay"). Three states do, each ending with the game state that
+   causes it and leaving the print exactly as it was: a card the question
+   this seat is answering will not take is **dimmed** until it is answered;
+   a **phased-out** permanent is drawn grey and faded until it phases in
+   (CR 702.26b); a creature under **summoning sickness** wears a cool
+   moonlit edge until it may attack (CR 302.6). They are one term in each
+   card shader, weighed by the card's own `veil` and zero on every other
+   card (`cardmat::veil`, `card_common.wgsl`'s `veiled`); the guard test
+   above allows that one term and no other, so a lasting stamp, a keyword
+   for instance, is still refused there. A keyword lasts as long as the
+   keyword, so its border stays off the print (the shell's mask, above).
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking. As a private, GitHub-hosted open-source project

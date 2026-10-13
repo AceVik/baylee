@@ -244,6 +244,9 @@ pub struct SceneIndex {
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     pub(super) face_materials: HashMap<CardLook, Handle<CardMaterial>>,
+    /// Each drawn permanent's passing states over time
+    /// ([`crate::cardmat::VeilTrack`]), so a change fades rather than jumps.
+    pub(super) veils: HashMap<ObjectId, crate::cardmat::VeilTrack>,
     /// Whether the two caches above were filled to hold still.
     ///
     /// The same trick as [`UiCardMaterials`](crate::cardmat::UiCardMaterials):

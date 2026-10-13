@@ -132,6 +132,9 @@ pub(super) struct Placement {
     /// `CardGroup::summoning_sick`): the wave over it, and the plate's
     /// moon-grey ink.
     pub(super) sick: bool,
+    /// The passing states it is drawn in ([`crate::cardmat::veil`]): dimmed
+    /// while this seat's question leaves it out, phased out. Zero for a pile.
+    pub(super) veil: u32,
     /// The identity crests at the strip's end ([`cardcrest::marks`]).
     pub(super) crests: [Option<usize>; cardcrest::MAX_CRESTS],
     /// Whether the card laid after this one in its row covers its lower
@@ -299,6 +302,7 @@ fn tuck(
             fan: None,
             marks: 0,
             sick: false,
+            veil: veil_of(duel, card),
             crests: [None; cardcrest::MAX_CRESTS],
             covered: true,
             // No plate: a tucked card says nothing of its own.
@@ -387,6 +391,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                     lift,
                     marks: cardrail::badge_bits(&group.badges),
                     sick: shells.wave,
+                    veil: veil_of(duel, group),
                     crests: cardcrest::marks(group.provenance, group.commander),
                     // The last card shown has nothing laid over it, and
                     // nothing lies over a merged card's cell.
@@ -508,6 +513,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                         fan: Some((pose, pile.kind)),
                         marks: 0,
                         sick: false,
+                        veil: 0,
                         crests: [None; cardcrest::MAX_CRESTS],
                         covered: false,
                         room: cardplate::PlateRoom::OPEN,
@@ -551,6 +557,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                 fan: None,
                 marks: 0,
                 sick: false,
+                veil: 0,
                 crests: [None; cardcrest::MAX_CRESTS],
                 covered: false,
                 room: cardplate::PlateRoom::OPEN,
@@ -591,6 +598,23 @@ pub(crate) fn choosable(duel: &Duel, members: &[ObjectId]) -> bool {
             && members.iter().any(|id| i.is_selectable(*id))
             && !members.iter().any(|id| i.is_selected(*id))
     })
+}
+
+/// The passing states a permanent standing for `group` is drawn in
+/// ([`crate::cardmat::veil`]): phased out (CR 702.26b), or else dimmed while
+/// the question this seat is answering leaves every one of its members out
+/// ([`Interaction::leaves_out`](baylee_client_core::interaction::Interaction::leaves_out)).
+/// A phased-out card is no choice and already says so; dimming it as well
+/// would only darken it further.
+pub(crate) fn veil_of(duel: &Duel, group: &baylee_client_core::board::CardGroup) -> u32 {
+    use crate::cardmat::veil;
+    if group.status.is_phased_out() {
+        return veil::PHASED;
+    }
+    let left_out = duel.interaction.as_ref().is_some_and(|i| {
+        !group.members.is_empty() && group.members.iter().all(|id| i.leaves_out(*id))
+    });
+    if left_out { veil::DIM } else { 0 }
 }
 
 /// The offer drawn on a card lying in a pile, or lifted out of one by a

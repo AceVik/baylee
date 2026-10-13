@@ -64,6 +64,76 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
 // is what that printing *is*; and light that passes over the whole card and
 // leaves nothing behind — the lamp, the arrival sweep, a door.
 
+// ---- a passing state (the owner, 13.10.2026)
+//
+// Scryfall's "not tinted" is about altering the image for good. A state that
+// comes and goes with the game may lie on the print while it lasts: a card
+// the open question will not take is dimmed until the question is answered,
+// a phased-out permanent is grey and faded until it phases in (CR 702.26b),
+// and a creature under summoning sickness wears a cool moonlit edge until it
+// may attack (CR 302.6). Each is a bit of `params.veil` (`cardmat::veil`),
+// all of them zero for every other card, which then draws exactly as before.
+
+/// The states, as bits: `cardmat::veil` numbers them the same.
+const VEIL_DIM: u32 = 1u;
+const VEIL_PHASED: u32 = 2u;
+const VEIL_ASLEEP: u32 = 4u;
+/// What a dimmed card keeps of its light, and how much of its colour goes.
+const DIM_KEEP: f32 = 0.38;
+const DIM_GREY: f32 = 0.35;
+/// What a phased-out card fades towards, the blue hour on the felt, and how
+/// far; and the pale band that drifts slowly down it, as through a card half
+/// in this world.
+const PHASED_TONE: vec3<f32> = vec3<f32>(0.075, 0.085, 0.115);
+const PHASED_FADE: f32 = 0.5;
+const PHASED_DRIFT: f32 = 0.06;
+/// Summoning sickness's moonlight (`shell_common.wgsl`'s `MOONLIGHT`): how
+/// far in from the edge it reaches, in card widths, how bright it is at its
+/// dimmest and how much it swells, once every `ASLEEP_PERIOD` seconds, and
+/// how much it cools the whole print.
+const ASLEEP_LIGHT: vec3<f32> = vec3<f32>(0.55, 0.63, 0.92);
+const ASLEEP_REACH: f32 = 0.11;
+const ASLEEP_LOW: f32 = 0.22;
+const ASLEEP_SWELL: f32 = 0.30;
+const ASLEEP_PERIOD: f32 = 3.6;
+const ASLEEP_COOL: vec3<f32> = vec3<f32>(0.82, 0.88, 1.0);
+
+/// Whether each state is in `bits`, as 0 or 1: dimmed, phased out, asleep.
+fn veil_bits(bits: u32) -> vec3<f32> {
+    let each = vec3<u32>(bits) & vec3<u32>(VEIL_DIM, VEIL_PHASED, VEIL_ASLEEP);
+    return select(vec3<f32>(0.0), vec3<f32>(1.0), each != vec3<u32>(0u));
+}
+
+/// How much of each state is on: `code` holds the states it is going to in
+/// its low byte and the ones it comes from in the next, `at` when it set out
+/// (on `globals.time`'s clock, `now`) and `rate` one over how long it takes,
+/// or zero for states that have arrived.
+fn veil_amounts(code: u32, at: f32, rate: f32, now: f32) -> vec3<f32> {
+    let p = select(1.0, smoothstep(0.0, 1.0, clamp((now - at) * rate, 0.0, 1.0)), rate > 0.0);
+    return mix(veil_bits(code >> 8u), veil_bits(code), p);
+}
+
+/// The print under its passing states. `amounts` is [`veil_amounts`]'s, `t`
+/// the card's clock (stopped for reduce-motion, where the moonlight holds at
+/// its mean and the drift where it stands).
+fn veiled(color: vec4<f32>, uv: vec2<f32>, amounts: vec3<f32>, t: f32) -> vec4<f32> {
+    var rgb = color.rgb;
+    // Asleep: the print a little cooler, and moonlight breathing in from its
+    // edge.
+    let inner = 1.0 - smoothstep(0.0, ASLEEP_REACH, -corner_sdf(uv));
+    let swell = ASLEEP_LOW + ASLEEP_SWELL * (0.5 + 0.5 * sin(t * 6.2831853 / ASLEEP_PERIOD));
+    rgb = mix(rgb, rgb * ASLEEP_COOL + ASLEEP_LIGHT * inner * inner * swell, amounts.z);
+    // Phased out: its colour gone, faded towards the felt, a pale band
+    // drifting down it.
+    let luma = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let drift = PHASED_DRIFT * (0.5 + 0.5 * sin((uv.y * 3.0 - t * 0.35) * 6.2831853));
+    rgb = mix(rgb, mix(vec3<f32>(luma), PHASED_TONE, PHASED_FADE) + vec3<f32>(drift), amounts.y);
+    // Dimmed: most of its light gone, and some of its colour.
+    let grey = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    rgb = mix(rgb, mix(rgb, vec3<f32>(grey), DIM_GREY) * DIM_KEEP, amounts.x);
+    return vec4<f32>(rgb, color.a);
+}
+
 // ---- the text face (#259)
 //
 // What stands in the window for a card with no print: a token, a printing
