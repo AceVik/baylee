@@ -116,3 +116,63 @@ fn channeler_delirium_requires_four_types_and_forces_an_attack() {
         }
     }
 }
+
+/// "Whenever you cast a **noncreature** spell, surveil 1." A creature spell
+/// goes through the stack without a surveil: no `Arrange`, the library and
+/// graveyard exactly as they were. A noncreature spell cast afterwards, off
+/// the mana left floating, is the control on the same board.
+#[test]
+fn channeler_does_not_surveil_when_a_creature_spell_is_cast() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[dragon_s_rage_channeler(), forest(), plains(), plains()],
+        )
+        .hand(0, &[llanowar_elves(), lightning_greaves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let library = e.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let graveyard = e.state().zones.list(ZoneLocation::Graveyard(p0)).clone();
+
+    cast_from_hand(&mut e, p0, llanowar_elves());
+    for _ in 0..20 {
+        if stack_is_empty(&e) {
+            break;
+        }
+        match e.pending().clone() {
+            Pending::Priority { player, .. } => {
+                e.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("a creature spell asks nothing while it resolves, got {other:?}"),
+        }
+    }
+    assert!(stack_is_empty(&e), "the Elves spell resolved");
+    assert!(
+        on_battlefield(&e, p0, llanowar_elves()).is_some(),
+        "the creature spell resolved onto the battlefield"
+    );
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Library(p0)),
+        &library,
+        "no surveil: the library is untouched"
+    );
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Graveyard(p0)),
+        &graveyard,
+        "and nothing went to the graveyard"
+    );
+
+    cast_with_floating(&mut e, p0, lightning_greaves());
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    let Pending::Arrange { player, prompt, .. } = e.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        crate::choice::ArrangePrompt::Surveil,
+        "control: the noncreature spell surveils"
+    );
+}
