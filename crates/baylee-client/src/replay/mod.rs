@@ -40,6 +40,8 @@ pub mod local {
 }
 mod rewind;
 #[cfg(test)]
+mod status_tests;
+#[cfg(test)]
 mod tests;
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -687,3 +687,453 @@ fn days_are_the_local_days() {
     assert_eq!(day_of(86_399_999, 0), 0);
     assert_eq!(day_of(86_400_000, 0), 1);
 }
+
+// ------------------------------------------------ keeping, hiding, sharing
+
+/// The source of the hosted game `id` on the gateway `gw`.
+fn hosted_source(id: &str) -> EntrySource {
+    EntrySource::Hosted {
+        gateway: "gw".into(),
+        game: id.into(),
+    }
+}
+
+/// What a library shows under `source`, as ids.
+fn shown_ids(library: &Library, source: SourceFilter) -> Vec<String> {
+    let filters = Filters {
+        source,
+        ..Filters::default()
+    };
+    library
+        .shown(&filters, &|_| None)
+        .map(|e| match &e.source {
+            EntrySource::Hosted { game, .. } => game.clone(),
+            EntrySource::Local { file } => file.clone(),
+        })
+        .collect()
+}
+
+/// The new wire fields read, and what the gateway leaves out reads as the
+/// default (§18.1, §18.2): not archived, no consent said, not mine.
+#[test]
+fn the_archive_and_consent_fields_read_and_default() {
+    let game: HostedGame = serde_json::from_str(
+        r#"{"game":"g","started_at":"2026-10-13T18:31:02Z","complete":true,"seat":0,
+            "result":"won","public":true,"check":"exact","archived":true,
+            "seats":[{"seat":0,"who":"you","name":"A","shared":false,"mine":true},
+                     {"seat":1,"who":"player","name":"B","shared":true},
+                     {"seat":2,"who":"house","name":"House AI"}]}"#,
+    )
+    .expect("a game");
+    assert!(game.archived);
+    assert_eq!(game.seats[0].shared, Some(false));
+    assert!(game.seats[0].mine);
+    assert_eq!(game.seats[1].shared, Some(true));
+    assert!(!game.seats[1].mine);
+    assert_eq!(game.seats[2].shared, None);
+
+    let plain: HostedGame = serde_json::from_str(
+        r#"{"game":"g","started_at":"2026-10-13T18:31:02Z","complete":true,"seat":0,
+            "result":"won","public":true,"check":"exact",
+            "seats":[{"seat":0,"who":"you","name":"A"}]}"#,
+    )
+    .expect("a game");
+    assert!(!plain.archived);
+    assert_eq!(plain.seats[0].shared, None);
+    assert!(!plain.seats[0].mine);
+}
+
+/// A consent not said is not written; one said is, `false` included, and
+/// the whole round-trips.
+#[test]
+fn a_seats_consent_round_trips_and_an_unsaid_one_is_not_written() {
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    hosted.seats[1].shared = Some(false);
+    hosted.archived = true;
+    let value = serde_json::to_value(&hosted).expect("writes");
+    assert_eq!(value["archived"], true);
+    assert_eq!(value["seats"][1]["shared"], false);
+    assert!(
+        value["seats"][0].get("shared").is_none(),
+        "an unsaid consent was written: {value}"
+    );
+    let back: HostedGame = serde_json::from_value(value).expect("reads");
+    assert_eq!(back, hosted);
+}
+
+/// The viewer's own consent is the entry's `sharing`: as the viewer's seat
+/// said it, ticked where it did not say, and none where the viewer sat at
+/// no seat of the list's.
+#[test]
+fn a_hosted_entrys_sharing_is_the_viewers_seats_consent() {
+    let with = |shared: Option<bool>| {
+        let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+        hosted.seats[1].shared = shared;
+        // Another player's consent never answers for the viewer's.
+        hosted.seats[0].shared = Some(!shared.unwrap_or(true));
+        Entry::hosted("gw", &hosted).sharing
+    };
+    assert_eq!(with(Some(true)), Some(true));
+    assert_eq!(with(Some(false)), Some(false));
+    assert_eq!(with(None), Some(true), "absent reads as ticked");
+
+    // The seat is found by `mine` as well as by `who`.
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    hosted.seats[1].who = Who::Player;
+    hosted.seats[1].mine = true;
+    hosted.seats[1].shared = Some(false);
+    assert_eq!(Entry::hosted("gw", &hosted).sharing, Some(false));
+
+    // No seat is the viewer's: there is no consent to show.
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    hosted.seats[1] = seat(1, Who::Player, "Alice#af03", None);
+    assert_eq!(Entry::hosted("gw", &hosted).sharing, None);
+}
+
+/// Every player row says whether its hand is shared: the house and a model
+/// always, a person as they said (ticked where unsaid).
+#[test]
+fn a_players_hand_is_shared_as_they_said_and_always_for_the_house_and_a_model() {
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    hosted.seats = vec![
+        seat(0, Who::Player, "Bob#0012", None),
+        seat(1, Who::You, "Alice#af03", Some("G")),
+        seat(2, Who::House, "House AI", None),
+        seat(3, Who::Model, "Language model", None),
+        seat(4, Who::Player, "Cy#0003", None),
+        seat(5, Who::Former, "Former player", None),
+    ];
+    hosted.seats[0].shared = Some(false);
+    hosted.seats[2].shared = Some(false);
+    hosted.seats[3].shared = Some(false);
+    hosted.seats[4].shared = Some(true);
+    hosted.seats[5].shared = Some(false);
+    let entry = Entry::hosted("gw", &hosted);
+    let shared = |s: u8| {
+        entry
+            .players
+            .iter()
+            .find(|p| p.seat == s)
+            .expect("a player")
+            .shared
+    };
+    assert!(!shared(0), "a player who unticked");
+    assert!(shared(1), "unsaid reads as ticked");
+    assert!(shared(2), "the house always");
+    assert!(shared(3), "a model always");
+    assert!(shared(4), "a player who said yes");
+    assert!(!shared(5), "a former player's consent stays");
+
+    // Unsaid for a person reads as ticked.
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    hosted.seats[0].shared = None;
+    let entry = Entry::hosted("gw", &hosted);
+    assert!(entry.players.iter().find(|p| p.seat == 0).unwrap().shared);
+}
+
+/// A hosted entry carries the wire's `archived`, offers every hand whatever
+/// the table's `public` says, and is not a local one.
+#[test]
+fn a_hosted_entry_carries_archived_and_offers_all_hands() {
+    let mut hosted = game("g1", "2026-10-13T18:31:02Z");
+    assert!(!Entry::hosted("gw", &hosted).archived);
+    hosted.archived = true;
+    hosted.public = false;
+    let entry = Entry::hosted("gw", &hosted);
+    assert!(entry.archived);
+    assert!(entry.can.all_hands);
+    assert!(entry.can.seat);
+    assert!(!entry.can.public);
+}
+
+/// A kept record has no consent (it never leaves this computer), is not
+/// archived, and offers all three.
+#[test]
+fn a_records_entry_has_no_sharing_and_is_not_archived() {
+    let entry = Entry::of_record("a.gz", &summary(), "this", "Me");
+    assert_eq!(entry.sharing, None);
+    assert!(!entry.archived);
+    assert!(entry.can.seat && entry.can.public && entry.can.all_hands);
+}
+
+/// Only a hosted game is hidden from the list; a kept record is deleted.
+#[test]
+fn only_a_hosted_entry_is_hideable() {
+    let hosted = Entry::hosted("gw", &game("g1", "2026-10-13T18:31:02Z"));
+    let kept = Entry::of_record("a.gz", &summary(), "this", "Me");
+    assert!(hosted.hideable());
+    assert!(!kept.hideable());
+    // The two answers never overlap.
+    assert_ne!(hosted.hideable(), hosted.deletable(None));
+    assert_ne!(kept.hideable(), kept.deletable(None));
+}
+
+/// The first online page replaces the online games but keeps the local
+/// records and the archived ones, whichever side they are on.
+#[test]
+fn the_first_page_keeps_local_and_archived_entries() {
+    let mut library = Library::default();
+    library.set_local(vec![local("l.gz", 1)]);
+    library.add_page(
+        "gw",
+        0,
+        &page(
+            &[("a", "2026-10-13T10:00:00Z"), ("b", "2026-10-12T10:00:00Z")],
+            2,
+        ),
+    );
+    library.add_archived_page("gw", 0, &page(&[("old", "2026-10-01T10:00:00Z")], 1));
+    // A local record archived by hand stays too.
+    library.set_archived(
+        &EntrySource::Local {
+            file: "l.gz".into(),
+        },
+        true,
+    );
+
+    library.add_page("gw", 0, &page(&[("z", "2026-10-14T10:00:00Z")], 1));
+    assert_eq!(hosted_ids(&library), ["z", "old"]);
+    assert_eq!(local_ids(&library), ["l.gz"]);
+    assert!(library.entries().iter().any(|e| e.archived && e.is_local()));
+    assert_eq!((library.online_held, library.online_total), (1, 1));
+    assert!(!library.more_online());
+
+    // And a later page counts only what it adds, the archived ones not
+    // among the held.
+    library.add_page("gw", 1, &page(&[("y", "2026-10-13T10:00:00Z")], 3));
+    assert_eq!(library.online_held, 2);
+    assert!(library.more_online());
+}
+
+/// The archived list is its own: every game it adds is archived whatever
+/// the wire said, offset 0 replaces the archived online games only, later
+/// pages add without repeating, and the online counts are the other list's.
+#[test]
+fn an_archived_page_adds_archived_entries_and_leaves_the_online_counts_alone() {
+    let mut library = Library::default();
+    library.set_local(vec![local("l.gz", 1)]);
+    library.add_page("gw", 0, &page(&[("a", "2026-10-13T10:00:00Z")], 4));
+    let counts = (library.online_held, library.online_total);
+
+    // The wire says `archived: false`; the list it came from says it is.
+    library.add_archived_page(
+        "gw",
+        0,
+        &page(
+            &[("x", "2026-10-11T10:00:00Z"), ("y", "2026-10-10T10:00:00Z")],
+            3,
+        ),
+    );
+    assert_eq!(hosted_ids(&library), ["a", "x", "y"]);
+    for entry in library.entries() {
+        let EntrySource::Hosted { game, .. } = &entry.source else {
+            assert!(!entry.archived, "a local record became archived");
+            continue;
+        };
+        assert_eq!(entry.archived, game != "a", "{game}");
+    }
+    assert_eq!((library.online_held, library.online_total), counts);
+
+    // The next page repeats one game and adds one.
+    library.add_archived_page(
+        "gw",
+        2,
+        &page(
+            &[("y", "2026-10-10T10:00:00Z"), ("w", "2026-10-09T10:00:00Z")],
+            3,
+        ),
+    );
+    assert_eq!(hosted_ids(&library), ["a", "x", "y", "w"]);
+
+    // A first page again forgets the archived online ones, nothing else.
+    library.add_archived_page("gw", 0, &page(&[("v", "2026-10-08T10:00:00Z")], 1));
+    assert_eq!(hosted_ids(&library), ["a", "v"]);
+    assert_eq!(local_ids(&library), ["l.gz"]);
+    assert_eq!((library.online_held, library.online_total), counts);
+}
+
+/// An archived page is mixed in newest first, like any.
+#[test]
+fn an_archived_page_is_sorted_newest_first() {
+    let mut library = Library::default();
+    library.add_page("gw", 0, &page(&[("mid", "2026-10-12T10:00:00Z")], 1));
+    library.add_archived_page(
+        "gw",
+        0,
+        &page(
+            &[
+                ("old", "2026-10-01T10:00:00Z"),
+                ("new", "2026-10-13T10:00:00Z"),
+            ],
+            2,
+        ),
+    );
+    assert_eq!(hosted_ids(&library), ["new", "mid", "old"]);
+}
+
+/// Archiving moves an entry out of every list but Archived, and bringing it
+/// back moves it home; an unknown source changes nothing.
+#[test]
+fn archiving_moves_an_entry_between_the_lists() {
+    let mut library = Library::default();
+    library.set_local(vec![local("l.gz", 1)]);
+    library.add_page(
+        "gw",
+        0,
+        &page(
+            &[("a", "2026-10-13T10:00:00Z"), ("b", "2026-10-12T10:00:00Z")],
+            2,
+        ),
+    );
+    assert_eq!(shown_ids(&library, SourceFilter::All), ["a", "b", "l.gz"]);
+    assert!(shown_ids(&library, SourceFilter::Archived).is_empty());
+
+    library.set_archived(&hosted_source("a"), true);
+    library.set_archived(
+        &EntrySource::Local {
+            file: "l.gz".into(),
+        },
+        true,
+    );
+    assert_eq!(shown_ids(&library, SourceFilter::All), ["b"]);
+    assert_eq!(shown_ids(&library, SourceFilter::Online), ["b"]);
+    assert!(shown_ids(&library, SourceFilter::House).is_empty());
+    assert_eq!(shown_ids(&library, SourceFilter::Archived), ["a", "l.gz"]);
+    // Archiving removes nothing.
+    assert_eq!(library.entries().len(), 3);
+
+    let before = library.clone();
+    library.set_archived(&hosted_source("nobody"), true);
+    library.set_archived(
+        &EntrySource::Hosted {
+            gateway: "other".into(),
+            game: "b".into(),
+        },
+        true,
+    );
+    assert_eq!(library, before, "another gateway's game is another entry");
+
+    library.set_archived(&hosted_source("a"), false);
+    assert_eq!(shown_ids(&library, SourceFilter::All), ["a", "b"]);
+    assert_eq!(shown_ids(&library, SourceFilter::Archived), ["l.gz"]);
+}
+
+/// Archived is its own filter: it shows only archived entries, from both
+/// sources, and every other source hides them; result and query still
+/// apply on top.
+#[test]
+fn the_archived_filter_shows_only_archived_entries() {
+    let mut library = Library::default();
+    let mut lost = game("lost", "2026-10-12T10:00:00Z");
+    lost.result = HostedResult::Lost;
+    lost.seats[0].name = "Zed#0001".into();
+    library.add_page(
+        "gw",
+        0,
+        &ReplayPage {
+            games: vec![game("won", "2026-10-13T10:00:00Z"), lost],
+            total: 2,
+        },
+    );
+    library.set_local(vec![local("l.gz", 5)]);
+    library.set_archived(&hosted_source("won"), true);
+    library.set_archived(&hosted_source("lost"), true);
+
+    let by = |source, result, query: &str| Filters {
+        source,
+        result,
+        query: query.into(),
+    };
+    let shown = |filters: &Filters| -> Vec<String> {
+        library
+            .shown(filters, &|_| None)
+            .map(|e| match &e.source {
+                EntrySource::Hosted { game, .. } => game.clone(),
+                EntrySource::Local { file } => file.clone(),
+            })
+            .collect()
+    };
+    assert_eq!(shown(&Filters::default()), ["l.gz"]);
+    assert_eq!(
+        shown(&by(SourceFilter::Archived, ResultFilter::Any, "")),
+        ["won", "lost"]
+    );
+    assert_eq!(
+        shown(&by(
+            SourceFilter::Archived,
+            ResultFilter::Only(Outcome::Lost),
+            ""
+        )),
+        ["lost"]
+    );
+    assert_eq!(
+        shown(&by(SourceFilter::Archived, ResultFilter::Any, "zed")),
+        ["lost"]
+    );
+    assert!(shown(&by(SourceFilter::Online, ResultFilter::Any, "")).is_empty());
+    assert_eq!(
+        shown(&by(SourceFilter::House, ResultFilter::Any, "")),
+        ["l.gz"]
+    );
+    // Nothing archived at all: nothing shown.
+    library.set_archived(&hosted_source("won"), false);
+    library.set_archived(&hosted_source("lost"), false);
+    assert!(shown_ids(&library, SourceFilter::Archived).is_empty());
+}
+
+/// The viewer's consent is written into the one hosted entry; a kept record
+/// has none to write, and the other entries keep theirs.
+#[test]
+fn set_sharing_writes_the_consent_of_one_hosted_entry() {
+    let mut library = Library::default();
+    library.set_local(vec![local("l.gz", 1)]);
+    library.add_page(
+        "gw",
+        0,
+        &page(
+            &[("a", "2026-10-13T10:00:00Z"), ("b", "2026-10-12T10:00:00Z")],
+            2,
+        ),
+    );
+    let sharing = |library: &Library, source: &EntrySource| {
+        library
+            .entries()
+            .iter()
+            .find(|e| &e.source == source)
+            .map(|e| e.sharing)
+    };
+    assert_eq!(sharing(&library, &hosted_source("a")), Some(Some(true)));
+
+    library.set_sharing(&hosted_source("a"), false);
+    assert_eq!(sharing(&library, &hosted_source("a")), Some(Some(false)));
+    assert_eq!(sharing(&library, &hosted_source("b")), Some(Some(true)));
+
+    library.set_sharing(&hosted_source("a"), true);
+    assert_eq!(sharing(&library, &hosted_source("a")), Some(Some(true)));
+
+    // A kept record has no consent: asking for one gives it none.
+    let record = EntrySource::Local {
+        file: "l.gz".into(),
+    };
+    library.set_sharing(&record, true);
+    assert_eq!(sharing(&library, &record), Some(None));
+
+    // An unknown game changes nothing.
+    let before = library.clone();
+    library.set_sharing(&hosted_source("nobody"), false);
+    assert_eq!(library, before);
+}
+
+/// Setting a consent does not archive, nor move, an entry.
+#[test]
+fn consent_and_archive_are_independent() {
+    let mut library = Library::default();
+    library.add_page("gw", 0, &page(&[("a", "2026-10-13T10:00:00Z")], 1));
+    library.set_archived(&hosted_source("a"), true);
+    library.set_sharing(&hosted_source("a"), false);
+    let entry = &library.entries()[0];
+    assert!(entry.archived);
+    assert_eq!(entry.sharing, Some(false));
+    library.set_archived(&hosted_source("a"), false);
+    assert_eq!(library.entries()[0].sharing, Some(false));
+}

@@ -786,3 +786,311 @@ fn the_end_of_a_replay_offers_watch_again_watch_from_and_the_way_back() {
         [EndPress::WatchAgain, EndPress::WatchFrom, EndPress::Leave]
     );
 }
+
+// ------------------------------------------------ the consent over the ways
+
+/// What a ticked box draws in its square (a tick), and what an unticked
+/// one does (nothing: an empty square).
+const TICKED: &str = "\u{f00c}";
+const UNTICKED: &str = "";
+
+/// A hosted game's handover.
+fn hosted(game: &str) -> SeatHandover {
+    SeatHandover {
+        game_id: game.to_string(),
+        seat: 0,
+        seat_token: "st".to_string(),
+        local: false,
+    }
+}
+
+/// The end sheet as the duel leaves it: a sheet holding the row of ways,
+/// finished. The consent is hung in the sheet, so the row needs one.
+fn finished_sheet(app: &mut App) -> (Entity, Entity) {
+    let sheet = app.world_mut().spawn_empty().id();
+    let row = app
+        .world_mut()
+        .spawn((crate::hud::FinishExits, ChildOf(sheet)))
+        .id();
+    phase(app, DuelPhase::Finished);
+    app.update();
+    (sheet, row)
+}
+
+/// The consent boxes standing.
+fn consents(app: &mut App) -> Vec<Entity> {
+    let mut query = app.world_mut().query::<(Entity, &Press)>();
+    query
+        .iter(app.world())
+        .filter(|(_, p)| **p == Press::End(EndPress::Share))
+        .map(|(e, _)| e)
+        .collect()
+}
+
+/// What the box of a consent draws: the text in its square, empty where
+/// the square is empty. The square is the consent's first child, its words
+/// the second.
+fn box_of(app: &App, consent: Entity) -> String {
+    let first = app
+        .world()
+        .entity(consent)
+        .get::<Children>()
+        .and_then(|c| c.iter().next())
+        .expect("the consent has a box");
+    app.world()
+        .entity(first)
+        .get::<Children>()
+        .into_iter()
+        .flat_map(bevy::ecs::relationship::RelationshipTarget::iter)
+        .filter_map(|e| app.world().entity(e).get::<Text>().map(|t| t.0.clone()))
+        .collect()
+}
+
+fn children_of(app: &App, parent: Entity) -> Vec<Entity> {
+    app.world()
+        .entity(parent)
+        .get::<Children>()
+        .map(|c| c.iter().collect())
+        .unwrap_or_default()
+}
+
+/// The ways in the row, in order.
+fn row_ways(app: &App, row: Entity) -> Vec<EndPress> {
+    children_of(app, row)
+        .into_iter()
+        .filter_map(|e| match app.world().entity(e).get::<Press>() {
+            Some(Press::End(way)) => Some(*way),
+            _ => None,
+        })
+        .collect()
+}
+
+fn drained_closes(app: &mut App) -> Vec<DuelCommand> {
+    app.world_mut()
+        .resource_mut::<Messages<DuelCommand>>()
+        .drain()
+        .collect()
+}
+
+/// A finished hosted game this player sat in asks the consent: one box,
+/// ticked, standing in the sheet just before the row of ways, which keeps
+/// its three.
+#[test]
+fn a_finished_hosted_game_shows_one_consent_ticked_before_the_ways() {
+    let mut app = headless();
+    seated_at(&mut app, hosted("g1"));
+    let (sheet, row) = finished_sheet(&mut app);
+
+    let found = consents(&mut app);
+    assert_eq!(found.len(), 1, "one consent: {found:?}");
+    let consent = found[0];
+    assert_eq!(box_of(&app, consent), TICKED, "ticked unless unticked");
+    assert_eq!(
+        children_of(&app, sheet),
+        [consent, row],
+        "the consent stands over the row of ways, not among them"
+    );
+    assert_eq!(
+        row_ways(&app, row),
+        [EndPress::PlayAgain, EndPress::Replay, EndPress::Leave]
+    );
+    assert!(
+        app.world().entity(consent).contains::<DuelExit>(),
+        "it is torn down with the other controls"
+    );
+    // It settles: the same frame again must not hang a second.
+    app.update();
+    app.update();
+    assert_eq!(consents(&mut app), [consent]);
+    assert_eq!(children_of(&app, sheet), [consent, row]);
+}
+
+/// Pressing it flips the consent of that game, true to false and back,
+/// redraws the box, and never leaves the table.
+#[test]
+fn pressing_the_consent_flips_it_and_redraws_without_closing_the_table() {
+    let mut app = headless();
+    seated_at(&mut app, hosted("g1"));
+    let (sheet, row) = finished_sheet(&mut app);
+    assert_eq!(app.world().resource::<LobbyState>().replays.end_share, None);
+    drained_closes(&mut app);
+
+    for (flip, expect) in [(1, false), (2, true), (3, false), (4, true)] {
+        press(&mut app, Press::End(EndPress::Share));
+        // The flag, at once.
+        assert_eq!(
+            app.world().resource::<LobbyState>().replays.end_share,
+            Some(("g1".to_string(), expect)),
+            "flip {flip}"
+        );
+        // The ways are drawn again over the next frames.
+        for _ in 0..3 {
+            app.update();
+        }
+        let found = consents(&mut app);
+        assert_eq!(found.len(), 1, "flip {flip}: one consent: {found:?}");
+        assert_eq!(
+            box_of(&app, found[0]),
+            if expect { TICKED } else { UNTICKED },
+            "flip {flip}: the box shows the new state"
+        );
+        assert_eq!(children_of(&app, sheet), [found[0], row], "flip {flip}");
+        assert_eq!(
+            row_ways(&app, row),
+            [EndPress::PlayAgain, EndPress::Replay, EndPress::Leave],
+            "flip {flip}: the ways were drawn again, once"
+        );
+        assert!(
+            !app.world().resource::<LobbyState>().replays.end_redraw,
+            "flip {flip}: the redraw was done"
+        );
+    }
+
+    assert_eq!(
+        *app.world().resource::<State<DuelPhase>>().get(),
+        DuelPhase::Finished,
+        "the table stays"
+    );
+    assert!(
+        matches!(
+            app.world().resource::<LobbyState>().lobby.screen(),
+            Screen::Seated(h) if h.game_id == "g1"
+        ),
+        "still seated at the game"
+    );
+    let closes = drained_closes(&mut app);
+    assert!(
+        closes.is_empty(),
+        "the consent closed the table: {closes:?}"
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.rematch_wanted(),
+        None,
+        "and asked for no rematch"
+    );
+}
+
+/// A box left unticked on another game says nothing of this one: this
+/// game's reads ticked, and the first press unticks it and names this game.
+#[test]
+fn the_consent_is_per_game() {
+    let mut app = headless();
+    seated_at(&mut app, hosted("g2"));
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .replays
+        .end_share = Some(("g1".to_string(), false));
+    let (_, _) = finished_sheet(&mut app);
+    let found = consents(&mut app);
+    assert_eq!(found.len(), 1);
+    assert_eq!(box_of(&app, found[0]), TICKED, "g1's choice is not g2's");
+
+    press(&mut app, Press::End(EndPress::Share));
+    assert_eq!(
+        app.world().resource::<LobbyState>().replays.end_share,
+        Some(("g2".to_string(), false)),
+        "unticked, and for g2"
+    );
+}
+
+/// A game that was left unticked is drawn unticked when the sheet is.
+#[test]
+fn an_unticked_consent_is_drawn_unticked() {
+    let mut app = headless();
+    seated_at(&mut app, hosted("g1"));
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .replays
+        .end_share = Some(("g1".to_string(), false));
+    let (_, _) = finished_sheet(&mut app);
+    let found = consents(&mut app);
+    assert_eq!(found.len(), 1);
+    assert_eq!(box_of(&app, found[0]), UNTICKED);
+}
+
+/// The keys answer the ways and never the consent: Enter takes the lead way,
+/// Escape leaves, and neither flips what the box says.
+#[test]
+fn the_keys_never_flip_the_consent() {
+    for (key, rematch) in [(KeyCode::Enter, Some("g1")), (KeyCode::Escape, None)] {
+        let mut app = headless();
+        seated_at(&mut app, hosted("g1"));
+        let (_, _) = finished_sheet(&mut app);
+        drained_closes(&mut app);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        let closes = drained_closes(&mut app);
+        assert!(
+            closes.iter().any(|c| matches!(c, DuelCommand::Close)),
+            "{key:?}: {closes:?}"
+        );
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.rematch_wanted(), rematch, "{key:?}");
+        assert_eq!(state.replays.end_share, None, "{key:?} flipped the consent");
+    }
+}
+
+/// Offline there is no gateway to tell: the sheet has no consent, though it
+/// stands in a sheet like any other.
+#[test]
+fn an_offline_game_has_no_consent() {
+    let mut app = headless();
+    seated_at(
+        &mut app,
+        SeatHandover {
+            game_id: "offline".to_string(),
+            seat: 0,
+            seat_token: String::new(),
+            local: true,
+        },
+    );
+    let (sheet, row) = finished_sheet(&mut app);
+    assert!(consents(&mut app).is_empty());
+    assert_eq!(children_of(&app, sheet), [row]);
+    assert_eq!(row_ways(&app, row), [EndPress::Replay, EndPress::Leave]);
+}
+
+/// A game only watched has no seat to consent for.
+#[test]
+fn a_watched_game_has_no_consent() {
+    let mut app = headless();
+    seated_at(
+        &mut app,
+        SeatHandover {
+            game_id: "g1".to_string(),
+            seat: SeatHandover::WATCH,
+            seat_token: "session".to_string(),
+            local: false,
+        },
+    );
+    let (sheet, row) = finished_sheet(&mut app);
+    assert!(consents(&mut app).is_empty());
+    assert_eq!(children_of(&app, sheet), [row]);
+    assert_eq!(row_ways(&app, row), [EndPress::Leave]);
+}
+
+/// The end of a replay is not a game played: its sheet has the replay's ways
+/// and no consent.
+#[test]
+fn the_end_of_a_replay_has_no_consent() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .watch_replay(baylee_client_core::lobby::ReplayHandover {
+            source: baylee_client_core::lobby::ReplayRef::Memory,
+            perspective: baylee_client_core::replay::Perspective::Seat(PlayerId::new(0)),
+            verify: baylee_client_core::replay::Verify::Stop,
+            from_end_screen: true,
+        });
+    let (sheet, row) = finished_sheet(&mut app);
+    assert!(consents(&mut app).is_empty());
+    assert_eq!(children_of(&app, sheet), [row]);
+    assert_eq!(
+        row_ways(&app, row),
+        [EndPress::WatchAgain, EndPress::WatchFrom, EndPress::Leave]
+    );
+}
