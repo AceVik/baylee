@@ -3651,7 +3651,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Enchantment Alteration
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Energy Tap
     &[FaceLines {
         sentences: 1,
@@ -3777,7 +3784,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Gauntlets of Chaos
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Ghosts of the Damned
     &[FaceLines {
         sentences: 1,
@@ -4266,7 +4280,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Marble Priest
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Marhault Elsdragon
     &[FaceLines {
         sentences: 1,
@@ -4276,7 +4297,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Mirror Universe
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Moat
     &[FaceLines {
         sentences: 1,
@@ -5022,7 +5050,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Wall of Caltrops
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Wall of Dust
     &[FaceLines {
         sentences: 2,
@@ -25315,8 +25350,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Contested War Zone
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), Some(2)],
+        stackable: 2,
+        lines: &[Some(1), Some(2), Some(0)],
         modes: &[],
         alternatives: &[],
     }],

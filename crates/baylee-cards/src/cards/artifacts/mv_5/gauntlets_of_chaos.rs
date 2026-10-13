@@ -1,18 +1,27 @@
 //! Gauntlets of Chaos — {5} — Artifact
 //! Oracle: {5}, Sacrifice this artifact: Exchange control of target artifact, creature, or land you control and target permanent an opponent controls that shares one of those types with it. If those permanents are exchanged this way, destroy all Auras attached to them.
 //! Set: ME3 #196 — Masters Edition III | Scryfall ID: 8ea1b001-1eb6-4bb9-b8f3-1aaea14a9a13 | Oracle ID: 924ef69f-9977-439c-ace9-353b429e4be6
-// PARTIAL — nothing is built: the exchange cannot be restricted to
-// permanents that share a type, and the Auras would not be destroyed.
-// NOT SUPPORTED: "{5}, Sacrifice this artifact: Exchange control of target
-// artifact, creature, or land you control and target permanent an opponent
-// controls that shares one of those types with it. If those permanents are
-// exchanged this way, destroy all Auras attached to them." — no
-// `TargetSpec` constrains the second target to share a card type with the
-// first, and no effect destroys the Auras attached to the exchanged
-// permanents; `Effect::ExchangeControl` alone would exchange any two
-// permanents and leave their Auras attached.
+// IMPLEMENTED — exchange of two same-typed permanents; the Auras on both are destroyed only if the exchange happened.
 
 use baylee_cards_dsl::prelude::*;
+
+/// The three types the exchange is about (artifact, creature, land).
+const EXCHANGE_TYPES: TypeSet = TypeSet::ARTIFACT
+    .union(TypeSet::CREATURE)
+    .union(TypeSet::LAND);
+
+/// "target artifact, creature, or land you control"
+const YOUR_EXCHANGE_PERMANENT: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::LAND]),
+]);
+
+/// "target permanent an opponent controls that shares one of those types with
+/// it" (the first target is the reference).
+const OPPONENT_PERMANENT_SHARING_A_TYPE: Filter = Filter::And(&[
+    Filter::ControlledByOpponent,
+    Filter::SharesTypeWithReference(EXCHANGE_TYPES),
+]);
 
 card!(
     index = index::GAUNTLETS_OF_CHAOS,
@@ -23,8 +32,21 @@ card!(
         mana_cost = mana!("{5}"),
         types = TypeSet::ARTIFACT,
     ),],
-    coverage = Coverage::Partial(
-        "no target constraint makes the second permanent share a type with the \
-         first, and no effect destroys the Auras attached to them",
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[activated!(
+        cost!("{5}", SacrificeSelf),
+        &[
+            Effect::ExchangeControl,
+            // "If those permanents are exchanged this way": both changed hands.
+            Effect::IfCondition {
+                condition: Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ControlChanged), 2),
+                then: &[Effect::DestroyAurasOnTargets],
+                otherwise: &[],
+            },
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(&YOUR_EXCHANGE_PERMANENT))),
+        second_targets = Some(TargetReq::one(TargetSpec::Object(
+            &OPPONENT_PERMANENT_SHARING_A_TYPE
+        ))),
+    )],
 );
