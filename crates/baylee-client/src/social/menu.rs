@@ -73,10 +73,10 @@ fn clicks_on_lines(
     mut ui: ResMut<ChatUi>,
     mut at: ResMut<MenuAt>,
     menus: Query<&RelativeCursorPosition, With<RowMenu>>,
-    mouse: Res<ButtonInput<MouseButton>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
 ) {
     if ui.row_menu.is_some()
-        && mouse.just_pressed(MouseButton::Left)
+        && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
         && !menus.iter().any(RelativeCursorPosition::cursor_over)
     {
         ui.row_menu = None;

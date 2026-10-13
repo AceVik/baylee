@@ -11,7 +11,8 @@
 
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{
-    ChatPhrase, ChatTab, ComposerKey, ConvId, GroupRef, Intent, Social, TabFilter, Target,
+    ChatPhrase, ChatTab, ComposerKey, ConvId, GroupRef, Intent, Social, TabFilter, TableContext,
+    Target,
 };
 use baylee_protocol::social::Conv;
 use bevy::prelude::*;
@@ -130,7 +131,7 @@ pub(crate) struct Drawn {
     composer_key: u64,
     /// On the Log tab: how many of the book's lines are drawn, and where
     /// they left the phase headings.
-    log_drawn: usize,
+    log_lines: usize,
     run: PhaseRun,
 }
 
@@ -223,8 +224,8 @@ pub(crate) fn tab_name(tab: ChatTab, lang: Lang) -> &'static str {
 /// shown group's.
 pub(crate) fn tab_conv(machine: &Social, ui: &ChatUi, tab: ChatTab) -> Option<ConvId> {
     match tab {
-        ChatTab::Table => machine.table().and_then(|t| t.table_conv()),
-        ChatTab::Team => machine.table().and_then(|t| t.team_conv()),
+        ChatTab::Table => machine.table().and_then(TableContext::table_conv),
+        ChatTab::Team => machine.table().and_then(TableContext::team_conv),
         ChatTab::Private => {
             let partner = machine
                 .last_whisper_partner()
@@ -468,7 +469,13 @@ fn presses(
                 select_tab(&mut host, ui, tab);
                 ui.filters = None;
             }
-            ChatPress::Gear => ui.filters = Some(ui.tab).filter(|_| ui.filters.is_none()),
+            ChatPress::Gear => {
+                ui.filters = if ui.filters.is_none() {
+                    Some(ui.tab)
+                } else {
+                    None
+                };
+            }
             ChatPress::Lock => {
                 let conv = host.machine().and_then(|m| tab_conv(m, ui, ui.tab));
                 ui.sheet = Some(super::sheet::Sheet::Encryption(conv));
@@ -704,7 +711,7 @@ fn sync_lobby_window(
     mut windows: ResMut<Windows>,
     mut roots: Query<(Entity, &mut Node, &mut Visibility), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
-    mut shape: Local<Option<(bool, bool, bool, u32, i32)>>,
+    mut shape: Local<Option<LobbyShape>>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
     let shell = lobby.is_some_and(|l| {
@@ -744,8 +751,8 @@ fn sync_lobby_window(
             .id()
     };
     let (unread, urgent) = machine.unread_where(&machine.prefs().filter(ChatTab::All));
-    let right = if ui.drawer { 352 } else { 12 };
-    let now = (ui.open, ui.minimised, urgent, unread, right);
+    let right: f32 = if ui.drawer { 352.0 } else { 12.0 };
+    let now = (ui.open, ui.minimised, urgent, unread, u32::from(ui.drawer));
     if let Ok((_, mut node, mut seen)) = roots.get_mut(root) {
         seen.set_if_neq(Visibility::Visible);
         let full = ui.open && !ui.minimised;
@@ -757,8 +764,8 @@ fn sync_lobby_window(
         if node.width != want_w {
             node.width = want_w;
         }
-        if node.right != px(right as f32) {
-            node.right = px(right as f32);
+        if node.right != px(right) {
+            node.right = px(right);
         }
     }
     let drawn = &mut windows.lobby;
@@ -803,6 +810,10 @@ fn sync_lobby_window(
         &mut lists,
     );
 }
+
+/// What the lobby panel's frame was drawn as: open, minimised, a whisper
+/// waiting, the unread count, the drawer standing.
+type LobbyShape = (bool, bool, bool, u32, u32);
 
 /// The lobby panel's height in a window this tall (SOCIAL §11.4: 38 %,
 /// between 320 and 520).
@@ -980,7 +991,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
 }
 
 /// Fills a window's parts, each only when what it shows changed.
-#[allow(clippy::too_many_arguments)] // the window's parts and what they show
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the window's parts and what they show
 fn fill(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1263,7 +1274,7 @@ pub(crate) fn count_pill(
 
 /// The Group tab's bar: the shown group's name with its dropdown, and its
 /// member count.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one part, top to bottom
 fn group_bar(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1428,7 +1439,7 @@ pub(crate) fn text_button(
 /// Fills the list: the Log tab from the book (only what arrived, when only
 /// that changed), a chat tab from the machine, All by merging both in
 /// arrival order.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one part, top to bottom
 fn fill_list(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1457,14 +1468,14 @@ fn fill_list(
     if tab == ChatTab::Log {
         let Some(duel) = duel else { return };
         let key = key_of(&(tab, log_identity, lang as u8));
-        if key == drawn.list_key && log_len >= drawn.log_drawn {
-            if log_len == drawn.log_drawn {
+        if key == drawn.list_key && log_len >= drawn.log_lines {
+            if log_len == drawn.log_lines {
                 return;
             }
             let lookup = logpanel::LogTexts(texts);
             let wording = logpanel::wording(duel, lang, &lookup);
             let mut run = drawn.run;
-            for line in duel.log.lines_since(drawn.log_drawn, &wording) {
+            for line in duel.log.lines_since(drawn.log_lines, &wording) {
                 if let Some(phase) = run.heading(&line) {
                     let heading =
                         logpanel::spawn_phase(commands, fonts, lang, phase, &logpanel::PANEL_INKS);
@@ -1486,7 +1497,7 @@ fn fill_list(
             {
                 follow.unseen = true;
             }
-            drawn.log_drawn = log_len;
+            drawn.log_lines = log_len;
             drawn.run = run;
             return;
         }
@@ -1522,7 +1533,7 @@ fn fill_list(
             );
             commands.entity(list).add_child(row);
         }
-        drawn.log_drawn = log_len;
+        drawn.log_lines = log_len;
         drawn.run = run;
         if let Ok(mut follow) = lists.get_mut(list) {
             follow.stuck = true;
@@ -1551,7 +1562,7 @@ fn fill_list(
     }
     let first_draw = drawn.list_key == 0;
     drawn.list_key = key;
-    drawn.log_drawn = 0;
+    drawn.log_lines = 0;
     commands.entity(list).despawn_children();
     let style = RowStyle {
         prefix: tab == ChatTab::All,
@@ -1682,7 +1693,7 @@ pub(crate) fn target_label(machine: &Social, target: &Target, lang: Lang) -> (St
 
 /// The composer: the chip, the box, the hint and send; the suggestions
 /// stand above it.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one part, top to bottom
 fn composer_parts(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -2084,7 +2095,7 @@ pub(crate) struct FilterDialog;
 
 /// The tab's filter dialog (§3.5): a small sheet over the panel, a box per
 /// kind of line and the timestamps, Reset and Done.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one part, top to bottom
 fn filter_dialog(
     mut commands: Commands,
     host: Res<SocialHost>,

@@ -187,6 +187,7 @@ pub(crate) fn plain_text(machine: &Social, conv: &ConvId, line: &ChatLine) -> St
 
 /// Spawns a chat line's row. `swatch` is the sender's seat colour at this
 /// table, when they hold a chair here.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one row builder for every kind of line (§5)
 pub(crate) fn spawn_row(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -316,10 +317,10 @@ pub(crate) fn spawn_row(
             };
             let ink = ink.with_alpha(faded);
             let private = matches!(conv, Conv::Dm { .. });
-            if style.prefix || private {
-                if let Some(prefix) = prefix(machine, conv, line, lang) {
-                    span(commands, format!("{prefix} "), tf(fonts, inks.pt), ink);
-                }
+            if (style.prefix || private)
+                && let Some(prefix) = prefix(machine, conv, line, lang)
+            {
+                span(commands, format!("{prefix} "), tf(fonts, inks.pt), ink);
             }
             let name = machine.shown_name(from);
             // Private's arrow form names the partner already; a whisper

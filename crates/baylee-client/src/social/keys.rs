@@ -142,7 +142,7 @@ fn composer_key(key: &Key, command: bool, shift: bool, alt: bool) -> Option<Comp
 }
 
 /// Every key while one of the chat's boxes has the caret.
-#[allow(clippy::too_many_arguments)] // a Bevy system: the keys and where they go
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: the keys and where they go
 fn typing(
     codes: Res<ButtonInput<KeyCode>>,
     mut typed: MessageReader<KeyboardInput>,
@@ -298,13 +298,13 @@ fn other_box(
 ) {
     let buffer: &mut TextBuffer = match ui.field {
         Field::Find => &mut ui.find,
-        Field::Entry => match ui.entry.as_mut() {
-            Some((_, buffer)) => buffer,
-            None => {
+        Field::Entry => {
+            let Some((_, buffer)) = ui.entry.as_mut() else {
                 ui.typing = false;
                 return;
-            }
-        },
+            };
+            buffer
+        }
         Field::Composer => return,
     };
     match &key.logical_key {
@@ -394,11 +394,12 @@ pub(crate) fn answer_box(host: &mut SocialHost, ui: &mut ChatUi) {
 /// A press anywhere but on the chat's own surfaces takes the keys back
 /// (state 3 → 2).
 fn let_go_on_a_press_elsewhere(
-    mouse: Res<ButtonInput<MouseButton>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
     surfaces: Query<(&RelativeCursorPosition, &InheritedVisibility), With<ChatSurface>>,
     mut ui: ResMut<ChatUi>,
 ) {
-    if !ui.typing || !mouse.get_just_pressed().any(|b| *b == MouseButton::Left) {
+    let pressed = mouse.is_some_and(|m| m.just_pressed(MouseButton::Left));
+    if !ui.typing || !pressed {
         return;
     }
     let inside = surfaces
@@ -418,14 +419,17 @@ fn let_go_on_a_press_elsewhere(
 /// inserts nothing and says so.
 #[allow(clippy::too_many_arguments)] // a Bevy system: the card under the pointer and the box
 fn link_a_right_pressed_card(
-    mouse: Res<ButtonInput<MouseButton>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     duel: Option<Res<Duel>>,
     texts: Option<Res<crate::cardtext::CardTexts>>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
 ) {
-    if !ui.typing || ui.field != Field::Composer || !mouse.just_pressed(MouseButton::Right) {
+    if !ui.typing
+        || ui.field != Field::Composer
+        || !mouse.is_some_and(|m| m.just_pressed(MouseButton::Right))
+    {
         return;
     }
     let Some(duel) = duel else {

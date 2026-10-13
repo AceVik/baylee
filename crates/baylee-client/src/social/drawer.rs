@@ -176,7 +176,7 @@ fn presses(
                 } else {
                     Some(tag)
                 };
-                ui.drawer_menu = more.clone();
+                ui.drawer_menu.clone_from(&more);
             }
             DrawerPress::Nickname(tag) => {
                 let current = host
@@ -223,7 +223,7 @@ fn presses(
                 } else {
                     Some(key)
                 };
-                ui.drawer_menu = more.clone();
+                ui.drawer_menu.clone_from(&more);
             }
             DrawerPress::RenameGroup(id) => {
                 ui.entry = Some((
@@ -293,6 +293,7 @@ fn presses(
 
 /// The friends button beside the lobby's chat pill: online friends and a
 /// dot for anything waiting (requests, invites).
+#[allow(clippy::too_many_arguments)] // a Bevy system: what it reads
 fn sync_door(
     mut commands: Commands,
     host: Res<SocialHost>,
@@ -634,7 +635,7 @@ fn sync_drawer(
     phase: Option<Res<State<crate::DuelPhase>>>,
     roots: Query<(Entity, &mut Visibility), With<Drawer>>,
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
-    mut drawn: Local<Option<(u64, String, String, bool, Option<String>, String)>>,
+    mut drawn: Local<Option<DrawerKey>>,
 ) {
     let mut roots = roots;
     let Some(machine) = host.machine().filter(|_| ui.drawer) else {
@@ -1134,7 +1135,8 @@ fn sync_drawer(
                         .map(|m| {
                             let mut name = machine.shown_name(&m.person);
                             if m.owner {
-                                name.push_str(&format!(" · {}", ChatPhrase::OwnerMark.text(lang)));
+                                name.push_str(" · ");
+                                name.push_str(ChatPhrase::OwnerMark.text(lang));
                             }
                             name
                         })
@@ -1265,6 +1267,10 @@ fn sync_drawer(
     commands.entity(foot).add_children(&[status, privacy]);
     commands.entity(root).add_children(&[head, list, foot]);
 }
+
+/// What the drawer was last drawn from: the machine's revision, the search
+/// box, the entry box, the keys, the open menu, the field.
+type DrawerKey = (u64, String, String, bool, Option<String>, String);
 
 /// The drawer's scrolling list, whose scroll survives its rebuilds.
 #[derive(Component)]

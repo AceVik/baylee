@@ -134,7 +134,7 @@ fn button_words(button: ToastButton, lang: Lang) -> &'static str {
 
 /// Draws the column: bottom-right above the pills in the lobby, under the
 /// report corner at the table.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a toast is drawn top to bottom
 fn sync(
     mut commands: Commands,
     mut toasts: ResMut<Toasts>,

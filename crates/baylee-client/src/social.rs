@@ -145,7 +145,9 @@ pub struct SocialHost {
     save: Option<(f32, Vec<u8>)>,
     /// Since the last clock tick.
     since_tick: f32,
-    /// The last table the machine was told about.
+    /// The last table the machine was told about, once it was told (the
+    /// outer `Option`: told at all; the inner: at a table or not).
+    #[allow(clippy::option_option)] // "never told" and "told: no table" are two states
     table: Option<Option<TableContext>>,
     /// Toasts to show, newest last.
     pub(crate) toasts: VecDeque<ChatToast>,
@@ -327,10 +329,10 @@ impl SocialHost {
 /// The client's config directory, where the chat folder lives; `None` in a
 /// process that never opened the store (a test).
 fn config_dir() -> Option<std::path::PathBuf> {
+    use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
     if !crate::settings::store_is_open() {
         return None;
     }
-    use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
     user_dir(Kind::Config, Os::current(), &real_env)
 }
 
@@ -562,14 +564,14 @@ fn wanted_session(lobby: &LobbyState) -> Option<Session> {
 
 /// Drives the machine: the session, the gateway's answers, the socket, the
 /// clock, the debounced state file.
-#[allow(clippy::too_many_arguments)] // a Bevy system: each is what it reads
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each input in turn
 fn drive(
     time: Res<Time>,
     lobby: Res<LobbyState>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut host: ResMut<SocialHost>,
     keys: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window>,
 ) {
     let host = &mut *host;
@@ -641,19 +643,20 @@ fn drive(
             LinkNews::Down => machine.on_link(SocialLink::Down, now),
             LinkNews::Refused | LinkNews::Unauthorized => machine.on_link(SocialLink::Refused, now),
             LinkNews::Frame(text) => {
-                match serde_json::from_str::<baylee_protocol::social::Down>(&text) {
-                    Ok(frame) => machine.on_frame(frame, now, &mut OsEntropy),
-                    Err(_) => {
-                        debug!("the social socket sent something unreadable");
-                        Vec::new()
-                    }
+                if let Ok(frame) = serde_json::from_str::<baylee_protocol::social::Down>(&text) {
+                    machine.on_frame(frame, now, &mut OsEntropy)
+                } else {
+                    debug!("the social socket sent something unreadable");
+                    Vec::new()
                 }
             }
         };
         host.carry_out(effects);
     }
     // Input resets the idle clock (auto-away after ten minutes, §6).
-    if keys.get_just_pressed().next().is_some() || mouse.get_just_pressed().next().is_some() {
+    if keys.get_just_pressed().next().is_some()
+        || mouse.is_some_and(|m| m.get_just_pressed().next().is_some())
+    {
         host.idle = 0.0;
     } else {
         host.idle += dt;
@@ -661,7 +664,10 @@ fn drive(
     host.since_tick += dt;
     if host.since_tick >= TICK_SECS {
         host.since_tick = 0.0;
-        let idle_ms = (host.idle * 1000.0) as u64;
+        let idle_ms = std::time::Duration::from_secs_f32(host.idle.max(0.0))
+            .as_millis()
+            .try_into()
+            .unwrap_or(u64::MAX);
         let focused = windows.iter().any(|w| w.focused);
         if let Some(machine) = host.machine.as_mut() {
             machine.set_focus(focused);
@@ -759,7 +765,7 @@ fn context_of(
             .map(|v| v.seat.get())
             .or_else(|| {
                 summary
-                    .and_then(|g| g.my_seat())
+                    .and_then(baylee_client_core::lobby::GameSummary::my_seat)
                     .and_then(|s| u8::try_from(s).ok())
             })
     };
@@ -776,7 +782,7 @@ fn context_of(
 }
 
 /// What `/state.chat` says (the chat window design §13).
-#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
     let Some(machine) = host.machine.as_ref() else {
         return serde_json::json!({ "active": false, "info": format!("{:?}", host.info) });
