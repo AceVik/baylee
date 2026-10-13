@@ -354,3 +354,142 @@ pub(super) fn commander_cost(
     let face = def.faces.get(card.face as usize).or(def.faces.first())?;
     Some(face.mana_cost)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::Defender;
+    use baylee_engine::choice::BlockOption;
+
+    fn obj(slot: u32) -> ObjectId {
+        ObjectId::new(slot, 0)
+    }
+
+    /// My creatures 10 (may block only attacker 1), 11 (only attacker 2) and
+    /// 12 (may block neither); the opponent's attackers 1 and 2. `asked` is
+    /// the seat the block question is for.
+    fn blocking_duel(asked: u8) -> Duel {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    token(10, 0, "Wall", 0, 4),
+                    token(11, 0, "Hawk", 1, 1),
+                    token(12, 0, "Sleeper", 1, 1),
+                ],
+            )
+            .with_battlefield(
+                1,
+                vec![
+                    token(1, 1, "Earth Elemental", 4, 4),
+                    token(2, 1, "Sky Drake", 2, 2),
+                ],
+            )
+            .build();
+        let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
+            player: PlayerId::new(asked),
+            attacker: PlayerId::new(1),
+            blockers: vec![
+                BlockOption {
+                    blocker: obj(10),
+                    attackers: vec![obj(1)],
+                },
+                BlockOption {
+                    blocker: obj(11),
+                    attackers: vec![obj(2)],
+                },
+            ],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
+            bounds: Vec::new(),
+        };
+        Duel {
+            interaction: Some(Interaction::new(pending, view.seat)),
+            view: Some(view),
+            ..Duel::default()
+        }
+    }
+
+    /// Report 31: with a dozen creatures the one a click would take looked
+    /// like the eleven it would refuse. While blockers are declared the
+    /// creatures that may block the attacker in aim wear the offer light,
+    /// and nothing else on the table does.
+    #[test]
+    fn blockers_that_may_block_the_aimed_attacker_are_lit_and_nothing_else() {
+        let duel = blocking_duel(0);
+        let lit = activatable(&duel);
+        assert!(
+            lit.contains(&obj(10)),
+            "10 may block the attacker in aim and was not lit: {lit:?}"
+        );
+        assert!(
+            !lit.contains(&obj(11)),
+            "11 may only block the other attacker: {lit:?}"
+        );
+        assert!(!lit.contains(&obj(12)), "12 may block nothing: {lit:?}");
+        assert!(
+            !lit.contains(&obj(1)) && !lit.contains(&obj(2)),
+            "the opponent's attackers are left to the focus ring: {lit:?}"
+        );
+    }
+
+    /// The lit set follows the aim, which is why `track_proposals` rebuilds
+    /// the board when it moves.
+    #[test]
+    fn the_lit_blockers_follow_the_attacker_in_aim() {
+        let mut duel = blocking_duel(0);
+        assert!(
+            duel.interaction.as_mut().unwrap().toggle(obj(2))
+                == baylee_client_core::interaction::SelectionOutcome::Added,
+            "aiming at the second attacker"
+        );
+        let lit = activatable(&duel);
+        assert!(lit.contains(&obj(11)), "11 may block 2 now: {lit:?}");
+        assert!(!lit.contains(&obj(10)), "10 may not block 2: {lit:?}");
+    }
+
+    /// Another seat's block question offers none of this seat's creatures,
+    /// so none of them is lit.
+    #[test]
+    fn another_seats_block_question_lights_none_of_my_creatures() {
+        let duel = blocking_duel(1);
+        let lit = activatable(&duel);
+        assert!(
+            lit.is_empty(),
+            "it is not this seat's declaration, yet these were lit: {lit:?}"
+        );
+    }
+
+    /// Declaring attackers lights this seat's candidates, not the opponent's
+    /// creatures and not a creature that cannot attack.
+    #[test]
+    fn declaring_attackers_lights_my_candidates_only() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![token(10, 0, "Soldier", 1, 1), token(11, 0, "Wall", 0, 4)],
+            )
+            .with_battlefield(1, vec![token(1, 1, "Earth Elemental", 4, 4)])
+            .build();
+        let pending = Pending::ChooseAttackers {
+            player: view.seat,
+            attackers: vec![obj(10)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
+        };
+        let duel = Duel {
+            interaction: Some(Interaction::new(pending, view.seat)),
+            view: Some(view),
+            ..Duel::default()
+        };
+        let lit = activatable(&duel);
+        assert!(lit.contains(&obj(10)), "the candidate was not lit: {lit:?}");
+        assert!(
+            !lit.contains(&obj(11)) && !lit.contains(&obj(1)),
+            "a creature that cannot attack, or the opponent's, was lit: {lit:?}"
+        );
+    }
+}
