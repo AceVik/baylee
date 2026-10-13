@@ -118,3 +118,64 @@ fn growing_rites_reveals_only_a_creature_and_lets_you_order_the_rest() {
             .all(|id| e.state().zones.list(ZoneLocation::Library(p0))[..3].contains(id))
     );
 }
+
+/// Itlimoc, Cradle of the Sun: "{T}: Add {G}." Exactly one green however
+/// many creatures are out; the second ability is the one that counts them.
+#[test]
+fn itlimoc_first_ability_taps_for_one_green_whatever_the_creature_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(106, forest())
+        .battlefield(
+            0,
+            &[
+                growing_rites_of_itlimoc(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    let rites = on_battlefield(&engine, p0, growing_rites_of_itlimoc()).unwrap();
+    let def = baylee_cards::by_index(growing_rites_of_itlimoc()).unwrap();
+    assert!(engine.dev_state_mut(p0).unwrap().transform(rites, def, 1));
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, rites));
+    activate(&mut engine, p0, growing_rites_of_itlimoc(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "{{T}}: Add {{G}}, with four creatures out"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&engine, rites), "{{T}} is part of the cost");
+}
+
+/// "if you control four or more creatures, transform": three are not four.
+#[test]
+fn growing_rites_stays_an_enchantment_with_only_three_creatures_at_the_end_step() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(106, forest())
+        .battlefield(
+            0,
+            &[
+                growing_rites_of_itlimoc(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    let rites = on_battlefield(&engine, p0, growing_rites_of_itlimoc()).expect("the Rites");
+    assert_eq!(
+        engine.state().object(rites).map(|o| o.face_index),
+        Some(0),
+        "three creatures at the end step: the Rites does not transform"
+    );
+    assert!(types(&engine, rites).contains(TypeSet::ENCHANTMENT));
+}

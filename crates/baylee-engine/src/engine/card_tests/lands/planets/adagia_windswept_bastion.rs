@@ -118,3 +118,48 @@ fn adagia_stations_and_makes_a_legendary_copy_whose_supertype_is_copiable() {
             .contains(SupertypeSet::LEGENDARY)
     );
 }
+
+/// "Station only as a sorcery" and "12+ | … Activate only as a sorcery": with
+/// an untapped creature to tap, a Sol Ring to copy, twelve charge counters and
+/// the mana, both abilities are on offer in p0's main phase and neither is in
+/// p1's turn.
+#[test]
+fn adagia_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(
+        981,
+        &[adagia_windswept_bastion(), serra_angel(), sol_ring()],
+        &[],
+        &[],
+        &[],
+    );
+    let planet = kit::obj(&e, kit::P0, adagia_windswept_bastion());
+    crate::replacement::put_counters(
+        e.dev_state_mut(kit::P0).unwrap(),
+        planet,
+        CounterKind::Charge,
+        12,
+    );
+    kit::float(&mut e, kit::P0, &[(ManaColor::White, 4)]);
+    assert!(
+        planet_offered(&e, planet, 1),
+        "control: Station at sorcery timing"
+    );
+    assert!(
+        planet_offered(&e, planet, 2),
+        "control: 12+ at sorcery timing"
+    );
+
+    to_instant_timing(&mut e);
+    kit::float(&mut e, kit::P0, &[(ManaColor::White, 4)]);
+    assert!(
+        !planet_offered(&e, planet, 1),
+        "Station only as a sorcery: not in the opponent's turn"
+    );
+    assert!(
+        !planet_offered(&e, planet, 2),
+        "the 12+ ability is also sorcery-only, with its counters, mana and target ready"
+    );
+    assert_activation_refused(&mut e, planet, 1);
+    assert_activation_refused(&mut e, planet, 2);
+}

@@ -95,3 +95,54 @@ fn lonely_mountain_creates_a_dwarf_with_the_equipment_discount() {
             .contains(baylee_core::generated::subtypes::creature::DWARF)
     );
 }
+
+/// "{4}{R}, {T}: Create a 2/2 red Dwarf creature token. This ability costs {1}
+/// less to activate for each Equipment you control. Activate only as a
+/// sorcery." With two Equipment (so {2}{R}) floating, the ability is on offer
+/// in the own main phase and in neither the stack-holding window nor the
+/// opponent's turn.
+#[test]
+fn the_lonely_mountain_dwarf_is_sorcery_timing_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(
+        955,
+        &[
+            the_lonely_mountain(),
+            lightning_greaves(),
+            lightning_greaves(),
+        ],
+        &[],
+        &[llanowar_elves()],
+        &[],
+    );
+    let mountain = kit::obj(&e, kit::P0, the_lonely_mountain());
+    assert_sorcery_timing_only(&mut e, mountain, 1, &[(ManaColor::Red, 3)]);
+}
+
+/// "This land enters tapped unless you control an Equipment." Played from the
+/// hand next to an Equipment of its controller it enters untapped; with the
+/// only Equipment on the opponent's side of the table it enters tapped.
+#[test]
+fn the_lonely_mountain_enters_tapped_unless_you_control_an_equipment() {
+    let p0 = PlayerId::new(0);
+    for (own_equipment, tapped) in [(true, false), (false, true)] {
+        let (mine, theirs) = if own_equipment {
+            (vec![lightning_greaves()], vec![])
+        } else {
+            (vec![], vec![lightning_greaves()])
+        };
+        let mut engine = Duel::new(SEED, mountain())
+            .hand(0, &[the_lonely_mountain()])
+            .battlefield(0, &mine)
+            .battlefield(1, &theirs)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let land = play_land(&mut engine, p0, the_lonely_mountain());
+        assert_eq!(
+            entered_tapped(&engine, land),
+            tapped,
+            "an Equipment under its controller's control (own: {own_equipment}) decides the entry"
+        );
+    }
+}

@@ -261,3 +261,62 @@ fn batch47_clock_removes_counters_as_an_effect_during_an_opponents_upkeep() {
         [before[0] - 2, before[1] - 2]
     );
 }
+
+#[test]
+fn batch47_lands_edge_target_menu_is_players_and_planeswalkers_only() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(0, &[index::LAND_S_EDGE, index::GRIZZLY_BEARS])
+        .battlefield(1, &[index::GRIZZLY_BEARS])
+        .hand(1, &[index::FOREST])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let edge = on_battlefield(&e, P0, index::LAND_S_EDGE).unwrap();
+    let card = in_hand(&e, P1, index::FOREST).unwrap();
+    let before = e.state.players[0].life;
+    e.apply(P0, PlayerAction::PassPriority).unwrap();
+    activate_as(&mut e, P1, edge, 0);
+
+    // The discard and the target are asked in either order; read the target
+    // menu whenever it comes.
+    let mut menu = None;
+    for _ in 0..4 {
+        match e.pending().clone() {
+            Pending::ChooseCards { player, .. } => {
+                e.apply(
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: vec![card],
+                    },
+                )
+                .unwrap();
+            }
+            Pending::ChooseTargets {
+                options,
+                player_options,
+                ..
+            } => {
+                menu = Some((options, player_options));
+                targets(&mut e, vec![], vec![P0]);
+            }
+            _ => break,
+        }
+    }
+    let (options, mut player_options) = menu.expect("the ability asked for a target");
+    assert!(
+        options.is_empty(),
+        "\"target player or planeswalker\": the Grizzly Bears of both players are no target: {options:?}"
+    );
+    player_options.sort();
+    assert_eq!(
+        player_options,
+        vec![P0, P1],
+        "either player may be targeted"
+    );
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state.players[0].life,
+        before - 2,
+        "the discarded land card made the 2 damage to the chosen player"
+    );
+}

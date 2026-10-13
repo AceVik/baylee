@@ -111,3 +111,38 @@ fn plaza_gives_a_legendary_creature_hexproof_and_indestructible_for_the_turn() {
     assert!(!kw.contains(KeywordSet::HEXPROOF), "until end of turn");
     assert!(!kw.contains(KeywordSet::INDESTRUCTIBLE));
 }
+
+/// "{T}: Add one mana of any color. Spend this mana only to cast a legendary
+/// spell." With that mana the only mana there is, a nonlegendary {W} spell
+/// cannot be cast and a legendary one costing {W} can.
+#[test]
+fn plaza_restricted_mana_casts_only_legendary_spells() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[plaza_of_heroes()])
+        .hand(0, &[index::SAVANNAH_LIONS, index::LEGION_S_LANDING])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    activate(&mut e, p0, plaza_of_heroes(), 1);
+    e.apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+    let lions = in_hand(&e, p0, index::SAVANNAH_LIONS).unwrap();
+    let landing = in_hand(&e, p0, index::LEGION_S_LANDING).unwrap();
+    assert_eq!(e.state().players[0].mana_pool.restricted().len(), 1);
+
+    let before = e.state().snapshot_hash();
+    assert!(
+        e.apply(p0, PlayerAction::CastSpell { card: lions })
+            .is_err(),
+        "Savannah Lions is not legendary: the restricted {{W}} cannot pay for it"
+    );
+    assert_eq!(e.state().snapshot_hash(), before, "and nothing changed");
+
+    e.apply(p0, PlayerAction::CastSpell { card: landing })
+        .expect("Legion's Landing is legendary: the restricted {W} pays for it");
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(landing).unwrap().zone, Zone::Battlefield);
+    assert!(e.state().players[0].mana_pool.restricted().is_empty());
+}
