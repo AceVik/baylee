@@ -34,7 +34,7 @@
 //! component. That is the whole of the difference in this pool, and it is why
 //! one predicate could not have served both.
 
-use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED};
+use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED, TURNS};
 use baylee_core::ids::CardIndex;
 
 /// Whether Scryfall serves a second picture for this card's pinned printing.
@@ -53,6 +53,21 @@ pub fn has_back_image(index: CardIndex) -> bool {
 #[must_use]
 pub fn double_faced(index: CardIndex) -> bool {
     DOUBLE_FACED.binary_search(&index).is_ok()
+}
+
+/// How each face's picture is turned to be read, in quarter turns clockwise
+/// from the portrait scan: `[1, 1]` for a split card printed sideways, `[1, 0]`
+/// for a battle whose back is an upright creature, `[0, 2]` for a flip card,
+/// `[0, 3]` for an Aftermath card. Empty for a card read upright on every face.
+///
+/// A fact about the printed card for a client to draw it by, read off the
+/// layout and the type line at codegen (`ScryfallCard::quarter_turns`), never a
+/// rule.
+#[must_use]
+pub fn quarter_turns(index: CardIndex) -> &'static [u8] {
+    TURNS
+        .binary_search_by_key(&index, |(card, _)| *card)
+        .map_or(&[], |at| TURNS[at].1)
 }
 
 #[cfg(test)]

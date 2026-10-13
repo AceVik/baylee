@@ -20,6 +20,17 @@
 //! right way round. And the swap has to happen exactly at the quarter turn,
 //! where the card is a line and there is nothing to see — swapping anywhere
 //! else shows the change.
+//!
+//! # Some cards are read turned in the plane
+//!
+//! A scan is always portrait, and some cards are not printed to be read that
+//! way (owner, 13.10.2026): a split card and a battle are printed sideways, a
+//! flip card's other half is upside down, an Aftermath card's second half
+//! runs up its side. [`Reading`] says how the shown picture stands at rest and
+//! what shift does instead of turning such a card over: it *rotates* it, in
+//! the plane, to the other half — the card has nothing on its back but the
+//! printed back. The frame keeps its box; a card turned across it is shrunk
+//! to fit ([`fit`]), as a card turned in the hand still fits the hand.
 
 use bevy::prelude::*;
 use bevy::ui::UiTransform;
@@ -40,6 +51,102 @@ pub struct Flip {
     /// Turned over by a control rather than by Shift (the card window's
     /// Flip): the card stays turned while this holds.
     pub held: bool,
+    /// How the picture is turned in the plane to be read.
+    pub reading: Reading,
+}
+
+/// How a card's picture is turned in the plane to be read, in quarter turns
+/// clockwise from the portrait scan (`baylee_cards::sides::quarter_turns`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Reading {
+    /// The shown picture's, at rest.
+    pub rest: u8,
+    /// Once turned: the far side's own when the card turns over, the other
+    /// half's when it only rotates.
+    pub turned: u8,
+    /// Whether shift turns the card over to its back. When it does not, it
+    /// rotates the card from `rest` to `turned`, and a card whose two are
+    /// equal does not move at all.
+    pub over: bool,
+}
+
+impl Default for Reading {
+    fn default() -> Self {
+        Self::UPRIGHT
+    }
+}
+
+impl Reading {
+    /// An ordinary card's: upright, turned over by shift.
+    pub const UPRIGHT: Self = Self {
+        rest: 0,
+        turned: 0,
+        over: true,
+    };
+
+    /// How a card with these per-face quarter turns reads with face `face`
+    /// shown, given whether it has a picture on its back.
+    ///
+    /// A card with a back turns over to it, standing as the back's face
+    /// reads (a battle's front is sideways, its creature back upright). A
+    /// card without one whose halves read alike turns over to the printed
+    /// back, as every ordinary card does — unless it is read sideways (a
+    /// split card shows both halves at once, and the owner's rule is that a
+    /// card with two faces on its front shows no back). A card whose halves
+    /// read differently (a flip card, an Aftermath card) rotates to the
+    /// other half.
+    #[must_use]
+    pub fn of(turns: &[u8], face: u8, back_image: bool) -> Self {
+        let at = |face: usize| turns.get(face).copied().unwrap_or(0) % 4;
+        let shown = usize::from(face);
+        let rest = at(shown);
+        let other = usize::from(shown == 0);
+        if back_image {
+            return Self {
+                rest,
+                turned: at(other),
+                over: true,
+            };
+        }
+        let turned = if turns.len() > 1 { at(other) } else { rest };
+        Self {
+            rest,
+            turned,
+            over: rest == turned && rest == 0,
+        }
+    }
+
+    /// Whether the card lies across its box at rest: a quarter turn either
+    /// way, so the box it is placed in is landscape.
+    #[must_use]
+    pub const fn lies_across(self) -> bool {
+        self.rest % 2 == 1
+    }
+
+    /// The angle, clockwise in radians, at `turn` of the way from rest.
+    #[must_use]
+    pub fn angle(self, turn: f32) -> f32 {
+        let delta = match (self.turned + 4 - self.rest) % 4 {
+            1 => 1.0,
+            2 => 2.0,
+            3 => -1.0,
+            _ => 0.0,
+        };
+        (f32::from(self.rest % 4) + delta * turn) * std::f32::consts::FRAC_PI_2
+    }
+}
+
+/// The scale a card standing at `angle` (clockwise, radians) takes to fit the
+/// box it stands in at rest — portrait, or landscape when `across`. One at
+/// rest; below it while the card is turned across its box.
+#[must_use]
+pub fn fit(angle: f32, across: bool) -> f32 {
+    let aspect = baylee_client_core::layout::CARD_ASPECT;
+    let (sin, cos) = (angle.sin().abs(), angle.cos().abs());
+    // The card, a wide by 1 tall, turned: its bounding box.
+    let (wide, tall) = (aspect * cos + sin, aspect * sin + cos);
+    let (room_w, room_h) = if across { (1.0, aspect) } else { (aspect, 1.0) };
+    (room_w / wide).min(room_h / tall).min(1.0)
 }
 
 /// Which side of a [`Flip`] a node is.
@@ -78,6 +185,30 @@ pub fn faces(turn: f32) -> (f32, bool) {
     (angle.cos(), turn >= 0.5)
 }
 
+/// The frame's scale and rotation `turn` of the way round: the squeeze of a
+/// turn over (`faces`), the reading's angle, and the fit that keeps a card
+/// turned across its box inside it.
+#[must_use]
+pub fn pose(reading: Reading, turn: f32, squeeze: f32) -> (Vec2, Rot2) {
+    let angle = reading.angle(turn);
+    let fit = fit(angle, reading.lies_across());
+    // Clockwise on the screen, whose y runs down: a positive angle in the
+    // interface's own frame.
+    (Vec2::new(squeeze * fit, fit), Rot2::radians(angle))
+}
+
+/// The frame's transform at rest, to spawn it with: a card that waited for
+/// the first frame of [`turn`] would stand upright for that frame.
+#[must_use]
+pub fn rest_transform(reading: Reading) -> UiTransform {
+    let (scale, rotation) = pose(reading, 0.0, 1.0);
+    UiTransform {
+        scale,
+        rotation,
+        ..default()
+    }
+}
+
 /// Advances every flip and writes the two sides.
 #[allow(clippy::float_cmp)] // exact: a write is skipped only when nothing would change
 fn turn(
@@ -102,7 +233,16 @@ fn turn(
         let has_back = children
             .iter()
             .any(|child| sides.get(child).is_ok_and(|(side, ..)| *side == Side::Back));
-        let target = if (wants_back || flip.held) && has_back {
+        // A card read by rotating it (a flip card, an Aftermath card) turns
+        // whenever its other half stands differently; one that turns over
+        // needs something on its back.
+        let reading = flip.reading;
+        let turns = if reading.over {
+            has_back
+        } else {
+            reading.rest != reading.turned
+        };
+        let target = if (wants_back || flip.held) && turns {
             1.0
         } else {
             0.0
@@ -117,9 +257,17 @@ fn turn(
         if turned != flip.turn {
             flip.turn = turned;
         }
-        let (squeeze, showing_back) = faces(turned);
-        if transform.scale.x != squeeze {
-            transform.scale.x = squeeze;
+        let (squeeze, showing_back) = if reading.over {
+            faces(turned)
+        } else {
+            (1.0, false)
+        };
+        let (scale, rotation) = pose(reading, turned, squeeze);
+        if transform.scale != scale {
+            transform.scale = scale;
+        }
+        if transform.rotation != rotation {
+            transform.rotation = rotation;
         }
         for child in children {
             let Ok((side, mut visibility, mut child_transform)) = sides.get_mut(*child) else {

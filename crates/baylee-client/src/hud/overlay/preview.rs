@@ -285,13 +285,42 @@ pub(in crate::hud) fn preview_with_footer_size(want: Vec2, window: Vec2, slip: f
 /// `doc-comment-splice-beheads-the-next-item` is named for. It came back when
 /// `pick_hint` went to the drawer and left it standing over nothing.
 pub(super) fn has_back_image(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
-    hovered
-        .and_then(|id| {
-            view.hand
-                .iter()
-                .find(|card| card.id == id)
-                .map(|card| &card.card)
-                .or_else(|| view.object(id).and_then(|object| object.card.as_ref()))
-        })
-        .is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
+    hovered_card(view, hovered).is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
+}
+
+/// The card the hovered object is, where the seat may know it: a card in
+/// hand or a public object's.
+pub(super) fn hovered_card(
+    view: &PlayerView,
+    hovered: Option<ObjectId>,
+) -> Option<baylee_view::CardIdentity> {
+    let id = hovered?;
+    view.hand
+        .iter()
+        .find(|card| card.id == id)
+        .map(|card| card.card)
+        .or_else(|| view.object(id).and_then(|object| object.card))
+}
+
+/// How the preview turns `card`'s picture to be read
+/// ([`crate::flip::Reading::of`] over the pool's `sides::quarter_turns`):
+/// upright for anything it cannot name.
+pub(in crate::hud) fn reading_of(card: Option<baylee_view::CardIdentity>) -> crate::flip::Reading {
+    card.map_or(crate::flip::Reading::UPRIGHT, |card| {
+        crate::flip::Reading::of(
+            baylee_cards::sides::quarter_turns(card.index),
+            card.face,
+            baylee_cards::sides::has_back_image(card.index),
+        )
+    })
+}
+
+/// Lets a face of the preview draw past its upright box, for a card that is
+/// turned in the plane: Bevy clips a node's children to its box as laid out,
+/// unturned, so a card turned across it would lose both ends.
+pub(in crate::hud) fn unclip(commands: &mut Commands, face: Entity) {
+    commands
+        .entity(face)
+        .entry::<Node>()
+        .and_modify(|mut node| node.overflow = Overflow::visible());
 }

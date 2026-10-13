@@ -1121,6 +1121,7 @@ pub struct CardLens;
 /// Follows the pointer onto the log's links and off them again
 /// ([`Duel::hovered_log`]). Written only when it changes, so the overlay's
 /// redraw gate sees a hover and not a frame.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub fn hover_log_links(
     mut overs: MessageReader<Pointer<Over>>,
     mut outs: MessageReader<Pointer<Out>>,

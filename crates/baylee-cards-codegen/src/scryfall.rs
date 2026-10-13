@@ -255,6 +255,70 @@ impl ScryfallCard {
     }
 }
 
+impl ScryfallCard {
+    /// How each face's picture is turned to be read, in quarter turns
+    /// clockwise from the way the scan stands (always portrait: Scryfall's
+    /// `normal` is 488 × 680 for every card).
+    ///
+    /// A presentation fact about the printed card, read off the layout and
+    /// the type line, never a rule: a split card (Fire // Ice, a Room) is
+    /// printed sideways and read a quarter clockwise; an Aftermath card's
+    /// first half stands upright and its second is read a quarter
+    /// counter-clockwise (three clockwise); a flip card's flipped half is
+    /// upside down; a Battle face and a plane are printed sideways like a
+    /// split card, whatever the layout says (the pool's battle is
+    /// `transform`, and its back is an upright creature). One entry per
+    /// face, the card's single face for a one-faced printing.
+    #[must_use]
+    pub fn quarter_turns(&self) -> Vec<u8> {
+        let layout = self.layout.as_deref().unwrap_or("normal");
+        let faces = self.card_faces.as_deref().unwrap_or_default();
+        let lines: Vec<(Option<&str>, Option<&str>)> = if faces.is_empty() {
+            vec![(self.type_line.as_deref(), self.oracle_text.as_deref())]
+        } else {
+            faces
+                .iter()
+                .map(|face| (face.type_line.as_deref(), face.oracle_text.as_deref()))
+                .collect()
+        };
+        let aftermath = lines
+            .iter()
+            .any(|(_, text)| text.is_some_and(|t| t.lines().any(|l| l.starts_with("Aftermath"))));
+        lines
+            .iter()
+            .enumerate()
+            .map(|(at, (types, _))| match layout {
+                "split" if aftermath => {
+                    if at == 0 {
+                        0
+                    } else {
+                        3
+                    }
+                }
+                "split" | "planar" => 1,
+                "flip" => {
+                    if at == 0 {
+                        0
+                    } else {
+                        2
+                    }
+                }
+                _ if types.is_some_and(|t| {
+                    t.split(" \u{2014} ")
+                        .next()
+                        .unwrap_or(t)
+                        .split(' ')
+                        .any(|w| w == "Battle")
+                }) =>
+                {
+                    1
+                }
+                _ => 0,
+            })
+            .collect()
+    }
+}
+
 fn get_json<T: for<'de> Deserialize<'de>>(agent: &ureq::Agent, url: &str) -> Result<T, FetchError> {
     for attempt in 1..=MAX_ATTEMPTS {
         std::thread::sleep(RATE_LIMIT_PAUSE);

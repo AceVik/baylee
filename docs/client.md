@@ -2501,6 +2501,27 @@ For a double-faced card, including one in hand, Shift requests the reverse of
 the selected printing. Both faces retain that printing's language and finish.
 This inspection gesture does not change the card's state on the battlefield.
 
+**A card is shown the way it is read, and a picture is a picture of its
+card** (owner, 13.10.2026). A rules face is not a picture: an Adventure cast
+as its Adventure, a split card's right half, a prepared spell and a flipped
+card are face 1 of one piece of cardboard, so `ImageKey::of` /
+`Face::of_card` draw them from the front and only a card in
+`baylee_cards::sides::has_back_image` reaches Scryfall's `back` shelf (the
+client installs that table with `images::know_second_pictures`). Scans are
+always portrait, so `sides::quarter_turns` (generated with the sides table,
+from the layout and the type line) says how each face is turned to be read:
+a split card or a Room `[1, 1]`, a battle `[1, 0]` (its back is an upright
+creature), a flip card `[0, 2]`, an Aftermath card `[0, 3]`. The duel's
+preview, the deck builder's hover preview and the card window stand such a
+picture in its reading (`flip::Reading`): one lying across gets a landscape
+box and is turned into it; under Shift a card whose halves read differently
+rotates to the other half instead of showing a back, and a split card, whose
+halves read alike, does not move; a card with a back still turns over, and a
+battle turns from sideways to its upright back. The frame keeps its box, and
+a card turned across it is scaled to fit (`flip::fit`); `reduce_motion`
+snaps. A constructed text face is never turned, and the table and the stack
+draw every card as it lies.
+
 That preview reads a size nothing else does, and it asks at the instant the
 pointer arrives — too late to fetch. So `Preload` warms `normal` for the local
 hand and the local command zone: the two zones the preview can point at that
