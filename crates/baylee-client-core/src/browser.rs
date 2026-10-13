@@ -1674,7 +1674,7 @@ impl Browser {
                     // is the one place a player reads a token as a card.
                     art: object
                         .card
-                        .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
+                        .map(|c| ImageKey::of(c, ArtSize::Small))
                         .or_else(|| object.token.map(|t| ImageKey::token(t, ArtSize::Small))),
                     zone,
                     standing: RowStanding {
@@ -1715,11 +1715,7 @@ impl Browser {
                 out.push(BrowseRow {
                     id: card.id,
                     name: card.name.clone(),
-                    art: Some(ImageKey::new(
-                        card.card.print,
-                        card.card.face,
-                        ArtSize::Small,
-                    )),
+                    art: Some(ImageKey::of(card.card, ArtSize::Small)),
                     zone: BrowseZone::Hand,
                     standing: RowStanding {
                         selectable: it.selectable().contains(&card.id),

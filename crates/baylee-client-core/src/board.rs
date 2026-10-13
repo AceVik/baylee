@@ -1073,10 +1073,14 @@ fn stack_art(
                 lookup.object(source).and_then(|s| {
                     let key = art_of(s, ArtSize::Small, reg)?;
                     let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
-                    Some(text.filter(|_| own).map_or(key, |t| ImageKey {
-                        face: Face::from_index(t.face),
-                        ..key
-                    }))
+                    Some(
+                        text.filter(|_| own)
+                            .zip(rules)
+                            .map_or(key, |(t, r)| ImageKey {
+                                face: Face::of_card(r.card, t.face),
+                                ..key
+                            }),
+                    )
                 })
             }),
         StackKind::Spell => art_of(object, ArtSize::Small, reg),
@@ -1210,7 +1214,7 @@ impl BoardModel {
                 id: h.id,
                 name: h.name.clone(),
                 mana_value: h.mana_value,
-                art: ImageKey::new(h.card.print, h.card.face, ArtSize::Small),
+                art: ImageKey::of(h.card, ArtSize::Small),
                 playable: openings.playable.contains(&h.id),
                 reachable: openings.reachable.contains(&h.id),
                 commander: h.commander,
@@ -1513,7 +1517,7 @@ pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
 pub fn art_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
     worn(obj, reg)
         .map(|w| w.art(size))
-        .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
+        .or_else(|| obj.card.map(|c| ImageKey::of(c, size)))
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
 }
 
@@ -1534,7 +1538,10 @@ pub fn art_in(
     if let Some(Wears::Card(index, face)) = worn(obj, reg)
         && let Some(print) = shown_print(view, index, obj.id)
     {
-        return Some(ImageKey::new(print, face, size));
+        return Some(ImageKey::of(
+            baylee_view::CardIdentity { index, print, face },
+            size,
+        ));
     }
     art_of(obj, size, reg)
 }
@@ -1567,7 +1574,7 @@ pub fn original_in(
     reg: Registry<'_>,
     view: &PlayerView,
 ) -> Option<ImageKey> {
-    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    let own = obj.card.map(|c| ImageKey::of(c, size))?;
     (art_in(obj, size, reg, view)? != own).then_some(own)
 }
 
@@ -1592,7 +1599,7 @@ pub fn original_in(
 /// preloaded small by the board; nothing wants it at [`ArtSize::Normal`].
 #[must_use]
 pub fn original_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
-    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    let own = obj.card.map(|c| ImageKey::of(c, size))?;
     (art_of(obj, size, reg)? != own).then_some(own)
 }
 
@@ -1734,7 +1741,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 count,
                 art: top
                     .and_then(|o| o.card)
-                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+                    .map(|c| ImageKey::of(c, ArtSize::Small)),
                 name: top.map(|o| o.name.clone()),
                 top: top.map(|o| o.id),
                 fan,
@@ -1752,9 +1759,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
 fn fanned(object: &PublicObject) -> FannedCard {
     FannedCard {
         object: object.id,
-        art: object
-            .card
-            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+        art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
         name: object.name.clone(),
     }
 }
@@ -1769,10 +1774,7 @@ fn stack_target(lookup: &Lookup<'_>, what: TargetRef) -> StackTarget {
         what,
         is_current: object.is_some_and(|o| o.is_current),
         name: object.map(|o| o.name.clone()),
-        art: object.and_then(|o| {
-            o.card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
-        }),
+        art: object.and_then(|o| o.card.map(|c| ImageKey::of(c, ArtSize::Small))),
     }
 }
 

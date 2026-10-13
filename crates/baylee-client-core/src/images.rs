@@ -12,7 +12,7 @@
 //! The renderer asks this module *what* it needs and *what it may drop*; the
 //! transport layer does the fetching.
 
-use baylee_core::ids::PrintRef;
+use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_view::{Finish, GameStatic, PrintEntry};
 use std::collections::HashMap;
 
@@ -86,6 +86,53 @@ impl Face {
             Self::Back => "back",
         }
     }
+
+    /// The picture a card shows with rules face `face` up.
+    ///
+    /// The engine's face index is a *rules* face, and only a card printed on
+    /// both sides keeps its second one on Scryfall's `back` shelf. An
+    /// Adventure cast as its Adventure, a split card cast as its right half,
+    /// a prepared spell or a flipped Kamigawa card are face 1 and still one
+    /// piece of cardboard with one picture: [`Face::from_index`] sent each of
+    /// them to `back`, which answers 404, and the stack drew a spell with no
+    /// picture at all (owner, 13.10.2026). `printed_twice` is whether the
+    /// card's printing has a second picture (`baylee_cards::sides`).
+    #[must_use]
+    pub const fn shown(face: u8, printed_twice: bool) -> Self {
+        if printed_twice {
+            Self::from_index(face)
+        } else {
+            Self::Front
+        }
+    }
+
+    /// [`Face::shown`] for `card`, asked of the table the client installed
+    /// with [`know_second_pictures`]. Before it is installed — a headless
+    /// test of this crate, which links no card pool — the index decides, as
+    /// it always did.
+    #[must_use]
+    pub fn of_card(card: CardIndex, face: u8) -> Self {
+        match SECOND_PICTURES.get() {
+            Some(printed_twice) => Self::shown(face, printed_twice(card)),
+            None => Self::from_index(face),
+        }
+    }
+}
+
+/// Which cards' printings carry a second picture, as the client's card pool
+/// answers it.
+///
+/// Process-wide, for [`ART_BASE`]'s reason: every place that turns a card
+/// into a picture needs it, a dozen of them hold nothing but the card, and
+/// the answer is one fixed table compiled into the client. This crate does
+/// not link the pool, so the client hands its table over once.
+static SECOND_PICTURES: std::sync::OnceLock<fn(CardIndex) -> bool> = std::sync::OnceLock::new();
+
+/// Installs the client pool's answer to "does this card print a second
+/// picture" (`baylee_cards::sides::has_back_image`). The first call wins,
+/// and every later one names the same function.
+pub fn know_second_pictures(printed_twice: fn(CardIndex) -> bool) {
+    let _ = SECOND_PICTURES.set(printed_twice);
 }
 
 /// What a picture belongs to.
@@ -155,6 +202,18 @@ impl ImageKey {
         }
     }
 
+    /// Builds a key for the picture of a card the view names, with the face
+    /// it shows: [`Face::of_card`], so a rules face that is not a second
+    /// picture is drawn from the front.
+    #[must_use]
+    pub fn of(card: baylee_view::CardIdentity, size: ArtSize) -> Self {
+        Self {
+            source: ImageSource::Print(card.print),
+            face: Face::of_card(card.index, card.face),
+            size,
+        }
+    }
+
     /// Builds a key for a token's picture at a size.
     ///
     /// Always the front: a token has one side.
@@ -174,10 +233,10 @@ impl ImageKey {
     /// answered only an index would draw the front of a card the table is
     /// showing the back of.
     #[must_use]
-    pub const fn card(index: baylee_core::ids::CardIndex, face_index: u8, size: ArtSize) -> Self {
+    pub fn card(index: CardIndex, face_index: u8, size: ArtSize) -> Self {
         Self {
             source: ImageSource::Card(index),
-            face: Face::from_index(face_index),
+            face: Face::of_card(index, face_index),
             size,
         }
     }

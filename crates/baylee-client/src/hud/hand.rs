@@ -674,11 +674,7 @@ pub(super) fn preview_anchor(
         .get(view.seat.get() as usize)
         .and_then(|cmds| cmds.iter().find(|c| c.id == h))
     {
-        return Some((
-            cmd.card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
-            at,
-        ));
+        return Some((cmd.card.map(|c| ImageKey::of(c, ArtSize::Normal)), at));
     }
     // Everything the zone browser lists and no arm above reaches: a graveyard
     // card that is not the top one, anything in an exile pile, and the cards
@@ -693,12 +689,7 @@ pub(super) fn preview_anchor(
     // putting it earlier would take the hand's tail and the pile's own place
     // away from cards that have them.
     if let Some(object) = view.object(h) {
-        return Some((
-            object
-                .card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
-            at,
-        ));
+        return Some((object.card.map(|c| ImageKey::of(c, ArtSize::Normal)), at));
     }
     None
 }

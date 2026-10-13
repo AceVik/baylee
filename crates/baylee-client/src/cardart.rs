@@ -166,6 +166,9 @@ pub fn registry() -> Registry<'static> {
     static NAMED: fn(&str) -> Option<Wears> = named;
     static TOKEN_NAME: fn(u16) -> Option<&'static str> = crate::tokenart::name;
     static UTILITY_LAND: fn(RulesFace) -> bool = utility_land;
+    // Every picture a board names asks which side of its card it is, and
+    // the board is built only through here.
+    baylee_client_core::images::know_second_pictures(baylee_cards::sides::has_back_image);
     Registry {
         named: &NAMED,
         token_name: &TOKEN_NAME,
