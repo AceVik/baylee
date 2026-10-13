@@ -1103,6 +1103,17 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// [`Self::AtNextEndStep`] about the trigger's subject instead of its
+    /// target or source: the creature a `Trigger::AttachedBlocksOrBecomesBlockedBy`
+    /// was about, carried through the delayed triggers made in between
+    /// (CR 603.7c). In `effects` it is the event object and the reference
+    /// (`Filter::Reference`); one that has left the battlefield since is
+    /// not (CR 400.7). Infinite Authority's "put a +1/+1 counter on the
+    /// first creature".
+    AtNextEndStepAboutSubject {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "When that creature dies this turn, [effects]" (Sandals of Abdallah:
     /// "destroy this artifact"): a delayed triggered ability (CR 603.7)
     /// created as this resolves, with this ability's source and controller

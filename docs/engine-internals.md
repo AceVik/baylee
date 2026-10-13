@@ -1441,6 +1441,20 @@ Four records, each read by name and never inferred from the journal:
   now and fires on each damage event to it whose source the filter matches as
   it deals it; "that much" is the event amount. It lapses with the turn.
 
+### A trigger with two creatures: event object and subject
+
+`Trigger::AttachedBlocksOrBecomesBlockedBy` (Infinite Authority) is an Aura's
+own ability about the creature it is attached to: its controller is the
+Aura's (CR 603.3a), and the creature losing its abilities changes nothing.
+One event per blocker–attacker pair (CR 509.3b, 509.3d); the other creature
+is the event object, and the attached creature, as the object it was then,
+is `PendingTrigger::event_subject`. On the stack it rides as
+`Rider::EventSubject`; a delayed trigger made in its resolution
+(`DelayedAction::TriggerAbout::subject`) carries it on, and
+`Effect::AtNextEndStepAboutSubject` makes a delayed end-step trigger about
+it, in which it is the event object and the reference. A subject that has
+left the battlefield since is a new object (CR 400.7) and is not affected.
+
 ### The reference object (`RuleContext::reference`)
 
 A relational filter (`Filter::Reference`, `BlockingReference`,

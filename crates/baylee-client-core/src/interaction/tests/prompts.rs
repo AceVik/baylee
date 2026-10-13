@@ -491,6 +491,77 @@ fn four_card_choices_read_as_four_different_decisions() {
     );
 }
 
+/// A card draw is asked about one card at a time, and each question it can
+/// raise has a line of its own in both languages (K12). Dredge is the
+/// question whether this draw happens at all, and the German names the
+/// keyword as the German printings do ("Ausgraben"); the order of several
+/// replacements is a whole sentence, as the entry replacements are; and the
+/// two older prompts a draw now asks through, Chains of Mephistopheles'
+/// discard and Aladdin's Lamp's cards for the bottom, keep their nouns.
+#[test]
+fn the_questions_a_card_draw_raises_are_each_said_in_both_languages() {
+    let line = |reason, min, max, lang| {
+        interaction(Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(1), obj(2), obj(3)],
+            min,
+            max,
+            prompt: reason,
+            total: None,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false)
+    };
+
+    // Naming none draws, and the line says so rather than "up to 1 card".
+    assert_eq!(
+        line(ChoicePrompt::Dredge, 0, 1, Lang::En),
+        "Dredge a card instead of drawing? Choose one from your graveyard, or confirm without \
+         a selection to draw."
+    );
+    assert_eq!(
+        line(ChoicePrompt::Dredge, 0, 1, Lang::De),
+        "Statt zu ziehen eine Karte ausgraben? Wähle sie aus deinem Friedhof oder bestätige \
+         ohne Auswahl, um normal zu ziehen."
+    );
+    assert_eq!(
+        line(ChoicePrompt::DrawReplacement, 1, 1, Lang::En),
+        "Which replacement will you apply to this draw next?"
+    );
+    assert_eq!(
+        line(ChoicePrompt::DrawReplacement, 1, 1, Lang::De),
+        "Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?"
+    );
+    // Both are sentences: neither is the entry replacements' and neither is
+    // the plain count of cards.
+    for lang in Lang::ALL {
+        let dredge = line(ChoicePrompt::Dredge, 0, 1, lang);
+        let order = line(ChoicePrompt::DrawReplacement, 1, 1, lang);
+        let entry = line(ChoicePrompt::EntryReplacement, 1, 1, lang);
+        assert_ne!(order, entry, "{lang:?}");
+        assert_ne!(dredge, line(ChoicePrompt::Generic, 0, 1, lang), "{lang:?}");
+    }
+
+    // Chains asks for exactly one card from the hand, and a Lamp for all
+    // but the one it draws.
+    assert_eq!(
+        line(ChoicePrompt::Discard, 1, 1, Lang::En),
+        "Choose 1 card to discard"
+    );
+    assert_eq!(
+        line(ChoicePrompt::Discard, 1, 1, Lang::De),
+        "Wähle 1 Karte, die abgeworfen wird"
+    );
+    assert_eq!(
+        line(ChoicePrompt::PutOnBottom, 2, 2, Lang::En),
+        "Choose 2 cards to put on the bottom of your library"
+    );
+    assert_eq!(
+        line(ChoicePrompt::PutOnBottom, 2, 2, Lang::De),
+        "Wähle 2 Karten, die unter deine Bibliothek kommen"
+    );
+}
+
 /// Entering as a copy chooses and does not target (09.10.: Vesuvan
 /// Doppelganger's question said "target").
 #[test]

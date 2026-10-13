@@ -1216,6 +1216,9 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(crate::state::structural_fingerprint(
                     &trigger.related_objects,
                 ));
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&trigger.event_subject));
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .abilities

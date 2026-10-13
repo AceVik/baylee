@@ -697,6 +697,26 @@ pub(super) fn exec_immediate(
             super::delayed_returns::schedule_untap(state, res);
             None
         }
+        Effect::AtNextEndStepAboutSubject { effects } => {
+            if let Some(subject) = subjects::event_subject(state, res) {
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::TriggerAbout {
+                        source: res.source,
+                        source_version: source_version(state, res)
+                            .or_else(|| state.object(res.source).map(|o| o.version))
+                            .unwrap_or(0),
+                        effects,
+                        text: res.text,
+                        object: subject.object,
+                        version: subject.version,
+                        subject: None,
+                    },
+                });
+            }
+            None
+        }
         Effect::AtNextEndStep { effects } | Effect::AtNextCleanup { effects } => {
             let about_ref = subjects::this(state, res);
             let action = match about_ref.map(|r| (r.object, r.version)) {
@@ -709,6 +729,7 @@ pub(super) fn exec_immediate(
                     text: res.text,
                     object,
                     version,
+                    subject: subjects::event_subject(state, res),
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
@@ -752,6 +773,7 @@ pub(super) fn exec_immediate(
                     text: res.text,
                     object,
                     version,
+                    subject: subjects::event_subject(state, res),
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
@@ -854,7 +876,6 @@ pub(super) fn exec_immediate(
             let n = amount2(&count, state, you, res);
             super::reveal_put::start(state, res, n, picks)
         }
-        // A delayed trigger (CR 603.7) on the first target as it is now.
         // Sword of the Ages: "then exile this artifact and those creature
         // cards", each from where its cost put it and only while it is still
         // that card there (CR 400.7).

@@ -454,3 +454,125 @@ fn equinox_serves_the_controller_of_the_land_it_enchants() {
         "so their other Mountain stands"
     );
 }
+
+/// `{U}` instant: "Choose one — Destroy target red permanent; or return
+/// target Mountain to its owner's hand."
+fn flash_flood() -> CardIndex {
+    card_index("c2b5d847-f52a-43e3-a5d2-d53cae3d8936")
+}
+
+/// Player 0 wears Equinox on a Mountain and, in player 1's upkeep, animates a
+/// Den of the Bugbear (a red Goblin creature and still a land). Player 1 then
+/// casts a Flash Flood in mode `mode` (0 destroys target red permanent, 1
+/// returns target Mountain) aimed at the animated Den for mode 0 and at
+/// player 0's second Mountain for mode 1, and passes. Returns the engine, the
+/// spell, what it is aimed at and the enchanted Mountain, with player 0
+/// holding priority and the spell on the stack.
+#[track_caller]
+fn flash_flood_against_equinox(
+    mode: usize,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let (mut engine, carrier) = the_mountain_wears_equinox(
+        &[den_of_the_bugbear(), mountain(), forest(), forest()],
+        &[island()],
+        &[flash_flood()],
+    );
+    let den = on_battlefield(&engine, kit::P0, den_of_the_bugbear()).expect("the Den");
+    let second_mountain = lands_of(&engine, kit::P0)
+        .into_iter()
+        .find(|id| {
+            *id != carrier
+                && engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .map(|c| c.index)
+                    == Some(mountain())
+        })
+        .expect("a second Mountain");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.active == kit::P1
+            && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0)
+    });
+    tap_mana_where(&mut engine, kit::P0, |id| id != carrier && id != den);
+    activate(&mut engine, kit::P0, den_of_the_bugbear(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        types(&engine, den).contains(TypeSet::LAND)
+            && types(&engine, den).contains(TypeSet::CREATURE),
+        "the Den is a land creature until end of turn"
+    );
+
+    reach_their_main_phase(&mut engine, kit::P1);
+    cast_from_hand(&mut engine, kit::P1, flash_flood());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(n) if n == mode))
+        .expect("the mode is offered");
+    engine
+        .apply(kit::P1, PlayerAction::ChooseMode(slot))
+        .expect("a mode of the card");
+    let aim = if mode == 0 { den } else { second_mountain };
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&aim),
+        "{aim:?} is a legal target: {options:?}"
+    );
+    engine
+        .apply(kit::P1, PlayerAction::ChooseObjects { objects: vec![aim] })
+        .expect("the target was on the menu");
+    let spell = on_stack(&engine, flash_flood()).expect("the spell is on the stack");
+    engine
+        .apply(kit::P1, PlayerAction::PassPriority)
+        .expect("player 1 passes with the spell on the stack");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == kit::P0),
+        "player 0 may respond: {:?}",
+        engine.pending()
+    );
+    (engine, spell, aim, carrier)
+}
+
+/// "…if it would destroy a land you control" reads the mode the spell was
+/// cast in. A Flash Flood in its destroy mode aimed at player 0's animated
+/// Den of the Bugbear (a red permanent that is also a land) would destroy a
+/// land of theirs, so Equinox counters it and the Den lives. The same spell in
+/// its other mode, returning a Mountain, destroys nothing: Equinox's ability
+/// lets it resolve and the Mountain goes back to its owner's hand.
+#[test]
+fn equinox_reads_the_mode_a_modal_spell_was_cast_in() {
+    let (mut engine, spell, den, carrier) = flash_flood_against_equinox(0);
+    answer_with_equinox(&mut engine, kit::P0, carrier, spell);
+    assert!(
+        countered(&engine, spell),
+        "the destroy mode would destroy a land player 0 controls"
+    );
+    assert!(
+        on_battlefield(&engine, kit::P0, den_of_the_bugbear()).is_some(),
+        "so the Den stands"
+    );
+    assert_eq!(kit::zone_of(&engine, den), Zone::Battlefield);
+
+    let (mut engine, spell, _, carrier) = flash_flood_against_equinox(1);
+    answer_with_equinox(&mut engine, kit::P0, carrier, spell);
+    assert!(
+        !countered(&engine, spell),
+        "the return mode destroys no land, whatever the other mode would do"
+    );
+    assert!(
+        in_hand(&engine, kit::P0, mountain()).is_some(),
+        "so it resolved and the Mountain went back to its owner's hand"
+    );
+    assert!(
+        on_battlefield(&engine, kit::P0, den_of_the_bugbear()).is_some(),
+        "and the Den is untouched"
+    );
+}

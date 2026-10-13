@@ -32,6 +32,7 @@ mod infernal_tribute;
 mod jihad;
 mod knighthood;
 mod lifegift;
+mod magnetic_mountain;
 mod mana_flare;
 mod mental_discipline;
 mod mobilization;

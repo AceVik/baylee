@@ -719,6 +719,16 @@ pub enum Trigger {
     /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
     /// non-Wall creature, destroy that creature at end of combat".
     BlocksOrBecomesBlockedBy(&'static Filter),
+    /// The creature this source is attached to (enchanted or equipped
+    /// creature) blocks a creature matching the filter or becomes blocked by
+    /// one: the Aura's own trigger, not one granted to the creature, so its
+    /// controller is the Aura's (CR 603.3a) and a creature that lost its
+    /// abilities still has it fire. Once per pair, as
+    /// [`Self::BlocksOrBecomesBlockedBy`]. The other creature is the event
+    /// object; the attached creature, as it was then, is the trigger's
+    /// subject, which `Effect::AtNextEndStepAboutSubject` names later
+    /// (Infinite Authority's "the first creature").
+    AttachedBlocksOrBecomesBlockedBy(&'static Filter),
     /// Rampage's "whenever this creature becomes blocked" (CR 702.23).
     /// Its effects carry N, so every separate instance triggers independently.
     Rampage,

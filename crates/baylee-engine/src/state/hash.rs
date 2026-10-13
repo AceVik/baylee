@@ -1650,6 +1650,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(73);
                 reference.hash(h);
             }
+            Rider::EventSubject(reference) => {
+                h.u8(78);
+                reference.hash(h);
+            }
             Rider::Linked { host, until } => {
                 h.u8(1);
                 host.hash(h);

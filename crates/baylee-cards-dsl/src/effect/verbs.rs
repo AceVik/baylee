@@ -667,6 +667,7 @@ impl Effect {
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
             | Effect::AtNextEndStep { effects }
+            | Effect::AtNextEndStepAboutSubject { effects }
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }

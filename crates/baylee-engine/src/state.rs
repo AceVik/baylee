@@ -514,6 +514,10 @@ pub enum DelayedAction {
         object: ObjectId,
         /// Its identity when this was created.
         version: u32,
+        /// The subject of the trigger that made it, carried on to the
+        /// trigger this one goes on the stack as
+        /// (`PendingTrigger::event_subject`).
+        subject: Option<baylee_core::ids::DamageSourceRef>,
     },
 }
 

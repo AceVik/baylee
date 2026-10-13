@@ -1214,11 +1214,14 @@
         "Valakut Awakening // Valakut Stoneforge",
         "Recall",
         "Winds of Change",
-        "Arboria"
+        "Arboria",
+        "Magnetic Mountain",
+        "Cyclone"
       ],
       "partials_lane_notes": [
         "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
-        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13",
+        "wave 3 (partials lane): Opus engine + Sonnet pair F, Opus-reviewed with mutation (all killed), 2026-10-13"
       ]
     },
     {
@@ -1349,7 +1352,7 @@
     {
       "batch": 64,
       "title": "Special payment procedures",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Whir of Invention",
@@ -1370,10 +1373,13 @@
       ],
       "completed_cards": [
         "Whir of Invention",
-        "Archway of Innovation"
+        "Archway of Innovation",
+        "Sword of the Ages",
+        "Jandor's Ring"
       ],
       "partials_lane_notes": [
-        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13",
+        "wave 3 (partials lane): Opus engine + Sonnet pair F, Opus-reviewed with mutation (all killed), 2026-10-13"
       ]
     },
     {

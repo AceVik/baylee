@@ -216,6 +216,13 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
         ChoicePrompt::EntryOrder => "Choose the permanent whose entry replacements are applied first".into(),
         ChoicePrompt::EntryReplacement => "Choose the source whose entry replacement applies next".into(),
+        ChoicePrompt::Dredge => {
+            "Choose a card in your graveyard to dredge instead of drawing; choose none to draw"
+                .into()
+        }
+        ChoicePrompt::DrawReplacement => {
+            "Choose the source whose replacement applies to this card draw next".into()
+        }
         ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
         ChoicePrompt::NewHost { .. } => {
             "Choose an object for the Aura to enchant (not a target)".into()
@@ -341,6 +348,15 @@ mod tests {
         assert!(text.contains("fixed activation cost"));
         assert!(text.contains("choose none to decline"));
         assert!(choice_prompt(ChoicePrompt::CommandCard).contains("affected player"));
+    }
+
+    /// A draw can be replaced (K12): dredge is optional and says what naming
+    /// none does, and the order of several replacements is a question about
+    /// the draw, not about an entry.
+    #[test]
+    fn the_draw_questions_say_what_they_decide() {
+        assert!(choice_prompt(ChoicePrompt::Dredge).contains("choose none to draw"));
+        assert!(choice_prompt(ChoicePrompt::DrawReplacement).contains("card draw"));
     }
 
     /// The pool's keywords all have a name here: a card that prints one the
