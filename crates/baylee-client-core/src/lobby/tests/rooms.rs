@@ -275,7 +275,11 @@ fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
         ],
         ..GameSummary::default()
     }]);
-    lobby.apply(LobbyEvent::Games(listing.clone()));
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(listing.clone())),
+        Some(LobbyRequest::LoadPool),
+        "the pool first"
+    );
     assert_eq!(lobby.query().q, "room");
     assert_eq!(lobby.query().offset, 0);
     assert!(!lobby.room_dirty());
@@ -306,7 +310,13 @@ fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
     lobby.room_add_counter(0, 0);
     lobby.room_counter_step(0, 0, 0, 2);
     assert!(lobby.field(Field::RoomBoard(0)).is_empty());
-    lobby.apply(LobbyEvent::Games(listing));
+    // With the pool in hand, the listing asks the hosted models this host's
+    // room offers (D5); the draft outlives both answers.
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(listing)),
+        Some(LobbyRequest::HostedProfiles)
+    );
+    lobby.apply(LobbyEvent::HostedProfiles(Vec::new()));
     assert!(lobby.room_dirty());
     let Some(LobbyRequest::ConfigureRoom { update, .. }) = lobby.save_room(false) else {
         panic!("host edit")

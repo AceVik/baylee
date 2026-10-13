@@ -1115,6 +1115,9 @@ pub struct Lobby {
     hosted_profiles: Vec<hosted::HostedProfile>,
     /// Whether that list answered since it was last asked.
     hosted_listed: bool,
+    /// The room of this host's the list was asked for as it opened
+    /// ([`Lobby::hosted_for_room`]): asked once per room.
+    hosted_asked_room: Option<String>,
     search: TextBuffer,
     deck_search: TextBuffer,
     /// The Replays screen's search ([`Field::ReplaySearch`]).
@@ -2531,7 +2534,8 @@ impl Lobby {
 
     /// Whether the request in flight only re-reads the deck and table
     /// lists the screen already shows: a refresh, a search, a page, and the
-    /// chain of list reads they set off.
+    /// chain of list reads they set off (the hosted models a host's room
+    /// asks for among them).
     ///
     /// The shell answers this one with a quiet mark on the list rather than
     /// the loading veil (§10 #7 of the shell design): a veil over a list the
@@ -3189,6 +3193,7 @@ impl Lobby {
         // Which hosted models are open is the account's own.
         self.hosted_profiles.clear();
         self.hosted_listed = false;
+        self.hosted_asked_room = None;
         self.deleting = None;
         self.account_password.clear();
         self.close_library();
@@ -3229,7 +3234,9 @@ impl Lobby {
         // reads, and ends with the first answer that asks for anything else.
         if !matches!(
             next,
-            Some(LobbyRequest::ListGames(_) | LobbyRequest::ListDecks)
+            Some(
+                LobbyRequest::ListGames(_) | LobbyRequest::ListDecks | LobbyRequest::HostedProfiles
+            )
         ) {
             self.refreshing = false;
         }
@@ -3423,8 +3430,12 @@ impl Lobby {
                 // already at. The listing is what notices, because it is the
                 // only thing holding both halves of the question — that chair
                 // is mine, and I have nothing for it.
+                // A host's room offers the gateway's models from the start
+                // (D5): the list is asked as the room opens, behind what a
+                // seat needs first.
                 self.reclaim_a_seat()
                     .or_else(|| self.awaiting.is_some().then(|| self.needs_pool()).flatten())
+                    .or_else(|| self.hosted_for_room())
             }
             LobbyEvent::Seated(handover) => {
                 // **A seat is not a game**, and this used to ask only whether

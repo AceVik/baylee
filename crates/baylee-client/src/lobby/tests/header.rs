@@ -8,6 +8,7 @@ use super::super::header::HeaderPress;
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::shellkit::header::SeatStrip;
+use baylee_client_core::lobby::hosted::HostedProfile;
 use baylee_client_core::lobby::strips::{LobbyStats, Me};
 use baylee_client_core::lobby::{GameSeat, GameSummary};
 
@@ -84,17 +85,35 @@ fn count(app: &mut App, wanted: Press) -> usize {
     presses(app).into_iter().filter(|p| *p == wanted).count()
 }
 
-/// The gateway answers what the seating asked (the listing again), so the
-/// lobby is not busy and its Leave is live.
+/// The gateway answers what the seating asked (the listing again, and the
+/// hosted models a host's room then asks for: none), so the lobby is not
+/// busy and its Leave is live.
 fn answered(app: &mut App) {
+    answered_with(app, Vec::new());
+}
+
+/// [`answered`], the gateway listing `hosted` as the models a host's room
+/// may seat.
+fn answered_with(app: &mut App, hosted: Vec<HostedProfile>) {
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         let games = state.lobby.games().to_vec();
-        state.lobby.apply(LobbyEvent::Games(GameListing {
+        let host = games.iter().any(|g| g.yours);
+        let next = state.lobby.apply(LobbyEvent::Games(GameListing {
             total: games.len(),
             games,
             ..GameListing::default()
         }));
+        // D5: a host's room asks which models it may seat as it opens, with
+        // no press; a seat at somebody else's asks nothing.
+        assert_eq!(
+            next == Some(LobbyRequest::HostedProfiles),
+            host,
+            "the listing chained {next:?}"
+        );
+        if host {
+            state.lobby.apply(LobbyEvent::HostedProfiles(hosted));
+        }
     }
     app.update();
     assert!(!app.world().resource::<LobbyState>().lobby.busy());
@@ -130,8 +149,13 @@ fn an_empty_chair_offers_a_language_model_only_where_one_can_sit() {
 /// The room as a desktop build offers it: `offer` stands for what
 /// `tableseats::offer` would find (a test opens no store).
 fn hosting_with(offer: crate::tableseats::Offer) -> App {
+    hosting_listed(offer, Vec::new())
+}
+
+/// [`hosting_with`], the gateway listing `hosted` for the room.
+fn hosting_listed(offer: crate::tableseats::Offer, hosted: Vec<HostedProfile>) -> App {
     let mut app = seated_as(true);
-    answered(&mut app);
+    answered_with(&mut app, hosted);
     app.world_mut()
         .resource_mut::<LobbyState>()
         .llm
@@ -179,6 +203,68 @@ fn a_desktop_without_its_bridge_shows_the_language_model_off_with_why() {
     assert!(
         labels(&mut app).iter().any(|l| l == why),
         "its reason is drawn"
+    );
+}
+
+/// A model the gateway lists, open to order.
+fn hosted_sonnet() -> Vec<HostedProfile> {
+    vec![HostedProfile {
+        id: "sonnet".into(),
+        label: "Sonnet".into(),
+        vendor: "Anthropic".into(),
+        kind: "api".into(),
+        model: "m".into(),
+        state: "available".into(),
+        until_unix: None,
+        available: true,
+    }]
+}
+
+fn opens_hosted(p: &Press) -> bool {
+    matches!(p, Press::Room(RoomPress::HostedOpen(0, 3)))
+}
+
+/// D5: a hosted model runs beside the gateway, so its entry never waits on
+/// this machine's bridge. Whatever the local control is (live, off for a
+/// missing bridge, or not drawn at all), the open chair offers the
+/// gateway's model, live, from the start: no chair was opened to ask.
+#[test]
+fn the_gateway_model_is_offered_whatever_the_local_bridge() {
+    use crate::tableseats::Offer;
+    for (offer, local_live, local_off) in [
+        (Offer::Ready, 1, 0),
+        (Offer::Missing, 0, 1),
+        (Offer::Absent, 0, 0),
+    ] {
+        let mut app = hosting_listed(offer, hosted_sonnet());
+        assert_eq!(app.world().resource::<LobbyState>().chair_sheet, None);
+        let drawn = presses(&mut app);
+        assert_eq!(
+            drawn.iter().filter(|p| opens_hosted(p)).count(),
+            1,
+            "{offer:?}: the gateway's model, live"
+        );
+        assert_eq!(
+            drawn.iter().filter(|p| opens_chair(p)).count(),
+            local_live,
+            "{offer:?}: the local control, live"
+        );
+        assert_eq!(
+            off_presses(&mut app, opens_chair),
+            local_off,
+            "{offer:?}: the local control, off"
+        );
+        assert_eq!(off_presses(&mut app, opens_hosted), 0);
+    }
+}
+
+/// A list that holds no model open to this account offers no entry.
+#[test]
+fn an_empty_hosted_list_offers_no_gateway_model() {
+    let mut app = hosting_with(crate::tableseats::Offer::Missing);
+    assert_eq!(
+        presses(&mut app).iter().filter(|p| opens_hosted(p)).count(),
+        0
     );
 }
 

@@ -212,3 +212,173 @@ fn signing_out_forgets_which_models_were_open() {
         "the previous account's list is gone"
     );
 }
+
+/// One card, so that a room's listing does not ask for the pool first.
+fn pooled(lobby: &mut Lobby) {
+    lobby.builder_mut().set_pool(
+        vec![crate::deckbuilder::PoolCard {
+            name: "Forest".into(),
+            english_name: "Forest".into(),
+            kinds: vec!["Land".into()],
+            ..crate::deckbuilder::PoolCard::default()
+        }],
+        false,
+    );
+}
+
+/// The listing of a waiting room `id` with one open chair, the host's own
+/// where `yours`.
+fn room_listing(id: &str, yours: bool) -> GameListing {
+    GameListing::of(vec![GameSummary {
+        id: id.into(),
+        name: "Garden".into(),
+        yours,
+        state: "waiting".into(),
+        seats: vec![
+            GameSeat {
+                you: true,
+                taken: true,
+                ..GameSeat::default()
+            },
+            GameSeat::default(),
+        ],
+        ..GameSummary::default()
+    }])
+}
+
+/// `lobby` opens a room `id` of its own and is seated at it: what the
+/// listing that shows the room chains into.
+fn opens_room(lobby: &mut Lobby, id: &str) -> Option<LobbyRequest> {
+    assert!(lobby.host(GameMode::Open).is_some(), "the table is opened");
+    assert!(
+        matches!(
+            lobby.apply(LobbyEvent::Seated(SeatHandover {
+                game_id: id.into(),
+                seat: 0,
+                seat_token: "ticket".into(),
+                local: false,
+            })),
+            Some(LobbyRequest::ListGames(_))
+        ),
+        "the room is listed"
+    );
+    lobby.apply(LobbyEvent::Games(room_listing(id, true)))
+}
+
+/// D5 (beta.7 acceptance): the chair's "Gateway model" entry showed only
+/// after the local "Language model" sheet was opened once, the one press
+/// that asked the list, and a desktop without its bridge, or a build with
+/// no local control at all, never got that far. The list is now asked as
+/// a registered host's room opens, with no press: the entry is there from
+/// the start, quietly (no loading veil), and asked once per room.
+#[test]
+fn a_hosts_room_asks_the_hosted_list_as_it_opens() {
+    let mut lobby = seated_lobby();
+    pooled(&mut lobby);
+    assert!(!lobby.offers_hosted());
+    assert_eq!(
+        opens_room(&mut lobby, "room"),
+        Some(LobbyRequest::HostedProfiles),
+        "asked as the room opens, before any chair is touched"
+    );
+    assert!(lobby.busy() && lobby.refreshing(), "a quiet read");
+    assert!(!lobby.hosted_listed());
+    assert_eq!(
+        lobby.apply(LobbyEvent::HostedProfiles(vec![profile(
+            "sonnet", "Sonnet", true, None
+        )])),
+        None
+    );
+    assert!(lobby.offers_hosted(), "the entry is there from the start");
+    assert!(!lobby.busy());
+    // The room is listed again (the feed, a refresh): asked once per room.
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(room_listing("room", true))),
+        None
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(room_listing("room", true))),
+        None
+    );
+    assert!(lobby.offers_hosted());
+    // The entry's own sheet still asks afresh.
+    assert_eq!(lobby.list_hosted(), Some(LobbyRequest::HostedProfiles));
+}
+
+/// A room left forgets that it was asked for; the next room asks again.
+#[test]
+fn the_next_room_asks_again() {
+    let mut lobby = seated_lobby();
+    pooled(&mut lobby);
+    assert_eq!(
+        opens_room(&mut lobby, "first"),
+        Some(LobbyRequest::HostedProfiles)
+    );
+    lobby.apply(LobbyEvent::HostedProfiles(Vec::new()));
+    assert!(!lobby.offers_hosted(), "no model is open to this account");
+    assert!(matches!(
+        lobby.apply(LobbyEvent::Left),
+        Some(LobbyRequest::ListGames(_))
+    ));
+    assert_eq!(lobby.apply(LobbyEvent::Games(GameListing::default())), None);
+    assert_eq!(
+        opens_room(&mut lobby, "second"),
+        Some(LobbyRequest::HostedProfiles)
+    );
+    lobby.apply(LobbyEvent::HostedProfiles(vec![profile(
+        "sonnet", "Sonnet", false, None,
+    )]));
+    assert!(lobby.offers_hosted(), "a listed model is offered, greyed");
+}
+
+/// The pool a seat needs goes first; the list follows with the next
+/// listing, still unasked until then.
+#[test]
+fn the_pool_goes_before_the_hosted_list() {
+    let mut lobby = seated_lobby();
+    assert_eq!(opens_room(&mut lobby, "room"), Some(LobbyRequest::LoadPool));
+    pooled(&mut lobby);
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(room_listing("room", true))),
+        Some(LobbyRequest::HostedProfiles)
+    );
+}
+
+/// Only the host orders a model for a chair: a seat at somebody else's
+/// room asks nothing, and neither does a guest's own room.
+#[test]
+fn only_a_registered_hosts_room_asks_the_hosted_list() {
+    let mut player = seated_lobby();
+    pooled(&mut player);
+    assert!(matches!(
+        player.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "theirs".into(),
+            seat: 1,
+            seat_token: "ticket".into(),
+            local: false,
+        })),
+        Some(LobbyRequest::ListGames(_))
+    ));
+    assert_eq!(
+        player.apply(LobbyEvent::Games(room_listing("theirs", false))),
+        None
+    );
+    assert!(!player.busy());
+
+    let mut guest = Lobby::new();
+    guest.set_guests_enabled(true);
+    guest.apply(LobbyEvent::GuestIn(KeptGuest {
+        token: "guest-tok".into(),
+        handle: "Casper#0007".into(),
+    }));
+    guest.apply(LobbyEvent::Decks(vec![DeckSummary {
+        id: "d1".into(),
+        name: "Allytifact".into(),
+        cards: 60,
+        ..DeckSummary::default()
+    }]));
+    guest.apply(LobbyEvent::Games(GameListing::default()));
+    pooled(&mut guest);
+    assert_eq!(opens_room(&mut guest, "room"), None);
+    assert!(!guest.offers_hosted());
+}

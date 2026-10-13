@@ -10,6 +10,12 @@
 //! §"Who may seat which model"), and a guest is listed none. So the room
 //! offers a guest nothing, and a registered host the hosted entry only once
 //! the gateway's list for it holds a profile ([`Lobby::offers_hosted`]).
+//!
+//! That list is asked as a registered host's room opens
+//! ([`Lobby::hosted_for_room`]), so the entry is there from the start: a
+//! hosted model runs beside the gateway, and never waits on this machine's
+//! own seat bridge or its "Language model" sheet. The entry's own sheet
+//! asks afresh when it opens, as the local sheet does.
 
 use super::{Lobby, LobbyRequest};
 use crate::i18n::{Lang, Phrase};
@@ -175,6 +181,25 @@ impl Lobby {
         self.refreshing = true;
         self.hosted_listed = false;
         Some(LobbyRequest::HostedProfiles)
+    }
+
+    /// The list for the room this registered host has open, asked once as
+    /// the room opens (chained from the listing that shows it): `None`
+    /// where the session may order none, the table is not this host's own,
+    /// or this room was asked for already. A room left forgets it.
+    pub(super) fn hosted_for_room(&mut self) -> Option<LobbyRequest> {
+        let Some(room) = self.awaiting.as_ref().map(|seat| seat.game_id.clone()) else {
+            self.hosted_asked_room = None;
+            return None;
+        };
+        if self.hosted_asked_room.as_ref() == Some(&room)
+            || !self.games.iter().any(|g| g.id == room && g.yours)
+        {
+            return None;
+        }
+        let request = self.list_hosted()?;
+        self.hosted_asked_room = Some(room);
+        Some(request)
     }
 
     /// The host orders `profile` for chair `seat`. Refused here for a
