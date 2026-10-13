@@ -93,16 +93,10 @@ pub(super) struct Placement {
     /// turns it into facts. Resolved here for the reason the offer and the
     /// corner are — this is where the group's members are.
     pub(super) flying: bool,
-    /// Whether this card is an indestructible permanent, and so stands in
-    /// its steel rim ([`shellmat`]). Read off the group's badges as flying
-    /// is; false for every pile, where indestructible means nothing.
-    pub(super) indestructible: bool,
-    /// The dome this card stands under, if it has hexproof or shroud
-    /// ([`shellmat::Dome::of`]); read and meaningful as `indestructible` is.
-    pub(super) dome: Option<shellmat::Dome>,
-    /// Whether this card has defender, and so stands behind its wall
-    /// ([`shellmat::wall_mesh`]); read and meaningful as `indestructible` is.
-    pub(super) defender: bool,
+    /// The keywords its border says ([`shellmat::Ward`]): indestructible,
+    /// defender, hexproof or shroud. Read off the group's badges as flying
+    /// is; none for every pile, where those mean nothing.
+    pub(super) ward: shellmat::Ward,
     pub(super) count: usize,
     /// What the count badge says ([`cardplate::count_word`]): how many
     /// permanents this card stands for when it is a merged group on the
@@ -204,10 +198,10 @@ pub(super) const ATTACH_PEEK: f32 = CARD_HEIGHT * 0.11;
 /// buffer resolves at `CameraRig::MAX_DISTANCE`.
 const ATTACH_DROP: f32 = LANE_RISE * 0.25;
 /// How far under its host everything tucked under it lies, all together:
-/// half the height a face stands over Defender's wall
-/// ([`shellmat::WALL_HEIGHT`]), so the wall of the card beside it, which
-/// stands on the felt where a tucked card peeks out, stays under every print.
-const ATTACH_DEPTH: f32 = (shellmat::RIM_DROP - shellmat::WALL_HEIGHT) * 0.5;
+/// what it was given while defender's brick wall stood on the felt beside
+/// it, half the height a face stood over the wall's top, kept when the wall
+/// became a border (13.10.2026) so nothing tucked moved.
+const ATTACH_DEPTH: f32 = 0.0015;
 const _: () = assert!(ATTACH_DROP <= ATTACH_DEPTH);
 
 /// Lays the cards tucked under `host` (#305) down under it, each peeking out
@@ -281,9 +275,7 @@ fn tuck(
             lift: lift - drop * k,
             tapped,
             flying: false,
-            indestructible: false,
-            dome: None,
-            defender: false,
+            ward: shellmat::Ward::NONE,
             count: 1,
             badge: 0,
             art: card.art,
@@ -417,9 +409,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                     // carries them, so two Serra Angels of which one has lost
                     // flying are two groups.
                     flying: group.badges.contains(&KeywordBadge::Flying),
-                    indestructible: shells.steel,
-                    dome: shells.dome,
-                    defender: shells.wall,
+                    ward: shells.ward,
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
                     art: group.art,
@@ -506,9 +496,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                         // not a permanent and has no keywords to draw, the
                         // same reason its corner is the empty one.
                         flying: false,
-                        indestructible: false,
-                        dome: None,
-                        defender: false,
+                        ward: shellmat::Ward::NONE,
                         count: if i + 1 == len {
                             under.saturating_sub(len - 1).max(1)
                         } else {
@@ -554,9 +542,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                 // creature would be inventing a fact.
                 tapped: false,
                 flying: false,
-                indestructible: false,
-                dome: None,
-                defender: false,
+                ward: shellmat::Ward::NONE,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 badge: 0,
                 art: pile.art,

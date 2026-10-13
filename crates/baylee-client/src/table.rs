@@ -28,7 +28,7 @@ use crate::feltmat::FeltMaterial;
 use crate::floormat::{self, FloorMaterial};
 use crate::marksmat::MarksMaterial;
 use crate::platemat::{PlateMaterial, PlateWords};
-use crate::shellmat::{self, Band, ShellKind, ShellLook, ShellMaterial};
+use crate::shellmat::{self, ShellLook, ShellMaterial};
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
@@ -93,9 +93,8 @@ const GLOW_LIFT: f32 = 0.001;
 /// but this arithmetic holds it now.
 ///
 /// It touches nothing but the sort. Depth *writing* is off for every blended
-/// surface here but defender's wall, which is solid and goes first
-/// ([`shellmat::WALL_RUNG`]), so none of the rest ever occludes another; what
-/// this fixes is purely which one is painted last.
+/// surface here, so none of them ever occludes another; what this fixes is
+/// purely which one is painted last.
 pub(crate) fn sort_bias(lift: f32) -> f32 {
     lift * SORT_GAIN
 }
@@ -529,11 +528,11 @@ mod face_tests;
 /// shadow is left behind on the felt when the card takes off.
 #[cfg(test)]
 mod flying_tests;
-/// The shell round an indestructible permanent, on real tables and from the
-/// real camera ([`shellmat`]).
 /// The plate at a card's bottom right, upright under a tapped card.
 #[cfg(test)]
 mod plate_tests;
+/// The shells round a permanent, on real tables and from the real camera
+/// ([`shellmat`]).
 #[cfg(test)]
 mod shell_tests;
 #[cfg(test)]

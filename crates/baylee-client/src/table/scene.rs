@@ -543,8 +543,8 @@ pub fn sync_scene(
             index.plates.remove(&id);
             index.floors.remove(&id);
             index.stacks.remove(&id);
-            // Not the shell: indestructible means nothing off the
-            // battlefield, and a rim flying off with its card would no
+            // Not the shell: a keyword's border means nothing off the
+            // battlefield, and one flying off with its card would no
             // longer be fitted to anything on the way.
             if let Some(shell) = index.shells.remove(&id) {
                 shell.despawn(&mut commands);
