@@ -602,7 +602,7 @@ const en = {
   "llm.fallbackNone": "none",
   "llm.fallbackMissing": "{id} (not on this seat agent)",
   "llm.hint.fallback":
-    "Takes a game over when this model is rate limited or busy, and new games start on it while this profile is full or limited. API profiles of this seat agent only. Who may order is decided for this profile alone.",
+    "Takes a game over when this model is rate limited or busy, and new games start on it while this profile is full or limited. API profiles of this seat agent with the same vendor only. Who may order is decided for this profile alone.",
   "llm.hint.fallbackCli": "An agent CLI takes no fallback.",
   "llm.gameUsd": "Per game (USD)",
   "llm.hint.gameUsd": "The most one game may spend; needs the model's price. Default $5.",
@@ -1362,7 +1362,7 @@ const de: Record<Key, string> = {
   "llm.fallbackNone": "keins",
   "llm.fallbackMissing": "{id} (nicht auf diesem Sitz-Agenten)",
   "llm.hint.fallback":
-    "Übernimmt eine Partie, wenn dieses Modell limitiert oder ausgelastet ist, und neue Partien starten darauf, solange dieses Profil voll oder limitiert ist. Nur API-Profile dieses Sitz-Agenten. Wer bestellen darf, gilt nur für dieses Profil.",
+    "Übernimmt eine Partie, wenn dieses Modell limitiert oder ausgelastet ist, und neue Partien starten darauf, solange dieses Profil voll oder limitiert ist. Nur API-Profile dieses Sitz-Agenten mit demselben Anbieter. Wer bestellen darf, gilt nur für dieses Profil.",
   "llm.hint.fallbackCli": "Ein Agenten-CLI hat kein Ausweichprofil.",
   "llm.gameUsd": "Je Partie (USD)",
   "llm.hint.gameUsd": "Das Meiste, was eine Partie ausgeben darf; braucht den Preis des Modells. Standard 5 $.",

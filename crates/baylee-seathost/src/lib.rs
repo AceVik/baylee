@@ -177,8 +177,13 @@ pub fn definition_fault(id: &str, def: &Definition) -> Option<String> {
 }
 
 /// Why a set of definitions cannot be kept together, or `None`: a fallback
-/// that names a profile playing an agent CLI. A fallback no definition has
-/// is no fault (it may be written next); it is no fallback until it is.
+/// that names a profile playing an agent CLI, or one of another vendor. A
+/// fallback no definition has is no fault (it may be written next); it is
+/// no fallback until it is.
+///
+/// The vendor is what the room shows on the chair as where the game data
+/// goes, before anyone says ready; a fallback plays on in that chair, so it
+/// sends the data to the same vendor or not at all.
 #[must_use]
 pub fn definitions_fault(defs: &BTreeMap<String, Definition>) -> Option<String> {
     defs.iter().find_map(|(id, def)| {
@@ -186,13 +191,27 @@ pub fn definitions_fault(defs: &BTreeMap<String, Definition>) -> Option<String> 
         let theirs = defs.get(fallback)?;
         let cli = serde_json::from_value::<Profile>(theirs.profile.clone())
             .is_ok_and(|p| p.provider == Provider::Cli);
-        cli.then(|| {
-            format!(
+        if cli {
+            return Some(format!(
                 "profile «{id}» names «{fallback}» as its fallback, and «{fallback}» plays an \
                  agent CLI: a fallback is a model behind an API"
+            ));
+        }
+        (!same_vendor(def, theirs)).then(|| {
+            format!(
+                "profile «{id}» names «{fallback}» as its fallback, and their vendors differ \
+                 ({} and {}): the room shows the profile's vendor as where the game data goes, \
+                 so its fallback must name the same",
+                def.vendor.trim(),
+                theirs.vendor.trim()
             )
         })
     })
+}
+
+/// Whether two definitions name one vendor (case and outer blanks aside).
+fn same_vendor(a: &Definition, b: &Definition) -> bool {
+    a.vendor.trim().to_lowercase() == b.vendor.trim().to_lowercase()
 }
 
 /// The fallback `id`'s definition names, if it names one: `Ok` where a
@@ -213,6 +232,7 @@ fn fallback_of<'a>(
         None => Err("it is not on this seat agent"),
         Some(_) if fallback == id => Err("it is the profile itself"),
         Some(theirs) if !(api(def) && api(theirs)) => Err("a fallback is a model behind an API"),
+        Some(theirs) if !same_vendor(def, theirs) => Err("its vendor is another"),
         Some(theirs) if !theirs.enabled => Err("it is switched off"),
         Some(_) => Ok(fallback),
     })

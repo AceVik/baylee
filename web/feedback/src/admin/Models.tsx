@@ -276,11 +276,17 @@ function playsCli(profile: string): boolean {
   }
 }
 
-/** The profiles of `host` that may stand in for `id`: models behind an API, not itself. */
-export function fallbackChoices(hosts: SeatHost[], host: string, id: string): LlmProfile[] {
+/** One vendor, case and outer blanks aside, as the seat agent compares them. */
+const sameVendor = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * The profiles of `host` that may stand in for `id`: models behind an API, not itself, of the
+ * same `vendor` (the room shows the profile's vendor as where the game data goes).
+ */
+export function fallbackChoices(hosts: SeatHost[], host: string, id: string, vendor: string): LlmProfile[] {
   const on = hosts.find((h) => h.name === host);
   return (on?.profiles ?? [])
-    .filter((p) => p.kind === "api" && p.id !== id)
+    .filter((p) => p.kind === "api" && p.id !== id && sameVendor(p.vendor, vendor))
     .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
@@ -328,7 +334,7 @@ function Editor({
   }, []);
 
   const cli = playsCli(profile);
-  const choices = fallbackChoices(hosts, host, id);
+  const choices = fallbackChoices(hosts, host, id, vendor);
   const missing = fallback !== "" && !choices.some((c) => c.id === fallback);
   const what = `${id} @ ${host}`;
 
