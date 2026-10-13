@@ -39,6 +39,7 @@ mod batch49_untap;
 mod batch49_wall;
 mod batch52_horse_johan;
 mod batch52_protection;
+mod battles;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;

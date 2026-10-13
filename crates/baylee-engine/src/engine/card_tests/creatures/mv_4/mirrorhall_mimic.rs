@@ -254,3 +254,43 @@ fn a_back_face_has_its_front_faces_mana_value_and_a_copy_of_one_has_none() {
     );
     assert_eq!(options.len(), 1, "{options:?}");
 }
+
+/// Mirrorhall Mimic // Ghastly Mimicry: the back face prints no mana cost and
+/// a blue color indicator ("an object is each color denoted by its color
+/// indicator", CR 202.2e). This pool writes the disturb cost {3}{U}{U} on
+/// the back face, so the Aura is blue through that cost; the test pins the
+/// colour, and fails if that cost is ever kept apart without an indicator
+/// taking its place.
+///
+/// Turned over before the first priority is granted: an unattached Aura (and
+/// the 0/0 front) would be put into the graveyard at the next state-based
+/// check, and the colour is read before any.
+#[test]
+fn ghastly_mimicry_is_blue_after_the_flip() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(8307, island())
+        .battlefield(0, &[mirrorhall_mimic()])
+        .start();
+    let mimic =
+        on_battlefield(&e, p0, mirrorhall_mimic()).expect("the Mimic is on the battlefield");
+    let colors =
+        |e: &Engine<RegistryLookup>| e.state().object(mimic).unwrap().characteristics().colors;
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Blue),
+        "the Mimic is blue by its {{3}}{{U}} cost"
+    );
+
+    let def = baylee_cards::by_index(mirrorhall_mimic()).unwrap();
+    assert!(e.dev_state_mut(p0).unwrap().transform(mimic, def, 1));
+    assert_eq!(
+        e.state().object(mimic).unwrap().face_index,
+        1,
+        "Ghastly Mimicry is up"
+    );
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Blue),
+        "Ghastly Mimicry is blue and only blue (CR 202.2e)"
+    );
+}
