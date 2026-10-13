@@ -808,6 +808,24 @@ fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
     }
 }
 
+/// `/replay`: reads the ask and queues it for the replay bar, which reads
+/// [`crate::hud::replay_bar::ReplayAsks`] in its own system.
+fn queue_replay_ask(body: &str, commands: &mut Commands) -> String {
+    match replay_ask(body) {
+        Ok(ask) => {
+            commands.queue(move |world: &mut World| {
+                if let Some(mut asks) =
+                    world.get_resource_mut::<crate::hud::replay_bar::ReplayAsks>()
+                {
+                    asks.0.push(ask);
+                }
+            });
+            "{\"ok\":true}".to_string()
+        }
+        Err(err) => format!("{{\"error\":\"{err}\"}}"),
+    }
+}
+
 /// Drains the request queue once per frame and answers it.
 #[allow(clippy::too_many_arguments)]
 fn pump(
@@ -919,19 +937,7 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
-            "/replay" => match replay_ask(&job.body) {
-                Ok(ask) => {
-                    commands.queue(move |world: &mut World| {
-                        if let Some(mut asks) =
-                            world.get_resource_mut::<crate::hud::replay_bar::ReplayAsks>()
-                        {
-                            asks.0.push(ask);
-                        }
-                    });
-                    "{\"ok\":true}".to_string()
-                }
-                Err(err) => format!("{{\"error\":\"{err}\"}}"),
-            },
+            "/replay" => queue_replay_ask(&job.body, &mut commands),
             "/shell" | "/reveal" => {
                 control.answer_later(job);
                 continue;
