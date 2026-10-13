@@ -225,7 +225,12 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer
-                | PlayerRel::EventPlayer => {
+                | PlayerRel::EventPlayer
+                | PlayerRel::Recipient
+                | PlayerRel::EachOtherPlayer
+                | PlayerRel::OwnerOfEvent
+                | PlayerRel::MostLifeOrTied
+                | PlayerRel::DefendingPlayer => {
                     return None;
                 }
             };
