@@ -4494,3 +4494,15 @@ land type"; both are convention tests that fire on a first try.
   permanent onto the battlefield" was credited to the player it entered under instead of the
   player who put it (Arboria's ruling) — now the event's putter (`entry::Entries::putter`).
 - Each flipped land moves the land census ceiling (1032 now); read the count off the failure.
+
+### Partials lane wave 3: pair F (4 cards) and the census pins (2026-10-13)
+
+- Pair F (Cyclone, Jandor's Ring, Magnetic Mountain, Sword of the Ages) is Implemented: 24 tests,
+  every mutant killed, no finding. The tester checked its own tests against stand-in cards it wrote
+  from `docs/card-dsl.md` and against 25 hand-made mutants of them before the real cards landed,
+  which caught a filter gap (a tapped non-blue creature on offer) without reading a card file.
+- `baylee-ai`'s activated-ability census (`worth_tests`) pins the pool's activations and how many
+  the worth table reads; every card a lane flips to Implemented can move it. The engine-only runs
+  never saw it go red: run `cargo test -p baylee-ai` beside the engine suite when cards land.
+- A note for later: `PlayerMayPayManaEachThenElse` treats a price of nothing as paid, where
+  CR 118.5 says a {0} cost is not paid automatically; unreachable in the pool today.

@@ -782,7 +782,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Maze's End's Gate tutor now ends in "if you control ten or more Gates
     // with different names, you win the game" (astra-review): the table reads
     // neither that condition nor `WinGame`, so the row is unread, not guessed.
-    assert_eq!((read, of), (1030, 1297), "activated/loyalty reader census");
+    // The partials lane (waves 1-3, 2026-10-13) flipped Partial cards to
+    // Implemented: 13 more activations in the pool, 4 more of them read.
+    // Read went up, not down: additions, not a lost reader row.
+    assert_eq!((read, of), (1034, 1310), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
