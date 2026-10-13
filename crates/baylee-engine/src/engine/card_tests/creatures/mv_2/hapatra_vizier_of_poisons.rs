@@ -194,7 +194,7 @@ fn hapatra_declining_the_may_places_no_counter_and_makes_no_snake() {
 
         assert_eq!(
             counters_on(&engine, victim, CounterKind::M1M1),
-            if accept { 1 } else { 0 },
+            u16::from(accept),
             "the -1/-1 counter is placed only when the \"may\" is accepted (accept = {accept})"
         );
         assert_eq!(
