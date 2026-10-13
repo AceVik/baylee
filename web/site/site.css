@@ -57,6 +57,7 @@
   --code-bg: #0a1120;
   --kbd-bg: #1b2740;
   --field-bg: rgba(9, 15, 28, 0.65);
+  --field-edge: rgba(170, 190, 220, 0.55);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -96,6 +97,7 @@
     --code-bg: #1b2233;
     --kbd-bg: #e3e8f1;
     --field-bg: rgba(255, 255, 255, 0.85);
+    --field-edge: rgba(40, 60, 100, 0.6);
     color-scheme: light;
   }
 }
@@ -135,6 +137,7 @@
   --code-bg: #1b2233;
   --kbd-bg: #e3e8f1;
   --field-bg: rgba(255, 255, 255, 0.85);
+  --field-edge: rgba(40, 60, 100, 0.6);
   color-scheme: light;
 }
 
@@ -612,7 +615,7 @@ h1 .glow {
 .kv > div { display: grid; grid-template-columns: minmax(7rem, 11rem) 1fr; gap: 0.6rem; align-items: baseline; }
 .kv dt { font-family: var(--sans); font-size: 0.82rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
 .kv dd { margin: 0; font-family: var(--sans); font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
-.kv dd a { color: var(--link); }
+.kv dd a { color: var(--link); display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 .kv dd code { white-space: normal; }
 @media (max-width: 420px) { .kv > div { grid-template-columns: 1fr; gap: 0.1rem; } }
 .gateway-card, .repo-card { padding: 1.4rem 1.5rem 0.7rem; }
@@ -653,7 +656,8 @@ h1 .glow {
 .field .opt { font-weight: 400; font-size: 0.82rem; color: var(--ink-faint); }
 .field input, .field textarea {
   font: inherit; font-size: 1rem; color: var(--ink); width: 100%;
-  background: var(--field-bg); border: 1px solid var(--edge-soft); border-radius: 12px;
+  /* a field's edge is how it is found: at least 3:1 to its ground (WCAG 1.4.11) */
+  background: var(--field-bg); border: 1px solid var(--field-edge); border-radius: 12px;
   padding: 0.7em 0.9em; min-height: 48px;
   transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
@@ -771,7 +775,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .sets-tools[hidden] { display: none; }
 .sets-search { display: inline-flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
 .sets-search input {
-  font: inherit; color: var(--ink); background: var(--field-bg); border: 1px solid var(--edge); border-radius: 12px;
+  font: inherit; color: var(--ink); background: var(--field-bg); border: 1px solid var(--field-edge); border-radius: 12px;
   padding: 0.4em 0.8em; min-height: 44px; width: min(18rem, 78vw);
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
@@ -976,3 +980,17 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
   .imp-dl dd + dt { margin-top: 0.6rem; }
 }
 .imp-status:empty { min-height: 0; margin: 0; }
+
+/* ---------------------------------------------------------------- targets
+   Every link that stands alone (not inside a sentence) is at least 44 px
+   tall and wide enough for a finger: the download block's small links, the
+   release line, a platform's files and their checksums. */
+.dl-sub a, .release-head a, .plat-files a.file, .plat-files .aux a {
+  display: inline-flex; align-items: center; min-height: 44px; padding-top: 0; padding-bottom: 0;
+}
+.plat-files .aux a { min-width: 44px; justify-content: center; }
+.dl-sub a { padding: 0 0.25em; }
+
+/* the download lines lie on the painting: the stronger inks there */
+.hero .dl-sub, .hero .dl-meta .sep { color: var(--ink-soft); }
+.hero .dl-sub a { color: var(--link-hover); }
