@@ -827,10 +827,12 @@ describes it.
   spend/<fallback>.json`. No key travels with either: the bridge reads both
   from the seat agent's key store, each under its own profile's entry, and
   its environment is the seat agent's allowlist as before.
-- **New games on the fallback.** While a profile is at its `max_games`, or
-  limited (its book at a cap, or the provider's limit, which the seat agent
-  also hears from a bridge's `the primary is rate limited` line), and its
-  fallback is available, a new game starts on the fallback outright and
+- **New games on the fallback.** While a profile is not available for
+  any reason (at its `max_games`; limited, its book at a cap or the
+  provider's limit, which the seat agent also hears from a bridge's `the
+  primary is rate limited` line; failing its check; signed out; being
+  checked; switched off) and its fallback is available, a new game starts
+  on the fallback outright and
   plays it whole: the fallback's settings file and book alone, no further
   fallback, so the provider's cache is the same endpoint's from the first
   question. The chair keeps the ordered profile's name, the gateway's
@@ -838,6 +840,7 @@ describes it.
   fallback's games (its `max_games` holds it). The profile is reported
   `available`, with `diverts` naming the fallback, and the operator's log
   says which profile the game got and why (`primary at max_games 5/5`,
+  `primary failing: …`,
   `primary limited for another 300 s`). Like every bridge it
   names no player to the model ([above](#the-language-model-seat-settings-and-spend)):
   the prompt's prefix says `P2 is an opponent.`, never a display name. (A

@@ -118,7 +118,7 @@ and the seat number; an agent CLI runs in a directory named by the seat
 number and a random UUID, never the game's id (`docs/llm-seat.md` §"A CLI
 as the model"). The room shows the vendor on the chair before anyone says
 ready. A hosted profile may name a fallback profile that plays on when its
-model is rate limited, or plays a new game whole while the profile is full or limited
+model is rate limited, or plays a new game whole while the profile is not available
 (`docs/protocol.md` §"A fallback profile"): another model, possibly another
 address, but always of the same vendor, which the seat agent enforces, so
 the vendor the room showed is still where the game data goes. It is sent
