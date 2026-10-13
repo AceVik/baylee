@@ -22,6 +22,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use baylee_db::llm_access;
 use baylee_protocol::seathost::{
     ControlAction, Definition, Frame, Reported, SeatStatusKind, State as ProfileState, valid_name,
 };
@@ -556,14 +557,46 @@ pub(crate) fn chair_json(chair: &lobby::LobbySeat) -> serde_json::Value {
 
 // ------------------------------------------------------------------ players
 
-/// `GET /lobby/llm-profiles`: every hosted profile, available first.
+/// Why an account may not order a profile it is not admitted to.
+pub(crate) const NOT_OPEN: &str = "that hosted model is not open to your account";
+
+/// The session's standing with every profile that has a stored policy
+/// (`docs/protocol.md` §"Who may seat which model"); a guest's is empty,
+/// since a guest is admitted to none. Read before any lock is taken.
+async fn standing(
+    state: &crate::AppState,
+    session: &crate::store::Session,
+) -> Result<BTreeMap<String, llm_access::Standing>, (StatusCode, Json<ErrorBody>)> {
+    if session.guest {
+        return Ok(BTreeMap::new());
+    }
+    let Ok(account) = uuid::Uuid::parse_str(&session.account_id) else {
+        return Ok(BTreeMap::new());
+    };
+    llm_access::standing(&state.db, account).await.map_err(|e| {
+        tracing::error!("hosted access: {e}");
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the gateway's database is unavailable",
+        )
+    })
+}
+
+/// `GET /lobby/llm-profiles`: the hosted profiles this account may seat,
+/// available first. A guest's list is empty.
 pub(crate) async fn profiles(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    authed_session(&state, &headers).await?;
+    let session = authed_session(&state, &headers).await?;
+    let standing = standing(&state, &session).await?;
     let registry = state.seathosts.lock();
-    let rows: Vec<serde_json::Value> = registry.rows().iter().map(Row::json).collect();
+    let rows: Vec<serde_json::Value> = registry
+        .rows()
+        .iter()
+        .filter(|row| llm_access::admits(standing.get(row.id).copied(), session.guest))
+        .map(Row::json)
+        .collect();
     Ok(Json(serde_json::json!({ "profiles": rows })))
 }
 
@@ -593,6 +626,12 @@ pub(crate) async fn order(
     let session = authed_session(&state, &headers).await?;
     if session.guest {
         return Err(err(StatusCode::FORBIDDEN, GUEST_REFUSED));
+    }
+    // Who may seat it is read at the order only: a change later stops no
+    // chair already ordered and no game already playing.
+    let standing = standing(&state, &session).await?;
+    if !llm_access::admits(standing.get(&body.profile).copied(), session.guest) {
+        return Err(err(StatusCode::FORBIDDEN, NOT_OPEN));
     }
     if body
         .deck_text
