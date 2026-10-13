@@ -88,6 +88,7 @@ pub mod prefs;
 pub mod prose;
 pub mod quiet;
 pub mod reconnect;
+pub mod replay;
 pub mod resume;
 pub mod reveals;
 pub mod rowscroll;
