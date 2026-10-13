@@ -514,6 +514,10 @@ pub enum DelayedAction {
         object: ObjectId,
         /// Its identity when this was created.
         version: u32,
+        /// The subject of the trigger that made it, carried on to the
+        /// trigger this one goes on the stack as
+        /// (`PendingTrigger::event_subject`).
+        subject: Option<baylee_core::ids::DamageSourceRef>,
     },
 }
 
@@ -533,9 +537,11 @@ pub struct PerTurn {
     /// Whether a permanent left under each player's control this turn.
     pub revolt: Vec<bool>,
     /// Whether each player put a nontoken permanent onto the battlefield
-    /// this turn (Arboria), read as the player it entered under: who puts a
-    /// permanent onto the battlefield is, but for an effect that names
-    /// another player as its controller, the player it enters under.
+    /// this turn (Arboria): the player who put it there, not the one it
+    /// entered under (the card's 2022-12-08 ruling). That is the putter of
+    /// the event (`entry::Entries::putter`: the controller of the resolving
+    /// spell or ability, the player playing a land), and the player it
+    /// entered under where no event names one.
     pub put_nontoken_permanent: Vec<bool>,
     /// Whether each player's next spell this turn has improvise (Archway of
     /// Innovation, `Effect::NextSpellThisTurnHasImprovise`); spent by that

@@ -53,6 +53,11 @@ pub struct PendingTrigger {
     /// Immutable exact-object group for one delayed trigger. Shared on
     /// checkpoints; ordinary triggers allocate nothing and carry one pointer.
     pub related_objects: Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>>,
+    /// The creature a pair trigger about an attached creature was about
+    /// (`Trigger::AttachedBlocksOrBecomesBlockedBy`), as it was then; it
+    /// rides on the stack object (`Rider::EventSubject`) and on to the
+    /// delayed triggers it makes (`Effect::AtNextEndStepAboutSubject`).
+    pub event_subject: Option<baylee_core::ids::DamageSourceRef>,
     /// Source incarnation at the triggering event, including battlefield LKI.
     pub source_version: Option<u32>,
     /// Index into the source card's abilities.
@@ -338,13 +343,14 @@ fn collect_emblems(
                     );
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
-                        let event_object = event_object_for(trigger, &entry.event, emblem);
+                        let event_object = event_object_for(trigger, &entry.event, emblem, state);
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 text: TextChangeMap::IDENTITY,
                                 source_version: Some(obj.version),
                                 related_objects: None,
+                                event_subject: None,
                                 event_ability: activated_stack_ability(&entry.event),
                                 event_object_identity: event_object
                                     .and_then(|id| state.event_object_identity(id, entry.seq)),
@@ -450,11 +456,13 @@ fn graveyard_triggers(
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(object.version),
                         related_objects: None,
+                        event_subject: None,
                         event_ability: activated_stack_ability(&entry.event),
                         event_object_identity: event_object_for(
                             firing.trigger,
                             &entry.event,
                             source,
+                            state,
                         )
                         .and_then(|id| state.event_object_identity(id, entry.seq)),
                         counter_source_version: None,
@@ -462,7 +470,7 @@ fn graveyard_triggers(
                         abilities: Some(list.clone()),
                         controller: owner,
                         timestamp: object.timestamp,
-                        event_object: event_object_for(firing.trigger, &entry.event, source),
+                        event_object: event_object_for(firing.trigger, &entry.event, source, state),
                         event_mana_value: None,
                         event_departure: entry
                             .departure
@@ -573,6 +581,7 @@ pub fn state_triggers(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(obj.version),
                 related_objects: None,
+                event_subject: None,
                 event_ability: None,
                 event_object_identity: None,
                 counter_source_version: None,
@@ -660,6 +669,7 @@ fn cast_copy_triggers(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
                 related_objects: None,
+                event_subject: None,
                 event_ability: None,
                 event_object_identity: None,
                 counter_source_version: None,
@@ -755,6 +765,7 @@ fn watch_triggers(
                 text,
                 object,
                 version,
+                ..
             } => (
                 source,
                 source_version,
@@ -813,6 +824,7 @@ fn watch_triggers(
             event_ability: None,
             event_object_identity,
             related_objects: None,
+            event_subject: None,
             counter_source_version: None,
             event_amount: None,
             event_player: None,
@@ -892,6 +904,7 @@ fn damage_watch_triggers(
                 event_ability: None,
                 event_object_identity: None,
                 related_objects: None,
+                event_subject: None,
                 counter_source_version: None,
                 event_amount: Some(amount),
                 event_player: None,
@@ -953,6 +966,7 @@ fn attack_watch_triggers(
                 event_ability: None,
                 event_object_identity: None,
                 related_objects: None,
+                event_subject: None,
                 counter_source_version: None,
                 event_amount: None,
                 event_player: Some(watch.controller),
@@ -1157,6 +1171,7 @@ fn monarch_triggers(
         text: TextChangeMap::IDENTITY,
         source_version: None,
         related_objects: None,
+        event_subject: None,
         event_ability: None,
         event_object_identity: None,
         counter_source_version: None,
@@ -1364,8 +1379,29 @@ fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
 /// and the creature it blocks; "whenever this creature blocks or becomes
 /// blocked by a non-Wall creature, destroy that creature" is about the one
 /// that is not the source, whichever side of the block that is.
-fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> Option<ObjectId> {
+fn event_object_for(
+    trigger: &Trigger,
+    event: &GameEvent,
+    source: ObjectId,
+    state: &GameState,
+) -> Option<ObjectId> {
     match (trigger, event) {
+        // The other creature of the pair: the one that is not the creature
+        // this source is attached to.
+        (
+            Trigger::AttachedBlocksOrBecomesBlockedBy(_),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            let host = state.object(source)?.attached_to?;
+            Some(if *blocker == host {
+                *attacker
+            } else {
+                *blocker
+            })
+        }
         (
             Trigger::BecomesBlockedBy(_) | Trigger::BecomesBlocked,
             GameEvent::BecameBlocker {
@@ -1402,6 +1438,36 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
         }),
         _ => event_object_of(event),
     }
+}
+
+/// The creature a pair trigger about an attached creature is about
+/// (`Trigger::AttachedBlocksOrBecomesBlockedBy`), as the object it is now:
+/// the one of the pair this source is attached to.
+fn event_subject_for(
+    trigger: &Trigger,
+    event: &GameEvent,
+    source: ObjectId,
+    state: &GameState,
+) -> Option<baylee_core::ids::DamageSourceRef> {
+    let (
+        Trigger::AttachedBlocksOrBecomesBlockedBy(_),
+        GameEvent::BecameBlocker {
+            object: blocker,
+            attacker,
+        },
+    ) = (trigger, event)
+    else {
+        return None;
+    };
+    let host = state.object(source)?.attached_to?;
+    if host != *blocker && host != *attacker {
+        return None;
+    }
+    let version = state.object(host)?.version;
+    Some(baylee_core::ids::DamageSourceRef {
+        object: host,
+        version,
+    })
 }
 
 /// The object an event is about, if any.
@@ -1503,6 +1569,7 @@ fn cast_this_spell_triggers(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
                 related_objects: None,
+                event_subject: None,
                 event_ability: None,
                 event_object_identity: None,
                 counter_source_version: None,
@@ -1871,6 +1938,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            event_subject: None,
                             event_ability: None,
                             event_object_identity: None,
                             counter_source_version: None,
@@ -1951,13 +2019,19 @@ fn collect_for_objects(
                     )
                 });
                 if hit > 0 {
-                    let event_object = event_object_for(trigger, &entry.event, permanent);
+                    let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let times = trigger_count(state, trigger, permanent, source.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             text,
                             source_version: Some(source.version),
                             related_objects: None,
+                            event_subject: event_subject_for(
+                                trigger,
+                                &entry.event,
+                                permanent,
+                                state,
+                            ),
                             event_ability: activated_stack_ability(&entry.event),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
@@ -2016,6 +2090,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            event_subject: None,
                             event_ability: None,
                             event_object_identity: None,
                             counter_source_version: None,
@@ -2109,7 +2184,7 @@ fn collect_for_objects(
                     });
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
-                    let event_object = event_object_for(trigger, &entry.event, permanent);
+                    let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         let source = source_at_event(
@@ -2129,6 +2204,12 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            event_subject: event_subject_for(
+                                trigger,
+                                &entry.event,
+                                permanent,
+                                state,
+                            ),
                             event_ability: activated_stack_ability(&entry.event),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
@@ -2805,6 +2886,30 @@ fn matches(
             let other = if *blocker == source {
                 *attacker
             } else if *attacker == source {
+                *blocker
+            } else {
+                return false;
+            };
+            state
+                .object(other)
+                .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        // The same pair, seen from the creature this source is attached to
+        // (Infinite Authority's "enchanted creature"): the source's own
+        // ability (CR 603.3a), once per pair.
+        (
+            Trigger::AttachedBlocksOrBecomesBlockedBy(filter),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            let Some(host) = state.object(source).and_then(|o| o.attached_to) else {
+                return false;
+            };
+            let other = if *blocker == host {
+                *attacker
+            } else if *attacker == host {
                 *blocker
             } else {
                 return false;

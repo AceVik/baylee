@@ -354,6 +354,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         source_version: Some(source.version),
         text: crate::text_changes::TextChangeMap::IDENTITY,
         related_objects: None,
+        event_subject: None,
         event_ability: None,
         event_object_identity: Some((
             death.victim.version,

@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abu_ja_far;
 mod agent_of_stromgald;
 mod akki_avalanchers;
 mod ali_baba;

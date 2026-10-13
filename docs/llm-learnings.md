@@ -4455,3 +4455,54 @@ land type"; both are convention tests that fire on a first try.
 - Integration: a full `cargo test -p baylee-engine --lib` on the merged tree caught two failures
   the narrow card runs could not: an old test that pinned the partial Grist's ability position,
   and the land census ceiling (1028 promises once pair B's lands were Implemented).
+
+### Partials lane wave 2: 19 cards, pairs C and D (2026-10-13)
+
+- Pair C (11 cards: Glyphs, Feint, Backdraft, Reverse Polarity, Abu Ja'far, Blazing Effigy, Brine
+  Hag, Floral Spuzzem) and pair D (8 of 9: Gauntlets of Chaos, Mirror Universe, Marble Priest,
+  Wall of Caltrops, Rohgahh of Kher Keep, Enchantment Alteration, Remove Enchantments, Contested
+  War Zone) are Implemented; 56 and 55 tests, every whole-ability mutant killed. Infinite
+  Authority went back to Partial on review: its trigger is the Aura's own (CR 113.1a, 603.3a),
+  not one granted to the enchanted creature, so a lose-all-abilities effect on the creature must
+  not silence it. That needs an engine pair trigger with a recorded subject.
+- The review's engine findings were real defects the narrow card runs could not see: a Glyph of
+  Doom whose Wall died in the same combat damage step lost its memory of the blocked creature
+  (the delayed trigger now carries the event object's identity, CR 608.2h); Glyph of
+  Reincarnation offered a token it had destroyed (tokens are not cards, CR 108.2b); Wall of
+  Caltrops' condition never saw its block event; a spell with a relative second target ("another
+  target creature that shares a type with the first") was never castable because the second
+  target's reachability was checked without the first.
+- A test asserting on a question must also assert who is asked: Enchantment Alteration's
+  chooser and Glyph of Reincarnation's every asked seat are pinned now (CR 608.2d).
+- After merging, the land census ceiling moved again (1029, Contested War Zone). Any land a
+  pair flips to Implemented moves it; read the number off the failure and record why.
+- Whir of Invention's mana value on the stack was X-less: `layers::needs_projection` skipped a
+  stack object with X that no effect touched (CR 202.3e). A rule-test with a synthetic effect on
+  the spell had hidden it; the card test without one found it.
+
+### Partials lane wave 3: pair E (8 cards) and the world rule (2026-10-13)
+
+- Pair E (Den of the Bugbear, Dalkovan Encampment, Whir of Invention, Archway of Innovation,
+  Arboria, Jihad, Equinox, Invoke Prejudice) is Implemented: 61 tests, 13 of 13 ability mutants
+  killed, no card-side finding. The review's test gaps were each a missing negative: "whenever
+  *you* attack" needs an attack by another player that does not fire; "as long as …" needs the
+  condition seen false while the source is still there (a state trigger waits on the stack,
+  CR 603.8, which is the window).
+- The engine findings were older than the pair and only a card reading its rulings exposed them:
+  the world rule (CR 704.5k) was missing for all twelve world cards in the pool (fixed for beta.7
+  on its own branch); "would destroy" ignored a modal spell's chosen mode (CR 700.2a); and "put a
+  permanent onto the battlefield" was credited to the player it entered under instead of the
+  player who put it (Arboria's ruling) — now the event's putter (`entry::Entries::putter`).
+- Each flipped land moves the land census ceiling (1032 now); read the count off the failure.
+
+### Partials lane wave 3: pair F (4 cards) and the census pins (2026-10-13)
+
+- Pair F (Cyclone, Jandor's Ring, Magnetic Mountain, Sword of the Ages) is Implemented: 24 tests,
+  every mutant killed, no finding. The tester checked its own tests against stand-in cards it wrote
+  from `docs/card-dsl.md` and against 25 hand-made mutants of them before the real cards landed,
+  which caught a filter gap (a tapped non-blue creature on offer) without reading a card file.
+- `baylee-ai`'s activated-ability census (`worth_tests`) pins the pool's activations and how many
+  the worth table reads; every card a lane flips to Implemented can move it. The engine-only runs
+  never saw it go red: run `cargo test -p baylee-ai` beside the engine suite when cards land.
+- A note for later: `PlayerMayPayManaEachThenElse` treats a price of nothing as paid, where
+  CR 118.5 says a {0} cost is not paid automatically; unreachable in the pool today.

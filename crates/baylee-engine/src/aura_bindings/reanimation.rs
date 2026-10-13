@@ -118,6 +118,7 @@ pub(crate) fn finish_reanimation(state: &mut GameState, finish: ReanimationFinis
             text: finish.text,
             object: finish.returned.object,
             version: finish.returned.version,
+            subject: None,
         },
     });
 }
