@@ -180,8 +180,18 @@ impl HeuristicAgent {
         // X menus may span the full u32 domain while mana is made later.
         // Affordability and the safe draw bound are monotone: find the greatest
         // affordable answer in at most 32 probes, never one probe per mana.
+        // The planner pays one unit per floating mana and per mana a source
+        // makes, so no X above their sum is affordable, and the search starts
+        // there: a probe at an open menu's 2^31 would have it spell out two
+        // billion generic needs, one by one, which is a hang and not a probe.
+        let reachable = seat
+            .mana_pool
+            .total()
+            .saturating_add(sources.iter().map(|s| u64::from(s.amount)).sum::<u64>());
         let mut lower = min;
-        let mut upper = max.min(context.x_targets.unwrap_or(max));
+        let mut upper = max
+            .min(context.x_targets.unwrap_or(max))
+            .min(u32::try_from(reachable).unwrap_or(u32::MAX));
         while lower < upper {
             let x = lower + (upper - lower).div_ceil(2);
             if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
