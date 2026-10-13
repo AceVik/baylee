@@ -580,10 +580,9 @@ fn standby(
     let fallen = Arc::clone(fallen);
     let named = label.clone();
     let arm = move |limit: &bridge::Limit| -> Result<bridge::Swap, String> {
-        let lifts = limit
-            .lifts_in
-            .map(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()))
-            .unwrap_or_default();
+        // Why it takes over, in the words a seat agent reads (a limit says
+        // `bridge::LIMITED`, a failure never does).
+        let cause = scrub(&limit.said(), None);
         let mut booked = match book
             .map(|book| {
                 spend::reserve(
@@ -599,7 +598,7 @@ fn standby(
             Ok(booked) => booked,
             Err(why) => {
                 say!(
-                    "the fallback {named} could not take over in turn {}: {why}; {LIMITED}{lifts}",
+                    "the fallback {named} could not take over in turn {}: {why}; {cause}",
                     limit.turn
                 );
                 return Err(why);
@@ -619,7 +618,7 @@ fn standby(
             spend.tally = Some(built.tally);
         }
         say!(
-            "the fallback {named} answers from turn {}: {LIMITED}{lifts}",
+            "the fallback {named} answers from turn {}: {cause}",
             limit.turn
         );
         Ok(bridge::Swap {
@@ -648,7 +647,7 @@ fn stand_by(
     match standby(join, primary, args, env, keys, fallen) {
         Ok(Some(standby)) => {
             say!(
-                "the fallback {} stands by: it plays on if the model is rate limited",
+                "the fallback {} stands by: it plays on if the model is rate limited or fails",
                 standby.label
             );
             Some(standby)
@@ -660,11 +659,6 @@ fn stand_by(
         }
     }
 }
-
-/// What a bridge says when its model is rate limited and a fallback stood
-/// by: a seat agent reads it to hold the profile back from new games
-/// until the limit lifts (`baylee-seathost`, `launch::LIMITED`).
-const LIMITED: &str = "the primary is rate limited";
 
 impl MindKind {
     fn parse(text: &str) -> Result<Self, String> {

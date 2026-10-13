@@ -3150,13 +3150,17 @@ as where the game data goes, and the fallback plays on in that chair.
   The fallback's own `fallback` is never followed.
 - **During a game.** The chair's bridge holds the fallback in reserve
   (`--fallback-profile`, its own settings file and spend book): when the
-  model's provider says it is rate limited or busy (HTTP 429, or the error
-  code `rate_limited` or `busy`), the question is asked of the fallback at
-  once and the fallback plays the rest of the game, reserved under its own
-  caps and declared to the table (§"Who answers a seat, as it says"). It
-  never hands back. Where it cannot take over (its book refuses, no key),
-  the house answers, as without one. `docs/llm-seat.md` §"A fallback
-  profile".
+  model cannot answer, because its provider says it is rate limited or
+  busy (HTTP 429, or the error code `rate_limited` or `busy`) or because it
+  failed otherwise (a 5xx such as `502 server_error`, the network), the
+  question is asked of the fallback at once and the fallback plays the
+  rest of the game, reserved under its own caps and declared to the table
+  (§"Who answers a seat, as it says"). It never hands back. A question the
+  model declines stays the house's, and the fallback stands by. Where it
+  cannot take over (its book refuses, no key), the house answers, as
+  without one. Only a limit is reported to the seat agent as one (the
+  bridge's `the primary is rate limited` line), so only a limit holds the
+  profile back from new games. `docs/llm-seat.md` §"A fallback profile".
 - **At the start of a game.** While the profile is not `available`, for
   any reason (owner, 13.10.2026: it is to run steadily): at its
   `max_games`, limited (a cap of its book, or a provider's limit its check

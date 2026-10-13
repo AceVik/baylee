@@ -29,17 +29,22 @@
 //! # A fallback profile
 //!
 //! A bridge may hold a second mind in reserve ([`Standby`]): another
-//! profile, which takes the seat over when its mind says the provider is
-//! rate limited or busy ([`MindError::Limited`]). The question the mind
-//! could not answer is asked of the fallback at once, within what is left
-//! of that question's budget, so the core never hears the limit: the house
-//! does not answer and the failure does not count towards
-//! [`crate::BridgeConfig::down_after`]. The fallback is said to the table
-//! before its first answer (the record writes the change where it
-//! happened), and plays the rest of the game; the bridge never switches
-//! back (`docs/llm-seat.md` §"A fallback profile"). Where it cannot take
-//! over (its own spend book refuses, say), the limit is the mind's failure
-//! as before, the house answers, and the transcript says why.
+//! profile, which takes the seat over when its mind cannot answer: the
+//! provider says it is rate limited or busy ([`MindError::Limited`]), or
+//! the mind failed otherwise ([`MindError::Unavailable`]: a 5xx, the
+//! network, a task that died). The owner's rule is that the house plays
+//! only in an emergency (13.10.2026), and a provider's `502` mid-game is
+//! none. The question the mind could not answer is asked of the fallback
+//! at once, within what is left of that question's budget, so the core
+//! never hears the failure: the house does not answer and it does not
+//! count towards [`crate::BridgeConfig::down_after`]. The fallback is said
+//! to the table before its first answer (the record writes the change
+//! where it happened), and plays the rest of the game; the bridge never
+//! switches back (`docs/llm-seat.md` §"A fallback profile"). Where it
+//! cannot take over (its own spend book refuses, say), the failure is the
+//! mind's as before, the house answers, and the transcript says why. A
+//! mind that declines a question ([`MindError::Declined`]) is not down:
+//! the house answers that one, and the fallback stands by.
 
 use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
@@ -93,19 +98,55 @@ pub struct Played {
     pub fallback: Option<FellBack>,
 }
 
-/// The limit a fallback is asked to take over on.
+/// The failure a fallback is asked to take over on: a limit, or the mind
+/// unavailable otherwise.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Limit {
     /// The turn of the question the mind could not answer.
     pub turn: u32,
-    /// Why, in the provider's words ([`MindError::Limited`]).
+    /// Why, in the provider's words ([`MindError::Limited`],
+    /// [`MindError::Unavailable`]).
     pub why: String,
-    /// When the provider said the limit lifts, if it said.
+    /// When the provider said the limit lifts, if it said; `None` where
+    /// the mind failed otherwise.
     pub lifts_in: Option<Duration>,
+    /// Whether the mind failed otherwise than by a limit
+    /// ([`MindError::Unavailable`]): no limit, so nothing lifts, and a seat
+    /// agent is not told the profile is rate limited.
+    pub failed: bool,
 }
 
+impl Limit {
+    /// Why the fallback takes over, as the table's operator reads it:
+    /// `the primary is rate limited (it lifts in N s)`, or `the primary
+    /// failed: <why>`.
+    #[must_use]
+    pub fn said(&self) -> String {
+        if self.failed {
+            return format!("the primary failed: {}", self.why);
+        }
+        let lifts = self
+            .lifts_in
+            .map(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()))
+            .unwrap_or_default();
+        format!("{LIMITED}{lifts}")
+    }
+
+    /// The transcript's word for it: `limited` or `failed`.
+    fn cause(&self) -> &'static str {
+        if self.failed { "failed" } else { "limited" }
+    }
+}
+
+/// What a bridge says when its model is rate limited and a fallback stood
+/// by ([`Limit::said`]): a seat agent reads it to hold the profile back
+/// from new games until the limit lifts (`baylee-seathost`,
+/// `launch::LIMITED`). A failure that is no limit never says it.
+pub const LIMITED: &str = "the primary is rate limited";
+
 /// A fallback profile held in reserve: what takes the seat over when its
-/// mind is rate limited (the module's §"A fallback profile").
+/// mind is rate limited or unavailable (the module's §"A fallback
+/// profile").
 pub struct Standby {
     /// What it is called in the summary: the profile's name.
     pub label: String,
@@ -441,9 +482,10 @@ impl Bridge {
     }
 
     /// The mind answered (or its task ended): the core's steps, `None`
-    /// where no question was being thought about. A limit where a fallback
-    /// stands by is not the core's to hear: the fallback is asked the same
-    /// question ([`Self::take_over`]), and there is nothing to send yet.
+    /// where no question was being thought about. A limit or a failure
+    /// where a fallback stands by is not the core's to hear: the fallback
+    /// is asked the same question ([`Self::take_over`]), and there is
+    /// nothing to send yet.
     fn answered(
         &mut self,
         core: &mut SeatCore,
@@ -458,17 +500,18 @@ impl Bridge {
         let result = joined
             .unwrap_or_else(|e| Err(MindError::Unavailable(format!("the mind stopped: {e}"))));
         let result = match (result, request) {
-            (Err(MindError::Limited { why, lifts_in }), Some(request))
-                if self.fallback.is_some() =>
-            {
-                match self.take_over(*request, question, deadline, &why, lifts_in) {
+            (
+                Err(error @ (MindError::Limited { .. } | MindError::Unavailable(_))),
+                Some(request),
+            ) if self.fallback.is_some() => {
+                match self.take_over(*request, question, deadline, error) {
                     Ok(()) => {
                         // Told to the core now, so the declaration goes out
                         // ahead of the fallback's first answer.
                         self.settle(core);
                         return Some(Vec::new());
                     }
-                    Err(why) => Err(MindError::Limited { why, lifts_in }),
+                    Err(error) => Err(error),
                 }
             }
             (result, _) => result,
@@ -477,26 +520,39 @@ impl Bridge {
         Some(core.answered(question, result))
     }
 
-    /// The fallback takes the seat over on a limit: built and reserved now
-    /// ([`Standby::arm`]), it is asked `request` within what is left before
-    /// `deadline`, and plays the rest of the game. `Err` is the limit's
-    /// sentence with why the fallback could not take over; it stands by no
-    /// longer either way.
+    /// The fallback takes the seat over on a limit or a failure of the
+    /// mind: built and reserved now ([`Standby::arm`]), it is asked
+    /// `request` within what is left before `deadline`, and plays the rest
+    /// of the game. `Err` is `error`, its sentence followed by why the
+    /// fallback could not take over; it stands by no longer either way.
     fn take_over(
         &mut self,
         mut request: Request,
         question: u64,
         deadline: Instant,
-        why: &str,
-        lifts_in: Option<Duration>,
-    ) -> Result<(), String> {
+        error: MindError,
+    ) -> Result<(), MindError> {
+        let (why, lifts_in, failed) = match error {
+            MindError::Limited { why, lifts_in } => (why, lifts_in, false),
+            MindError::Unavailable(why) => (why, None, true),
+            declined @ MindError::Declined(_) => return Err(declined),
+        };
+        // The same kind of failure, with `why` in its place.
+        let error = |why: String| {
+            if failed {
+                MindError::Unavailable(why)
+            } else {
+                MindError::Limited { why, lifts_in }
+            }
+        };
         let Some(standby) = self.fallback.take() else {
-            return Err(why.to_string());
+            return Err(error(why));
         };
         let limit = Limit {
             turn: request.view.turn,
-            why: why.to_string(),
+            why,
             lifts_in,
+            failed,
         };
         let swap = match (standby.arm)(&limit) {
             Ok(swap) => swap,
@@ -509,21 +565,27 @@ impl Bridge {
                 self.notes.push(serde_json::json!({
                     "fallback_refused": { "profile": standby.label, "why": refused },
                 }));
-                return Err(format!(
-                    "{why}; the fallback {} could not take over: {refused}",
-                    standby.label
-                ));
+                return Err(error(format!(
+                    "{}; the fallback {} could not take over: {refused}",
+                    limit.why, standby.label
+                )));
             }
         };
         tracing::info!(
             fallback = standby.label,
             turn = limit.turn,
+            cause = limit.cause(),
             "the fallback takes over"
         );
         self.notes.push(serde_json::json!({
-            "fallback": { "profile": standby.label, "turn": limit.turn, "why": why },
+            "fallback": {
+                "profile": standby.label,
+                "turn": limit.turn,
+                "cause": limit.cause(),
+                "why": limit.why,
+            },
         }));
-        // The mind that was limited plays no more of this game.
+        // The mind that could not answer plays no more of this game.
         if let Some((game, seat)) = &self.game_seat {
             self.mind.end_game(game, *seat);
         }
@@ -1087,7 +1149,15 @@ mod tests {
         Choose(ManaColor),
         /// The provider says it is rate limited (429, `Retry-After` 30 s).
         Limited,
+        /// The provider failed otherwise ([`FAILED`], no limit).
+        Unavailable,
+        /// The mind will not answer this kind of question.
+        Declined,
     }
+
+    /// What a [`Move::Unavailable`] mind says: the staging acceptance's
+    /// `502` (13.10.2026), the failure the house answered then.
+    const FAILED: &str = "502: server_error: The website reported an error for this message";
 
     /// A mind that plays `moves` call by call, the last one from then on,
     /// and writes down what it was asked.
@@ -1124,6 +1194,8 @@ mod tests {
                         why: "429: slow down".into(),
                         lifts_in: Some(Duration::from_secs(30)),
                     }),
+                    Move::Unavailable => Err(MindError::Unavailable(FAILED.into())),
+                    Move::Declined => Err(MindError::Declined("not this question".into())),
                 }
             })
         }
@@ -1347,6 +1419,7 @@ mod tests {
                 turn: TURN,
                 why: "429: slow down".into(),
                 lifts_in: Some(Duration::from_secs(30)),
+                failed: false,
             }],
             "armed once, on the limit"
         );
@@ -1358,7 +1431,12 @@ mod tests {
         assert_eq!(
             scene.bridge.notes,
             [serde_json::json!({
-                "fallback": { "profile": "backup", "turn": TURN, "why": "429: slow down" },
+                "fallback": {
+                    "profile": "backup",
+                    "turn": TURN,
+                    "cause": "limited",
+                    "why": "429: slow down",
+                },
             })]
         );
         assert_eq!(
@@ -1707,6 +1785,234 @@ mod tests {
             "only the fallback's own answer"
         );
         assert_eq!(scene.core.stats().answered.mind, 2);
+    }
+
+    /// The staging acceptance (13.10.2026): the primary answered `502`
+    /// mid-game, an `Unavailable`, and the house took the question though a
+    /// fallback stood by. A failure is now taken over as a limit is: the
+    /// same question goes to the fallback under the same deadline, it plays
+    /// the rest of the game, and the house answers nothing.
+    #[tokio::test]
+    async fn a_primary_that_fails_where_a_fallback_stands_by_is_answered_by_the_fallback() {
+        let mut scene = Scene::new(
+            vec![
+                Move::Choose(ManaColor::Red),
+                Move::Choose(ManaColor::Red),
+                Move::Unavailable,
+            ],
+            Reserve::Takes(vec![Move::Choose(ManaColor::Green)]),
+        );
+        for seq in [2, 3] {
+            scene.ask(seq).await;
+            assert_eq!(
+                scene.answer().await,
+                [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
+            );
+        }
+        assert!(scene.armed.lock().unwrap().is_empty(), "not armed yet");
+
+        // The third question is the one the primary fails at.
+        let budget = scene.ask(4).await;
+        let thinking = scene.bridge.thinking.as_ref().unwrap();
+        let (question, deadline) = (thinking.question, thinking.deadline);
+        let steps = scene.back().await;
+        assert!(steps.is_empty(), "the core hears nothing of it: {steps:?}");
+        let thinking = scene
+            .bridge
+            .thinking
+            .as_ref()
+            .expect("asked of the fallback");
+        assert_eq!((thinking.question, thinking.deadline), (question, deadline));
+        assert_eq!(declaring(&scene.bridge), ["model-b"], "declared first");
+        scene.carry(steps).await;
+        let limit = Limit {
+            turn: TURN,
+            why: FAILED.into(),
+            lifts_in: None,
+            failed: true,
+        };
+        assert_eq!(*scene.armed.lock().unwrap(), std::slice::from_ref(&limit));
+        assert_eq!(limit.said(), format!("the primary failed: {FAILED}"));
+        assert!(
+            !limit.said().contains(LIMITED),
+            "a seat agent does not hear a limit"
+        );
+        assert_eq!(
+            scene.bridge.notes,
+            [serde_json::json!({
+                "fallback": {
+                    "profile": "backup",
+                    "turn": TURN,
+                    "cause": "failed",
+                    "why": FAILED,
+                },
+            })]
+        );
+        let context = scene.core.context().unwrap().clone();
+        assert_eq!(
+            scene.primary.lock().unwrap().ended,
+            [(context.game_id.clone(), context.seat.get())],
+            "the primary plays no more of this game"
+        );
+        assert_eq!(
+            scene.answer().await,
+            [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))],
+            "the fallback answers the question the primary failed at"
+        );
+        {
+            let fallback = scene.fallback.lock().unwrap();
+            assert_eq!(fallback.asked.len(), 1);
+            assert_eq!(fallback.asked[0].question, question);
+            assert!(!fallback.asked[0].retried);
+            assert!(fallback.asked[0].budget <= budget, "within what was left");
+        }
+
+        // And the questions after it, the primary never asked again.
+        for seq in [5, 6] {
+            scene.ask(seq).await;
+            assert_eq!(
+                scene.answer().await,
+                [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))]
+            );
+        }
+        assert_eq!(scene.primary.lock().unwrap().asked.len(), 3);
+        assert_eq!(scene.fallback.lock().unwrap().asked.len(), 3);
+        assert_eq!(scene.armed.lock().unwrap().len(), 1, "armed once");
+        assert_eq!(
+            scene.bridge.fell_back,
+            Some(FellBack {
+                label: "backup".into(),
+                turn: TURN,
+                answered: 3,
+            })
+        );
+        let stats = scene.core.stats();
+        assert_eq!(
+            (stats.answered.mind, stats.answered.house, stats.asked),
+            (5, 0, 5)
+        );
+        assert_eq!(stats.fallbacks.total(), 0, "no house answer, no failure");
+        assert_eq!(stats.mind_down, 0);
+        assert!(failures(&mut scene.core).is_empty());
+    }
+
+    /// Without a fallback a failure of the mind is the house's, as it was:
+    /// it counts as the mind unavailable, a run of them takes the mind off
+    /// the table, and the transcript says what failed.
+    #[tokio::test]
+    async fn without_a_fallback_a_failure_is_the_house_s_to_answer() {
+        let mut scene = Scene::new(vec![Move::Unavailable], Reserve::Absent);
+        for (seq, down) in [(2, false), (3, false), (4, true)] {
+            scene.ask(seq).await;
+            let steps = scene.back().await;
+            let made = answers(&steps);
+            assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
+            assert_eq!(
+                steps.iter().any(|step| matches!(step, Step::MindDown)),
+                down,
+                "taken off the table on the third in a row"
+            );
+            scene.carry(steps).await;
+        }
+        let stats = scene.core.stats();
+        assert_eq!(
+            (
+                stats.answered.house,
+                stats.fallbacks.unavailable,
+                stats.mind_down
+            ),
+            (3, 3, 1)
+        );
+        assert_eq!(
+            failures(&mut scene.core)[0],
+            format!("the mind is unavailable: {FAILED}")
+        );
+        assert!(scene.bridge.notes.is_empty());
+        assert_eq!(scene.bridge.fell_back, None);
+    }
+
+    /// Where the fallback cannot take over a failure, the house answers
+    /// and the failure says both why the mind failed and why the fallback
+    /// did not; it is still the mind unavailable, never a limit.
+    #[tokio::test]
+    async fn a_fallback_that_cannot_take_over_a_failure_leaves_it_to_the_house() {
+        let refusal = "the day's cap of $3.00 is spent";
+        let mut scene = Scene::new(vec![Move::Unavailable], Reserve::Refuses(refusal));
+        scene.ask(2).await;
+        let steps = scene.back().await;
+        let made = answers(&steps);
+        assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
+        scene.carry(steps).await;
+        assert_eq!(
+            failures(&mut scene.core),
+            [format!(
+                "the mind is unavailable: {FAILED}; the fallback backup could not take over: \
+                 {refusal}"
+            )]
+        );
+        assert_eq!(
+            *scene.armed.lock().unwrap(),
+            [Limit {
+                turn: TURN,
+                why: FAILED.into(),
+                lifts_in: None,
+                failed: true,
+            }]
+        );
+        assert_eq!(
+            scene.bridge.notes,
+            [serde_json::json!({
+                "fallback_refused": { "profile": "backup", "why": refusal },
+            })]
+        );
+        assert!(scene.bridge.fallback.is_none(), "it stands by no longer");
+        assert_eq!(scene.bridge.fell_back, None);
+        let stats = scene.core.stats();
+        assert_eq!((stats.answered.house, stats.fallbacks.unavailable), (1, 1));
+    }
+
+    /// A mind that declines a question is not down: the house answers that
+    /// one, the fallback is not armed and stands by still, and the mind
+    /// answers the next.
+    #[tokio::test]
+    async fn a_declined_question_is_the_house_s_and_the_fallback_stands_by() {
+        let mut scene = Scene::new(
+            vec![Move::Declined, Move::Choose(ManaColor::Red)],
+            Reserve::Takes(vec![Move::Choose(ManaColor::Green)]),
+        );
+        scene.ask(2).await;
+        let made = scene.answer().await;
+        assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
+        assert!(scene.armed.lock().unwrap().is_empty());
+        assert!(scene.bridge.fallback.is_some(), "it stands by still");
+        scene.ask(3).await;
+        assert_eq!(
+            scene.answer().await,
+            [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
+        );
+        assert!(scene.fallback.lock().unwrap().asked.is_empty());
+        assert_eq!(scene.bridge.fell_back, None);
+    }
+
+    /// What the operator reads of a limit is the words a seat agent holds
+    /// the profile back on, with when it lifts; never the provider's own.
+    #[test]
+    fn a_limit_is_said_in_the_words_a_seat_agent_reads() {
+        let limit = Limit {
+            turn: 3,
+            why: "429: slow down".into(),
+            lifts_in: Some(Duration::from_secs(120)),
+            failed: false,
+        };
+        assert_eq!(
+            limit.said(),
+            "the primary is rate limited (it lifts in 120 s)"
+        );
+        let unsaid = Limit {
+            lifts_in: None,
+            ..limit
+        };
+        assert_eq!(unsaid.said(), LIMITED);
     }
 
     /// A stand-in table on this machine: a socket to it, and every frame it

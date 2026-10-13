@@ -243,25 +243,32 @@ A flag beats the profile, and the profile beats the build.
 
 ## A fallback profile
 
-A model behind an API can hand a game to another profile when its
-provider says it is rate limited or busy, rather than to the house:
-`baylee-seat join … --profile primary --fallback-profile backup`
+A model behind an API can hand a game to another profile when it cannot
+answer, rather than to the house: when its provider says it is rate
+limited or busy, or when it fails otherwise (owner, 13.10.2026: the house
+plays only in an emergency; the staging acceptance's `502` mid-game is
+none). `baylee-seat join … --profile primary --fallback-profile backup`
 (a hosted seat gets it from its profile's `fallback`,
 [below](#a-hosted-seat)). The house plays only where the fallback cannot.
 
-- **What counts as a limit.** HTTP 429, or an error whose `code` or `type`
-  (in the body's `error`, or at its top) is `rate_limited` or `busy`,
-  whatever the status; a `Retry-After` in seconds is kept as when it lifts
-  (`MindError::Limited`, `llm::limited_by`). Every other failure is the
-  model unavailable, as before: a network error, a 5xx without such a code,
-  a refused key.
+- **What it takes over on.** A limit: HTTP 429, or an error whose `code`
+  or `type` (in the body's `error`, or at its top) is `rate_limited` or
+  `busy`, whatever the status; a `Retry-After` in seconds is kept as when
+  it lifts (`MindError::Limited`, `llm::limited_by`). And every other
+  failure, the model unavailable: a network error, a 5xx without such a
+  code (`502 server_error`), a refused key, a task that died
+  (`MindError::Unavailable`). A model that declines a kind of question
+  (`MindError::Declined`) is not down: the house answers that question and
+  the fallback stands by. Without a fallback, a limit and a failure are the
+  model unavailable, as before: the house answers, and a run of them takes
+  the mind off the table.
 - **The same question, at once.** The question the model could not answer
   is asked of the fallback within what is left of that question's budget
   (`think_secs`, else 60 s): the table does not wait longer, the house does
-  not answer it, and the limit does not count towards taking the mind off
+  not answer it, and the failure does not count towards taking the mind off
   the table (`bridge::Standby`). From then on the fallback plays the rest of
   the game. It never hands the game back: a game that switched stays on the
-  fallback, however soon the limit lifts (v1).
+  fallback, however soon the model is back (v1).
 - **Its own settings and its own book.** The fallback plays its own
   profile whole: its model, address, key variable, answer mode, effort,
   `max_tokens`, `think_secs`, price and budgets, never the model's, and no
@@ -273,16 +280,19 @@ provider says it is rate limited or busy, rather than to the house:
   under its file's caps. A book that refuses (a cap reached) or a key
   that is missing leaves no fallback: the house answers, as without one,
   and the bridge says why (`no fallback stands by: …` at sit-down, `the
-  fallback … could not take over in turn N: …` at the limit, and the
-  transcript's `fallback_refused`). The model's own reservation settles at
-  the game's end as always, and the fallback's beside it.
+  fallback … could not take over in turn N: …` at the limit or failure,
+  and the transcript's `fallback_refused`). The model's own reservation
+  settles at the game's end as always, and the fallback's beside it.
 - **Only an API.** The model and its fallback both play behind an API: a
   CLI takes no fallback and is none. A fallback's own fallback is never
   followed.
-- **Said.** At sit-down `the fallback backup stands by: …`; at the
+- **Said.** At sit-down `the fallback backup stands by: …`; at a
   limit `the fallback backup answers from turn 3: the primary is
-  rate limited (it lifts in 120 s)` (the words a seat agent reads); in the
-  transcript `{"fallback": {"profile", "turn", "why"}}`; to the table a
+  rate limited (it lifts in 120 s)` (the words a seat agent reads to hold
+  the profile back from new games, `bridge::LIMITED`), at another failure
+  `the fallback backup answers from turn 3: the primary failed: 502: …`
+  (which holds nothing back); in the transcript `{"fallback": {"profile",
+  "turn", "cause", "why"}}`, `cause` `limited` or `failed`; to the table a
   new declaration of the fallback's model before its first answer, so the
   game's record names the model that made each action ([below](#what-the-games-record-says-played));
   in the closing line, after everything it said before, `; the fallback

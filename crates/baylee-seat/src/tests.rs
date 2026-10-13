@@ -1062,6 +1062,7 @@ fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
         turn: 3,
         why: "429: slow down".into(),
         lifts_in: Some(Duration::from_secs(120)),
+        failed: false,
     };
     let fallen = Fallen::default();
     let standing = standby(

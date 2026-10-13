@@ -73,8 +73,9 @@ pub enum Heard {
 }
 
 /// The words a bridge says when its model is rate limited and a fallback
-/// stood by (`baylee-seat`'s own `LIMITED`), then `(it lifts in N s)` where
-/// the provider said.
+/// stood by (`baylee-seat`'s `bridge::LIMITED`), then `(it lifts in N s)`
+/// where the provider said. A model that failed otherwise is not limited,
+/// and its bridge never says them.
 pub const LIMITED: &str = "the primary is rate limited";
 
 /// What `line` says of the model, if it is the bridge's [`LIMITED`].
