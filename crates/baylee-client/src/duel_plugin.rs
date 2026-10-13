@@ -445,6 +445,9 @@ impl Plugin for DuelPlugin {
         ambience::install(app);
         loading::install(app);
         flip::install(app);
+        // A rules face is a picture only on a card printed on both sides: an
+        // Adventure cast as its Adventure is face 1 and one piece of card.
+        baylee_client_core::images::know_second_pictures(baylee_cards::sides::has_back_image);
         // The game log's scrollbar is Bevy's own, so its thumb can be dragged
         // (#262). The lobby installs the same plugin, and either may be first.
         if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {

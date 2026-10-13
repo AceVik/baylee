@@ -186,10 +186,10 @@ impl CardTextures {
             && view
                 .hand
                 .iter()
-                .all(|h| settled(ImageKey::new(h.card.print, h.card.face, ArtSize::Small)))
+                .all(|h| settled(ImageKey::of(h.card, ArtSize::Small)))
             && view.command.iter().flatten().all(|o| {
                 o.card
-                    .is_none_or(|c| settled(ImageKey::new(c.print, c.face, ArtSize::Small)))
+                    .is_none_or(|c| settled(ImageKey::of(c, ArtSize::Small)))
             })
             && view.battlefield.iter().all(|o| {
                 art_in(o, ArtSize::Small, crate::cardart::registry(), view).is_none_or(settled)
@@ -620,12 +620,12 @@ pub fn drive_preloads(
         // player will be looking at a minute later. `want` makes the repeat
         // free.
         for h in baylee_client_core::decision::known_cards(view) {
-            preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Small));
+            preload.want(ImageKey::of(h.card, ArtSize::Small));
         }
         for cmds in &view.command {
             for o in cmds {
                 if let Some(c) = o.card {
-                    preload.want(ImageKey::new(c.print, c.face, ArtSize::Small));
+                    preload.want(ImageKey::of(c, ArtSize::Small));
                 }
             }
         }
@@ -659,12 +659,12 @@ pub fn drive_preloads(
         // then thrash it. Hovering a permanent still fetches on the spot; it
         // is one image, and the face it falls back to meanwhile is correct.
         for h in baylee_client_core::decision::known_cards(view) {
-            preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Normal));
+            preload.want(ImageKey::of(h.card, ArtSize::Normal));
         }
         if let Some(cmds) = view.command.get(view.seat.get() as usize) {
             for o in cmds {
                 if let Some(c) = o.card {
-                    preload.want(ImageKey::new(c.print, c.face, ArtSize::Normal));
+                    preload.want(ImageKey::of(c, ArtSize::Normal));
                 }
             }
         }
@@ -855,12 +855,12 @@ mod tests {
         let mut textures = CardTextures::new(&mut images, 1 << 20);
         textures.mark_failed(BACK_KEY, Failure::Load(1));
         let card = view.hand[0].card;
-        textures.mark_arrived(ImageKey::new(card.print, card.face, ArtSize::Normal));
+        textures.mark_arrived(ImageKey::of(card, ArtSize::Normal));
         assert!(
             !textures.table_ready(&view),
             "a preview is not the hand's texture"
         );
-        let visible = ImageKey::new(card.print, card.face, ArtSize::Small);
+        let visible = ImageKey::of(card, ArtSize::Small);
         textures.mark_failed(visible, Failure::Load(1));
         assert!(
             textures.table_ready(&view),

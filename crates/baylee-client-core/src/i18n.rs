@@ -116,6 +116,10 @@ messages! {
     PreviewAlternate { en: "Alternate view", de: "Andere Ansicht" },
     /// Compact preview footer: hold Shift.
     PreviewTurnCompact { en: "Turn", de: "Drehen" },
+    /// Hold Shift to rotate a flip or an Aftermath card to its other half.
+    PreviewRotate { en: "Other half", de: "Andere Hälfte" },
+    /// Compact preview footer: hold Shift to rotate to the other half.
+    PreviewRotateCompact { en: "Half", de: "Hälfte" },
     /// Compact preview footer: hold Alt/Option.
     PreviewAlternateCompact { en: "View", de: "Ansicht" },
     /// Deck-construction choice for this physical copy.
