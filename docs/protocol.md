@@ -2950,6 +2950,7 @@ the bridge as its first stdin line, never an argument, and logs it nowhere.
  "caps": {"day_usd": 10, "month_usd": 100},
  "spent": {"day_usd": 0.42, "month_usd": 3.1, "day_tokens": 0, "month_tokens": 0},
  "key": "kept", "last_error": null, "last_ok_unix": 1791800000,
+ "diverts": null,
  "definition": { "…": "the profile_write definition" }}
 ```
 
@@ -2966,21 +2967,27 @@ the bridge as its first stdin line, never an argument, and logs it nowhere.
   none), or `unavailable` (the seat agent has no key store). Never the key.
 - `caps`, `max_games`: absent = none. `spent` is the profile's own spend
   book for the current (UTC) day and month.
+- `diverts`: the fallback a new game of this profile starts on now
+  (§"A fallback profile"), absent otherwise. While it is set the profile is
+  reported `available` with no `until_unix`, its `games` and `max_games`
+  still its own.
 
 **A profile's definition** (`profile_write.definition`, and as reported):
 
 ```json
 {"label": "Sonnet", "vendor": "Anthropic", "enabled": true,
  "max_games": 4, "caps": {"day_usd": 10, "month_usd": 100}, "canary": false,
+ "fallback": "sonnet-api",
  "profile": {"provider": "anthropic", "model": "claude-sonnet-5-5", "effort": "medium"}}
 ```
 
 `profile` is one profile of the settings file in its own format
 (`docs/llm-seat.md` §"The file"), held to the same refusals (no key and no
-key-shaped value in any field); `max_games`, `caps` and `canary` are each
-optional and off when absent; `label` and `vendor` are 1–40 characters
-with no control character (`vendor` is what the room shows as "game data
-goes to …").
+key-shaped value in any field); `max_games`, `caps`, `canary` and
+`fallback` are each optional and off when absent; `label` and `vendor` are
+1–40 characters with no control character (`vendor` is what the room shows
+as "game data goes to …"); `fallback` is another profile id of the same
+seat agent (§"A fallback profile").
 
 ### Which profiles a player sees: `GET /lobby/llm-profiles`
 
@@ -3115,7 +3122,8 @@ never a key, a `base_url` or a definition's text).
 | `POST /admin/llm/seathosts/{host}/profiles/{id}/key` | `{"key": "…"}` sets, `{"key": null}` forgets; `204`; **write-only**: no route answers a key, only `key: kept/absent`; audit `llm.key.set` / `llm.key.delete` |
 
 `{host}` is a seat agent's name, `{id}` a profile id (1–64 of
-`A-Za-z0-9._-`); a seat agent not connected is `404`, one that does not
+`A-Za-z0-9._-`); a host row of `GET /admin/llm/profiles` also carries the
+definition's `fallback` and the report's `diverts`. A seat agent not connected is `404`, one that does not
 answer within 10 s `504`, its refusal `400` with its sentence. The key
 route is `503` (`keys travel only over the unix socket`) unless that seat
 agent came in on `BAYLEE_UNIX_SOCKET`: the one hop without TLS is then a
@@ -3123,6 +3131,47 @@ socket on the same machine. The key is held in memory for the request
 only, at every hop: no database row, no log line, no argument, no
 environment; the seat agent writes it into its key store
 (`docs/llm-seat.md` §"Where a key is kept", `file:<dir>`).
+
+### A fallback profile
+
+Owner, 13.10.2026: the house plays a hosted chair only in an emergency. A
+profile's definition may name a **fallback**, another profile of the same
+seat agent; both play a model behind an API, and both name the same
+`vendor` (case aside), because the room shows the ordered profile's vendor
+as where the game data goes, and the fallback plays on in that chair.
+
+- **Checked by the seat agent** at every write and at start
+  (`definition_fault`, `definitions_fault`), answered `400` with its
+  sentence: not the profile itself, a valid id, not beside an agent CLI
+  profile, not a profile that plays an agent CLI, not one of another
+  vendor. A fallback no profile of the seat agent has yet is accepted (it
+  may be written next) and is no fallback until it is; at a game a missing,
+  switched-off or unfit fallback is none, and the seat agent's log says so.
+  The fallback's own `fallback` is never followed.
+- **During a game.** The chair's bridge holds the fallback in reserve
+  (`--fallback-profile`, its own settings file and spend book): when the
+  model's provider says it is rate limited or busy (HTTP 429, or the error
+  code `rate_limited` or `busy`), the question is asked of the fallback at
+  once and the fallback plays the rest of the game, reserved under its own
+  caps and declared to the table (§"Who answers a seat, as it says"). It
+  never hands back. Where it cannot take over (its book refuses, no key),
+  the house answers, as without one. `docs/llm-seat.md` §"A fallback
+  profile".
+- **At the start of a game.** While the profile is at its `max_games` or
+  limited (a cap of its book, or a provider's limit its check or a bridge
+  reported) and the fallback is `available`, the seat agent starts a new
+  game on the fallback outright, for the whole game, and reports the
+  profile `available` with `diverts: "<fallback>"`; the gateway's pick takes
+  such a profile at its bound (the seat agent holds the fallback's), and a
+  start the fallback cannot take after all is `failed` as any busy one. The
+  game counts in the fallback's `games`, its chair keeps the ordered
+  profile's name (`LLM-<label>`), and the order, its status and the room's
+  `hosted` entry are the ordered profile's: the player ordered it and sees
+  it.
+- **Who may.** §"Who may seat which model" is asked of the ordered profile
+  only. Its fallback is the operator's choice and plays for anyone who may
+  seat the profile; the fallback's own policy governs ordering the
+  fallback itself.
 
 ## Friends and chat (beta.8)
 

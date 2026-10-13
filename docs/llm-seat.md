@@ -241,6 +241,54 @@ A flag beats the profile, and the profile beats the build.
   no spend book; a game's budget is $5 (or `--spend-usd`), checked before
   each call.
 
+## A fallback profile
+
+A model behind an API can hand a game to another profile when its
+provider says it is rate limited or busy, rather than to the house:
+`baylee-seat join … --profile deepseek --fallback-profile deepseek-api`
+(a hosted seat gets it from its profile's `fallback`,
+[below](#a-hosted-seat)). The house plays only where the fallback cannot.
+
+- **What counts as a limit.** HTTP 429, or an error whose `code` or `type`
+  (in the body's `error`, or at its top) is `rate_limited` or `busy`,
+  whatever the status; a `Retry-After` in seconds is kept as when it lifts
+  (`MindError::Limited`, `llm::limited_by`). Every other failure is the
+  model unavailable, as before: a network error, a 5xx without such a code,
+  a refused key.
+- **The same question, at once.** The question the model could not answer
+  is asked of the fallback within what is left of that question's budget
+  (`think_secs`, else 60 s): the table does not wait longer, the house does
+  not answer it, and the limit does not count towards taking the mind off
+  the table (`bridge::Standby`). From then on the fallback plays the rest of
+  the game. It never hands the game back: a game that switched stays on the
+  fallback, however soon the limit lifts (v1).
+- **Its own settings and its own book.** The fallback plays its own
+  profile whole: its model, address, key variable, answer mode, effort,
+  `max_tokens`, `think_secs`, price and budgets, never the model's, and no
+  flag of the command line tunes it. `--fallback-config` names its settings
+  file (default: the model's), `--fallback-ledger` its spend book (default:
+  the model's `--ledger` where both are in one file, else the book beside
+  its file). At sit-down its file is read and its key looked for, which
+  costs nothing; the game is reserved in its book only when it takes over,
+  under its file's caps. A book that refuses (a cap reached) or a key
+  that is missing leaves no fallback: the house answers, as without one,
+  and the bridge says why (`no fallback stands by: …` at sit-down, `the
+  fallback … could not take over in turn N: …` at the limit, and the
+  transcript's `fallback_refused`). The model's own reservation settles at
+  the game's end as always, and the fallback's beside it.
+- **Only an API.** The model and its fallback both play behind an API: a
+  CLI takes no fallback and is none. A fallback's own fallback is never
+  followed.
+- **Said.** At sit-down `the fallback deepseek-api stands by: …`; at the
+  limit `the fallback deepseek-api answers from turn 3: the primary is
+  rate limited (it lifts in 120 s)` (the words a seat agent reads); in the
+  transcript `{"fallback": {"profile", "turn", "why"}}`; to the table a
+  new declaration of the fallback's model before its first answer, so the
+  game's record names the model that made each action ([below](#what-the-games-record-says-played));
+  in the closing line, after everything it said before, `; the fallback
+  (deepseek-api) answered 12 from turn 3` (its answers are also among the
+  mind's), and its tokens and money on a line of their own.
+
 ## Models and efforts
 
 What the client offers to choose from, `llmseat::models`. A model is
@@ -750,8 +798,10 @@ describes it.
   a CLI signed in as the seat agent's user). Optional per profile, each off
   when absent: `max_games` (games at once), `caps` (the settings file's
   four caps, kept in the profile's **own** spend book,
-  `spend/<id>.json`, so one profile's spend never stops another) and
-  `canary` (a paid check, below). Which profiles a seat agent runs is
+  `spend/<id>.json`, so one profile's spend never stops another),
+  `canary` (a paid check, below) and `fallback` (another API profile of
+  the same seat agent and vendor, [above](#a-fallback-profile) and
+  below). Which profiles a seat agent runs is
   written through the admin console (`PUT /admin/llm/seathosts/{name}/
   profiles/{id}`), which the gateway passes to that seat agent and keeps
   nowhere; the file may also be edited by hand, read at start. Every
@@ -770,7 +820,25 @@ describes it.
   holds the profile alone (its caps as the file's) and starts
   `baylee-seat join <room> --chair <n> --chair-ticket --tethered
   --config … --profile <id> --ledger spend/<id>.json --name <label>` with
-  the gateway's chair ticket as stdin's first line. Like every bridge it
+  the gateway's chair ticket as stdin's first line. A profile whose
+  definition names a `fallback` ([above](#a-fallback-profile)) gets a
+  second settings file holding the fallback alone, with its own caps, and
+  `--fallback-profile <fallback> --fallback-config … --fallback-ledger
+  spend/<fallback>.json`. No key travels with either: the bridge reads both
+  from the seat agent's key store, each under its own profile's entry, and
+  its environment is the seat agent's allowlist as before.
+- **New games on the fallback.** While a profile is at its `max_games`, or
+  limited (its book at a cap, or the provider's limit, which the seat agent
+  also hears from a bridge's `the primary is rate limited` line), and its
+  fallback is available, a new game starts on the fallback outright and
+  plays it whole: the fallback's settings file and book alone, no further
+  fallback, so the provider's cache is the same endpoint's from the first
+  question. The chair keeps the ordered profile's name, the gateway's
+  order and status are the ordered profile's, and the game counts in the
+  fallback's games (its `max_games` holds it). The profile is reported
+  `available`, with `diverts` naming the fallback, and the operator's log
+  says which profile the game got and why (`primary at max_games 5/5`,
+  `primary limited for another 300 s`). Like every bridge it
   names no player to the model ([above](#the-language-model-seat-settings-and-spend)):
   the prompt's prefix says `P2 is an opponent.`, never a display name. (A
   `--hosted` switch did this for hosted seats alone until 13.10.2026; it is
@@ -804,7 +872,10 @@ describes it.
   (`docs/protocol.md` §"Who may seat which model"). A profile no admin has
   opened is open to nobody, except the one marked the default for
   registered players. A player is listed only the profiles open to them,
-  and the room shows no hosted entry when there is none. Which profiles a
+  and the room shows no hosted entry when there is none. The policy is the
+  ordered profile's alone: its fallback is the operator's choice and plays
+  for whoever may seat the profile, whatever the fallback's own policy
+  (which applies to ordering the fallback itself). Which profiles a
   seat agent runs and who may seat them are set apart: a profile's id is
   only a label the operator chose, and nothing on the gateway names what
   stands behind it.
@@ -838,6 +909,8 @@ chosen above, flags over profile over build (`baylee_seat::declare`):
 - a model behind a CLI: `llm_cli`, the tool (`claude`, `codex`, …), the
   model it names (empty for the tool's own default) and the effort.
 
+A fallback that takes over ([above](#a-fallback-profile)) declares its
+own model before its first answer, so the record names it from there on.
 Never the profile's name, its `base_url`, its key variable, a key or any
 prompt: the declaration has no field for them, and the engine refuses one
 whose text is shaped like a key or an address. It is sent on every socket

@@ -697,7 +697,7 @@ changes, passed on to the gateway's `/admin/llm/…` (`docs/protocol.md`
 | --- | --- |
 | `GET /ui/api/admin/llm/seathosts` | `GET /admin/llm/seathosts` |
 | `GET /ui/api/admin/llm/profiles` | `GET /admin/llm/profiles` |
-| `PUT /ui/api/admin/llm/seathosts/{host}/profiles/{id}` | `PUT /admin/llm/seathosts/{host}/profiles/{id}`; the body is read into a definition (`label`, `vendor`, `enabled`, `max_games`, `caps`, `canary`, `profile`) and written out again |
+| `PUT /ui/api/admin/llm/seathosts/{host}/profiles/{id}` | `PUT /admin/llm/seathosts/{host}/profiles/{id}`; the body is read into a definition (`label`, `vendor`, `enabled`, `max_games`, `caps`, `canary`, `fallback`, `profile`) and written out again; a `fallback` that is not 1–64 of `A-Za-z0-9._-` is `400` here, every other refusal is the seat agent's sentence, passed back |
 | `DELETE /ui/api/admin/llm/seathosts/{host}/profiles/{id}` | `DELETE …` |
 | `POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/enabled` | `{"enabled"}` |
 | `POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/probe` | — |
@@ -714,11 +714,27 @@ succeeded is a `feedback_audit` row, action `gateway.llm.profile.write`,
 The page (`/admin/models`) asks again every 5 seconds while visible: the
 seat agents (connected, local, load against capacity), each profile once
 with a row per seat agent holding it (state with "until", games, spend
-against caps, key, last error), its actions (switch, probe, edit, key,
+against caps, key, last error, the fallback it names and, while new games
+start there, "new games on …"), its actions (switch, probe, edit, key,
 delete), an assignment grid (ticking copies a definition to a seat agent
 with `PUT`, never a key; unticking deletes there), and the `gateway.llm.*`
 audit rows. Deleting, unassigning and forgetting a key ask once more. The
 key field is a password field, cleared as it is sent.
+
+The editor (add or edit a profile) has a box with a one-line hint for
+every value an admin sets, in four sections: the profile (label, vendor,
+enabled, canary); games and fallback (`max_games`, from which new games
+start on the fallback, and the fallback profile: none, or an API profile
+of the same seat agent and vendor; an agent CLI takes none,
+`docs/protocol.md` §"A fallback profile"); the budget per game
+(`game_usd`, `game_tokens`, `game_calls`, the price in and out, which are
+fields of the profile and are written into it); and the four caps of the
+profile's spend book. The rest of the profile (provider, model, address,
+answer mode, effort, …) stays a JSON box in the settings file's format,
+shown without the fields the boxes own. Save asks once more ("games already
+running keep what they started with"), and a refusal of the seat agent
+(`definition_fault`, `definitions_fault`) stands in the editor in its own
+words. Keys stay write-only, through *Key…*.
 
 **Who may seat each model** (owner, 13.10.2026; `docs/protocol.md` §"Who
 may seat which model"). Per profile id a policy, `registered`, `listed` or

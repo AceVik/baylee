@@ -117,7 +117,13 @@ session) the session id the endpoint issued, whose label is a random UUID
 and the seat number; an agent CLI runs in a directory named by the seat
 number and a random UUID, never the game's id (`docs/llm-seat.md` §"A CLI
 as the model"). The room shows the vendor on the chair before anyone says
-ready. The gateway keeps only what the seat agents
+ready. A hosted profile may name a fallback profile that plays on when its
+model is rate limited, or plays a new game whole while the profile is full or limited
+(`docs/protocol.md` §"A fallback profile"): another model, possibly another
+address, but always of the same vendor, which the seat agent enforces, so
+the vendor the room showed is still where the game data goes. It is sent
+the same seat view, under the same pseudonyms, and the game's record names
+the fallback's model from the answer it took over. The gateway keeps only what the seat agents
 report about their profiles, in memory; the seat agent keeps its profiles,
 one spend book per profile (when, which model, what was reserved and
 spent) and its keys on its own machine. A key the console sets passes
