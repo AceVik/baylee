@@ -1046,8 +1046,8 @@ impl<L: CardLookup> Engine<L> {
         let help = [
             (face.delve, graveyard),
             (
-                face.convoke,
-                casting::convoke_sources(&self.state, player).len(),
+                face.convoke || casting::has_improvise(&self.state, face, player),
+                casting::tap_to_pay_sources(&self.state, face, player).len(),
             ),
             (
                 face.waterbend && wizard.kicked,
@@ -1589,6 +1589,7 @@ impl<L: CardLookup> Engine<L> {
         !wizard.makes_mana_after_choices()
             && !face.delve
             && !face.convoke
+            && !casting::has_improvise(&self.state, face, wizard.player)
             && !face.waterbend
             && face.extra_target_cost == 0
             && self.state.granted_colorless_capacity(wizard.player) == 0
@@ -1619,8 +1620,8 @@ impl<L: CardLookup> Engine<L> {
                     .len(),
             ),
             (
-                face.convoke,
-                casting::convoke_sources(&self.state, wizard.player).len(),
+                face.convoke || casting::has_improvise(&self.state, face, wizard.player),
+                casting::tap_to_pay_sources(&self.state, face, wizard.player).len(),
             ),
             (
                 face.waterbend,

@@ -368,6 +368,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenModified { .. }
+        | Effect::CreateTokenAttacking { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Fabricate { .. }
         | Effect::CreateTokenThenAttachSelf { .. }
@@ -830,6 +831,32 @@ pub(super) fn exec_immediate(
             super::reveal_put::start(state, res, n, picks)
         }
         // A delayed trigger (CR 603.7) on the first target as it is now.
+        Effect::NextSpellThisTurnHasImprovise => {
+            if let Some(flag) = state
+                .per_turn
+                .improvise_next_spell
+                .get_mut(usize::from(you.get()))
+            {
+                *flag = true;
+            }
+            None
+        }
+        Effect::WheneverYouAttackThisTurn { effects } => {
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::YouAttackThisTurn { after },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
         Effect::WheneverTargetDealtDamageThisTurn { by, effects } => {
             let &card = res.targets.first()?;
             let version = state
@@ -2398,6 +2425,9 @@ fn resolution_condition(
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
         Condition::Not(inner) => !resolution_condition(state, res, *inner),
+        Condition::TargetSpellWouldDestroy(filter) => {
+            super::would_destroy::target_spell_would_destroy(state, res, filter)
+        }
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }

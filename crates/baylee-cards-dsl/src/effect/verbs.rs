@@ -672,7 +672,8 @@ impl Effect {
             | Effect::WhenSourceDiesThisTurn { effects }
             | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
             | Effect::AtEndOfCombat { about: _, effects }
-            | Effect::AtEndOfCombatThisTurn { about: _, effects } => (effects, NONE),
+            | Effect::AtEndOfCombatThisTurn { about: _, effects }
+            | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::SacrificeOneThen {
                 filter: _,
@@ -969,6 +970,8 @@ impl Effect {
             | Effect::DetachSource
             | Effect::CreateTokenN { .. }
         | Effect::CreateTokenModified { .. }
+            | Effect::CreateTokenAttacking { .. }
+            | Effect::NextSpellThisTurnHasImprovise
             | Effect::CreateTokenForTargetController { .. }
             | Effect::Amass { .. }
             | Effect::PutSourceOnTopOfLibrary

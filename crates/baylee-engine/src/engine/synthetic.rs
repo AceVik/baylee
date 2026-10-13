@@ -59,6 +59,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         beam_me_up: None,
         delve: false,
         convoke: false,
+        improvise: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,

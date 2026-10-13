@@ -378,9 +378,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i, *targets)
-                            || !self.ability_has_a_target(player, id, i, *second_targets)
-                        {
+                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
@@ -429,9 +427,7 @@ impl<L: CardLookup> Engine<L> {
                         ) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i, *targets)
-                            || !self.ability_has_a_target(player, id, i, *second_targets)
-                        {
+                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
@@ -466,9 +462,7 @@ impl<L: CardLookup> Engine<L> {
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i, *targets)
-                            || !self.ability_has_a_target(player, id, i, *second_targets)
-                        {
+                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
                             continue;
                         }
                         legal.abilities.push((id, i));
@@ -537,14 +531,13 @@ impl<L: CardLookup> Engine<L> {
                             // with no creature and then refused with "no legal
                             // targets". The source is the card in hand, so a
                             // filter saying "another" still reads it right.
-                            if !self.ability_has_a_target(player, card, i as u32, *targets)
-                                || !self.ability_has_a_target(
-                                    player,
-                                    card,
-                                    i as u32,
-                                    *second_targets,
-                                )
-                            {
+                            if !self.ability_has_targets(
+                                player,
+                                card,
+                                i as u32,
+                                *targets,
+                                *second_targets,
+                            ) {
                                 continue;
                             }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
@@ -593,14 +586,13 @@ impl<L: CardLookup> Engine<L> {
                             ) {
                                 continue;
                             }
-                            if !self.ability_has_a_target(player, card, i as u32, *targets)
-                                || !self.ability_has_a_target(
-                                    player,
-                                    card,
-                                    i as u32,
-                                    *second_targets,
-                                )
-                            {
+                            if !self.ability_has_targets(
+                                player,
+                                card,
+                                i as u32,
+                                *targets,
+                                *second_targets,
+                            ) {
                                 continue;
                             }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
