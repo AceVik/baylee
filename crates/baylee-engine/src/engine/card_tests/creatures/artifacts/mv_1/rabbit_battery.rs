@@ -230,53 +230,78 @@ fn battery_reconfigure_offers_only_other_creatures_its_controller_has() {
     );
 }
 
-/// "Reconfigure only as a sorcery": with the Battery loose (attach) or worn
-/// (unattach), `{R}` floating and the same board, the ability is on the offer
-/// in p0's own main phase with an empty stack, and off it while a creature
-/// spell sits on the stack and on the opponent's turn.
-#[test]
-#[allow(clippy::too_many_lines)] // one board, three moments, two abilities
-fn battery_reconfigure_and_unattach_are_sorcery_speed() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    for attached in [false, true] {
-        let index = if attached { 4 } else { 2 };
-        let mut e = Duel::new(SEED, forest())
-            .battlefield(0, &[rabbit_battery(), grizzly_bears()])
-            .hand(0, &[llanowar_elves()])
-            .start();
-        keep_mulligans(&mut e);
-        assert!(
-            walk_to_own_main(&mut e, p0),
-            "p0 reaches its own main phase"
+/// p0's main phase, `{R}` floating, the Battery loose (`attached` = false,
+/// its attach ability is index 2) or worn by the Bears (its unattach ability
+/// is index 4). Stops after the control: with an empty stack the ability is on
+/// the offer, so a later refusal is the timing's and nothing else's.
+fn battery_board(attached: bool) -> (Engine<RegistryLookup>, ObjectId, u32) {
+    let p0 = PlayerId::new(0);
+    let index = if attached { 4 } else { 2 };
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[rabbit_battery(), grizzly_bears()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    assert!(
+        walk_to_own_main(&mut e, p0),
+        "p0 reaches its own main phase"
+    );
+    let battery = on_battlefield(&e, p0, rabbit_battery()).unwrap();
+    let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    float_red_and_green(&mut e);
+    if attached {
+        activate(&mut e, p0, rabbit_battery(), 2);
+        aim_at(&mut e, p0, bears);
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().object(battery).unwrap().attached_to,
+            Some(bears),
+            "the Battery is worn before the timing is probed"
         );
-        let battery = on_battlefield(&e, p0, rabbit_battery()).unwrap();
-        let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
-        let float = |e: &mut Engine<RegistryLookup>| {
-            let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
-            pool.add(ManaColor::Red, 3);
-            pool.add(ManaColor::Green, 1);
-            e.refresh_offer();
-        };
-        float(&mut e);
-        if attached {
-            activate(&mut e, p0, rabbit_battery(), 2);
-            aim_at(&mut e, p0, bears);
-            pass_until(&mut e, stack_is_empty);
-            assert_eq!(
-                e.state().object(battery).unwrap().attached_to,
-                Some(bears),
-                "the Battery is worn before the timing is probed"
-            );
-            e.refresh_offer();
-        }
-        assert!(
-            battery_offered(&e, battery, index),
-            "control: in p0's main phase with an empty stack and {{R}} floating, ability {index} \
-             (attached = {attached}) is on the offer"
-        );
+        e.refresh_offer();
+    }
+    assert!(
+        battery_offered(&e, battery, index),
+        "control: in p0's main phase with an empty stack and {{R}} floating, ability {index} \
+         (attached = {attached}) is on the offer"
+    );
+    (e, battery, index)
+}
 
-        // A creature spell on the stack: the same mana, the same board.
-        cast_with_floating(&mut e, p0, llanowar_elves());
+fn float_red_and_green(e: &mut Engine<RegistryLookup>) {
+    let pool = &mut e.dev_state_mut(PlayerId::new(0)).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Red, 3);
+    pool.add(ManaColor::Green, 1);
+    e.refresh_offer();
+}
+
+/// The refusal is also a refusal to the engine, and changes nothing.
+fn battery_activation_is_refused(e: &mut Engine<RegistryLookup>, battery: ObjectId, index: u32) {
+    let hash = e.state().snapshot_hash();
+    assert!(
+        e.apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateAbility {
+                source: battery,
+                ability_index: index
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(
+        e.state().snapshot_hash(),
+        hash,
+        "the refusal changed nothing"
+    );
+}
+
+/// "Reconfigure only as a sorcery", the stack half: the same board, the same
+/// floating `{R}`, but a creature spell sits on the stack.
+#[test]
+fn battery_reconfigure_and_unattach_are_not_offered_with_a_spell_on_the_stack() {
+    for attached in [false, true] {
+        let (mut e, battery, index) = battery_board(attached);
+        cast_with_floating(&mut e, PlayerId::new(0), llanowar_elves());
         assert!(!stack_is_empty(&e), "the Elves spell is waiting to resolve");
         assert!(
             e.state().players[0].mana_pool.available(ManaColor::Red) >= 1,
@@ -286,30 +311,22 @@ fn battery_reconfigure_and_unattach_are_sorcery_speed() {
             !battery_offered(&e, battery, index),
             "\"only as a sorcery\": not while a spell is on the stack (attached = {attached})"
         );
-        let hash = e.state().snapshot_hash();
-        assert!(
-            e.apply(
-                p0,
-                PlayerAction::ActivateAbility {
-                    source: battery,
-                    ability_index: index
-                }
-            )
-            .is_err()
-        );
-        assert_eq!(
-            e.state().snapshot_hash(),
-            hash,
-            "the refusal changed nothing"
-        );
-        pass_until(&mut e, stack_is_empty);
+        battery_activation_is_refused(&mut e, battery, index);
+    }
+}
 
-        // The opponent's turn, with p0 holding priority and red floating.
+/// "Reconfigure only as a sorcery", the turn half: p1's turn, p0 holding
+/// priority with `{R}` floating.
+#[test]
+fn battery_reconfigure_and_unattach_are_not_offered_on_the_opponents_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for attached in [false, true] {
+        let (mut e, battery, index) = battery_board(attached);
         pass_until(&mut e, |e| {
             e.state().turn.active == p1
                 && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
         });
-        float(&mut e);
+        float_red_and_green(&mut e);
         assert!(
             e.state().players[0].mana_pool.available(ManaColor::Red) >= 1,
             "red is floating on the opponent's turn"
@@ -318,21 +335,6 @@ fn battery_reconfigure_and_unattach_are_sorcery_speed() {
             !battery_offered(&e, battery, index),
             "\"only as a sorcery\": not on the opponent's turn (attached = {attached})"
         );
-        let hash = e.state().snapshot_hash();
-        assert!(
-            e.apply(
-                p0,
-                PlayerAction::ActivateAbility {
-                    source: battery,
-                    ability_index: index
-                }
-            )
-            .is_err()
-        );
-        assert_eq!(
-            e.state().snapshot_hash(),
-            hash,
-            "the refusal changed nothing"
-        );
+        battery_activation_is_refused(&mut e, battery, index);
     }
 }
