@@ -20,6 +20,7 @@ mod lay_of_the_land;
 mod metamorphosis;
 mod mind_twist;
 mod prismatic_ending;
+mod psychic_purge;
 mod raise_dead;
 mod reconstruction;
 mod rite_of_flame;
