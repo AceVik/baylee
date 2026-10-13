@@ -22,6 +22,21 @@ use baylee_client_core::replay::{
 pub mod host;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod local;
+/// The browser keeps no records on disk, so its Replays list has no local
+/// rows and nothing to remove (`lobby::replays::SHOWN` hides the tab there).
+#[cfg(target_arch = "wasm32")]
+pub mod local {
+    use baylee_client_core::replay::library::Entry;
+
+    /// No record to remove in a browser.
+    pub fn delete(_file: &str) {}
+
+    /// No record kept in a browser.
+    #[must_use]
+    pub fn entries(_build: &str, _you: &str) -> Vec<Entry> {
+        Vec::new()
+    }
+}
 mod rewind;
 #[cfg(test)]
 mod tests;
