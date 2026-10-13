@@ -247,6 +247,16 @@ pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
 }
 
+/// Whether a driven run stays silent: with `BAYLEE_DEV_CONTROL` set, the
+/// client installs no audio output unless `BAYLEE_DEV_SOUND=1` asks for it
+/// (owner, 13.10.2026: agents test the client without a sound). The score
+/// and the cues already run without an `AudioPlugin` (`music::install`,
+/// `sound::voice_the_cues`), so nothing else changes.
+pub(crate) fn silent() -> bool {
+    std::env::var_os("BAYLEE_DEV_CONTROL").is_some()
+        && !std::env::var("BAYLEE_DEV_SOUND").is_ok_and(|v| v == "1")
+}
+
 /// Optional scale-factor override (`BAYLEE_DEV_SCALE=1`) for captures at a
 /// logical size the display could not otherwise hold: a 2560 × 1440 window
 /// at the Retina factor 2 is wider than the screen and the OS shrinks it,

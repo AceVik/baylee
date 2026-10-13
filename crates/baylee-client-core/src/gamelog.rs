@@ -344,6 +344,23 @@ impl LogBook {
             .collect()
     }
 
+    /// The whole log with every line a sentence of its own: no line carries
+    /// on the line above it ([`LogLine::follows`] is never set), so each
+    /// names its subject again. For a reader that sees the lines one by one
+    /// and without the panel's indent, such as a language-model seat.
+    #[must_use]
+    pub fn lines_whole(&self, wording: &Wording<'_>) -> Vec<LogLine> {
+        let writer = Writer {
+            wording,
+            defenders: &self.defenders,
+        };
+        self.entries
+            .iter()
+            .enumerate()
+            .map(|(at, entry)| writer.line(at, entry, None))
+            .collect()
+    }
+
     /// How many lines arrived since [`Self::take_unread`] last took them.
     #[must_use]
     pub const fn unread(&self) -> usize {

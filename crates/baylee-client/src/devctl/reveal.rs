@@ -53,6 +53,7 @@ pub(super) fn stage(body: &str, duel: &mut Duel) -> String {
         at: 0,
         phase: None,
         event: LogEvent::Revealed { player, cards },
+        phase: None,
     };
     // A live tail (not from line 0), so it is heard as news.
     let tail = LogTail {
