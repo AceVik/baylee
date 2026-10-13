@@ -983,8 +983,6 @@ pub mod citadel_gate;
 pub mod citanul_druid;
 #[path = "artifacts/mv_2/city_in_a_bottle.rs"]
 pub mod city_in_a_bottle;
-#[path = "lands/tapland/city_of_ass.rs"]
-pub mod city_of_ass;
 #[path = "lands/pain/city_of_brass.rs"]
 pub mod city_of_brass;
 #[path = "lands/storage/city_of_shadows.rs"]
@@ -4271,8 +4269,6 @@ pub mod quirion_elves;
 pub mod quirion_ranger;
 #[path = "creatures/mv_2/quirion_sentinel.rs"]
 pub mod quirion_sentinel;
-#[path = "lands/r_d_s_secret_lair.rs"]
-pub mod r_d_s_secret_lair;
 #[path = "lands/towns/rabanastre_royal_city.rs"]
 pub mod rabanastre_royal_city;
 #[path = "creatures/artifacts/mv_1/rabbit_battery.rs"]
@@ -6135,8 +6131,6 @@ pub mod urza_s_cave;
 pub mod urza_s_chalice;
 #[path = "lands/utility/urza_s_factory.rs"]
 pub mod urza_s_factory;
-#[path = "lands/utility/urza_s_fun_house.rs"]
-pub mod urza_s_fun_house;
 #[path = "lands/mines/urza_s_mine.rs"]
 pub mod urza_s_mine;
 #[path = "artifacts/mv_3/urza_s_miter.rs"]
