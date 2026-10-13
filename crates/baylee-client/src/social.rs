@@ -37,6 +37,7 @@ pub(crate) mod sheet;
 pub(crate) mod toasts;
 mod transport;
 pub(crate) mod window;
+pub(crate) mod zoom;
 
 use transport::{Arrived, LinkNews, Mailbox, Socket};
 
@@ -629,6 +630,8 @@ pub(crate) fn install(app: &mut App) {
     }
     app.init_resource::<SocialHost>()
         .init_resource::<ChatUi>()
+        .init_resource::<zoom::Zoom>()
+        .add_systems(Update, follow_the_zoom)
         .add_systems(
             Update,
             (
@@ -644,6 +647,49 @@ pub(crate) fn install(app: &mut App) {
     drawer::install(app);
     toasts::install(app);
     sheet::install(app);
+}
+
+/// The lobby's chat grows with the shell past 1920 × 1080 and with the text
+/// step; at the table the HUD's `UiScale` grows it, so the zoom is 1 there.
+/// A change takes the lobby's chat surfaces down to be drawn again at it.
+#[allow(clippy::type_complexity)] // the surfaces drawn at the zoom
+fn follow_the_zoom(
+    mut commands: Commands,
+    mut zoom: ResMut<zoom::Zoom>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    roots: Query<
+        Entity,
+        Or<(
+            With<window::LobbyChat>,
+            With<drawer::Drawer>,
+            With<drawer::FriendsDoor>,
+            With<toasts::ToastColumn>,
+            With<sheet::SheetRoot>,
+            With<menu::RowMenu>,
+            With<window::FilterDialog>,
+        )>,
+    >,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let now = if at_table {
+        1.0
+    } else {
+        let step = settings.as_ref().map(|s| s.text_size).unwrap_or_default();
+        windows.single().map_or(1.0, |w| {
+            crate::shellkit::metrics::screen_scale(
+                crate::shellkit::Viewport::desktop(w.width(), w.height()),
+                step,
+            ) * step.factor()
+        })
+    };
+    if (zoom.0 - now).abs() > f32::EPSILON {
+        zoom.0 = now;
+        for root in &roots {
+            commands.entity(root).despawn();
+        }
+    }
 }
 
 /// The session the lobby is signed in to, if any.

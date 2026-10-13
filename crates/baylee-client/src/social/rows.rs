@@ -3,6 +3,7 @@
 //! column. Every chat line carries its name; the colour says the channel
 //! and the prefix (All, Private) says it in words too.
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{
     self, ChatLine, ChatPhrase, ConvId, LineKey, LineKind, LineState, Social,
@@ -204,10 +205,10 @@ pub(crate) fn spawn_row(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
-                column_gap: px(SWATCH_GAP),
+                column_gap: zpx(SWATCH_GAP),
                 flex_shrink: 0.0,
-                padding: UiRect::horizontal(px(2)),
-                border_radius: BorderRadius::all(px(3)),
+                padding: UiRect::horizontal(zpx(2.0)),
+                border_radius: BorderRadius::all(zpx(3.0)),
                 ..default()
             },
             ChatRow {
@@ -228,10 +229,10 @@ pub(crate) fn spawn_row(
         let time = commands
             .spawn((
                 Text::new(clock(line.at)),
-                tf(fonts, inks.pt),
+                tf(fonts, z(inks.pt)),
                 TextColor(inks.soft),
                 Node {
-                    width: px(CLOCK_W),
+                    width: zpx(CLOCK_W),
                     flex_shrink: 0.0,
                     ..default()
                 },
@@ -243,9 +244,9 @@ pub(crate) fn spawn_row(
     let swatch = commands
         .spawn((
             Node {
-                width: px(SWATCH_W),
+                width: zpx(SWATCH_W),
                 flex_shrink: 0.0,
-                border_radius: BorderRadius::all(px(SWATCH_W / 2.0)),
+                border_radius: BorderRadius::all(zpx(SWATCH_W / 2.0)),
                 ..default()
             },
             BackgroundColor(swatch.unwrap_or(Color::NONE)),
@@ -256,11 +257,11 @@ pub(crate) fn spawn_row(
     let sentence = commands
         .spawn((
             Text::default(),
-            tf(fonts, inks.pt),
+            tf(fonts, z(inks.pt)),
             TextColor(ink),
             Node {
                 flex_grow: 1.0,
-                min_width: px(0),
+                min_width: zpx(0.0),
                 overflow: TEXT_OWN_HEIGHT,
                 ..default()
             },
@@ -283,7 +284,7 @@ pub(crate) fn spawn_row(
             span(
                 commands,
                 format!("{} ─────", ChatPhrase::NewTable.text(lang)),
-                tf_italic(fonts, inks.pt),
+                tf_italic(fonts, z(inks.pt)),
                 inks.soft,
             );
         }
@@ -296,7 +297,7 @@ pub(crate) fn spawn_row(
             span(
                 commands,
                 notice_text(*phrase, args, lang),
-                tf_italic(fonts, inks.pt),
+                tf_italic(fonts, z(inks.pt)),
                 colour,
             );
         }
@@ -305,7 +306,7 @@ pub(crate) fn spawn_row(
                 span(
                     commands,
                     ChatPhrase::HiddenLine.text(lang).to_string(),
-                    tf_italic(fonts, inks.pt),
+                    tf_italic(fonts, z(inks.pt)),
                     inks.soft,
                 );
                 return row;
@@ -320,7 +321,7 @@ pub(crate) fn spawn_row(
             if (style.prefix || private)
                 && let Some(prefix) = prefix(machine, conv, line, lang)
             {
-                span(commands, format!("{prefix} "), tf(fonts, inks.pt), ink);
+                span(commands, format!("{prefix} "), tf(fonts, z(inks.pt)), ink);
             }
             let name = machine.shown_name(from);
             // Private's arrow form names the partner already; a whisper
@@ -331,7 +332,7 @@ pub(crate) fn spawn_row(
                 } else {
                     format!("{name}: ")
                 };
-                let id = span(commands, label, tf_bold(fonts, inks.pt), ink);
+                let id = span(commands, label, tf_bold(fonts, z(inks.pt)), ink);
                 if !*mine {
                     commands.entity(id).insert(ChatName {
                         handle: from.handle.clone(),
@@ -343,19 +344,19 @@ pub(crate) fn spawn_row(
                 match piece {
                     Piece::Words => {
                         let font = if body.emote {
-                            tf_italic(fonts, inks.pt)
+                            tf_italic(fonts, z(inks.pt))
                         } else {
-                            tf(fonts, inks.pt)
+                            tf(fonts, z(inks.pt))
                         };
                         span(commands, text, font, ink);
                     }
                     Piece::Mention => {
-                        span(commands, text, tf_bold(fonts, inks.pt), ink);
+                        span(commands, text, tf_bold(fonts, z(inks.pt)), ink);
                     }
                     Piece::Link(card, face) => {
                         let font = TextFont {
                             font: bevy::text::FontSource::Handle(fonts.medium.clone()),
-                            ..tf(fonts, inks.pt)
+                            ..tf(fonts, z(inks.pt))
                         };
                         let id = span(commands, text, font, inks.link.with_alpha(faded));
                         commands.entity(id).insert(ChatCardLink { card, face });
@@ -364,7 +365,12 @@ pub(crate) fn spawn_row(
             }
             match line.state {
                 LineState::Pending => {
-                    span(commands, " \u{25cc}".into(), tf(fonts, inks.pt), inks.soft);
+                    span(
+                        commands,
+                        " \u{25cc}".into(),
+                        tf(fonts, z(inks.pt)),
+                        inks.soft,
+                    );
                 }
                 LineState::Failed => {
                     let why = line
@@ -375,7 +381,7 @@ pub(crate) fn spawn_row(
                     span(
                         commands,
                         format!(" ! {why}"),
-                        tf_bold(fonts, inks.pt),
+                        tf_bold(fonts, z(inks.pt)),
                         palette::DANGER,
                     );
                 }

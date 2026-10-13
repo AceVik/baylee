@@ -3,6 +3,7 @@
 //! · Block (Retry and Remove on a line that failed to send); a press on a
 //! sender's name writes to them.
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, Intent, LineKind, LineState};
 use bevy::picking::events::{Click, Pointer};
@@ -181,23 +182,27 @@ fn paint_selection(
     }
     *painted = Some(now);
     let range = selected.range();
+    let lit = crate::shellkit::tokens::SELECTED.with_alpha(0.5);
     for (entity, mut row, ground, parent) in &mut rows {
         let on = selected.list == Some(parent.parent())
             && range.as_ref().is_some_and(|r| r.contains(&row.order));
-        let colour = if on {
-            crate::shellkit::tokens::SELECTED.with_alpha(0.5)
-        } else {
-            row.base.unwrap_or(Color::NONE)
-        };
         match ground {
-            Some(mut ground) => {
-                if on && row.base.is_none() {
+            // A row's own ground (a mention's light) is what it wore before
+            // it was selected; a row never selected is left alone.
+            Some(mut ground) if on => {
+                if ground.0 != lit {
                     row.base = Some(ground.0);
                 }
-                ground.set_if_neq(BackgroundColor(colour));
+                ground.set_if_neq(BackgroundColor(lit));
+            }
+            Some(mut ground) => {
+                if ground.0 == lit {
+                    ground.set_if_neq(BackgroundColor(row.base.unwrap_or(Color::NONE)));
+                }
             }
             None if on => {
-                commands.entity(entity).insert(BackgroundColor(colour));
+                row.base = Some(Color::NONE);
+                commands.entity(entity).insert(BackgroundColor(lit));
             }
             None => {}
         }
@@ -348,7 +353,9 @@ fn sync(
     scale: Option<Res<UiScale>>,
     roots: Query<Entity, With<RowMenu>>,
     mut drawn: Local<Option<baylee_client_core::social::LineKey>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let line = ui.row_menu.as_ref().and_then(|key| {
         host.machine()
             .and_then(|m| {
@@ -407,13 +414,13 @@ fn sync(
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
-                left: px(at.0.x / scale),
-                top: px(at.0.y / scale),
-                min_width: px(160),
+                left: zpx(at.0.x / scale),
+                top: zpx(at.0.y / scale),
+                min_width: zpx(160.0),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px(4)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(6)),
+                padding: UiRect::all(zpx(4.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(6.0)),
                 ..default()
             },
             BackgroundColor(inks.ground),
@@ -427,15 +434,15 @@ fn sync(
                 Button,
                 press,
                 Node {
-                    padding: UiRect::axes(px(10), px(4)),
-                    border_radius: BorderRadius::all(px(4)),
+                    padding: UiRect::axes(zpx(10.0), zpx(4.0)),
+                    border_radius: BorderRadius::all(zpx(4.0)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Feel::new(Color::NONE),
                 children![(
                     Text::new(phrase.text(lang)),
-                    tf(&fonts, 12.5),
+                    tf(&fonts, z(12.5)),
                     TextColor(inks.ink),
                     Pickable::IGNORE,
                 )],

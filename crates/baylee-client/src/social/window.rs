@@ -9,6 +9,7 @@
 //! tab, only the lines that arrived), the composer on its text. At rest
 //! nothing here writes.
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{
     ChatPhrase, ChatTab, ComposerKey, ConvId, GroupRef, Intent, Social, TabFilter, TableContext,
@@ -646,7 +647,9 @@ fn sync_table_window(
     panels: Query<(Entity, Option<&Children>), With<LogPanel>>,
     parts: Query<&Part>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let (Some(machine), Some(duel)) = (host.machine(), duel) else {
         windows.table = Drawn::default();
         return;
@@ -712,7 +715,9 @@ fn sync_lobby_window(
     mut roots: Query<(Entity, &mut Node, &mut Visibility), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
     mut shape: Local<Option<LobbyShape>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
     let shell = lobby.is_some_and(|l| {
         !matches!(
@@ -739,9 +744,9 @@ fn sync_lobby_window(
                 RelativeCursorPosition::default(),
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: px(0),
-                    right: px(12),
-                    width: px(LOBBY_W),
+                    bottom: zpx(0.0),
+                    right: zpx(12.0),
+                    width: zpx(LOBBY_W),
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
@@ -756,16 +761,16 @@ fn sync_lobby_window(
     if let Ok((_, mut node, mut seen)) = roots.get_mut(root) {
         seen.set_if_neq(Visibility::Visible);
         let full = ui.open && !ui.minimised;
-        let want_h = if full { px(height) } else { Val::Auto };
+        let want_h = if full { Val::Px(height) } else { Val::Auto };
         if node.height != want_h {
             node.height = want_h;
         }
-        let want_w = if ui.open { px(LOBBY_W) } else { Val::Auto };
+        let want_w = if ui.open { zpx(LOBBY_W) } else { Val::Auto };
         if node.width != want_w {
             node.width = want_w;
         }
-        if node.right != px(right) {
-            node.right = px(right);
+        if node.right != zpx(right) {
+            node.right = zpx(right);
         }
     }
     let drawn = &mut windows.lobby;
@@ -846,11 +851,11 @@ fn chat_pill(
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(8),
-                padding: UiRect::axes(px(14), px(8)),
-                margin: UiRect::bottom(px(12)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(18)),
+                column_gap: zpx(8.0),
+                padding: UiRect::axes(zpx(14.0), zpx(8.0)),
+                margin: UiRect::bottom(zpx(12.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(18.0)),
                 ..default()
             },
             BackgroundColor(LOBBY_INKS.ground),
@@ -859,13 +864,13 @@ fn chat_pill(
             children![
                 (
                     Text::new(glyph::CHAT.to_string()),
-                    icon_tf(fonts, 13.0),
+                    icon_tf(fonts, z(13.0)),
                     TextColor(LOBBY_INKS.ink),
                     Pickable::IGNORE,
                 ),
                 (
                     Text::new(label),
-                    tf_bold(fonts, 13.0),
+                    tf_bold(fonts, z(13.0)),
                     TextColor(LOBBY_INKS.ink),
                     Pickable::IGNORE,
                 ),
@@ -895,13 +900,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
         .spawn((
             Part::Head,
             Node {
-                height: px(frame.row_h()),
+                height: zpx(frame.row_h()),
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Stretch,
-                padding: UiRect::new(px(4), px(3), px(0), px(0)),
-                border: UiRect::bottom(px(1)),
-                border_radius: BorderRadius::top(px(6)),
+                padding: UiRect::new(zpx(4.0), zpx(3.0), zpx(0.0), zpx(0.0)),
+                border: UiRect::bottom(zpx(1.0)),
+                border_radius: BorderRadius::top(zpx(6.0)),
                 ..default()
             },
             BackgroundColor(inks.lit),
@@ -913,13 +918,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             Part::Sub,
             Node {
                 display: Display::None,
-                height: px(SUB_H),
+                height: zpx(SUB_H),
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::horizontal(px(logpanel::LOG_PAD)),
-                border: UiRect::bottom(px(1)),
+                padding: UiRect::horizontal(zpx(logpanel::LOG_PAD)),
+                border: UiRect::bottom(zpx(1.0)),
                 ..default()
             },
             BackgroundColor(inks.lit),
@@ -931,9 +936,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             Node {
                 flex_direction: FlexDirection::Row,
                 flex_grow: 1.0,
-                min_height: px(0),
-                padding: UiRect::all(px(logpanel::LOG_PAD)),
-                column_gap: px(4),
+                min_height: zpx(0.0),
+                padding: UiRect::all(zpx(logpanel::LOG_PAD)),
+                column_gap: zpx(4.0),
                 ..default()
             },
             BackgroundColor(if frame == Frame::Lobby {
@@ -953,8 +958,8 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
-                min_width: px(0),
-                row_gap: px(logpanel::LOG_ROW_GAP),
+                min_width: zpx(0.0),
+                row_gap: zpx(logpanel::LOG_ROW_GAP),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -974,7 +979,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             Node {
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
-                border: UiRect::top(px(1)),
+                border: UiRect::top(zpx(1.0)),
                 ..default()
             },
             BackgroundColor(inks.lit),
@@ -1061,13 +1066,13 @@ fn fill(
             if ui.tab == ChatTab::Group {
                 commands.entity(sub).insert(Node {
                     display: Display::Flex,
-                    height: px(SUB_H),
+                    height: zpx(SUB_H),
                     flex_shrink: 0.0,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
-                    padding: UiRect::horizontal(px(logpanel::LOG_PAD)),
-                    border: UiRect::bottom(px(1)),
+                    padding: UiRect::horizontal(zpx(logpanel::LOG_PAD)),
+                    border: UiRect::bottom(zpx(1.0)),
                     ..default()
                 });
                 let kids = group_bar(
@@ -1153,7 +1158,7 @@ fn head_parts(
         let label = commands
             .spawn((
                 Text::new(tab_name(*tab, lang)),
-                tf(fonts, 12.5),
+                tf(fonts, z(12.5)),
                 TextColor(ink),
                 Pickable::IGNORE,
             ))
@@ -1165,9 +1170,9 @@ fn head_parts(
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    column_gap: px(4),
-                    padding: UiRect::new(px(8), px(8), px(0), px(0)),
-                    border: UiRect::bottom(px(2)),
+                    column_gap: zpx(4.0),
+                    padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(0.0), zpx(0.0)),
+                    border: UiRect::bottom(zpx(2.0)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
@@ -1198,20 +1203,20 @@ fn head_parts(
                 Button,
                 press,
                 Node {
-                    width: px(HEAD_BTN),
-                    height: px(HEAD_BTN),
+                    width: zpx(HEAD_BTN),
+                    height: zpx(HEAD_BTN),
                     align_self: AlignSelf::Center,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    margin: UiRect::left(px(4)),
-                    border_radius: BorderRadius::all(px(4)),
+                    margin: UiRect::left(zpx(4.0)),
+                    border_radius: BorderRadius::all(zpx(4.0)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Feel::new(Color::NONE),
                 children![(
                     Text::new(glyph.to_string()),
-                    icon_tf(fonts, 10.0),
+                    icon_tf(fonts, z(10.0)),
                     TextColor(inks.soft),
                     Pickable::IGNORE,
                 )],
@@ -1252,19 +1257,19 @@ pub(crate) fn count_pill(
     commands
         .spawn((
             Node {
-                min_width: px(14),
-                height: px(14),
-                padding: UiRect::horizontal(px(4)),
+                min_width: zpx(14.0),
+                height: zpx(14.0),
+                padding: UiRect::horizontal(zpx(4.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(px(7)),
+                border_radius: BorderRadius::all(zpx(7.0)),
                 ..default()
             },
             BackgroundColor(ground),
             Pickable::IGNORE,
             children![(
                 Text::new(text),
-                tf_bold(fonts, 9.0),
+                tf_bold(fonts, z(9.0)),
                 TextColor(palette::DIALOG),
                 Pickable::IGNORE,
             )],
@@ -1289,7 +1294,7 @@ fn group_bar(
         let label = commands
             .spawn((
                 Text::new(ChatPhrase::NoGroupYet.text(lang)),
-                tf(fonts, 11.5),
+                tf(fonts, z(11.5)),
                 TextColor(inks.soft),
                 Pickable::IGNORE,
             ))
@@ -1327,7 +1332,7 @@ fn group_bar(
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(6),
+                column_gap: zpx(6.0),
                 ..default()
             },
             BackgroundColor(Color::NONE),
@@ -1335,13 +1340,13 @@ fn group_bar(
             children![
                 (
                     Text::new(name),
-                    tf_bold(fonts, 11.5),
+                    tf_bold(fonts, z(11.5)),
                     TextColor(rows::GROUP_INK),
                     Pickable::IGNORE,
                 ),
                 (
                     Text::new(glyph::CHEVRON_DOWN.to_string()),
-                    icon_tf(fonts, 8.0),
+                    icon_tf(fonts, z(8.0)),
                     TextColor(inks.soft),
                     Pickable::IGNORE,
                 ),
@@ -1354,13 +1359,13 @@ fn group_bar(
                 ChatSurface,
                 Node {
                     position_type: PositionType::Absolute,
-                    top: px(SUB_H),
-                    left: px(0),
-                    min_width: px(220),
+                    top: zpx(SUB_H),
+                    left: zpx(0.0),
+                    min_width: zpx(220.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(px(4)),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(6)),
+                    padding: UiRect::all(zpx(4.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
                 BackgroundColor(inks.ground),
@@ -1399,7 +1404,7 @@ fn group_bar(
             Text::new(
                 ChatPhrase::GroupCount.fill(lang, &[&members.to_string(), &online.to_string()]),
             ),
-            tf(fonts, 11.0),
+            tf(fonts, z(11.0)),
             TextColor(inks.soft),
             Pickable::IGNORE,
         ))
@@ -1420,15 +1425,15 @@ pub(crate) fn text_button(
             Button,
             press,
             Node {
-                padding: UiRect::axes(px(8), px(3)),
-                border_radius: BorderRadius::all(px(4)),
+                padding: UiRect::axes(zpx(8.0), zpx(3.0)),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
             Feel::new(Color::NONE),
             children![(
                 Text::new(label.to_string()),
-                tf(fonts, 11.5),
+                tf(fonts, z(11.5)),
                 TextColor(inks.ink),
                 Pickable::IGNORE,
             )],
@@ -1680,10 +1685,10 @@ fn empty_line(commands: &mut Commands, fonts: &UiFonts, text: &str, inks: &Inks)
     commands
         .spawn((
             Text::new(text.to_string()),
-            tf_italic(fonts, inks.pt),
+            tf_italic(fonts, z(inks.pt)),
             TextColor(inks.soft),
             Node {
-                margin: UiRect::top(px(8)),
+                margin: UiRect::top(zpx(8.0)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1747,10 +1752,10 @@ fn composer_parts(
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(4),
-                padding: UiRect::axes(px(8), px(2)),
-                height: px(22),
-                border_radius: BorderRadius::all(px(4)),
+                column_gap: zpx(4.0),
+                padding: UiRect::axes(zpx(8.0), zpx(2.0)),
+                height: zpx(22.0),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -1759,13 +1764,13 @@ fn composer_parts(
             children![
                 (
                     Text::new(chip_text),
-                    tf_bold(fonts, 11.5),
+                    tf_bold(fonts, z(11.5)),
                     TextColor(chip_ink),
                     Pickable::IGNORE,
                 ),
                 (
                     Text::new(glyph::CHEVRON_DOWN.to_string()),
-                    icon_tf(fonts, 7.0),
+                    icon_tf(fonts, z(7.0)),
                     TextColor(chip_ink),
                     Pickable::IGNORE,
                 ),
@@ -1778,14 +1783,14 @@ fn composer_parts(
             Button,
             ChatPress::Field,
             Text::default(),
-            tf(fonts, inks.pt),
+            tf(fonts, z(inks.pt)),
             TextColor(inks.ink),
             Node {
                 flex_grow: 1.0,
-                min_width: px(0),
-                padding: UiRect::axes(px(6), px(4)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(4)),
+                min_width: zpx(0.0),
+                padding: UiRect::axes(zpx(6.0), zpx(4.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 ..default()
             },
             BorderColor::all(if focused { inks.accent } else { Color::NONE }),
@@ -1796,7 +1801,7 @@ fn composer_parts(
         let span = commands
             .spawn((
                 TextSpan::new(placeholder),
-                tf_italic(fonts, inks.pt),
+                tf_italic(fonts, z(inks.pt)),
                 TextColor(inks.soft),
             ))
             .id();
@@ -1826,7 +1831,11 @@ fn composer_parts(
                 continue;
             }
             let span = commands
-                .spawn((TextSpan::new(part), tf(fonts, inks.pt), TextColor(colour)))
+                .spawn((
+                    TextSpan::new(part),
+                    tf(fonts, z(inks.pt)),
+                    TextColor(colour),
+                ))
                 .id();
             commands.entity(field).add_child(span);
         }
@@ -1842,7 +1851,7 @@ fn composer_parts(
     let hint = commands
         .spawn((
             Text::new(hint_text),
-            tf(fonts, 10.5),
+            tf(fonts, z(10.5)),
             TextColor(if ui.hint.is_some() {
                 palette::DANGER
             } else {
@@ -1860,11 +1869,11 @@ fn composer_parts(
             Button,
             ChatPress::Send,
             Node {
-                width: px(26),
-                height: px(24),
+                width: zpx(26.0),
+                height: zpx(24.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(px(4)),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -1872,7 +1881,7 @@ fn composer_parts(
             Feel::new(Color::NONE),
             children![(
                 Text::new(glyph::SEND.to_string()),
-                icon_tf(fonts, 10.0),
+                icon_tf(fonts, z(10.0)),
                 TextColor(inks.soft),
                 Pickable::IGNORE,
             )],
@@ -1882,9 +1891,9 @@ fn composer_parts(
         .spawn((Node {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
-            column_gap: px(6),
-            padding: UiRect::axes(px(6), px(5)),
-            min_height: px(36),
+            column_gap: zpx(6.0),
+            padding: UiRect::axes(zpx(6.0), zpx(5.0)),
+            min_height: zpx(36.0),
             ..default()
         },))
         .add_children(&[chip, field, hint, send])
@@ -1896,13 +1905,13 @@ fn composer_parts(
                 ChatSurface,
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: px(40),
-                    left: px(60),
-                    width: px(320),
+                    bottom: zpx(40.0),
+                    left: zpx(60.0),
+                    width: zpx(320.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(px(4)),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(6)),
+                    padding: UiRect::all(zpx(4.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
                 BackgroundColor(inks.ground),
@@ -1917,14 +1926,14 @@ fn composer_parts(
                     Button,
                     ChatPress::Suggestion(i),
                     Node {
-                        padding: UiRect::axes(px(8), px(3)),
-                        border_radius: BorderRadius::all(px(3)),
+                        padding: UiRect::axes(zpx(8.0), zpx(3.0)),
+                        border_radius: BorderRadius::all(zpx(3.0)),
                         ..default()
                     },
                     BackgroundColor(if lit { inks.lit } else { Color::NONE }),
                     children![(
                         Text::new(format!("{}{label}", if lit { "\u{25b8} " } else { "  " })),
-                        tf(fonts, 12.0),
+                        tf(fonts, z(12.0)),
                         TextColor(if lit { inks.ink } else { inks.soft }),
                         Pickable::IGNORE,
                     )],
@@ -2002,7 +2011,7 @@ fn hover_chat_links(
 #[derive(Component)]
 pub(crate) struct PeekRoot;
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the peek's lines, their age and their fade
 fn peek(
     mut commands: Commands,
     time: Res<Time>,
@@ -2014,7 +2023,9 @@ fn peek(
     mut texts: Query<&mut TextColor>,
     mut seen: Local<Option<(u64, u64)>>,
     mut drawn: Local<usize>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let (Some(machine), Some(duel)) = (host.machine(), duel) else {
         *seen = None;
         return;
@@ -2079,12 +2090,12 @@ fn peek(
                 PeekRoot,
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(crate::hud::EDGE),
+                    right: zpx(crate::hud::EDGE),
                     bottom: logpanel::root_node().bottom,
-                    max_width: px(logpanel::LOG_W_MAX),
+                    max_width: zpx(logpanel::LOG_W_MAX),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::FlexEnd,
-                    row_gap: px(2),
+                    row_gap: zpx(2.0),
                     ..default()
                 },
                 ZIndex(crate::hud::Z_LOG),
@@ -2099,7 +2110,7 @@ fn peek(
             let line = commands
                 .spawn((
                     Text::new(text.clone()),
-                    tf(&fonts, 12.5),
+                    tf(&fonts, z(12.5)),
                     TextColor(palette::DIALOG_INK),
                     TextShadow::default(),
                     Pickable::IGNORE,
@@ -2137,7 +2148,9 @@ fn filter_dialog(
     phase: Option<Res<State<DuelPhase>>>,
     roots: Query<Entity, With<FilterDialog>>,
     mut drawn: Local<Option<(ChatTab, String)>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let Some((machine, tab)) = host.machine().zip(ui.filters) else {
         for root in &roots {
             commands.entity(root).despawn();
@@ -2164,14 +2177,14 @@ fn filter_dialog(
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
-                right: px(40),
-                bottom: px(if at_table { 300.0 } else { 120.0 }),
-                width: px(340),
+                right: zpx(40.0),
+                bottom: zpx(if at_table { 300.0 } else { 120.0 }),
+                width: zpx(340.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                padding: UiRect::all(px(14)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(8)),
+                row_gap: zpx(6.0),
+                padding: UiRect::all(zpx(14.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(8.0)),
                 ..default()
             },
             BackgroundColor(inks.ground),
@@ -2182,7 +2195,7 @@ fn filter_dialog(
     let title = commands
         .spawn((
             Text::new(ChatPhrase::FilterTitle.fill(lang, &[tab_name(tab, lang)])),
-            tf_bold(&fonts, 13.0),
+            tf_bold(&fonts, z(13.0)),
             TextColor(inks.ink),
             Pickable::IGNORE,
         ))
@@ -2221,15 +2234,15 @@ fn filter_dialog(
                 Button,
                 ChatPress::Filter(kind),
                 Node {
-                    padding: UiRect::axes(px(4), px(3)),
-                    border_radius: BorderRadius::all(px(4)),
+                    padding: UiRect::axes(zpx(4.0), zpx(3.0)),
+                    border_radius: BorderRadius::all(zpx(4.0)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Feel::new(Color::NONE),
                 children![(
                     Text::new(format!("{mark}  {}", phrase.text(lang))),
-                    tf(&fonts, 12.5),
+                    tf(&fonts, z(12.5)),
                     TextColor(if on { inks.ink } else { inks.soft }),
                     Pickable::IGNORE,
                 )],
@@ -2240,7 +2253,7 @@ fn filter_dialog(
     let note = commands
         .spawn((
             Text::new(ChatPhrase::FilterNote.text(lang)),
-            tf_italic(&fonts, 11.0),
+            tf_italic(&fonts, z(11.0)),
             TextColor(inks.soft),
             Pickable::IGNORE,
         ))
@@ -2249,7 +2262,7 @@ fn filter_dialog(
         .spawn(Node {
             flex_direction: FlexDirection::Row,
             justify_content: JustifyContent::FlexEnd,
-            column_gap: px(8),
+            column_gap: zpx(8.0),
             ..default()
         })
         .id();

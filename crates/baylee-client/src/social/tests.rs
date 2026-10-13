@@ -1009,6 +1009,7 @@ mod line_copy {
             .init_resource::<ButtonInput<MouseButton>>()
             .insert_resource(UiFonts::default())
             .insert_resource(SocialHost::default())
+            .init_resource::<crate::social::zoom::Zoom>()
             .insert_resource(ChatUi {
                 open: true,
                 ..ChatUi::default()
@@ -1192,7 +1193,6 @@ mod line_copy {
     /// span and has a ground of its own (a line that mentions the player:
     /// `rows::spawn_row`) is painted over with nothing on the first paint.
     #[test]
-    #[ignore = "BUG: paint_selection writes Color::NONE over the own ground of every unselected row (base is only recorded for selected rows)"]
     fn a_line_outside_the_selection_keeps_its_own_ground() {
         let mut rig = rig_with_grounds();
         rig.select(0);

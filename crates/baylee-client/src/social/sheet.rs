@@ -4,6 +4,7 @@
 //! privacy settings (who may whisper, requests, sharing the table, history,
 //! sounds, this account's devices, blocked players).
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ConvId, Intent, KeyHome, Social};
 use baylee_protocol::social::{SocialSettings, WhispersFrom};
@@ -180,9 +181,9 @@ fn button(
             Button,
             press,
             Node {
-                padding: UiRect::axes(px(10), px(4)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(5)),
+                padding: UiRect::axes(zpx(10.0), zpx(4.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(5.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -195,7 +196,7 @@ fn button(
             Feel::new(Color::NONE),
             children![(
                 Text::new(label.to_string()),
-                tf(fonts, 12.0),
+                tf(fonts, z(12.0)),
                 TextColor(tokens::INK),
                 Pickable::IGNORE,
             )],
@@ -213,7 +214,7 @@ fn words(
     commands
         .spawn((
             Text::new(text),
-            tf(fonts, size),
+            tf(fonts, z(size)),
             TextColor(colour),
             Pickable::IGNORE,
         ))
@@ -227,8 +228,8 @@ fn line(commands: &mut Commands) -> Entity {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 flex_wrap: FlexWrap::Wrap,
-                column_gap: px(8),
-                row_gap: px(6),
+                column_gap: zpx(8.0),
+                row_gap: zpx(6.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -248,7 +249,7 @@ fn switch(
     let name = commands
         .spawn((
             Text::new(label.to_string()),
-            tf(fonts, 12.5),
+            tf(fonts, z(12.5)),
             TextColor(tokens::INK),
             Node {
                 flex_grow: 1.0,
@@ -310,7 +311,7 @@ fn safety_block(
             commands
                 .spawn((
                     Text::new(chunk.join("  ")),
-                    tf_bold(fonts, 15.0),
+                    tf_bold(fonts, z(15.0)),
                     TextColor(tokens::INK),
                     Pickable::IGNORE,
                 ))
@@ -379,7 +380,9 @@ fn sync(
     settings: Option<Res<crate::settings::ClientSettings>>,
     roots: Query<Entity, With<SheetRoot>>,
     mut drawn: Local<Option<(u64, String, bool)>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let Some((machine, sheet)) = host.machine().zip(ui.sheet.as_ref()) else {
         for root in &roots {
             commands.entity(root).despawn();
@@ -403,10 +406,10 @@ fn sync(
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(0),
-                top: px(0),
-                bottom: px(0),
+                left: zpx(0.0),
+                right: zpx(0.0),
+                top: zpx(0.0),
+                bottom: zpx(0.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -418,13 +421,13 @@ fn sync(
     let card = commands
         .spawn((
             Node {
-                width: px(560),
+                width: zpx(560.0),
                 max_height: Val::Percent(88.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(10),
-                padding: UiRect::all(px(20)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(10)),
+                row_gap: zpx(10.0),
+                padding: UiRect::all(zpx(20.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(10.0)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -443,7 +446,7 @@ fn sync(
     let name = commands
         .spawn((
             Text::new(format!("{} {}", glyph::LOCK, title.text(lang))),
-            tf_bold(&fonts, 16.0),
+            tf_bold(&fonts, z(16.0)),
             TextColor(tokens::INK),
             Node {
                 flex_grow: 1.0,
@@ -453,15 +456,15 @@ fn sync(
         ))
         .id();
     commands.entity(name).insert(TextFont {
-        ..tf_bold(&fonts, 16.0)
+        ..tf_bold(&fonts, z(16.0))
     });
     let close = commands
         .spawn((
             Button,
             SheetPress::Close,
             Node {
-                width: px(26),
-                height: px(26),
+                width: zpx(26.0),
+                height: zpx(26.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -470,7 +473,7 @@ fn sync(
             Feel::new(Color::NONE),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
-                icon_tf(&fonts, 11.0),
+                icon_tf(&fonts, z(11.0)),
                 TextColor(tokens::MUTED),
                 Pickable::IGNORE,
             )],

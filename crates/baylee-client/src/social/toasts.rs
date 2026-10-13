@@ -6,6 +6,7 @@
 //! The sounds the machine asks for are played here too, through the
 //! interface's cue path.
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatCue, ChatToast, ToastButton};
 use bevy::prelude::*;
@@ -144,7 +145,9 @@ fn sync(
     mut columns: Query<(Entity, &mut Node), With<ToastColumn>>,
     ui: Res<super::ChatUi>,
     windows: Query<&Window>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let shown: Vec<u64> = toasts
         .standing
@@ -162,9 +165,9 @@ fn sync(
             64.0
         };
         let (top, bottom) = if at_table {
-            (px(60), Val::Auto)
+            (zpx(60.0), Val::Auto)
         } else {
-            (Val::Auto, px(lobby_bottom))
+            (Val::Auto, Val::Px(lobby_bottom))
         };
         if node.top != top {
             node.top = top;
@@ -174,6 +177,7 @@ fn sync(
         }
         column
     } else {
+        toasts.drawn.clear();
         commands
             .spawn((
                 ToastColumn,
@@ -181,11 +185,11 @@ fn sync(
                 RelativeCursorPosition::default(),
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(12),
-                    bottom: px(64),
-                    width: px(340),
+                    right: zpx(12.0),
+                    bottom: zpx(64.0),
+                    width: zpx(340.0),
                     flex_direction: FlexDirection::ColumnReverse,
-                    row_gap: px(8),
+                    row_gap: zpx(8.0),
                     ..default()
                 },
                 GlobalZIndex(G_PANEL + 40),
@@ -209,10 +213,10 @@ fn sync(
             .spawn((
                 Node {
                     flex_direction: FlexDirection::Column,
-                    row_gap: px(6),
-                    padding: UiRect::all(px(10)),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(8)),
+                    row_gap: zpx(6.0),
+                    padding: UiRect::all(zpx(10.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(8.0)),
                     ..default()
                 },
                 BackgroundColor(super::rows::LOBBY_GROUND),
@@ -224,7 +228,7 @@ fn sync(
             .spawn((Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(8),
+                column_gap: zpx(8.0),
                 ..default()
             },))
             .id();
@@ -234,13 +238,13 @@ fn sync(
                 ToastPress::Open(id),
                 Node {
                     flex_grow: 1.0,
-                    min_width: px(0),
+                    min_width: zpx(0.0),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 children![(
                     Text::new(words),
-                    tf(&fonts, 12.5),
+                    tf(&fonts, z(12.5)),
                     TextColor(tokens::INK),
                     Pickable::IGNORE,
                 )],
@@ -251,8 +255,8 @@ fn sync(
                 Button,
                 ToastPress::Close(id),
                 Node {
-                    width: px(20),
-                    height: px(20),
+                    width: zpx(20.0),
+                    height: zpx(20.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
@@ -261,7 +265,7 @@ fn sync(
                 Feel::new(Color::NONE),
                 children![(
                     Text::new(glyph::CLOSE.to_string()),
-                    icon_tf(&fonts, 9.0),
+                    icon_tf(&fonts, z(9.0)),
                     TextColor(tokens::MUTED),
                     Pickable::IGNORE,
                 )],
@@ -273,7 +277,7 @@ fn sync(
             let buttons = commands
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: px(8),
+                    column_gap: zpx(8.0),
                     ..default()
                 },))
                 .id();
@@ -283,9 +287,9 @@ fn sync(
                         Button,
                         ToastPress::Button(id, index),
                         Node {
-                            padding: UiRect::axes(px(12), px(4)),
-                            border: UiRect::all(px(1)),
-                            border_radius: BorderRadius::all(px(5)),
+                            padding: UiRect::axes(zpx(12.0), zpx(4.0)),
+                            border: UiRect::all(zpx(1.0)),
+                            border_radius: BorderRadius::all(zpx(5.0)),
                             ..default()
                         },
                         BackgroundColor(Color::NONE),
@@ -293,7 +297,7 @@ fn sync(
                         Feel::new(Color::NONE),
                         children![(
                             Text::new(button_words(*button, lang)),
-                            tf_bold(&fonts, 11.5),
+                            tf_bold(&fonts, z(11.5)),
                             TextColor(tokens::INK),
                             Pickable::IGNORE,
                         )],

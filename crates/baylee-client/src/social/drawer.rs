@@ -7,6 +7,7 @@
 //! (`Z_MENU`'s place on the global ladder); `f` is unbound at the table
 //! (`Action::Friends`), `/friends` and the chat's head open it too.
 
+use super::zoom::{z, zpx};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ChatTab, Intent, Social};
 use baylee_protocol::social::{Place, Shown, Status};
@@ -303,7 +304,9 @@ fn sync_door(
     lobby: Option<Res<crate::lobby::LobbyState>>,
     doors: Query<(Entity, &mut Visibility), With<FriendsDoor>>,
     mut drawn: Local<Option<(usize, bool, bool)>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     // The header has the friends button; the deck builder keeps its own
     // header (docs/client.md), so there the button floats bottom-right.
@@ -338,14 +341,14 @@ fn sync_door(
                 DrawerPress::Toggle,
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: px(12),
-                    right: px(12.0 + super::window::LOBBY_PILL_ROOM),
+                    bottom: zpx(12.0),
+                    right: zpx(12.0 + super::window::LOBBY_PILL_ROOM),
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    column_gap: px(8),
-                    padding: UiRect::axes(px(14), px(8)),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(18)),
+                    column_gap: zpx(8.0),
+                    padding: UiRect::axes(zpx(14.0), zpx(8.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(18.0)),
                     ..default()
                 },
                 BackgroundColor(super::rows::LOBBY_GROUND),
@@ -363,7 +366,7 @@ fn sync_door(
     let icon = commands
         .spawn((
             Text::new(glyph::FRIENDS.to_string()),
-            icon_tf(&fonts, 13.0),
+            icon_tf(&fonts, z(13.0)),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
@@ -371,7 +374,7 @@ fn sync_door(
     let count = commands
         .spawn((
             Text::new(online.to_string()),
-            tf_bold(&fonts, 13.0),
+            tf_bold(&fonts, z(13.0)),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
@@ -381,9 +384,9 @@ fn sync_door(
         let dot = commands
             .spawn((
                 Node {
-                    width: px(8),
-                    height: px(8),
-                    border_radius: BorderRadius::all(px(4)),
+                    width: zpx(8.0),
+                    height: zpx(8.0),
+                    border_radius: BorderRadius::all(zpx(4.0)),
                     ..default()
                 },
                 BackgroundColor(super::rows::WHISPER_INK),
@@ -408,10 +411,10 @@ fn dot(commands: &mut Commands, shown: Shown) -> Entity {
     commands
         .spawn((
             Node {
-                width: px(9),
-                height: px(9),
-                border: UiRect::all(px(1.5)),
-                border_radius: BorderRadius::all(px(5)),
+                width: zpx(9.0),
+                height: zpx(9.0),
+                border: UiRect::all(zpx(1.5)),
+                border_radius: BorderRadius::all(zpx(5.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -457,9 +460,9 @@ fn small_button(
             Button,
             press,
             Node {
-                padding: UiRect::axes(px(7), px(2)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(4)),
+                padding: UiRect::axes(zpx(7.0), zpx(2.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -468,7 +471,7 @@ fn small_button(
             Feel::new(Color::NONE),
             children![(
                 Text::new(label.to_string()),
-                tf(fonts, 11.0),
+                tf(fonts, z(11.0)),
                 TextColor(tokens::INK),
                 Pickable::IGNORE,
             )],
@@ -487,11 +490,11 @@ fn icon_button(
             Button,
             press,
             Node {
-                width: px(22),
-                height: px(22),
+                width: zpx(22.0),
+                height: zpx(22.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(px(4)),
+                border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -499,7 +502,7 @@ fn icon_button(
             Feel::new(Color::NONE),
             children![(
                 Text::new(glyph.to_string()),
-                icon_tf(fonts, 10.0),
+                icon_tf(fonts, z(10.0)),
                 TextColor(tokens::MUTED),
                 Pickable::IGNORE,
             )],
@@ -511,10 +514,10 @@ fn heading(commands: &mut Commands, fonts: &UiFonts, text: String) -> Entity {
     commands
         .spawn((
             Text::new(text.to_uppercase()),
-            tf_bold(fonts, 10.5),
+            tf_bold(fonts, z(10.5)),
             TextColor(tokens::MUTED),
             Node {
-                margin: UiRect::new(px(0), px(0), px(10), px(4)),
+                margin: UiRect::new(zpx(0.0), zpx(0.0), zpx(10.0), zpx(4.0)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -528,8 +531,8 @@ fn row(commands: &mut Commands) -> Entity {
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(6),
-                padding: UiRect::vertical(px(3)),
+                column_gap: zpx(6.0),
+                padding: UiRect::vertical(zpx(3.0)),
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
@@ -548,11 +551,11 @@ fn label(
     commands
         .spawn((
             Text::new(text),
-            tf(fonts, 12.0),
+            tf(fonts, z(12.0)),
             TextColor(colour),
             Node {
                 flex_grow: if grow { 1.0 } else { 0.0 },
-                min_width: px(0),
+                min_width: zpx(0.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -576,13 +579,13 @@ pub(crate) fn text_box(
             Button,
             press,
             Text::default(),
-            tf(fonts, 12.0),
+            tf(fonts, z(12.0)),
             TextColor(tokens::INK),
             Node {
                 flex_grow: 1.0,
-                padding: UiRect::axes(px(8), px(5)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(5)),
+                padding: UiRect::axes(zpx(8.0), zpx(5.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(5.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.25)),
@@ -609,9 +612,9 @@ pub(crate) fn text_box(
             continue;
         }
         let font = if italic {
-            tf_italic(fonts, 12.0)
+            tf_italic(fonts, z(12.0))
         } else {
-            tf(fonts, 12.0)
+            tf(fonts, z(12.0))
         };
         let span = commands
             .spawn((TextSpan::new(part), font, TextColor(colour)))
@@ -634,7 +637,9 @@ fn sync_drawer(
     roots: Query<(Entity, &mut Visibility), With<Drawer>>,
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
     mut drawn: Local<Option<DrawerKey>>,
+    zoom: Res<super::zoom::Zoom>,
 ) {
+    let _zoom = super::zoom::Scope::new(zoom.0);
     let mut roots = roots;
     let Some(machine) = host.machine().filter(|_| ui.drawer) else {
         for (_, mut seen) in &mut roots {
@@ -670,12 +675,12 @@ fn sync_drawer(
                 RelativeCursorPosition::default(),
                 Node {
                     position_type: PositionType::Absolute,
-                    top: px(0),
-                    bottom: px(0),
-                    right: px(0),
-                    width: px(WIDTH),
+                    top: zpx(0.0),
+                    bottom: zpx(0.0),
+                    right: zpx(0.0),
+                    width: zpx(WIDTH),
                     flex_direction: FlexDirection::Column,
-                    border: UiRect::left(px(1)),
+                    border: UiRect::left(zpx(1.0)),
                     ..default()
                 },
                 BackgroundColor(super::rows::LOBBY_GROUND),
@@ -698,8 +703,8 @@ fn sync_drawer(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::axes(px(14), px(10)),
-                border: UiRect::bottom(px(1)),
+                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
+                border: UiRect::bottom(zpx(1.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -713,7 +718,7 @@ fn sync_drawer(
                 ChatPhrase::FriendsTitle.text(lang),
                 me.handle
             )),
-            tf_bold(&fonts, 14.0),
+            tf_bold(&fonts, z(14.0)),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
@@ -729,8 +734,8 @@ fn sync_drawer(
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
-                min_height: px(0),
-                padding: UiRect::axes(px(14), px(8)),
+                min_height: zpx(0.0),
+                padding: UiRect::axes(zpx(14.0), zpx(8.0)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -952,7 +957,7 @@ fn sync_drawer(
                     Node {
                         flex_direction: FlexDirection::Column,
                         flex_grow: 1.0,
-                        min_width: px(0),
+                        min_width: zpx(0.0),
                         ..default()
                     },
                     Pickable::IGNORE,
@@ -966,7 +971,7 @@ fn sync_drawer(
                         friend.presence.place.as_ref(),
                         lang,
                     )),
-                    tf(&fonts, 10.5),
+                    tf(&fonts, z(10.5)),
                     TextColor(tokens::MUTED),
                     Pickable::IGNORE,
                 ))
@@ -1059,14 +1064,14 @@ fn sync_drawer(
                     DrawerPress::OpenGroup(group.id.clone()),
                     Node {
                         flex_grow: 1.0,
-                        padding: UiRect::vertical(px(2)),
+                        padding: UiRect::vertical(zpx(2.0)),
                         ..default()
                     },
                     BackgroundColor(Color::NONE),
                     Feel::new(Color::NONE),
                     children![(
                         Text::new(format!("# {}  · {}", group.name, group.members.len())),
-                        tf(&fonts, 12.0),
+                        tf(&fonts, z(12.0)),
                         TextColor(super::rows::GROUP_INK),
                         Pickable::IGNORE,
                     )],
@@ -1231,10 +1236,10 @@ fn sync_drawer(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 flex_wrap: FlexWrap::Wrap,
-                column_gap: px(6),
-                row_gap: px(6),
-                padding: UiRect::axes(px(14), px(10)),
-                border: UiRect::top(px(1)),
+                column_gap: zpx(6.0),
+                row_gap: zpx(6.0),
+                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
+                border: UiRect::top(zpx(1.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
