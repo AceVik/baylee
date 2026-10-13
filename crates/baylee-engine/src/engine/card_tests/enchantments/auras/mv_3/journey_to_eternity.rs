@@ -115,3 +115,92 @@ fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
         "Atzal produced one black mana"
     );
 }
+
+/// "Enchant creature you control": an opposing creature on the table is not
+/// among the targets offered when the Aura is cast.
+#[test]
+fn journey_to_eternity_offers_only_creatures_its_caster_controls() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(101, forest())
+        .battlefield(0, &[forest(), swamp(), plains(), llanowar_elves()])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[journey_to_eternity()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the caster's Elves");
+    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("the opponent's Bears");
+    cast_from_hand(&mut engine, p0, journey_to_eternity());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected the Aura's target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&elf), "your own creature is enchantable");
+    assert!(
+        !options.contains(&bears),
+        "\"Enchant creature you control\": an opponent's creature is not offered"
+    );
+}
+
+/// Atzal's "{3}{B}{G}, {T}: Return target creature card from your graveyard
+/// to the battlefield": your graveyard only, the cost taps Atzal and spends
+/// the whole {3}{B}{G}.
+#[test]
+fn atzal_returns_a_creature_card_from_your_own_graveyard_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(101, forest())
+        .battlefield(0, &[journey_to_eternity(), grizzly_bears()])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    // Turned over while the hands are still being kept: it is the back face
+    // under test, not the way it arrives.
+    let atzal = on_battlefield(&engine, p0, journey_to_eternity()).unwrap();
+    let def = baylee_cards::by_index(journey_to_eternity()).unwrap();
+    assert!(engine.dev_state_mut(p0).unwrap().transform(atzal, def, 1));
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let theirs = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    bury(&mut engine, &[mine, theirs]);
+    assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
+    assert!(on_battlefield(&engine, p1, grizzly_bears()).is_none());
+
+    let pool = &mut engine.dev_state_mut(p0).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Black, 1);
+    pool.add(ManaColor::Green, 1);
+    pool.add(ManaColor::Colorless, 3);
+    engine.refresh_offer();
+
+    activate(&mut engine, p0, journey_to_eternity(), 1);
+    let options = aim_at(&mut engine, p0, mine);
+    assert!(
+        options.contains(&mine),
+        "your own graveyard's creature card is a target"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"from your graveyard\": the opponent's creature card is not a target"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "the chosen creature card came back under your control"
+    );
+    assert!(
+        on_battlefield(&engine, p1, grizzly_bears()).is_none(),
+        "the opponent's creature card stayed where it was"
+    );
+    assert!(
+        in_graveyard(&engine, p1, grizzly_bears()).is_some(),
+        "and is still in their graveyard"
+    );
+    assert!(is_tapped(&engine, atzal), "{{T}} is part of the cost");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{3}}{{B}}{{G}} was paid in full"
+    );
+}
