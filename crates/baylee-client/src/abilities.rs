@@ -1253,10 +1253,37 @@ fn mana_pip_options(
     index: u32,
 ) -> Vec<AbilityOption> {
     let tap = Tap::Ability(index);
-    let offers: Vec<_> = crate::manasources::offers(view, legal, object)
+    let mut offers: Vec<_> = crate::manasources::offers(view, legal, object)
         .into_iter()
         .filter(|offer| offer.tap == tap)
         .collect();
+    // A tap with a rider beside its mana (a painland's "{W} or {U}. This
+    // land deals 1 damage to you.") is no plain offer, but the planner reads
+    // it as the permanent's priced mode, and its colours are what the bubble
+    // asks between. A payment window steps into it so the colour is chosen
+    // before anything is tapped.
+    if offers.is_empty() {
+        offers.extend(
+            crate::manasources::sources(view, legal)
+                .into_iter()
+                .filter(|source| source.id == object)
+                .find_map(|source| {
+                    if source.tap == tap && !source.bundle {
+                        Some(source.colors)
+                    } else {
+                        source
+                            .dear
+                            .filter(|dear| dear.tap == tap)
+                            .map(|dear| dear.colors)
+                    }
+                })
+                .map(|colors| baylee_client_core::manaplan::Offer {
+                    tap,
+                    colors,
+                    fixed: true,
+                }),
+        );
+    }
     baylee_client_core::manaplan::pours(object, &offers)
         .into_iter()
         .filter_map(|pour| pip_row(view, legal, object, pour))

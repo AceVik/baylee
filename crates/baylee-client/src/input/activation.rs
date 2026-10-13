@@ -76,22 +76,8 @@ pub(super) fn card_on_screen(
 /// reading of these branches, kept in step with them by hand. See
 /// [`baylee_client_core::touch`].
 pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
-    if select_stack_stop(duel, object) {
+    if select_stack_stop(duel, object) || unstage_on_click(duel, object) {
         return Answer::Took;
-    }
-    // In a payment window a staged permanent is a tap not made yet, and a
-    // click on it takes the tap back: nothing was sent, so nothing has to be
-    // undone. An unstaged one goes on down to its abilities, where
-    // [`arm_ability`] stages the mana instead of sending it.
-    if duel.paying() && duel.armed.is_none() && duel.mana_run.is_none() {
-        let staged = members_of(duel, object)
-            .into_iter()
-            .find(|member| duel.pay_staged.holds(*member));
-        if let Some(member) = staged {
-            duel.ability_menu = None;
-            duel.unstage(member);
-            return Answer::Took;
-        }
     }
     // A second tap on the same card is the send. A tap on a different one is
     // a change of mind and not a confirmation, so it disarms and arms afresh.
@@ -448,52 +434,8 @@ pub(super) fn arm_ability(
     object: ObjectId,
     option: &crate::abilities::AbilityOption,
 ) -> bool {
-    // A payment window's mana is staged, not made: the tap waits for Go and
-    // can be taken back until then (`client-core::paystage`). A pip carries
-    // its colour already; a row stages only when its tap asks nothing, since
-    // an unanswered colour would refuse the whole payment. Anything else
-    // falls through and is sent as it always was, which the window still
-    // takes one action at a time.
-    if duel.paying()
-        && duel.mana_run.is_none()
-        && let Some(step) = staging_step(duel, object, option)
-    {
-        duel.armed = None;
-        duel.ability_tap = None;
-        duel.stage(step);
-        return true;
-    }
-    // A written mana row whose tap asks a colour (a painland's "{W} or
-    // {U}", 1 damage) steps into that tap's own bubble, whose pips carry
-    // the colour and so stage: sent from here it would tap the land, and
-    // deal its damage, before the player had said Go.
-    if duel.paying()
-        && duel.mana_run.is_none()
-        && duel.ability_tap.is_none()
-        && option.mana
-        && let PlayerAction::ActivateAbility {
-            source,
-            ability_index,
-        } = option.action
-        && source == object
-        && let Some(view) = duel.view.as_ref()
-        && let Some(interaction) = duel.interaction.as_ref()
-        && crate::abilities::options_for(
-            baylee_client_core::Lang::En,
-            view,
-            interaction,
-            object,
-            Some(ability_index),
-        )
-        .iter()
-        .any(|o| o.pour.is_some())
-    {
-        duel.armed = None;
-        duel.ability_menu = Some(object);
-        duel.ability_tap = Some(ability_index);
-        duel.ability_pick = 0;
-        duel.ability_page = 0;
-        return false;
+    if let Some(sent) = stage_in_window(duel, object, option) {
+        return sent;
     }
     // A pip of a mana bubble, and this is the press the owner asked for. The
     // permanent has not been touched yet: the colour was chosen on a bubble
@@ -596,6 +538,83 @@ pub(super) fn arm_ability(
             false
         }
     }
+}
+
+/// In a payment window a staged permanent is a tap not made yet, and a
+/// click on it takes the tap back: nothing was sent, so nothing has to be
+/// undone. An unstaged one goes on down to its abilities, where
+/// [`arm_ability`] stages the mana instead of sending it. Returns whether
+/// the click was spent.
+fn unstage_on_click(duel: &mut Duel, object: ObjectId) -> bool {
+    if !duel.paying() || duel.armed.is_some() || duel.mana_run.is_some() {
+        return false;
+    }
+    let staged = members_of(duel, object)
+        .into_iter()
+        .find(|member| duel.pay_staged.holds(*member));
+    let Some(member) = staged else {
+        return false;
+    };
+    duel.ability_menu = None;
+    duel.unstage(member);
+    true
+}
+
+/// [`arm_ability`]'s answer inside a payment window: `Some(whether the
+/// sheet is done)` when the press staged a tap or stepped into a colour
+/// bubble, `None` when it goes on as it does outside one.
+fn stage_in_window(
+    duel: &mut Duel,
+    object: ObjectId,
+    option: &crate::abilities::AbilityOption,
+) -> Option<bool> {
+    // A payment window's mana is staged, not made: the tap waits for Go and
+    // can be taken back until then (`client-core::paystage`). A pip carries
+    // its colour already; a row stages only when its tap asks nothing, since
+    // an unanswered colour would refuse the whole payment. Anything else
+    // falls through and is sent as it always was, which the window still
+    // takes one action at a time.
+    if duel.paying()
+        && duel.mana_run.is_none()
+        && let Some(step) = staging_step(duel, object, option)
+    {
+        duel.armed = None;
+        duel.ability_tap = None;
+        duel.stage(step);
+        return Some(true);
+    }
+    // A written mana row whose tap asks a colour (a painland's "{W} or
+    // {U}", 1 damage) steps into that tap's own bubble, whose pips carry
+    // the colour and so stage: sent from here it would tap the land, and
+    // deal its damage, before the player had said Go.
+    if duel.paying()
+        && duel.mana_run.is_none()
+        && duel.ability_tap.is_none()
+        && let PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } = option.action
+        && source == object
+        && let Some(view) = duel.view.as_ref()
+        && let Some(interaction) = duel.interaction.as_ref()
+        && crate::abilities::options_for(
+            baylee_client_core::Lang::En,
+            view,
+            interaction,
+            object,
+            Some(ability_index),
+        )
+        .iter()
+        .any(|o| o.pour.is_some())
+    {
+        duel.armed = None;
+        duel.ability_menu = Some(object);
+        duel.ability_tap = Some(ability_index);
+        duel.ability_pick = 0;
+        duel.ability_page = 0;
+        return Some(false);
+    }
+    None
 }
 
 /// The tap a row or pip of `object`'s sheet stages in a payment window, when

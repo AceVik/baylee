@@ -317,19 +317,16 @@ fn the_confirm_key_does_not_pass_a_payment_window_short() {
 }
 
 /// Report 01, the other two outcomes of the same key: with a Forest to tap
-/// it taps (and only taps; the pass comes after the mana is up), and with the
-/// pool already covering what is owed it settles the window.
+/// it stages it ("Pay now", nothing sent), and with the pool already
+/// covering what is owed it pays the window as one `PayWindow` of no steps.
 #[test]
-fn the_confirm_key_pays_a_payment_window_by_tapping_or_settling_a_covered_one() {
+fn the_confirm_key_pays_a_payment_window_by_staging_or_settling_a_covered_one() {
     let (mut duel, committed) = confirm_key_in_a_payment_window("{1}", 0);
     assert_eq!(committed, None);
-    let sent = duel.take_outbox();
-    assert!(
-        matches!(sent.as_slice(), [PlayerAction::ActivateManaAbility { .. }]),
-        "the tap goes first, alone: {sent:?}"
-    );
+    assert!(duel.take_outbox().is_empty(), "Pay now sends nothing");
+    assert_eq!(duel.pay_staged.steps().len(), 1, "it stages one Forest");
 
     let (duel, committed) = confirm_key_in_a_payment_window("{1}", 1);
     assert_eq!(committed, None);
-    assert_eq!(duel.outbox(), &[PlayerAction::PassPriority]);
+    assert_eq!(duel.outbox(), &[PlayerAction::PayWindow { steps: vec![] }]);
 }

@@ -612,3 +612,98 @@ fn a_named_cast_offers_its_cancel_and_nothing_else_does() {
         }
     }
 }
+
+/// The payment shelf in a window owing `{1}`: with nothing staged the
+/// confirm is "Pay now (tap 1)" and there is nothing to take back; with a
+/// Forest staged (covering the cost) it is "Pay" and the shelf offers to
+/// take the staged taps back; taking them back restores the first.
+#[test]
+fn the_payment_shelf_follows_what_is_staged() {
+    use baylee_client_core::manaplan::{Step, Tap};
+    let confirm = |answers: &[(Says, String)]| {
+        answers
+            .iter()
+            .find(|(says, _)| *says == Says::Answer(PromptAction::Confirm))
+            .map(|(_, label)| label.clone())
+    };
+    let has_unstage = |answers: &[(Says, String)]| {
+        answers
+            .iter()
+            .any(|(says, _)| *says == Says::Command(super::super::MenuAction::UnstagePayment))
+    };
+    let mut duel =
+        crate::owed_tests::seat_with_two_forests(Some(baylee_core::mana::ManaCost::parse("{1}")));
+    for lang in [Lang::En, Lang::De] {
+        let answers = answers_for(&duel, lang, false, false, false);
+        assert_eq!(
+            confirm(&answers),
+            Some(Phrase::PayStage.fill(lang, &["1"])),
+            "{lang:?}: nothing staged, a plan stands"
+        );
+        assert!(!has_unstage(&answers), "{lang:?}: nothing to take back");
+    }
+
+    let forest = duel.view.as_ref().expect("the view").battlefield[0].id;
+    assert!(duel.stage(Step {
+        source: forest,
+        tap: Tap::Intrinsic,
+        color: None,
+    }));
+    for lang in [Lang::En, Lang::De] {
+        let answers = answers_for(&duel, lang, false, false, false);
+        assert_eq!(
+            confirm(&answers),
+            Some(Phrase::PayGo.text(lang).to_string()),
+            "{lang:?}: the staged Forest covers the cost"
+        );
+        assert!(
+            has_unstage(&answers),
+            "{lang:?}: the staged tap can be undone"
+        );
+        assert!(
+            answers
+                .iter()
+                .any(|(says, _)| *says == Says::Command(super::super::MenuAction::DeclinePayment)),
+            "{lang:?}: and declining stays"
+        );
+    }
+
+    assert!(duel.unstage_all());
+    let answers = answers_for(&duel, Lang::En, false, false, false);
+    assert_eq!(
+        confirm(&answers),
+        Some(Phrase::PayStage.fill(Lang::En, &["1"]))
+    );
+    assert!(!has_unstage(&answers));
+}
+
+/// With one tap staged and `{2}` owed, the shelf still says "Pay now" and
+/// counts only the taps still to stage: the Forest already staged is not
+/// asked for again.
+#[test]
+fn the_pay_now_label_counts_only_the_taps_still_to_stage() {
+    use baylee_client_core::manaplan::{Step, Tap};
+    let mut duel =
+        crate::owed_tests::seat_with_two_forests(Some(baylee_core::mana::ManaCost::parse("{2}")));
+    let answers = answers_for(&duel, Lang::En, false, false, false);
+    assert!(
+        answers
+            .iter()
+            .any(|(_, label)| *label == Phrase::PayStage.fill(Lang::En, &["2"])),
+        "two taps owed: {answers:?}"
+    );
+    let forest = duel.view.as_ref().expect("the view").battlefield[0].id;
+    assert!(duel.stage(Step {
+        source: forest,
+        tap: Tap::Intrinsic,
+        color: None,
+    }));
+    let answers = answers_for(&duel, Lang::En, false, false, false);
+    assert!(
+        answers
+            .iter()
+            .any(|(says, label)| *says == Says::Answer(PromptAction::Confirm)
+                && *label == Phrase::PayStage.fill(Lang::En, &["1"])),
+        "one tap still to stage: {answers:?}"
+    );
+}

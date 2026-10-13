@@ -1100,7 +1100,7 @@ impl Duel {
                         | baylee_engine::choice::YesNoPrompt::PayTax { .. }
                         | baylee_engine::choice::YesNoPrompt::PayMana { .. }
                 ))
-            .then(|| prompt.clone());
+            .then_some(*prompt);
         }
         self.outbox.push(action);
     }
@@ -1303,8 +1303,7 @@ impl Duel {
         let view = self.view.as_ref()?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
-            .mana_pool
-            .clone();
+            .mana_pool;
         let sources = self
             .interaction
             .as_ref()

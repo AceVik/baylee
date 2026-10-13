@@ -105,7 +105,7 @@ impl Staging {
     /// what each step is worth by [`worth`].
     #[must_use]
     pub fn pool_with(&self, pool: &ManaPoolView, sources: &[Source]) -> ManaPoolView {
-        let mut out = pool.clone();
+        let mut out = *pool;
         for step in &self.steps {
             for (color, count) in worth(step, sources) {
                 *slot(&mut out, color) = slot(&mut out, color).saturating_add(count);
@@ -235,3 +235,6 @@ fn slot(pool: &mut ManaPoolView, color: ManaColor) -> &mut u32 {
         ManaColor::Colorless => &mut pool.colorless,
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -309,3 +309,296 @@ fn a_voluntary_amount_is_not_a_staged_payment() {
     assert!(!duel.paying());
     assert!(duel.payment_remaining().is_none());
 }
+
+/// The two Forests of [`seat_with_two_forests`], in the order the table
+/// holds them.
+fn two_forests(duel: &Duel) -> (ObjectId, ObjectId) {
+    let ids = lands(duel);
+    assert_eq!(ids.len(), 2, "the fixture's two Forests");
+    (ids[0], ids[1])
+}
+
+/// A tap of a Forest the way the planner names one.
+fn forest_tap(source: ObjectId) -> baylee_client_core::manaplan::Step {
+    baylee_client_core::manaplan::Step {
+        source,
+        tap: baylee_client_core::manaplan::Tap::Intrinsic,
+        color: None,
+    }
+}
+
+/// The window's priority question over `mana` as the abilities on offer.
+fn priority_over(mana: Vec<ObjectId>) -> Pending {
+    Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            mana_abilities: mana,
+            ..LegalActions::default()
+        }),
+    }
+}
+
+/// The seat's view with `owed` set to `cost` (or cleared), delivered through
+/// the real edge.
+fn owe(duel: &mut Duel, cost: Option<&str>) {
+    let mut view = duel.view.clone().expect("the view");
+    view.owed = cost.map(|c| baylee_core::mana::ManaPayment::Fixed(ManaCost::parse(c)));
+    duel.receive_view(view);
+}
+
+/// Clicking an untapped land in the seat's own window stages it and sends
+/// nothing; the board draws it as a staged proposal; a second click takes
+/// it back, again without sending anything. The old click tapped for real
+/// the moment it landed, so a land tapped by mistake stayed tapped.
+#[test]
+fn a_click_in_a_window_stages_the_land_and_a_second_click_takes_it_back() {
+    use baylee_client_core::board::Proposal;
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    let (first, second) = two_forests(&duel);
+
+    crate::input::activate_card(&mut duel, first);
+    assert!(duel.pay_staged.holds(first), "the click staged the Forest");
+    assert!(!duel.pay_staged.holds(second));
+    assert!(duel.take_outbox().is_empty(), "staging sends nothing");
+    assert!(duel.mana_run.is_none(), "and starts no run");
+    let proposed = crate::proposals(&duel);
+    assert_eq!(proposed.get(&first), Some(&Proposal::Staged));
+    assert_ne!(proposed.get(&second), Some(&Proposal::Staged));
+
+    crate::input::activate_card(&mut duel, first);
+    assert!(duel.pay_staged.is_empty(), "the second click un-staged it");
+    assert!(duel.take_outbox().is_empty(), "and sent nothing either");
+    assert_ne!(
+        crate::proposals(&duel).get(&first),
+        Some(&Proposal::Staged),
+        "no longer drawn as staged"
+    );
+}
+
+/// A staged land is drawn tapped (the preview of the payment) while the
+/// land beside it is not, and the view the engine sent never changed: the
+/// tap is only on the board model.
+#[test]
+fn a_staged_land_is_drawn_tapped_and_the_other_is_not() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    let (first, second) = two_forests(&duel);
+    crate::rebuild_board(&mut duel);
+    let board = duel.board.as_ref().expect("the board");
+    assert!(
+        !board
+            .group(first)
+            .expect("the Forest's group")
+            .status
+            .is_tapped(),
+        "untapped before anything is staged"
+    );
+
+    assert!(duel.stage(forest_tap(first)));
+    crate::rebuild_board(&mut duel);
+    let board = duel.board.as_ref().expect("the board");
+    assert!(
+        board
+            .group(first)
+            .expect("the staged Forest's group")
+            .status
+            .is_tapped(),
+        "the staged Forest is drawn tapped"
+    );
+    assert!(
+        !board
+            .group(second)
+            .expect("the other Forest's group")
+            .status
+            .is_tapped(),
+        "the other Forest is not"
+    );
+    assert!(
+        duel.take_outbox().is_empty(),
+        "and the preview sent nothing"
+    );
+    assert!(
+        duel.view
+            .as_ref()
+            .expect("the view")
+            .battlefield
+            .iter()
+            .all(|o| !o.status.is_tapped()),
+        "the engine's own view is untouched"
+    );
+}
+
+/// A payment the engine refuses comes back as the same view and the same
+/// question; the staging must survive it so the player corrects it rather
+/// than building it again.
+#[test]
+fn a_refused_payment_keeps_the_staging() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    let (first, _) = two_forests(&duel);
+    assert!(duel.stage(forest_tap(first)));
+    let view = duel.view.clone().expect("the view");
+    let pending = duel
+        .interaction
+        .as_ref()
+        .expect("the question")
+        .pending()
+        .clone();
+
+    duel.confirm_payment();
+    assert_eq!(
+        duel.take_outbox(),
+        [PlayerAction::PayWindow {
+            steps: vec![PlayerAction::ActivateManaAbility { source: first }],
+        }]
+    );
+
+    // The host's re-ask after a refusal: the same view, the same question.
+    duel.receive_view(view);
+    duel.receive_choice(pending);
+    assert!(duel.paying(), "the window is still open");
+    assert!(duel.pay_staged.holds(first), "and the Forest still staged");
+    assert_eq!(duel.pay_staged.steps().len(), 1);
+    assert!(duel.staged_covers());
+}
+
+/// The staging belongs to one window: it goes when the window closes, and
+/// when a window owing something else opens in its place.
+#[test]
+fn the_staging_does_not_outlive_its_window() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    let (first, _) = two_forests(&duel);
+    assert!(duel.stage(forest_tap(first)));
+
+    owe(&mut duel, None);
+    assert!(!duel.paying());
+    assert!(duel.pay_staged.is_empty(), "the window closed");
+
+    owe(&mut duel, Some("{1}"));
+    assert!(duel.stage(forest_tap(first)));
+    owe(&mut duel, Some("{2}"));
+    assert!(duel.paying(), "a window owing {{2}} is open");
+    assert!(
+        duel.pay_staged.is_empty(),
+        "a window owing something else starts with nothing staged"
+    );
+
+    // And the same cost delivered again is the same window.
+    assert!(duel.stage(forest_tap(first)));
+    owe(&mut duel, Some("{2}"));
+    assert!(duel.pay_staged.holds(first), "the same window keeps it");
+}
+
+/// A staged land the engine stops offering (it left, or something else
+/// tapped it) is dropped, and only that one.
+#[test]
+fn a_land_the_engine_no_longer_offers_leaves_the_staging() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{2}")));
+    let (first, second) = two_forests(&duel);
+    assert!(duel.stage(forest_tap(first)));
+    assert!(duel.stage(forest_tap(second)));
+    assert_eq!(duel.pay_staged.steps().len(), 2);
+
+    duel.receive_choice(priority_over(vec![second]));
+    assert!(
+        !duel.pay_staged.holds(first),
+        "Forest 1 is no longer offered"
+    );
+    assert!(duel.pay_staged.holds(second), "Forest 2 still is");
+    assert_eq!(duel.pay_staged.steps().len(), 1);
+
+    duel.receive_choice(priority_over(vec![]));
+    assert!(duel.pay_staged.is_empty(), "and then nothing is offered");
+}
+
+/// Declining a payment names what it costs, by what the seat said yes to
+/// just before the window: a pact's debt loses the game, a taken-back cast
+/// is taken back, a tax names nothing the client can know.
+#[test]
+fn declining_names_its_price_by_what_opened_the_window() {
+    use baylee_client_core::i18n::Phrase;
+    use baylee_engine::choice::YesNoPrompt;
+
+    let yes_to = |prompt: YesNoPrompt| {
+        let mut duel = seat_with_two_forests(None);
+        let ids: Vec<ObjectId> = lands(&duel);
+        duel.receive_choice(Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt,
+            source: None,
+        });
+        duel.submit(PlayerAction::YesNo(true));
+        assert_eq!(duel.take_outbox(), [PlayerAction::YesNo(true)]);
+        // The window the yes opens.
+        owe(&mut duel, Some("{1}"));
+        duel.receive_choice(priority_over(ids));
+        duel
+    };
+
+    let pact = ManaCost::parse("{1}");
+    let duel = yes_to(YesNoPrompt::PayPact { cost: pact });
+    assert!(duel.paying());
+    assert_eq!(duel.declining_costs(), Some(Phrase::DeclinePact));
+
+    // A cast named by the view comes first: declining takes it back.
+    let mut cast = yes_to(YesNoPrompt::PayPact { cost: pact });
+    let mut view = cast.view.clone().expect("the view");
+    view.casting = Some(ObjectId::new(90, 0));
+    cast.receive_view(view);
+    assert_eq!(cast.declining_costs(), Some(Phrase::DeclinePaymentCast));
+
+    let tax = yes_to(YesNoPrompt::PayTax { mana: 1 });
+    assert!(tax.paying());
+    assert_eq!(
+        tax.declining_costs(),
+        None,
+        "a tax says nothing of its price"
+    );
+
+    // Outside a window there is nothing to decline.
+    let quiet = seat_with_two_forests(None);
+    assert_eq!(quiet.declining_costs(), None);
+}
+
+/// What a pact's yes remembered goes with its window, and a "no" never
+/// remembers anything: a later, unrelated window must not claim that
+/// declining it loses the game.
+#[test]
+fn the_pact_memory_goes_with_its_window_and_a_no_never_makes_one() {
+    use baylee_engine::choice::YesNoPrompt;
+    let mut duel = seat_with_two_forests(None);
+    let ids: Vec<ObjectId> = lands(&duel);
+    let pact = YesNoPrompt::PayPact {
+        cost: ManaCost::parse("{1}"),
+    };
+
+    duel.receive_choice(Pending::YesNo {
+        player: PlayerId::new(0),
+        prompt: pact,
+        source: None,
+    });
+    duel.submit(PlayerAction::YesNo(false));
+    duel.take_outbox();
+    owe(&mut duel, Some("{1}"));
+    duel.receive_choice(priority_over(ids.clone()));
+    assert_eq!(duel.declining_costs(), None, "a no opened no pact window");
+
+    // A yes, its window, the window closing: the memory goes with it.
+    duel.receive_choice(Pending::YesNo {
+        player: PlayerId::new(0),
+        prompt: pact,
+        source: None,
+    });
+    duel.submit(PlayerAction::YesNo(true));
+    duel.take_outbox();
+    owe(&mut duel, Some("{1}"));
+    duel.receive_choice(priority_over(ids.clone()));
+    assert!(duel.declining_costs().is_some());
+    owe(&mut duel, None);
+    owe(&mut duel, Some("{1}"));
+    duel.receive_choice(priority_over(ids));
+    assert_eq!(
+        duel.declining_costs(),
+        None,
+        "the next window is not the pact's"
+    );
+}
