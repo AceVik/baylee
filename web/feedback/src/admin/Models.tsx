@@ -190,6 +190,11 @@ function numberOrUndefined(text: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
+/** Whether a box holds something that is not a number of zero or more. */
+function notANumber(text: string | undefined): boolean {
+  return text !== undefined && text.trim() !== "" && numberOrUndefined(text) === undefined;
+}
+
 /** A number of the profile's, as a box shows it. */
 function boxed(value: unknown): string {
   return typeof value === "number" ? value.toString() : "";
@@ -235,6 +240,8 @@ export function readDefinition(form: DefinitionForm): LlmDefinition | Key {
     return "llm.badProfile";
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return "llm.badProfile";
+  const boxes = [form.maxGames, form.dayUsd, form.monthUsd, form.dayTokens, form.monthTokens, form.gameUsd, form.gameTokens, form.gameCalls, form.priceIn, form.priceOut];
+  if (boxes.some(notANumber)) return "llm.badNumber";
   // The boxes own the budget: whatever the JSON says of it is the boxes' to say.
   const profile = otherSettings(parsed as Record<string, unknown>);
   const gameUsd = numberOrUndefined(form.gameUsd);
@@ -336,6 +343,7 @@ function Editor({
   const cli = playsCli(profile);
   const choices = fallbackChoices(hosts, host, id, vendor);
   const missing = fallback !== "" && !choices.some((c) => c.id === fallback);
+  const elsewhere = hosts.find((h) => h.name === host)?.profiles.some((other) => other.id === fallback) ?? false;
   const what = `${id} @ ${host}`;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -431,6 +439,8 @@ function Editor({
                   value={host}
                   onChange={(e) => {
                     setHost(e.target.value);
+                    // A fallback is a profile of the seat agent: another one's is none.
+                    setFallback("");
                   }}
                 >
                   {hosts.map((h) => (
@@ -543,7 +553,11 @@ function Editor({
                     {c.label} · {c.id}
                   </option>
                 ))}
-                {missing && !cli && <option value={fallback}>{t(lang, "llm.fallbackMissing", { id: fallback })}</option>}
+                {missing && !cli && (
+                  <option value={fallback}>
+                    {t(lang, elsewhere ? "llm.fallbackUnfit" : "llm.fallbackMissing", { id: fallback })}
+                  </option>
+                )}
               </select>,
               cli ? "llm.hint.fallbackCli" : "llm.hint.fallback",
             )}
@@ -571,12 +585,14 @@ function Editor({
 
         <fieldset className="llm-section">
           <legend>{t(lang, "llm.section.caps")}</legend>
-          <p className="muted llm-hint">{t(lang, "llm.hint.caps")}</p>
+          <p id="llm-caps-hint" className="muted llm-hint">
+            {t(lang, "llm.hint.caps")}
+          </p>
           <div className="form-grid">
-            {field("llm-day", "llm.capDay", numberBox("llm-day", dayUsd, setDayUsd, false))}
-            {field("llm-month", "llm.capMonth", numberBox("llm-month", monthUsd, setMonthUsd, false))}
-            {field("llm-day-tokens", "llm.capDayTokens", numberBox("llm-day-tokens", dayTokens, setDayTokens, true))}
-            {field("llm-month-tokens", "llm.capMonthTokens", numberBox("llm-month-tokens", monthTokens, setMonthTokens, true))}
+            {field("llm-day", "llm.capDay", numberBox("llm-day", dayUsd, setDayUsd, false, undefined, undefined, "llm-caps-hint"))}
+            {field("llm-month", "llm.capMonth", numberBox("llm-month", monthUsd, setMonthUsd, false, undefined, undefined, "llm-caps-hint"))}
+            {field("llm-day-tokens", "llm.capDayTokens", numberBox("llm-day-tokens", dayTokens, setDayTokens, true, undefined, undefined, "llm-caps-hint"))}
+            {field("llm-month-tokens", "llm.capMonthTokens", numberBox("llm-month-tokens", monthTokens, setMonthTokens, true, undefined, undefined, "llm-caps-hint"))}
           </div>
         </fieldset>
 
