@@ -377,18 +377,14 @@ fn an_attachment_on_an_attachment_lies_under_the_same_host_after_it() {
 }
 
 /// Only a host that is drawn takes anything. An aura whose host is on no
-/// row — phased out here — stays in its own row, where it can still be seen,
-/// rather than vanish under a card nobody draws.
+/// row — not on the battlefield at all here — stays in its own row, where
+/// it can still be seen, rather than vanish under a card nobody draws.
 #[test]
 fn an_attachment_whose_host_is_not_drawn_stays_in_its_row() {
-    let mut creature = token(1, 0, "Bear", 2, 2);
-    creature.status = ObjectStatus::PHASED_OUT;
     let mut aura = token(90, 0, "Rancor", 0, 0);
     aura.types = TypeSet::ENCHANTMENT;
-    aura.attached_to = Some(creature.id);
-    let view = ViewBuilder::new(2)
-        .with_battlefield(0, vec![creature, aura])
-        .build();
+    aura.attached_to = Some(ObjectId::new(1, 0));
+    let view = ViewBuilder::new(2).with_battlefield(0, vec![aura]).build();
     let m = model(&view);
     let pod = m.pod(PlayerId::new(0)).expect("pod");
 
@@ -396,6 +392,34 @@ fn an_attachment_whose_host_is_not_drawn_stays_in_its_row() {
     assert_eq!(support.groups.len(), 1);
     assert_eq!(support.groups[0].representative, ObjectId::new(90, 0));
     assert!(support.groups[0].attached.is_empty());
+}
+
+/// A phased-out host is drawn, grey (the owner, 13.10.2026), and what
+/// phased out with it (CR 702.26g) lies under it as it did.
+#[test]
+fn what_phased_out_with_its_host_lies_under_it() {
+    let mut creature = token(1, 0, "Bear", 2, 2);
+    creature.status = ObjectStatus::PHASED_OUT;
+    let mut aura = token(90, 0, "Rancor", 0, 0);
+    aura.types = TypeSet::ENCHANTMENT;
+    aura.attached_to = Some(creature.id);
+    aura.status = ObjectStatus::PHASED_OUT;
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![creature, aura])
+        .build();
+    let m = model(&view);
+    let pod = m.pod(PlayerId::new(0)).expect("pod");
+
+    let creatures = pod.lane(LaneKind::Creatures).expect("creatures");
+    assert_eq!(creatures.groups.len(), 1);
+    assert!(creatures.groups[0].status.is_phased_out());
+    assert_eq!(creatures.groups[0].attached.len(), 1);
+    assert!(
+        pod.lane(LaneKind::Support)
+            .expect("support")
+            .groups
+            .is_empty()
+    );
 }
 
 /// A merged card holds its cell before a card with something tucked under
@@ -480,13 +504,27 @@ fn permanents_land_in_the_lane_a_player_looks_for_them_in() {
     assert_eq!(lane_of(artifact.types), LaneKind::Support);
 }
 
+/// A phased-out permanent is drawn where it lies, grey, as a card of its
+/// own beside the phased-in ones it would otherwise pile with; it counts in
+/// no summary, being treated as though it does not exist (CR 702.26b).
+/// Until 13.10.2026 it left the board entirely.
 #[test]
-fn phased_out_permanents_leave_the_board_entirely() {
+fn a_phased_out_permanent_is_drawn_apart_and_counts_in_no_summary() {
     let mut objs: Vec<PublicObject> = (0..3).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
     objs[0].status = ObjectStatus::from_bits(ObjectStatus::PHASED_OUT.bits());
     let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
     let m = model(&view);
-    assert_eq!(m.pod(PlayerId::new(0)).expect("pod").permanent_count(), 2);
+    let pod = m.pod(PlayerId::new(0)).expect("pod");
+    assert_eq!(pod.permanent_count(), 3, "all three are drawn");
+    let phased: Vec<&CardGroup> = pod
+        .lanes
+        .iter()
+        .flat_map(|lane| &lane.groups)
+        .filter(|g| g.status.is_phased_out())
+        .collect();
+    assert_eq!(phased.len(), 1, "the phased-out one stands alone");
+    assert_eq!(phased[0].members, vec![ObjectId::new(0, 0)]);
+    assert_eq!(pod.threat.potential_attackers, 2, "and swings with nobody");
 }
 
 /// The vanishing land, as the owner now asks for it.

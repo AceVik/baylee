@@ -218,10 +218,16 @@ pub fn sync_scene(
         // The card's passing states: dimmed while this seat's question leaves
         // it out, phased out. Followed per card, so a change fades in rather
         // than jumps; the clock is the one `globals.time` is written from.
-        let track = index.veils.get(&placement.object).map_or_else(
-            || crate::cardmat::VeilTrack::new(placement.veil),
-            |track| track.toward(placement.veil, now, !still),
-        );
+        // A card drawn before in no state has no entry; one drawn for the
+        // first time is already in its states, since nothing on screen
+        // changed.
+        let track = match index.veils.get(&placement.object) {
+            Some(track) => track.toward(placement.veil, now, !still),
+            None if index.cards.contains_key(&placement.object) => {
+                crate::cardmat::VeilTrack::new(0).toward(placement.veil, now, !still)
+            }
+            None => crate::cardmat::VeilTrack::new(placement.veil),
+        };
         if track.to == 0 && track.from == 0 {
             index.veils.remove(&placement.object);
         } else {

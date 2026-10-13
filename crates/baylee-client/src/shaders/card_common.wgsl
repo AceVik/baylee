@@ -85,7 +85,7 @@ const DIM_GREY: f32 = 0.35;
 /// far; and the pale band that drifts slowly down it, as through a card half
 /// in this world.
 const PHASED_TONE: vec3<f32> = vec3<f32>(0.075, 0.085, 0.115);
-const PHASED_FADE: f32 = 0.5;
+const PHASED_FADE: f32 = 0.6;
 const PHASED_DRIFT: f32 = 0.06;
 /// Summoning sickness's moonlight (`shell_common.wgsl`'s `MOONLIGHT`): how
 /// far in from the edge it reaches, in card widths, how bright it is at its

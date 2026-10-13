@@ -10293,7 +10293,20 @@ chosen").
   transient look like a sweep (`VeilTrack`, per card in
   `SceneIndex::veils`, the clock `globals.time` is written from), then
   settled, the one look every card in that state shares; a still table
-  (`reduce_motion`) cuts. `PHASED` and `ASLEEP` are the next two.
+  (`reduce_motion`) cuts. A card drawn before in no state fades in; one drawn
+  for the first time is already in its states.
+- **A phased-out permanent is drawn, grey (the owner, 13.10.2026).** Until
+  then the board model dropped it. CR 702.26b treats it as though it does
+  not exist, but it is still on the battlefield and comes back, so the rows
+  now draw it where it lies (`board::build_pod`), never piled with phased-in
+  ones (the summary key carries the status), with what phased out with it
+  (CR 702.26g) still tucked under it, and it counts in no summary (threat,
+  token chips). On the table it is `veil::PHASED`: its colour gone, faded
+  0.6 of the way to the blue hour's felt tone, a pale band drifting slowly
+  down it; it fades over `veil::SLOW_FADE` (0.6 s) out and back in, and
+  wears no shell, no sleep and no keyword marks (`table::placement`). The
+  view always carried the status (`ObjectStatus::PHASED_OUT`); no
+  `VIEW_VERSION` change.
 - **The name and type choosers' box looks like a search box (report 16):**
   a magnifier, the words typed or "type to search…" in the quieter ink, a
   caret, at least 280 wide (`drawer::filter_field`).
