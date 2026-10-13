@@ -5,6 +5,7 @@ use super::*;
 
 mod castle;
 mod conversion;
+mod cyclone;
 mod day_of_destiny;
 mod embargo;
 mod field_of_souls;

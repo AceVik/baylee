@@ -31,6 +31,7 @@ mod hanna_s_custody;
 mod infernal_tribute;
 mod knighthood;
 mod lifegift;
+mod magnetic_mountain;
 mod mana_flare;
 mod mental_discipline;
 mod mobilization;
