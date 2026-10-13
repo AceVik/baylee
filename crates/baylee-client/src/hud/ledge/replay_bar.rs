@@ -187,13 +187,18 @@ pub fn sync_replay_bar(
     ui: Option<Res<UiScale>>,
     mut revision: ResMut<ReplayBarRevision>,
     bars: Query<Entity, BarParts>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     let lang = Lang::of(&settings.lang);
     let window_w =
         crate::hud::scale::window_space(&windows, ui.as_deref()).map_or(1200, |w| w.x as i32);
+    // The duel keeps its last replay status after the table closed, until
+    // the next opens: a closed table draws no bar.
+    let closed = phase.is_some_and(|p| *p.get() == crate::DuelPhase::Closed);
     let look = duel
         .replay
         .as_ref()
+        .filter(|_| !closed)
         .map(|status| BarLook::of(status, lang, window_w));
     let standing = !bars.is_empty();
     if revision.0 == look && standing == look.is_some() {
@@ -203,7 +208,7 @@ pub fn sync_replay_bar(
         commands.entity(bar).despawn();
     }
     revision.0.clone_from(&look);
-    let (Some(look), Some(status)) = (look, duel.replay.as_ref()) else {
+    let (Some(look), Some(status)) = (look, duel.replay.as_ref().filter(|_| !closed)) else {
         return;
     };
     spawn_bar(&mut commands, &fonts, &look, status);

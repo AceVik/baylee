@@ -772,7 +772,7 @@ fn row_menu(i: usize, entry: &Entry, lang: Lang) -> Vec<(String, Press, bool)> {
         if entry.can.offers(perspective) {
             items.push((
                 format!(
-                    "{} \u{25b8} {}",
+                    "{} {}",
                     ReplayPhrase::WatchFrom.text(lang),
                     words.text(lang)
                 ),

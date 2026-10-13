@@ -89,6 +89,8 @@ messages! {
     Draw { en: "Draw", de: "Unentschieden" },
     /// A result.
     Unfinished { en: "Unfinished", de: "Unbeendet" },
+    /// A result nobody noted.
+    Ended { en: "Ended", de: "Beendet" },
     /// A row's place: this computer.
     ThisComputer { en: "This computer", de: "Dieser Computer" },
     /// A row: against the house. `{0}` the level.
@@ -171,6 +173,7 @@ impl ReplayPhrase {
             Outcome::Lost => Self::Lost,
             Outcome::Draw => Self::Draw,
             Outcome::Unfinished => Self::Unfinished,
+            Outcome::Unknown => Self::Ended,
         }
     }
 }

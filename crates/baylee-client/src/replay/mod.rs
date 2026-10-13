@@ -23,6 +23,8 @@ pub mod host;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod local;
 mod rewind;
+#[cfg(test)]
+mod tests;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use host::{HostedAccess, ReplayHost, ReplaySource};

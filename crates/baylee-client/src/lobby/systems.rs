@@ -570,11 +570,13 @@ pub(super) fn leave_keys(
     let mut leave = false;
     let mut again = false;
     let mut rewatch = false;
+    let mut replay = false;
     for press in &exits {
         match press {
             Press::End(EndPress::Leave) => leave = true,
             Press::End(EndPress::PlayAgain) => again = true,
             Press::End(EndPress::WatchAgain) => rewatch = true,
+            Press::End(EndPress::Replay) => replay = true,
             _ => {}
         }
     }
@@ -584,6 +586,10 @@ pub(super) fn leave_keys(
     // leads with Watch again.
     let lead = if again {
         Press::End(EndPress::PlayAgain)
+    } else if replay {
+        // Offline, Watch replay is the sheet's first answer, and the first
+        // is the lead.
+        Press::End(EndPress::Replay)
     } else if rewatch {
         Press::End(EndPress::WatchAgain)
     } else if leave {

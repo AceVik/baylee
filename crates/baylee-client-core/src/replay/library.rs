@@ -63,6 +63,9 @@ pub enum HostedResult {
     Draw,
     /// The record has no end.
     Unfinished,
+    /// It ended before the gateway noted how (a record from before the
+    /// column).
+    Unknown,
 }
 
 /// How far today's build is known to play a hosted record the same.
@@ -171,6 +174,8 @@ pub enum Outcome {
     Draw,
     /// No end in the record.
     Unfinished,
+    /// Ended, but nobody noted how.
+    Unknown,
 }
 
 impl From<HostedResult> for Outcome {
@@ -180,6 +185,7 @@ impl From<HostedResult> for Outcome {
             HostedResult::Lost => Self::Lost,
             HostedResult::Draw => Self::Draw,
             HostedResult::Unfinished => Self::Unfinished,
+            HostedResult::Unknown => Self::Unknown,
         }
     }
 }
