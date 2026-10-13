@@ -782,7 +782,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Maze's End's Gate tutor now ends in "if you control ten or more Gates
     // with different names, you win the game" (astra-review): the table reads
     // neither that condition nor `WinGame`, so the row is unread, not guessed.
-    assert_eq!((read, of), (1030, 1297), "activated/loyalty reader census");
+    // The wave 2 partials (pairs C and D) add nine activations and two read
+    // rows: Gold-Forge Garrison's Golem and Grist's −5 are read; Gauntlets of
+    // Chaos, Golden Guardian's fight, Grist's −2, Mirror Universe, Mount Doom,
+    // Path of Mettle and The Black Gate are contextual.
+    assert_eq!((read, of), (1032, 1306), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
