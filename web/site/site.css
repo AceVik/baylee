@@ -271,7 +271,11 @@ html[data-js] .top:not(.solid) .brand { opacity: 0; transform: translateY(-6px) 
 }
 .sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: #0b1322; overflow: hidden; }
 .layer { position: absolute; inset: -4% -3%; will-change: transform; }
-.sky-painting { background: url("img/sanctuary.webp") center 42% / cover no-repeat; transform: scale(1.06); }
+.sky-painting {
+  background: url("img/sanctuary.webp") center 42% / cover no-repeat;
+  background-image: image-set(url("img/sanctuary-1600.avif") type("image/avif"), url("img/sanctuary.webp") type("image/webp"));
+  transform: scale(1.06);
+}
 .sky-painting > div { position: absolute; inset: 0; background: inherit; }
 /* stars: dots of light in the upper sky that breathe slowly */
 .sky-stars > div {
@@ -759,6 +763,9 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .sets { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.2rem; }
 .set { background: var(--panel); border: 1px solid var(--edge-soft); border-radius: 14px; transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms var(--ease); }
 .set[hidden] { display: none; }
+/* a row off screen is not laid out or painted until it comes near (it
+   keeps the size it last had, or a summary line's) */
+.set { content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .set:hover { border-color: var(--edge); box-shadow: 0 16px 34px -24px rgba(0, 0, 0, 0.7); }
 .set[open] { border-color: var(--edge); box-shadow: var(--shadow); }
 .set-sum {
@@ -785,7 +792,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .set-pct.done { color: var(--ok); }
 .pbar { flex: 1; display: flex; height: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--edge-soft); min-width: 4rem; }
 .pbar > span { display: block; height: 100%; transition: width 1100ms var(--ease); }
-html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
+html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.shown) .pbar > span { width: 0 !important; }
 .pbar-partial { opacity: 0.75; }
 .set-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.15rem 0.8rem; font-size: 0.85rem; color: var(--ink-soft); font-feature-settings: "lnum", "tnum"; }
 .set-counts .c { white-space: nowrap; }
@@ -844,6 +851,59 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
   .sky-stars > div { opacity: 0.8; }
   h1 .glow { background-position: 50% 0; }
 }
+
+/* ---------------------------------------------------------------- the sets: summary, eras, a card large */
+.sets-summary { display: grid; gap: 0.6rem; margin: 1.2rem 0 0.4rem; }
+.sets-overall { padding: 0.9rem 1.1rem 1rem; }
+.sets-overall .sets-total { margin: 0 0 0.6rem; }
+.sets-overall .pbar { height: 0.75rem; }
+.sets-sub { font-family: var(--sans); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin: 0.8rem 0 0.1rem; }
+.set-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.4em; min-height: 44px; padding: 0 1em; border-radius: 999px;
+  font-family: var(--sans); font-weight: 500; font-size: 0.95rem; text-decoration: none;
+  color: var(--title); background: var(--panel); border: 1px solid var(--edge);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.chip::before { content: ""; width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--ok); }
+.chip:hover { background: var(--panel-2); border-color: var(--edge-glow); color: var(--title); }
+.sets-more { margin: 1rem 0 0.4rem; }
+.sets-all[hidden] { display: none; }
+.sets-all { margin-top: 0.4rem; }
+.sets-found:empty { display: none; }
+.set-era > .set-sum .set-name { font-size: 1.08rem; }
+.era-body { padding: 0.2rem 0.7rem 0.8rem; }
+.sets-notes { margin-top: 1.4rem; }
+.cgrid-hint { margin: -0.3rem 0 0.8rem; }
+@media (hover: none) { .cgrid-hint { display: none; } }
+.ctile { cursor: zoom-in; }
+
+/* a card large beside the pointer (site.js places it) */
+.cpreview {
+  position: fixed; left: 0; top: 0; z-index: 40; width: 16rem; max-width: calc(100vw - 16px);
+  padding: 0.6rem; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--edge);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.75); font-family: var(--sans); font-size: 0.85rem; line-height: 1.35;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 160ms ease, visibility 0s linear 160ms;
+}
+.cpreview.on { opacity: 1; visibility: visible; transition: opacity 160ms ease, visibility 0s; }
+.cp-pic { aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; overflow: hidden; background: var(--panel-2); }
+.cp-pic img { width: 100%; height: 100%; object-fit: cover; }
+.cp-cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; margin: 0.55rem 0.1rem 0.2rem; }
+.cp-name { color: var(--title); font-size: 0.98rem; }
+.cp-why { flex-basis: 100%; color: var(--ink-soft); }
+.cp-credit { margin: 0.35rem 0.1rem 0; font-size: 0.75rem; color: var(--ink-faint); }
+
+/* the card in a dialog */
+.cardview {
+  width: min(92vw, 26rem); max-height: 94vh; padding: 0.8rem; border: 1px solid var(--edge); border-radius: 18px;
+  background: var(--panel-solid); color: var(--ink); overflow: visible;
+}
+.cardview::backdrop { background: rgba(4, 8, 16, 0.78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.cardview[open] { animation: zoom-in 300ms var(--ease); }
+.cardview .cp-pic { width: min(100%, calc(70vh * 488 / 680)); margin: 0 auto; }
+.cardview .cp-cap, .cardview .cp-credit { font-family: var(--sans); }
+.cardview .cp-name { font-size: 1.1rem; }
 
 /* ---------------------------------------------------------------- impressum (impressum.html) */
 .channels + .small { margin-top: 1.2rem; }

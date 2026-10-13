@@ -18,8 +18,11 @@
 <meta name="twitter:card" content="summary_large_image">
 <title>Baylee – a table that knows the rules</title>
 <link rel="icon" href="/site/favicon-32.png" sizes="32x32" type="image/png">
+<script src="/site/boot.js"></script>
 <link rel="preload" href="/site/fonts/Faustina.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/site/fonts/AlegreyaSans-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/fonts/AlegreyaSans-Bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" as="image" href="/site/img/baylee-logo-800.avif" imagesrcset="/site/img/baylee-logo-400.avif 400w, /site/img/baylee-logo-800.avif 800w" imagesizes="(max-width: 700px) 82vw, 570px" type="image/avif" fetchpriority="high">
 <link rel="stylesheet" href="/site/site.css">
 <script src="/site/site.js" defer></script>
 </head>
@@ -30,7 +33,7 @@
 <header class="top">
   <div class="top-inner">
     <a class="brand" href="#top" aria-label="Baylee">
-      <img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee" fetchpriority="high">
+      <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif 400w, /site/img/baylee-logo-800.avif 800w" sizes="7.6rem"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp 400w, /site/img/baylee-logo.webp 800w" sizes="7.6rem"><img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee" decoding="async"></picture>
     </a>
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="nav"><span class="bars" aria-hidden="true"></span><span class="vh"><span class="en">Menu</span><span class="de" lang="de">Menü</span></span></button>
     <nav class="nav" id="nav" aria-label="Sections">
@@ -66,7 +69,7 @@
     <div class="sky-vignette"></div>
   </div>
   <div class="hero-inner" id="hero-inner">
-    <img class="hero-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" fetchpriority="high">
+    <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif 400w, /site/img/baylee-logo-800.avif 800w" sizes="(max-width: 700px) 82vw, 570px"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp 400w, /site/img/baylee-logo.webp 800w" sizes="(max-width: 700px) 82vw, 570px"><img class="hero-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" fetchpriority="high"></picture>
     <p class="kicker">
       <span class="en">Closed beta · free · open source · unofficial fan content</span>
       <span class="de" lang="de">Geschlossene Beta · kostenlos · quelloffen · inoffizieller Fan-Content</span>
@@ -224,27 +227,27 @@
     <p class="section-lead de" lang="de">Die Bilder zeigen die Textansicht, die jede Karte aus ihrem Regeltext zeichnet statt aus dem gedruckten Kartenbild, weil wir Scryfalls Scans nicht weiterverbreiten. Im Spiel siehst du die echten Kartenbilder. Die Aufnahmen entstanden mit 0.1.0-beta.2 auf einem lokalen Test-Gateway mit erfundenen Spielern; die aktuelle Version sieht etwas anders aus.</p>
     <ul class="shots">
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-table-duel.webp"><img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view"></a>
+        <a class="shot-link" href="/site/img/shot-table-duel.webp"><picture><source type="image/avif" srcset="/site/img/shot-table-duel-640.avif 640w, /site/img/shot-table-duel.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-table-duel-640.webp 640w, /site/img/shot-table-duel.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view" decoding="async"></picture></a>
         <figcaption><span class="en"><b>A duel</b> against the house AI. Hovering a card shows it large.</span><span class="de" lang="de"><b>Ein Duell</b> gegen die Haus-KI. Eine Karte unter dem Zeiger wird groß gezeigt.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-game-log.webp"><img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link"></a>
+        <a class="shot-link" href="/site/img/shot-game-log.webp"><picture><source type="image/avif" srcset="/site/img/shot-game-log-640.avif 640w, /site/img/shot-game-log.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-game-log-640.webp 640w, /site/img/shot-game-log.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The game log</b> (<kbd>L</kbd>) reads like a chat; every card name opens its preview.</span><span class="de" lang="de"><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-table-ring.webp"><img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt"></a>
+        <a class="shot-link" href="/site/img/shot-table-ring.webp"><picture><source type="image/avif" srcset="/site/img/shot-table-ring-640.avif 640w, /site/img/shot-table-ring.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-table-ring-640.webp 640w, /site/img/shot-table-ring.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt" decoding="async"></picture></a>
         <figcaption><span class="en"><b>Four seats.</b> Larger tables sit in a ring around the felt.</span><span class="de" lang="de"><b>Vier Plätze.</b> Größere Tische sitzen im Ring um den Filz.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-lobby.webp"><img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right"></a>
+        <a class="shot-link" href="/site/img/shot-lobby.webp"><picture><source type="image/avif" srcset="/site/img/shot-lobby-640.avif 640w, /site/img/shot-lobby.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-lobby-640.webp 640w, /site/img/shot-lobby.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The lobby.</b> Your decks, the open tables, and <i>Play the house</i> for a quick game.</span><span class="de" lang="de"><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Play the house</i> für ein schnelles Spiel.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-room.webp"><img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life"></a>
+        <a class="shot-link" href="/site/img/shot-room.webp"><picture><source type="image/avif" srcset="/site/img/shot-room-640.avif 640w, /site/img/shot-room.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-room-640.webp 640w, /site/img/shot-room.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life" decoding="async"></picture></a>
         <figcaption><span class="en"><b>Arranging a table.</b> Chairs, starting life, mulligans, and a level for each AI chair.</span><span class="de" lang="de"><b>Einen Tisch einrichten.</b> Stühle, Startleben, Mulligans und eine Stufe für jeden KI-Stuhl.</span></figcaption></figure>
       </li>
       <li class="glass"><figure>
-        <a class="shot-link" href="/site/img/shot-deck-builder.webp"><img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool"></a>
+        <a class="shot-link" href="/site/img/shot-deck-builder.webp"><picture><source type="image/avif" srcset="/site/img/shot-deck-builder-640.avif 640w, /site/img/shot-deck-builder.avif 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><source type="image/webp" srcset="/site/img/shot-deck-builder-640.webp 640w, /site/img/shot-deck-builder.webp 1200w" sizes="(max-width: 600px) 92vw, (max-width: 1000px) 46vw, 380px"><img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool" decoding="async"></picture></a>
         <figcaption><span class="en"><b>The deck builder.</b> Mana curve, land statistics, a search over the whole pool, and a warning for cards that will not play as printed.</span><span class="de" lang="de"><b>Der Deckbauer.</b> Manakurve, Länderstatistik, eine Suche über den ganzen Pool und eine Warnung für Karten, die nicht wie gedruckt spielen.</span></figcaption></figure>
       </li>
     </ul>
@@ -281,29 +284,39 @@
     <div class="sets-block" id="sets">
       <h3 class="en">Sets and card status</h3>
       <h3 class="de" lang="de">Sets und Kartenstatus</h3>
-      <p class="section-lead en">Every set in release order, each card counted under the set it first appeared in. Open a set to see its cards: whether each plays as printed, plays in part, is not playable yet, or will never be built. Hover or focus a card for the reason.</p>
-      <p class="section-lead de" lang="de">Jedes Set in Erscheinungsreihenfolge, jede Karte unter dem Set gezählt, in dem sie zuerst erschien. Öffne ein Set, um seine Karten zu sehen: ob jede wie gedruckt spielt, teilweise spielt, noch nicht spielbar ist oder nie gebaut wird. Fahr mit der Maus über eine Karte oder fokussiere sie, um den Grund zu sehen.</p>
+      <p class="section-lead en">Every set in release order, each card counted under the set it first appeared in. Open a set to see its cards: whether each plays as printed, plays in part, is not playable yet, or will never be built. Rest the pointer on a card, or focus it, to see it large with the reason; a click, a tap or Enter opens it.</p>
+      <p class="section-lead de" lang="de">Jedes Set in Erscheinungsreihenfolge, jede Karte unter dem Set gezählt, in dem sie zuerst erschien. Öffne ein Set, um seine Karten zu sehen: ob jede wie gedruckt spielt, teilweise spielt, noch nicht spielbar ist oder nie gebaut wird. Lass den Zeiger auf einer Karte ruhen oder fokussiere sie, um sie groß mit dem Grund zu sehen; ein Klick, ein Tippen oder Enter öffnet sie.</p>
       <ul class="legend plain-row" aria-label="Legend">
         <li><span class="swatch s-implemented" aria-hidden="true"></span><span class="en">Full: plays as printed</span><span class="de" lang="de">Voll: spielt wie gedruckt</span></li>
-        <li><span class="swatch s-partial" aria-hidden="true"></span><span class="en">Partial: plays, one part missing (reason in the tooltip)</span><span class="de" lang="de">Teilweise: spielt, ein Teil fehlt (Grund im Tooltip)</span></li>
+        <li><span class="swatch s-partial" aria-hidden="true"></span><span class="en">Partial: plays, one part missing (the reason is shown with the card)</span><span class="de" lang="de">Teilweise: spielt, ein Teil fehlt (der Grund steht bei der Karte)</span></li>
         <li><span class="swatch s-none" aria-hidden="true"></span><span class="en">Not yet: not playable yet</span><span class="de" lang="de">Noch nicht: noch nicht spielbar</span></li>
         <li><span class="swatch s-never" aria-hidden="true"></span><span class="en">Never: ante, dexterity or a subgame; a set counts as complete without it</span><span class="de" lang="de">Nie: Ante, Geschicklichkeit oder ein Teilspiel; ein Set gilt ohne sie als vollständig</span></li>
       </ul>
       <p class="small en">The percentage is full cards out of all cards of the set that will ever be built. Partial cards are the lighter part of the bar and are not counted as done.</p>
       <p class="small de" lang="de">Der Prozentwert ist der Anteil voller Karten an allen Karten des Sets, die je gebaut werden. Teilweise umgesetzte Karten sind der hellere Teil des Balkens und zählen nicht als fertig.</p>
-      <div class="sets-tools" id="sets-tools" hidden>
-        <label class="sets-search"><span class="en">Find a set</span><span class="de" lang="de">Set suchen</span>
-          <input type="search" id="sets-q" autocomplete="off" spellcheck="false">
-        </label>
-        <label class="sets-check"><input type="checkbox" id="sets-started"> <span class="en">only sets that have begun</span><span class="de" lang="de">nur begonnene Sets</span></label>
-      </div>
-      <p class="sets-total" id="sets-total"></p>
-      <div class="sets" id="sets-list">
+      <!-- site.js fills the summary from data/sets.json once the cards section comes near; the full list waits behind the button -->
+      <div class="sets-summary" id="sets-summary">
         <p class="small en">The set list loads with JavaScript from <a href="/site/data/sets.json">data/sets.json</a>.</p>
         <p class="small de" lang="de">Die Set-Liste wird per JavaScript aus <a href="/site/data/sets.json">data/sets.json</a> geladen.</p>
       </div>
-      <p class="small en">Card images are loaded from Scryfall only when you open a set, unaltered. Card data and images provided by Scryfall; Baylee is not affiliated with Scryfall. The counts are measured from the repository by <code>scripts/site/card_status.py</code>.</p>
-      <p class="small de" lang="de">Kartenbilder werden erst beim Öffnen eines Sets und unverändert von Scryfall geladen. Kartendaten und -bilder bereitgestellt von Scryfall; Baylee ist nicht mit Scryfall verbunden. Die Zahlen misst <code>scripts/site/card_status.py</code> im Repository.</p>
+      <p class="sets-more"><button type="button" class="button button-ghost" id="sets-toggle" aria-expanded="false" aria-controls="sets-all" hidden><span class="en">Show all sets</span><span class="de" lang="de">Alle Sets anzeigen</span></button></p>
+      <div class="sets-all" id="sets-all" hidden>
+        <div class="sets-tools" id="sets-tools">
+          <label class="sets-search"><span class="en">Find a set</span><span class="de" lang="de">Set suchen</span>
+            <input type="search" id="sets-q" autocomplete="off" spellcheck="false" aria-describedby="sets-found">
+          </label>
+          <label class="sets-check"><input type="checkbox" id="sets-started"> <span class="en">only sets that have begun</span><span class="de" lang="de">nur begonnene Sets</span></label>
+        </div>
+        <p class="small sets-found" id="sets-found" role="status" aria-live="polite"></p>
+        <div class="sets" id="sets-list"></div>
+      </div>
+      <!-- Attribution and notices for the card status and its pictures: add
+           what the legal review asks for here, in both languages (and in
+           CARD_CREDIT in site.js for the line under a card shown large). -->
+      <div class="sets-notes" id="sets-notes">
+        <p class="small en">Card images are loaded from Scryfall only when you open a set or show a card large, unaltered. Card data and images provided by Scryfall; Baylee is not affiliated with Scryfall. The counts are measured from the repository by <code>scripts/site/card_status.py</code>.</p>
+        <p class="small de" lang="de">Kartenbilder werden erst beim Öffnen eines Sets oder beim Großzeigen einer Karte und unverändert von Scryfall geladen. Kartendaten und -bilder bereitgestellt von Scryfall; Baylee ist nicht mit Scryfall verbunden. Die Zahlen misst <code>scripts/site/card_status.py</code> im Repository.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -572,6 +585,11 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 
 </main>
 
+<dialog class="cardview" id="cardview" aria-labelledby="cardview-name">
+  <div class="cardview-body" id="cardview-body"></div>
+  <button type="button" class="lightbox-close" id="cardview-close" aria-label="Close / Schließen">×</button>
+</dialog>
+
 <dialog class="lightbox" id="lightbox" aria-label="Screenshot">
   <img alt="" id="lightbox-img">
   <p class="lightbox-cap" id="lightbox-cap"></p>
@@ -582,7 +600,7 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
 
 <footer class="foot">
   <div class="foot-inner">
-    <img class="foot-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" loading="lazy">
+    <picture><source type="image/avif" srcset="/site/img/baylee-logo-400.avif 400w, /site/img/baylee-logo-800.avif 800w" sizes="7rem"><source type="image/webp" srcset="/site/img/baylee-logo-400.webp 400w, /site/img/baylee-logo.webp 800w" sizes="7rem"><img class="foot-logo" src="/site/img/baylee-logo.webp" width="800" height="336" alt="" loading="lazy" decoding="async"></picture>
     <p class="notice">baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
     <p class="notice de" lang="de">Baylee ist inoffizieller Fan-Content im Rahmen der Fan Content Policy, von Wizards weder genehmigt noch unterstützt. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
     <p class="notice"><span class="en">Card data and images provided by Scryfall. Baylee is not affiliated with Scryfall.</span><span class="de" lang="de">Kartendaten und -bilder bereitgestellt von Scryfall. Baylee ist nicht mit Scryfall verbunden.</span></p>
