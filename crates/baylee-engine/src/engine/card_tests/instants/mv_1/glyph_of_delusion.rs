@@ -93,6 +93,16 @@ fn glyph_of_delusion_puts_x_counters_on_the_creature_a_wall_blocked_x_being_its_
         0,
         "nor has the unblocked one"
     );
+    assert_eq!(
+        kit::glyph_counters(&engine, giant_wall),
+        0,
+        "the Wall is a target, not the creature that gets the counters"
+    );
+    assert_eq!(
+        kit::glyph_counters(&engine, lions_wall),
+        0,
+        "and the other Wall has none either"
+    );
 
     assert_eq!(
         menus.len(),
@@ -206,5 +216,99 @@ fn glyph_of_delusion_keeps_the_creature_tapped_until_its_upkeeps_have_removed_th
     assert!(
         !is_tapped(&engine, lions),
         "once no counter remains the Lions untap again"
+    );
+}
+
+/// "At the beginning of your upkeep, remove a glyph counter from this
+/// creature": "your" is the controller of the creature that gained the
+/// ability, not the player who cast the Glyph. p1 attacks with Savannah Lions
+/// (power 2) and a Bear; p0's Wall of Stone blocks the Lions and p0 casts Glyph
+/// of Delusion on the Lions and the Wall, so the caster and the creature's
+/// controller are different players. The Lions get 2 counters and the Wall none.
+/// p0's upkeep (turn 3) takes nothing off them; p1's (turn 4) takes one, with
+/// the Lions kept tapped through p1's untap step while the Bear untaps; p0's
+/// next upkeep (turn 5) takes nothing; p1's (turn 6) takes the last, the Lions
+/// still tapped in its untap step; and in p1's turn 8 they untap.
+#[test]
+fn glyph_of_delusion_counts_down_in_its_creatures_controllers_upkeeps_not_the_casters() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kit::wall_of_stone(), island()])
+        .battlefield(1, &[kit::savannah_lions(), kit::bears()])
+        .hand(0, &[glyph_of_delusion()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+    let first_turn = engine.state().turn.number;
+    kit::walk_to_next_own_main(&mut engine, kit::P1);
+
+    let lions = on_battlefield(&engine, kit::P1, kit::savannah_lions()).expect("the Lions are out");
+    let bear = on_battlefield(&engine, kit::P1, kit::bears()).expect("the Bear is out");
+    let wall = on_battlefield(&engine, kit::P0, kit::wall_of_stone()).expect("p0's Wall is out");
+
+    kit::attack(&mut engine, kit::P1, &[lions, bear], kit::P0);
+    kit::block(&mut engine, kit::P0, &[(wall, lions)]);
+    glyph_the_pair(&mut engine, [lions, wall]);
+    assert_eq!(
+        kit::glyph_counters(&engine, lions),
+        2,
+        "X is the Lions' power, 2, though p0 cast the spell"
+    );
+    assert_eq!(
+        kit::glyph_counters(&engine, wall),
+        0,
+        "and the Wall that blocked them gets no counter"
+    );
+    assert!(
+        is_tapped(&engine, lions) && is_tapped(&engine, bear),
+        "both of p1's attackers are tapped"
+    );
+
+    kit::walk_to_main_of_turn(&mut engine, kit::P0, first_turn + 2);
+    assert_eq!(
+        kit::glyph_counters(&engine, lions),
+        2,
+        "p0's upkeep removes nothing: it is not the upkeep of the Lions' controller"
+    );
+
+    kit::walk_to_main_of_turn(&mut engine, kit::P1, first_turn + 3);
+    assert!(
+        !is_tapped(&engine, bear),
+        "p1's untap step untapped the Bear: untapping works in this game"
+    );
+    assert!(
+        is_tapped(&engine, lions),
+        "but the Lions had counters in it and stayed tapped"
+    );
+    assert_eq!(
+        kit::glyph_counters(&engine, lions),
+        1,
+        "and p1's upkeep removed one of the two"
+    );
+
+    kit::walk_to_main_of_turn(&mut engine, kit::P0, first_turn + 4);
+    assert_eq!(
+        kit::glyph_counters(&engine, lions),
+        1,
+        "p0's second upkeep removes nothing either"
+    );
+
+    kit::walk_to_main_of_turn(&mut engine, kit::P1, first_turn + 5);
+    assert!(
+        is_tapped(&engine, lions),
+        "one counter was left when p1's untap step began"
+    );
+    assert_eq!(
+        kit::glyph_counters(&engine, lions),
+        0,
+        "and p1's second upkeep removed the last"
+    );
+
+    kit::walk_to_main_of_turn(&mut engine, kit::P1, first_turn + 7);
+    assert!(
+        !is_tapped(&engine, lions),
+        "with no counter left p1's untap step untaps the Lions"
     );
 }

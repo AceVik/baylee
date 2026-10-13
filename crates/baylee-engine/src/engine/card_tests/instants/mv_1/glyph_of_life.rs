@@ -14,6 +14,7 @@
 use super::*;
 use crate::engine::card_tests::partials_w2c_kit as kit;
 use crate::turn::Step;
+use baylee_core::generated::index;
 
 // oracle_id = "ec450179-35e0-4d72-b42f-b507cbce03ad"
 fn glyph_of_life() -> CardIndex {
@@ -162,5 +163,54 @@ fn glyph_of_life_does_not_last_past_the_turn_it_was_cast_in() {
         kit::life(&engine, kit::P0),
         20,
         "and p0 gained nothing: the Glyph ended with the turn it was cast in"
+    );
+}
+
+/// "Whenever that creature is dealt damage by an attacking creature": prevented
+/// damage is not dealt (CR 615.6), so it gains nothing. Earth Elemental (4/5)
+/// attacks and p1's Wall of Stone blocks it. p0 casts Glyph of Life on the Wall
+/// and Healing Salve's second mode on it, "prevent the next 3 damage that would
+/// be dealt to any target this turn": 3 of the 4 are prevented and 1 is dealt.
+/// p0 gains 1, which is neither 4 (prevention ignored) nor 0.
+#[test]
+fn glyph_of_life_gains_only_the_damage_that_was_not_prevented() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[index::EARTH_ELEMENTAL, plains(), plains()])
+        .battlefield(1, &[kit::wall_of_stone()])
+        .hand(0, &[glyph_of_life(), index::HEALING_SALVE])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let elemental =
+        on_battlefield(&engine, kit::P0, index::EARTH_ELEMENTAL).expect("the Elemental is out");
+    let wall = on_battlefield(&engine, kit::P1, kit::wall_of_stone()).expect("the Wall is out");
+
+    kit::attack(&mut engine, kit::P0, &[elemental], kit::P1);
+    kit::block(&mut engine, kit::P1, &[(wall, elemental)]);
+    let mut answers = kit::Answers::new()
+        .mode(CastModeKind::Mode(1))
+        .aim(&[wall])
+        .aim(&[wall]);
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::DeclareBlockers);
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, glyph_of_life(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    kit::cast(&mut engine, kit::P0, index::HEALING_SALVE, &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    kit::walk_to_second_main(&mut engine, &mut answers, kit::P0);
+
+    assert_eq!(
+        kit::damage_on(&engine, wall),
+        1,
+        "the Elemental's 4, less the 3 the shield absorbed"
+    );
+    assert_eq!(
+        kit::life(&engine, kit::P0),
+        21,
+        "p0 gained the 1 that was dealt and nothing for the 3 that was prevented"
     );
 }

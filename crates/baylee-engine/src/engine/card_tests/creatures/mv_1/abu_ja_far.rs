@@ -228,3 +228,51 @@ fn abu_ja_far_destroys_its_blockers_through_a_regeneration_shield() {
          destroyed anyway: \"they can't be regenerated\""
     );
 }
+
+/// "Destroy all creatures blocking or blocked by it": a creature that blocks
+/// the *same attacker* as Abu Ja'far is neither. Abu Ja'far and a Wall of Wood
+/// both block a Bear; Lightning Bolt kills Abu Ja'far before damage. The Bear,
+/// which Abu Ja'far was blocking, is destroyed by the trigger (the positive
+/// control that it fired); the Wall, which only stands beside it in the same
+/// block, is not.
+#[test]
+fn abu_ja_far_dying_leaves_a_creature_that_blocked_the_same_attacker_alone() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[abu_ja_far(), kit::wall_of_wood(), mountain()])
+        .battlefield(1, &[kit::bears()])
+        .hand(0, &[kit::bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let abu = on_battlefield(&engine, kit::P0, abu_ja_far()).expect("Abu Ja'far is out");
+    let wall = on_battlefield(&engine, kit::P0, kit::wall_of_wood()).expect("the Wall is out");
+    let bear = on_battlefield(&engine, kit::P1, kit::bears()).expect("the Bear is out");
+
+    kit::attack(&mut engine, kit::P1, &[bear], kit::P0);
+    kit::block(&mut engine, kit::P0, &[(abu, bear), (wall, bear)]);
+    let mut answers = kit::Answers::new().aim(&[abu]);
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::DeclareBlockers);
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, kit::bolt(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    kit::walk_to_second_main(&mut engine, &mut answers, kit::P0);
+
+    assert!(
+        in_graveyard(&engine, kit::P0, abu_ja_far()).is_some(),
+        "Lightning Bolt killed Abu Ja'far while it was blocking"
+    );
+    assert_eq!(
+        kit::zone_of(&engine, bear),
+        Zone::Graveyard,
+        "the creature it was blocking is destroyed by the trigger"
+    );
+    assert!(
+        kit::on_the_table(&engine, wall),
+        "the creature that blocked the same attacker is neither blocking nor blocked \
+         by Abu Ja'far, and lives"
+    );
+}

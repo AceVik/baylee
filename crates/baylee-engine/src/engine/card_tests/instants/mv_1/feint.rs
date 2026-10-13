@@ -198,3 +198,97 @@ fn feint_prevents_the_combat_damage_of_an_unblocked_attacker() {
         "the Lions dealt 2; the Giant, named by Feint, dealt nothing"
     );
 }
+
+/// Feint cast before blockers are declared (CR 611.2c: prevention changes no
+/// characteristics, so it is not fixed to the objects it found when it
+/// resolved). Savannah Lions attack; in the declare attackers step p0 casts
+/// Feint on them, when nothing blocks yet and there is nothing to tap. Hill
+/// Giant then blocks. The blocker is not tapped (the tap was a one-shot over
+/// nobody), but its combat damage is prevented too, and so is the Lions': the
+/// Giant's 3 would have killed the 2/1.
+#[test]
+fn feint_cast_before_blockers_still_prevents_the_damage_of_a_creature_that_blocks_later() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kit::savannah_lions(), mountain()])
+        .battlefield(1, &[kit::hill_giant()])
+        .hand(0, &[feint()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let lions = on_battlefield(&engine, kit::P0, kit::savannah_lions()).expect("the Lions are out");
+    let giant = on_battlefield(&engine, kit::P1, kit::hill_giant()).expect("the Giant is out");
+
+    kit::attack(&mut engine, kit::P0, &[lions], kit::P1);
+    let mut answers = kit::Answers::new().aim(&[lions]);
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::DeclareAttackers);
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, feint(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+
+    kit::block(&mut engine, kit::P1, &[(giant, lions)]);
+    kit::drive(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && at_rest(e, kit::P0)
+    });
+
+    assert!(
+        !is_tapped(&engine, giant),
+        "\"tap all creatures blocking\" found nobody when it resolved: the late blocker is untapped"
+    );
+    assert!(
+        kit::on_the_table(&engine, lions),
+        "the Giant's 3 damage would have killed the Lions; it was prevented"
+    );
+    assert_eq!(kit::damage_on(&engine, lions), 0, "none at all");
+    assert_eq!(
+        kit::damage_on(&engine, giant),
+        0,
+        "and the Lions' damage to the blocker was prevented"
+    );
+}
+
+/// "… that would be dealt this turn": the prevention ends with the turn. Hill
+/// Giant attacks, nobody blocks, and Feint keeps its 3 from p1; in p0's next
+/// turn the Giant attacks again and p1 takes them. p1 ends at 17.
+#[test]
+fn feint_prevents_combat_damage_only_in_the_turn_it_was_cast_in() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kit::hill_giant(), mountain()])
+        .battlefield(1, &[kit::wall_of_wood()])
+        .hand(0, &[feint()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let giant = on_battlefield(&engine, kit::P0, kit::hill_giant()).expect("the Giant is out");
+
+    kit::attack(&mut engine, kit::P0, &[giant], kit::P1);
+    kit::block(&mut engine, kit::P1, &[]);
+    feint_the_attacker(&mut engine, giant);
+    kit::drive(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && at_rest(e, kit::P0)
+    });
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        20,
+        "the Giant's damage was prevented"
+    );
+
+    kit::walk_to_next_own_main(&mut engine, kit::P0);
+    kit::attack(&mut engine, kit::P0, &[giant], kit::P1);
+    kit::block(&mut engine, kit::P1, &[]);
+    kit::drive(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && at_rest(e, kit::P0)
+    });
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        17,
+        "the next turn's attack is not prevented: Feint said \"this turn\""
+    );
+}

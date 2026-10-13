@@ -203,3 +203,97 @@ fn glyph_of_doom_cast_after_combat_does_not_wait_for_a_later_end_of_combat() {
         "and the Glyph cast a turn earlier does not destroy them at this end of combat"
     );
 }
+
+/// "… destroy all creatures that were blocked by that creature this turn" is
+/// read when the trigger resolves, and the Wall may be gone by then (CR 608.2h:
+/// last known information). A Wall of Wood (0/3) blocks Hill Giant, Glyph of
+/// Doom is cast on the Wall after blocks, and the Giant's 3 damage kills the
+/// Wall in the combat damage step. The Giant is still there at that point, and
+/// it is destroyed at end of combat.
+#[test]
+fn glyph_of_doom_still_destroys_what_its_wall_blocked_when_the_wall_died_in_combat() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kit::hill_giant(), swamp()])
+        .battlefield(1, &[kit::wall_of_wood()])
+        .hand(0, &[glyph_of_doom()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let giant = on_battlefield(&engine, kit::P0, kit::hill_giant()).expect("the Giant is out");
+    let wall = on_battlefield(&engine, kit::P1, kit::wall_of_wood()).expect("the Wall is out");
+
+    kit::attack(&mut engine, kit::P0, &[giant], kit::P1);
+    kit::block(&mut engine, kit::P1, &[(wall, giant)]);
+    let mut answers = kit::Answers::new().aim(&[wall]);
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::DeclareBlockers);
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, glyph_of_doom(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::CombatDamage);
+    assert_eq!(
+        kit::zone_of(&engine, wall),
+        Zone::Graveyard,
+        "the Giant's 3 killed the 0/3 Wall in the combat damage step"
+    );
+    assert!(
+        kit::on_the_table(&engine, giant),
+        "and the end of combat has not come: the Giant is still there"
+    );
+
+    kit::walk_to_second_main(&mut engine, &mut answers, kit::P0);
+    assert_eq!(
+        kit::zone_of(&engine, giant),
+        Zone::Graveyard,
+        "the Wall is gone, but what it blocked is destroyed at end of combat all the same"
+    );
+}
+
+/// The creatures "blocked by that creature this turn" are the ones it blocks
+/// after the Glyph is cast, too: the trigger reads the Wall's blocks when it
+/// resolves at end of combat. Hill Giant attacks, p0 casts Glyph of Doom on
+/// p1's Wall of Stone in the declare attackers step, before any block, and
+/// then the Wall blocks the Giant. The Giant is destroyed at end of combat.
+#[test]
+fn glyph_of_doom_cast_before_blockers_destroys_the_creature_the_wall_blocks_afterwards() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kit::hill_giant(), swamp()])
+        .battlefield(1, &[kit::wall_of_stone()])
+        .hand(0, &[glyph_of_doom()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let giant = on_battlefield(&engine, kit::P0, kit::hill_giant()).expect("the Giant is out");
+    let wall = on_battlefield(&engine, kit::P1, kit::wall_of_stone()).expect("the Wall is out");
+
+    kit::attack(&mut engine, kit::P0, &[giant], kit::P1);
+    let mut answers = kit::Answers::new().aim(&[wall]);
+    kit::walk_to_quiet_priority(&mut engine, &mut answers, kit::P0, Step::DeclareAttackers);
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, glyph_of_doom(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    assert!(
+        kit::on_the_table(&engine, giant),
+        "nothing has been blocked yet"
+    );
+
+    kit::block(&mut engine, kit::P1, &[(wall, giant)]);
+    kit::walk_to_second_main(&mut engine, &mut answers, kit::P0);
+    assert_eq!(
+        kit::zone_of(&engine, giant),
+        Zone::Graveyard,
+        "the creature the Wall blocked afterwards is destroyed at end of combat"
+    );
+    assert!(
+        kit::on_the_table(&engine, wall),
+        "the Wall of Stone is untouched"
+    );
+}

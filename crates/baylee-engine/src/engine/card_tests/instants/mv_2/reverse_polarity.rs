@@ -334,3 +334,63 @@ fn reverse_polarity_counts_this_turns_damage_and_not_an_earlier_turns() {
         "gain twice this turn's 1 — the 5 from the turn before is not counted"
     );
 }
+
+/// "Damage dealt to you": artifact damage dealt to something else is not part
+/// of the count. p0 pings p1 with the Rod for 1 (the positive control: that
+/// one counts), then attacks with Juggernaut and p1 blocks it with Earth
+/// Elemental, so Juggernaut's 5 goes to the Elemental and none of it to p1.
+/// Reverse Polarity gains twice the Rod's 1: p1 ends at 19 + 2 = 21, not 31.
+#[test]
+fn reverse_polarity_ignores_damage_artifacts_dealt_to_something_other_than_the_caster() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                kit::juggernaut(),
+                index::ROD_OF_RUIN,
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .battlefield(1, &[plains(), plains(), index::EARTH_ELEMENTAL])
+        .hand(1, &[reverse_polarity()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let rod = on_battlefield(&engine, kit::P0, index::ROD_OF_RUIN).expect("the Rod is out");
+    let juggernaut = on_battlefield(&engine, kit::P0, kit::juggernaut()).expect("Juggernaut");
+    let elemental =
+        on_battlefield(&engine, kit::P1, index::EARTH_ELEMENTAL).expect("the Elemental is out");
+
+    tap_all_mana(&mut engine, kit::P0);
+    let mut answers = kit::Answers::new().aim_players(&[kit::P1]);
+    kit::activate_ability(&mut engine, kit::P0, rod, 0, &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    assert_eq!(kit::life(&engine, kit::P1), 19, "the Rod dealt 1 to p1");
+
+    kit::attack(&mut engine, kit::P0, &[juggernaut], kit::P1);
+    kit::block(&mut engine, kit::P1, &[(elemental, juggernaut)]);
+    kit::walk_to_quiet_priority(
+        &mut engine,
+        &mut kit::Answers::new(),
+        kit::P1,
+        Step::CombatDamage,
+    );
+    assert!(
+        in_graveyard(&engine, kit::P1, index::EARTH_ELEMENTAL).is_some(),
+        "Juggernaut's 5 went to the creature that blocked it"
+    );
+    assert_eq!(kit::life(&engine, kit::P1), 19, "and none of it to p1");
+
+    cast_reverse_polarity(&mut engine);
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        21,
+        "gain twice the Rod's 1: the artifact damage dealt to a creature does not count"
+    );
+}

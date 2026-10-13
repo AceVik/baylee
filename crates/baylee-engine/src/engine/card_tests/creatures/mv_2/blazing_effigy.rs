@@ -213,3 +213,69 @@ fn blazing_effigy_dying_with_no_creature_to_target_does_nothing() {
     assert_eq!(kit::life(&engine, kit::P0), 20, "no damage to p0");
     assert_eq!(kit::life(&engine, kit::P1), 20, "no damage to p1");
 }
+
+/// "… the amount of damage dealt to *this creature* this turn by other sources
+/// named Blazing Effigy": damage another Effigy dealt to something else does
+/// not count. Two Effigies and two Lightning Bolts: the first Effigy dies and
+/// its trigger hits the Wall of Stone (3), the second dies to the second Bolt,
+/// and its trigger also hits the Wall. The first Effigy dealt the second none
+/// of its damage, so the second's X is 3 and the Wall carries 3 + 3 = 6 and
+/// stands; counting the first Effigy's 3 to the Wall would make it 9 and the
+/// Wall would die.
+#[test]
+fn blazing_effigy_counts_only_the_damage_another_effigy_dealt_to_it() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[blazing_effigy(), blazing_effigy(), mountain(), mountain()],
+        )
+        .battlefield(1, &[kit::wall_of_stone(), kit::bears()])
+        .hand(0, &[kit::bolt(), kit::bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+
+    let effigies = kit::objects_of(&engine, kit::P0, blazing_effigy());
+    assert_eq!(effigies.len(), 2, "two Effigies out");
+    let (first, second) = (effigies[0], effigies[1]);
+    let wall = on_battlefield(&engine, kit::P1, kit::wall_of_stone()).expect("the Wall is out");
+
+    tap_all_mana(&mut engine, kit::P0);
+    let mut answers = kit::Answers::new()
+        .aim(&[first])
+        .aim(&[wall])
+        .aim(&[second])
+        .aim(&[wall]);
+    kit::cast(&mut engine, kit::P0, kit::bolt(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+    assert_eq!(
+        kit::damage_on(&engine, wall),
+        3,
+        "the first Effigy's trigger dealt 3 to the Wall"
+    );
+    kit::cast(&mut engine, kit::P0, kit::bolt(), &mut answers);
+    kit::settle(&mut engine, kit::P0, &mut answers);
+
+    assert_eq!(
+        kit::zone_of(&engine, first),
+        Zone::Graveyard,
+        "the first Effigy died"
+    );
+    assert_eq!(
+        kit::zone_of(&engine, second),
+        Zone::Graveyard,
+        "the second Effigy died"
+    );
+    assert!(
+        kit::on_the_table(&engine, wall),
+        "the second trigger did not count the damage the first dealt to the Wall"
+    );
+    assert_eq!(
+        kit::damage_on(&engine, wall),
+        6,
+        "3 from each trigger: the second Effigy's X is 3"
+    );
+}

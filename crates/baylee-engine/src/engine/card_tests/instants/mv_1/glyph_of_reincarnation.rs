@@ -78,9 +78,9 @@ fn reincarnate(engine: &mut Engine<RegistryLookup>, answers: &mut kit::Answers) 
     kit::settle(engine, kit::P0, answers);
 }
 
-/// "Cast this spell only after combat." With a Wall that has blocked and
-/// mana in the pool, the Glyph cannot be cast in the declare blockers step or
-/// in the combat damage step, and can be in the second main phase. The same
+/// "Cast this spell only after combat." With a Wall and mana in the pool, the
+/// Glyph cannot be cast in the first main phase, in the declare blockers step
+/// or in the combat damage step, and can be in the second main phase. The same
 /// board at each moment is the control: the target exists throughout, so what
 /// changes between "no" and "yes" is the timing alone.
 #[test]
@@ -98,6 +98,11 @@ fn glyph_of_reincarnation_can_be_cast_only_after_combat() {
 
     let lions = on_battlefield(&engine, kit::P0, kit::savannah_lions()).expect("the Lions are out");
     let wall = on_battlefield(&engine, kit::P1, kit::wall_of_stone()).expect("the Wall is out");
+    kit::float(&mut engine, kit::P0, ManaColor::Green, 1);
+    assert!(
+        !kit::castable(&engine, kit::P0, glyph_of_reincarnation()),
+        "not in the first main phase either, with the Wall on the table and the mana floating"
+    );
     kit::attack(&mut engine, kit::P0, &[lions], kit::P1);
     kit::block(&mut engine, kit::P1, &[(wall, lions)]);
 
@@ -387,6 +392,12 @@ fn glyph_of_reincarnation_takes_the_card_from_the_graveyard_of_the_creatures_con
         answers.card_menus
     );
     assert!(
+        !answers.askers.is_empty() && answers.askers.iter().all(|asked| *asked == kit::P0),
+        "every question, the card choice included, was put to the caster, p0, though \
+         the graveyard is p1's: {:?}",
+        answers.askers
+    );
+    assert!(
         kit::on_the_table(&engine, giant),
         "the chosen Giant is on the battlefield"
     );
@@ -431,5 +442,101 @@ fn glyph_of_reincarnation_returns_nothing_when_that_players_graveyard_has_no_cre
         answers.card_menus.is_empty(),
         "and no card was asked for: {:?}",
         answers.card_menus
+    );
+}
+
+/// "For each creature that died this way, put a creature card from the
+/// graveyard …": a token is not a card (CR 108.2b), so the Soldier token the
+/// Wall blocked is destroyed (a token that dies goes to the graveyard first, CR
+/// 111.7), and the choice is between the creature *cards* in its controller's
+/// graveyard, never the token. Raise the Alarm makes two Soldiers in turn 1;
+/// in turn 3 one attacks and p1's Wall of Stone blocks it, and a Hill Giant
+/// and a Grizzly Bears lie in p0's graveyard. After combat the Glyph destroys
+/// that Soldier, the other Soldier (not blocked) lives, the menu is exactly the
+/// Giant and the Bears, and the chosen Giant enters under p0's control.
+#[test]
+fn glyph_of_reincarnation_offers_the_creature_cards_and_never_the_token_it_destroyed() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), forest()])
+        .battlefield(1, &[kit::wall_of_stone()])
+        .hand(
+            0,
+            &[
+                raise_the_alarm(),
+                glyph_of_reincarnation(),
+                kit::hill_giant(),
+                kit::bears(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, kit::P0),
+        "p0 reaches its own main"
+    );
+    let wall = on_battlefield(&engine, kit::P1, kit::wall_of_stone()).expect("the Wall is out");
+    let giant = hand_to_graveyard(&mut engine, kit::P0, kit::hill_giant());
+    let bears = hand_to_graveyard(&mut engine, kit::P0, kit::bears());
+
+    let mut none = kit::Answers::new();
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(&mut engine, kit::P0, raise_the_alarm(), &mut none);
+    kit::settle(&mut engine, kit::P0, &mut none);
+    let soldiers = tokens_of(&engine, kit::P0);
+    assert_eq!(soldiers.len(), 2, "two Soldier tokens: {soldiers:?}");
+    let (blocked, spared) = (soldiers[0], soldiers[1]);
+
+    kit::walk_to_next_own_main(&mut engine, kit::P0);
+    kit::attack(&mut engine, kit::P0, &[blocked], kit::P1);
+    kit::block(&mut engine, kit::P1, &[(wall, blocked)]);
+    kit::walk_to_second_main(&mut engine, &mut none, kit::P0);
+    assert_eq!(
+        kit::damage_on(&engine, wall),
+        1,
+        "the Soldier and the Wall fought"
+    );
+
+    let mut answers = kit::Answers::new().aim(&[wall]).pick(&[giant]);
+    reincarnate(&mut engine, &mut answers);
+
+    assert!(
+        !engine
+            .state()
+            .object(blocked)
+            .is_some_and(|o| o.zone == Zone::Battlefield),
+        "the Soldier the Wall blocked was destroyed"
+    );
+    assert!(
+        kit::on_the_table(&engine, spared),
+        "the Soldier it did not block is untouched"
+    );
+    assert_eq!(
+        answers.card_menus.len(),
+        1,
+        "the destroyed token earned one card choice: {:?}",
+        answers.card_menus
+    );
+    let menu = &answers.card_menus[0];
+    assert!(
+        menu.contains(&giant) && menu.contains(&bears),
+        "both creature cards were offered: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&blocked) && menu.len() == 2,
+        "and the token, which is not a card, was not: {menu:?}"
+    );
+    assert!(
+        kit::on_the_table(&engine, giant),
+        "the chosen creature card entered the battlefield"
+    );
+    assert_eq!(
+        engine.state().object(giant).expect("the Giant").controller,
+        kit::P0,
+        "under its owner's control"
+    );
+    assert_eq!(
+        kit::zone_of(&engine, bears),
+        Zone::Graveyard,
+        "and the card not chosen stays in the graveyard"
     );
 }

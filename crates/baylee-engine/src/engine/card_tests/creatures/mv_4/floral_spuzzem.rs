@@ -261,3 +261,41 @@ fn floral_spuzzem_cannot_destroy_an_indestructible_artifact_so_its_damage_is_dea
         "nothing was destroyed, so the Spuzzem still assigns its combat damage"
     );
 }
+
+/// "If you do, this creature assigns no combat damage *this turn*": the next
+/// turn's attack is not affected. The Spuzzem destroys the Rod of Ruin in the
+/// first turn and p1 stays at 20; two turns later it attacks again, the player
+/// says no to destroying the Pendant, and p1 takes the Spuzzem's 2.
+#[test]
+fn floral_spuzzem_assigns_no_combat_damage_only_in_the_turn_it_destroyed_something() {
+    let mut engine = two_seats(&[]);
+    let rod = on_battlefield(&engine, kit::P1, index::ROD_OF_RUIN).expect("the Rod is out");
+    let pendant =
+        on_battlefield(&engine, kit::P1, index::DARKSTEEL_PENDANT).expect("the Pendant is out");
+
+    let mut first = kit::Answers::new().aim(&[rod]).may(true);
+    attack_unblocked(&mut engine, &mut first);
+    assert_eq!(
+        kit::zone_of(&engine, rod),
+        Zone::Graveyard,
+        "the Rod was destroyed in the first turn"
+    );
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        20,
+        "and no damage was assigned"
+    );
+
+    kit::walk_to_next_own_main(&mut engine, kit::P0);
+    let mut second = kit::Answers::new().aim(&[pendant]).may(false);
+    attack_unblocked(&mut engine, &mut second);
+    assert!(
+        kit::on_the_table(&engine, pendant),
+        "the player declined in the later turn"
+    );
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        18,
+        "and the Spuzzem assigned its 2 damage again: the first turn's restriction ended with it"
+    );
+}
