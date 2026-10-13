@@ -239,3 +239,64 @@ fn batch48_lilypad_records_token_and_copy_replacement_entries() {
         surveil(&mut e, village);
     }
 }
+
+/// "Activate only if a Bird, Frog, Otter, or Rat entered the battlefield under
+/// your control this turn." A creature of any other type entering is not that,
+/// with no Maskwood Nexus around to give it the types: Grizzly Bears alone
+/// leaves the surveil unavailable, and a Bird entering afterwards, the same
+/// turn and the same Village, opens it.
+#[test]
+fn batch48_lilypad_is_not_opened_by_a_creature_of_another_type() {
+    let mut e = prepared(
+        &[index::GRIZZLY_BEARS, index::BIRDS_OF_PARADISE],
+        &[index::LILYPAD_VILLAGE],
+        &[],
+    );
+    let village = source(&e, P0, index::LILYPAD_VILLAGE);
+    cast(&mut e, index::GRIZZLY_BEARS);
+    pass_until(&mut e, stack_is_empty);
+    let bear = source(&e, P0, index::GRIZZLY_BEARS);
+    let types = e.state.object(bear).unwrap().characteristics().subtypes;
+    assert!(
+        types.contains(subtypes::creature::BEAR)
+            && ![
+                subtypes::creature::BIRD,
+                subtypes::creature::FROG,
+                subtypes::creature::OTTER,
+                subtypes::creature::RAT,
+            ]
+            .iter()
+            .any(|t| types.contains(*t)),
+        "the Bears are a Bear and none of the four types"
+    );
+
+    priority(&mut e, P0);
+    e.state.players[0].mana_pool.add(ManaColor::Blue, 1);
+    e.refresh_offer();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert!(
+        !legal.abilities.contains(&(village, 2)),
+        "a Bear entering does not offer the surveil"
+    );
+    let before = e.snapshot_hash();
+    assert!(
+        e.apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: village,
+                ability_index: 2,
+            },
+        )
+        .is_err(),
+        "a Bear entering does not open the surveil"
+    );
+    assert_eq!(e.snapshot_hash(), before, "the refusal paid nothing");
+
+    // Positive control: a Bird, same turn, same Village.
+    cast(&mut e, index::BIRDS_OF_PARADISE);
+    pass_until(&mut e, stack_is_empty);
+    surveil(&mut e, village);
+    assert!(is_tapped(&e, village));
+}
