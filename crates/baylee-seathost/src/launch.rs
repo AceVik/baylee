@@ -64,9 +64,10 @@ pub enum Exit {
 }
 
 /// How many of a bridge's last lines a game that ended well leaves in the
-/// operator's log: its summary, the spend book settled, and room for one
-/// more.
-pub const CLOSING_LINES: usize = 4;
+/// operator's log: its summary and what follows it (why the house
+/// answered, the tokens, a rule of thumb, the spend book settled), with
+/// room for more.
+pub const CLOSING_LINES: usize = 8;
 
 /// Runs bridges and checks.
 pub trait Launcher: Send + Sync + 'static {
@@ -416,7 +417,7 @@ type Closing = std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String
 /// Reads what `child` says on both its streams: its last
 /// [`CLOSING_LINES`], blanked of key shapes, and a word on `sat` each time it
 /// says it sits in its chair. The summary of a game that ended well comes a
-/// line or two before the last (the spend book is settled after it).
+/// few lines before the last (the spend book is settled after it).
 fn read_lines(
     child: &mut tokio::process::Child,
     sat: &tokio::sync::mpsc::UnboundedSender<()>,
@@ -508,6 +509,9 @@ mod tests {
             "read ticket; echo \"sits in chair\"; \
              echo \"won after 3 turns: the mind answered 7, the house 1; \
              key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\"; \
+             echo \"house answers: 7x unavailable: 504\"; \
+             echo \"tokens: 1308359 in, 4887 out; 42 of 1000 calls (7 failed)\"; \
+             echo \"rule of thumb: over 10 % house answers\"; \
              echo \"the game is settled in the spend book\"",
         ]);
         let (started, started_rx) = oneshot::channel();
