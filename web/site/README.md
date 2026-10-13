@@ -147,7 +147,10 @@ service or Caddy changes. Trying it locally: write a blob from a made-up
 JSON to a scratch directory (never the repository), start the feedback
 service with `FEEDBACK_IMPRESSUM_KEY`, `FEEDBACK_IMPRESSUM_BLOB` (that file)
 and `FEEDBACK_CONTACT_ORIGINS=http://localhost:8000` on `127.0.0.1:28780`
-(the page's `data-endpoint-local`), and serve `web/` as below.
+(the page's `data-endpoint-local`), and serve `web/` as below. The origin
+configured must be exactly the address the page is opened at (`localhost`
+and `127.0.0.1` are two origins); any other is refused, and the page then
+says the details could not be loaded.
 
 ## Trying it locally
 
