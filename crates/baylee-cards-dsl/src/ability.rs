@@ -212,6 +212,24 @@ pub enum Condition {
     /// "Cast this spell only after combat" (Glyph of Reincarnation): the
     /// turn is in its postcombat main phase or its end phase.
     AfterCombat,
+    /// The opponent the source chose as it entered
+    /// (`EnterModifier::ChooseOpponent`) controls a permanent the filter
+    /// matches, read with the ability's controller as "you" and the source
+    /// as "this" (Jihad: "as long as the chosen player controls a nontoken
+    /// permanent of the chosen color"). False with no chosen opponent, or
+    /// once that player has left the game.
+    ChosenOpponentControls(&'static crate::Filter),
+    /// The resolution's first target is a spell that would destroy a
+    /// permanent the filter matches if it resolved now (Equinox: "if it
+    /// would destroy a land you control"): one of its own top-level
+    /// `Destroy` instructions names such a permanent among its targets, or
+    /// one of its `DestroyAll` sweeps (read with the spell's controller as
+    /// "you") reaches one. What the spell would destroy only after a choice
+    /// (a "may", a choice made as it resolves, a random pick) or only
+    /// indirectly (damage, a sacrifice) does not count (the 2004 and 2008
+    /// rulings), and neither does an indestructible permanent. Meaningful
+    /// only while a resolution asks it; anywhere else it is false.
+    TargetSpellWouldDestroy(&'static crate::Filter),
     /// You control **at most** N permanents matching the filter —
     /// Glimmervoid's "if you control no artifacts" and Thran Quarry's "if
     /// you control no creatures", both at nought.

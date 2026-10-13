@@ -136,8 +136,12 @@ pub fn glide(
         Option<&Visibility>,
     )>,
     report: Option<ResMut<GlideReport>>,
+    placing: Option<ResMut<Placing>>,
 ) {
-    let still = prefs.all().reduce_motion;
+    // A replay's jump places the table where it lands: a glide from turn 9
+    // back to turn 2 would fly every card across the felt for nothing.
+    let placed = placing.is_some_and(|mut placing| placing.frames > 0 && placing.spend());
+    let still = prefs.all().reduce_motion || placed;
     let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
     let mut moving = 0_usize;
     for (motion, mut transform, recoil, seen) in &mut cards {
@@ -172,6 +176,34 @@ pub fn glide(
     }
     if let Some(mut report) = report {
         report.note(moving);
+    }
+}
+
+/// A replay jumped (`HostMessage::Jump`): for the next few frames
+/// [`glide`] puts every card on its mark instead of moving it there. A few
+/// and not one, because the board the jump lands on is laid out over the
+/// frames after the view arrives (a new card's entity, a row's repack).
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Placing {
+    frames: u8,
+}
+
+impl Placing {
+    /// How many frames a jump places.
+    const FRAMES: u8 = 3;
+
+    /// A jump happened: place the next frames.
+    pub fn arm(&mut self) {
+        self.frames = Self::FRAMES;
+    }
+
+    /// Whether this frame places, counting it.
+    fn spend(&mut self) -> bool {
+        if self.frames == 0 {
+            return false;
+        }
+        self.frames -= 1;
+        true
     }
 }
 

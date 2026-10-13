@@ -199,6 +199,34 @@ pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen:
     flow
 }
 
+/// Resumes `Effect::CreateTokenAttacking` once its controller named the
+/// player a token attacks (CR 508.4).
+///
+/// # Panics
+/// If no such question is suspended.
+#[must_use]
+pub fn resume_attacking_player(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chosen: PlayerId,
+) -> Flow {
+    let Some(AwaitingOp::AttackingTokens(tokens)) = res.awaiting.take() else {
+        panic!("no attacking-token question suspended");
+    };
+    let since = state.journal.last_seq();
+    super::subjects::begin_resume(state, res);
+    let flow = if let Some(pending) =
+        super::attacking_tokens::resume_player(state, res, *tokens, chosen)
+    {
+        super::next_choice(state, res, since, pending)
+    } else {
+        res.pc += 1;
+        super::run(state, res)
+    };
+    super::subjects::flush(state, res);
+    flow
+}
+
 /// Resumes a split search once the controller named the opponent who
 /// chooses.
 ///

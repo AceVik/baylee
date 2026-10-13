@@ -34,7 +34,7 @@
 //! component. That is the whole of the difference in this pool, and it is why
 //! one predicate could not have served both.
 
-use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED};
+use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED, TURNS};
 use baylee_core::ids::CardIndex;
 
 /// Whether Scryfall serves a second picture for this card's pinned printing.
@@ -55,10 +55,25 @@ pub fn double_faced(index: CardIndex) -> bool {
     DOUBLE_FACED.binary_search(&index).is_ok()
 }
 
+/// How each face's picture is turned to be read, in quarter turns clockwise
+/// from the portrait scan: `[1, 1]` for a split card printed sideways, `[1, 0]`
+/// for a battle whose back is an upright creature, `[0, 2]` for a flip card,
+/// `[0, 3]` for an Aftermath card. Empty for a card read upright on every face.
+///
+/// A fact about the printed card for a client to draw it by, read off the
+/// layout and the type line at codegen (`ScryfallCard::quarter_turns`), never a
+/// rule.
+#[must_use]
+pub fn quarter_turns(index: CardIndex) -> &'static [u8] {
+    TURNS
+        .binary_search_by_key(&index, |(card, _)| *card)
+        .map_or(&[], |at| TURNS[at].1)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CardIndex, double_faced, has_back_image};
-    use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED};
+    use super::{CardIndex, double_faced, has_back_image, quarter_turns};
+    use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED, TURNS};
 
     /// Both tables are sorted, which is what the reader's binary search
     /// assumes and nothing else would notice being wrong: an unsorted table
@@ -210,5 +225,47 @@ mod tests {
             !double_faced(index),
             "CR 715.1 makes an adventurer card a two-part frame, not a second side"
         );
+    }
+
+    /// `TURNS` is sorted, which `quarter_turns`' binary search assumes and
+    /// nothing else would notice being wrong, and every row names a pool card.
+    #[test]
+    fn the_turns_table_is_sorted_and_names_pool_cards() {
+        assert!(
+            TURNS.windows(2).all(|pair| pair[0].0 < pair[1].0),
+            "TURNS is not strictly ascending, so its binary search is a coin toss"
+        );
+        for (index, turns) in TURNS {
+            assert!(
+                crate::by_index(*index).is_some(),
+                "TURNS names {index:?}, which this pool does not compile"
+            );
+            assert!(
+                turns.iter().any(|turn| *turn != 0),
+                "{index:?} is in TURNS and is upright on every face"
+            );
+        }
+        assert!(!TURNS.is_empty(), "the generator wrote no turned card");
+    }
+
+    /// Fire // Ice is printed sideways on both halves.
+    #[test]
+    fn a_split_card_is_turned_on_both_halves() {
+        let index = crate::decks::by_name("Fire // Ice").expect("in the pool");
+        assert_eq!(quarter_turns(index), &[1, 1]);
+    }
+
+    /// A battle is printed sideways and its creature back stands upright.
+    #[test]
+    fn a_battle_is_turned_on_its_front_only() {
+        let index = crate::decks::by_name("Invasion of Ikoria").expect("in the pool");
+        assert_eq!(quarter_turns(index), &[1, 0]);
+    }
+
+    /// An ordinary card has no row: the empty answer is "upright".
+    #[test]
+    fn an_ordinary_card_is_read_upright() {
+        let index = crate::decks::by_name("Lightning Bolt").expect("in the pool");
+        assert!(quarter_turns(index).is_empty());
     }
 }

@@ -368,6 +368,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenModified { .. }
+        | Effect::CreateTokenAttacking { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Fabricate { .. }
         | Effect::CreateTokenThenAttachSelf { .. }
@@ -830,6 +831,67 @@ pub(super) fn exec_immediate(
             super::reveal_put::start(state, res, n, picks)
         }
         // A delayed trigger (CR 603.7) on the first target as it is now.
+        // Sword of the Ages: "then exile this artifact and those creature
+        // cards", each from where its cost put it and only while it is still
+        // that card there (CR 400.7).
+        Effect::ExileSourceAndSacrificed => {
+            let paid = state.object(res.on_stack).and_then(|o| o.paid.clone());
+            let mut cards: Vec<(ObjectId, u32)> = paid
+                .as_ref()
+                .and_then(|p| p.source_after_cost)
+                .map(|r| (r.object, r.version))
+                .into_iter()
+                .collect();
+            if let Some(paid) = &paid {
+                cards.extend(
+                    paid.sacrificed_many
+                        .iter()
+                        .map(|(id, version, _)| (*id, *version)),
+                );
+            }
+            for (id, version) in cards {
+                let Some(owner) = state
+                    .object(id)
+                    .filter(|o| o.version == version && o.zone == crate::zone::Zone::Graveyard)
+                    .map(|o| o.owner)
+                else {
+                    continue;
+                };
+                let _ = state.move_object(
+                    id,
+                    ZoneLocation::Exile(owner),
+                    crate::zone::ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::NextSpellThisTurnHasImprovise => {
+            if let Some(flag) = state
+                .per_turn
+                .improvise_next_spell
+                .get_mut(usize::from(you.get()))
+            {
+                *flag = true;
+            }
+            None
+        }
+        Effect::WheneverYouAttackThisTurn { effects } => {
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::YouAttackThisTurn { after },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
         Effect::WheneverTargetDealtDamageThisTurn { by, effects } => {
             let &card = res.targets.first()?;
             let version = state
@@ -2321,6 +2383,8 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
+        | Effect::PlayerMayPayManaEachThenElse { .. }
+        | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
@@ -2398,6 +2462,9 @@ fn resolution_condition(
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
         Condition::Not(inner) => !resolution_condition(state, res, *inner),
+        Condition::TargetSpellWouldDestroy(filter) => {
+            super::would_destroy::target_spell_would_destroy(state, res, filter)
+        }
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }

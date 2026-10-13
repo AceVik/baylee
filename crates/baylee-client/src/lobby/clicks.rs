@@ -25,6 +25,11 @@ pub(super) fn sign_out(
     dispatch(state, mailbox, waiting);
     state.undo = None;
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    // The online replays were this account's, and so were the tapes kept.
+    state.replays.library.forget_online();
+    state.replays.forget_visit();
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::replay::host::forget_tapes();
     prefs.detach();
     scrolled.set(List::Table, 0.0);
     state.offline = None;

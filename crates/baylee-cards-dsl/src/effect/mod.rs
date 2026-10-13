@@ -2190,6 +2190,47 @@ pub enum Effect {
         /// Grant haste to exactly the created objects until end of turn.
         haste: bool,
     },
+    /// "Create [amount] [token]s that are tapped and attacking" (Den of the
+    /// Bugbear's Goblin, Dalkovan Encampment's Warriors): the tokens enter
+    /// tapped and, during a combat of their controller's turn, attacking
+    /// (CR 508.4): for each one its controller chooses which defending
+    /// player or planeswalker it attacks (asked only with more than one
+    /// option). Put onto the battlefield attacking, they never "attacked":
+    /// no attack trigger hears them (CR 508.3a) and no declaration
+    /// requirement or restriction applies to them (CR 508.4c). Outside
+    /// combat, or under a player who is not attacking, they only enter
+    /// tapped (CR 506.3b). `sacrifice_at_next_end_step`: "Sacrifice them at
+    /// the beginning of the next end step", one delayed trigger per token,
+    /// each naming exactly that token.
+    CreateTokenAttacking {
+        /// The token.
+        token: &'static TokenDef,
+        /// How many, before token-creation replacements.
+        amount: Amount,
+        /// Sacrifice each at the beginning of the next end step.
+        sacrifice_at_next_end_step: bool,
+    },
+    /// "Whenever you attack this turn, [effects]" (Dalkovan Encampment): a
+    /// delayed triggered ability (CR 603.7) of this ability's controller,
+    /// with this ability's source, that triggers each time that player
+    /// declares one or more attacking creatures for the rest of the turn
+    /// (once per declaration, as `Trigger::OneOrMoreAttack` reads one), and
+    /// lapses with the turn.
+    WheneverYouAttackThisTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Then exile this artifact and those creature cards" (Sword of the
+    /// Ages): the source and every card a `CostPart::SacrificeX` of this
+    /// ability sacrificed, each from the graveyard it went to and only while
+    /// it is still that card there (CR 400.7); a token sacrificed is gone.
+    ExileSourceAndSacrificed,
+    /// "The next spell you cast this turn has improvise" (Archway of
+    /// Innovation): the controller's next spell cast this turn is cast with
+    /// improvise (CR 702.126a); it is spent by that cast whether or not an
+    /// artifact was tapped, and lapses with the turn. Instances are
+    /// redundant (CR 702.126c).
+    NextSpellThisTurnHasImprovise,
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.
@@ -2420,6 +2461,36 @@ pub enum Effect {
         cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
+    },
+    /// "That player may choose any number of tapped blue creatures they
+    /// control and pay {4} for each creature chosen this way. If the player
+    /// does, untap those creatures." (Magnetic Mountain): the player `who`
+    /// names chooses any number of their tapped permanents the filter
+    /// matches, then is asked to pay `each` once per chosen permanent, all
+    /// at once; paid, they untap; declined or unpaid, nothing happens.
+    UntapChosenPayingEach {
+        /// Who chooses and pays.
+        who: PlayerRel,
+        /// What may be chosen (tapped, controlled by that player).
+        filter: &'static Filter,
+        /// The price per chosen permanent.
+        each: ManaCost,
+    },
+    /// "Sacrifice this enchantment unless you pay {G} for each wind counter
+    /// on it. If you pay, …" (Cyclone): [`Effect::PlayerMayPayThenElse`]
+    /// with a coloured price repeated `times` (evaluated as this resolves),
+    /// the whole of it paid at once. A price of nothing (`times` 0) is paid.
+    PlayerMayPayManaEachThenElse {
+        /// Player offered the payment.
+        player: PlayerRel,
+        /// The price of one.
+        each: ManaCost,
+        /// How many of it.
+        times: Amount,
+        /// Effects after successful payment.
+        paid: &'static [Effect],
+        /// Effects if payment is declined or cannot be completed.
+        unpaid: &'static [Effect],
     },
     /// Offer a generic mana payment and execute exactly one outcome.
     /// The paid branch requires successful payment; refusal or failure runs unpaid.

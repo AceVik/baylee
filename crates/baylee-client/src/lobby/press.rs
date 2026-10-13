@@ -34,6 +34,8 @@ pub(crate) enum Press {
     Decks(super::decks::DecksPress),
     /// The Play screen and its sheets (WP2).
     Play(super::play::PlayPress),
+    /// The Replays tab.
+    Replays(super::replays::ReplaysPress),
 }
 
 /// A control more than one screen draws.
@@ -161,6 +163,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         Press::Header(press) => press.handle(cx),
         Press::Decks(press) => press.handle(cx),
         Press::Play(press) => press.handle(cx),
+        Press::Replays(press) => press.handle(cx),
     }
 }
 

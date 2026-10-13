@@ -45,7 +45,8 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         | Effect::WhenSourceDiesThisTurn { .. }
         | Effect::WheneverTargetDealtDamageThisTurn { .. }
         | Effect::AtEndOfCombat { .. }
-        | Effect::AtEndOfCombatThisTurn { .. } => (&[], &[]),
+        | Effect::AtEndOfCombatThisTurn { .. }
+        | Effect::WheneverYouAttackThisTurn { .. } => (&[], &[]),
         _ => effect.branches(),
     }
 }
@@ -61,6 +62,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand
+        | CostPart::DiscardLastDrawnThisTurn
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)

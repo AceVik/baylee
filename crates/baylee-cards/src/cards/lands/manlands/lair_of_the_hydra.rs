@@ -38,7 +38,7 @@ card!(
                 ),
                 Effect::continuous(
                     &Filter::This,
-                    Modifier::AddColor(ColorSet::from_slice(&[Color::Green])),
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::Green])),
                     Duration::UntilEndOfTurn,
                 ),
                 Effect::SetPTFilter {

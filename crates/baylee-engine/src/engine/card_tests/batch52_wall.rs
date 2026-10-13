@@ -279,4 +279,85 @@ fn wall_only_original_spell_cannot_be_retargeted_to_shadows() {
     );
 }
 
+/// A Bears attack is blocked by the Wall. "Damage that would be dealt to this
+/// creature by creatures IT'S BLOCKING": a Prodigal Sorcerer the Wall does not
+/// block pings it, and the 1 damage kills the 0/1.
+#[test]
+fn wall_does_not_prevent_damage_from_a_creature_it_is_not_blocking() {
+    let mut e = prepared(
+        &[],
+        &[index::GRIZZLY_BEARS, index::PRODIGAL_SORCERER],
+        &[index::WALL_OF_SHADOWS],
+    );
+    let bears = obj(&e, P0, index::GRIZZLY_BEARS);
+    let wall = obj(&e, P1, index::WALL_OF_SHADOWS);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(P1))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    e.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(wall, bears)],
+        },
+    )
+    .unwrap();
+    priority(&mut e, P0);
+    activate(&mut e, P0, index::PRODIGAL_SORCERER, 0);
+    target(&mut e, wall);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state.object(wall).unwrap().zone,
+        crate::zone::Zone::Graveyard,
+        "the Sorcerer is not a creature the Wall is blocking: its damage is dealt"
+    );
+}
+
+/// The combat half of the same sentence: the Bears it does block deal their
+/// combat damage to the Wall for nothing.
+#[test]
+fn wall_takes_no_combat_damage_from_the_creature_it_blocks() {
+    let mut e = prepared(&[], &[index::GRIZZLY_BEARS], &[index::WALL_OF_SHADOWS]);
+    let bears = obj(&e, P0, index::GRIZZLY_BEARS);
+    let wall = obj(&e, P1, index::WALL_OF_SHADOWS);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(P1))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    e.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(wall, bears)],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| {
+        e.state.turn.phase == crate::turn::Phase::SecondMain
+    });
+    assert_eq!(
+        e.state.object(wall).unwrap().zone,
+        crate::zone::Zone::Battlefield,
+        "a 2-power creature it blocks cannot kill a 0/1 Wall of Shadows"
+    );
+    assert_eq!(e.state.object(wall).unwrap().damage, 0);
+}
+
 mod permission_fixture;

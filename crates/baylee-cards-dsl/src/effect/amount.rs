@@ -92,6 +92,11 @@ pub enum Amount {
     /// "The sacrificed creature's toughness" (Diamond Valley, Miren, the
     /// Moaning Well): likewise, its toughness. Never negative.
     SacrificedToughness,
+    /// "The total power of the creatures sacrificed this way" (Sword of the
+    /// Ages): the sum of the powers the permanents a `CostPart::SacrificeX`
+    /// sacrificed had as they last existed on the battlefield (CR 608.2h;
+    /// the ruling), floored at 0 (CR 107.1b).
+    SacrificedTotalPower,
     /// "The amount of mana spent to cast this spell" (Memory Deluge): what
     /// the cast paid in mana (CR 601.2h), read off the stack object where
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free

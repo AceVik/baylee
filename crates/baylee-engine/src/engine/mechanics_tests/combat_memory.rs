@@ -38,6 +38,13 @@ const PACIFIST: u32 = 7305;
 const DRAINER: u32 = 7306;
 const EXECUTIONER: u32 = 7307;
 const DOOM_ENGINE: u32 = 7308;
+const FEINT: u32 = 7309;
+const SWAP: u32 = 7310;
+const TRINKET: u32 = 7311;
+const CALTROPS: u32 = 7312;
+const WALL: u32 = 7313;
+const FRAIL_WALL: u32 = 7314;
+const DOOM: u32 = 7315;
 
 static PARTNERS: Filter = Filter::Or(&[Filter::BlockingSource, Filter::BlockedBySource]);
 
@@ -96,6 +103,72 @@ static DOOM_ENGINE_ABILITIES: &[AbilityDef] = &[
     ),
 ];
 
+static FEINTED: Filter = Filter::Or(&[Filter::Reference, Filter::BlockingReference]);
+/// "Prevent all combat damage that would be dealt this turn by target
+/// attacking creature and each creature blocking it."
+static FEINT_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+    &[Effect::continuous(
+        &FEINTED,
+        Modifier::PreventDamageFromIt,
+        Duration::UntilEndOfTurn,
+    )],
+    targets = Some(TargetReq::one(TargetSpec::Object(
+        &Filter::ATTACKING_CREATURE
+    )))
+)];
+
+static YOUR_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]);
+static THEIR_LIKE: Filter = Filter::And(&[
+    Filter::ControlledByOpponent,
+    Filter::SharesTypeWithReference(TypeSet::ARTIFACT),
+]);
+/// "Target artifact you control and target permanent an opponent controls
+/// that shares a type with it": a second target relative to the first.
+static SWAP_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+    &[Effect::GainLife {
+        amount: baylee_cards_dsl::Amount::Fixed(1)
+    }],
+    targets = Some(TargetReq::one(TargetSpec::Object(&YOUR_ARTIFACT))),
+    second_targets = Some(TargetReq::one(TargetSpec::Object(&THEIR_LIKE)))
+)];
+
+const WALLS: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::HasSubtype(baylee_core::generated::subtypes::creature::WALL),
+]);
+const NON_WALLS: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Not(&Filter::HasSubtype(
+        baylee_core::generated::subtypes::creature::WALL,
+    )),
+]);
+/// Wall of Caltrops' shape: "whenever this creature blocks a creature, if at
+/// least one other Wall is blocking that creature and no non-Wall is, it
+/// gains banding until end of turn" (the probe: its controller gains 1 life).
+static CALTROPS_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+    Trigger::BlocksCreature(&Filter::CREATURE),
+    &[Effect::GainLife {
+        amount: baylee_cards_dsl::Amount::Fixed(1)
+    }],
+    condition = Some(baylee_cards_dsl::Condition::EventBlockedByOthers {
+        some: &WALLS,
+        none: &NON_WALLS,
+    })
+)];
+
+const BLOCKED_BY_IT: Filter = Filter::And(&[Filter::CREATURE, Filter::BlockedByReferenceThisTurn]);
+/// Glyph of Doom's shape: "Choose target Wall creature. At this turn's next
+/// end of combat, destroy all creatures that were blocked by that creature
+/// this turn."
+static DOOM_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+    &[Effect::AtEndOfCombatThisTurn {
+        about: TargetSpec::Object(&WALLS),
+        effects: &[Effect::destroy_all(&BLOCKED_BY_IT)],
+    }],
+    targets = Some(TargetReq::one(TargetSpec::Object(&WALLS)))
+)];
+
+#[allow(clippy::too_many_lines)] // One entry per card the rules here need.
 fn cards() -> Vec<&'static CardDef> {
     vec![
         card(
@@ -145,6 +218,57 @@ fn cards() -> Vec<&'static CardDef> {
             face("Executioner", "{1}", TypeSet::ARTIFACT),
             KeywordSet::EMPTY,
             EXECUTIONER_ABILITIES,
+        ),
+        card(
+            CALTROPS,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::creature::WALL],
+                ..creature_face("Caltrops", "{1}", 0, 4)
+            },
+            KeywordSet::EMPTY,
+            CALTROPS_ABILITIES,
+        ),
+        card(
+            WALL,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::creature::WALL],
+                ..creature_face("Wall", "{1}", 0, 4)
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            FRAIL_WALL,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::creature::WALL],
+                ..creature_face("Frail Wall", "{1}", 0, 3)
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            DOOM,
+            face("Doom", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            DOOM_ABILITIES,
+        ),
+        card(
+            FEINT,
+            face("Feint", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            FEINT_ABILITIES,
+        ),
+        card(
+            SWAP,
+            face("Swap", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            SWAP_ABILITIES,
+        ),
+        card(
+            TRINKET,
+            face("Trinket", "{0}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            &[],
         ),
         card(
             DOOM_ENGINE,
@@ -464,5 +588,177 @@ fn this_turn_s_end_of_combat_lapses_with_the_turn() {
         zone_of(&engine, late),
         Some(crate::zone::Zone::Battlefield),
         "this turn's end of combat had passed, and the next turn's is not it"
+    );
+}
+
+/// Feint cast in the declare attackers step, before any block: the
+/// prevention is about the attacker and "each creature blocking it", an
+/// effect that does not lock its set (CR 611.2c), so the Ogre that blocks
+/// afterwards deals no combat damage either. Both survive: the Captain-sized
+/// attacker deals none, the blocker deals none.
+#[test]
+fn a_prevention_about_an_attacker_covers_a_creature_that_blocks_it_later() {
+    let mut engine = bench(
+        7305,
+        cards(),
+        [Seat::with(&[OGRE]).holding(&[FEINT]), Seat::with(&[OGRE])],
+    );
+    let ogres = objects(&engine, ZoneLocation::Battlefield, OGRE);
+    let mine = *ogres
+        .iter()
+        .find(|o| {
+            engine
+                .state()
+                .object(**o)
+                .is_some_and(|x| x.controller == me())
+        })
+        .expect("my Ogre");
+    let theirs = *ogres
+        .iter()
+        .find(|o| {
+            engine
+                .state()
+                .object(**o)
+                .is_some_and(|x| x.controller == them())
+        })
+        .expect("their Ogre");
+    attack(&mut engine, me(), &[mine], them());
+    walk_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == me())
+            && e.state().turn.step == crate::turn::Step::DeclareAttackers
+    });
+    let feint = the(&engine, ZoneLocation::Hand(me()), FEINT);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: feint })
+        .expect("Feint is cast");
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![mine],
+                players: vec![],
+            },
+        )
+        .expect("the attacker is the target");
+    block(&mut engine, them(), &[(theirs, mine)]);
+    walk_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    for ogre in [mine, theirs] {
+        assert_eq!(
+            engine.state().object(ogre).map(|o| o.damage),
+            Some(0),
+            "no combat damage from either Ogre"
+        );
+    }
+}
+
+/// A spell whose second target is relative to the first is castable only
+/// when some legal first target leaves a legal second one (CR 601.2c): with
+/// my Trinket and only their Ogre it is not (nothing of theirs shares the
+/// artifact type); once they control a Trinket it is.
+#[test]
+fn a_second_target_relative_to_the_first_decides_whether_a_spell_is_castable() {
+    for (theirs, castable) in [(&[OGRE][..], false), (&[OGRE, TRINKET][..], true)] {
+        let mut engine = bench(
+            7306,
+            cards(),
+            [Seat::with(&[TRINKET]).holding(&[SWAP]), Seat::with(theirs)],
+        );
+        to_main(&mut engine, me());
+        let swap = the(&engine, ZoneLocation::Hand(me()), SWAP);
+        let (_, legal) = offer(&engine);
+        assert_eq!(legal.castable.contains(&swap), castable, "{theirs:?}");
+    }
+}
+
+/// The co-blockers condition, an intervening "if" about the creature the
+/// source blocks (CR 603.4): beside another Wall and no non-Wall it holds;
+/// alone, or beside a non-Wall, it does not. The probe gains 1 life.
+#[test]
+fn the_co_blockers_of_the_blocked_creature_decide_the_trigger() {
+    for (with, fires) in [(Some(WALL), true), (None, false), (Some(OGRE), false)] {
+        let mut theirs = vec![CALTROPS];
+        theirs.extend(with);
+        let mut engine = bench(7307, cards(), [Seat::with(&[OGRE]), Seat::with(&theirs)]);
+        let attacker = objects(&engine, ZoneLocation::Battlefield, OGRE)
+            .into_iter()
+            .find(|o| {
+                engine
+                    .state()
+                    .object(*o)
+                    .is_some_and(|x| x.controller == me())
+            })
+            .expect("my Ogre");
+        let caltrops = the(&engine, ZoneLocation::Battlefield, CALTROPS);
+        let mut blocks = vec![(caltrops, attacker)];
+        if let Some(index) = with {
+            let other = objects(&engine, ZoneLocation::Battlefield, index)
+                .into_iter()
+                .find(|o| {
+                    engine
+                        .state()
+                        .object(*o)
+                        .is_some_and(|x| x.controller == them())
+                })
+                .expect("the co-blocker");
+            blocks.push((other, attacker));
+        }
+        let before = life(&engine, them());
+        attack(&mut engine, me(), &[attacker], them());
+        block(&mut engine, them(), &blocks);
+        walk_until(&mut engine, |e| {
+            e.state().turn.step == crate::turn::Step::CombatEnd
+        });
+        assert_eq!(life(&engine, them()) == before + 1, fires, "{with:?}");
+    }
+}
+
+/// Glyph of Doom on a Wall that then dies in combat damage: at end of combat
+/// the delayed trigger still reads the creatures that Wall blocked, as it
+/// last existed (CR 608.2h), and destroys the Ogre it blocked. Before, the
+/// Wall's leaving made the trigger name nothing.
+#[test]
+fn a_dead_walls_blocks_are_still_read_at_end_of_combat() {
+    let mut engine = bench(
+        7308,
+        cards(),
+        [
+            Seat::with(&[FRAIL_WALL]).holding(&[DOOM]),
+            Seat::with(&[OGRE]),
+        ],
+    );
+    let wall = the(&engine, ZoneLocation::Battlefield, FRAIL_WALL);
+    let ogre = the(&engine, ZoneLocation::Battlefield, OGRE);
+    attack(&mut engine, them(), &[ogre], me());
+    block(&mut engine, me(), &[(wall, ogre)]);
+    walk_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == me())
+            && e.state().turn.step == crate::turn::Step::DeclareBlockers
+            && e.state().zones.stack_is_empty()
+    });
+    let doom = the(&engine, ZoneLocation::Hand(me()), DOOM);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: doom })
+        .expect("Doom is cast");
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![wall],
+                players: vec![],
+            },
+        )
+        .expect("the Wall is the target");
+    walk_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        zone_of(&engine, wall),
+        Some(crate::zone::Zone::Graveyard),
+        "the Wall died in combat damage"
+    );
+    assert_eq!(
+        zone_of(&engine, ogre),
+        Some(crate::zone::Zone::Graveyard),
+        "the creature it blocked is destroyed at end of combat"
     );
 }

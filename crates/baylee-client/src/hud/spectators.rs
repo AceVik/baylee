@@ -33,9 +33,19 @@ pub(crate) fn sync_spectator_line(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     mut line: Query<(Entity, &mut Text), With<SpectatorLine>>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     let lang = Lang::of(&settings.lang);
-    let words = spectator_words(lang, duel.watching, duel.spectators);
+    // A closed table says nothing: the duel keeps its last state until the
+    // next one opens, and a line drawn from it stood over the lobby.
+    let closed = phase.is_some_and(|p| *p.get() == crate::DuelPhase::Closed);
+    // A replay names itself, where and when it was played and whose table
+    // it draws (§7.2); it has no spectators to count.
+    let words = match &duel.replay {
+        _ if closed => None,
+        Some(status) => Some(crate::replay::top_line(status, lang)),
+        None => spectator_words(lang, duel.watching, duel.spectators),
+    };
     match (words, line.single_mut()) {
         (Some(words), Ok((_, mut text))) => {
             if text.0 != words {

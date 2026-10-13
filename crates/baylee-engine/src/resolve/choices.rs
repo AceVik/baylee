@@ -417,6 +417,62 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        // Magnetic Mountain: the choice first, then one payment for all.
+        Effect::UntapChosenPayingEach { who, filter, each } => {
+            let player = players_of(who, state, you, res).first().copied()?;
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.controller == player
+                            && o.status.contains(crate::object::Status::TAPPED)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+            res.awaiting = Some(AwaitingOp::UntapPayingEach { player, each });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::Untap,
+                total: None,
+            })
+        }
+        // Cyclone's "{G} for each wind counter": the printed price repeated,
+        // asked and paid as `PlayerMayPayManaOr`'s is. Nothing to pay is paid.
+        Effect::PlayerMayPayManaEachThenElse {
+            player,
+            each,
+            times,
+            paid,
+            unpaid,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let times = amount2(&times, state, you, res);
+            if times == 0 {
+                return run_nested(state, res, paid);
+            }
+            let cost = (0..times.min(u32::from(u8::MAX)))
+                .fold(baylee_core::mana::ManaCost::ZERO, |total, _| {
+                    total.combine(&each)
+                });
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                outcome: ManaPaymentOutcome::Branches { paid, unpaid },
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayMana { cost },
+                source: resolving_ability(state, res),
+            })
+        }
         Effect::PlayerMayPayThen {
             player,
             mana,
