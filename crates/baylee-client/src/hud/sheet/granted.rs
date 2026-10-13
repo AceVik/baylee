@@ -41,7 +41,21 @@ pub(crate) fn granted_click(duel: &mut Duel, action: MenuAction) {
         MenuAction::PickGranted(id) => duel.granted_menu.select(id, &offers),
         MenuAction::ConfirmGranted => {
             if let Some(action) = duel.granted_menu.confirm(&offers) {
-                duel.submit(action);
+                // In this seat's payment window a granted mana action is
+                // staged with the taps and sent with them on Go
+                // (`PlayerAction::PayWindow`); confirming it again takes it
+                // back. Anything else is taken at once, as before.
+                let staged = match &action {
+                    baylee_engine::choice::PlayerAction::TakeGrantedAction { id } => offers
+                        .iter()
+                        .find(|offer| offer.id == *id)
+                        .and_then(baylee_client_core::paystage::GrantedMana::of)
+                        .is_some_and(|granted| duel.stage_granted(granted)),
+                    _ => false,
+                };
+                if !staged {
+                    duel.submit(action);
+                }
             }
         }
         _ => {}

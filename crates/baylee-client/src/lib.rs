@@ -1350,6 +1350,18 @@ impl Duel {
         true
     }
 
+    /// Stages a granted mana action in the open window, or takes it back.
+    /// Nothing is sent. Returns whether the window took it.
+    pub fn stage_granted(&mut self, granted: baylee_client_core::paystage::GrantedMana) -> bool {
+        if !self.paying() || self.mana_run.is_some() {
+            return false;
+        }
+        self.pay_staged.toggle_granted(granted);
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
     /// Takes back the staged tap of `source`, if there is one.
     pub fn unstage(&mut self, source: ObjectId) -> bool {
         if !self.pay_staged.unstage(source) {

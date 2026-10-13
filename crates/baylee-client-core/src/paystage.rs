@@ -17,9 +17,9 @@
 //! engine stays the judge — a payment it refuses comes back as one sentence
 //! with the window still open and the staging untouched.
 
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{GrantedActionId, ObjectId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
-use baylee_engine::choice::{LegalActions, PlayerAction};
+use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer, LegalActions, PlayerAction};
 use baylee_view::ManaPoolView;
 
 use crate::manaplan::{self, Plan, Source, Step, Tap};
@@ -33,6 +33,38 @@ use crate::manaplan::{self, Plan, Source, Step, Tap};
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Staging {
     steps: Vec<Step>,
+    /// Granted mana actions staged beside the taps (`TakeGrantedAction`,
+    /// a fixed `AddMana` paid with life), in staging order; sent after the
+    /// taps. See [`Self::toggle_granted`].
+    granted: Vec<GrantedMana>,
+}
+
+/// One granted special action that adds a fixed amount of mana, staged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GrantedMana {
+    /// The offer's identity.
+    pub id: GrantedActionId,
+    /// The mana it adds.
+    pub color: ManaColor,
+    /// How much of it.
+    pub amount: u16,
+}
+
+impl GrantedMana {
+    /// The offer as something a payment can stage: a fixed `AddMana` whose
+    /// cost is not mana. A mana-costed one would spend the pool the payment
+    /// is counting, so it is taken as it always was.
+    #[must_use]
+    pub fn of(offer: &GrantedActionOffer) -> Option<Self> {
+        let GrantedActionKind::AddMana { color, amount } = offer.effect else {
+            return None;
+        };
+        matches!(offer.cost, baylee_cards_dsl::SpecialActionCost::Life(_)).then_some(Self {
+            id: offer.id,
+            color,
+            amount,
+        })
+    }
 }
 
 impl Staging {
@@ -42,10 +74,28 @@ impl Staging {
         &self.steps
     }
 
+    /// The staged granted mana actions, in staging order.
+    #[must_use]
+    pub fn granted(&self) -> &[GrantedMana] {
+        &self.granted
+    }
+
     /// Whether nothing is staged.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.steps.is_empty()
+        self.steps.is_empty() && self.granted.is_empty()
+    }
+
+    /// Stages a granted mana action, or takes it back when it is staged
+    /// already. Returns whether it is staged afterwards.
+    pub fn toggle_granted(&mut self, granted: GrantedMana) -> bool {
+        if let Some(at) = self.granted.iter().position(|g| g.id == granted.id) {
+            self.granted.remove(at);
+            false
+        } else {
+            self.granted.push(granted);
+            true
+        }
     }
 
     /// Whether `source` is staged.
@@ -80,6 +130,7 @@ impl Staging {
     /// Takes every tap back.
     pub fn clear(&mut self) {
         self.steps.clear();
+        self.granted.clear();
     }
 
     /// Appends a plan's taps behind what is staged, skipping any permanent
@@ -96,9 +147,11 @@ impl Staging {
     /// any went. A permanent that left, or was tapped by something else, is
     /// not a tap this payment can still make.
     pub fn keep_offered(&mut self, legal: &LegalActions) -> bool {
-        let before = self.steps.len();
+        let before = self.steps.len() + self.granted.len();
         self.steps.retain(|step| tap_action(step, legal).is_some());
-        self.steps.len() != before
+        self.granted
+            .retain(|g| legal.granted_actions.iter().any(|offer| offer.id == g.id));
+        self.steps.len() + self.granted.len() != before
     }
 
     /// The pool as it would stand with every staged tap made: `pool` plus
@@ -110,6 +163,10 @@ impl Staging {
             for (color, count) in worth(step, sources) {
                 *slot(&mut out, color) = slot(&mut out, color).saturating_add(count);
             }
+        }
+        for granted in &self.granted {
+            *slot(&mut out, granted.color) =
+                slot(&mut out, granted.color).saturating_add(u32::from(granted.amount));
         }
         out
     }
@@ -156,7 +213,8 @@ impl Staging {
     /// The `PlayerAction::PayWindow` steps: each tap as the engine offers it,
     /// followed by its colour where the tap asks one ([`Step::color`] is
     /// `Some` exactly then — an answer to a question nobody posed refuses the
-    /// whole payment). `None` when a staged tap is no longer offered.
+    /// whole payment), then each staged granted action as
+    /// `TakeGrantedAction`. `None` when anything staged is no longer offered.
     #[must_use]
     pub fn wire(&self, legal: &LegalActions) -> Option<Vec<PlayerAction>> {
         let mut out = Vec::with_capacity(self.steps.len() * 2);
@@ -165,6 +223,16 @@ impl Staging {
             if let Some(color) = step.color {
                 out.push(PlayerAction::ChooseColor(color));
             }
+        }
+        for granted in &self.granted {
+            if !legal
+                .granted_actions
+                .iter()
+                .any(|offer| offer.id == granted.id)
+            {
+                return None;
+            }
+            out.push(PlayerAction::TakeGrantedAction { id: granted.id });
         }
         Some(out)
     }

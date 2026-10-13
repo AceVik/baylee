@@ -82,7 +82,7 @@ pub fn sync_ledge(
             .as_ref()
             .map_or(0, baylee_client_core::Interaction::declared),
         armed: duel.armed.clone(),
-        staged: duel.pay_staged.steps().to_vec(),
+        staged: duel.pay_staged.clone(),
         cast_menu: duel.cast_menu.is_some() && !over,
         holdable: duel.can_hold_for_stack(),
         can_offer_draw: duel.can_offer_draw(),
