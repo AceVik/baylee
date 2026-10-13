@@ -538,6 +538,53 @@ export interface BlockOrder {
   until?: string;
 }
 
+/** Who may seat a hosted profile (docs/protocol.md §"Who may seat which model"). */
+export const LLM_POLICIES = ["registered", "listed", "nobody"] as const;
+export type LlmPolicy = (typeof LLM_POLICIES)[number];
+
+/** One profile's policy, as `GET /ui/api/admin/llm/access` lists it. */
+export interface LlmAccess {
+  id: string;
+  policy: LlmPolicy;
+  /** False: no policy is stored, and the profile is open to nobody. */
+  stored: boolean;
+  default_for_registered: boolean;
+  /** How many accounts are on its list. */
+  listed: number;
+  updated_at: string | null;
+  updated_by: string | null;
+  /** Whether a connected seat agent reports it now. */
+  connected: boolean;
+  label: string | null;
+  vendor: string | null;
+}
+
+/** An account on a profile's list. */
+export interface LlmAllowed {
+  id: string;
+  username: string | null;
+  display_name: string;
+  handle: string;
+  added_at: string;
+  added_by: string;
+}
+
+/** One profile's policy with its list (`GET …/llm/access/{id}`). */
+export interface LlmAccessDetail extends LlmAccess {
+  accounts: LlmAllowed[];
+}
+
+/** A registered account the type-ahead found. */
+export interface AccountCandidate {
+  id: string;
+  username: string | null;
+  display_name: string;
+  handle: string;
+}
+
+/** The fewest characters the account type-ahead asks the gateway for. */
+export const LOOKUP_MIN = 2;
+
 /** A hosted profile's states, best first, as the player list orders them. */
 export const LLM_STATES = [
   "available",
@@ -752,6 +799,10 @@ function llmPath(host: string, id: string): string {
   return `/ui/api/admin/llm/seathosts/${encodeURIComponent(host)}/profiles/${encodeURIComponent(id)}`;
 }
 
+function accessPath(id: string): string {
+  return `/ui/api/admin/llm/access/${encodeURIComponent(id)}`;
+}
+
 export const api = {
   me: () => json<Me>("GET", "/ui/api/me"),
   login: (name: string, password: string) => json<Me>("POST", "/ui/api/login", { name, password }),
@@ -831,6 +882,21 @@ export const api = {
       key: async (host: string, id: string, key: string | null) => {
         await request("POST", `${llmPath(host, id)}/key`, { key });
       },
+      access: async () => (await json<{ profiles: LlmAccess[] }>("GET", "/ui/api/admin/llm/access")).profiles,
+      accessOf: (id: string) => json<LlmAccessDetail>("GET", accessPath(id)),
+      setPolicy: async (id: string, policy: LlmPolicy, defaultForRegistered?: boolean) => {
+        const body: { policy: LlmPolicy; default_for_registered?: boolean } = { policy };
+        if (defaultForRegistered !== undefined) body.default_for_registered = defaultForRegistered;
+        await request("PUT", accessPath(id), body);
+      },
+      allow: (id: string, accounts: string[]) =>
+        json<LlmAccessDetail>("POST", `${accessPath(id)}/allow`, { accounts }),
+      disallow: (id: string, accounts: string[]) =>
+        json<LlmAccessDetail>("POST", `${accessPath(id)}/disallow`, { accounts }),
     },
+    /** Registered accounts whose username or display name starts with `q`; at most ten. */
+    lookup: async (q: string) =>
+      (await json<{ accounts: AccountCandidate[] }>("GET", `/ui/api/admin/accounts/lookup?q=${encodeURIComponent(q)}`))
+        .accounts,
   },
 };

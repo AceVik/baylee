@@ -4,9 +4,12 @@
 //! platform. This module decides what the room offers and says; the shell
 //! draws it and sends the requests.
 //!
-//! The gateway lists every profile, the unavailable ones too, so a player
-//! knows the model exists and when to come back; it refuses a guest's
-//! order, and so the room offers a guest none.
+//! The gateway lists every profile this account may seat, the unavailable
+//! ones too, so a player knows the model exists and when to come back; a
+//! profile not open to the account is not listed at all (`docs/protocol.md`
+//! §"Who may seat which model"), and a guest is listed none. So the room
+//! offers a guest nothing, and a registered host the hosted entry only once
+//! the gateway's list for it holds a profile ([`Lobby::offers_hosted`]).
 
 use super::{Lobby, LobbyRequest};
 use crate::i18n::{Lang, Phrase};
@@ -113,6 +116,14 @@ impl Lobby {
     #[must_use]
     pub fn may_order_hosted(&self) -> bool {
         !self.guest() && !self.offline() && self.has_a_performer()
+    }
+
+    /// Whether a chair's menu offers a hosted model: a registered host at a
+    /// gateway whose latest list for this account holds at least one
+    /// profile. Hidden until that list has come, and while it is empty.
+    #[must_use]
+    pub fn offers_hosted(&self) -> bool {
+        self.may_order_hosted() && self.hosted_listed && !self.hosted_profiles.is_empty()
     }
 
     /// The profiles the gateway last listed.
