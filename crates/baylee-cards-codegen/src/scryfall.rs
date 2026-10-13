@@ -1048,4 +1048,179 @@ mod tests {
             );
         }
     }
+
+    /// `ScryfallCard::quarter_turns`, one layout at a time.
+    mod quarter_turns {
+        use super::card;
+
+        /// The turns of a card built from the JSON of its faces, so the fields
+        /// the reader depends on (`layout`, `type_line`, `oracle_text`) are pinned.
+        fn turns(layout: &str, faces: &[(&str, &str)]) -> Vec<u8> {
+            let faces: Vec<serde_json::Value> = faces
+                .iter()
+                .map(|(type_line, oracle_text)| {
+                    serde_json::json!({
+                        "name": "Face",
+                        "type_line": type_line,
+                        "oracle_text": oracle_text,
+                    })
+                })
+                .collect();
+            card(
+                &serde_json::json!({
+                    "id": "1", "name": "Card", "layout": layout, "card_faces": faces,
+                })
+                .to_string(),
+            )
+            .quarter_turns()
+        }
+
+        /// An ordinary card, one face as the top-level fields, is read upright.
+        #[test]
+        fn an_ordinary_card_is_read_upright() {
+            let bolt = card(
+                r#"{
+                    "id": "1", "name": "Lightning Bolt", "layout": "normal",
+                    "type_line": "Instant", "oracle_text": "Lightning Bolt deals 3 damage."
+                }"#,
+            );
+            assert_eq!(bolt.quarter_turns(), vec![0]);
+        }
+
+        /// An Adventure is two names on one upright card; its layout is not the
+        /// reason a card is turned.
+        #[test]
+        fn an_adventure_is_read_upright_on_both_faces() {
+            assert_eq!(
+                turns(
+                    "adventure",
+                    &[
+                        ("Creature \u{2014} Human Knight", "Flying"),
+                        ("Instant \u{2014} Adventure", "Draw a card."),
+                    ]
+                ),
+                vec![0, 0]
+            );
+        }
+
+        /// A split card is printed sideways, both halves read a quarter clockwise.
+        #[test]
+        fn a_split_card_reads_a_quarter_clockwise_on_both_halves() {
+            assert_eq!(
+                turns(
+                    "split",
+                    &[
+                        ("Instant", "Fire deals 2 damage divided as you choose."),
+                        ("Instant", "Tap two target permanents. Draw a card."),
+                    ]
+                ),
+                vec![1, 1]
+            );
+        }
+
+        /// An Aftermath card is a split layout whose second half runs the other
+        /// way: the first stands upright, the second is three quarters clockwise.
+        #[test]
+        fn an_aftermath_card_reads_its_second_half_counter_clockwise() {
+            assert_eq!(
+                turns(
+                    "split",
+                    &[
+                        ("Sorcery", "Deal 2 damage to any target."),
+                        (
+                            "Sorcery",
+                            "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nReturn target creature card from your graveyard to your hand."
+                        ),
+                    ]
+                ),
+                vec![0, 3]
+            );
+        }
+
+        /// Only a line that *starts* with Aftermath makes the layout Aftermath: a
+        /// split card whose text merely mentions the word stays sideways.
+        #[test]
+        fn a_split_card_that_only_mentions_aftermath_is_still_sideways() {
+            assert_eq!(
+                turns(
+                    "split",
+                    &[
+                        ("Instant", "Exile target card named Aftermath."),
+                        ("Instant", "Draw a card."),
+                    ]
+                ),
+                vec![1, 1]
+            );
+        }
+
+        /// A flip card's second half is printed upside down.
+        #[test]
+        fn a_flip_card_reads_its_flipped_half_upside_down() {
+            assert_eq!(
+                turns(
+                    "flip",
+                    &[
+                        ("Legendary Creature \u{2014} Human Monk", ""),
+                        ("Legendary Creature \u{2014} Spirit", ""),
+                    ]
+                ),
+                vec![0, 2]
+            );
+        }
+
+        /// A plane is printed sideways like a split card.
+        #[test]
+        fn a_plane_reads_a_quarter_clockwise() {
+            let plane = card(
+                r#"{
+                    "id": "1", "name": "Plane", "layout": "planar",
+                    "type_line": "Plane \u2014 Dominaria", "oracle_text": ""
+                }"#,
+            );
+            assert_eq!(plane.quarter_turns(), vec![1]);
+        }
+
+        /// A battle is `transform`, so it is its type line that turns the front;
+        /// the creature on its back stands upright.
+        #[test]
+        fn a_battle_is_sideways_and_its_back_is_upright() {
+            assert_eq!(
+                turns(
+                    "transform",
+                    &[
+                        ("Battle \u{2014} Siege", "When Invasion enters, ..."),
+                        ("Legendary Creature \u{2014} Dinosaur", "Trample"),
+                    ]
+                ),
+                vec![1, 0]
+            );
+        }
+
+        /// "Battle" is read as a word of the type line before its dash: a
+        /// Battlemage, or a creature whose subtypes mention a battle, is upright.
+        #[test]
+        fn only_the_word_battle_in_the_types_turns_a_card() {
+            for types in [
+                "Creature \u{2014} Human Battlemage",
+                "Creature \u{2014} Battle Beast",
+                "Enchantment \u{2014} Battlefield",
+            ] {
+                let c = card(
+                    &serde_json::json!({
+                        "id": "1", "name": "C", "layout": "normal",
+                        "type_line": types, "oracle_text": "",
+                    })
+                    .to_string(),
+                );
+                assert_eq!(c.quarter_turns(), vec![0], "{types} stands upright");
+            }
+            let single = card(
+                r#"{
+                    "id": "1", "name": "B", "layout": "normal",
+                    "type_line": "Battle \u2014 Siege", "oracle_text": ""
+                }"#,
+            );
+            assert_eq!(single.quarter_turns(), vec![1], "a one-faced battle");
+        }
+    }
 }
