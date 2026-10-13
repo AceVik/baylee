@@ -1,10 +1,18 @@
 //! Abu Ja'far — {W} — Creature — Human
 //! Oracle: When this creature dies, destroy all creatures blocking or blocked by it. They can't be regenerated.
 //! Set: CHR #1 — Chronicles | Scryfall ID: 023b5e6f-10de-422d-8431-11f1fdeca246 | Oracle ID: a2404d88-0621-49ae-9908-052c23a96ac6
-// PARTIAL — the dies trigger is off the card.
+// IMPLEMENTED — the dies trigger destroys every creature blocking or blocked
+// by this one, as this one last existed; they can't be regenerated.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+/// "Creatures blocking or blocked by it" — both read the dead source as it
+/// last existed.
+static PARTNERS: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Or(&[Filter::BlockingSource, Filter::BlockedBySource]),
+]);
 
 card!(
     index = index::ABU_JA_FAR,
@@ -19,15 +27,9 @@ card!(
         power = Some(0),
         toughness = Some(1),
     ),],
-    coverage = Coverage::Partial(
-        "no filter names the creatures blocking or blocked by this one, so \
-         the dies trigger has no effect it can carry"
-    ),
-    // NOT SUPPORTED: "When this creature dies, destroy all creatures
-    // blocking or blocked by it. They can't be regenerated." — both halves
-    // are sayable (`Trigger::Dies`, `Effect::destroy_all_no_regen`), but no
-    // `Filter` names the combat partners of the source: `Filter::Blocking`
-    // and `Filter::Unblocked` test a creature's own combat state, not a
-    // relationship to another object. So the trigger comes off the card
-    // instead of shipping as a no-op.
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::Dies(&Filter::This),
+        &[Effect::destroy_all_no_regen(&PARTNERS)]
+    )],
 );

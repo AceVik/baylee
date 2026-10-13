@@ -16,3 +16,5 @@ mod razormane_masticore;
 mod rith_s_attendant;
 mod titanium_golem;
 mod treva_s_attendant;
+
+mod marble_priest;

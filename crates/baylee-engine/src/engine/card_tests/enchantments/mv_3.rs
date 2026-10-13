@@ -29,6 +29,7 @@ mod growing_rites_of_itlimoc;
 mod hadana_s_climb;
 mod hanna_s_custody;
 mod infernal_tribute;
+mod jihad;
 mod knighthood;
 mod lifegift;
 mod magnetic_mountain;

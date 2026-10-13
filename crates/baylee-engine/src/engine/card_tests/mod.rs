@@ -26,6 +26,7 @@ mod activation_cost_bounds;
 mod alpha_completion_review;
 mod archon_kismet;
 mod artifacts;
+mod aura_kit;
 mod batch43;
 mod batch45;
 mod batch46;
@@ -5776,3 +5777,5 @@ mod batch52_song;
 
 mod partials_w1b_kit;
 mod underdome_acceptance;
+
+mod partials_w2c_kit;

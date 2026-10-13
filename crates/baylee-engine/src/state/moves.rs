@@ -842,7 +842,8 @@ impl GameState {
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
             if let Some(object) = self.object(id).filter(|o| o.card.is_some()) {
-                let seat = usize::from(object.controller.get());
+                let putter = self.entries.putter().unwrap_or(object.controller);
+                let seat = usize::from(putter.get());
                 if let Some(flag) = self.per_turn.put_nontoken_permanent.get_mut(seat) {
                     *flag = true;
                 }

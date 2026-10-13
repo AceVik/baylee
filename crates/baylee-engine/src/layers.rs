@@ -215,6 +215,9 @@ pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
         || obj.riders.contains(&crate::object::Rider::Dashed)
+        // CR 202.3e: on the stack, X is the number chosen for it, so a
+        // spell with X needs its projection even where no effect reaches it.
+        || (obj.zone == crate::zone::Zone::Stack && obj.x_value > 0)
 }
 
 /// Recomputes an object's characteristics from its base plus all matching
