@@ -686,6 +686,22 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   or the service; the admin reads it over on GitHub before submitting. The
   audit names the admin who changed a report; it names no player. Its
   Overview shows a gateway's numbers (counts only, above) and its keys.
+- **Replays** (`docs/protocol.md` §"Replays") read a record only to hand it
+  to an engine on the engine link, which plays it again and sends back a
+  projection: what one seat (or a spectator) was shown, never the record. A
+  replay is a projection, never the record. A seat's tape goes only to the
+  account `game_record_seat` names for that seat; the public tape only to an
+  account that sat at the game. No tape is stored, on the gateway or on a
+  device, and the job's log names no account. `GET /replays` shows a seated
+  account the current handles of the people it sat with, as the table
+  showed them, and a former player's seat as "Former player" once that
+  account is gone. Beside the record the gateway keeps what the list shows
+  (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
+  `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
+  game and card data, not personal, kept with the record. A deleted
+  account's games are gone from its list and its tapes, because the seat
+  link that authorises them is the one deletion cuts. Asks are counted per
+  account in memory for a minute.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 

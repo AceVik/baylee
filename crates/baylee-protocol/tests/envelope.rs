@@ -31,6 +31,7 @@ fn an_engine_hello_keeps_its_game_token_and_version() {
         token: "t".into(),
         protocol_version: PROTOCOL_VERSION,
         pid: 4242,
+        build: "0.8.0+build.1 (abc)".into(),
     };
     assert_eq!(
         trip(Msg::EngineHello(hello.clone())),
@@ -46,6 +47,7 @@ fn a_hello_from_before_the_version_field_reads_as_version_zero() {
         token: "t".into(),
         protocol_version: 0,
         pid: 0,
+        build: String::new(),
     };
     let wire = old.encode_to_vec();
     let back = v1::EngineHello::decode(&wire[..]).unwrap();
@@ -116,6 +118,7 @@ fn a_game_end_lists_its_winners_in_order() {
         game_id: "g".into(),
         winners: vec![2, 0, 1],
         reason: "conceded".into(),
+        turn: 7,
     };
     let Msg::GameEnded(back) = trip(Msg::GameEnded(ended.clone())) else {
         panic!()
@@ -217,6 +220,7 @@ fn truncated_or_garbage_bytes_are_an_error_never_a_message() {
             game_id: "game".into(),
             winners: vec![0],
             reason: "r".into(),
+            turn: 0,
         })),
     }
     .encode_to_vec();
