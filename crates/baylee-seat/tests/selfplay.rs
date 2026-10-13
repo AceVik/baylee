@@ -63,7 +63,7 @@ async fn how_often_the_mind_is_woken() {
             [&victory, &allytifact]
         };
         let table = Table::new(seed, decks, [house(), house()], &config());
-        let played = table.play(MAX_ACTIONS).await;
+        let played = Box::pin(table.play(MAX_ACTIONS)).await;
         let result = played
             .result
             .unwrap_or_else(|| panic!("seed {seed}: no result after {} actions", played.actions));
@@ -307,7 +307,7 @@ async fn a_failing_mind_is_answered_for_and_taken_down() {
     let victory = Deck::acceptance("Victory").unwrap();
     let failing: Arc<dyn Mind> = Arc::new(ScriptedMind::idle().failing(u32::MAX));
     let table = Table::new(1, [&allytifact, &victory], [failing, house()], &config());
-    let played = table.play(MAX_ACTIONS).await;
+    let played = Box::pin(table.play(MAX_ACTIONS)).await;
     let stats = &played.stats[0];
     assert!(
         played.result.is_some(),
