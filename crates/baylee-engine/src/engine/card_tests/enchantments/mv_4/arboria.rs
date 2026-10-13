@@ -382,3 +382,98 @@ fn arboria_is_read_for_each_defending_player_alone() {
         "player 1 did nothing on theirs"
     );
 }
+
+/// Plays turns one to three of a game where player 1 loses their attacker to a
+/// Mystifying Maze and has it back at their end step, and says whether the
+/// Ogre may attack player 1 on turn three. Player 0 plays a land on turn one
+/// (so that player 1's Ogre may attack them on turn two); on turn two player 1
+/// attacks, casting a Lightning Bolt at themselves first when `they_cast`;
+/// player 0 exiles the attacker with the Maze, which brings it back, tapped,
+/// at the beginning of the next end step under its owner's control, put onto
+/// the battlefield by player 0's effect and not by player 1.
+#[track_caller]
+fn may_attack_after_the_maze_returns_their_attacker(they_cast: bool) -> bool {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                arboria(),
+                gray_ogre(),
+                mystifying_maze(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[forest()])
+        .battlefield(1, &[gray_ogre(), mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, kit::P0);
+    let ogre = on_battlefield(&engine, kit::P0, gray_ogre()).expect("my Ogre");
+    let maze = on_battlefield(&engine, kit::P0, mystifying_maze()).expect("the Maze");
+    play_land(&mut engine, kit::P0, forest());
+
+    reach_their_main_phase(&mut engine, kit::P1);
+    if they_cast {
+        tap_all_mana(&mut engine, kit::P1);
+        cast_with_floating(&mut engine, kit::P1, lightning_bolt());
+        engine
+            .apply(
+                kit::P1,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![kit::P1],
+                },
+            )
+            .expect("a player is a legal target for the Bolt");
+        kit::resolve_the_stack(&mut engine, |_, _| None);
+        assert!(
+            in_graveyard(&engine, kit::P1, lightning_bolt()).is_some(),
+            "the Bolt was cast and resolved"
+        );
+    }
+    let theirs = on_battlefield(&engine, kit::P1, gray_ogre()).expect("their Ogre");
+    kit::attack_on_their_turn(&mut engine, kit::P1, &[theirs], kit::P0);
+
+    tap_mana_except(&mut engine, kit::P0, maze);
+    kit::activate_object(&mut engine, kit::P0, maze, 1);
+    aim_at(&mut engine, kit::P0, theirs);
+    kit::resolve_the_stack(&mut engine, |_, _| None);
+    assert!(
+        on_battlefield(&engine, kit::P1, gray_ogre()).is_none(),
+        "their attacker was exiled"
+    );
+
+    kit::walk_to_next_own_main(&mut engine, kit::P0);
+    assert_eq!(engine.state().turn.number, 3);
+    let back = on_battlefield(&engine, kit::P1, gray_ogre());
+    assert!(
+        back.is_some(),
+        "the Ogre came back under its owner's control at the end step of turn two"
+    );
+    offered_against(&mut engine, kit::P0, ogre, Defender::Player(kit::P1))
+}
+
+/// Ruling (2022-12-08): "Arboria's effect cares whether a player put a
+/// nontoken permanent onto the battlefield. It's unusual for an ability to
+/// care who put a permanent onto the battlefield, as opposed to under whose
+/// control it entered."
+///
+/// Player 1's Ogre is exiled in combat by player 0's Mystifying Maze and comes
+/// back under player 1's control at the end step, put there by player 0's
+/// delayed trigger. Player 1 cast nothing and put nothing onto the battlefield
+/// themselves, so on turn three they still cannot be attacked. The twin is the
+/// same turn with a Lightning Bolt cast first: then they can.
+#[test]
+fn arboria_counts_who_put_the_permanent_not_whose_control_it_entered_under() {
+    assert!(
+        may_attack_after_the_maze_returns_their_attacker(true),
+        "control: player 1 cast a spell during turn two"
+    );
+    assert!(
+        !may_attack_after_the_maze_returns_their_attacker(false),
+        "the Ogre entered under player 1's control, but player 0's Maze put it there"
+    );
+}
