@@ -206,3 +206,223 @@ fn endurance_randomizes_only_the_targeted_graveyard_on_the_library_bottom() {
     assert_eq!(bottom, grave);
     assert!(e.state().zones.list(ZoneLocation::Graveyard(p1)).is_empty());
 }
+
+/// p0 casts Endurance for its mana cost with both players' graveyards holding
+/// two cards and answers its "up to one target player" with `chosen`. Returns
+/// the engine with the trigger resolved, the cards of each graveyard before it
+/// and the two libraries before it.
+#[allow(clippy::type_complexity)] // a fixture's snapshot, read once by each test
+fn endurance_over_two_graveyards(
+    chosen: Option<PlayerId>,
+) -> (
+    Engine<RegistryLookup>,
+    Vec<ObjectId>,
+    Vec<ObjectId>,
+    Vec<ObjectId>,
+    Vec<ObjectId>,
+) {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[endurance(), index::GRIZZLY_BEARS, index::MIND_STONE])
+        .hand(1, &[index::GIANT_GROWTH, index::MOUNTAIN])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let mine = vec![
+        hand_to_graveyard(&mut e, p0, index::GRIZZLY_BEARS),
+        hand_to_graveyard(&mut e, p0, index::MIND_STONE),
+    ];
+    let theirs = vec![
+        hand_to_graveyard(&mut e, p1, index::GIANT_GROWTH),
+        hand_to_graveyard(&mut e, p1, index::MOUNTAIN),
+    ];
+    let library0 = e.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let library1 = e.state().zones.list(ZoneLocation::Library(p1)).clone();
+    cast_from_hand(&mut e, p0, endurance());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        min,
+        max,
+        player_options,
+        ..
+    } = e.pending().clone()
+    else {
+        unreachable!("pass_until stopped on a target choice")
+    };
+    assert_eq!((min, max), (0, 1), "\"up to one target player\"");
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "any player, yourself included: {player_options:?}"
+    );
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: chosen.into_iter().collect(),
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    (e, mine, theirs, library0, library1)
+}
+
+fn sorted(mut cards: Vec<ObjectId>) -> Vec<ObjectId> {
+    cards.sort_unstable();
+    cards
+}
+
+/// "up to one target player": naming nobody leaves every graveyard where it is.
+#[test]
+fn endurance_with_no_target_chosen_leaves_both_graveyards_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (e, mine, theirs, library0, library1) = endurance_over_two_graveyards(None);
+    assert_eq!(
+        sorted(e.state().zones.list(ZoneLocation::Graveyard(p0)).clone()),
+        sorted(mine),
+        "the caster's graveyard is untouched"
+    );
+    assert_eq!(
+        sorted(e.state().zones.list(ZoneLocation::Graveyard(p1)).clone()),
+        sorted(theirs),
+        "and so is the opponent's"
+    );
+    assert_eq!(e.state().zones.list(ZoneLocation::Library(p0)), &library0);
+    assert_eq!(e.state().zones.list(ZoneLocation::Library(p1)), &library1);
+}
+
+/// Targeting the opponent puts THEIR graveyard on the bottom of THEIR library
+/// and does not touch the caster's.
+#[test]
+fn endurance_aimed_at_the_opponent_moves_only_the_opponents_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (e, mine, theirs, library0, library1) = endurance_over_two_graveyards(Some(p1));
+    assert!(
+        e.state().zones.list(ZoneLocation::Graveyard(p1)).is_empty(),
+        "the target player's graveyard is emptied"
+    );
+    let after = e.state().zones.list(ZoneLocation::Library(p1));
+    assert_eq!(&after[theirs.len()..], &library1, "on the bottom");
+    assert_eq!(sorted(after[..theirs.len()].to_vec()), sorted(theirs));
+    assert_eq!(
+        sorted(e.state().zones.list(ZoneLocation::Graveyard(p0)).clone()),
+        sorted(mine),
+        "the caster's graveyard is untouched"
+    );
+    assert_eq!(e.state().zones.list(ZoneLocation::Library(p0)), &library0);
+}
+
+/// Targeting yourself moves your own graveyard and leaves the opponent's.
+#[test]
+fn endurance_aimed_at_its_caster_moves_only_the_casters_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (e, mine, theirs, library0, library1) = endurance_over_two_graveyards(Some(p0));
+    assert!(
+        e.state().zones.list(ZoneLocation::Graveyard(p0)).is_empty(),
+        "the target player's graveyard is emptied"
+    );
+    let after = e.state().zones.list(ZoneLocation::Library(p0));
+    assert_eq!(&after[mine.len()..], &library0, "on the bottom");
+    assert_eq!(sorted(after[..mine.len()].to_vec()), sorted(mine));
+    assert_eq!(
+        sorted(e.state().zones.list(ZoneLocation::Graveyard(p1)).clone()),
+        sorted(theirs),
+        "the opponent's graveyard is untouched"
+    );
+    assert_eq!(e.state().zones.list(ZoneLocation::Library(p1)), &library1);
+}
+
+/// "Exile a green card from your hand": a card of another colour, or none, is
+/// not on the menu, however many of the hand's cards there are.
+#[test]
+fn endurance_evoke_offers_the_green_cards_of_the_hand_and_nothing_else() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .hand(
+            0,
+            &[
+                endurance(),
+                llanowar_elves(),
+                index::GRIZZLY_BEARS,
+                index::LIGHTNING_BOLT,
+                index::MIND_STONE,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let elemental = in_hand(&e, p0, endurance()).unwrap();
+    let green = sorted(vec![
+        in_hand(&e, p0, llanowar_elves()).unwrap(),
+        in_hand(&e, p0, index::GRIZZLY_BEARS).unwrap(),
+    ]);
+    // No mana at all: the only cost left to pay is the evoke cost.
+    e.apply(p0, PlayerAction::CastSpell { card: elemental })
+        .expect("a green card in hand pays the evoke cost");
+    let Pending::ChooseCards { options, .. } = e.pending().clone() else {
+        panic!("the cost asks which green card to exile: {:?}", e.pending())
+    };
+    assert_eq!(
+        sorted(options),
+        green,
+        "only the two green cards: not the red Lightning Bolt, not the \
+         colourless Mind Stone, and not the Elemental being cast"
+    );
+}
+
+/// With no green card in hand, and no mana, the evoke cost cannot be paid: a
+/// hand of other colours (and the Elemental itself, which is on the stack and
+/// no longer "in hand") offers nothing.
+#[test]
+fn endurance_cannot_be_evoked_without_another_green_card_in_hand() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[endurance(), index::LIGHTNING_BOLT, index::MIND_STONE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let elemental = in_hand(&e, p0, endurance()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending().clone() else {
+        panic!("priority expected, got {:?}", e.pending())
+    };
+    assert!(
+        !legal.castable.contains(&elemental),
+        "no green card besides itself to exile and no mana: {:?}",
+        legal.castable
+    );
+}
+
+/// Only the evoked Elemental is sacrificed: one cast for {1}{G}{G} stays.
+#[test]
+fn endurance_cast_for_its_mana_cost_is_not_sacrificed() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[endurance()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    cast_from_hand(&mut e, p0, endurance());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        on_battlefield(&e, p0, endurance()).is_some(),
+        "\"when this creature enters [evoked], sacrifice it\" does not apply to a hard cast"
+    );
+    assert!(in_graveyard(&e, p0, endurance()).is_none());
+}
