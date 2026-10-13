@@ -3,13 +3,15 @@
 // `/r/{id}`, and the admin console under `/admin`: its overview, the live
 // tables, the accounts (searched in the query string), one account, the
 // pool's progress by set and one set, the blocked cards, and the
-// closed-beta keys.
+// closed-beta keys; and the landing page's contact messages at `/contact`
+// (filtered in the query string) and one at `/contact/{id}`.
 
 import { useEffect, useState } from "react";
 
 export type Route =
   | { page: "list"; search: string }
   | { page: "report"; id: string }
+  | { page: "contact"; search: string; id?: string }
   | { page: "admin"; section: AdminSection; id?: string; search?: string };
 
 export const ADMIN_SECTIONS = ["overview", "live", "accounts", "sets", "cards", "keys", "models"] as const;
@@ -20,7 +22,16 @@ export function adminPath(section: AdminSection, id?: string): string {
   return id === undefined ? `/admin/${section}` : `/admin/${section}/${encodeURIComponent(id)}`;
 }
 
+/** The contact list, filtered by `status`, or one message. */
+export function contactPath(id?: string, status?: string): string {
+  if (id !== undefined) return `/contact/${encodeURIComponent(id)}`;
+  return status === undefined || status === "" ? "/contact" : `/contact?status=${encodeURIComponent(status)}`;
+}
+
 export function parseRoute(pathname: string, search: string): Route {
+  if (/^\/contact\/?$/.test(pathname)) return { page: "contact", search };
+  const contact = /^\/contact\/([^/]+)\/?$/.exec(pathname);
+  if (contact?.[1] !== undefined) return { page: "contact", search: "", id: decodeURIComponent(contact[1]) };
   if (/^\/admin\/?$/.test(pathname)) return { page: "admin", section: "overview" };
   const admin = /^\/admin\/(live|accounts|sets|cards|keys|models)(?:\/([^/]+))?\/?$/.exec(pathname);
   if (admin) {

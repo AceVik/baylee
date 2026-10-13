@@ -115,7 +115,7 @@ default and is meant to sit behind a TLS reverse proxy.
 
 | variable | meaning |
 | --- | --- |
-| `FEEDBACK_DATABASE_URL` | required; its own database. Its tables are `feedback_report`, `feedback_admin`, `feedback_session`, `feedback_audit` and `feedback_migrations`, so it can share a database with a gateway, but should not |
+| `FEEDBACK_DATABASE_URL` | required; its own database. Its tables are `feedback_report`, `feedback_contact`, `feedback_admin`, `feedback_session`, `feedback_audit` and `feedback_migrations`, so it can share a database with a gateway, but should not |
 | `FEEDBACK_GATEWAY_TOKENS` | `name=token,name=token`: one intake token per gateway. A name is letters, digits, `.`, `-`, `_`, at most 64 |
 | `FEEDBACK_READ_TOKEN` | reads reports |
 | `FEEDBACK_ADMIN_TOKEN` | reads, changes a report's status, deletes reports |
@@ -124,6 +124,7 @@ default and is meant to sit behind a TLS reverse proxy.
 | `FEEDBACK_WEB_DIR` | the built web UI (`web/feedback/dist`); unset = no page, `/` is `404` |
 | `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter and the direct route's allowance believe; an entry that is not an address refuses startup |
 | `FEEDBACK_DIRECT_KEY` | turns on `POST /client/reports` and keys its reporter pseudonyms; at least 16 characters and none of the tokens. Unset, the route answers `503`. Never change it if a device's reports should stay linkable |
+| `FEEDBACK_CONTACT_ORIGINS` | turns on `POST /site/contact` for the pages served at these origins, comma-separated: each `https://host[:port]`, or `http://` for `localhost`, `127.0.0.1` or `[::1]` only (a page tried on this machine); a path, a trailing slash, credentials or plain `http://` to anywhere else refuses startup. Unset, the route answers `503` |
 
 Every token is at least 16 characters and no token may be given twice; the
 service refuses to start otherwise. Tokens are kept as SHA-256 and compared in
@@ -224,6 +225,68 @@ the client sends nothing.
 The admin overview shows the count ("Offline now"), from
 `GET /ui/api/admin/offline` (`{"offline_now": n, "window_secs": 150}`), for a
 signed-in admin; it needs no gateway console.
+
+### The landing page's contact form: `POST /site/contact`
+
+The landing page (`web/site`, `#contact`) has a form for a message to the
+people behind Baylee. The page is served from the gateway's host, the
+service from its own, so the form posts across origins with `fetch`; the
+page's CSP names the service in `connect-src` (`scripts/server/site.caddy`).
+Off until `FEEDBACK_CONTACT_ORIGINS` is set. The body, every field named
+and no other taken:
+
+```json
+{
+  "name": "…" | null,      // optional, at most 100 characters, no control character
+  "email": "…" | null,     // optional, at most 254, one @ and a dot after it, no whitespace
+  "message": "…",          // 1–5000 characters after trimming; line breaks and tabs only
+  "language": "en" | "de", // the page's language when it was sent
+  "website": ""            // the honeypot: the page hides it from people
+}
+```
+
+| answer | when |
+| --- | --- |
+| `201 {"ok": true}` | taken; also when `website` is filled, and then nothing is stored |
+| `400` | not JSON, an unknown field, an empty message, a malformed name or address, another language |
+| `403` | the request's `Origin` is missing or not one of `FEEDBACK_CONTACT_ORIGINS` |
+| `413` | a field over its bound, or the body over 32 KiB |
+| `429` | 5 messages from one address in the last hour, or 100 from everyone together |
+| `503` | `FEEDBACK_CONTACT_ORIGINS` is not set |
+
+Every answer says `Vary: Origin` and names the asking origin in
+`Access-Control-Allow-Origin` only when it is a configured one, never with
+credentials; the preflight (`OPTIONS`) answers `204` to those and `403` to
+any other. A browser always sends an `Origin` with such a `fetch`, so a
+request without one is refused too. The allowance counts every request
+past the origin check, a refused one too, in memory only, under the address
+the direct reports use (`X-Forwarded-For` from a trusted proxy, else the
+peer), never written down or logged. There is no CAPTCHA and no third
+party: the honeypot, the allowances and the bounds are the defence.
+
+What is stored (`feedback_contact`): the message, the name and the address
+if given (blanks are none), the language, when it came, whether an admin
+has dealt with it (`new` or `done`, and since when). Nothing about the
+request. A message is deleted 90 days after it was marked done and a year
+after it came in any case (`contact::sweep`, run before a message is taken
+and before the list is read), or earlier by an admin. The log says that a
+message was taken, by id only.
+
+The admins read them in the web UI's *Contact* page (`/contact`, every
+admin, no gateway console needed):
+
+| route | what |
+| --- | --- |
+| `GET /ui/api/contact?status=new\|done` | `{"open", "total", "messages": […]}`: the newest 500 the filter matches, and how many are open |
+| `GET /ui/api/contact/{id}` | one message with its `audit` |
+| `PATCH /ui/api/contact/{id}` | `{"status": "new" \| "done"}`; answers the message |
+| `DELETE /ui/api/contact/{id}` | `204` |
+
+A change and a deletion are audit rows (`feedback_audit.contact_id`, the
+admin, the time, `status` with the new status or `delete`), never with the
+text or the address; they outlive the message. The console's audit list
+leaves them out. An answer goes by the admin's own mail (the page's
+*Reply by e-mail* is a `mailto:` link); the service sends no mail.
 
 ### References in the text
 
@@ -405,6 +468,7 @@ route below is `401`.
 | `GET /ui/api/stats` | `{"days": 30, "rows": [{"day", "kind", "count"}]}`: reports per UTC day and kind over the last 30 days, by day then kind, for the overview's chart of bugs and crashes; counts only |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
 | `/ui/api/admin/…` | the admin console, below |
+| `/ui/api/contact…` | the landing page's contact messages, above |
 
 The UI links an issue by number and opens GitHub's own "new issue" page;
 the admin submits it there. The service holds no GitHub token and never
@@ -593,6 +657,12 @@ served.
   It has no column for an address or a player's name, and no request's
   address is logged. A direct report's pseudonym is the device's, keyed;
   the addresses its allowance counts are in memory for an hour.
+- **A contact message** from the landing page is kept as typed (the name
+  and the address only if given), with its language and when it came,
+  until 90 days after an admin marked it done, a year after it came at the
+  latest, or until an admin deletes it. Its audit rows (who changed or
+  deleted it, when) hold neither its text nor its address and are kept.
+  The addresses its allowance counts are in memory for an hour.
 - **The client** keeps the records of the last 20 games it hosted itself
   (at most 64 MiB together, gzipped) in `records/` beside its settings, and
   the random device id it sends direct reports under in its settings file.
@@ -623,6 +693,7 @@ FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
+FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
 FEEDBACK_GATEWAY_ADMIN_TOKEN=<the gateway's BAYLEE_ADMIN_TOKEN>
 RUST_LOG=info
@@ -637,6 +708,10 @@ lines to the second, and leaves both files `0600`; the token is never
 printed or put on a command line. The service restarts with it at once,
 the gateway when `finish` restarts it (until then the Overview says the
 gateway did not answer).
+
+The contact form needs `POST /site/contact` on the public site too (the
+same Caddy file) and the landing page's CSP naming the service
+(`scripts/server/site.caddy`, `connect-src`).
 
 Direct reports also need the route on the public site
 (`scripts/server/feedback-direct.caddy`, whose header says how to install

@@ -921,7 +921,7 @@ async fn audit(
             db.get_database_backend(),
             format!(
                 "SELECT to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS at, \
-                     actor, action, detail FROM feedback_audit WHERE report_id IS NULL \
+                     actor, action, detail FROM feedback_audit WHERE report_id IS NULL AND contact_id IS NULL \
                  ORDER BY at DESC, id DESC LIMIT {AUDIT_ROWS}"
             ),
         ))

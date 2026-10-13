@@ -4,7 +4,10 @@ The page an admin triages player reports on, at
 `https://feedback.baylee.acevik.de/`. It is a React app built to static
 files that `baylee-feedback` serves itself from `FEEDBACK_WEB_DIR`, and it
 talks only to that service's `/ui/api/…` routes (`docs/feedback.md` §"The
-web UI"). `cargo build` never needs node: without a build, or with
+web UI"). Besides the reports it has a *Contact* page (`/contact`) for the
+messages from the landing page's contact form: read, answer by mail,
+mark done, delete (`docs/feedback.md` §"The landing page's contact
+form"). `cargo build` never needs node: without a build, or with
 `FEEDBACK_WEB_DIR` unset, the service simply serves no page.
 
 ```sh

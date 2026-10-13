@@ -7,7 +7,14 @@
 //      last commit, stars, open issues); answers are kept in sessionStorage
 //      for a while, because GitHub allows 60 requests an hour per address;
 //   3. the gateway's own `/info` and `/health`, which exist only where the
-//      gateway serves this page.
+//      gateway serves this page;
+//   4. the motion: the hero's layers at their own pace (parallax), sections
+//      that come up as they are read, the bar that frosts once the page
+//      moves, the menu on narrow screens, the light that follows the
+//      pointer over a panel, the ring a click leaves, the screenshots large;
+//      all of it transform and opacity, and none under prefers-reduced-motion;
+//   5. the contact form, sent with fetch to the feedback service
+//      (docs/feedback.md §"The landing page's contact form").
 //
 // Nothing here identifies the visitor to anyone. No token, no cookie. The
 // page's CSP allows no inline script, so everything lives in this file.
@@ -21,6 +28,8 @@
   var root = document.documentElement;
   var query = new URLSearchParams(location.search);
   var lang = "en";
+  root.setAttribute("data-js", "");
+  var still = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
 
   // ------------------------------------------------------------ language
   var theme = query.get("theme");
@@ -246,7 +255,7 @@
       var p = PLATFORMS[i];
       var list = files[p.id] || [];
       if (!list.length && p.id !== "mac-x64") continue; // a platform the release lacks is said below the rows instead
-      var card = el("div", { class: "plat" + (mine && mine.id === p.id ? " mine" : "") });
+      var card = el("div", { class: "plat glass reveal in" + (mine && mine.id === p.id ? " mine" : "") });
       var name = el("div", { class: "plat-name" });
       name.appendChild(t(p.name[0], p.name[1]));
       if (mine && mine.id === p.id) { var tag = el("span", { class: "mine-tag" }); tag.appendChild(t("your system", "dein System")); name.appendChild(tag); }
@@ -480,6 +489,321 @@
     var running = h.games.running | 0, waiting = h.games.waiting | 0;
     setKV("gateway-card", "games", [t(running + " running, " + waiting + " waiting for players", running + " laufen, " + waiting + " warten auf Spieler")]);
   });
+
+  // ------------------------------------------------------------ motion
+  // Everything here moves with transform and opacity only, from one
+  // requestAnimationFrame per frame at most, and does nothing at all when
+  // the visitor asks for reduced motion.
+  var motion = (function () {
+    var calm = function () { return still.matches; };
+    var io = window.IntersectionObserver;
+
+    // the bar frosts once the page has moved; the section in view is marked
+    var top = document.querySelector(".top");
+    var hero = document.querySelector(".hero");
+    function frost() {
+      var y = window.scrollY || window.pageYOffset;
+      if (top) top.classList.toggle("solid", y > (hero ? Math.min(hero.offsetHeight * 0.55, 420) : 40));
+    }
+    frost();
+
+    // the hero's layers, each at its own pace (data-speed: how far it follows
+    // the scroll; data-tilt: how many pixels it leans with the pointer)
+    var layers = [].slice.call(document.querySelectorAll(".sky .layer")).map(function (n) {
+      return { n: n, speed: parseFloat(n.getAttribute("data-speed")) || 0, tilt: parseFloat(n.getAttribute("data-tilt")) || 0 };
+    });
+    var inner = document.getElementById("hero-inner");
+    var heroSeen = true, queued = false, px = 0, py = 0, tx = 0, ty = 0;
+    function paint() {
+      queued = false;
+      frost();
+      if (calm() || !hero || !heroSeen) return;
+      var y = Math.max(0, window.scrollY || window.pageYOffset);
+      var h = hero.offsetHeight || 1;
+      // the pointer's lean eases towards where the pointer is
+      tx += (px - tx) * 0.12; ty += (py - ty) * 0.12;
+      for (var i = 0; i < layers.length; i++) {
+        var L = layers[i];
+        L.n.style.transform = "translate3d(" + (-tx * L.tilt).toFixed(2) + "px," + (y * L.speed - ty * L.tilt).toFixed(2) + "px,0)";
+      }
+      if (inner) {
+        var k = Math.min(1, y / (h * 0.7));
+        // on a phone the text stays put and only fades: the status cards
+        // below it would otherwise slide over it
+        inner.style.transform = window.innerWidth > 700 ? "translate3d(0," + (y * 0.18).toFixed(2) + "px,0)" : "";
+        inner.style.opacity = String(1 - k * 0.85);
+      }
+      if (Math.abs(px - tx) > 0.001 || Math.abs(py - ty) > 0.001) queue();
+    }
+    function queue() { if (!queued) { queued = true; requestAnimationFrame(paint); } }
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue, { passive: true });
+    if (hero && io) new io(function (e) { heroSeen = e[0].isIntersecting; if (heroSeen) queue(); }).observe(hero);
+    var fine = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (hero && fine) {
+      hero.addEventListener("pointermove", function (e) {
+        var r = hero.getBoundingClientRect();
+        px = (e.clientX - r.left) / r.width - 0.5;
+        py = (e.clientY - r.top) / r.height - 0.5;
+        queue();
+      }, { passive: true });
+      hero.addEventListener("pointerleave", function () { px = 0; py = 0; queue(); });
+    }
+    function settle() {
+      // reduced motion switched on while the page is open: put everything back
+      if (!calm()) { queue(); return; }
+      for (var i = 0; i < layers.length; i++) layers[i].n.style.transform = "";
+      if (inner) { inner.style.transform = ""; inner.style.opacity = ""; }
+    }
+    if (still.addEventListener) still.addEventListener("change", settle);
+    queue();
+
+    // sections come up as they are read: only what is below the fold when
+    // the page opens, so nothing on screen ever blinks away and back
+    var REVEAL = ".section .eyebrow, .section h2, .section-lead, .two-col > div, .features > li, .shots > li, .numbers > div, .sets-block > h3, .legend, .install-notes > div, .channels > li";
+    function reveal() {
+      if (!io || calm()) return;
+      var seen = new io(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (!entries[i].isIntersecting) continue;
+          entries[i].target.classList.add("in");
+          seen.unobserve(entries[i].target);
+        }
+      }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+      var all = document.querySelectorAll(REVEAL);
+      var fold = window.innerHeight;
+      for (var i = 0; i < all.length; i++) {
+        var n = all[i];
+        if (n.getBoundingClientRect().top < fold) continue;
+        // siblings in one grid follow each other a moment apart
+        var idx = [].indexOf.call(n.parentNode.children, n);
+        n.style.setProperty("--d", String(Math.min(idx, 8)));
+        n.classList.add("reveal");
+        seen.observe(n);
+      }
+    }
+    reveal();
+
+    // a set's progress bar grows when its row comes into view
+    var grower = io && new io(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].isIntersecting) continue;
+        entries[i].target.parentNode.classList.add("shown");
+        grower.unobserve(entries[i].target);
+      }
+    }, { threshold: 0.5 });
+    // the summary line is watched, not the row: an open set is far taller
+    // than the screen
+    function grow(row) {
+      if (!grower || calm()) { row.classList.add("shown"); return; }
+      grower.observe(row.firstChild);
+    }
+
+    // a number counts up to itself the first time it is seen
+    function countTo(dt, value) {
+      if (!dt) return;
+      var draw = function (v) { clear(dt); dt.appendChild(numT(Math.round(v))); };
+      if (!io || calm()) { draw(value); return; }
+      var r = dt.getBoundingClientRect();
+      if (r.top < window.innerHeight && r.bottom > 0) { draw(value); return; }
+      draw(0);
+      var o = new io(function (e) {
+        if (!e[0].isIntersecting) return;
+        o.disconnect();
+        var start = performance.now(), span = 1300;
+        (function step(now) {
+          var t = Math.min(1, (now - start) / span);
+          draw(value * (1 - Math.pow(1 - t, 3)));
+          if (t < 1) requestAnimationFrame(step);
+        })(start);
+      }, { threshold: 0.6 });
+      o.observe(dt);
+    }
+
+    // the light that follows the pointer over a panel
+    document.addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse") return;
+      var g = e.target.closest && e.target.closest(".glass");
+      if (!g) return;
+      var r = g.getBoundingClientRect();
+      g.style.setProperty("--mx", (e.clientX - r.left).toFixed(0) + "px");
+      g.style.setProperty("--my", (e.clientY - r.top).toFixed(0) + "px");
+    }, { passive: true });
+
+    // a click leaves a ring of light where it landed
+    document.addEventListener("pointerdown", function (e) {
+      if (calm()) return;
+      var b = e.target.closest && e.target.closest(".button, .lang-btn, .cfilter-btn");
+      if (!b || !b.classList.contains("button")) return;
+      var r = b.getBoundingClientRect();
+      var dot = el("span", { class: "ripple", "aria-hidden": "true" });
+      dot.style.left = (e.clientX - r.left) + "px";
+      dot.style.top = (e.clientY - r.top) + "px";
+      b.appendChild(dot);
+      setTimeout(function () { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 700);
+    });
+
+    // the menu on narrow screens
+    var menu = document.querySelector(".menu-btn"), nav = document.getElementById("nav");
+    function setMenu(open) {
+      if (!menu || !nav) return;
+      menu.setAttribute("aria-expanded", open ? "true" : "false");
+      nav.classList.toggle("open", open);
+      if (open && top) top.classList.add("solid");
+      else frost();
+    }
+    if (menu && nav) {
+      menu.addEventListener("click", function () { setMenu(menu.getAttribute("aria-expanded") !== "true"); });
+      nav.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) setMenu(false); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && menu.getAttribute("aria-expanded") === "true") { setMenu(false); menu.focus(); }
+      });
+      document.addEventListener("click", function (e) {
+        if (menu.getAttribute("aria-expanded") === "true" && !(e.target.closest && e.target.closest(".top"))) setMenu(false);
+      });
+    }
+
+    // the section in view, marked in the bar
+    var links = nav ? nav.querySelectorAll("a[href^='#']") : [];
+    if (io && links.length) {
+      var byId = {};
+      for (var li = 0; li < links.length; li++) byId[links[li].getAttribute("href").slice(1)] = links[li];
+      var spy = new io(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          var a = byId[entries[i].target.id];
+          if (!a || !entries[i].isIntersecting) continue;
+          for (var j = 0; j < links.length; j++) { links[j].classList.remove("here"); links[j].removeAttribute("aria-current"); }
+          a.classList.add("here");
+          a.setAttribute("aria-current", "location");
+        }
+      }, { rootMargin: "-45% 0px -50% 0px" });
+      for (var id in byId) { var sec = document.getElementById(id); if (sec) spy.observe(sec); }
+    }
+
+    // the screenshots, large
+    var box = document.getElementById("lightbox");
+    var shots = [].slice.call(document.querySelectorAll(".shot-link"));
+    var at = 0;
+    function show(i) {
+      if (!box) return;
+      at = (i + shots.length) % shots.length;
+      var a = shots[at], img = a.querySelector("img");
+      var big = document.getElementById("lightbox-img");
+      big.src = a.getAttribute("href");
+      big.alt = img ? img.alt : "";
+      var cap = document.getElementById("lightbox-cap");
+      clear(cap);
+      var fc = a.parentNode.querySelector("figcaption");
+      if (fc) for (var c = 0; c < fc.childNodes.length; c++) cap.appendChild(fc.childNodes[c].cloneNode(true));
+    }
+    if (box && box.showModal && shots.length) {
+      shots.forEach(function (a, i) {
+        a.addEventListener("click", function (e) {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          show(i);
+          box.showModal();
+        });
+      });
+      document.getElementById("lightbox-close").addEventListener("click", function () { box.close(); });
+      document.getElementById("lightbox-prev").addEventListener("click", function () { show(at - 1); });
+      document.getElementById("lightbox-next").addEventListener("click", function () { show(at + 1); });
+      box.addEventListener("click", function (e) { if (e.target === box) box.close(); });
+      box.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowLeft") show(at - 1);
+        else if (e.key === "ArrowRight") show(at + 1);
+      });
+      box.addEventListener("close", function () { shots[at].focus(); });
+    }
+
+    return { grow: grow, countTo: countTo };
+  })();
+
+  // ------------------------------------------------------------ the contact form
+  // Sent with fetch as JSON to the feedback service (docs/feedback.md
+  // §"The landing page's contact form"), whose address is the form's
+  // data-endpoint; a page served from this machine for a try uses the
+  // local service instead. Nothing is kept in the browser.
+  (function contact() {
+    var form = document.getElementById("contact-form");
+    if (!form || !window.fetch) return;
+    var card = document.getElementById("contact-card");
+    var msg = document.getElementById("c-message"), email = document.getElementById("c-email");
+    var count = document.getElementById("c-count"), status = document.getElementById("c-status");
+    var send = document.getElementById("c-send");
+    var MAX = 5000;
+    var loopback = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    var endpoint = (loopback && form.getAttribute("data-endpoint-local")) || form.getAttribute("data-endpoint");
+
+    function counted() {
+      var n = msg.value.length;
+      count.textContent = num(n) + " / " + num(MAX);
+      count.classList.toggle("near", n > MAX * 0.9);
+    }
+    msg.addEventListener("input", function () { counted(); msg.removeAttribute("aria-invalid"); });
+    email.addEventListener("input", function () { email.removeAttribute("aria-invalid"); });
+    redraw.push(counted);
+    counted();
+
+    function say(cls, en, de) {
+      status.className = "form-status" + (cls ? " " + cls : "");
+      clear(status);
+      if (en) status.appendChild(t(en, de));
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var text = msg.value.trim();
+      var mail = email.value.trim();
+      if (!text) {
+        msg.setAttribute("aria-invalid", "true");
+        say("bad", "Please write a message first.", "Bitte schreib zuerst eine Nachricht.");
+        msg.focus();
+        return;
+      }
+      if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+        email.setAttribute("aria-invalid", "true");
+        say("bad", "That e-mail address does not look right. Leave it empty if you want no answer.", "Diese E-Mail-Adresse sieht nicht richtig aus. Lass sie leer, wenn du keine Antwort willst.");
+        email.focus();
+        return;
+      }
+      var body = {
+        name: document.getElementById("c-name").value.trim() || null,
+        email: mail || null,
+        message: text,
+        language: lang,
+        website: document.getElementById("c-website").value
+      };
+      send.setAttribute("aria-busy", "true");
+      send.disabled = true;
+      say("", "Sending…", "Wird gesendet …");
+      fetch(endpoint, {
+        method: "POST", credentials: "omit", referrerPolicy: "no-referrer", mode: "cors",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+      }).then(function (r) {
+        if (r.status === 201) {
+          form.reset();
+          counted();
+          say("", "", "");
+          card.classList.add("sent");
+          var done = document.getElementById("contact-done");
+          if (done) done.focus();
+          return;
+        }
+        if (r.status === 429) say("bad", "Too many messages from here in the last hour. Please try again later.", "Zu viele Nachrichten von hier in der letzten Stunde. Bitte versuch es später noch einmal.");
+        else if (r.status === 400 || r.status === 413) say("bad", "The message was not accepted. Is it shorter than 5,000 characters, and the address a real one?", "Die Nachricht wurde nicht angenommen. Ist sie kürzer als 5.000 Zeichen und die Adresse eine echte?");
+        else say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
+      }).catch(function () {
+        say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
+      }).then(function () {
+        send.removeAttribute("aria-busy");
+        send.disabled = false;
+      });
+    });
+    var again = document.getElementById("c-again");
+    if (again) again.addEventListener("click", function () { card.classList.remove("sent"); msg.focus(); });
+  })();
+
   // ------------------------------------------------------------ sets and card status
   // data/sets.json (scripts/site/card_status.py) lists every set in release
   // order with its counts; a set's cards are in data/sets/set-<code>.json and
@@ -644,6 +968,7 @@
     d.setAttribute("data-search", (s.name + " " + s.code).toLowerCase());
     d.setAttribute("data-started", s.implemented + s.partial > 0 ? "1" : "0");
     d.addEventListener("toggle", function () { if (d.open) openSet(d, s); });
+    motion.grow(d);
     return d;
   }
 
@@ -655,9 +980,9 @@
       .then(function (doc) {
         var tot = doc.totals, all = doc.corpus - tot.never;
         var full = document.getElementById("num-full"), part = document.getElementById("num-partial"), corp = document.getElementById("num-corpus");
-        if (full) { clear(full); full.appendChild(numT(tot.implemented)); }
-        if (part) { clear(part); part.appendChild(numT(tot.partial)); }
-        if (corp) { clear(corp); corp.appendChild(numT(all)); }
+        motion.countTo(full, tot.implemented);
+        motion.countTo(part, tot.partial);
+        motion.countTo(corp, all);
         var total = document.getElementById("sets-total");
         if (total) {
           clear(total);

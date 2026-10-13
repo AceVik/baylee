@@ -642,6 +642,8 @@ async fn every_ui_route_refuses_without_a_session() {
     let id = service
         .hand_in(GATEWAY, report("bug", "ab12", "text", true))
         .await;
+    // A message that does not exist: a session is asked for before that.
+    let contact = Uuid::now_v7();
     let routes = [
         ("GET", "/ui/api/me".to_owned(), None),
         ("GET", "/ui/api/facets".to_owned(), None),
@@ -656,6 +658,14 @@ async fn every_ui_route_refuses_without_a_session() {
             Some(r#"{"status":"resolved"}"#.to_owned()),
         ),
         ("DELETE", format!("/ui/api/reports/{id}"), None),
+        ("GET", "/ui/api/contact".to_owned(), None),
+        ("GET", format!("/ui/api/contact/{contact}"), None),
+        (
+            "PATCH",
+            format!("/ui/api/contact/{contact}"),
+            Some(r#"{"status":"done"}"#.to_owned()),
+        ),
+        ("DELETE", format!("/ui/api/contact/{contact}"), None),
         ("POST", "/ui/api/logout".to_owned(), None),
     ];
     let bogus = format!("{}={}", ui::COOKIE, "0".repeat(64));

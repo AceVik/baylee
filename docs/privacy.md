@@ -37,6 +37,7 @@ the pointers, because line numbers move.
 | A report the player sends | leaves the device for the gateway (`POST /reports`), or, signed in nowhere, for the feedback service (`POST /client/reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
 | Record of a game the client hosted (against the house) | the player's device, `records/` beside the settings (native only) | the last 20 games, at most 64 MiB together | the client, oldest first; the player |
 | Anonymous offline count: one random value per offline game, nothing else (`POST /client/alive`) | leaves the device for the feedback service once a minute while a game it hosts runs; kept in the service's memory | 150 s after the last beat; a restart forgets it | switching "Send anonymous usage count" off (Settings › Privacy & Data; default on); no feedback service known sends nothing |
+| A message sent with the landing page's contact form (its text, the name and e-mail address only if given, the page's language, when) | the feedback service's Postgres, `feedback_contact` | 90 days after an admin marked it done, a year after it came at most | `contact::sweep` (before a message is taken and before the list is read); an admin's deletion. See [Contact messages](#contact-messages) |
 | Device id for direct reports (random) | the player's device, `client-settings.json` (`report_device`) | until the player removes it | the player |
 | Which terms version this device accepted at each gateway (a copy) | the player's device, `client-settings.json` (`terms`, by gateway address) | until the next acceptance there replaces it | the player |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
@@ -745,6 +746,32 @@ report once it has it is theirs to describe.
 - **Game records (#315):** the gateway keeps each game's full record in
   its database without a time limit; the record numbers its seats and
   names nobody (see "Game records and reports" above).
+
+## Contact messages
+
+The landing page at the gateway's host (`web/site`, `#contact`) has a form
+that posts, from the visitor's browser, to the feedback service's
+`POST /site/contact` (`crates/baylee-feedback/src/contact.rs`,
+`docs/feedback.md` §"The landing page's contact form").
+
+| What | Where | Kept | Removed by |
+| --- | --- | --- | --- |
+| The message, the name and the e-mail address if given (a blank one is none), the page's language (`en`/`de`), when it came, whether and since when an admin marked it done | the feedback service's Postgres, `feedback_contact` | 90 days after it was marked done (`contact::DONE_KEPT`), 365 days after it came at most (`contact::KEPT`) | `contact::sweep`, run before each message is taken and each time the admins' list is read; `DELETE /ui/api/contact/{id}` by an admin |
+| Who changed or deleted a message, when, and to what status (never its text or address) | `feedback_audit` (`contact_id`) | indefinitely, also after the message is gone | nothing yet |
+| Messages per address and in all (the honeypot's and the refused ones too) | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
+
+- **Nothing about the request is stored:** no address, no user agent, no
+  cookie, no device id. The log line says that a message was taken, by id.
+- **The name and the address are optional,** and the form says so; the
+  address is there only to answer. An answer is written by an admin from
+  their own mail; the service sends no mail and passes nothing on.
+- **A filled honeypot** (a field hidden from people) is answered as taken
+  and nothing is stored.
+- **The page says it beside the form,** in both languages, with a link
+  here: what is kept, that no IP address, cookie or tracker is involved,
+  and the two time limits.
+- **Who can read them:** the admins of the feedback service's web UI
+  (`baylee-feedback admin add`), signed in.
 
 ## Open points
 

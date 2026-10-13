@@ -8,6 +8,8 @@
 //! - `GET /ui/api/reports/{id}`, `…/record`, `…/audit`.
 //! - `PATCH /ui/api/reports/{id}` `{status?, issue?}`, `DELETE …`.
 //! - `GET /ui/api/facets`: the gateways, reporters and statuses there are.
+//! - `GET /ui/api/contact`, `GET/PATCH/DELETE /ui/api/contact/{id}`: the
+//!   landing page's contact messages (`crate::contact`).
 //!
 //! A session is a random 256-bit token in an `HttpOnly; Secure;
 //! SameSite=Strict` cookie, kept in the database only as its SHA-256. It
@@ -78,6 +80,8 @@ pub struct Ui {
     direct: Mutex<crate::direct::Allowance>,
     /// Offline-game beats per address and in all (`crate::alive`).
     alive: Mutex<crate::direct::Allowance>,
+    /// Contact messages per address and in all (`crate::contact`).
+    contact: Mutex<crate::direct::Allowance>,
     /// The offline games heard from lately (`crate::alive`).
     presence: Mutex<crate::alive::Presence>,
 }
@@ -91,6 +95,7 @@ impl Default for Ui {
             limiter: Mutex::new(Limiter::default()),
             direct: Mutex::new(crate::direct::Allowance::default()),
             alive: Mutex::new(crate::direct::Allowance::default()),
+            contact: Mutex::new(crate::direct::Allowance::default()),
             presence: Mutex::new(crate::alive::Presence::default()),
         }
     }
@@ -195,6 +200,20 @@ impl Ui {
             .lock()
             .expect("the presence is never poisoned")
             .count(now)
+    }
+
+    /// Whether a contact message from `address` may be taken now; counted.
+    pub(crate) fn allow_contact(&self, address: &str) -> bool {
+        let now = self.now();
+        self.contact
+            .lock()
+            .expect("the allowance is never poisoned")
+            .take_within(
+                address,
+                now,
+                crate::contact::PER_ADDRESS,
+                crate::contact::PER_SERVICE,
+            )
     }
 
     /// Whether a direct report from `address` may be taken now; counted.
@@ -461,6 +480,7 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/reports/{id}/audit", get(audit_trail))
         .merge(crate::console::routes())
         .merge(crate::moderation::routes())
+        .merge(crate::contact::routes())
         .route("/ui/api/{*rest}", axum::routing::any(no_such_route))
 }
 
