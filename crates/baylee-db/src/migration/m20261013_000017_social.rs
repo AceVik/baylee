@@ -93,6 +93,9 @@ const UP: &[&str] = &[
          PRIMARY KEY (group_id, account_id) \
      )",
     "CREATE INDEX IF NOT EXISTS group_invite_account ON group_invite (account_id)",
+    // Deleting an account asks this table for the invites it sent, too
+    // (`every_link_to_an_account_is_indexed`).
+    "CREATE INDEX IF NOT EXISTS group_invite_inviter ON group_invite (inviter_id)",
     "CREATE TABLE IF NOT EXISTS chat_message ( \
          id uuid PRIMARY KEY, \
          conv text NOT NULL, \
