@@ -134,3 +134,83 @@ fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
         "Hapatra marks, she is not marked"
     );
 }
+
+/// "you **may** put a -1/-1 counter on target creature", and "whenever you
+/// put one or more -1/-1 counters on a creature, create a 1/1 Snake". The
+/// target is named either way (CR 603.3d); answering the "may" with no puts no
+/// counter on it and, because no counter was placed, makes no Snake. The
+/// accepting run on the same board is the control that shows both happen.
+#[allow(clippy::too_many_lines)] // two combats played to damage, which is where the trigger lives
+#[test]
+fn hapatra_declining_the_may_places_no_counter_and_makes_no_snake() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    for accept in [true, false] {
+        let mut engine = Duel::new(97, forest())
+            .battlefield(0, &[hapatra_vizier_of_poisons(), llanowar_elves()])
+            .battlefield(1, &[sheoldred_the_apocalypse()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(
+            walk_to_own_main(&mut engine, p0),
+            "p0 reaches its own first main phase"
+        );
+        let hapatra = on_battlefield(&engine, p0, hapatra_vizier_of_poisons()).unwrap();
+        let mine = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+        let victim = on_battlefield(&engine, p1, sheoldred_the_apocalypse()).unwrap();
+        let permanents = engine.state().zones.list(ZoneLocation::Battlefield).len();
+
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+            unreachable!("the predicate just matched")
+        };
+        let defender = defenders.into_iter().next().expect("one defender");
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(hapatra, defender)],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseTargets { .. })
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![victim],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::YesNo { .. })
+        });
+        engine.apply(p0, PlayerAction::YesNo(accept)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert_eq!(
+            counters_on(&engine, victim, CounterKind::M1M1),
+            if accept { 1 } else { 0 },
+            "the -1/-1 counter is placed only when the \"may\" is accepted (accept = {accept})"
+        );
+        assert_eq!(
+            pt(&engine, victim),
+            if accept { (3, 4) } else { (4, 5) },
+            "and the victim is marked or untouched accordingly (accept = {accept})"
+        );
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Battlefield).len(),
+            permanents + usize::from(accept),
+            "a Snake token appears only because a -1/-1 counter was placed (accept = {accept})"
+        );
+        assert_eq!(
+            counters_on(&engine, mine, CounterKind::M1M1),
+            0,
+            "the counter, or its absence, is the named target's alone (accept = {accept})"
+        );
+    }
+}
