@@ -138,3 +138,28 @@ fn silundi_with_a_short_library_and_no_eligible_card_still_shows_every_inspected
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().zones.list(ZoneLocation::Library(p0)).len(), 2);
 }
+
+/// "{T}: Add {U}." — the back face's one mana ability, after "This land
+/// enters tapped".
+#[test]
+fn silundi_isle_enters_tapped_and_taps_for_exactly_one_blue() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) = play_land_face(silundi_vision(), 1).expect("plays as Silundi Isle");
+    assert!(
+        is_tapped(&engine, land),
+        "\"This land enters tapped\" pins the entry"
+    );
+    engine.dev_state_mut(p0).unwrap().set_tapped(land, false);
+    engine.refresh_offer();
+
+    activate(&mut engine, p0, silundi_vision(), 0);
+
+    assert!(is_tapped(&engine, land), "{{T}} is the cost of the ability");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "\"{{T}}: Add {{U}}\" adds one blue mana"
+    );
+    assert_eq!(pool.total(), 1, "and no mana of any other colour");
+}
