@@ -386,3 +386,64 @@ fn clive_s_hideaway_counts_legendary_creatures_only() {
     choose(&mut e, vec![card]);
     assert_eq!(e.state.object(card).unwrap().zone, Zone::Stack);
 }
+
+/// "…if each player has no cards in hand": the opponent's hand counts, not
+/// only yours. With your hand empty and one card in the opponent's, the
+/// ability resolves without a play or a permission and the card stays hidden
+/// in exile; once the opponent's hand is empty too, the same card plays free.
+#[test]
+fn hidden_exile_howltooth_hollow_waits_for_the_opponents_hand_to_empty_too() {
+    let (mut e, source, card) = hidden(index::HOWLTOOTH_HOLLOW, index::GRIZZLY_BEARS);
+    assert!(
+        e.state.zones.list(ZoneLocation::Hand(P0)).is_empty(),
+        "our hand is empty"
+    );
+    let spare = library(&e, P1)[0];
+    e.state
+        .move_object(
+            spare,
+            ZoneLocation::Hand(P1),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+    activate(&mut e, P0, index::HOWLTOOTH_HOLLOW, 2);
+    pass_until(&mut e, |e| playing(e) || stack_is_empty(e));
+    assert!(
+        !playing(&e),
+        "the opponent holds a card, so the exiled card may not be played"
+    );
+    assert_eq!(
+        e.state.object(card).unwrap().zone,
+        Zone::Exile,
+        "the hidden card stays in exile"
+    );
+    assert!(
+        crate::casting::play_permission(&e.state, P0, card).is_none(),
+        "and no permission lingers"
+    );
+
+    // The opponent's hand empties; the same ability, the same card.
+    e.state
+        .move_object(
+            spare,
+            ZoneLocation::Graveyard(P1),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    e.state.set_tapped(source, false);
+    e.refresh_offer();
+    activate(&mut e, P0, index::HOWLTOOTH_HOLLOW, 2);
+    pass_until(&mut e, |e| playing(e) || stack_is_empty(e));
+    assert!(playing(&e), "each hand empty: the card may be played");
+    choose(&mut e, vec![card]);
+    assert_eq!(e.state.object(card).unwrap().zone, Zone::Stack);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state.object(card).unwrap().zone,
+        Zone::Battlefield,
+        "played without paying its mana cost"
+    );
+}
