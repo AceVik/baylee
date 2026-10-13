@@ -141,13 +141,11 @@ fn an_opponents_third_spell_does_not_offer_the_transform() {
     );
 }
 
-/// "{2}{R}, {T}: Spitfire Bastion deals 3 damage to any target." — the back
-/// face's second ability, after a real transform. It deals exactly 3 to the
-/// player named, costs the {2}{R} and the tap, and a tapped Bastion cannot do
-/// it again however much mana floats.
-#[test]
-fn spitfire_bastion_deals_three_to_any_target_for_two_red_and_a_tap() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+/// The Cannons after their controller's third spell of the turn and a "yes" to
+/// the may-transform: Spitfire Bastion on the battlefield, the three Rituals'
+/// black mana still floating.
+fn a_spitfire_bastion() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
     let mut engine = Duel::new(111, swamp())
         .battlefield(0, &[vance_s_blasting_cannons(), swamp(), swamp(), swamp()])
         .hand(0, &[dark_ritual(), dark_ritual(), dark_ritual()])
@@ -177,6 +175,17 @@ fn spitfire_bastion_deals_three_to_any_target_for_two_red_and_a_tap() {
         "the Cannons turned over"
     );
     assert!(!is_tapped(&engine, bastion), "the Bastion is untapped");
+    (engine, bastion)
+}
+
+/// "{2}{R}, {T}: Spitfire Bastion deals 3 damage to any target." — the back
+/// face's second ability, after a real transform. It deals exactly 3 to the
+/// player named, costs the {2}{R} and the tap, and a tapped Bastion cannot do
+/// it again however much mana floats.
+#[test]
+fn spitfire_bastion_deals_three_to_any_target_for_two_red_and_a_tap() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, bastion) = a_spitfire_bastion();
 
     // {R} on top of the black the three Rituals left floating pays {2}{R}.
     engine.dev_state_mut(p0).unwrap().players[0]
