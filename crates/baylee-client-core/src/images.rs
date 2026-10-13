@@ -761,6 +761,19 @@ mod tests {
         ImageKey::new(PrintRef::new(print), 0, size)
     }
 
+    /// A rules face is a picture only on a card printed on both sides: face 1
+    /// of an Adventure, a split card or a prepared spell is one piece of
+    /// cardboard with one picture, and sending it to the `back` shelf was a
+    /// certain 404. Both branches: the second face of a two-sided card does
+    /// reach the back, and the first face never does.
+    #[test]
+    fn a_rules_face_is_the_back_picture_only_on_a_card_printed_twice() {
+        assert_eq!(Face::shown(0, false), Face::Front);
+        assert_eq!(Face::shown(1, false), Face::Front, "one picture, face 1");
+        assert_eq!(Face::shown(0, true), Face::Front);
+        assert_eq!(Face::shown(1, true), Face::Back, "a transform back");
+    }
+
     #[test]
     fn url_follows_the_scryfall_cdn_sharding_scheme() {
         let s = statics();
