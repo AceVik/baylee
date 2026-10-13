@@ -61,17 +61,18 @@ the same builds and uploads them as workflow artifacts, versioned
 
 `.github/workflows/client-packages.yml` is the one packaging recipe. Main CI
 links the two shipped binaries (`baylee-client`, `baylee-launch`) in `dist` on
-each of the five shipping targets, with `--workspace` as the selection so their
+each of the six shipping targets, with `--workspace` as the selection so their
 dependencies' features unify exactly as a whole-workspace build would, checks
 every target's code (`--all-targets`), and uploads the client/launcher archives.
-The Intel macOS link check stays in its own parallel job; the link of the other
-binaries on all five platforms is the nightly `build` matrix. PR and dispatched
+The Intel macOS link check of every binary stays in its own parallel job; the
+link of the other binaries on the five native platforms is the nightly `build`
+matrix. PR and dispatched
 runs cannot supply release archives.
 
 Each package artifact includes its archive, its installers, a SHA-256 checksum
 file for each and a manifest (schema 2) naming repository, commit, source CI
 run, version, architecture and every file's digest. Promotion
-checks the source run through GitHub's API, requires all five unexpired artifacts,
+checks the source run through GitHub's API, requires all six unexpired artifacts,
 and verifies every file and manifest before signing. It rejects unexpected
 files and wrong hashes; artifacts from another commit are never a fallback.
 The build number displayed by the client belongs to the **source CI run**, not
@@ -142,7 +143,7 @@ push run of the tagged commit green (§"Cutting one").
 
 | Trigger | Runs |
 | --- | --- |
-| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, wasm, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×5 |
+| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, wasm, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
 | main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
 | pull request | fmt, and as their inputs changed: clippy, test ×2, wasm, validate, deny, web-feedback |
 | pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
@@ -167,6 +168,10 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
+The `x86_64-apple-darwin` package row (added 12.10.2026) has no measurement
+yet; it is the arm row's work cross-compiled, so it starts with the arm row's
+105-minute timeout.
+
 Three jobs (bench, msrv, features) hung on 07.10.2026 for 228, 361 and 360
 minutes, all in `apt-get update` against a mirror that stopped answering; apt
 is now bounded in `.github/actions/linux-deps` and every job has a timeout.
@@ -184,7 +189,7 @@ job writes a table of them into the release notes
 
 | Target | Installer | Built with |
 | --- | --- | --- |
-| aarch64-apple-darwin | `Baylee-<version>-aarch64.dmg` | dmgbuild 1.6.7 (pip, hash-pinned) |
+| aarch64 / x86_64 macOS | `Baylee-<version>-{aarch64,x86_64}.dmg` | dmgbuild 1.6.7 (pip, hash-pinned) |
 | x86_64 / aarch64 Windows | `Baylee-Setup-<version>-{x64,arm64}.exe` | Inno Setup 7.1.0 |
 | x86_64 / aarch64 Linux | `Baylee-<version>-{x86_64,aarch64}.AppImage` | appimagetool 1.9.1, type2 runtime 20251108 |
 | x86_64 / aarch64 Linux | `baylee_<version>_{amd64,arm64}.deb` | the runner's `dpkg-deb` |
@@ -266,10 +271,22 @@ unpacked archive in place) wins over an older downloaded generation: the
 launcher starts the original whenever its own version is at least that of
 `current.json` (`launch::chosen`).
 
-No Intel macOS package: the shipping matrix has no `x86_64-apple-darwin`
-dist build. A universal app would not be cheap either, because the updater
-asks for the archive of its compiled target, so an Intel slice needs its own
-archive, matrix row (about half an hour per main push) and updater tests.
+**Intel Macs** (owner, 12.10.2026) get their own package, not a universal
+app: `x86_64-apple-darwin` is a sixth row of `client-packages.yml`,
+cross-compiled on the arm `macos-latest` runner (the macOS SDK carries both
+slices, so `rustup target add` is all it needs), packed by the same
+`package-client.sh` (ad hoc signature, `Baylee.app`) into
+`baylee-client-<version>-x86_64-apple-darwin.zip` and
+`Baylee-<version>-x86_64.dmg`. GitHub's x86_64 macOS images are retiring
+(`macos-13` sat 91 minutes in `queued` after its retirement;
+`macos-15-intel` is the last, until 2027), so the row does not depend on
+one: `check-installers.sh --install` starts the Intel app under Rosetta 2,
+which the row installs if the image lacks it, and checks with `lipo` that
+every program in each dmg is its target's one slice. The updater needs no
+change for it: a build asks for the archive of the target it was compiled
+for (`baylee_build::TARGET`), so an Intel build fetches the Intel archive and
+an arm build keeps the arm one. An Intel build started under Rosetta on an
+arm Mac stays on the Intel archive; nothing moves it to the arm one.
 
 **What signing would add.** macOS: an Apple Developer Program membership
 ("The Apple Developer Program is 99 USD per membership year",

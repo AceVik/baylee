@@ -133,6 +133,7 @@ updates itself wherever it may write its own folder
 | Windows, Intel/AMD 64-bit | `Baylee-Setup-<version>-x64.exe` | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
 | Windows on ARM | `Baylee-Setup-<version>-arm64.exe` | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
 | macOS, Apple silicon (M1 and later) | `Baylee-<version>-aarch64.dmg` | `baylee-client-<version>-aarch64-apple-darwin.zip` |
+| macOS, Intel | `Baylee-<version>-x86_64.dmg` | `baylee-client-<version>-x86_64-apple-darwin.zip` |
 | Linux, x86-64 | `Baylee-<version>-x86_64.AppImage` or `baylee_<version>_amd64.deb` | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
 | Linux, ARM64 | `Baylee-<version>-aarch64.AppImage` or `baylee_<version>_arm64.deb` | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
 
@@ -166,10 +167,12 @@ The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
 
 ### macOS
 
-Only **Apple silicon** Macs (M1 and later) are supported for now; there is no
-Intel build. macOS 11 or later is required.
+Apple silicon Macs (M1 and later) take the `aarch64` build, Intel Macs the
+`x86_64` one (Apple menu > About This Mac names the chip or processor).
+macOS 11 or later is required. Each build updates itself to the next
+release of the same kind.
 
-1. Open `Baylee-<version>-aarch64.dmg` and drag **Baylee** onto
+1. Open `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) and drag **Baylee** onto
    **Applications**. Then eject the disk image. With the zip instead,
    unpack it and drag `Baylee.app` into **Applications** the same way.
 2. Open Baylee from Applications. The first time, macOS refuses because the
@@ -259,7 +262,7 @@ file and its `.sha256` into the same folder and run:
 ```bash
 # Linux
 sha256sum -c Baylee-<version>-x86_64.AppImage.sha256
-# macOS
+# macOS (an Intel Mac: Baylee-<version>-x86_64.dmg.sha256)
 shasum -a 256 -c Baylee-<version>-aarch64.dmg.sha256
 ```
 

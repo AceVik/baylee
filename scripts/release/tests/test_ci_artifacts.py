@@ -184,6 +184,7 @@ class Provenance(unittest.TestCase):
             {name for t in ci.TARGETS for name in ci.names("0.1.0-beta.5", t)[1]},
             {
                 "Baylee-0.1.0-beta.5-aarch64.dmg",
+                "Baylee-0.1.0-beta.5-x86_64.dmg",
                 "Baylee-Setup-0.1.0-beta.5-x64.exe",
                 "Baylee-Setup-0.1.0-beta.5-arm64.exe",
                 "Baylee-0.1.0-beta.5-x86_64.AppImage",
