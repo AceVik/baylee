@@ -51,7 +51,6 @@ pub(super) fn stage(body: &str, duel: &mut Duel) -> String {
         turn: view.turn,
         repeat: 1,
         at: 0,
-        phase: None,
         event: LogEvent::Revealed { player, cards },
         phase: None,
     };
