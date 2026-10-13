@@ -2418,7 +2418,8 @@ impl GameState {
     /// — this is one walk of a short table and nothing else.
     pub fn board_state_changed(&mut self) {
         if self.effects.iter().any(|fx| {
-            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f))
+            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f)
+                | crate::effects::EffectFilter::DslAbout(f, ..) if filter_reads_board_state(f))
                 || modifier_reads_combat(fx.modifier)
         }) {
             self.invalidate_projections();

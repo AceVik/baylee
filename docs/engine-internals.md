@@ -1399,10 +1399,13 @@ still knows its Wall). While a second target is chosen (cast wizard,
 activation, the resolution-time legality check in `progress/stack.rs`) the
 reference is the first target, so `second_targets` may relate to it (Gauntlets
 of Chaos, Glyph of Delusion). A continuous effect whose filter reads the
-reference is bound to the objects it names as it resolves
-(`resolve::bound_now_with_context`, whatever the modifier): the reference is
-gone with the resolution (Feint's "that creature and each creature blocking
-it"). Nothing outside a resolution or a target choice has a reference, and
+reference keeps it: `EffectFilter::DslAbout(filter, id, version)` evaluates
+the filter with that object as the reference while it is still that object
+(Feint's "that creature and each creature blocking it" covers a later
+blocker, CR 611.2c); an effect that locks its set is bound to the objects as
+it resolves (`resolve::bound_now_with_context`). Castability and activation
+offers ask a relative second target per legal first target
+(`casting::second_is_reachable`, `Engine::ability_has_targets`). Nothing outside a resolution or a target choice has a reference, and
 there every such filter matches nothing.
 
 ### Tokens put onto the battlefield attacking (CR 508.4)

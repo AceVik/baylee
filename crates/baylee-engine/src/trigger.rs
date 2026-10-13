@@ -156,9 +156,13 @@ fn condition_matches(
     if !eval::condition_reads_event(condition) {
         return eval::condition_holds_with_context(state, you, context, condition);
     }
+    // The event's object as the event saw it: the permanent that moved, or
+    // the creature a blocker blocked (Wall of Caltrops' "that creature").
     let event = entry.and_then(|entry| {
-        let GameEvent::ZoneChanged { object, .. } = entry.event else {
-            return None;
+        let object = match entry.event {
+            GameEvent::ZoneChanged { object, .. } => object,
+            GameEvent::BecameBlocker { attacker, .. } => attacker,
+            _ => return None,
         };
         state
             .event_object_identity(object, entry.seq)
