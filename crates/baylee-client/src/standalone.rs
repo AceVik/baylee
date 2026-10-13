@@ -40,6 +40,10 @@ pub fn run() {
     // (twenty, at most 64 MB together), and nothing waits on it.
     #[cfg(not(target_arch = "wasm32"))]
     std::thread::spawn(crate::records::recover);
+    // A passive dev-control window is never the active app, so macOS would
+    // nap it (`devctl::keep_a_passive_window_awake`).
+    #[cfg(all(feature = "dev-control", target_os = "macos"))]
+    crate::devctl::keep_a_passive_window_awake();
     // Hot shader reload is watching from a root, and the wrong root reloads
     // nothing while looking exactly like the right one.
     #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]

@@ -247,6 +247,32 @@ pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
 }
 
+/// Keeps a passive window's process out of macOS App Nap.
+///
+/// Since bevy 0.20 an app whose windows all open unfocused is not activated
+/// at startup (`bevy_winit` asks for activation only when one is focused).
+/// A passive client is therefore never the active app, and behind other
+/// windows macOS naps it: measured on the M1 Max, scheduling priority 4
+/// against 47 for a 0.19 client started the same way, under a frame a
+/// second, and once a hang of minutes with the dev-control socket timing
+/// out, after "Play the house". A process activity for the run takes it out
+/// of App Nap without activating anything: no focus is taken and no window
+/// comes forward, which is what passive promises. The system may still
+/// sleep (`…AllowingIdleSystemSleep`).
+#[cfg(target_os = "macos")]
+pub(crate) fn keep_a_passive_window_awake() {
+    use objc2_foundation::{NSActivityOptions, NSProcessInfo, ns_string};
+    if !passive() {
+        return;
+    }
+    let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
+        NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+        ns_string!("a dev-control client watched from behind (BAYLEE_DEV_PASSIVE)"),
+    );
+    // The activity lasts as long as its token; this one lasts the process.
+    std::mem::forget(activity);
+}
+
 /// Whether a driven run stays silent: with `BAYLEE_DEV_CONTROL` set, the
 /// client installs no audio output unless `BAYLEE_DEV_SOUND=1` asks for it
 /// (owner, 13.10.2026: agents test the client without a sound). The score
