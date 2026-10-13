@@ -2,7 +2,7 @@ use super::*;
 use baylee_core::ids::PlayerId;
 use bevy::input::gestures::{PanGesture, PinchGesture};
 use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
-use bevy::picking::events::Scroll;
+use bevy::picking::events::PointerScroll;
 
 /// A laptop's window, in logical pixels.
 const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);
@@ -11,7 +11,7 @@ fn app(window: Vec2) -> App {
     let mut app = App::new();
     app.add_message::<MouseMotion>()
         .add_message::<MouseWheel>()
-        .add_message::<Pointer<Scroll>>()
+        .add_message::<PointerScroll>()
         .add_message::<PanGesture>()
         .add_message::<PinchGesture>()
         .init_resource::<ButtonInput<KeyCode>>()

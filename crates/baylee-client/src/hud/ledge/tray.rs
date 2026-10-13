@@ -86,6 +86,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 
 /// The gap between two buttons in the row, and between the row and the
 /// burger to its right.
@@ -327,7 +328,7 @@ fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             MenuButton {
                 action: MenuAction::ToggleAiLog,
@@ -371,7 +372,7 @@ fn chat_button(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             MenuButton {
                 action: MenuAction::ToggleChat,
@@ -447,7 +448,7 @@ fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             MenuButton {
                 action: MenuAction::ToggleLog,
@@ -505,7 +506,7 @@ fn zone_button(commands: &mut Commands, fonts: &UiFonts, open: bool, free: bool)
     if free {
         commands
             .entity(button)
-            .insert((TrayZones, Button, Feel::new(ground)));
+            .insert((TrayZones, LegacyButton, Feel::new(ground)));
     }
     button
 }
@@ -625,11 +626,11 @@ mod tests {
         };
         queue.apply(app.world_mut());
         assert!(
-            app.world().get::<Button>(held).is_none(),
+            app.world().get::<LegacyButton>(held).is_none(),
             "a held tray button still answers the pointer"
         );
         assert!(
-            app.world().get::<Button>(free).is_some(),
+            app.world().get::<LegacyButton>(free).is_some(),
             "a free tray button answers nothing"
         );
         assert!(

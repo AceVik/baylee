@@ -318,11 +318,11 @@ mod tests {
 
     /// The shader draws the dial at the model's radii: the compass the hands
     /// point at, the hub plate the number stands on, the stones' band and the
-    /// two hands' reach. Read off `felt.wgsl` itself, so a radius edited on
+    /// two hands' reach. Read off `felt.wesl` itself, so a radius edited on
     /// one side only fails here and not on a screenshot.
     #[test]
     fn the_shader_and_the_dial_model_agree() {
-        let wgsl = include_str!("shaders/felt.wgsl");
+        let wgsl = include_str!("shaders/felt.wesl");
         for (name, value) in [
             ("COMPASS_R", dial::COMPASS_R),
             ("HUB_R", dial::HUB_R),
@@ -334,7 +334,7 @@ mod tests {
             let line = wgsl
                 .lines()
                 .find(|l| l.starts_with(&format!("const {name}: f32 = ")))
-                .unwrap_or_else(|| panic!("{name} is not in felt.wgsl"));
+                .unwrap_or_else(|| panic!("{name} is not in felt.wesl"));
             let said: f32 = line
                 .rsplit("= ")
                 .next()
@@ -354,12 +354,12 @@ mod tests {
     /// the shader repeats them, so it is read here.
     #[test]
     fn the_hands_are_drawn_in_the_table_s_turn_and_priority_colours() {
-        let wgsl = include_str!("shaders/felt.wgsl");
+        let wgsl = include_str!("shaders/felt.wesl");
         for (name, ink) in [("IVORY", dial::TURN_INK), ("TEAL", dial::PRIORITY_INK)] {
             let line = wgsl
                 .lines()
                 .find(|l| l.starts_with(&format!("const {name}: vec3<f32> = vec3<f32>(")))
-                .unwrap_or_else(|| panic!("{name} is not in felt.wgsl"));
+                .unwrap_or_else(|| panic!("{name} is not in felt.wesl"));
             let said: Vec<f32> = line
                 .split_once("vec3<f32>(")
                 .and_then(|(_, rest)| rest.split_once(')'))
@@ -389,7 +389,7 @@ mod tests {
     /// change with this mask taken off (`docs/client.md`, the dial).
     #[test]
     fn nothing_of_a_hand_is_drawn_on_the_hub_plate() {
-        let wgsl = include_str!("shaders/felt.wgsl");
+        let wgsl = include_str!("shaders/felt.wesl");
         let body = |name: &str| {
             let start = wgsl
                 .find(&format!("fn {name}("))
@@ -421,7 +421,7 @@ mod tests {
     }
 
     /// Reduced motion and still ambient effects hold the dial's every
-    /// continuous light: in `felt.wgsl` the dial's functions read the clock
+    /// continuous light: in `felt.wesl` the dial's functions read the clock
     /// only through the still-able `t` (`STILL_AT` when the table holds
     /// still) or behind a `params.motion` gate — so a settled, still table
     /// draws the same frame twice (DESIGN-v8: two screenshots byte-identical),
@@ -429,7 +429,7 @@ mod tests {
     /// frozen mid-glint.
     #[test]
     fn the_dial_s_lights_stand_still_when_the_table_does() {
-        let wgsl = include_str!("shaders/felt.wgsl");
+        let wgsl = include_str!("shaders/felt.wesl");
         let start = wgsl.find("fn firewheel(").expect("the stones");
         let face = wgsl.find("fn clock_face(").expect("the face");
         let end = wgsl

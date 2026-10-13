@@ -14,7 +14,7 @@
 use baylee_client_core::tour::{
     Anchor, Check, Kind, Mode, Moved, Run, TableGate, Tour, offered_here, table_gate,
 };
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 use bevy::ui::UiGlobalTransform;
 
@@ -66,7 +66,7 @@ pub(super) fn tours(
     mut report: Option<ResMut<crate::report::ReportDesk>>,
     anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
     (mut clicks, buttons, parents): (
-        MessageReader<Pointer<Click>>,
+        MessageReader<PointerClick>,
         Query<&MenuButton>,
         Query<&ChildOf>,
     ),

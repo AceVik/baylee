@@ -25,6 +25,7 @@
 
 #[allow(clippy::wildcard_imports)] // the ledge's shared vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 
 use crate::replay::{Loading, ReplayAsk, ReplayStatus};
 use baylee_client_core::automation::RailRow;
@@ -385,10 +386,10 @@ fn spawn_timeline(
                     align_items: AlignItems::Center,
                     overflow: Overflow::clip(),
                     border_radius: BorderRadius {
-                        top_left: radius(i == 0),
-                        bottom_left: radius(i == 0),
-                        top_right: radius(i == last),
-                        bottom_right: radius(i == last),
+                        top_left: radius(i == 0).into(),
+                        bottom_left: radius(i == 0).into(),
+                        top_right: radius(i == last).into(),
+                        bottom_right: radius(i == last).into(),
                     },
                     ..default()
                 },
@@ -724,8 +725,8 @@ fn spawn_controls(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) -> E
 }
 
 /// A press on a bar control: its ask for [`drive`], and nothing under it.
-fn asks_on_click(ask: BarAsk) -> impl Fn(On<Pointer<Click>>, ResMut<ReplayAsks>) {
-    move |mut click: On<Pointer<Click>>, mut asks: ResMut<ReplayAsks>| {
+fn asks_on_click(ask: BarAsk) -> impl Fn(On<PointerClick>, ResMut<ReplayAsks>) {
+    move |mut click: On<PointerClick>, mut asks: ResMut<ReplayAsks>| {
         click.propagate(false);
         asks.0.push(ask);
     }
@@ -753,7 +754,7 @@ fn round(
     };
     commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 width: px(side),
                 height: px(side),
@@ -793,7 +794,7 @@ fn pill(commands: &mut Commands, fonts: &UiFonts, words: &str, on: bool, ask: Ba
     };
     commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 min_width: px(28.0),
                 height: px(22.0),
@@ -839,7 +840,7 @@ fn chip(commands: &mut Commands, fonts: &UiFonts, look: Chip, ask: BarAsk) -> En
     };
     let chip = commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 height: px(26.0),
                 padding: UiRect::horizontal(px(10.0)),
@@ -949,7 +950,7 @@ fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
         let ground = if on { palette::DIALOG_LIT } else { Color::NONE };
         let row = commands
             .spawn((
-                Button,
+                LegacyButton,
                 Node {
                     height: px(30.0),
                     padding: UiRect::horizontal(px(10.0)),
@@ -1105,7 +1106,7 @@ fn spawn_sheet(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
         );
         commands
             .entity(back)
-            .observe(|mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>| {
+            .observe(|mut click: On<PointerClick>, mut duel: ResMut<Duel>| {
                 click.propagate(false);
                 duel.leave_asked = true;
             });
@@ -1118,7 +1119,7 @@ fn sheet_button(commands: &mut Commands, fonts: &UiFonts, words: &str, lead: boo
     let ground = if lead { BRASS } else { palette::DIALOG_LIT };
     commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 height: px(30.0),
                 padding: UiRect::horizontal(px(14.0)),
@@ -1226,7 +1227,7 @@ fn scrubber_of(
 
 #[allow(clippy::too_many_arguments)]
 fn seek_on_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     nodes: Query<(&ComputedNode, &UiGlobalTransform)>,
     scrubbers: Query<(), With<Scrubber>>,
     parents: Query<&ChildOf>,
@@ -1238,20 +1239,14 @@ fn seek_on_press(
     let Some(track) = scrubber_of(press.event_target(), &scrubbers, &parents) else {
         return;
     };
-    if let Some(step) = step_under(
-        track,
-        press.pointer_location.position.x,
-        &nodes,
-        &windows,
-        &duel,
-    ) {
+    if let Some(step) = step_under(track, press.pointer.position.x, &nodes, &windows, &duel) {
         asks.0
             .push(BarAsk::Host(ReplayAsk::Transport(Command::Seek(step))));
     }
 }
 
 fn seek_on_drag(
-    drag: On<Pointer<Drag>>,
+    drag: On<PointerDrag>,
     nodes: Query<(&ComputedNode, &UiGlobalTransform)>,
     scrubbers: Query<(), With<Scrubber>>,
     parents: Query<&ChildOf>,
@@ -1262,19 +1257,13 @@ fn seek_on_drag(
     let Some(track) = scrubber_of(drag.event_target(), &scrubbers, &parents) else {
         return;
     };
-    if let Some(step) = step_under(
-        track,
-        drag.pointer_location.position.x,
-        &nodes,
-        &windows,
-        &duel,
-    ) {
+    if let Some(step) = step_under(track, drag.pointer.position.x, &nodes, &windows, &duel) {
         pending.pending = Some(step);
     }
 }
 
 fn seek_on_release(
-    _release: On<Pointer<DragEnd>>,
+    _release: On<PointerDragEnd>,
     mut pending: ResMut<ScrubDrag>,
     mut asks: ResMut<ReplayAsks>,
 ) {

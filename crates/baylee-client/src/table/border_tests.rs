@@ -13,8 +13,8 @@ use crate::shellmat::{
 use crate::shellui::{PREVIEW_QUAD, ShellUiParams};
 use baylee_client_core::board::CardGroup;
 
-/// `shell_common.wgsl`, as the shader modules read it.
-const COMMON: &str = include_str!("../shaders/shell_common.wgsl");
+/// `shell_common.wesl`, as the shader modules read it.
+const COMMON: &str = include_str!("../shaders/shell_common.wesl");
 
 /// Whether two lengths are the same to a hair.
 fn near(a: f32, b: f32) -> bool {

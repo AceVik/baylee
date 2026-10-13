@@ -131,7 +131,7 @@ pub(in crate::hud) fn spawn_ledge(
                 padding: UiRect::new(px(EDGE), px(EDGE), px(LEDGE_PAD_Y - LIP), px(LEDGE_PAD_Y)),
                 // The lip is still paid for out of the border box, because the
                 // padding arithmetic above is measured against it — but it is
-                // *painted* by the cloth (`frontal.wgsl`, the top row of the
+                // *painted* by the cloth (`frontal.wesl`, the top row of the
                 // rail), because a `BorderColor` on a `MaterialNode` is a
                 // question and the line is not optional.
                 border: UiRect::top(px(LIP)),

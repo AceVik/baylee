@@ -471,8 +471,8 @@ impl Plugin for DuelPlugin {
             // Bevy's UI picking backend is on by default and its *mesh* one is
             // not, so the hand zone — which is UI nodes — answered the pointer
             // while the battlefield, the stack of a hovered permanent and
-            // every pile beside a mat did not: `Pointer<Over>` and
-            // `Pointer<Click>` simply never fired for a `Mesh3d`. That is why
+            // every pile beside a mat did not: `PointerOver` and
+            // `PointerClick` simply never fired for a `Mesh3d`. That is why
             // `Interaction::activate` could be written, wired to `input.rs`,
             // and still leave a Forest inert under the cursor, and why the
             // preview only ever appeared for cards in hand. Measured rather

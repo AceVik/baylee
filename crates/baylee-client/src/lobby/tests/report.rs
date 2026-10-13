@@ -86,7 +86,7 @@ fn click_desk(app: &mut App, what: &str, pick: impl Fn(&DeskPress) -> bool) {
     assert_eq!(found.len(), 1, "buttons that are {what}: {found:?}");
     app.world_mut().trigger(aimed(
         found[0].0,
-        Click {
+        crate::test_pointer::Click {
             button: PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
             duration: std::time::Duration::ZERO,
@@ -279,7 +279,7 @@ fn the_corner_button_stands_at_the_table_and_opens_the_form() {
     let click = |app: &mut App, button: Entity| {
         app.world_mut().trigger(aimed(
             button,
-            Click {
+            crate::test_pointer::Click {
                 button: PointerButton::Primary,
                 hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
                 duration: std::time::Duration::ZERO,
@@ -857,7 +857,7 @@ fn signed_in_nowhere_the_form_says_where_a_report_would_go() {
     let before = desk(&app).form().status.clone();
     app.world_mut().trigger(aimed(
         sends[0],
-        Click {
+        crate::test_pointer::Click {
             button: PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
             duration: std::time::Duration::ZERO,
@@ -1180,10 +1180,10 @@ fn suggested(app: &App) -> Vec<String> {
 fn a_hash_away_from_a_table_offers_the_pool_and_writes_the_name() {
     let mut app = with_settings();
     // What the picking plugin registers in a running client.
-    app.add_message::<Pointer<Over>>()
-        .add_message::<Pointer<Out>>()
-        .add_message::<Pointer<bevy::picking::events::Press>>()
-        .add_message::<Pointer<Release>>();
+    app.add_message::<PointerOver>()
+        .add_message::<PointerOut>()
+        .add_message::<bevy::picking::events::PointerPress>()
+        .add_message::<PointerRelease>();
     open_form(&mut app);
     assert_eq!(desk(&app).gathered_refs_len(), 0, "the pool waits for a #");
     keys(&mut app, "cast #Lightning Bol".chars().map(typed));
@@ -1214,7 +1214,7 @@ fn a_hash_away_from_a_table_offers_the_pool_and_writes_the_name() {
     };
     app.world_mut().write_message(aimed(
         span,
-        Over {
+        crate::test_pointer::Over {
             hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
         },
     ));
@@ -1264,10 +1264,10 @@ fn the_hash_popover_s_type_line_is_localized_and_stays_inside() {
         ..ClientSettings::default()
     });
     app.update();
-    app.add_message::<Pointer<Over>>()
-        .add_message::<Pointer<Out>>()
-        .add_message::<Pointer<bevy::picking::events::Press>>()
-        .add_message::<Pointer<Release>>();
+    app.add_message::<PointerOver>()
+        .add_message::<PointerOut>()
+        .add_message::<bevy::picking::events::PointerPress>()
+        .add_message::<PointerRelease>();
     open_form(&mut app);
     keys(&mut app, "#Lightning Bol".chars().map(typed));
     app.update();

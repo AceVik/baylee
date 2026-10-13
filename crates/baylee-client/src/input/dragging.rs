@@ -1,6 +1,6 @@
 use super::*;
 use crate::hud::{TrayGrip, TrayPanel, TrayResize};
-use bevy::picking::events::{Pointer, Press, Release};
+use bevy::picking::events::{PointerPress, PointerRelease};
 use bevy::picking::pointer::{Location, PointerId};
 use bevy::window::{PrimaryWindow, WindowRef};
 
@@ -12,8 +12,8 @@ use bevy::window::{PrimaryWindow, WindowRef};
 /// band.
 fn harness() -> (App, Entity, Entity, Entity) {
     let mut app = App::new();
-    app.add_message::<Pointer<Press>>()
-        .add_message::<Pointer<Release>>()
+    app.add_message::<PointerPress>()
+        .add_message::<PointerRelease>()
         .init_resource::<Duel>()
         .init_resource::<ClientSettings>()
         // A drag of the corner ends with one rebuild asked for, which is
@@ -71,23 +71,31 @@ fn at(app: &mut App, position: Vec2) -> Location {
 
 fn press(app: &mut App, entity: Entity) {
     let location = at(app, Vec2::ZERO);
-    let event = Press {
+    let event = crate::test_pointer::Press {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
         count: 1,
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
 }
 
 fn release(app: &mut App, entity: Entity) {
     let location = at(app, Vec2::ZERO);
-    let event = Release {
+    let event = crate::test_pointer::Release {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
 }
 
 /// Moves the cursor and runs one frame.
@@ -166,7 +174,7 @@ fn dragging_the_corner_stretches_the_sheet() {
 ///
 /// This test used to assert the opposite, and it failing against the old
 /// code is the whole of what it is for. The corner used to fill the band on
-/// a press and a release less than four pixels apart — a `Pointer<Click>`
+/// a press and a release less than four pixels apart — a `PointerClick`
 /// was unusable, because a resize *ends* over the corner (the corner
 /// travels under the hand), so every drag would have fired one. The gesture
 /// existed because the corner drew a ⤢, which is an argument from a mark

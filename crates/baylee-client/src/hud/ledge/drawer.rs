@@ -640,10 +640,10 @@ fn spawn_panel(
                     bottom: px(0),
                 },
                 border_radius: BorderRadius {
-                    top_left: px(BTN_R),
-                    top_right: px(BTN_R),
-                    bottom_left: px(0),
-                    bottom_right: px(0),
+                    top_left: px(BTN_R).into(),
+                    top_right: px(BTN_R).into(),
+                    bottom_left: px(0).into(),
+                    bottom_right: px(0).into(),
                 },
                 ..default()
             },

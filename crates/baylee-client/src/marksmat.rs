@@ -8,7 +8,7 @@
 //! seam between the art and the type line — so they are a quad and a material
 //! of their own, and the card's material has no dimension for them at all.
 //! `baylee_client_core::cardrail` says where the quad lies on the card;
-//! `card_common.wgsl`'s `label_strip` draws inside it, for both shaders here.
+//! `card_common.wesl`'s `label_strip` draws inside it, for both shaders here.
 //!
 //! **The material key is the strip and nothing else.** Every strip is the
 //! same quad, and the shader sizes the strip inside it from its words
@@ -127,7 +127,7 @@ impl MarksMaterial {
 
 impl Material for MarksMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/marks.wgsl".into()
+        "embedded://baylee_client/shaders/marks.wesl".into()
     }
 
     /// The strip's edge is antialiased and its shadow is soft, so it blends.
@@ -156,7 +156,7 @@ pub struct MarksUiMaterial {
 
 impl UiMaterial for MarksUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/marks_ui.wgsl".into()
+        "embedded://baylee_client/shaders/marks_ui.wesl".into()
     }
 }
 
@@ -224,14 +224,14 @@ fn track_motion(
 
 /// Registers both strip materials and ships their shaders in the binary, for
 /// the reason [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin)
-/// embeds its own. `card_common.wgsl`, which both import, is registered
+/// embeds its own. `card_common.wesl`, which both import, is registered
 /// there.
 pub struct MarksMaterialPlugin;
 
 impl Plugin for MarksMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/marks.wgsl");
-        embedded_asset!(app, "shaders/marks_ui.wgsl");
+        embedded_asset!(app, "shaders/marks.wesl");
+        embedded_asset!(app, "shaders/marks_ui.wesl");
         app.add_plugins(MaterialPlugin::<MarksMaterial>::default())
             .add_plugins(UiMaterialPlugin::<MarksUiMaterial>::default())
             .init_resource::<UiMarksMaterials>()
@@ -259,8 +259,8 @@ struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
         check_wgsl(
-            include_str!("shaders/marks.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/marks.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -271,15 +271,16 @@ struct Globals { time: f32 };
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 struct Globals { time: f32 };
 ";
         check_wgsl(
-            include_str!("shaders/marks_ui.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/marks_ui.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -298,8 +299,8 @@ struct Globals { time: f32 };
     #[test]
     fn both_shaders_read_the_uniform_rust_writes() {
         for (which, src) in [
-            ("marks.wgsl", include_str!("shaders/marks.wgsl")),
-            ("marks_ui.wgsl", include_str!("shaders/marks_ui.wgsl")),
+            ("marks.wesl", include_str!("shaders/marks.wesl")),
+            ("marks_ui.wesl", include_str!("shaders/marks_ui.wesl")),
         ] {
             let open = src.find("struct MarksParams {").expect("the uniform");
             let body = &src[open..open + src[open..].find('}').expect("it closes")];

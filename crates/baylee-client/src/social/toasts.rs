@@ -7,6 +7,7 @@
 //! interface's cue path.
 
 use super::zoom::{z, zpx};
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatCue, ChatToast, ToastButton};
 use bevy::prelude::*;
@@ -87,7 +88,7 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
 }
 
 fn presses(
-    pressed: Query<(Entity, &Interaction, &ToastPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &LegacyInteraction, &ToastPress), Changed<LegacyInteraction>>,
     mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut toasts: ResMut<Toasts>,
@@ -244,7 +245,7 @@ fn sync(
             .id();
         let text = commands
             .spawn((
-                Button,
+                LegacyButton,
                 ToastPress::Open(id),
                 Node {
                     flex_grow: 1.0,
@@ -262,7 +263,7 @@ fn sync(
             .id();
         let close = commands
             .spawn((
-                Button,
+                LegacyButton,
                 ToastPress::Close(id),
                 Node {
                     width: zpx(20.0),
@@ -294,7 +295,7 @@ fn sync(
             for (index, (button, _)) in toast.actions.iter().enumerate() {
                 let b = commands
                     .spawn((
-                        Button,
+                        LegacyButton,
                         ToastPress::Button(id, index),
                         Node {
                             padding: UiRect::axes(zpx(12.0), zpx(4.0)),

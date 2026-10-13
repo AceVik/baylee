@@ -1,7 +1,7 @@
 //! The keyword strip's twelve marks, baked out of the Mana font at startup.
 //!
 //! The marks used to be twelve procedural pictograms drawn in
-//! `card_common.wgsl` — a wing, a skull, an eye that closed — each one
+//! `card_common.wesl` — a wing, a skull, an eye that closed — each one
 //! authored against the ten physical pixels a slot gets on a table card. They
 //! are gone, and what is drawn in their place is the Mana font's own ability
 //! glyph for each keyword: the picture a player already knows from every
@@ -31,7 +31,7 @@
 //!
 //! A sampled glyph cannot change *shape*, and the twelve pictograms did:
 //! flying flapped, vigilance's eye closed, trample opened the ground under
-//! itself. `card_common.wgsl` measured why that mattered — at ten pixels a
+//! itself. `card_common.wesl` measured why that mattered — at ten pixels a
 //! whole-glyph translation of a third of a pixel moves no pixel at all, while
 //! a shape change turns pixels over. What survives here is the one whole-glyph
 //! verb that also turns pixels over: a **scale** pulse, which moves the

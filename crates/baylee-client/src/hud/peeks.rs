@@ -25,6 +25,7 @@
 //! between them (`Canvas::for_table`), and their width is constant against
 //! everything the game does. Rebuilt only when what they say changes.
 
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::layout::{Seat, peeks};
 use baylee_client_core::peekchips::{ChipKind, SeatChips, seat_chips};
@@ -259,7 +260,7 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
             },
             BackgroundColor(ground),
             BorderColor::all(edge),
-            Button,
+            LegacyButton,
             Feel::new(ground),
         ))
         .id();
@@ -379,7 +380,7 @@ fn spawn_chips(commands: &mut Commands, fonts: &UiFonts, chips: &SeatChips, ink:
                     ..default()
                 },
                 BorderColor::all(edge),
-                Button,
+                LegacyButton,
                 children![(
                     Text::new(words),
                     tf(fonts, 13.0),

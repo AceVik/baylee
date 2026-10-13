@@ -120,10 +120,10 @@ pub(super) fn fill_the_pool(mut desk: ResMut<ReportDesk>, lobby: Option<Res<Lobb
 /// Whether the pointer's messages exist (the picking plugin's), for
 /// [`follow_the_links`] to read.
 pub(super) fn pointer_messages(
-    over: Option<Res<Messages<Pointer<Over>>>>,
-    out: Option<Res<Messages<Pointer<Out>>>>,
-    press: Option<Res<Messages<Pointer<Press>>>>,
-    release: Option<Res<Messages<Pointer<Release>>>>,
+    over: Option<Res<Messages<PointerOver>>>,
+    out: Option<Res<Messages<PointerOut>>>,
+    press: Option<Res<Messages<PointerPress>>>,
+    release: Option<Res<Messages<PointerRelease>>>,
 ) -> bool {
     over.is_some() && out.is_some() && press.is_some() && release.is_some()
 }
@@ -132,10 +132,10 @@ pub(super) fn pointer_messages(
 /// a finger onto one and up again.
 #[allow(clippy::too_many_arguments)] // a Bevy system: one reader per message
 pub(super) fn follow_the_links(
-    mut overs: MessageReader<Pointer<Over>>,
-    mut outs: MessageReader<Pointer<Out>>,
-    mut presses: MessageReader<Pointer<Press>>,
-    mut releases: MessageReader<Pointer<Release>>,
+    mut overs: MessageReader<PointerOver>,
+    mut outs: MessageReader<PointerOut>,
+    mut presses: MessageReader<PointerPress>,
+    mut releases: MessageReader<PointerRelease>,
     links: Query<&ReportLink>,
     input: Option<Res<InputClass>>,
     time: Res<Time>,
@@ -151,7 +151,7 @@ pub(super) fn follow_the_links(
             hover = Some(ReportHover {
                 span: over.entity,
                 card: link.0.clone(),
-                at: over.pointer_location.position,
+                at: over.pointer.position,
                 held_since: None,
             });
         }
@@ -164,7 +164,7 @@ pub(super) fn follow_the_links(
             hover = Some(ReportHover {
                 span: press.entity,
                 card: link.0.clone(),
-                at: press.pointer_location.position,
+                at: press.pointer.position,
                 held_since: Some(time.elapsed_secs()),
             });
         }

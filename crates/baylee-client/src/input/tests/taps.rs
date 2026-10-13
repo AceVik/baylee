@@ -1,11 +1,11 @@
-//! One finger, one action. Bevy raises a `Pointer<Click>` only when the press and the release land on the same entity, and this client despawns the node under the finger on every hover change and every arriving view, so reconciling press, release and click is the client's own work — these are its four cases: a tap across a rebuild, a press that drifts between one card's children, a tap the tree did hear (sent once, not twice), and a press dragged onto another card (sent not at all). Everything runs `touch::watch_the_finger` and `pointer` against hand-written `Pointer<Press>`/`Release`/`Click` messages, and the two counter-tests are what make the fix worth anything — a flag raised by every release would turn each of them into a second land. Which `PlayerAction` a completed tap becomes is `arming`'s question, and the hover the same pointer leaves behind is `hover`'s.
+//! One finger, one action. Bevy raises a `PointerClick` only when the press and the release land on the same entity, and this client despawns the node under the finger on every hover change and every arriving view, so reconciling press, release and click is the client's own work — these are its four cases: a tap across a rebuild, a press that drifts between one card's children, a tap the tree did hear (sent once, not twice), and a press dragged onto another card (sent not at all). Everything runs `touch::watch_the_finger` and `pointer` against hand-written `PointerPress`/`Release`/`Click` messages, and the two counter-tests are what make the fix worth anything — a flag raised by every release would turn each of them into a second land. Which `PlayerAction` a completed tap becomes is `arming`'s question, and the hover the same pointer leaves behind is `hover`'s.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
 /// A tap the tree ate still plays the card.
 ///
-/// `docs/observed-faults.md` 35. Bevy raises a `Pointer<Click>` only when
+/// `docs/observed-faults.md` 35. Bevy raises a `PointerClick` only when
 /// the press and the release land on the same **entity**, and the hand
 /// row is rebuilt on every hover change and on every arriving view — so
 /// a finger that is down across one of those comes up on a node born

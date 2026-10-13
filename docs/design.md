@@ -23,7 +23,7 @@ wrong and one of them sent an audit down the wrong path.
 Two facts bound every proposal here and were verified rather than assumed:
 the workspace is **Bevy 0.19** (`Cargo.toml:97`), and the wasm build rendered
 through **WebGL2** when this was written (`Cargo.toml` listed `webgl2`). So
-every shader below obeys what `card_common.wgsl` already obeys: uniforms
+every shader below obeys what `card_common.wesl` already obeys: uniforms
 only, no storage buffers, no compute, compile-time loop bounds.
 
 That second fact has since changed — the browser build renders through
@@ -270,7 +270,7 @@ corner, settled three things at once:
   band, the local mat clears the hand bar with felt to spare, and the hearth
   ring is visibly smaller than the nearest mat.
 - **The plate and the chips had never been rendered on a 3D card before**, only
-  through `card_ui.wgsl` on a hand card five times the size. They draw
+  through `card_ui.wesl` on a hand card five times the size. They draw
   correctly at table distance: `2/4` with the damage fill rising a quarter of
   the way, a blue `8` chip and a green three-pip chip stacked above it. At
   device pixels they are sharp — `number_cover`'s antialiasing needs no
@@ -638,7 +638,7 @@ only on the constructed text face. Three rules facts, invisible on the normal
 view of the board. That goes first.
 
 **Done — the plate.** `baylee-client-core/src/cardplate.rs` says what the
-corner holds and `plate_layer` in `card_common.wgsl` draws it, which is the
+corner holds and `plate_layer` in `card_common.wesl` draws it, which is the
 same split `cardrail` already had and for the same reason: the arithmetic
 belongs where a test can reach it without a GPU. Four things the
 implementation settled that the paragraph above did not.

@@ -391,10 +391,10 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         });
         let row = press_target(&mut app, Press::Settings(SettingsPress::ResetAllBindings));
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .resource_mut::<Messages<PointerScroll>>()
             .write(aimed(
                 row,
-                Scroll {
+                crate::test_pointer::Scroll {
                     unit: MouseScrollUnit::Pixel,
                     x: 0.0,
                     y: -80.0,
@@ -405,10 +405,10 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         app.update();
         assert!((app.world().get::<ScrollPosition>(list).unwrap().y - 80.0).abs() < 0.01);
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Drag>>>()
+            .resource_mut::<Messages<PointerDrag>>()
             .write(aimed(
                 row,
-                Drag {
+                crate::test_pointer::Drag {
                     button: PointerButton::Primary,
                     distance: Vec2::new(0.0, -40.0),
                     delta: Vec2::new(0.0, -40.0),

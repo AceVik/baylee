@@ -1,6 +1,6 @@
 // Original arithmetic artwork: a suspended brass astrolabe in a deep violet
 // passage. One UI pass, no textures, particles/entities or offscreen buffers.
-#import bevy_ui::ui_vertex_output::UiVertexOutput
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
 struct PassageParams { scene: vec4<f32>, state: vec4<f32> }
 @group(1) @binding(0) var<uniform> p: PassageParams;

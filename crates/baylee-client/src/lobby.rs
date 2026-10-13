@@ -323,10 +323,10 @@ impl Plugin for LobbyPlugin {
             .add_systems(Update, (art_follows_the_session, text_follows_the_session))
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
-            .add_message::<Pointer<bevy::picking::events::Press>>()
-            .add_message::<Pointer<Release>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
+            .add_message::<bevy::picking::events::PointerPress>()
+            .add_message::<PointerRelease>()
             .add_message::<bevy::picking::pointer::PointerInput>()
             .add_systems(
                 OnExit(DuelPhase::Closed),

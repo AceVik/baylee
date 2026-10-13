@@ -1,5 +1,5 @@
 // The shells round a permanent on its preview (the PM, 25.09): the table
-// shader's twin, as `plate_ui.wgsl` is `plate.wgsl`'s. A card held up to the
+// shader's twin, as `plate_ui.wesl` is `plate.wesl`'s. A card held up to the
 // light wears what it wears on the felt: its keywords' border and summoning
 // sickness's wave.
 //
@@ -7,7 +7,7 @@
 // follow a ray from. Each shell is drawn as it stands, seen from straight
 // over the card, which is what lines it up with the flat print. It always
 // stands: the preview has air round it, so nothing lies down as a ring.
-// What both shaders draw with is `shell_common.wgsl`'s, so the layers and
+// What both shaders draw with is `shell_common.wesl`'s, so the layers and
 // their patterns are the table's.
 //
 // Nothing but the wave is drawn over the print. From straight over the card
@@ -15,10 +15,10 @@
 // outline (`clear`), and every colour returned but the wave's carries it; a
 // test reads every `return` below to make sure it still does.
 
-#import bevy_render::globals::Globals
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{perimeter, CARD_ASPECT}
-#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_WAVE, WAVE_PERIOD, MOONLIGHT, CARD_HALF_W, CARD_HALF_H, MASK_FEATHER, KEY, card_sdf, wave_along, wave_glow, ward_border}
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::card_common::{perimeter, CARD_ASPECT};
+import baylee_client::shaders::shell_common::{SHELL_WAVE, WAVE_PERIOD, MOONLIGHT, CARD_HALF_W, CARD_HALF_H, MASK_FEATHER, KEY, card_sdf, wave_along, wave_glow, ward_border};
 
 struct ShellUiParams {
     /// The node, `[x0, y0, x1, y1]` in card widths from the card's top-left

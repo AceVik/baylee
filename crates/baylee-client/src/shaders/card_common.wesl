@@ -21,7 +21,7 @@
 //
 // The strip is drawn here (`label_strip`) but not by the card: it is an
 // object of its own lying on the card, with its own quad and material
-// (`marks.wgsl`, `marks_ui.wgsl`), which import this file. Since #298 it is
+// (`marks.wesl`, `marks_ui.wesl`), which import this file. Since #298 it is
 // the card's label as well — the plate, the moon and the crests stand on it
 // beside the marks — because the frame that carried them is gone.
 
@@ -87,7 +87,7 @@ const DIM_GREY: f32 = 0.35;
 const PHASED_TONE: vec3<f32> = vec3<f32>(0.075, 0.085, 0.115);
 const PHASED_FADE: f32 = 0.6;
 const PHASED_DRIFT: f32 = 0.06;
-/// Summoning sickness's moonlight (`shell_common.wgsl`'s `MOONLIGHT`): how
+/// Summoning sickness's moonlight (`shell_common.wesl`'s `MOONLIGHT`): how
 /// far in from the edge it reaches, in card widths, how bright it is at its
 /// dimmest and how much it swells, once every `ASLEEP_PERIOD` seconds, and
 /// how much it cools the whole print.
@@ -337,7 +337,7 @@ fn face_disc(under: vec3<f32>, p: vec2<f32>, centre: vec2<f32>, color: vec3<f32>
 // light: the travelling invitation, the armed card, the tap a payment plan
 // will make. It lit the frame's rim from the card's edge inwards until #298
 // took the frame away; now it lies on the felt round the card, on a quad of
-// its own under it (`floor.wgsl`).
+// its own under it (`floor.wesl`).
 
 /// The `cardmat::glow` bits this file reads: what this client is offering to
 /// do with a card, which the felt round it says (`floor_light`). `cardmat`

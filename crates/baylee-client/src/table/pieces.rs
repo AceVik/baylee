@@ -11,7 +11,7 @@
 //! arriving), each carried by `glide` to its piece's pose; the void under
 //! the table they sink into and rise out of ([`geometry::void_mesh`]); and
 //! the dial, lifted whole off the tear ([`geometry::dial_mesh`]). Every one
-//! is drawn by `felt.wgsl` with a copy of the slab's material, `rift.w`
+//! is drawn by `felt.wesl` with a copy of the slab's material, `rift.w`
 //! saying which it is. Over, they stand exactly where the slab does and go,
 //! and the slab comes back: one frame, nothing moved.
 
@@ -36,7 +36,7 @@ pub struct TearVoid;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct FloatingDial;
 
-/// What `felt.wgsl` draws, by `rift.w`: a piece of the table.
+/// What `felt.wesl` draws, by `rift.w`: a piece of the table.
 pub const RIFT_PIECE: f32 = 1.0;
 /// … the void under it.
 pub const RIFT_VOID: f32 = 2.0;

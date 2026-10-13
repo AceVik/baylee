@@ -3,7 +3,7 @@
 
 use super::*;
 use bevy::ecs::system::RunSystemOnce;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 
 fn fonts() -> UiFonts {
     UiFonts {
@@ -25,7 +25,7 @@ fn headless() -> App {
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::state::app::StatesPlugin)
         .init_state::<DuelPhase>()
-        .add_message::<Pointer<Click>>()
+        .add_message::<PointerClick>()
         .insert_resource(fonts())
         .add_plugins(UpdatePlugin);
     app.update();
@@ -80,14 +80,18 @@ fn click(app: &mut App, entity: Entity) {
         target: NormalizedRenderTarget::Window(target),
         position: Vec2::ZERO,
     };
-    let event = Click {
+    let event = crate::test_pointer::Click {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(camera, 0.0, None, None),
         duration: std::time::Duration::from_millis(10),
         count: 1,
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
     app.update();
 }
 

@@ -417,7 +417,7 @@ struct Stepping {
 ///
 /// It cannot be done in one. Bevy's picking backend does not read
 /// [`ButtonInput`] at all — it reads [`WindowEvent`] messages, keeps the last
-/// cursor location in a `Local`, and only turns a press into a `Pointer<Click>`
+/// cursor location in a `Local`, and only turns a press into a `PointerClick`
 /// once a press and a release have landed on the same hovered entity. So the
 /// move has to be seen, hovered against the UI tree, and only then pressed,
 /// in that order, exactly as a real mouse produces them. Doing it in one
@@ -971,7 +971,7 @@ fn pump(
 ///
 /// It is written twice for the same reason a click is: the picking backend
 /// reads [`WindowEvent`], and it is picking that turns a wheel into the
-/// `Pointer<Scroll>` a list listens for, while the plain message is what
+/// `PointerScroll` a list listens for, while the plain message is what
 /// everything else reads.
 fn turn_the_wheel(
     body: &str,

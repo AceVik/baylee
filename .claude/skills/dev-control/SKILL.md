@@ -361,7 +361,7 @@ BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD \
     cargo run -p baylee-client --features dev-control,dev-reload
 ```
 
-Then an edit to `crates/baylee-client/src/shaders/felt.wgsl` repaints the felt
+Then an edit to `crates/baylee-client/src/shaders/felt.wesl` repaints the felt
 in the client already on screen — no rebuild, no restart, and the camera,
 the board and the game keep their state. `BEVY_ASSET_ROOT` is not optional and
 is not decoration: bevy's watcher strips its own base path off every changed

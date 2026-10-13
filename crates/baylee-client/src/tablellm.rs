@@ -18,10 +18,11 @@ use crate::hud::{
     BESIDE_CORNER, ButtonWeight, CORNER_BUTTON, EDGE, TOP_CLEAR, UiFonts, answer_sized, btn_radius,
     palette, tf,
 };
+use crate::legacy_ui::LegacyButton;
 use crate::tableseats::{LlmPress, Phase};
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::llmseat::models::Resolved;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 use bevy::ui::px;
 
@@ -146,7 +147,7 @@ fn fold(commands: &mut Commands, fonts: &UiFonts, unfolded: bool) {
         },
         BackgroundColor(ground),
         BorderColor::all(palette::DIALOG_LINE),
-        Button,
+        LegacyButton,
         GlobalZIndex(crate::hud::Z_LOG),
         children![(
             // The kind of mind, as the chair's own name begins.
@@ -289,7 +290,7 @@ fn chips(
 
 /// Does what a press on the panel asks: an order to the chair's bridge.
 fn clicks(
-    mut pointer: MessageReader<Pointer<Click>>,
+    mut pointer: MessageReader<PointerClick>,
     presses: Query<&GamePress>,
     folds: Query<(), With<Fold>>,
     parents: Query<&ChildOf>,

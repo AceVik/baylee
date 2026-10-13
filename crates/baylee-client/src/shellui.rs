@@ -6,15 +6,15 @@
 //! follows the real camera's ray to the card's face ([`crate::shellmat`]);
 //! the preview is a UI node with no camera to follow. So this is the table
 //! shader's twin, as [`crate::platemat`]'s UI plate is the plate's:
-//! `shell_ui.wgsl` draws each shell as it stands, seen from straight over the
+//! `shell_ui.wesl` draws each shell as it stands, seen from straight over the
 //! card, which is what lines it up with the flat print, with the layers of
-//! `shell_common.wgsl`, which the table draws with too. It always stands:
+//! `shell_common.wesl`, which the table draws with too. It always stands:
 //! the preview has air round it, so nothing lies down as a ring.
 //!
 //! Which shells a card wears is [`Shells::of`](crate::shellmat::Shells::of)'s,
 //! the door the table's rows ask as well; what the preview draws is
 //! [`Shells::standing`](crate::shellmat::Shells::standing), one node per
-//! look. **A new shell is a look there and an arm in `shell_ui.wgsl`**, and
+//! look. **A new shell is a look there and an arm in `shell_ui.wesl`**, and
 //! the preview asks nothing else.
 //!
 //! **Nothing but the wave lies on the print** (`docs/legal.md` §3): from
@@ -111,7 +111,7 @@ pub struct ShellUiMaterial {
 
 impl UiMaterial for ShellUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/shell_ui.wgsl".into()
+        "embedded://baylee_client/shaders/shell_ui.wesl".into()
     }
 }
 
@@ -177,13 +177,13 @@ fn track_motion(
 /// Registers the preview's shell material and ships its shader in the
 /// binary, for the reason
 /// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own.
-/// `card_common.wgsl` and `shell_common.wgsl`, which it imports, are
+/// `card_common.wesl` and `shell_common.wesl`, which it imports, are
 /// registered with the card's material and the table's shells.
 pub struct ShellUiPlugin;
 
 impl Plugin for ShellUiPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/shell_ui.wgsl");
+        embedded_asset!(app, "shaders/shell_ui.wesl");
         app.add_plugins(UiMaterialPlugin::<ShellUiMaterial>::default())
             .init_resource::<UiShellMaterials>()
             .add_systems(Update, track_motion);
@@ -196,8 +196,8 @@ mod tests {
     use crate::cardmat::tests::{check_wgsl, wgsl_const};
     use crate::shellmat::MAX_LAYERS;
 
-    const SHADER: &str = include_str!("shaders/shell_ui.wgsl");
-    const COMMON: &str = include_str!("shaders/shell_common.wgsl");
+    const SHADER: &str = include_str!("shaders/shell_ui.wesl");
+    const COMMON: &str = include_str!("shaders/shell_common.wesl");
 
     /// The shader, parsed and validated with the UI card shader's stubs and
     /// both files it imports.
@@ -207,8 +207,9 @@ mod tests {
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 struct Globals { time: f32 };
@@ -217,7 +218,7 @@ struct Globals { time: f32 };
             SHADER,
             &format!(
                 "{prelude}{}{COMMON}",
-                include_str!("shaders/card_common.wgsl")
+                include_str!("shaders/card_common.wesl")
             ),
         );
     }
@@ -250,7 +251,7 @@ struct Globals { time: f32 };
                 "spare: f32,",
                 "rest: vec2<f32>,"
             ],
-            "shell_ui.wgsl lays the uniform out differently from `ShellUiParams`"
+            "shell_ui.wesl lays the uniform out differently from `ShellUiParams`"
         );
     }
 

@@ -336,8 +336,8 @@ fn spawn_sheet(
                     ..UiRect::all(px(1))
                 },
                 border_radius: BorderRadius {
-                    bottom_left: px(0),
-                    bottom_right: px(0),
+                    bottom_left: px(0).into(),
+                    bottom_right: px(0).into(),
                     ..sheet_radius()
                 },
                 ..default()

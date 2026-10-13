@@ -100,14 +100,14 @@ pub struct SkyParams {
 /// The sky.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct SkyMaterial {
-    /// Everything the shader reads. No textures: see `shaders/sky.wgsl`.
+    /// Everything the shader reads. No textures: see `shaders/sky.wesl`.
     #[uniform(0)]
     pub params: SkyParams,
 }
 
 impl Material for SkyMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/sky.wgsl".into()
+        "embedded://baylee_client/shaders/sky.wesl".into()
     }
 
     /// Opaque, and the furthest opaque thing there is. Everything else in the
@@ -348,7 +348,7 @@ pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/sky.wgsl");
+        embedded_asset!(app, "shaders/sky.wesl");
         app.init_resource::<TableLight>()
             .add_plugins(MaterialPlugin::<SkyMaterial>::default());
     }
@@ -380,7 +380,7 @@ mod shader_tests {
     #[test]
     fn sky_shader_compiles() {
         crate::cardmat::tests::check_wgsl(
-            include_str!("shaders/sky.wgsl"),
+            include_str!("shaders/sky.wesl"),
             &format!(
                 "{}{}",
                 "
@@ -390,35 +390,35 @@ struct View { viewport: vec4<f32> };
 @group(0) @binding(11) var<uniform> globals: Globals;
 @group(0) @binding(0) var<uniform> view: View;
 ",
-                include_str!("shaders/noise.wgsl")
+                include_str!("shaders/noise.wesl")
             ),
         );
     }
 
     /// Every value noise under the table and in the sky hashes its lattice
-    /// with the one integer hash in `noise.wgsl`. The sky and the felt each
+    /// with the one integer hash in `noise.wesl`. The sky and the felt each
     /// kept a float hash of their own, and one Windows machine drew the sky
     /// and the table as squares with them (report of 28 September): a hash
     /// whose float rounding a compiler may change gives a corner two values.
     #[test]
     fn the_sky_and_the_felt_hash_their_lattice_in_integers() {
         for (name, source) in [
-            ("sky.wgsl", include_str!("shaders/sky.wgsl")),
-            ("felt.wgsl", include_str!("shaders/felt.wgsl")),
+            ("sky.wesl", include_str!("shaders/sky.wesl")),
+            ("felt.wesl", include_str!("shaders/felt.wesl")),
         ] {
             assert!(
                 !source.contains("fn hash2"),
-                "{name} keeps a hash of its own instead of noise.wgsl's"
+                "{name} keeps a hash of its own instead of noise.wesl's"
             );
             assert!(
                 source
                     .lines()
-                    .any(|line| line.starts_with("#import") && line.contains("noise.wgsl")),
-                "{name} does not import noise.wgsl's hash"
+                    .any(|line| line.starts_with("import baylee_client::shaders::noise::")),
+                "{name} does not import noise.wesl's hash"
             );
         }
-        let noise = include_str!("shaders/noise.wgsl");
-        let start = noise.find("fn hash2").expect("noise.wgsl defines hash2");
+        let noise = include_str!("shaders/noise.wesl");
+        let start = noise.find("fn hash2").expect("noise.wesl defines hash2");
         let body = &noise[start..start + noise[start..].find("\n}").expect("hash2 ends")];
         assert!(
             body.contains("vec2<i32>(floor(p))"),

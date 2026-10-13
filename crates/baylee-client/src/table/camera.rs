@@ -1466,11 +1466,13 @@ impl Lens {
     #[must_use]
     pub fn new(rig: CameraRig, window: Vec2) -> Self {
         let aspect = (window.x / window.y.max(1.0)).max(1e-3);
-        // `perspective_rh` rather than the reverse-infinite matrix Bevy's
+        // A right-handed, depth-zero-to-one (`directx`) perspective — what
+        // `Mat4::perspective_rh` built before glam 0.33 moved it — rather
+        // than the reverse-infinite matrix Bevy's
         // `PerspectiveProjection` builds: they differ only in how z is
         // mapped, and nothing here reads z. The near and far planes are
         // therefore arbitrary and only have to bracket the table.
-        let clip = Mat4::perspective_rh(FOV, aspect, 0.1, 1000.0);
+        let clip = bevy::math::proj::perspective(FOV, aspect, 0.1, 1000.0);
         Self {
             clip_from_world: clip * rig.eye().to_matrix().inverse(),
             window,

@@ -6,7 +6,7 @@
 //! (WP1–WP5), each converting its own module.
 //!
 //! The design names it `shellui/`. That path was taken: `crate::shellui` is
-//! the hover preview's protection shells (`shell_ui.wgsl`), so the shell's
+//! the hover preview's protection shells (`shell_ui.wesl`), so the shell's
 //! kit lives here instead.
 //!
 //! - [`size`]: the five size classes (§2.7), the input class, the five text
@@ -164,6 +164,43 @@ fn pinned_by_the_environment() -> bool {
 #[cfg(not(feature = "dev-control"))]
 const fn pinned_by_the_environment() -> bool {
     false
+}
+
+/// The window-space rectangle a node's inherited clip leaves visible, in
+/// physical pixels, the same space as its `UiGlobalTransform` and
+/// `ComputedNode::size`.
+///
+/// Bevy 0.20 keeps a clip as one rectangle per clipping ancestor, each in
+/// that ancestor's own space (so a rotated or scaled panel clips correctly);
+/// 0.19 kept their intersection as one window-space `Rect`, and the
+/// virtualised lists here ask exactly that: which band of the window is
+/// visible. Each rectangle is taken back to window space and the axis-aligned
+/// bounds are intersected — exact for this client's unrotated panels, a
+/// superset for a rotated one. A fully clipped node gets an empty rectangle,
+/// and a clip with no rectangle at all is no clip: `None`, as 0.19 had no
+/// `CalculatedClip` there.
+pub(crate) fn clip_bounds(clip: &bevy::ui::CalculatedClip) -> Option<Rect> {
+    let Some(rects) = clip.rects() else {
+        return Some(Rect::default());
+    };
+    let (first, rest) = rects.split_first()?;
+    let mut visible = world_bounds(first);
+    for clip_rect in rest {
+        visible = visible.intersect(world_bounds(clip_rect));
+    }
+    Some(visible)
+}
+
+/// One clipping rectangle's axis-aligned bounds in window space.
+fn world_bounds(clip_rect: &bevy::ui::CalculatedClipRect) -> Rect {
+    let to_world = clip_rect.world_to_clip_local.inverse();
+    let (min, max) = (clip_rect.rect.min, clip_rect.rect.max);
+    [Vec2::new(max.x, min.y), max, Vec2::new(min.x, max.y)]
+        .into_iter()
+        .fold(
+            Rect::from_center_size(to_world.transform_point2(min), Vec2::ZERO),
+            |bounds, corner| bounds.union_point(to_world.transform_point2(corner)),
+        )
 }
 
 #[cfg(test)]

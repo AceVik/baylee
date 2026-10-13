@@ -58,7 +58,7 @@ pub struct ArrowMaterial {
 
 impl Material for ArrowMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/arrow.wgsl".into()
+        "embedded://baylee_client/shaders/arrow.wesl".into()
     }
 
     /// An arrow lies over the felt and is a stroke on a quad that is mostly
@@ -74,7 +74,7 @@ pub struct ArrowMaterialPlugin;
 
 impl Plugin for ArrowMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/arrow.wgsl");
+        embedded_asset!(app, "shaders/arrow.wesl");
         app.add_plugins(MaterialPlugin::<ArrowMaterial>::default());
     }
 }

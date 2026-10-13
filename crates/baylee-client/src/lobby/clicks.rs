@@ -59,7 +59,7 @@ pub(super) fn sign_out(
 ///
 /// "Over" is read off this frame's [`HoverMap`], at the release as the
 /// pointer reports it ([`PointerInput`]), and never off bevy's
-/// `Pointer<Release>`: that one goes to the entity hovered the frame
+/// `PointerRelease`: that one goes to the entity hovered the frame
 /// *before*, which for a release on the very next frame (a fast click, a
 /// touchpad tap, dev-control's press) is still the despawned button. Such a
 /// click was lost, and only a press held until the hover caught up counted
@@ -69,7 +69,7 @@ pub(super) fn sign_out(
 /// [`PointerInput`]: bevy::picking::pointer::PointerInput
 #[derive(bevy::ecs::system::SystemParam)]
 pub(super) struct Pressing<'w, 's> {
-    downs: MessageReader<'w, 's, Pointer<bevy::picking::events::Press>>,
+    downs: MessageReader<'w, 's, bevy::picking::events::PointerPress>,
     inputs: MessageReader<'w, 's, bevy::picking::pointer::PointerInput>,
     hover: Option<Res<'w, bevy::picking::hover::HoverMap>>,
     /// The control the primary button went down on, and what it presses.
@@ -131,8 +131,8 @@ impl Pressing<'_, '_> {
 /// screen's handler (`FrontPress::handle`, `HubPress::handle`, …).
 #[allow(clippy::too_many_arguments)] // two pointer streams, then the usual
 pub(super) fn clicks(
-    (mut pointer, mut pressing): (MessageReader<Pointer<Click>>, Pressing),
-    mut ends: MessageReader<Pointer<DragEnd>>,
+    (mut pointer, mut pressing): (MessageReader<PointerClick>, Pressing),
+    mut ends: MessageReader<PointerDragEnd>,
     mut scrolled: ResMut<Scrolled>,
     presses: Query<&Press>,
     disabled: Query<(), With<crate::shellkit::controls::Disabled>>,

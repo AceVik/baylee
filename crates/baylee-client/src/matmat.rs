@@ -87,7 +87,7 @@ pub struct MatMaterial {
 
 impl Material for MatMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/mat.wgsl".into()
+        "embedded://baylee_client/shaders/mat.wesl".into()
     }
 
     /// A mat lies *on* the felt and is mostly a veil over it — the lanes are
@@ -114,7 +114,7 @@ pub struct MatMaterialPlugin;
 
 impl Plugin for MatMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/mat.wgsl");
+        embedded_asset!(app, "shaders/mat.wesl");
         app.add_plugins(MaterialPlugin::<MatMaterial>::default());
     }
 }

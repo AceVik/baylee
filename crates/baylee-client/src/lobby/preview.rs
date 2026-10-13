@@ -96,8 +96,8 @@ pub(crate) struct CardPreview {
 /// that triangle, so reading down the pool is as quick as it was.
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn hovers(
-    mut overs: MessageReader<Pointer<Over>>,
-    mut outs: MessageReader<Pointer<Out>>,
+    mut overs: MessageReader<PointerOver>,
+    mut outs: MessageReader<PointerOut>,
     cards: Query<&HoverCard>,
     parents: Query<&ChildOf>,
     previews: Query<&CardPreview>,
@@ -143,7 +143,7 @@ pub(super) fn hovers(
         if is_preview(over.entity) {
             under = Under::Preview;
         } else if let Some((entity, card)) = lineage_card(over.entity, &cards, &parents) {
-            under = Under::Row(entity, card.clone(), over.pointer_location.position);
+            under = Under::Row(entity, card.clone(), over.pointer.position);
         }
     }
 
@@ -221,7 +221,7 @@ fn lineage<'a>(entity: Entity, parents: &'a Query<&ChildOf>) -> impl Iterator<It
 /// the wheel scrolls what is under the pointer, and once the pointer is on
 /// a text face's preview, that is its text.
 pub(super) fn scroll_the_preview(
-    mut wheels: MessageReader<Pointer<Scroll>>,
+    mut wheels: MessageReader<PointerScroll>,
     parents: Query<&ChildOf>,
     previews: Query<(), With<CardPreview>>,
     mut boxes: Query<(Entity, &mut ScrollPosition, &ComputedNode), With<crate::face::FaceTextBox>>,
@@ -700,13 +700,9 @@ mod tests {
         assert_eq!(place_clear(at, canvas, None), first);
     }
 
-    fn pointer_event<E: std::fmt::Debug + Clone + Reflect>(
-        entity: Entity,
-        event: E,
-        x: f32,
-    ) -> Pointer<E> {
+    fn pointer_event<E: crate::test_pointer::Aim>(entity: Entity, event: E, x: f32) -> E::Event {
         use bevy::picking::pointer::{Location, PointerId};
-        Pointer::new(
+        crate::test_pointer::aim(
             PointerId::Mouse,
             Location {
                 target: bevy::camera::NormalizedRenderTarget::Window(
@@ -727,15 +723,18 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .init_resource::<LobbyState>()
             .init_resource::<Hovered>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
             .add_systems(Update, hovers);
         let art = hover_of_card(&row(false, false));
         let first = app.world_mut().spawn(art.clone()).id();
         let second = app.world_mut().spawn(art).id();
         let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
-        app.world_mut()
-            .write_message(pointer_event(first, Over { hit: hit.clone() }, 100.0));
+        app.world_mut().write_message(pointer_event(
+            first,
+            crate::test_pointer::Over { hit: hit.clone() },
+            100.0,
+        ));
         app.update();
         let epoch = app.world().resource::<Hovered>().epoch;
         // A nested icon must still resolve to the row, however many layout wrappers it has.
@@ -745,15 +744,21 @@ mod tests {
             app.world_mut().entity_mut(leaf).add_child(child);
             leaf = child;
         }
-        app.world_mut()
-            .write_message(pointer_event(leaf, Over { hit: hit.clone() }, 600.0));
+        app.world_mut().write_message(pointer_event(
+            leaf,
+            crate::test_pointer::Over { hit: hit.clone() },
+            600.0,
+        ));
         app.update();
         let hovered = app.world().resource::<Hovered>();
         assert_eq!(hovered.source, Some(second));
         assert!(hovered.epoch > epoch);
         assert_eq!(hovered.at, Vec2::new(600.0, 100.0));
-        app.world_mut()
-            .write_message(pointer_event(first, Out { hit }, 100.0));
+        app.world_mut().write_message(pointer_event(
+            first,
+            crate::test_pointer::Out { hit },
+            100.0,
+        ));
         app.update();
         assert_eq!(app.world().resource::<Hovered>().source, Some(second));
         assert!(app.world().resource::<Hovered>().card.is_some());
@@ -765,8 +770,8 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .init_resource::<LobbyState>()
             .init_resource::<Hovered>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
             .add_systems(Update, hovers);
         let window = app.world_mut().spawn(Window::default()).id();
         (app, window)
@@ -796,18 +801,18 @@ mod tests {
             .unwrap()
             .set_cursor_position(Some(at));
         if let Some(from) = from {
-            app.world_mut().write_message(Pointer::new(
+            app.world_mut().write_message(crate::test_pointer::aim(
                 PointerId::Mouse,
                 location.clone(),
-                Out { hit: hit.clone() },
+                crate::test_pointer::Out { hit: hit.clone() },
                 from,
             ));
         }
         if let Some(onto) = onto {
-            app.world_mut().write_message(Pointer::new(
+            app.world_mut().write_message(crate::test_pointer::aim(
                 PointerId::Mouse,
                 location,
-                Over { hit },
+                crate::test_pointer::Over { hit },
                 onto,
             ));
         }
@@ -939,7 +944,7 @@ mod tests {
         use bevy::picking::pointer::{Location, PointerId};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .add_message::<Pointer<Scroll>>()
+            .add_message::<PointerScroll>()
             .add_systems(Update, scroll_the_preview);
         let text_box = || {
             (
@@ -965,7 +970,7 @@ mod tests {
         let inside = app.world_mut().spawn((text_box(), ChildOf(face))).id();
         let elsewhere = app.world_mut().spawn(text_box()).id();
         let window = app.world_mut().spawn(Window::default()).id();
-        app.world_mut().write_message(Pointer::new(
+        app.world_mut().write_message(crate::test_pointer::aim(
             PointerId::Mouse,
             Location {
                 target: bevy::camera::NormalizedRenderTarget::Window(
@@ -975,7 +980,7 @@ mod tests {
                 ),
                 position: Vec2::ZERO,
             },
-            Scroll {
+            crate::test_pointer::Scroll {
                 unit: bevy::input::mouse::MouseScrollUnit::Line,
                 x: 0.0,
                 y: -1.0,

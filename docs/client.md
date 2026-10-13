@@ -38,7 +38,7 @@ The old land-driven atmosphere renderer and its full-table blended shader have
 been removed; atmosphere intensity now controls the sky's aurora and sparks.
 The lobby backdrop remains separate from the duel.
 
-`felt.wgsl` draws smoked glass above winding water and lava channels. Water
+`felt.wesl` draws smoked glass above winding water and lava channels. Water
 ripples and caustics travel faster than the molten crust; their confluence
 cools into dark obsidian with a restrained steam veil. Fixed banks keep the
 motion legible as flow. Two scales of domain-warped cellular seams form
@@ -124,7 +124,7 @@ snapshot cannot restart its transition. `tableicons` is the audited Mana /
 Font Awesome map; tests check it against the bundled font files.
 
 The centre of the table is a dial (DESIGN-v7 §3, dial-v2 of 08.10.2026;
-`client-core::dial` decides, `dial.rs` packs the felt's uniforms, `felt.wgsl`'s
+`client-core::dial` decides, `dial.rs` packs the felt's uniforms, `felt.wesl`'s
 `bezel`, `firewheel` and `clock_face` draw). **Its size is the table's**
 (the owner: *"big, but overlapping the players' battlefields as little as
 possible"*): `dial::scale_for(layout)` puts its rim (`DIAL_OUTER` 1.40 at
@@ -284,10 +284,10 @@ historical rationale below. The slab and play lanes retain their measured
 footprints: a material redesign must not silently move the cards, pile
 hitboxes or projected seat shelves.
 
-`felt.wgsl` adds a restrained mineral vein, brushed rail, twin engraved
+`felt.wesl` adds a restrained mineral vein, brushed rail, twin engraved
 circuits, inset colour segments and tooling around the firewheel.
 The inlay colours stay in fixed positions; only their illumination moves.
-The phase lamp remains a separate semantic light. `mat.wgsl` adds recessed
+The phase lamp remains a separate semantic light. `mat.wesl` adds recessed
 corner shoulders and terminates lane rules short of the frame. Both resolve
 fine details against the pixel footprint rather than assuming a resolution.
 
@@ -1085,7 +1085,7 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
 
   In the client (`arrangement::lay_the_interest` / `run_the_tear`,
   `table::pieces`), the slab stands down for the tear's second and the
-  tear's parts stand in, each drawn by `felt.wgsl` with a copy of the
+  tear's parts stand in, each drawn by `felt.wesl` with a copy of the
   slab's material, `rift.w` saying what it is (1 a piece, 2 the void, 3 the
   dial): the pieces are **real geometry** cut on the CPU along the line
   (`pieces::geometry::piece_mesh`: the top in strips from the rim to the
@@ -1192,8 +1192,8 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
 
 Identical permanents draw as one card with a **count badge** at its
 top-right corner, `×N` (#261; `cardplate::count_word` and `badge_rect`,
-`badgemat.rs`, `badge.wgsl` and `badge_ui.wgsl`, drawn by
-`card_common.wgsl`'s `count_badge`). It was a pill painted over the printed
+`badgemat.rs`, `badge.wesl` and `badge_ui.wesl`, drawn by
+`card_common.wesl`'s `count_badge`). It was a pill painted over the printed
 cost until #274 took everything of ours off the print; the owner's placement
 was "ganz oben links an der Ecke, leicht überragend mit elevation shadow",
 and since 25.09 it is "the right edge and a bit higher". So it is an object
@@ -2606,7 +2606,7 @@ on objects of its own:
   over the top edge in a duel, beside the right edge at a ring ("Grouping
   and the token summary").
 - **The offer's light** lies on the felt round the card (`floormat.rs`,
-  `floor.wgsl`, `floor_light`): a quad under the card, `floormat::REACH`
+  `floor.wesl`, `floor_light`): a quad under the card, `floormat::REACH`
   (0.10 card widths) past it on every side, added to the felt at
   `table::FLOOR_RUNG`, over the contact shadows and under every card — so
   the card covers the light's middle and the next card of a fanned lane its
@@ -2616,7 +2616,7 @@ on objects of its own:
 - **Protection** is a mark on the strip (hexproof, indestructible and shroud
   were appended to `MARK_ORDER` as slots 12–14, the index being the wire and
   the atlas cell), and a **border** round the card is its glance
-  (`shellmat.rs`, `shell.wgsl`; the owner, 13.10.2026: "nicht mehr
+  (`shellmat.rs`, `shell.wesl`; the owner, 13.10.2026: "nicht mehr
   3D-Kuppel, nur schöner animierter schlanker Rand", replacing the
   darksteel rim, the domes of glass and defender's brick wall of #298).
   Indestructible, defender, hexproof and shroud each draw one layer of a
@@ -2626,7 +2626,7 @@ on objects of its own:
   out in that order (`shellmat::Ward`; shroud swallows hexproof, as the
   strip's marks do). One mesh per layer count and one material per set of
   keywords, so a card wearing three is one draw. Each layer is told apart
-  by its pattern and its motion as well as its colour (`shell_common.wgsl`'s
+  by its pattern and its motion as well as its colour (`shell_common.wesl`'s
   `ward_layer`), so a player who cannot tell the hues apart still can:
   **indestructible** a steady golden rim, rounded across, with one glint
   going round it every twelve seconds; **defender** a wall of slate-grey
@@ -2641,7 +2641,7 @@ on objects of its own:
   running out over the card from its middle line to `WAVE_INSET` (0.05)
   inside its edge, a real ripple on a sheet `WAVE_LIFT` (0.003) over the
   face whose crest rises `WAVE_CREST` (0.009) as its front passes
-  (`shellmat::wave_mesh`, lifted in `shell.wgsl`'s vertex stage). One wave
+  (`shellmat::wave_mesh`, lifted in `shell.wesl`'s vertex stage). One wave
   takes `WAVE_TRAVEL` (2.8 s) and the next follows `WAVE_PERIOD` (4.2 s)
   after it, each card at its own moment from where it lies; with motion off
   it holds still most of the way out. It passes and leaves the print as it
@@ -2688,7 +2688,7 @@ on objects of its own:
   A card leaving the battlefield loses its shells at once.
   **The preview wears them too** (the PM, 25.09): UI nodes hanging off the
   card's turning frame, as its badge and plate are (`shellui.rs`,
-  `shell_ui.wgsl`), drawing with the table's `shell_common.wgsl`
+  `shell_ui.wesl`), drawing with the table's `shell_common.wesl`
   (`ward_border`, and the wave's `crest_at`, `wave_along`, `wave_glow`), so
   the layers and the moonlight are one material in two places. It always
   stands, seen from straight over the card, so the mask is the card's own
@@ -2731,7 +2731,7 @@ that window as a flat dark tint under the card's metal light — the owner's
 "dunkle Metall-Platte" — and a lane of text tokens read as a row of holes.
 Now the window is laid out and drawn as a card is:
 `baylee_client_core::textface` is the geometry, the shader's `text_face`
-(`card_common.wgsl`) draws its parts, and the table's `Text2d` lines stand
+(`card_common.wesl`) draws its parts, and the table's `Text2d` lines stand
 on them.
 
 - A dark border (`BORDER`, 0.040 card widths) inside the card, then a name
@@ -2986,7 +2986,7 @@ takes no hover from the card it is drawn on.
   the next rebuild. The table re-fits on the font's arrival
   (`table::ShownFace::is`); the overlay does not yet.
 
-Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
+Foil and etched finishes share `print_finish` in `card_common.wesl` (#198).
 The existing artwork sample supplies luminance, pigment and screen-space
 contours, with no extra texture fetches. Foil uses a restrained, pigment-shifted
 iridescence; etched foil emphasizes fine metallic contours and antialiased grain.
@@ -3081,8 +3081,8 @@ numbers, and the **light on the felt** round the card says what is on offer.
   702.11b) for the shells that will be their glance, #298's next step.
 
   The row ran along the card's bottom edge as a *rail* until #274, over the
-  artist's line. It is an **object** now (`marksmat.rs`, `marks.wgsl`,
-  `marks_ui.wgsl`; the drawing is `card_common.wgsl`'s `label_strip`): a
+  artist's line. It is an **object** now (`marksmat.rs`, `marks.wesl`,
+  `marks_ui.wesl`; the drawing is `card_common.wesl`'s `label_strip`): a
   dark plate with its own contact shadow, one quad per card with anything to
   say, a child of the card so it follows every glide, tap and lift, not
   pickable and not a `CardShadow`. Its bottom edge stands on the seam where a
@@ -3131,8 +3131,8 @@ numbers, and the **light on the felt** round the card says what is on offer.
   measured 3.5:1 on the oxblood).
 - **The plate says what the card *is* in numbers.** A creature's power and
   toughness, or a planeswalker's loyalty behind a gilt rim, on a dark plate
-  of its own with its own shadow (`platemat.rs`, `plate.wgsl`,
-  `plate_ui.wgsl`; `card_common.wgsl`'s `plate_object`). It was the
+  of its own with its own shadow (`platemat.rs`, `plate.wesl`,
+  `plate_ui.wesl`; `card_common.wesl`'s `plate_object`). It was the
   bottom-right fifth of the print until #274, then the left end of the
   frame's ledge, then the strip's first item (#298), until the owner, 25.09,
   read the numbers among the keyword marks as the fault. It stands at the
@@ -3264,7 +3264,7 @@ numbers, and the **light on the felt** round the card says what is on offer.
   writes the body under its type line when the plate already says it
   (`face::world_stats`): it said `3/3` twice. An animated planeswalker keeps
   its line, because its plate is its loyalty.
-The pictograms live in a third shader file, `card_common.wgsl`, together with
+The pictograms live in a third shader file, `card_common.wesl`, together with
 the printed corner both shaders cut at: it is everything the table and the
 overlay have to agree about. It contains no bindings and no bevy syntax at all
 — every shader-global it needs, the time and the colour underneath, arrives as
@@ -3303,10 +3303,10 @@ white paper, and drawn untouched it is the single most obvious way for a card
 to look like a photograph of a card. The frame #274 drew hid them; since #298
 the scan fills the card again, and what is cut below is its corner. On the table the mesh is already rounded
 (`table::CARD_CORNER`), so the shader only inks the sliver the mesh edge
-antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
+antialiases through; in the overlay a UI node has no mesh, so `card_ui.wesl`
 cuts the corner in alpha — and that is the one the player was actually looking
 at, since hand, preview and printing picker all drew the scan square. Both cut with the same `corner_sdf` at the same `PRINTED_CORNER`
-(4.76%, which is 3 mm on a 63 mm card, and lives in `card_common.wgsl` with
+(4.76%, which is 3 mm on a 63 mm card, and lives in `card_common.wesl` with
 the rail), and `hud::card_radius` is the same number again, because that
 wrapper node clips the card and carries its shadow.
 All of them used to be 10%, which took the white away by taking a tenth of the
@@ -3488,7 +3488,7 @@ arrival door stops being drawn with no error anywhere.
 `schedule_order_tests` asserts the edge for that reason, with a counter-test,
 because nothing else in the suite would notice it going.
 
-The three constants in `card_common.wgsl` are worth their doc comments,
+The three constants in `card_common.wesl` are worth their doc comments,
 because all three were first written wrong in the same direction — too much of
 everything. `DOOR_WIDTH` at 11 spread the band over the whole card and read as
 a permanent turned amber rather than as something crossing it; `DOOR_GLOSS` at
@@ -4240,7 +4240,7 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 The gateway and sign-in forms now stand in **Baylee's sanctuary**: a moonlit
 conservatory garden seen through an open limestone arch. The previous geode's
 inward crystal teeth are gone. `vista.rs` schedules reusable full-screen
-`UiMaterial` surfaces; `shaders/vista.wgsl` composites an original generated matte
+`UiMaterial` surfaces; `shaders/vista.wesl` composites an original generated matte
 painting split into distant world and transparent near architecture, a
 hand-painted portrait of petite Baylee in her red body and an original
 Blender lantern.
@@ -4381,7 +4381,7 @@ knob slides and its track eases from `TRACK_OFF` to the accent over about
 (`controls::ToggleShown`), so the rebuild a press makes does not end the
 motion. A primary button wears a quiet light from its top edge and, while
 hovered, a soft band sweeping across it (`shellkit::sheen`,
-`kit_sheen.wgsl`, uniforms only): at rest the shader reads no clock and the
+`kit_sheen.wesl`, uniforms only): at rest the shader reads no clock and the
 material is written only while the pointer's warmth changes. The pointer
 is a hand over everything a click acts on, a text bar over a field, the
 arrow over a control that is off (`shellkit::pointer`; at the table, the
@@ -6393,7 +6393,7 @@ plain one holds. Over the whole mat the net comes to 1.3% of the light the
 gain moves about rather than 0%, and that is geometry — `turn` is an angle
 normalised by the mat's aspect, not an arc length, so the corners weigh a
 little differently from the sides. `tabletop::rim_dash` is the arithmetic in
-Rust and `mat.wgsl` spells the same one; `camera_tests::the_shader_and_the_
+Rust and `mat.wesl` spells the same one; `camera_tests::the_shader_and_the_
 generator_agree_about_the_mat` carries both constants, and
 `the_mat_shader_compiles` is what stops a typo in it becoming a mat that
 simply does not draw.
@@ -6516,7 +6516,7 @@ the left side."*
   The turn is ivory the whole width, 3 px (`players::TURN_H`); the table
   waiting on the seat (priority, or any question it is deciding) is teal,
   2 px (`PRIORITY_H`), set in by 22 % from both ends, just under it. The
-  colours are the dial's two hands' (`felt.wgsl`'s `IVORY` and `TEAL` =
+  colours are the dial's two hands' (`felt.wesl`'s `IVORY` and `TEAL` =
   `palette::ACCENT`); place, length and weight tell them apart without
   colour, and both stand together on the seat that is both. They are
   spawned once (`players::line`, `ChipTag`) and shown by `show_the_tags`;
@@ -6561,7 +6561,7 @@ The owner's six requests for the table, and what each became:
   counts that stood beside the piles (`Panel::Zone`) are gone into it.
 - **Where it stands**: flush with the seat's battlefield (the owner's second
   word of 08.10.2026, after a first cut stood the plates out by the rim):
-  its edge on the mat's drawn edge on the hearth side (where `mat.wgsl`
+  its edge on the mat's drawn edge on the hearth side (where `mat.wesl`
   crops the field at the shelf: the ledge band's far line), a hairline off
   (`BAND_AIR`, the one constant the steps hang by too), square to that edge under any perspective, its end at the
   mat's corner on the seat's own left (`mat_edge`, `plate_on`). Outside the
@@ -8231,7 +8231,7 @@ property each face is trusted to remember.
 
 **That fix did not close the report, because the report had two causes.** The
 owner played again and said the flickering remained, and the second one was
-not a hover at all: `card_ui.wgsl` coated every card in a metallic sweep on a
+not a hover at all: `card_ui.wesl` coated every card in a metallic sweep on a
 continuous six-second loop, so the whole hand bar changed a little on every
 frame with nothing hovered, nothing moving and nobody's turn. A 24-by-16 grid
 of mean absolute pixel difference over two frames of a still table read 18–30
@@ -9997,8 +9997,8 @@ screenshots and a pixel diff, which is what it took the once.
 ## Editing a shader without stopping the game
 
 `--features dev-reload` puts bevy's embedded-asset watcher behind every shader
-registered with `embedded_asset!` — all eight in `src/shaders/`, `arrow.wgsl`
-included — so saving `felt.wgsl` repaints the table in the
+registered with `embedded_asset!` — all eight in `src/shaders/`, `arrow.wesl`
+included — so saving `felt.wesl` repaints the table in the
 client already on screen — no rebuild, no restart, no reconnect, and the game
 keeps its position. Together with `/pause` it is how a look is worked on: stop
 the picture, edit, look, edit again.
@@ -10178,7 +10178,7 @@ with a scene generation and checked across three submitted frames. Only then
 is `SeatReady` sent. Server timing and the strict multiplayer barrier are
 specified in `docs/protocol.md` under “The curtain”.
 
-The original `loading.wgsl` draws a suspended brass instrument, etched rings,
+The original `loading.wesl` draws a suspended brass instrument, etched rings,
 converging particles and three readiness lights. The shared portal accelerates
 into that centre and reveals the already rendered destination. It uses one UI
 material pass and no bitmap, particle entities, extra render targets or blur.
@@ -10417,7 +10417,7 @@ chosen").
   nothing, as it did (`activate_card` falls through to `Answer::Refused`).
 - **A passing state lies on the print (the owner, 13.10.2026).** A state
   that comes and goes with the game is one term in each card shader after
-  the finish (`card_common.wgsl`'s `veiled`), weighed by the card's
+  the finish (`card_common.wesl`'s `veiled`), weighed by the card's
   `CardParams::veil` and zero on every other card, which then draws exactly
   as before; the guard `cardmat::nothing_but_the_finish_is_drawn_on_the_print`
   allows that term and nothing else. Its bits (`cardmat::veil`): **dimmed**

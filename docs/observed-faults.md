@@ -849,7 +849,7 @@ about the table itself rather than the rules, and both are fixed.
     soft ramp four or five pixels across, and no filtering setting fixes that,
     because a stretched image has no idea how large it is being drawn.
 
-    `matmat.rs` and `shaders/mat.wgsl` draw it. A signed distance with
+    `matmat.rs` and `shaders/mat.wesl` draw it. A signed distance with
     `fwidth` gives an edge one pixel wide from any distance, and three of the
     owner's complaints turn out to be the same change:
 
@@ -1573,7 +1573,7 @@ about the table itself rather than the rules, and both are fixed.
     panel opening onto the pointer that opened it) and closed the report with
     it. The owner played again and the flickering was still there.
 
-    The second cause was `card_ui.wgsl`. Every card in the hand, the preview,
+    The second cause was `card_ui.wesl`. Every card in the hand, the preview,
     the stack and the tray carried a metallic coat driven by `globals.time` on
     a continuous six-second loop, so the whole hand bar changed a little on
     every frame with nothing hovered, nothing moving and nobody's turn. What

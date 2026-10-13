@@ -76,7 +76,7 @@ pub struct AmbienceMaterial {
 
 impl UiMaterial for AmbienceMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/ambience.wgsl".into()
+        "embedded://baylee_client/shaders/ambience.wesl".into()
     }
 }
 
@@ -197,9 +197,9 @@ impl Plugin for AmbiencePlugin {
         if !app.world().contains_resource::<AssetServer>() {
             return;
         }
-        embedded_asset!(app, "shaders/ambience.wgsl");
+        embedded_asset!(app, "shaders/ambience.wesl");
         // The shell kit's primary-button light (`shellkit::sheen`).
-        embedded_asset!(app, "shaders/kit_sheen.wgsl");
+        embedded_asset!(app, "shaders/kit_sheen.wesl");
         app.add_plugins(UiMaterialPlugin::<AmbienceMaterial>::default());
     }
 }
@@ -456,16 +456,17 @@ mod tests {
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 struct Globals { time: f32 };
 ";
-        // `check_wgsl` strips `#import` lines, so what is imported has to be
+        // `check_wgsl` strips `import` lines, so what is imported has to be
         // put back by hand — the shared grain in this case, which is the
         // whole point of it being shared.
-        let prelude = format!("{prelude}{}", include_str!("shaders/noise.wgsl"));
-        crate::cardmat::tests::check_wgsl(include_str!("shaders/ambience.wgsl"), &prelude);
+        let prelude = format!("{prelude}{}", include_str!("shaders/noise.wesl"));
+        crate::cardmat::tests::check_wgsl(include_str!("shaders/ambience.wesl"), &prelude);
     }
 }

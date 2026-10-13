@@ -10,6 +10,7 @@
 //! through [`crate::rebuild_board`], the one door every card's `Motion`
 //! target comes out of — nothing here positions a table object.
 
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tableview::{Arrangement, TableFrame, TableView};
 use bevy::prelude::*;
@@ -676,7 +677,7 @@ fn spawn_pill(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             GlobalZIndex(G_SWITCHER),
         ))
@@ -897,7 +898,7 @@ fn arrangement_row(
         } else {
             Color::NONE
         }),
-        Button,
+        LegacyButton,
     ));
     if live {
         line.insert(Feel::new(ground));
@@ -1027,7 +1028,7 @@ fn remember_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Menu
                 ..default()
             },
             BackgroundColor(ground),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             children![(
                 Text::new(Phrase::ArrRememberForSeats.fill(lang, &[&look.seats.to_string()])),
@@ -1044,7 +1045,7 @@ fn remember_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Menu
 
 /// The pill pressed: the menu opens, or shuts.
 fn pill_pressed(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     mut duel: ResMut<Duel>,
     settings: Res<crate::settings::ClientSettings>,
     measured: Res<ArrangementFrame>,
@@ -1055,7 +1056,7 @@ fn pill_pressed(
 
 /// A row pressed.
 fn row_pressed(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     rows: Query<&ArrangementRow>,
     mut duel: ResMut<Duel>,
     mut settings: ResMut<crate::settings::ClientSettings>,
@@ -1069,7 +1070,7 @@ fn row_pressed(
 }
 
 /// A press beside the menu shuts it, and goes no further.
-fn veil_pressed(mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>) {
+fn veil_pressed(mut click: On<PointerClick>, mut duel: ResMut<Duel>) {
     click.propagate(false);
     duel.arrangement_menu = None;
 }

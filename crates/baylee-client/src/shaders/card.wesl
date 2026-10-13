@@ -2,8 +2,8 @@
 // over it.
 //
 // Nothing the rules have made the card is drawn here any more (#298): the
-// print fills the card, and the strip (`marks.wgsl`), the count badge
-// (`badge.wgsl`) and the offer's light on the felt (`floor.wgsl`) are objects
+// print fills the card, and the strip (`marks.wesl`), the count badge
+// (`badge.wesl`) and the offer's light on the felt (`floor.wesl`) are objects
 // of their own. One shader for every card because a board of three hundred
 // permanents can afford one pipeline and not several.
 //
@@ -15,9 +15,9 @@
 // comes from the view bind group, so the sheen animates without the CPU
 // touching a material asset per frame.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON, veiled, veil_amounts}
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::{view, globals};
+import baylee_client::shaders::card_common::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON, veiled, veil_amounts};
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -52,9 +52,9 @@ struct CardParams {
     veil_rate: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var art: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var art_sampler: sampler;
-@group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> params: CardParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var art: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var art_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var<uniform> params: CardParams;
 
 
 /// The lamp over the table.
@@ -67,7 +67,7 @@ struct CardParams {
 /// the stage is deliberately `unlit` so scene lighting can never make a
 /// colour identity unreadable — and a specular term against a *virtual* lamp
 /// gives the surface back without putting a light anywhere near the art: it
-/// is arithmetic on the view vector, the same move `felt.wgsl`'s `under_lamp`
+/// is arithmetic on the view vector, the same move `felt.wesl`'s `under_lamp`
 /// makes for the cloth.
 ///
 /// [`LAMP`] is a direction in world space, so the highlight is a broad pool

@@ -387,7 +387,7 @@ fn a_summoning_sick_phased_out_creature_is_phased_only() {
 /// `u32` and a mismatch would draw one state as another, silently.
 #[test]
 fn the_shaders_veil_bits_are_the_rust_ones() {
-    let src = include_str!("../shaders/card_common.wgsl");
+    let src = include_str!("../shaders/card_common.wesl");
     let read = |name| cardmat::tests::wgsl_const(src, name) as u32;
     assert_eq!(read("VEIL_DIM"), veil::DIM);
     assert_eq!(read("VEIL_PHASED"), veil::PHASED);

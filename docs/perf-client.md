@@ -78,8 +78,8 @@ and 4,100 (1.9 MB) at the busy duel, mostly bevy's own extraction; at about
 
 | Drawing | Front door | Table | Taken away, the picture changes |
 |---|---|---|---|
-| `vista.wgsl` (the painted world) | 28 of 30 ms | — | everything (it is the backdrop) |
-| `felt.wgsl` (mineral cloth) | — | 8.6 of 14.9 ms | the table |
+| `vista.wesl` (the painted world) | 28 of 30 ms | — | everything (it is the backdrop) |
+| `felt.wesl` (mineral cloth) | — | 8.6 of 14.9 ms | the table |
 | MSAA 4× → none | — | −0.2 ms (noise) | RMSE 8.6, 6.8 % of pixels > 8 levels |
 | sky, cards, card UI, floor light, mats | — | each below noise | — |
 

@@ -4,13 +4,13 @@
 // bottom right: beside the printed power and toughness box over the black
 // border where the row leaves the room, on the card's own foot where the
 // next card reaches that far, and upright under a tapped card. This is all
-// it draws: `card_common.wgsl`'s `plate_object`, blended over the card and
+// it draws: `card_common.wesl`'s `plate_object`, blended over the card and
 // whatever lies beside it. The quad is `cardplate::plate_quad` — the widest
 // plate with its shadow round it — so every plate is the same mesh and the
 // only thing that differs between two of them is the words.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{plate_object}
+import bevy_pbr::render::forward_io::VertexOutput;
+import baylee_client::shaders::card_common::{plate_object};
 
 struct PlateParams {
     /// The quad's size in card widths.
@@ -21,9 +21,9 @@ struct PlateParams {
     ink: u32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: PlateParams;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var marks: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(2) var marks_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: PlateParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var marks: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var marks_sampler: sampler;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {

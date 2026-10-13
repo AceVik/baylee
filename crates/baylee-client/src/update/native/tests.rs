@@ -365,7 +365,7 @@ impl Trash for FakeTrash {
 fn mover_app(trash: FakeTrash) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<bevy::picking::events::PointerClick>()
         .add_message::<AppExit>()
         .add_plugins(UpdatePlugin)
         .insert_resource(Mover {

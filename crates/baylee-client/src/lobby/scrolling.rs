@@ -115,8 +115,8 @@ impl Scrolled {
 
 /// Turns a wheel or a swipe into scrolling on the list under the pointer.
 pub(super) fn scrolls(
-    mut wheels: MessageReader<Pointer<Scroll>>,
-    mut drags: MessageReader<Pointer<Drag>>,
+    mut wheels: MessageReader<PointerScroll>,
+    mut drags: MessageReader<PointerDrag>,
     parents: Query<&ChildOf>,
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
     mut memory: ResMut<Scrolled>,

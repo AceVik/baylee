@@ -8,6 +8,7 @@
 //! (`Action::Friends`), `/friends` and the chat's head open it too.
 
 use super::zoom::{z, zpx};
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ChatTab, Intent, Social};
 use baylee_protocol::social::{Place, Shown, Status};
@@ -283,7 +284,7 @@ fn asks(
 /// The drawer's presses.
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(Entity, &Interaction, &DrawerPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &LegacyInteraction, &DrawerPress), Changed<LegacyInteraction>>,
     mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
@@ -486,7 +487,7 @@ fn sync_door(
                 FriendsDoor,
                 ChatSurface,
                 RelativeCursorPosition::default(),
-                Button,
+                LegacyButton,
                 DrawerPress::Toggle,
                 Node {
                     position_type: PositionType::Absolute,
@@ -606,7 +607,7 @@ fn small_button(
 ) -> Entity {
     commands
         .spawn((
-            Button,
+            LegacyButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(7.0), zpx(2.0)),
@@ -636,7 +637,7 @@ fn icon_button(
 ) -> Entity {
     commands
         .spawn((
-            Button,
+            LegacyButton,
             press,
             Node {
                 width: zpx(22.0),
@@ -725,7 +726,7 @@ pub(crate) fn text_box(
     let (before, after) = text.split_at(buffer.cursor().min(text.len()));
     let field = commands
         .spawn((
-            Button,
+            LegacyButton,
             press,
             Text::default(),
             tf(fonts, z(12.0)),
@@ -1099,7 +1100,7 @@ fn sync_drawer(
             let line = row(commands);
             // The row lights under the pointer (its buttons are its own).
             commands.entity(line).insert((
-                Button,
+                LegacyButton,
                 Feel::new(Color::NONE),
                 BackgroundColor(Color::NONE),
                 Node {
@@ -1241,7 +1242,7 @@ fn sync_drawer(
             let line = row(&mut commands);
             let open = commands
                 .spawn((
-                    Button,
+                    LegacyButton,
                     DrawerPress::OpenGroup(group.id.clone()),
                     Node {
                         flex_grow: 1.0,

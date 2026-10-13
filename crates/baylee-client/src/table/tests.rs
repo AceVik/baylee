@@ -288,7 +288,7 @@ fn the_card_face_is_mapped_corner_to_corner() {
 
 /// The geometry and the two shaders have to round the card at the same
 /// radius, and nothing in the compiler can notice that they do: one is a
-/// Rust constant and the others are text in a `.wgsl` file. So the text
+/// Rust constant and the others are text in a `.wesl` file. So the text
 /// is read.
 ///
 /// Cut the mesh wider than the print and the shader's ink has nothing
@@ -298,7 +298,7 @@ fn the_card_face_is_mapped_corner_to_corner() {
 #[test]
 fn the_mesh_and_the_shaders_round_the_card_alike() {
     let printed = crate::cardmat::tests::wgsl_const(
-        include_str!("../shaders/card_common.wgsl"),
+        include_str!("../shaders/card_common.wesl"),
         "PRINTED_CORNER",
     );
     assert!(

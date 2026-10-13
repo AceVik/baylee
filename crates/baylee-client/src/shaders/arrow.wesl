@@ -22,8 +22,8 @@
 // build renders through WebGPU now. See `cardmat`'s header. The one loop here
 // has a constant bound and no dynamic indexing, which GLSL ES 3.0 unrolls.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::globals;
 
 struct ArrowParams {
     /// The arrow's colour, and in `w` its opacity — `STANDING` for a
@@ -55,7 +55,7 @@ struct ArrowParams {
     motion: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: ArrowParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: ArrowParams;
 
 /// How many straight pieces the curve is measured as.
 ///

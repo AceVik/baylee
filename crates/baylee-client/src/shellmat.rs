@@ -10,7 +10,7 @@
 //! order when a card wears several (shroud swallows hexproof, as the strip's
 //! marks do), each told apart by its pattern and its motion as well as its
 //! colour, so a player who cannot tell the hues apart still can
-//! (`shell_common.wgsl`'s `ward_layer`): a steady golden rim with one glint
+//! (`shell_common.wesl`'s `ward_layer`): a steady golden rim with one glint
 //! going round it; a wall of stone blocks; a thin blue line with light
 //! flowing along it; a soft violet mist with no edge at all. The band is
 //! one mesh and one material per set of keywords ([`Ward`]), so a card
@@ -22,7 +22,7 @@
 //! hands the fragment the camera in the shell's own space; the fragment
 //! follows the ray from the camera through its point to the card's face
 //! plane, and where that ray meets the print its alpha is exactly zero
-//! ([`clear_over_print`], which `shell.wgsl` mirrors). It is the real
+//! ([`clear_over_print`], which `shell.wesl` mirrors). It is the real
 //! camera and the real ray, so the rule holds at every yaw, lean, screen
 //! corner, hover and tap.
 //!
@@ -160,7 +160,7 @@ const _: () = assert!(WAVE_INSET > CARD_CORNER);
 const _: () = assert!(WAVE_RUNG > RING_RUNG && WAVE_RUNG < BORDER_RUNG);
 const _: () = assert!(WAVE_TRAVEL < WAVE_PERIOD);
 
-/// Which shell a material draws, as `shell_common.wgsl` numbers it for the
+/// Which shell a material draws, as `shell_common.wesl` numbers it for the
 /// table's shader and the preview's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u32)]
@@ -173,7 +173,7 @@ pub enum ShellKind {
     Wave = 3,
 }
 
-/// The keywords a permanent's border says, as `shell_common.wgsl`'s `WARD_*`
+/// The keywords a permanent's border says, as `shell_common.wesl`'s `WARD_*`
 /// bits. Shroud swallows hexproof: a permanent with both may be targeted by
 /// nobody, which is shroud, so it wears one layer and not two.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -263,7 +263,7 @@ impl Shells {
     /// What the preview draws, standing, in the order each is painted: the
     /// wave, then the border, both under the card's own objects (the strip,
     /// the plate and the count badge), as on the table. A new shell is a
-    /// look here and an arm in `shell_ui.wgsl`.
+    /// look here and an arm in `shell_ui.wesl`.
     #[must_use]
     pub fn standing(self) -> Vec<ShellLook> {
         [
@@ -392,11 +392,11 @@ impl Material for ShellMaterial {
     /// Its own vertex stage, because the mask needs the camera in the
     /// shell's own space, which Bevy's does not hand on.
     fn vertex_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/shell.wgsl".into()
+        "embedded://baylee_client/shaders/shell.wesl".into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/shell.wgsl".into()
+        "embedded://baylee_client/shaders/shell.wesl".into()
     }
 
     /// Blended, so the mask's zero is nothing at all. Not `Add`: Bevy draws
@@ -418,14 +418,14 @@ impl Material for ShellMaterial {
 
 /// Registers the material and ships its shaders in the binary, for the reason
 /// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own:
-/// `shell.wgsl`, and `shell_common.wgsl`, which the preview's shells
+/// `shell.wesl`, and `shell_common.wesl`, which the preview's shells
 /// ([`crate::shellui`]) import as well.
 pub struct ShellMaterialPlugin;
 
 impl Plugin for ShellMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/shell_common.wgsl");
-        embedded_asset!(app, "shaders/shell.wgsl");
+        embedded_asset!(app, "shaders/shell_common.wesl");
+        embedded_asset!(app, "shaders/shell.wesl");
         app.add_plugins(MaterialPlugin::<ShellMaterial>::default());
     }
 }
@@ -442,7 +442,7 @@ pub fn card_sdf(p: Vec2) -> f32 {
 /// How much of a shell's point `p` may be drawn, seen from `cam`, both in the
 /// shell's own space, whose `z = 0` is the card's face: zero where the ray
 /// from the camera through `p` meets the face on the print, one once it meets
-/// it [`MASK_FEATHER`] off it. `shell.wgsl`'s `clear_over_print`.
+/// it [`MASK_FEATHER`] off it. `shell.wesl`'s `clear_over_print`.
 ///
 /// A point above the face is in front of the print where its ray lands; a
 /// point below it is behind the card there, which hides it anyway. So the
@@ -556,7 +556,7 @@ pub fn band_mesh(inner: (f32, f32), outer: (f32, f32)) -> Mesh {
 
 /// Summoning sickness's wave as a mesh, flat, in the card's own space with
 /// its face at `z = 0`: a grid of [`WAVE_CELLS`] over the card,
-/// [`WAVE_INSET`] in from its edge. `shell.wgsl`'s vertex stage lifts it.
+/// [`WAVE_INSET`] in from its edge. `shell.wesl`'s vertex stage lifts it.
 ///
 /// # Panics
 ///
@@ -873,10 +873,10 @@ mod tests {
     use super::*;
     use crate::cardmat::tests::{check_wgsl, wgsl_const};
 
-    const SHADER: &str = include_str!("shaders/shell.wgsl");
+    const SHADER: &str = include_str!("shaders/shell.wesl");
     /// What it shares with the preview's shells: the card, the kinds, the
     /// border's layers and the wave.
-    const COMMON: &str = include_str!("shaders/shell_common.wgsl");
+    const COMMON: &str = include_str!("shaders/shell_common.wesl");
 
     /// The shell's shader, parsed and validated against stubs of what Bevy
     /// hands a custom vertex stage: the mesh's matrices, the view and the
@@ -904,7 +904,7 @@ struct VertexOutput {
             SHADER,
             &format!(
                 "{prelude}{}{COMMON}",
-                include_str!("shaders/card_common.wgsl")
+                include_str!("shaders/card_common.wesl")
             ),
         );
     }
@@ -936,7 +936,7 @@ struct VertexOutput {
                 "layers: u32,",
                 "spare: vec2<f32>,"
             ],
-            "shell.wgsl lays the uniform out differently from `ShellParams`"
+            "shell.wesl lays the uniform out differently from `ShellParams`"
         );
     }
 

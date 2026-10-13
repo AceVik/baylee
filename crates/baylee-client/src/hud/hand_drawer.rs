@@ -12,6 +12,7 @@
 //! moves under the finger: a press on a card that is sliding is the card's.
 //! Off a phone the drawer is always open and nothing is written.
 
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::handdrawer::{eased, slide};
 use baylee_client_core::tableview::TableFrame;
 use bevy::prelude::*;
@@ -202,7 +203,7 @@ pub fn sync_hand_tab(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             crate::ambience::Feel::new(ground),
             GlobalZIndex(650),
         ))
@@ -244,18 +245,18 @@ pub fn sync_hand_tab(
 #[derive(Resource, Default)]
 pub struct TabPress(Option<Vec2>);
 
-fn tab_down(press: On<Pointer<Press>>, mut at: ResMut<TabPress>) {
-    at.0 = Some(press.pointer_location.position);
+fn tab_down(press: On<PointerPress>, mut at: ResMut<TabPress>) {
+    at.0 = Some(press.pointer.position);
 }
 
 /// The tab let go of: a swipe up opens and down shuts — a travel of a third
 /// of the tab's height or more —, a tap toggles. One handler, so a swipe is
 /// never also a tap.
-fn tab_pressed(mut click: On<Pointer<Click>>, mut at: ResMut<TabPress>, mut duel: ResMut<Duel>) {
+fn tab_pressed(mut click: On<PointerClick>, mut at: ResMut<TabPress>, mut duel: ResMut<Duel>) {
     click.propagate(false);
     let dy =
         at.0.take()
-            .map_or(0.0, |down| click.pointer_location.position.y - down.y);
+            .map_or(0.0, |down| click.pointer.position.y - down.y);
     if dy.abs() >= swipe_travel() {
         duel.hand_drawer.swipe(dy < 0.0);
     } else {

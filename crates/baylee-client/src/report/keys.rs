@@ -190,7 +190,7 @@ pub(super) fn scroll(
 /// press meant for the form is the form's alone.
 #[allow(clippy::too_many_arguments)] // an observer: one reader per thing a press may change
 pub(super) fn pressed(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     presses: Query<&DeskPress, Without<Disabled>>,
     mut desk: ResMut<ReportDesk>,
     mut settings: ResMut<ClientSettings>,

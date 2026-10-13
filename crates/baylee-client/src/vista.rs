@@ -241,7 +241,7 @@ pub struct VistaMaterial {
 
 impl UiMaterial for VistaMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/vista.wgsl".into()
+        "embedded://baylee_client/shaders/vista.wesl".into()
     }
 }
 
@@ -343,7 +343,7 @@ impl Plugin for VistaPlugin {
             assets.load("scenes/sanctuary-frame.png"),
         ]);
         app.insert_resource(art);
-        embedded_asset!(app, "shaders/vista.wgsl");
+        embedded_asset!(app, "shaders/vista.wesl");
         app.add_plugins(UiMaterialPlugin::<VistaMaterial>::default());
     }
 }
@@ -664,14 +664,15 @@ mod tests {
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 struct Globals { time: f32 };
 ";
-        let prelude = format!("{prelude}{}", include_str!("shaders/noise.wgsl"));
-        crate::cardmat::tests::check_wgsl(include_str!("shaders/vista.wgsl"), &prelude);
+        let prelude = format!("{prelude}{}", include_str!("shaders/noise.wesl"));
+        crate::cardmat::tests::check_wgsl(include_str!("shaders/vista.wesl"), &prelude);
     }
 
     /// The lobby's world (Baylee's fireflies are drawn from its clock,

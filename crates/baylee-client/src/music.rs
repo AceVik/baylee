@@ -3,6 +3,7 @@
 //! `PlayerView`) changes future notes; the audio player never restarts at a
 //! screen change. Only the user's own volume fades the master, and a
 //! priority cue ducks it for a moment.
+use crate::legacy_ui::LegacyButton;
 use crate::{Duel, DuelPhase, lobby::LobbyState, settings::ClientSettings};
 use baylee_client_core::lobby::Screen;
 use baylee_client_core::music::{self, Ending, Memory, Place, ScoreControl, ScoreRequest, Tune};
@@ -363,9 +364,9 @@ fn control_button(
     commands
         .entity(id)
         .remove::<crate::lobby::Press>()
-        .insert((Button, action))
+        .insert((LegacyButton, action))
         .observe(
-            |mut click: On<Pointer<Click>>,
+            |mut click: On<PointerClick>,
              actions: Query<&MusicAction>,
              mut settings: ResMut<ClientSettings>| {
                 let Ok(action) = actions.get(click.entity) else {

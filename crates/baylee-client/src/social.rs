@@ -19,6 +19,7 @@
 //! Signed in nowhere, offline (`LocalHost`) or at a gateway with no chat,
 //! nothing here is drawn and the table's log panel is today's.
 
+use crate::legacy_ui::LegacyInteraction;
 use std::collections::VecDeque;
 
 use baylee_client_core::social::{
@@ -46,21 +47,21 @@ use transport::{Arrived, LinkNews, Mailbox, Socket};
 /// panel that closes on a click is still standing when the pointer comes up
 /// and the release cannot land on whatever stood under it.
 pub(crate) fn released<T: Component + Clone>(
-    changed: &Query<(Entity, &Interaction, &T), Changed<Interaction>>,
+    changed: &Query<(Entity, &LegacyInteraction, &T), Changed<LegacyInteraction>>,
     held: &mut std::collections::HashSet<Entity>,
 ) -> Vec<T> {
     let mut out = Vec::new();
     for (entity, interaction, press) in changed {
         match interaction {
-            Interaction::Pressed => {
+            LegacyInteraction::Pressed => {
                 held.insert(entity);
             }
-            Interaction::Hovered => {
+            LegacyInteraction::Hovered => {
                 if held.remove(&entity) {
                     out.push(press.clone());
                 }
             }
-            Interaction::None => {
+            LegacyInteraction::None => {
                 held.remove(&entity);
             }
         }

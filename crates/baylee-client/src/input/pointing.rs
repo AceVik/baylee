@@ -20,7 +20,7 @@ pub struct SeatPresses<'w, 's> {
 /// click becomes an action.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one branch per clickable widget kind
 pub fn pointer(
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     seats: SeatPresses,
@@ -268,7 +268,7 @@ pub fn pointer(
 
     // The tap nobody heard, sent here — `docs/observed-faults.md` 35.
     //
-    // Bevy raises a `Pointer<Click>` only when the press and the release land
+    // Bevy raises a `PointerClick` only when the press and the release land
     // on the same **entity**, and this hand row is rebuilt on every hover
     // change and on every view that arrives. A finger that is down while any
     // of that happens comes up on a node born after the press, no click is
@@ -329,7 +329,7 @@ type TableCamera<'w, 's> =
 ///
 /// # Why a still pointer says nothing
 ///
-/// `Pointer<Over>` fires when the *card* moves under the pointer just as
+/// `PointerOver` fires when the *card* moves under the pointer just as
 /// readily as when the pointer moves over the card, and on this table the
 /// cards are always moving: a repacked lane, a tap, a hover lift, a permanent
 /// arriving. A pointer resting anywhere near the board therefore re-pinned
@@ -341,8 +341,8 @@ type TableCamera<'w, 's> =
 /// it, so a genuine mouse move is never swallowed.
 #[allow(clippy::too_many_arguments)] // three picking queries plus the two event streams
 pub fn pointer_hover(
-    mut overs: MessageReader<Pointer<Over>>,
-    mut outs: MessageReader<Pointer<Out>>,
+    mut overs: MessageReader<PointerOver>,
+    mut outs: MessageReader<PointerOut>,
     mut moves: MessageReader<bevy::window::CursorMoved>,
     mut grace: Local<u8>,
     mut source: Local<HoverSource>,
@@ -449,7 +449,7 @@ pub fn pointer_hover(
             // for the cursor instead would answer with wherever the pointer
             // has since travelled, which on a fast sweep is a card or two
             // further along.
-            let at = over.pointer_location.position;
+            let at = over.pointer.position;
             // The pointer is on one thing, so entering anything at all ends
             // whatever place it was on. Cleared here and written back a few
             // lines down when the thing entered is itself a place: without
@@ -570,7 +570,7 @@ pub enum HoverSource {
 /// A pointer hover is a claim about a **place**: the player put the pointer
 /// on a card lying somewhere on the table. Nothing else in this system can
 /// make that claim false when the card is the thing that moves.
-/// `Pointer<Out>` does not fire, because the events are drained while the
+/// `PointerOut` does not fire, because the events are drained while the
 /// pointer is still — that is "Why a still pointer says nothing", and it is
 /// deliberate. [`HoverSource`]'s kind check does not fire either, because a
 /// card that changes zone keeps its entity: `SceneIndex::cards` reuses it for

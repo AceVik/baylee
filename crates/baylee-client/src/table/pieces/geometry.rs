@@ -10,7 +10,7 @@
 //! and the seam meet exactly — no sliver between them when they weld.
 //!
 //! Every shape is in the slab mesh's own frame (`x`, `y` table, `z` up) and
-//! carries uvs `felt.wgsl` reads as what it is: `u` in 0 to 1 a point of the
+//! carries uvs `felt.wesl` reads as what it is: `u` in 0 to 1 a point of the
 //! top (the slab's own mapping), 2 to 3 the cut face, 4 to 5 the rim's wall,
 //! 6 to 7 the seam; `v` the top's other coordinate or how far down.
 
@@ -21,7 +21,7 @@ use bevy::mesh::{Indices, Mesh, PrimitiveTopology};
 use std::f32::consts::FRAC_PI_2;
 
 /// How far below the slab the spilled veins may hang, in slab thicknesses
-/// (`felt.wgsl`'s `DRIP_DEPTH`).
+/// (`felt.wesl`'s `DRIP_DEPTH`).
 pub const DRIP_DEPTH: f32 = 1.6;
 
 /// The step the pieces are cut at along the line, table units: well under
@@ -39,7 +39,7 @@ pub const SEAM_HALF: f32 = 0.05;
 const SEAM_RISE: f32 = 0.004;
 
 /// The radius of the floating dial: everything the firewheel and the clock
-/// face draw (`felt.wgsl`'s `FLAME_REACH`).
+/// face draw (`felt.wesl`'s `FLAME_REACH`).
 pub const DIAL_R: f32 = baylee_client_core::firewheel::FLAME_REACH;
 
 /// A mesh under construction.
@@ -295,7 +295,7 @@ pub fn piece_mesh(outline: Outline, thickness: f32, seed: f32, near: bool) -> Me
 
 /// The void under the table (the coordinator's of 07.10.2026: *the gap
 /// must read as a hole*): the far part of the slab's outline from a little
-/// in front of the tear on, as a floor `felt.wgsl` draws dark. My piece
+/// in front of the tear on, as a floor `felt.wesl` draws dark. My piece
 /// covers the rest from every place the camera stands.
 #[must_use]
 pub fn void_mesh(outline: Outline, from: f32) -> Mesh {
@@ -320,7 +320,7 @@ pub fn void_mesh(outline: Outline, from: f32) -> Mesh {
 /// The dial lifted whole off the tearing table (the coordinator's of
 /// 07.10.2026: *the dial is cut by the tear — keep it whole*): a disc of
 /// [`DIAL_R`] at the dial's `scale` (`baylee_client_core::dial::scale_for`)
-/// with a thin wall, its top mapped like the slab's so `felt.wgsl` draws the
+/// with a thin wall, its top mapped like the slab's so `felt.wesl` draws the
 /// firewheel and the clock face on it exactly as on the table.
 #[must_use]
 pub fn dial_mesh(outline: Outline, scale: f32) -> Mesh {
@@ -349,7 +349,7 @@ pub fn dial_mesh(outline: Outline, scale: f32) -> Mesh {
     for d in &ring {
         let p = *d * (DIAL_R * scale);
         let n = [d.x, d.y, 0.0];
-        // The slab's own mapping: `felt.wgsl` shades the disc's edge as the
+        // The slab's own mapping: `felt.wesl` shades the disc's edge as the
         // slab's apron, at the point of the table it stands over.
         let uv = outline.uv(p);
         let top = out.vertex([p.x, p.y, 0.0], n, uv);

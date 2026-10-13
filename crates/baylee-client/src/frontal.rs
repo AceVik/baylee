@@ -1,6 +1,6 @@
 //! Shared midnight furniture: the hand well, action rail and seat cartouches.
 //!
-//! The shader is `shaders/frontal.wgsl` and the whole argument is written
+//! The shader is `shaders/frontal.wesl` and the whole argument is written
 //! there. This is the half that has to exist in Rust: the material, the
 //! **eleven** handles it is ever minted on, and the system that keeps each
 //! surface's idea of its own size and of the motion preference in step with
@@ -98,7 +98,7 @@ pub struct FrontalMaterial {
 
 impl UiMaterial for FrontalMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/frontal.wgsl".into()
+        "embedded://baylee_client/shaders/frontal.wesl".into()
     }
 }
 
@@ -413,8 +413,8 @@ impl Plugin for FrontalPlugin {
         {
             return;
         }
-        embedded_asset!(app, "shaders/noise.wgsl");
-        embedded_asset!(app, "shaders/frontal.wgsl");
+        embedded_asset!(app, "shaders/noise.wesl");
+        embedded_asset!(app, "shaders/frontal.wesl");
         app.add_plugins(UiMaterialPlugin::<FrontalMaterial>::default())
             .add_systems(Update, hang);
     }
@@ -428,7 +428,7 @@ mod tests {
     ///
     /// The alternative is finding a typo when a pipeline is built — in a
     /// browser, where there is no filesystem to look at. The grain is pasted
-    /// in ahead of it because `check_wgsl` strips `#import` lines, so an
+    /// in ahead of it because `check_wgsl` strips `import` lines, so an
     /// imported function is an unknown identifier to it.
     #[test]
     fn the_frontal_shader_compiles() {
@@ -437,15 +437,16 @@ mod tests {
 struct UiVertexOutput {{
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 }};
 struct Globals {{ time: f32 }};
 {}",
-            include_str!("shaders/noise.wgsl")
+            include_str!("shaders/noise.wesl")
         );
-        crate::cardmat::tests::check_wgsl(include_str!("shaders/frontal.wgsl"), &prelude);
+        crate::cardmat::tests::check_wgsl(include_str!("shaders/frontal.wesl"), &prelude);
     }
 
     /// A cloth whose node has not moved is not written: after the first
@@ -504,7 +505,7 @@ struct Globals {{ time: f32 }};
     /// that is fine.
     #[test]
     fn the_rail_stays_readable_at_every_pose_the_cloth_can_take() {
-        let shader = include_str!("shaders/frontal.wgsl");
+        let shader = include_str!("shaders/frontal.wesl");
         let swing: f32 = number(shader, "const BREATH: f32 = ");
         // `fbm1` is four octaves at 0.5, 0.25, 0.125, 0.0625, so it cannot
         // leave [0, 0.9375] and the shader's `fbm1(..) - 0.5` cannot leave
@@ -561,7 +562,7 @@ struct Globals {{ time: f32 }};
     /// different places on the two nodes and tear the field in half.
     #[test]
     fn one_fold_field_runs_through_both_surfaces() {
-        let shader = include_str!("shaders/frontal.wgsl");
+        let shader = include_str!("shaders/frontal.wesl");
         assert!(
             shader.contains("let x = (in.uv.x - 0.5) * params.aspect * h;"),
             "the fold field is indexed on the window's x, not on the node's"
@@ -599,7 +600,7 @@ struct Globals {{ time: f32 }};
     #[test]
     fn the_folds_do_not_line_up_with_the_cards() {
         let fold: f32 = number(
-            include_str!("shaders/frontal.wgsl"),
+            include_str!("shaders/frontal.wesl"),
             "const FOLD_PX: f32 = ",
         );
         let step = crate::hud::HAND_CARD_W + 8.0;
@@ -625,7 +626,7 @@ struct Globals {{ time: f32 }};
             .split_once("#[cfg(test)]")
             .expect("the tests are still where they were")
             .0;
-        let shader = include_str!("shaders/frontal.wgsl");
+        let shader = include_str!("shaders/frontal.wesl");
         for forbidden in [
             "ACTIVATABLE",
             "REACHABLE",

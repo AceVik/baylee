@@ -104,7 +104,7 @@ fn pressing(pending: Pending, key: bevy::prelude::KeyCode) -> Vec<PlayerAction> 
 /// tests below, because that is what the client does to itself on every
 /// hover change and every arriving view.
 fn hand_app() -> bevy::app::App {
-    use bevy::picking::events::{Click, Pointer, Press, Release};
+    use bevy::picking::events::{PointerClick, PointerPress, PointerRelease};
     use bevy::prelude::*;
 
     // Spelled out, because `bevy::prelude` brings a `bevy_ui::Interaction`
@@ -137,9 +137,9 @@ fn hand_app() -> bevy::app::App {
         .init_resource::<crate::table::CameraRig>()
         .init_resource::<crate::touch::Touched>()
         .init_resource::<crate::settings::ClientSettings>()
-        .add_message::<Pointer<Press>>()
-        .add_message::<Pointer<Release>>()
-        .add_message::<Pointer<Click>>()
+        .add_message::<PointerPress>()
+        .add_message::<PointerRelease>()
+        .add_message::<PointerClick>()
         .insert_resource(duel)
         // `browser_click` reaches `TrayWidgets`, which holds the maximise
         // button's flight as a `ResMut`. A resource that is not there is a
@@ -188,30 +188,36 @@ fn pointer_at(app: &mut bevy::app::App) -> bevy::picking::pointer::Location {
 }
 
 fn finger_down(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
-    use bevy::picking::events::{Pointer, Press};
     use bevy::picking::pointer::PointerId;
 
     let location = pointer_at(app);
-    let event = Press {
+    let event = crate::test_pointer::Press {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
         count: 1,
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
 }
 
 fn finger_up(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
-    use bevy::picking::events::{Pointer, Release};
     use bevy::picking::pointer::PointerId;
 
     let location = pointer_at(app);
-    let event = Release {
+    let event = crate::test_pointer::Release {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
 }
 
 /// The click bevy raises when the press and the release agree on an
@@ -220,18 +226,21 @@ fn finger_up(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
 /// Named for the finger rather than for the event, so that it does not
 /// shadow the `the_click` system it is here to exercise.
 fn finger_click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
-    use bevy::picking::events::{Click, Pointer};
     use bevy::picking::pointer::PointerId;
 
     let location = pointer_at(app);
-    let event = Click {
+    let event = crate::test_pointer::Click {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
         duration: std::time::Duration::from_millis(10),
         count: 1,
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
 }
 
 /// Builds the app the two menu-button tests share: the real `pointer`
@@ -245,7 +254,7 @@ fn menu_app(duel: crate::Duel) -> (bevy::app::App, bevy::prelude::Entity, bevy::
         .init_resource::<crate::table::CameraRig>()
         .init_resource::<crate::touch::Touched>()
         .init_resource::<crate::settings::ClientSettings>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<bevy::picking::events::PointerClick>()
         .insert_resource(duel)
         .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, pointer);
@@ -273,7 +282,7 @@ pub(crate) fn pointer_app(duel: crate::Duel) -> bevy::app::App {
         .init_resource::<crate::table::CameraRig>()
         .init_resource::<crate::touch::Touched>()
         .init_resource::<crate::settings::ClientSettings>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<bevy::picking::events::PointerClick>()
         .insert_resource(duel)
         .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, crate::input::pointer);
@@ -283,7 +292,7 @@ pub(crate) fn pointer_app(duel: crate::Duel) -> bevy::app::App {
 /// One click on one entity, as the picking backend would report it.
 pub(crate) fn click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
     use bevy::camera::NormalizedRenderTarget;
-    use bevy::picking::events::{Click, Pointer};
+
     use bevy::picking::pointer::{Location, PointerId};
     use bevy::prelude::*;
     use bevy::window::{PrimaryWindow, WindowRef};
@@ -305,14 +314,18 @@ pub(crate) fn click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
         target: NormalizedRenderTarget::Window(target),
         position: Vec2::ZERO,
     };
-    let event = Click {
+    let event = crate::test_pointer::Click {
         button: bevy::picking::pointer::PointerButton::Primary,
         hit: bevy::picking::backend::HitData::new(camera, 0.0, None, None),
         duration: std::time::Duration::from_millis(10),
         count: 1,
     };
-    app.world_mut()
-        .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        location,
+        event,
+        entity,
+    ));
     app.update();
 }
 
@@ -322,8 +335,8 @@ fn hover_app(view: baylee_view::PlayerView) -> (bevy::app::App, bevy::prelude::E
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel {
             view: Some(view),
@@ -345,7 +358,7 @@ fn hover_app(view: baylee_view::PlayerView) -> (bevy::app::App, bevy::prelude::E
 /// pointer is deliberately silent.
 fn hover(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
     use bevy::camera::NormalizedRenderTarget;
-    use bevy::picking::events::{Over, Pointer};
+
     use bevy::picking::pointer::{Location, PointerId};
     use bevy::prelude::*;
     use bevy::window::{PrimaryWindow, WindowRef};
@@ -372,10 +385,10 @@ fn hover(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
         position: Vec2::ZERO,
         delta: None,
     });
-    app.world_mut().write_message(Pointer::new(
+    app.world_mut().write_message(crate::test_pointer::aim(
         PointerId::Mouse,
         location,
-        Over {
+        crate::test_pointer::Over {
             hit: bevy::picking::backend::HitData::new(camera, 0.0, None, None),
         },
         entity,

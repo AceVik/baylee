@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 
 /// The bar the ways out fall back to when the duel drew no end screen.
 ///
@@ -178,7 +179,7 @@ fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bo
     let ink = crate::hud::palette::PARCHMENT_INK;
     commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 align_self: AlignSelf::Center,
                 align_items: AlignItems::Center,

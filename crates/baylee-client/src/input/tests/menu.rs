@@ -569,7 +569,7 @@ fn the_log_key_opens_the_log_and_shuts_it() {
 ///
 /// The burger is the whole reason the system has an exclusion list at all. A
 /// press and a click land on **different frames** — picking turns a press and
-/// a release over one entity into a `Pointer<Click>` — so this system sees
+/// a release over one entity into a `PointerClick` — so this system sees
 /// the press first and would shut the panel, and `menu_click` would read the
 /// toggle a frame later and open it again. The burger would have stopped
 /// working while still looking like it was doing something.

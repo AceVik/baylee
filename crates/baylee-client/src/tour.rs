@@ -21,7 +21,7 @@ mod table_tests;
 
 use baylee_client_core::tour::{Anchor, Mode, Moved, Run, Tours};
 use bevy::input::keyboard::KeyCode;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 
 pub use draw::Spotlight;
@@ -267,7 +267,7 @@ fn keys(
 
 /// The bubble's and the pill's presses.
 fn presses(
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     buttons: Query<&TourPress>,
     disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
     parents: Query<&ChildOf>,

@@ -16,7 +16,7 @@
 //! Worse, everything attacking one seat ends at the same point, so the lines
 //! lay on top of each other near it. A bow separates them — two arcs leave a
 //! shared end at different angles — and a head says which way to read one.
-//! The arithmetic is `shaders/arrow.wgsl`; this file decides where the ends
+//! The arithmetic is `shaders/arrow.wesl`; this file decides where the ends
 //! are and hands over lengths in table units.
 //!
 //! **Recomputed from where the cards *are*, not from where they are going.**
@@ -390,7 +390,7 @@ const RING_SWELL: f32 = 0.08;
 
 /// The tempo every "is" breath on this table shares.
 ///
-/// The same number as `BEAT` in `shaders/card_common.wgsl`, and a test holds
+/// The same number as `BEAT` in `shaders/card_common.wesl`, and a test holds
 /// the two together. `docs/design.md` §1.6 is the reason it is not a rate of
 /// its own: six unrelated tempos is the fairground that section exists to
 /// prevent, and a ring pulsing against the rail marks would be the sixth.
@@ -536,7 +536,7 @@ mod tests {
         // is a text file nothing but the GPU parses, so a drift between the
         // two is silent — and would show up as a ring pulsing against the
         // rail marks it sits beside.
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let theirs = crate::cardmat::tests::wgsl_const(src, "BEAT");
         assert!(
             (BEAT - theirs).abs() < 1e-6,
@@ -554,7 +554,7 @@ mod tests {
     /// that could not read the WGSL would ever notice.
     #[test]
     fn the_arrow_has_no_clock_of_its_own_and_stops_when_the_table_does() {
-        let src = include_str!("shaders/arrow.wgsl");
+        let src = include_str!("shaders/arrow.wesl");
         let uses: Vec<&str> = src
             .lines()
             .filter(|line| !line.trim_start().starts_with("//"))

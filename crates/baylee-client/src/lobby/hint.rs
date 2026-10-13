@@ -33,8 +33,8 @@ const HINT_WIDTH: f32 = 300.0;
 
 /// Tracks which mark the pointer is over.
 pub(super) fn hint_hovers(
-    mut overs: MessageReader<Pointer<Over>>,
-    mut outs: MessageReader<Pointer<Out>>,
+    mut overs: MessageReader<PointerOver>,
+    mut outs: MessageReader<PointerOut>,
     hints: Query<&HoverHint>,
     parents: Query<&ChildOf>,
     mut hinted: ResMut<Hinted>,
@@ -60,7 +60,7 @@ pub(super) fn hint_hovers(
         {
             source = Some(entity);
             text = Some(hint.0.clone());
-            at = over.pointer_location.position;
+            at = over.pointer.position;
         }
     }
     if text != hinted.text || source != hinted.source {

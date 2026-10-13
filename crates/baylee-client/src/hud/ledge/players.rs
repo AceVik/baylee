@@ -45,7 +45,7 @@
 //! coloured lines along the top border"*). The turn is the ivory line the
 //! whole width of the top edge, three pixels; the table waiting on the seat
 //! is a teal line two pixels thin, set in from both ends, just under it —
-//! the dial's two hands' own colours (`felt.wgsl`'s `IVORY` and `TEAL`).
+//! the dial's two hands' own colours (`felt.wesl`'s `IVORY` and `TEAL`).
 //! So the two differ by place, length and weight as well as hue, and read
 //! apart without colour (DESIGN-v7 §3.6, v6 §3). Both stand on one chip at
 //! once, and the plate on the table wears the same pair. They are spawned
@@ -78,6 +78,7 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use crate::hud::Hint;
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::board::SeatRole;
 use baylee_client_core::seatplate::{Detail, SeatPlate};
 use baylee_view::SeatView;
@@ -457,7 +458,7 @@ pub fn show_the_tags(
 }
 
 /// The turn line's ivory (v6 §3's *am Zug*): the dial's turn hand
-/// (`dial::TURN_INK`, `felt.wgsl`'s `IVORY`). The priority line is
+/// (`dial::TURN_INK`, `felt.wesl`'s `IVORY`). The priority line is
 /// `palette::ACCENT`, the dial's priority hand (`TEAL`).
 pub(in crate::hud) const TURN_IVORY: Color = {
     let [r, g, b] = baylee_client_core::dial::TURN_INK;
@@ -781,7 +782,7 @@ fn spawn_button(
             },
             BackgroundColor(ground),
             BorderColor::all(RIM),
-            Button,
+            LegacyButton,
             Feel::rising_to(ground, GROUND_HOT),
             children![
                 (

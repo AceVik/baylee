@@ -268,7 +268,7 @@ fn enter_on_a_front_door_toggle_turns_it_once() {
 fn button_down(app: &mut App, entity: Entity) {
     app.world_mut().write_message(aimed(
         entity,
-        bevy::picking::events::Press {
+        crate::test_pointer::Press {
             button: PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
             count: 1,
@@ -293,7 +293,9 @@ fn button_up_after(app: &mut App, last: Entity, over: Entity) {
         .or_default()
         .insert(over, hit.clone());
     app.world_mut().insert_resource(hover);
-    let location = aimed(over, ()).pointer_location;
+    let location = aimed(over, crate::test_pointer::Over { hit: hit.clone() })
+        .pointer
+        .location();
     app.world_mut().write_message(PointerInput::new(
         PointerId::Mouse,
         location,
@@ -301,7 +303,7 @@ fn button_up_after(app: &mut App, last: Entity, over: Entity) {
     ));
     app.world_mut().write_message(aimed(
         last,
-        bevy::picking::events::Release {
+        crate::test_pointer::Release {
             button: PointerButton::Primary,
             hit,
         },

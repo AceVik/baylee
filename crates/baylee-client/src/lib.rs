@@ -74,6 +74,7 @@ pub mod host;
 pub mod hud;
 pub mod input;
 pub mod keys;
+pub(crate) mod legacy_ui;
 pub mod lifeflash;
 pub mod loading;
 pub mod lobby;
@@ -109,6 +110,8 @@ pub mod table;
 pub(crate) mod tablellm;
 pub(crate) mod tableseats;
 pub mod targeting;
+#[cfg(test)]
+pub(crate) mod test_pointer;
 pub mod textures;
 pub mod tokenart;
 pub mod touch;
@@ -3030,7 +3033,7 @@ pub struct Tear {
     pub plan: baylee_client_core::layout::transition::Tear,
     /// Seconds into it.
     pub t: f32,
-    /// The seed of this tear's jagged line (`felt.wgsl`'s `tear_line`): each
+    /// The seed of this tear's jagged line (`felt.wesl`'s `tear_line`): each
     /// tear tears differently, and both pieces share it.
     pub seed: f32,
 }
