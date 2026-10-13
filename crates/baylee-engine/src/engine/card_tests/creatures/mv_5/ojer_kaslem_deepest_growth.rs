@@ -221,76 +221,107 @@ fn ojer_kaslem_may_put_nothing_onto_the_battlefield() {
     assert_eq!(bottom, all, "all six revealed cards went to the bottom");
 }
 
-/// "…a creature card and/or a land card": one of each at most. Two creature
-/// cards (the Elves and the Ogre) are refused, and so are two land cards (the
-/// Island and the Forest); the answers that are refused change nothing, and a
-/// creature and a land are then accepted.
+/// "…a creature card and/or a land card": one of each at most, however the
+/// card asks for them.
+///
+/// The controller wants everything on offer: both creature cards (the Elves
+/// and the Ogre) and both land cards (the Island and the Forest), as many as
+/// each question allows. A question that takes the greedy answer would be
+/// putting two creatures or two lands onto the battlefield; a question that
+/// refuses it is answered with one creature card and one land card instead.
+/// Either way the outcome is the same: exactly one of the two creature cards
+/// and exactly one of the two land cards are on the battlefield, and the other
+/// two revealed cards of those types are in the library with the rest.
 #[test]
 fn ojer_kaslem_cannot_put_two_creature_cards_or_two_land_cards_onto_the_battlefield() {
-    let p0 = kit::P0;
     let (mut engine, ojer, library) = ojer_ready_to_connect(&[]);
+    let creatures = [library.elves(), library.ogre()];
+    let lands = [library.island(), library.forest()];
     kit::declare_attack(&mut engine, &[ojer], kit::P1);
-    kit::drive(
-        &mut engine,
-        |e| {
-            matches!(e.pending(), Pending::ChooseCards { .. })
-                || matches!(e.state().turn.phase, Phase::Ending)
-        },
-        |_, _| None,
-    );
+
+    let mut questions = 0;
+    for _ in 0..300 {
+        if matches!(engine.state().turn.phase, Phase::Ending) {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                player,
+                options,
+                max,
+                ..
+            } => {
+                questions += 1;
+                let greedy: Vec<ObjectId> = options
+                    .iter()
+                    .copied()
+                    .filter(|id| creatures.contains(id) || lands.contains(id))
+                    .take(usize::from(max))
+                    .collect();
+                let accepted = engine
+                    .apply(player, PlayerAction::ChooseObjects { objects: greedy })
+                    .is_ok();
+                if !accepted {
+                    let mut fitting: Vec<ObjectId> = Vec::new();
+                    fitting.extend(options.iter().copied().find(|id| creatures.contains(id)));
+                    fitting.extend(options.iter().copied().find(|id| lands.contains(id)));
+                    fitting.truncate(usize::from(max));
+                    engine
+                        .apply(player, PlayerAction::ChooseObjects { objects: fitting })
+                        .expect("one creature card and one land card is what the card allows");
+                }
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("nothing in this test answers {other:?}"),
+        }
+    }
     assert!(
-        matches!(engine.pending(), Pending::ChooseCards { .. }),
-        "Ojer connected, so the controller is asked which revealed cards to \
-         put onto the battlefield; got {:?}",
-        engine.pending()
+        questions > 0,
+        "Ojer connected, so the controller was asked which revealed cards to put \
+         onto the battlefield"
     );
 
-    let two_creatures = engine.apply(
-        p0,
-        PlayerAction::ChooseObjects {
-            objects: vec![library.elves(), library.ogre()],
-        },
+    let on_battlefield_of = |cards: &[ObjectId]| -> Vec<ObjectId> {
+        cards
+            .iter()
+            .copied()
+            .filter(|id| kit::zone_of(&engine, *id) == Zone::Battlefield)
+            .collect()
+    };
+    let creature_put = on_battlefield_of(&creatures);
+    let land_put = on_battlefield_of(&lands);
+    assert_eq!(
+        creature_put.len(),
+        1,
+        "exactly one of the two creature cards: {creature_put:?}"
     );
-    assert!(
-        two_creatures.is_err(),
-        "only one creature card may be put onto the battlefield"
+    assert_eq!(
+        land_put.len(),
+        1,
+        "exactly one of the two land cards: {land_put:?}"
     );
-    let two_lands = engine.apply(
-        p0,
-        PlayerAction::ChooseObjects {
-            objects: vec![library.island(), library.forest()],
-        },
-    );
-    assert!(
-        two_lands.is_err(),
-        "only one land card may be put onto the battlefield"
-    );
-    assert!(
-        matches!(engine.pending(), Pending::ChooseCards { .. }),
-        "the refused answers left the question open: {:?}",
-        engine.pending()
-    );
-
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![library.ogre(), library.island()],
-            },
-        )
-        .expect("one creature card and one land card is what the card allows");
-    assert_eq!(kit::zone_of(&engine, library.ogre()), Zone::Battlefield);
-    assert_eq!(kit::zone_of(&engine, library.island()), Zone::Battlefield);
-    assert_ne!(
-        kit::zone_of(&engine, library.elves()),
-        Zone::Battlefield,
-        "the second creature card stays off the battlefield"
-    );
-    assert_ne!(
-        kit::zone_of(&engine, library.forest()),
-        Zone::Battlefield,
-        "and so does the second land card"
-    );
+    for card in creatures.iter().chain(&lands) {
+        if !creature_put.contains(card) && !land_put.contains(card) {
+            assert_eq!(
+                kit::zone_of(&engine, *card),
+                Zone::Library,
+                "{card:?} was revealed and not put onto the battlefield: it goes \
+                 to the bottom of the library"
+            );
+        }
+    }
 }
 
 /// "…reveal **that many** cards": the number is the combat damage dealt *to the

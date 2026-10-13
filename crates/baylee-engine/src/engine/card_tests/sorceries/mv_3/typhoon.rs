@@ -19,6 +19,17 @@ fn volcanic_island() -> CardIndex {
     card_index("c718911c-c955-4eb9-9e16-be4bd49a4e4e")
 }
 
+/// Typhoon has gone from the stack to its owner's graveyard: it was cast and
+/// it resolved, so whatever the life totals say is the effect's doing and not
+/// the cast's.
+#[track_caller]
+fn assert_typhoon_resolved(engine: &Engine<RegistryLookup>) {
+    assert!(
+        in_graveyard(engine, kit::P0, typhoon()).is_some(),
+        "Typhoon was cast and has resolved"
+    );
+}
+
 /// Typhoon: "Typhoon deals damage to each opponent equal to the number of
 /// Islands that player controls."
 ///
@@ -44,6 +55,7 @@ fn typhoon_deals_each_opponent_damage_equal_to_the_islands_that_player_controls(
 
     cast_from_hand(&mut engine, p0, typhoon());
     pass_until(&mut engine, stack_is_empty);
+    assert_typhoon_resolved(&engine);
 
     assert_eq!(
         kit::life(&engine, p1),
@@ -90,6 +102,7 @@ fn typhoon_counts_every_land_with_the_island_subtype_and_nothing_else() {
 
     cast_from_hand(&mut engine, p0, typhoon());
     pass_until(&mut engine, stack_is_empty);
+    assert_typhoon_resolved(&engine);
 
     assert_eq!(
         kit::life(&engine, p1),
@@ -132,6 +145,7 @@ fn typhoon_counts_the_islands_when_it_resolves_not_when_it_is_cast() {
     cast_from_hand(&mut engine, p1, boomerang());
     aim_at(&mut engine, p1, theirs[0]);
     pass_until(&mut engine, stack_is_empty);
+    assert_typhoon_resolved(&engine);
 
     assert_eq!(
         all_on_battlefield(&engine, p1, island()).len(),
@@ -172,6 +186,7 @@ fn typhoon_does_not_deal_damage_to_a_teammate() {
 
     cast_from_hand(&mut engine, p0, typhoon());
     pass_until(&mut engine, stack_is_empty);
+    assert_typhoon_resolved(&engine);
 
     assert_eq!(
         kit::life(&engine, p1),

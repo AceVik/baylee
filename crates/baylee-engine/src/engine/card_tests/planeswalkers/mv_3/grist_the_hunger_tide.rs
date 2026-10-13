@@ -504,3 +504,42 @@ fn grist_minus_five_with_no_creature_cards_in_the_graveyard_drains_nothing() {
 
     assert_eq!(kit::life(&engine, p1), 20, "no creature card, no life lost");
 }
+
+/// Grist cast rather than placed, under Doubling Season: it enters with twice
+/// its printed three loyalty, and the `-5` is then affordable straight away.
+///
+/// (Kept from the earlier test of the same name, which pinned the `-5` as the
+/// only ability the partial card printed and so activated it as index 0; this
+/// one reads the `-5` as the third ability Grist is offered.) Two creature
+/// cards seeded into the graveyard make each opponent lose 2.
+#[test]
+fn grist_cast_under_doubling_season_enters_with_six_and_drains_for_the_graveyard() {
+    let p0 = kit::P0;
+    let doubling_season = card_index("01546b7d-a233-4176-8843-d732074dc5b6");
+    let mut engine = Duel::new(103, quiet_creature())
+        .battlefield(0, &[doubling_season, swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    pass_until(&mut engine, stack_is_empty);
+    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist resolved");
+    assert_eq!(
+        kit::loyalty(&engine, grist),
+        6,
+        "Doubling Season doubled the starting loyalty of 3"
+    );
+
+    seed_graveyard(&mut engine, p0, 2);
+    activate_nth(&mut engine, grist, 2);
+    assert_eq!(kit::loyalty(&engine, grist), 1, "paid 5 loyalty, leaving 1");
+    kit::settle(&mut engine, p0, |_, _| None);
+
+    assert_eq!(
+        kit::life(&engine, kit::P1),
+        18,
+        "two creature cards in the graveyard: the opponent loses 2"
+    );
+}

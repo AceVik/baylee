@@ -142,7 +142,12 @@ fn cast_it_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
         ..
     } = engine.pending().clone()
     else {
-        panic!("expected a target choice, got {:?}", engine.pending())
+        panic!(
+            "\"target player\" asks the caster for a target; the spell is on the stack \
+             ({}) but the question is {:?}",
+            !stack_is_empty(engine),
+            engine.pending()
+        )
     };
     assert_eq!(player, p0, "the caster names the target");
     assert_eq!((min, max), (1, 1), "one target");
