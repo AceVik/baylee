@@ -52,7 +52,7 @@
 //! spells and nonland back faces stay with the engine's own chooser because
 //! their legality needs the game state. Miracle is not a choice a hand click
 //! makes: the engine asks it as the card is drawn, and its cost is paid in a
-//! payment window (`Duel::pay_owed`).
+//! payment window (`Duel::confirm_payment`).
 //!
 //! Nothing here reads convoke, delve or a printed cost reduction either —
 //! the same three [`crate::mana_for`] and [`crate::reachable`] already do not
@@ -266,6 +266,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand
+        | CostPart::DiscardLastDrawnThisTurn
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)

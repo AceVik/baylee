@@ -712,6 +712,11 @@ mod tests {
     /// the existing twenty-five backs. One card, no generator round.
     /// Batch 46 adds The Myriad Pools' spell-cast trigger as the twenty-seventh
     /// back: its mana ability stays off the stack, while its copy trigger uses it.
+    ///
+    /// Read again on 13.10.2026: Golden Guardian, whose Gold-Forge Garrison
+    /// makes a 4/4 Golem for `{4}, {T}` once the front face's fight and
+    /// transform-on-death could be written, so the back could be reached.
+    /// One card, no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -736,6 +741,7 @@ mod tests {
                 "Thaumatic Compass",
                 "Treasure Map",
                 "Vance's Blasting Cannons",
+                "Golden Guardian",
                 "Hadana's Climb",
                 "Journey to Eternity",
                 "Path of Mettle",

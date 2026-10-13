@@ -140,7 +140,7 @@ fn place(phase: DuelPhase, screen: Option<&Screen>) -> Place {
         DuelPhase::Closed => match screen {
             None | Some(Screen::SignIn { .. }) => Place::FrontDoor,
             Some(Screen::Build) => Place::Build,
-            Some(Screen::Table | Screen::Seated(_)) => Place::Lobby,
+            Some(Screen::Table | Screen::Seated(_) | Screen::Replay(_)) => Place::Lobby,
         },
     }
 }

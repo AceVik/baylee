@@ -431,7 +431,7 @@ pub(super) fn field_drawn(state: &LobbyState) -> bool {
         Field::RoomPassword => sheet || !room,
         Field::RoomBoard(seat) => room && state.room_setup_seat == Some(seat),
         Field::RoomCounter => room && state.room_setup_seat.is_some(),
-        Field::Search | Field::DeckSearch => !room && !sheet,
+        Field::Search | Field::DeckSearch | Field::ReplaySearch => !room && !sheet,
         _ => true,
     }
 }
@@ -685,7 +685,10 @@ fn text_field_keys(
             // A search box with text: Esc clears it (HTML's search input).
             Key::Escape
                 if table
-                    && matches!(state.lobby.focus(), Field::Search | Field::DeckSearch)
+                    && matches!(
+                        state.lobby.focus(),
+                        Field::Search | Field::DeckSearch | Field::ReplaySearch
+                    )
                     && !state.lobby.field(state.lobby.focus()).is_empty() =>
             {
                 let focus = state.lobby.focus();
@@ -713,7 +716,9 @@ fn text_field_keys(
             }
             // The shelf's search filters as it is typed; Enter has nothing
             // more to ask.
-            Key::Enter if table && state.lobby.focus() == Field::DeckSearch => {}
+            Key::Enter
+                if table
+                    && matches!(state.lobby.focus(), Field::DeckSearch | Field::ReplaySearch) => {}
             Key::Enter => {
                 let request = if table {
                     state.lobby.search_again()

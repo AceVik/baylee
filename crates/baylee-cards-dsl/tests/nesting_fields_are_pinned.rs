@@ -82,8 +82,10 @@
 // Repeat, RepeatWhile and WhenSourceDiesThisTurn (wave 1) add one each,
 // covered by `repeated_and_source_watching_bodies_are_visited`, and so does
 // WheneverTargetDealtDamageThisTurn and AtEndOfCombatThisTurn (wave 2, Glyph
-// of Life and Glyph of Doom).
-const NESTING_FIELDS: usize = 54;
+// of Life and Glyph of Doom), and WheneverYouAttackThisTurn (wave 3,
+// Dalkovan Encampment), and PlayerMayPayManaEachThenElse's two branches
+// (Cyclone).
+const NESTING_FIELDS: usize = 57;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -127,8 +129,11 @@ const NESTING_FIELDS: usize = 54;
 /// (Glyph of Life's delayed damage trigger, 2026-10-13) is the
 /// forty-seventh: one new carrier, one branch. `AtEndOfCombatThisTurn`
 /// (Glyph of Doom's "this turn's next end of combat", the same day) is the
-/// forty-eighth, the same shape.
-const CARRYING_VARIANTS: usize = 48;
+/// forty-eighth, the same shape. `WheneverYouAttackThisTurn` (Dalkovan
+/// Encampment) is the forty-ninth, the same shape again.
+/// `PlayerMayPayManaEachThenElse` (Cyclone) is the fiftieth: one new carrier,
+/// two branches.
+const CARRYING_VARIANTS: usize = 50;
 
 /// The floor under the reader itself.
 ///

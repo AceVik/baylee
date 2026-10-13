@@ -32,6 +32,14 @@ pub enum EffectFilter {
     /// battlefield and really does carry the same id, so no zone test can
     /// tell it from the object the spell was cast at. The version can.
     ObjectIs(ObjectId, u32),
+    /// A declarative filter that reads a reference object (`Filter::Reference`
+    /// and its family), with the object it was created about: Feint's
+    /// "that creature and each creature blocking it" as an effect that does
+    /// not lock its set (CR 611.2c), so a creature that blocks it later is
+    /// covered too. The reference counts only while it is the object it was
+    /// (the id and the version it had); after that every reference-reading
+    /// part of the filter matches nothing.
+    DslAbout(&'static Filter, ObjectId, u32),
 }
 
 impl EffectFilter {
@@ -195,6 +203,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)
@@ -812,7 +821,7 @@ pub(crate) fn applies_to_snapshot(
     {
         return false;
     }
-    if let EffectFilter::Dsl(filter) = fx.filter
+    if let EffectFilter::Dsl(filter) | EffectFilter::DslAbout(filter, ..) = fx.filter
         && !matches!(
             obj.zone,
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
@@ -845,7 +854,30 @@ pub(crate) fn matches_filter(
                 reference: None,
             },
         ),
+        EffectFilter::DslAbout(filter, id, version) => crate::eval::matches_with_context(
+            filter,
+            state,
+            obj,
+            fx.controller,
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+                reference: still_the_object(state, *id, *version),
+            },
+        ),
     }
+}
+
+/// `id` while it is still the object it was at `version` (CR 400.7).
+pub(crate) fn still_the_object(
+    state: &crate::state::GameState,
+    id: ObjectId,
+    version: u32,
+) -> Option<ObjectId> {
+    state
+        .object(id)
+        .is_some_and(|o| o.version == version)
+        .then_some(id)
 }
 
 /// The same recipient predicate for ordinary synchronization and a departure snapshot.
@@ -1352,6 +1384,7 @@ mod tests {
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::CantAttackPlayerIdleLastTurn,
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttacksEachCombat,
             Modifier::CanBlockAdditional(1),
@@ -1438,7 +1471,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            133,
+            134,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1504,8 +1537,9 @@ mod tests {
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
         // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
         // modifier registered on the one object it names; 88 since
-        // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`.
-        assert_eq!((locking, all.len() - locking), (45, 88));
+        // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`; 89
+        // since `CantAttackPlayerIdleLastTurn` (Arboria).
+        assert_eq!((locking, all.len() - locking), (45, 89));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

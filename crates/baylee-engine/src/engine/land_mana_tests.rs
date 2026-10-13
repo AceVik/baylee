@@ -1410,8 +1410,9 @@ const LANDS: Bounds = Bounds {
     // Havengul, Tecutlan, Barracks and Underdome add four promises to Thran Portal's 1013.
     // 1022 measured 2026-10-13 once main (250c4bece) and c41/b8-astra-review
     // (8703073ae) were merged into the partials lane, which counted at most
-    // 1017 before.
-    promises: 700..=1022,
+    // 1017 before. 1028 measured 2026-10-13 after wave 1 pair B's lands went
+    // Implemented.
+    promises: 700..=1028,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

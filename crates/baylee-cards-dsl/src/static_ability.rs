@@ -365,6 +365,11 @@ pub enum Modifier {
     /// asked of each player or planeswalker the creature could attack, with
     /// the defending player the one CR 506.2 names for it.
     CantAttackUnlessDefenderControls(&'static crate::Filter),
+    /// The affected creature can't attack a player who neither cast a spell
+    /// nor put a nontoken permanent onto the battlefield during their last
+    /// turn (Arboria). A restriction on the declaration of attackers about
+    /// the pair (CR 508.1c); planeswalkers may still be attacked (ruling).
+    CantAttackPlayerIdleLastTurn,
     /// A declaration restriction, not an ability granted to the creature.
     CantAttack,
     /// A dynamic attack-tapping rule tied to the source incarnation.
@@ -1005,6 +1010,7 @@ impl Modifier {
             | Self::CantAttack
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
+            | Self::CantAttackPlayerIdleLastTurn
             | Self::LandwalkMatching(_)
             | Self::AttacksEachCombat
             | Self::CanBlockAdditional(_)
@@ -1504,6 +1510,7 @@ mod tests {
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::CantAttackPlayerIdleLastTurn,
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::AttacksEachCombat,

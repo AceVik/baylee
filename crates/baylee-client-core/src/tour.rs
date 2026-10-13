@@ -350,6 +350,26 @@ pub struct Chapter {
     pub steps: &'static [Step],
 }
 
+/// Whether this build's header has the Replays tab (a desktop's).
+const REPLAYS_TAB: bool = !cfg!(any(
+    target_arch = "wasm32",
+    target_os = "android",
+    target_os = "ios"
+));
+/// Tour step L4 names the header's places: four on a desktop, three
+/// elsewhere.
+const L4_TITLE: Phrase = if REPLAYS_TAB {
+    Phrase::TourL4TitleDesktop
+} else {
+    Phrase::TourL4Title
+};
+/// Its words, as [`L4_TITLE`].
+const L4_BODY: Phrase = if REPLAYS_TAB {
+    Phrase::TourL4BodyDesktop
+} else {
+    Phrase::TourL4Body
+};
+
 const fn step(
     id: &'static str,
     anchor: Option<Anchor>,
@@ -414,7 +434,7 @@ pub const LOBBY: &[Chapter] = &[
         place: Place::Play,
         after: None,
         steps: &[
-            step("L4", Some(A::ShellNav), N, P::TourL4Title, P::TourL4Body),
+            step("L4", Some(A::ShellNav), N, L4_TITLE, L4_BODY),
             step("L5", Some(A::PlayHero), N, P::TourL5Title, P::TourL5Body),
             step("L6", Some(A::PlayHouse), N, P::TourL6Title, P::TourL6Body),
             step("L7", Some(A::PlayTables), N, P::TourL7Title, P::TourL7Body),

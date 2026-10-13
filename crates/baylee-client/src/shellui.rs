@@ -1,28 +1,26 @@
 //! The shells round a permanent on its preview (the PM, 25.09): a card held
-//! up to the light wears what it wears on the felt, indestructible's
-//! darksteel rim, hexproof's or shroud's dome, defender's wall and summoning
-//! sickness's wave.
+//! up to the light wears what it wears on the felt, its keywords' border
+//! and summoning sickness's wave.
 //!
 //! The table's shells are meshes with a vertex stage of their own, which
 //! follows the real camera's ray to the card's face ([`crate::shellmat`]);
 //! the preview is a UI node with no camera to follow. So this is the table
 //! shader's twin, as [`crate::platemat`]'s UI plate is the plate's:
 //! `shell_ui.wgsl` draws each shell as it stands, seen from straight over the
-//! card, which is what lines it up with the flat print, with the steel, the
-//! glass and the brick of `shell_common.wgsl`, which the table draws with
-//! too. It always stands: the preview has air round it, so nothing lies down
-//! as a ring and nothing casts a shadow on a felt that is not there.
+//! card, which is what lines it up with the flat print, with the layers of
+//! `shell_common.wgsl`, which the table draws with too. It always stands:
+//! the preview has air round it, so nothing lies down as a ring.
 //!
-//! Which shells a card wears is [`Shells::of`]'s, the door the table's rows
-//! ask as well; what the preview draws is [`Shells::standing`], one node per
+//! Which shells a card wears is [`Shells::of`](crate::shellmat::Shells::of)'s,
+//! the door the table's rows ask as well; what the preview draws is
+//! [`Shells::standing`](crate::shellmat::Shells::standing), one node per
 //! look. **A new shell is a look there and an arm in `shell_ui.wgsl`**, and
 //! the preview asks nothing else.
 //!
-//! **Nothing but a dome and the wave lies on the print** (`docs/legal.md`
-//! §3): from straight over the card a point's ray meets the face right under
-//! it, so the mask is the card's own outline, and every colour the shader
-//! returns but the dome's and the wave's carries it
-//! (`every_colour_but_the_domes_and_the_waves_carries_the_mask`).
+//! **Nothing but the wave lies on the print** (`docs/legal.md` §3): from
+//! straight over the card a point's ray meets the face right under it, so
+//! the mask is the card's own outline, and every colour the shader returns
+//! but the wave's carries it (`every_colour_but_the_waves_carries_the_mask`).
 
 use baylee_client_core::cardrail::CARD_TALL;
 use bevy::asset::embedded_asset;
@@ -32,20 +30,17 @@ use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 
 use crate::cardmat::motion_of;
-use crate::shellmat::{
-    DOME_MARGIN, Dome, RIM_MARGIN, ShellLook, WALL_BATTER, WALL_BULGE, WALL_NEAR, WALL_OVERHANG,
-    WALL_THICK,
-};
+use crate::shellmat::{ShellLook, border_margin};
 
 /// How much further than the furthest shell the preview's node reaches, in
 /// card widths: room for the last pixel of each edge's smoothing.
 const AIR: f32 = 0.02;
-/// How far past the card's sides and foot the node reaches: a dome's foot,
-/// which stands furthest out there.
-pub const PREVIEW_SIDE: f32 = DOME_MARGIN + AIR;
-/// How far past the card's top edge it reaches: the wall's face towards the
-/// table's middle, at its middle, where it bows furthest out.
-pub const PREVIEW_TOP: f32 = WALL_NEAR + WALL_BATTER + WALL_THICK + WALL_BULGE + AIR;
+/// How far past the card's sides and foot the node reaches: the widest
+/// border's foot.
+pub const PREVIEW_SIDE: f32 = 0.11 + AIR;
+/// How far past the card's top edge it reaches: as far, every border being
+/// the same all round.
+pub const PREVIEW_TOP: f32 = PREVIEW_SIDE;
 /// The node every shell of the preview is drawn in, `[x0, y0, x1, y1]` in
 /// card widths from the card's top-left corner, `y` down it: the card grown
 /// by as far as any shell reaches past each edge.
@@ -56,8 +51,6 @@ pub const PREVIEW_QUAD: [f32; 4] = [
     CARD_TALL + PREVIEW_SIDE,
 ];
 
-const _: () = assert!(RIM_MARGIN < DOME_MARGIN && WALL_OVERHANG < DOME_MARGIN);
-
 /// A shell on the preview: a marker, so one can be found and counted
 /// without being taken for the card, its strip, its plate or its badge.
 #[derive(Component)]
@@ -65,12 +58,10 @@ pub struct PreviewShell;
 
 /// What the preview's shell shader reads.
 ///
-/// Three whole `std140` rows: the colour, the node, and the kind, the clock
-/// and a dome's row.
+/// Three whole `std140` rows: the node; the kind, the clock and the
+/// keywords; the border's margin.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct ShellUiParams {
-    /// A dome's colour, linear; the steel and the wall ignore it.
-    pub tint: Vec4,
     /// The node, [`PREVIEW_QUAD`]: what turns its UV into the point on the
     /// card the shell is laid out at.
     pub quad: Vec4,
@@ -79,22 +70,33 @@ pub struct ShellUiParams {
     /// The clock: [`MOVING`](crate::cardmat::MOVING) or
     /// [`STILL`](crate::cardmat::STILL).
     pub motion: f32,
-    /// A dome's row, [`crate::shellmat::DomeRow`]: its foot past the card's
-    /// edge and its crown over the face. Zero for the steel and the wall.
-    pub dome: Vec2,
+    /// The keywords ([`crate::shellmat::Ward`]).
+    pub ward: u32,
+    /// How many layers they make.
+    pub layers: u32,
+    /// How far past the card's edge the border's foot stands
+    /// ([`border_margin`]).
+    pub margin: f32,
+    /// Nothing: the third row's rest.
+    pub spare: f32,
+    /// See [`Self::spare`].
+    pub rest: Vec2,
 }
 
 impl ShellUiParams {
     /// What the shader is told to draw `look` on the clock `motion`.
     #[must_use]
     pub fn new(look: ShellLook, motion: f32) -> Self {
-        let row = look.dome.map(Dome::row);
+        let layers = look.ward.layers();
         Self {
-            tint: Vec3::from_array(row.map_or([0.0; 3], |row| row.tint)).extend(1.0),
             quad: Vec4::from_array(PREVIEW_QUAD),
             kind: look.kind as u32,
             motion,
-            dome: row.map_or(Vec2::ZERO, |row| Vec2::new(row.margin, row.height)),
+            ward: look.ward.0,
+            layers,
+            margin: border_margin(layers),
+            spare: 0.0,
+            rest: Vec2::ZERO,
         }
     }
 }
@@ -192,7 +194,7 @@ impl Plugin for ShellUiPlugin {
 mod tests {
     use super::*;
     use crate::cardmat::tests::{check_wgsl, wgsl_const};
-    use crate::shellmat::DOME_CROWN;
+    use crate::shellmat::MAX_LAYERS;
 
     const SHADER: &str = include_str!("shaders/shell_ui.wgsl");
     const COMMON: &str = include_str!("shaders/shell_common.wgsl");
@@ -239,83 +241,49 @@ struct Globals { time: f32 };
         assert_eq!(
             fields,
             [
-                "tint: vec4<f32>,",
                 "quad: vec4<f32>,",
                 "kind: u32,",
                 "motion: f32,",
-                "dome: vec2<f32>,"
+                "ward: u32,",
+                "layers: u32,",
+                "margin: f32,",
+                "spare: f32,",
+                "rest: vec2<f32>,"
             ],
             "shell_ui.wgsl lays the uniform out differently from `ShellUiParams`"
         );
     }
 
-    /// Every number the shader and `shellmat` share is the same number in
-    /// both: a wall drawn off the arc the table builds it on is another wall.
+    /// The duel's lean the preview lights the wave at is the table's.
     #[test]
-    fn the_shader_draws_the_shells_shellmat_builds() {
-        for (name, ours) in [
-            ("RIM_MARGIN", RIM_MARGIN),
-            ("DOME_CROWN", DOME_CROWN),
-            ("DOME_ROUNDING", crate::shellmat::DOME_ROUNDING),
-            ("CAP_ROUND", crate::shellmat::CAP_ROUND),
-            ("WALL_NEAR", WALL_NEAR),
-            ("WALL_BULGE", WALL_BULGE),
-            ("WALL_THICK", WALL_THICK),
-            ("WALL_BATTER", WALL_BATTER),
-            ("WALL_OVERHANG", WALL_OVERHANG),
-            ("LEAN", crate::table::DUEL_LEAN),
-        ] {
-            let theirs = wgsl_const(SHADER, name);
-            assert!(
-                (theirs - ours).abs() < 1e-4,
-                "{name}: {ours} in Rust, {theirs} in shell_ui.wgsl"
-            );
-        }
-        #[expect(clippy::cast_precision_loss)] // five merlons
-        let merlons = crate::shellmat::WALL_MERLONS as f32;
-        assert!((wgsl_const(SHADER, "WALL_MERLONS") - merlons).abs() < f32::EPSILON);
+    fn the_shader_leans_as_a_duel_does() {
+        let theirs = wgsl_const(SHADER, "LEAN");
+        assert!((theirs - crate::table::DUEL_LEAN).abs() < 1e-4);
     }
 
-    /// Every colour the shader returns but the dome's and the wave's has the
-    /// mask as the last factor of its alpha: a `return` that forgot it would
-    /// be the rim or the wall drawn over the preview's print.
+    /// Every colour the shader returns but the wave's has the mask as the
+    /// last factor of its alpha: a `return` that forgot it would be the
+    /// border drawn over the preview's print.
     #[test]
-    fn every_colour_but_the_domes_and_the_waves_carries_the_mask() {
+    fn every_colour_but_the_waves_carries_the_mask() {
         let open = SHADER.find("fn fragment(").expect("the fragment stage");
         let body = &SHADER[open..];
-        // The two branches the owner let lie over the print (25.09), each
-        // returning once.
-        let mut exempt = Vec::new();
-        for (branch, colour) in [
-            (
-                "if params.kind == SHELL_DOME {",
-                "return vec4<f32>(colour, glass);",
-            ),
-            (
-                "if params.kind == SHELL_WAVE {",
-                "return vec4<f32>(MOONLIGHT, glow);",
-            ),
-        ] {
-            let start = body.find(branch).expect("the branch");
-            let end = start + body[start..].find("\n    }").expect("it closes");
-            let own = &body[start..end];
-            assert_eq!(own.matches("return").count(), 1, "`{branch}` returns once");
-            assert!(own.contains(colour), "`{branch}` returns `{colour}`");
-            exempt.push(start..end);
-        }
+        let branch = "if params.kind == SHELL_WAVE {";
+        let start = body.find(branch).expect("the branch");
+        let end = start + body[start..].find("\n    }").expect("it closes");
+        let own = &body[start..end];
+        assert_eq!(own.matches("return").count(), 1, "`{branch}` returns once");
+        assert!(own.contains("return vec4<f32>(MOONLIGHT, glow);"));
         let mut at = 0;
         let mut returns = Vec::new();
         for line in body.split_inclusive('\n') {
             let here = at;
             at += line.len();
-            if !exempt.iter().any(|range| range.contains(&here)) {
-                let line = line.trim();
-                if line.starts_with("return") {
-                    returns.push(line);
-                }
+            if !(start..end).contains(&here) && line.trim().starts_with("return") {
+                returns.push(line.trim());
             }
         }
-        assert!(returns.len() >= 2, "the fragment stage returns too little");
+        assert!(!returns.is_empty(), "the fragment stage returns too little");
         for line in returns {
             let alpha = line
                 .strip_suffix(");")
@@ -328,25 +296,11 @@ struct Globals { time: f32 };
         }
     }
 
-    /// The node holds every shell the preview draws: a dome's foot of every
-    /// row, the rim's foot and the wall's far face at its middle, each short
-    /// of the node's edge by the smoothing's room.
+    /// The node holds the widest border the preview draws, short of the
+    /// node's edge by the smoothing's room.
     #[test]
     fn the_node_holds_every_shell() {
-        for dome in Dome::ALL {
-            assert!(dome.row().margin + AIR <= PREVIEW_SIDE + 1e-6, "{dome:?}");
-        }
-        const { assert!(RIM_MARGIN + AIR <= PREVIEW_SIDE) };
-        let (middle, out, _) = crate::shellmat::wall_arc(0.5);
-        let far =
-            middle.y + out.y * WALL_THICK / 2.0 - baylee_client_core::layout::CARD_HEIGHT / 2.0;
-        assert!(
-            far + AIR <= PREVIEW_TOP + 1e-6,
-            "the wall reaches {far} past the card"
-        );
-        for u in [0.0, 1.0] {
-            let (end, _, _) = crate::shellmat::wall_arc(u);
-            assert!(end.x.abs() - 0.5 + AIR <= PREVIEW_SIDE + 1e-6);
-        }
+        assert!(border_margin(MAX_LAYERS) + AIR <= PREVIEW_SIDE + 1e-6);
+        assert!(border_margin(MAX_LAYERS) + AIR <= PREVIEW_TOP + 1e-6);
     }
 }

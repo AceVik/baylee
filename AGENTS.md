@@ -84,8 +84,10 @@
 - A grey area (the rule's wording is met loosely or not at all, but the
   practice is tolerated) is allowed only with the owner's explicit okay,
   recorded in `docs/legal.md` with the rule quoted beside it. The accepted
-  ones so far: the Mana font's mana and tap symbols (§2a), and foil over a
-  card image.
+  ones so far: the Mana font's mana and tap symbols (§2a), foil over a
+  card image, and a passing state over a card image while it lasts (dimmed
+  while a question leaves the card out, phased out, asleep; the owner,
+  13.10.2026, §3: the image rule is about lasting alteration).
 - Anything **clearly forbidden** is never built, merged or shipped quietly.
   Stop and tell the owner in plain words, with the rule quoted verbatim and
   the file and line that break it. A session tells the PM, and the PM tells

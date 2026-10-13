@@ -63,6 +63,17 @@ fn guards(
             controller,
             context,
         ),
+        EffectFilter::DslAbout(filter, id, version) => crate::eval::matches_projected_with_context(
+            filter,
+            state,
+            object,
+            characteristics,
+            controller,
+            crate::text_changes::RuleContext {
+                reference: crate::effects::still_the_object(state, id, version),
+                ..context
+            },
+        ),
     }
 }
 
@@ -138,6 +149,6 @@ pub(crate) fn permits_resolution_effect(
             object.version == version && can_gain_control(state, id, controller)
         }),
         // Control-changing resolution effects must have frozen their recipient set.
-        EffectFilter::Dsl(_) => false,
+        EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => false,
     }
 }

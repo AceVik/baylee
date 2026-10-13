@@ -244,6 +244,12 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
 
 fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
+    // CR 202.3e: on the stack, X is the number chosen for it.
+    c.x_on_stack = if obj.zone == crate::zone::Zone::Stack {
+        obj.x_value
+    } else {
+        0
+    };
     // "As long as this permanent's dash cost was paid, it has haste"
     // (CR 702.109a): an ability of the permanent itself, so it is there
     // before any effect applies and an effect that removes abilities
@@ -593,6 +599,18 @@ fn applies(
                 reference: None,
             },
         ),
+        EffectFilter::DslAbout(filter, id, version) => eval::matches_projected_with_context(
+            filter,
+            state,
+            obj,
+            projected,
+            fx.controller,
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+                reference: crate::effects::still_the_object(state, *id, *version),
+            },
+        ),
     }
 }
 
@@ -822,7 +840,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // where the subtype they are compared against comes from.
         // Another object's characteristics decide these, so any modifier
         // may move them.
-        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) => true,
+        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) | Filter::SharesAColorWith(_) => true,
+        Filter::OfSourceChosenColor => matches!(
+            modifier,
+            Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
+        ),
         Filter::HasType(_)
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
@@ -1439,6 +1461,7 @@ fn apply(
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)

@@ -106,6 +106,46 @@ pub fn convoke_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
     untapped_of(state, player, TypeSet::CREATURE)
 }
 
+/// Whether a spell `player` casts from `face` has improvise (CR 702.126a):
+/// printed on the face, or given to the player's next spell this turn
+/// (Archway of Innovation).
+#[must_use]
+pub fn has_improvise(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+) -> bool {
+    face.improvise
+        || state
+            .per_turn
+            .improvise_next_spell
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(false)
+}
+
+/// The permanents that may be tapped to pay for {1} each of a spell cast
+/// from `face`: untapped creatures for convoke (CR 702.51a), untapped
+/// artifacts for improvise (CR 702.126a), each permanent once.
+#[must_use]
+pub fn tap_to_pay_sources(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+) -> Vec<ObjectId> {
+    let mut types = TypeSet::EMPTY;
+    if face.convoke {
+        types = types.union(TypeSet::CREATURE);
+    }
+    if has_improvise(state, face, player) {
+        types = types.union(TypeSet::ARTIFACT);
+    }
+    if types.is_empty() {
+        return Vec::new();
+    }
+    untapped_of(state, player, types)
+}
+
 /// The permanents a waterbend cost may be paid with (CR 701.67a): untapped
 /// artifacts and creatures the caster controls, one `{1}` each — of the
 /// waterbend cost alone (CR 701.67b), which is the wizard's bound to set.
@@ -161,11 +201,7 @@ pub fn keyword_reduction(
     player: PlayerId,
     card: ObjectId,
 ) -> u32 {
-    let convoke = if face.convoke {
-        u32::try_from(convoke_sources(state, player).len()).unwrap_or(u32::MAX)
-    } else {
-        0
-    };
+    let convoke = u32::try_from(tap_to_pay_sources(state, face, player).len()).unwrap_or(u32::MAX);
     let delve = if face.delve {
         u32::try_from(delve_sources(state, player, card).len()).unwrap_or(u32::MAX)
     } else {

@@ -52,6 +52,12 @@ pub enum HostMessage {
     /// An admin ended the game (`docs/protocol.md` §"Acting on a game"),
     /// and why: nobody won or lost. The last thing the table says.
     Closed(String),
+    /// A replay moved other than one step on (`docs/client.md`
+    /// §"Replays"): what follows is the table at another moment, told from
+    /// its first log line. The client forgets the view it holds and the log
+    /// book, takes down the end, places the next board without a glide and
+    /// plays no cue across it. Only a [`crate::replay::ReplayHost`] sends it.
+    Jump,
     /// Human preparation progress and departure relative to receipt, clock corrected.
     Preparing {
         /// Prepared human seats.
@@ -182,6 +188,23 @@ pub trait DuelHost: Send + Sync + 'static {
     /// must wait for its completed checkpoint without blocking the renderer.
     fn busy(&self) -> bool {
         false
+    }
+
+    /// Where a replay stands, for the transport bar; `None` for a host
+    /// playing a live game.
+    fn replay(&self) -> Option<&crate::replay::ReplayStatus> {
+        None
+    }
+
+    /// Moves a replay (the transport bar, its keys, dev-control). A live
+    /// host has nothing to move and ignores it.
+    fn control(&mut self, _ask: crate::replay::ReplayAsk) {}
+
+    /// The gateway's id of the game this host shows, where it shows a
+    /// hosted game without a seat in it (a replay's tape): the report form
+    /// names it when there is no seated handover. `None` otherwise.
+    fn game_id(&self) -> Option<&str> {
+        None
     }
 }
 

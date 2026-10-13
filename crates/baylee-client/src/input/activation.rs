@@ -76,7 +76,7 @@ pub(super) fn card_on_screen(
 /// reading of these branches, kept in step with them by hand. See
 /// [`baylee_client_core::touch`].
 pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
-    if select_stack_stop(duel, object) {
+    if select_stack_stop(duel, object) || unstage_on_click(duel, object) {
         return Answer::Took;
     }
     // A second tap on the same card is the send. A tap on a different one is
@@ -434,6 +434,9 @@ pub(super) fn arm_ability(
     object: ObjectId,
     option: &crate::abilities::AbilityOption,
 ) -> bool {
+    if let Some(sent) = stage_in_window(duel, object, option) {
+        return sent;
+    }
     // A pip of a mana bubble, and this is the press the owner asked for. The
     // permanent has not been touched yet: the colour was chosen on a bubble
     // that cost nothing to open, and the two go out together as a one-step
@@ -535,6 +538,125 @@ pub(super) fn arm_ability(
             false
         }
     }
+}
+
+/// In a payment window a staged permanent is a tap not made yet, and a
+/// click on it takes the tap back: nothing was sent, so nothing has to be
+/// undone. An unstaged one goes on down to its abilities, where
+/// [`arm_ability`] stages the mana instead of sending it. Returns whether
+/// the click was spent.
+fn unstage_on_click(duel: &mut Duel, object: ObjectId) -> bool {
+    if !duel.paying() || duel.armed.is_some() || duel.mana_run.is_some() {
+        return false;
+    }
+    let staged = members_of(duel, object)
+        .into_iter()
+        .find(|member| duel.pay_staged.holds(*member));
+    let Some(member) = staged else {
+        return false;
+    };
+    duel.ability_menu = None;
+    duel.unstage(member);
+    true
+}
+
+/// [`arm_ability`]'s answer inside a payment window: `Some(whether the
+/// sheet is done)` when the press staged a tap or stepped into a colour
+/// bubble, `None` when it goes on as it does outside one.
+fn stage_in_window(
+    duel: &mut Duel,
+    object: ObjectId,
+    option: &crate::abilities::AbilityOption,
+) -> Option<bool> {
+    // A payment window's mana is staged, not made: the tap waits for Go and
+    // can be taken back until then (`client-core::paystage`). A pip carries
+    // its colour already; a row stages only when its tap asks nothing, since
+    // an unanswered colour would refuse the whole payment. Anything else
+    // falls through and is sent as it always was, which the window still
+    // takes one action at a time.
+    if duel.paying()
+        && duel.mana_run.is_none()
+        && let Some(step) = staging_step(duel, object, option)
+    {
+        duel.armed = None;
+        duel.ability_tap = None;
+        duel.stage(step);
+        return Some(true);
+    }
+    // A written mana row whose tap asks a colour (a painland's "{W} or
+    // {U}", 1 damage) steps into that tap's own bubble, whose pips carry
+    // the colour and so stage: sent from here it would tap the land, and
+    // deal its damage, before the player had said Go.
+    if duel.paying()
+        && duel.mana_run.is_none()
+        && duel.ability_tap.is_none()
+        && let PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } = option.action
+        && source == object
+        && let Some(view) = duel.view.as_ref()
+        && let Some(interaction) = duel.interaction.as_ref()
+        && crate::abilities::options_for(
+            baylee_client_core::Lang::En,
+            view,
+            interaction,
+            object,
+            Some(ability_index),
+        )
+        .iter()
+        .any(|o| o.pour.is_some())
+    {
+        duel.armed = None;
+        duel.ability_menu = Some(object);
+        duel.ability_tap = Some(ability_index);
+        duel.ability_pick = 0;
+        duel.ability_page = 0;
+        return Some(false);
+    }
+    None
+}
+
+/// The tap a row or pip of `object`'s sheet stages in a payment window, when
+/// it can be staged: a pip (its colour is the answer the tap asks), or a
+/// mana row whose tap asks no question by the planner's reading of the
+/// source.
+fn staging_step(
+    duel: &Duel,
+    object: ObjectId,
+    option: &crate::abilities::AbilityOption,
+) -> Option<baylee_client_core::manaplan::Step> {
+    use baylee_client_core::manaplan::{Step, Tap};
+    if let Some(pour) = option.pour {
+        return Some(pour.step);
+    }
+    if !option.mana {
+        return None;
+    }
+    let tap = match option.action {
+        PlayerAction::ActivateManaAbility { source } if source == object => Tap::Intrinsic,
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } if source == object => Tap::Ability(ability_index),
+        _ => return None,
+    };
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    let asks_nothing = crate::manasources::sources(view, legal)
+        .iter()
+        .filter(|s| s.id == object)
+        .any(|s| {
+            (s.tap == tap && (s.bundle || s.colors.len() == 1))
+                || s.dear
+                    .as_ref()
+                    .is_some_and(|d| d.tap == tap && d.colors.len() == 1)
+        });
+    asks_nothing.then_some(Step {
+        source: object,
+        tap,
+        color: None,
+    })
 }
 
 /// Confirm the chosen spell independently of any land play the same card offers.
@@ -686,11 +808,9 @@ pub fn fire_armed(duel: &mut Duel) {
         // costs one line to do the right thing if something ever does, and
         // the run itself re-checks the tap against the current
         // `LegalActions` exactly as the two above do.
-        // A settle is never armed either (`Duel::pay_owed` starts it on the
-        // press); should anything arm one, it runs the same way.
         Deed::Run {
             plan,
-            then: then @ (crate::RunEnd::Float | crate::RunEnd::Settle),
+            then: then @ crate::RunEnd::Float,
         } => {
             duel.last_error = None;
             duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, then));

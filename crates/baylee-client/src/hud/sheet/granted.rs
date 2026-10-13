@@ -41,7 +41,21 @@ pub(crate) fn granted_click(duel: &mut Duel, action: MenuAction) {
         MenuAction::PickGranted(id) => duel.granted_menu.select(id, &offers),
         MenuAction::ConfirmGranted => {
             if let Some(action) = duel.granted_menu.confirm(&offers) {
-                duel.submit(action);
+                // In this seat's payment window a granted mana action is
+                // staged with the taps and sent with them on Go
+                // (`PlayerAction::PayWindow`); confirming it again takes it
+                // back. Anything else is taken at once, as before.
+                let staged = match &action {
+                    baylee_engine::choice::PlayerAction::TakeGrantedAction { id } => offers
+                        .iter()
+                        .find(|offer| offer.id == *id)
+                        .and_then(baylee_client_core::paystage::GrantedMana::of)
+                        .is_some_and(|granted| duel.stage_granted(granted)),
+                    _ => false,
+                };
+                if !staged {
+                    duel.submit(action);
+                }
             }
         }
         _ => {}
@@ -545,5 +559,90 @@ mod tests {
                 id: GrantedActionId::new(32)
             }]
         );
+    }
+
+    /// This seat holding priority in a `{1}` payment window, offered `offers`.
+    fn paying_duel(offers: Vec<GrantedActionOffer>) -> Duel {
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.awaiting = Some(view.seat);
+        view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::parse("{1}"),
+        ));
+        let mut duel = Duel::default();
+        duel.receive_view(view);
+        duel.receive_choice(pending(offers));
+        assert!(duel.paying(), "a fixed-cost window is open");
+        duel
+    }
+
+    /// Opens the sheet, picks `id` and confirms it, as a player does.
+    fn take(duel: &mut Duel, id: u64) {
+        granted_click(duel, MenuAction::ToggleGrantedActions);
+        granted_click(duel, MenuAction::PickGranted(GrantedActionId::new(id)));
+        granted_click(duel, MenuAction::ConfirmGranted);
+    }
+
+    /// In a payment window a life-paid granted mana action is staged, not
+    /// sent; confirming it again takes it back; Go sends it inside the one
+    /// `PayWindow`.
+    #[test]
+    fn a_granted_mana_action_in_a_payment_window_is_staged_and_sent_on_go() {
+        let id = GrantedActionId::new(11);
+        let mut duel = paying_duel(vec![offer(11)]);
+
+        take(&mut duel, 11);
+        assert!(duel.outbox().is_empty(), "staging sends nothing");
+        assert_eq!(duel.pay_staged.granted().len(), 1);
+        assert_eq!(duel.pay_staged.granted()[0].id, id);
+        assert!(duel.staged_covers(), "one colourless pays the {{1}}");
+
+        take(&mut duel, 11);
+        assert!(duel.outbox().is_empty(), "taking it back sends nothing");
+        assert!(
+            duel.pay_staged.granted().is_empty(),
+            "confirmed again: unstaged"
+        );
+
+        take(&mut duel, 11);
+        duel.confirm_payment();
+        assert_eq!(
+            duel.take_outbox(),
+            [PlayerAction::PayWindow {
+                steps: vec![PlayerAction::TakeGrantedAction { id }],
+            }],
+            "Go sends exactly the granted action inside the window"
+        );
+    }
+
+    /// A mana-costed offer would spend the pool the payment counts, so even
+    /// in a window it is taken at once, as before.
+    #[test]
+    fn a_mana_costed_granted_action_in_a_payment_window_is_sent_at_once() {
+        let mut costly = offer(21);
+        costly.cost = SpecialActionCost::Mana(baylee_core::mana::ManaCost::parse("{1}"));
+        let mut duel = paying_duel(vec![costly]);
+        take(&mut duel, 21);
+        assert_eq!(
+            duel.outbox(),
+            &[PlayerAction::TakeGrantedAction {
+                id: GrantedActionId::new(21)
+            }]
+        );
+        assert!(duel.pay_staged.granted().is_empty());
+    }
+
+    /// Outside a payment window the same offer is still taken at once.
+    #[test]
+    fn a_life_paid_granted_mana_action_outside_a_window_is_sent_at_once() {
+        let mut duel = duel();
+        assert!(!duel.paying());
+        take(&mut duel, 11);
+        assert_eq!(
+            duel.outbox(),
+            &[PlayerAction::TakeGrantedAction {
+                id: GrantedActionId::new(11)
+            }]
+        );
+        assert!(duel.pay_staged.granted().is_empty());
     }
 }
