@@ -1366,6 +1366,22 @@ stepped forward for a declaration of one. Sent attackers still stand one
 card each; merging them by defender is its own change, because blocking two
 of a merged five needs a focus that walks to the next unblocked member.
 
+**Blocking with many creatures (report 31, 12.10.2026).** *"With many
+creatures it's hard to click the right ones to block."* Two answers, neither
+with a rule in it. The creatures a declaration can take now wear the gold
+offer light on the felt (`reach::activatable` adds this seat's creatures
+`Interaction::is_selectable` names while it declares attackers or blockers;
+for a block that is the creatures that may block the attacker in aim, so
+the flier's one possible blocker is the one lit). `table::track_proposals`
+rebuilds the board when that set moves with the aim. And the block
+declaration is a named list in the drawer, as the attack declaration is
+(`drawer::block`, `interaction::BlockRow`): every attacker as
+"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Block: Grizzly Bears → Earth Elemental" for each creature that may block
+it and "Take back: … → …" for each already blocking; a row is the click the
+table takes (`Interaction::toggle`), the blockers page and the attackers stay,
+and the ordinary confirmation still sends.
+
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
 (`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for
@@ -1449,6 +1465,24 @@ under the threshold lights the mark, one that shows leaves it dark.
 Hovering the host lays its attachments beside the preview, in columns of
 two under "ATTACHED", art or, for a Role, its characteristics
 (`a_hovered_host_shows_what_is_attached_to_it_beside_its_preview`).
+Since report 29 (12.10.2026: *"I'd like to enlarge the card under General
+Tazri"*) they, and the card underneath a copy, are drawn to be read rather
+than recognised: `overlay::beside_width` makes them two-thirds of the preview
+and at most a revealed card's 240 (`revealed::WIDEST`), then no wider than
+the roomier flank beside the preview and the window's height allow, from the
+`Normal` picture. They were a third of the preview from the table's
+thumbnail, and the pointer cannot reach them to ask for more: it is on the
+host, and leaving it closes the preview.
+
+The preview also says what the permanent has been **granted** (report 22:
+*"when Great Divide Guide grants another Ally its ability, the other Allies
+don't show they can now do it too"*): under the card, the slip the stack's
+sentence stands on (`hud::slip`), headed "Granted abilities" and its
+controller, one paragraph a grant — the grantor's name and the sentence on
+its card that grants it, in the player's language where it has arrived
+(`slip::granted`, from `PublicObject::grants`; nothing in the client works out
+a grant). A hidden grantor is "Granted ability". Keywords a permanent gains
+are already on its strip (`marksmat::strip_of` reads the projected keywords).
 
 Everything under a host lies within half the height between a face and
 the top of Defender's wall (`ATTACH_DEPTH`), so the wall stays under every
@@ -6560,6 +6594,26 @@ the card):
   never left an empty blob
   (`a_folded_pill_whose_reading_changes_keeps_its_words`).
 
+### A copy's new targets, one at a time (report 10, 13.10.2026)
+
+A copy of a spell may be given new targets (CR 707.10c), and the engine asks
+for them target by target (`TargetPrompt::Retarget { current, index, of }`):
+an empty answer keeps the target where `min` is 0, and a target the engine
+will not let stay (another target of the copy already holds that object, so
+moving one target can make the next one a must) comes with `min` 1. Correct
+and, at ten targets (Jin-Gitaxias copying a ten-target spell), ten questions
+that did not say where they were. The shelf now says "Target 3 of 10: keep
+it, or choose a new one" or "Target 3 of 10: choose a new one"
+(`Phrase::RetargetKeepOrChange`, `RetargetMustChange`), the sheet still names
+the current target ("Previous target 3 of 10: …"), the confirmation still
+reads "Keep current target" with nothing picked, and beside it stands "Keep
+all remaining (n)" wherever the question may be kept and more follow
+(`keep_targets::KeepTargets::offered`). That is a standing instruction for
+this run alone, driven as `combat_auto` is: it answers this question and
+every later one of the run with the empty answer, and a question that must
+change waits for the player and does not end the run. A different question,
+a new turn or a run of another size ends it.
+
 ### The creature type (08.10.2026)
 
 The owner's item 8. The type chooser in the sheet is three things over the
@@ -7456,6 +7510,19 @@ picking frame by frame with nothing rebuilt, and a row's focus ring is
 `Interaction::aim`, the keyboard's row rather than the pointer's. The
 placement is deliberately not in the gate either; `input::tray_drag` writes
 the panel's `Node` directly so that dragging the sheet does not rebuild it.
+
+**A tick still rebuilds the rows, so the rows hand their warmth on (report
+11, 12.10.2026).** What is ticked is in the gate, as it must be, and so the
+row just clicked — the row under the pointer — came back as a new entity at
+`warmth: 0` with no picking state: it went dark and lit again on every
+choice, and a tile shrank and grew back. Measured at a twentieth of the
+clock: the clicked row read `(89, 61, 27)` right after the click and rose to
+`(111, 76, 31)`; now it reads `(110, 75, 31)` on the first frame. `sync_tray`
+writes each row's `Feel::warmth` and `PickingInteraction` into `TrayCarry`
+before it tears them down, and `tray::carry_the_rows` (after `sync_tray`,
+before `ambience::feel`) gives them to the new rows by object. The table's
+veil is kept rather than spawned again (a new one stood clear until
+`dim_the_table` painted it), and `dim_the_table` runs after `sync_tray`.
 
 **A gate field may not be a projection that throws state away.** Naming every
 field closed the hole the sort buttons fell into; it did not close the one a
@@ -8803,6 +8870,27 @@ the foot's answer and `Esc` put it away, and a press on a card previews it.
 Tests: `a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card`,
 `a_folded_reveal_is_a_pill_and_the_next_one_opens`.
 
+**It holds still under the pointer (12.10.2026).** The owner: *"the revealed
+cards view, the hover preview flickers then"*. Measured with dev-control's
+`/reveal` (a reveal by another seat of this seat's first hand cards, the sheet
+only) and `/state.reveal` (the sheet's entity and `hovered_log`): with the
+pointer resting on a card the sheet's entity was a different one on every
+read and `hovered_log` came and went. The overlay's rebuild sweeps every
+child of `HudRoot` it does not name, the reveal sheet was not named, and the
+preview a pointer on a revealed card opens is part of that tree: the rebuild
+took the sheet, `revealed::sync` stood it up again, the card under the
+pointer was a new entity, `hover_log_links` let the hover go, the preview
+closed, the pointer found the new card, and round again. The sheet is now
+named (`OverlayTree::reveal`) and survives the sweep; its own gate redraws it
+for its own pictures only (the count of its cards' arrivals, not the
+textures' epoch, which every picture landing anywhere moved). The card under
+the pointer wears the candle edge (`revealed::light_the_hovered`), its
+preview opens at that card's edge (`LogHover::card`, set for a link that is a
+`CardLens` over a whole picture) rather than wherever the pointer came in,
+the head says *"Point at a card to enlarge it"* while nothing waits, and the
+foot's answer says what it does: *Next* while another reveal waits, *Done*
+for the last.
+
 ## Reporting a problem (#309, #310)
 
 One form, `src/report.rs` and `src/report/`, stands over the lobby and the
@@ -9470,7 +9558,10 @@ and a person watching an agent's run cannot hover or click into its checks
 (the injected input never came from the OS and is unaffected), and an
 injected move no longer warps the real mouse (bevy_winit warps the OS cursor to
 a changed `Window`'s cursor position; a passive window writes it without change
-detection). Agents start their dev-control clients with it.
+detection). Agents start their dev-control clients with it. Covered by other
+windows, a passive window is not paced as hidden (`quality::note_hidden`):
+it is meant to stand behind, and at one frame a second a click was five
+seconds and a two-frame comparison a guess (12.10.2026).
 
 Seven things about it are load-bearing.
 

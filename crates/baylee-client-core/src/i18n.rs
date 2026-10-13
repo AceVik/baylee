@@ -2103,6 +2103,17 @@ messages! {
     },
     /// Declare blockers
     DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
+    /// Instructions over the block list (report 31).
+    BlockDraftHint {
+        en: "Choose an attacker, then the creatures that block it. Choose a blocker again to take it back. Confirm when ready.",
+        de: "Angreifer wählen, dann die Kreaturen, die ihn blocken. Erneut wählen nimmt einen Blocker zurück. Zum Schluss bestätigen.",
+    },
+    /// An attacker in the block list, and how many creatures block it so far.
+    BlockAim { en: "Attacker: {0} · {1} blocking", de: "Angreifer: {0} · {1} blocken" },
+    /// A creature that may block the attacker in aim.
+    BlockSend { en: "Block: {0} → {1}", de: "Blocken: {0} → {1}" },
+    /// A creature already blocking, naming the attacker it blocks.
+    BlockWithdraw { en: "Take back: {0} → {1}", de: "Zurücknehmen: {0} → {1}" },
     /// Discard {0} card
     DiscardCard { en: "Discard {0} card", de: "Wirf {0} Karte ab" },
     /// Discard {0} cards
@@ -2437,6 +2448,15 @@ messages! {
     KeepCurrentTarget { en: "Keep current target", de: "Bisheriges Ziel behalten" },
     /// Confirm a selected replacement target.
     ChangeTarget { en: "Change target", de: "Ziel ändern" },
+    /// The shelf's question while a copy's targets are asked one by one and
+    /// this one may be kept. `{0}` of `{1}`.
+    RetargetKeepOrChange { en: "Target {0} of {1}: keep it, or choose a new one", de: "Ziel {0} von {1}: behalten oder ein neues wählen" },
+    /// The same, for a target that may not be kept (another target of the
+    /// copy already holds it, or the engine asks for a new one).
+    RetargetMustChange { en: "Target {0} of {1}: choose a new one", de: "Ziel {0} von {1}: wähle ein neues" },
+    /// Keep this target and every later one of the copy that may be kept;
+    /// `{0}` is how many that is at most, this one included.
+    KeepRemainingTargets { en: "Keep all remaining ({0})", de: "Alle übrigen behalten ({0})" },
     /// Optional payment permits only zero or the entire tap group.
     ChooseExactlyOrNoTaps { en: "Choose exactly {0} permanents to tap, or choose none", de: "Wähle genau {0} bleibende Karten zum Tappen oder keine" },
     /// Choose {0} {1}
@@ -2705,6 +2725,13 @@ messages! {
     RevealedBy { en: "{0} reveals", de: "{0} zeigt offen vor" },
     /// Under that head: how many more reveals wait behind this one.
     RevealedWaiting { en: "{0} more to come", de: "{0} weitere folgen" },
+    /// Under that head, while nothing waits: how to see a card larger.
+    RevealedHint { en: "Point at a card to enlarge it", de: "Zeige auf eine Karte, um sie zu vergrößern" },
+    /// The reveal sheet's answer while more reveals wait behind it: puts
+    /// this one away and stands the next one up.
+    RevealNext { en: "Next", de: "Nächste" },
+    /// The reveal sheet's answer for the last reveal standing: puts it away.
+    RevealDone { en: "Done", de: "Fertig" },
     /// The indicator that says this seat is not being asked right now.
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.
@@ -3192,6 +3219,9 @@ messages! {
     /// the card to be numbered by, so "Ability 1" would be a lie about a
     /// printed ability that is also there.
     GrantedAbility { en: "Granted ability", de: "Verliehene Fähigkeit" },
+    /// The head of the sheet under a permanent's preview that lists what
+    /// other permanents have granted it, one grantor's sentence a paragraph.
+    GrantedAbilities { en: "Granted abilities", de: "Verliehene Fähigkeiten" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

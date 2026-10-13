@@ -445,6 +445,8 @@ pub struct Duel {
     /// Finite identical may decisions explicitly approved together.
     pub(crate) yes_batch: yes_batch::YesBatch,
     pub(crate) combat_auto: Option<baylee_client_core::combat_auto::CombatAuto>,
+    /// "Keep all remaining" on a copy's new-target questions (report 10).
+    pub(crate) keep_targets: Option<baylee_client_core::keep_targets::KeepTargets>,
     /// Page of the current legal target list.
     pub target_page: usize,
     /// Whether the attack chooser's rows are folded away (report 25): with
@@ -1900,7 +1902,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         }
         return;
     }
-    if (duel.combat_auto.is_some() || !duel.yes_batch.is_idle())
+    if (duel.combat_auto.is_some() || duel.keep_targets.is_some() || !duel.yes_batch.is_idle())
         && let Some(answer) = requested_batch_answer(&mut duel)
     {
         duel.submit(answer);
@@ -1975,6 +1977,13 @@ fn requested_batch_answer(duel: &mut Duel) -> Option<PlayerAction> {
         if !auto.accepts(view, interaction.pending()) {
             duel.combat_auto = None;
         } else if let Some(answer) = auto.answer(view, interaction.pending()) {
+            return Some(answer);
+        }
+    }
+    if let Some(keep) = duel.keep_targets.as_mut() {
+        if !keep.accepts(view, interaction.pending()) {
+            duel.keep_targets = None;
+        } else if let Some(answer) = keep.answer(view, interaction.pending()) {
             return Some(answer);
         }
     }

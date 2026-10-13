@@ -1107,7 +1107,16 @@ pub struct LogHover {
     /// Where the pointer found it, in logical pixels: the preview stands
     /// beside it, as it does beside a row in the zone browser.
     pub at: Vec2,
+    /// The card the link lies over, in logical window pixels, when it is a
+    /// card's picture rather than a word in a line (a revealed card,
+    /// [`crate::hud::revealed`]): the preview then opens at that card's edge,
+    /// as a permanent's does, wherever on it the pointer came in.
+    pub card: Option<Rect>,
 }
+
+/// A link that lies over a whole card's picture ([`LogHover::card`]).
+#[derive(Component)]
+pub struct CardLens;
 
 /// Follows the pointer onto the log's links and off them again
 /// ([`Duel::hovered_log`]). Written only when it changes, so the overlay's
@@ -1118,14 +1127,24 @@ pub fn hover_log_links(
     links: Query<&LogLink>,
     shown: Query<&InheritedVisibility>,
     parents: Query<&ChildOf>,
+    lenses: Query<(&ComputedNode, &UiGlobalTransform), With<CardLens>>,
+    ui: Option<Res<UiScale>>,
     mut duel: ResMut<Duel>,
 ) {
     for over in overs.read() {
         if let Ok(link) = links.get(over.entity) {
+            // A node's box is in physical pixels, centred; the preview's
+            // anchors are logical window pixels (`PreviewAt::in_ui` divides
+            // the UI scale back out).
+            let card = lenses.get(over.entity).ok().map(|(node, at)| {
+                let to_logical = node.inverse_scale_factor() * ui.as_deref().map_or(1.0, |ui| ui.0);
+                Rect::from_center_size(at.translation * to_logical, node.size() * to_logical)
+            });
             duel.hovered_log = Some(LogHover {
                 span: over.entity,
                 link: *link,
                 at: over.pointer_location.position,
+                card,
             });
         }
     }
@@ -1567,7 +1586,8 @@ mod tests {
             Some(LogHover {
                 span,
                 link,
-                at: Vec2::new(40.0, 50.0)
+                at: Vec2::new(40.0, 50.0),
+                card: None,
             })
         );
         app.world_mut()
@@ -1716,6 +1736,91 @@ mod tests {
         );
         assert_eq!(lookup.mode(rules(bolt), 0), None, "a card with no modes");
         assert_eq!(lookup.text(charm, 0), None, "and no text filed");
+    }
+
+    /// A harness for [`hover_log_links`] with one card lens laid out the way
+    /// the UI schedule leaves it: 480 x 670 physical pixels centred on
+    /// (600, 400), at half a logical pixel per physical one. Returns the app
+    /// and the lens.
+    fn lens_over_a_card() -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<Duel>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(Update, hover_log_links);
+        let lens = app
+            .world_mut()
+            .spawn((
+                LogLink {
+                    card: Some(bolt_identity()),
+                    token: None,
+                },
+                CardLens,
+                ComputedNode {
+                    size: Vec2::new(480.0, 670.0),
+                    inverse_scale_factor: 0.5,
+                    ..default()
+                },
+                UiGlobalTransform::from_translation(Vec2::new(600.0, 400.0)),
+            ))
+            .id();
+        (app, lens)
+    }
+
+    fn point_at(app: &mut App, entity: Entity) -> Option<LogHover> {
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        app.world_mut().write_message(at(entity, Over { hit }));
+        app.update();
+        app.world().resource::<Duel>().hovered_log
+    }
+
+    /// A link that lies over a whole card carries that card's box, in the
+    /// logical window pixels the preview is placed in: the node's physical
+    /// box, centred, scaled by its inverse scale factor. Without it the
+    /// preview would open beside the pointer, wherever on the card it came in.
+    #[test]
+    fn a_link_over_a_card_hands_over_the_cards_box_in_logical_pixels() {
+        let (mut app, lens) = lens_over_a_card();
+        let hover = point_at(&mut app, lens).expect("the lens is a link");
+        assert_eq!(hover.span, lens, "the hover names the lens");
+        assert_eq!(
+            hover.card,
+            Some(Rect::from_center_size(
+                Vec2::new(300.0, 200.0),
+                Vec2::new(240.0, 335.0)
+            )),
+            "the card's box is its physical box halved"
+        );
+    }
+
+    /// The UI scale is part of what turns a node's pixels into the window's
+    /// logical ones (`PreviewAt::in_ui` divides it back out): at a scale of
+    /// 2 and an inverse scale factor of 0.5 the two cancel.
+    #[test]
+    fn the_cards_box_takes_the_ui_scale_into_account() {
+        let (mut app, lens) = lens_over_a_card();
+        app.insert_resource(UiScale(2.0));
+        let hover = point_at(&mut app, lens).expect("the lens is a link");
+        assert_eq!(
+            hover.card,
+            Some(Rect::from_center_size(
+                Vec2::new(600.0, 400.0),
+                Vec2::new(480.0, 670.0)
+            )),
+            "factor 0.5 times scale 2 leaves the physical box"
+        );
+    }
+
+    /// A word in a line is a link without a card: it has no box to open the
+    /// preview at, so it keeps the pointer (`card: None`), even when the
+    /// node happens to be laid out.
+    #[test]
+    fn a_link_that_is_not_a_card_has_no_box() {
+        let (mut app, lens) = lens_over_a_card();
+        app.world_mut().entity_mut(lens).remove::<CardLens>();
+        let hover = point_at(&mut app, lens).expect("the word is a link");
+        assert_eq!(hover.card, None, "a word is not a card's picture");
+        assert_eq!(hover.at, Vec2::new(40.0, 50.0), "it stays at the pointer");
     }
 
     /// A line that happened more than once says how often, after the

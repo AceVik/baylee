@@ -141,7 +141,7 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         take_cast_row(duel, index);
         return;
     }
-    if pick_attack_choice(duel, index) {
+    if pick_attack_choice(duel, index) || pick_block_choice(duel, index) {
         return;
     }
     if page_damage_choice(duel, index) {
@@ -293,6 +293,38 @@ fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
         _ => {
             if let Some(option) = options.get(index) {
                 i.edit_attack(*option);
+            }
+        }
+    }
+    true
+}
+
+/// The block list's rows edit the draft as the table's clicks do
+/// (report 31); the ordinary confirmation remains the only send.
+fn pick_block_choice(duel: &mut Duel, index: usize) -> bool {
+    use baylee_client_core::targeting::{NEXT, PAGE_SIZE, PREVIOUS};
+    let Some(i) = duel.interaction.as_mut() else {
+        return false;
+    };
+    if !matches!(
+        i.pending(),
+        baylee_engine::choice::Pending::ChooseBlockers { .. }
+    ) {
+        return false;
+    }
+    let rows = i.block_rows();
+    match index {
+        PREVIOUS => duel.target_page = duel.target_page.saturating_sub(1),
+        NEXT => {
+            let creatures = rows
+                .iter()
+                .filter(|o| matches!(o, baylee_client_core::interaction::BlockRow::Toggle(_)))
+                .count();
+            duel.target_page = (duel.target_page + 1).min(creatures.saturating_sub(1) / PAGE_SIZE);
+        }
+        _ => {
+            if let Some(row) = rows.get(index) {
+                i.edit_block(*row);
             }
         }
     }

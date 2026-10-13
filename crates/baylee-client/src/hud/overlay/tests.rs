@@ -90,6 +90,7 @@ fn bar_of(duel: Duel) -> App {
         .init_resource::<ledge::menu::MenuRevision>()
         .init_resource::<tray::TrayRevision>()
         .init_resource::<tray::TrayReveal>()
+        .init_resource::<tray::TrayCarry>()
         .init_resource::<super::SheetRevision>()
         .insert_resource(super::UiSheets {
             parchment: Handle::default(),
@@ -121,6 +122,7 @@ fn bar_of(duel: Duel) -> App {
                 ledge::menu::sync_menu,
                 ledge::menu::grow_the_menu,
                 tray::sync_tray,
+                tray::carry_the_rows,
                 tray::reveal_tray,
                 // The parchment leaf, which since AX 6c draws *both*
                 // choosers — a permanent's abilities and the ways a card

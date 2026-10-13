@@ -43,6 +43,8 @@ use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
 
 mod attack;
 pub use attack::AttackOption;
+mod block;
+pub use block::BlockRow;
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

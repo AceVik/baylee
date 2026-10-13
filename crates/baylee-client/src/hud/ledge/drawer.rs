@@ -45,6 +45,20 @@ use baylee_engine::choice::Pending;
 
 mod attack;
 pub(crate) use attack::FOLD as ATTACK_LIST_FOLD;
+mod block;
+
+/// Combat's two named lists, the attack and the block declaration; at most
+/// one of them reads anything for a question.
+fn combat_reading(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    lines: &mut Vec<Line>,
+    rows: &mut Vec<crate::choices::ChoiceOption>,
+) {
+    attack::reading(duel, lang, texts, lines, rows);
+    block::reading(duel, lang, texts, lines, rows);
+}
 pub(in crate::hud) mod sheet;
 
 pub use sheet::{SheetPill, SheetSource, SheetTitle};
@@ -888,7 +902,7 @@ fn reading(
     let (quick, group) = type_reading(duel, lang, waiting, &mut rows);
     if !waiting && !elsewhere {
         target_reading(duel, lang, texts, head.is_some(), &mut lines, &mut rows);
-        attack::reading(duel, lang, texts, &mut lines, &mut rows);
+        combat_reading(duel, lang, texts, &mut lines, &mut rows);
     }
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
     // went with its rows to the sheet.
