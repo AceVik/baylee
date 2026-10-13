@@ -48,6 +48,7 @@ impl Session {
                     by,
                     action,
                     hash,
+                    ..
                 } => {
                     session.tell_time(at);
                     if !session.replayed(PlayerId::new(seat), by, action) {

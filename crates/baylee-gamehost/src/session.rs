@@ -332,7 +332,7 @@ impl Session {
     #[must_use]
     pub fn new_recorded(preset: &GamePreset, build: &str) -> Option<Self> {
         let mut session = Self::new(preset)?;
-        session.record = Some(Recorder::new(preset, build, session.engine.snapshot_hash()));
+        session.record = Some(Recorder::new(preset, build, &session.engine));
         Some(session)
     }
 
@@ -377,8 +377,9 @@ impl Session {
                 .map(|p| p.get())
                 .collect();
             let reason = format!("{:?}", result.reason);
+            let turn = self.engine.state().turn.number;
             if let Some(record) = self.record.as_mut() {
-                record.end(winners, reason);
+                record.end(winners, reason, turn);
             }
         }
     }

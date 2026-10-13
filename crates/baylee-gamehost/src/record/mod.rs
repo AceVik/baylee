@@ -25,8 +25,18 @@
 //! It is for the gateway's store and the feedback service, never for a seat
 //! (`docs/protocol.md` §"The game record").
 //!
+//! Beside each hash the header and every input carry [`seen`]: a digest of
+//! the public table that means the same on every build, which is what a
+//! replay on a later build checks against (`seen.rs`). The end carries the
+//! turn the game ended on. Both are optional: a record from before them
+//! reads as it did.
+//!
 //! JSON Lines: one [`Line`] per line, so a record cut off with its engine is
 //! still readable up to the cut.
+
+mod seen;
+
+pub use seen::{FACE_DOWN, NO_CARD, seen, step_number};
 
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
@@ -164,6 +174,9 @@ pub enum Line {
         preset: GamePreset,
         /// The engine's hash before any input.
         hash: String,
+        /// [`seen`] before any input; `None` in a record from before it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        seen: Option<String>,
     },
     /// One action the engine applied.
     Input {
@@ -180,6 +193,9 @@ pub enum Line {
         action: PlayerAction,
         /// The engine's hash after it.
         hash: String,
+        /// [`seen`] after it; `None` in a record from before it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        seen: Option<String>,
     },
     /// Who answers a chair changed. Not an input: replay passes over it.
     Chair {
@@ -217,12 +233,15 @@ pub enum Line {
         winners: Vec<u8>,
         /// Why it ended, as the engine names the reason.
         reason: String,
+        /// The turn it ended on; `None` in a record from before it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn: Option<u32>,
     },
 }
 
 /// A hash as the record writes it: fixed-width hex, because a `u64` in JSON
 /// is not a number every reader keeps exactly.
-fn hex(hash: u64) -> String {
+pub(crate) fn hex(hash: u64) -> String {
     format!("{hash:016x}")
 }
 
@@ -240,14 +259,16 @@ pub(crate) struct Recorder {
 }
 
 impl Recorder {
-    /// A record that starts with its header.
-    pub(crate) fn new(preset: &GamePreset, build: &str, hash: u64) -> Self {
+    /// A record that starts with its header, written from the engine
+    /// before any input.
+    pub(crate) fn new(preset: &GamePreset, build: &str, engine: &Engine<RegistryLookup>) -> Self {
         let mut recorder = Self::default();
         recorder.write(&Line::Header {
             record: RECORD_VERSION,
             build: build.to_owned(),
             preset: preset.clone(),
-            hash: hex(hash),
+            hash: hex(engine.snapshot_hash()),
+            seen: Some(hex(seen(engine.state()))),
         });
         recorder
     }
@@ -295,6 +316,7 @@ impl Recorder {
             by,
             action,
             hash: hex(engine.snapshot_hash()),
+            seen: Some(hex(seen(engine.state()))),
         };
         self.write(&line);
     }
@@ -320,7 +342,7 @@ impl Recorder {
     }
 
     /// Writes [`Line::End`] the first time it is called.
-    pub(crate) fn end(&mut self, winners: Vec<u8>, reason: String) {
+    pub(crate) fn end(&mut self, winners: Vec<u8>, reason: String, turn: u32) {
         if std::mem::replace(&mut self.ended, true) {
             return;
         }
@@ -329,6 +351,7 @@ impl Recorder {
             at: self.now,
             winners,
             reason,
+            turn: Some(turn),
         };
         self.write(&line);
     }
@@ -1005,6 +1028,7 @@ mod tests {
             at: 9,
             winners: vec![1],
             reason: "last standing".into(),
+            turn: None,
         };
         let json = serde_json::to_string(&end).unwrap();
         assert!(json.starts_with(r#"{"kind":"end""#), "{json}");
