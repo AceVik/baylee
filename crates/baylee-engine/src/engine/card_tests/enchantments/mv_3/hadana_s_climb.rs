@@ -124,3 +124,29 @@ fn winged_temple_of_orazca_gives_a_creature_you_control_flying_and_plus_its_powe
     assert_eq!(pt(&e, bears), (2, 2), "until end of turn");
     assert!(!keywords(&e, bears).contains(KeywordSet::FLYING));
 }
+
+/// Winged Temple of Orazca: "{T}: Add one mana of any color." Exactly one
+/// mana, of the colour named.
+#[test]
+fn winged_temple_of_orazca_taps_for_exactly_one_mana_of_the_chosen_color() {
+    let p0 = PlayerId::new(0);
+    let (mut e, temple) =
+        placed_face(hadana_s_climb(), 1, &[]).expect("the Temple on the battlefield");
+    assert!(!is_tapped(&e, temple));
+    activate(&mut e, p0, hadana_s_climb(), 0);
+    assert!(
+        matches!(e.pending(), Pending::ChooseColor { .. }),
+        "\"any color\" asks which, got {:?}",
+        e.pending()
+    );
+    e.apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+    let pool = &e.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "one mana of the chosen colour"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&e, temple), "{{T}} is part of the cost");
+}
