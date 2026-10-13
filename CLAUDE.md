@@ -221,7 +221,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 ### Client
 
 - Client architecture: `crates/baylee-client/CLAUDE.md`; `docs/client.md` is normative. Work in `crates/baylee-client-core/` does not load that file; read it by hand.
-- No lights: `Tonemapping::None`, everything on the table unlit.
+- No lights: no tone curve (`Tonemapping::Linear`; since bevy 0.20 `None` also drops dither and clamp), everything on the table unlit.
 - Never position a table object directly: `table::sync_scene` sets a `Motion` target, `table::glide` moves it.
 - The front door stands in a geode's cavity, the portal to a world at first light (`vista.rs`, `vista.wgsl`, #295; uniforms only). `FrontMotion::progress` drives `vista::passage` (1.0 s in, 0.8 s back, panels from 0.20 s), the loading veil holds it open (`vista::waiting`), and `reduce_motion` holds it still. Other games' login screens are inspiration only; no asset of theirs is used (`docs/legal.md` §10).
 - The log panel reads like a chat (#300): local HH:MM (`LogLine::clock`), players in bold, and a card the line showed as a [link] that opens the table's preview of the line's printing (`Duel::hovered_log`). A face-down or `Hidden` card is never a link.

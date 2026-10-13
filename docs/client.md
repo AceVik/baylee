@@ -540,13 +540,15 @@ Everything down here is `unlit`, and stays that way: card art must never be
 tinted by scene lighting, because colour identity has to be readable at a
 glance. The table gets its depth from shading painted into the textures
 instead — so the stage has no light in it at all, and the camera carries
-`Tonemapping::None`.
+no tone curve: `Tonemapping::Linear`.
 
-`Tonemapping::None` is belt and braces — Bevy attaches no tone mapper to a
-camera by default — but it is worth saying: in an unlit scene every number
-already *is* a display value, so a tone mapper reading them as radiance
-would be wrong, and a future default doing it quietly would be very hard to
-see.
+Naming it is worth it: in an unlit scene every number already *is* a display
+value, so a tone mapper reading them as radiance would be wrong, and a future
+default doing it quietly would be very hard to see. It said `None` until bevy
+0.20, which made `None` a full passthrough — no deband dither, no clamp of
+negative channels, and a warning next to the `DebandDither::Enabled` every
+`Camera3d` carries. `Linear` is what `None` was: no curve, dither and clamp
+kept.
 
 Which is the lesson from how this table actually shipped. For a long time it
 rendered as a black screen with two faint gold rings floating in it, and
@@ -10276,7 +10278,7 @@ The setter runs on the main thread and accepts only a decoded, non-null image;
 the installed image is read back to verify the assignment.
 
 On Windows and Linux X11 the client sets its window's icon itself
-(`window_icon.rs`), since Bevy 0.19 has none: once winit has made the primary
+(`window_icon.rs`), since Bevy (0.19, and 0.20 still) has none: once winit has made the primary
 window, a main-thread system reaches it through `bevy::winit::WINIT_WINDOWS`.
 Windows loads the executable's own icon resource (ordinal 1, `build.rs`) at
 the title bar's and the taskbar's size; X11 takes `brand/baylee-window.png`.
