@@ -65,30 +65,43 @@ fn combat_row(duel: &Duel, lang: Lang, commit: Phrase) -> Vec<(Says, String)> {
     row
 }
 
-/// The answers to a payment window (CR 605.3a): pay, don't, and the granted
-/// actions that could make the mana.
+/// The answers to a payment window (CR 605.3a): Go or "Pay now", take the
+/// staged taps back, don't pay, and the granted actions that could make the
+/// mana.
+///
+/// The confirm is one of two answers by the same predicate the confirm key
+/// reads ([`Duel::confirm_payment`]): Go once the pool and the staged taps
+/// cover what is owed, "Pay now" while a plan for the rest stands — it
+/// stages that plan and sends nothing. Neither is offered when nothing
+/// plans the rest: a payment the engine would refuse is not a button, and
+/// passing short is what "Don't pay" says (#01).
 fn payment_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
-    let say = |action, phrase: Phrase| (Says::Answer(action), phrase.text(lang).to_string());
-    // With no plan (nothing this client can tap pays it, or a
-    // granted action has to make the mana first) "Pay" is the plain
-    // pass, offered only once the floating mana settles it.
-    // A "Pay" that could only pass the window short is not offered: passing
-    // short refuses the payment (#01), which is what "Don't pay" says.
-    let mut row = match duel.owed_plan.as_ref() {
-        Some(plan) if !plan.is_empty() => vec![(
+    let mut row = if duel.staged_covers() {
+        vec![(
             Says::Answer(PromptAction::Confirm),
-            Phrase::PayRemainder.fill(lang, &[&plan.taps().to_string()]),
-        )],
-        // A granted action makes the mana first and the same press settles
-        // it after (`Duel::confirm_payment` re-reads the pool).
-        _ if duel.pool_covers_owed() || !super::granted_offers(duel).is_empty() => {
-            vec![say(PromptAction::Confirm, Phrase::PayNow)]
+            Phrase::PayGo.text(lang).to_string(),
+        )]
+    } else {
+        match duel.owed_plan.as_ref() {
+            Some(plan) if !plan.is_empty() => vec![(
+                Says::Answer(PromptAction::Confirm),
+                Phrase::PayStage.fill(lang, &[&plan.taps().to_string()]),
+            )],
+            _ => Vec::new(),
         }
-        _ => Vec::new(),
     };
+    if !duel.pay_staged.is_empty() {
+        row.push((
+            Says::Command(super::MenuAction::UnstagePayment),
+            Phrase::UnstagePayment.text(lang).to_string(),
+        ));
+    }
     row.push((
         Says::Command(super::MenuAction::DeclinePayment),
-        Phrase::DeclinePayment.text(lang).to_string(),
+        duel.declining_costs()
+            .unwrap_or(Phrase::DeclinePayment)
+            .text(lang)
+            .to_string(),
     ));
     if !super::granted_offers(duel).is_empty() {
         row.push((

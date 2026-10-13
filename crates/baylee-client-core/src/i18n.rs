@@ -1976,22 +1976,33 @@ messages! {
     /// countered, or a tax unpaid — because that is the engine's sentence and
     /// this client does not know which it is.
     PayOrPass {
-        en: "You owe mana. Activate mana abilities to pay, or pass.",
-        de: "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe.",
+        en: "You owe mana. Click lands to stage them or choose \"Pay now\"; nothing taps until you pay.",
+        de: "Du schuldest Mana. Klicke Länder zum Vormerken oder wähle „Jetzt zahlen“; getappt wird erst beim Bezahlen.",
     },
-    /// Pay what a payment window still owes with the lands the client picked,
-    /// then settle it: the prompt's confirm button while mana is owed and
-    /// the pool does not cover it yet.
-    PayRemainder { en: "Pay (tap {0})", de: "Zahlen ({0} tappen)" },
+    /// "Pay now" in a payment window: stages the client's plan for what is
+    /// still owed, visibly, and sends nothing — the next press pays.
+    PayStage { en: "Pay now (tap {0})", de: "Jetzt zahlen ({0} tappen)" },
+    /// Go: sends the staged taps and pays the window in one action.
+    PayGo { en: "Pay", de: "Bezahlen" },
+    /// Take back every tap staged in a payment window.
+    UnstagePayment { en: "Untap all", de: "Alle zurücknehmen" },
     /// Pass a payment window without paying it.
     DeclinePayment { en: "Don't pay", de: "Nicht zahlen" },
-    /// Settle a payment window the pool already covers.
-    PayNow { en: "Pay", de: "Zahlen" },
+    /// Pass a cast's payment window: the cast is taken back (CR 601.2h).
+    DeclinePaymentCast {
+        en: "Don't pay — the spell goes back",
+        de: "Nicht zahlen — der Zauber geht zurück",
+    },
+    /// Pass a pact's payment window: "If you don't, you lose the game."
+    DeclinePact {
+        en: "Don't pay — you lose the game",
+        de: "Nicht zahlen — du verlierst das Spiel",
+    },
     /// A payment the client could not complete: it leaves the window open
     /// rather than pass it short, which would refuse the payment (#01).
     PaymentShort {
-        en: "Not enough mana is floating to pay. Tap the rest, or choose \"Don't pay\".",
-        de: "Es schwebt nicht genug Mana zum Bezahlen. Tappe den Rest oder wähle „Nicht zahlen“.",
+        en: "Not enough mana to pay. Stage more lands, or choose \"Don't pay\".",
+        de: "Nicht genug Mana zum Bezahlen. Merke weitere Länder vor oder wähle „Nicht zahlen“.",
     },
     /// The AI log's heading line for one entry: whose mind it is.
     AiSaidHead { en: "{0} thinks", de: "{0} denkt" },
@@ -2120,6 +2131,9 @@ messages! {
     /// one register — which is the argument for putting it here rather than
     /// in the shelf's middle column beside the sentence.
     Owed { en: "Owed", de: "Geschuldet" },
+    /// Beside the owed cost on the payment strip: what is still open once
+    /// the pool and the staged taps are counted.
+    OwedLeft { en: "left", de: "offen" },
     /// Waiting
     JustWaiting { en: "Waiting", de: "Warte" },
     /// Keep this hand? (the next mulligan is free)

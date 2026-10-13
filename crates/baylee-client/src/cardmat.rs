@@ -257,11 +257,15 @@ impl Offer {
             // happens on the next tap, and the next tap is the player's
             // either way. Nothing is `armed` here, because nothing was: a
             // mana ability is one tap and the arming contract exempts it.
-            crate::Proposing::Owed(plan) => Self {
+            // A staged permanent is lit too — it taps when the player says Go
+            // — and is told apart from the suggestion by lying turned
+            // (`Proposal::Staged`).
+            crate::Proposing::Owed { plan, staged } => Self {
                 activatable,
                 reachable: false,
                 armed: false,
-                will_tap: spends(plan),
+                will_tap: plan.is_some_and(spends)
+                    || staged.iter().any(|step| members.contains(&step.source)),
                 choosable: false,
             },
         }
@@ -2022,13 +2026,27 @@ pub(crate) mod tests {
             }],
             ..default()
         };
-        let offer = Offer::on(crate::Proposing::Owed(&plan), &forests, false);
+        let offer = Offer::on(
+            crate::Proposing::Owed {
+                plan: Some(&plan),
+                staged: &[],
+            },
+            &forests,
+            false,
+        );
         assert!(offer.will_tap, "one of the three is named by the plan");
         assert!(!offer.armed, "an open window is not a commitment");
 
         let elsewhere = [ObjectId::new(9, 0)];
         assert_eq!(
-            Offer::on(crate::Proposing::Owed(&plan), &elsewhere, false),
+            Offer::on(
+                crate::Proposing::Owed {
+                    plan: Some(&plan),
+                    staged: &[]
+                },
+                &elsewhere,
+                false
+            ),
             Offer::activatable(false),
             "a card the plan does not name is drawn dark"
         );

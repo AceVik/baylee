@@ -324,6 +324,11 @@ pub enum Proposal {
     /// piling on any row, five Forests paying `{G}` are a lit `×1` beside a
     /// dark `×4`, not one lit card that says all five are being spent.
     Spent,
+    /// A permanent staged to pay an open payment window (`paystage`): not
+    /// tapped yet — nothing is sent before Go — and drawn as if it were, so
+    /// the board shows what the payment will leave. Taken back with a click
+    /// or `Esc` until the payment is sent.
+    Staged,
 }
 
 /// One drawable card, which may stand for several identical permanents.
@@ -2057,7 +2062,13 @@ fn card_group(
         base_toughness: obj.base_toughness,
         damage: obj.damage,
         loyalty: obj.loyalty,
-        status: obj.status,
+        // A staged tap is drawn turned: the preview of the payment the
+        // player is about to send, which the view cannot say yet.
+        status: if proposed == Some(Proposal::Staged) {
+            ObjectStatus::from_bits(obj.status.bits() | ObjectStatus::TAPPED.bits())
+        } else {
+            obj.status
+        },
         counters: obj.counters.clone(),
         badges: KeywordBadge::from_bits(obj.keywords),
         // A token has no printing, so for as long as this read only `card` a
