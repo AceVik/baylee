@@ -592,3 +592,31 @@ fn a_card_drawn_after_a_declined_dredge_is_still_revealed() {
         }
     }
 }
+
+/// CR 616.1e: two Chains of different controllers are not the same
+/// replacement (the discard is each controller's effect), so the drawing
+/// player orders them; two of one controller are interchangeable and are
+/// not asked about (`two_chains_discard_then_mill`).
+#[test]
+fn chains_of_two_controllers_are_ordered_by_the_drawing_player() {
+    let mut engine = bench(
+        7701,
+        cards(),
+        [
+            Seat::with(&[CHAINS, DRAWER]).holding(&[BAUBLE, BAUBLE]),
+            Seat::with(&[CHAINS]),
+        ],
+    );
+    to_main(&mut engine, me());
+    let chains = objects(&engine, ZoneLocation::Battlefield, CHAINS);
+    draw_with(&mut engine, 0);
+    let (mut options, min, max, prompt) = asked(&engine);
+    options.sort_unstable();
+    let mut expected = chains.clone();
+    expected.sort_unstable();
+    assert_eq!(
+        (options, min, max, prompt),
+        (expected, 1, 1, ChoicePrompt::DrawReplacement),
+        "the drawing player chooses whose Chains apply first"
+    );
+}

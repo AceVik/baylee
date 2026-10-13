@@ -1049,8 +1049,8 @@ the cards a Lamp is looking at), hashed, and reset when the card is done
 3. More than one way on (dredge beside a mandatory one, or two mandatory
    ones whose order matters): `ChooseCards { prompt: DrawReplacement, min:
    1, max: 1 }` over their sources, dredge cards first (CR 616.1, 616.1e).
-   Replacements that do the same thing (two Chains, two Rings, two Lamps
-   of one X) are interchangeable and are not asked about.
+   Replacements that do the same thing (two Chains of one controller, two
+   Rings, two Lamps of one X) are interchangeable and are not asked about.
 4. One mandatory replacement: applied. Chains with an empty hand mill one
    and replace the draw (the card's ruling); with one card it is discarded;
    with more, `ChooseCards { prompt: Discard, min: 1, max: 1 }` over the
@@ -1075,8 +1075,9 @@ wait keeps its place (`Resolution::draw_watch`, as a loot keeps
 a card drawn plainly: `GameState::draws_replaced` counts the draws a
 replacement modified (CR 614.11b). Sindbad is the one such instruction.
 
-Not modelled: a Chains discard is not offered to Library of Leng (that
-replacement is asked only by an effect's discard inside a resolution), and
+Not modelled: a Chains discard is not offered to Library of Leng or
+Nephalia Academy (those replacements are asked only by an effect's discard
+inside a resolution, `resolve/discard.rs`), and
 two Lamp effects of one Lamp in one turn are applied oldest first rather
 than in the player's order.
 

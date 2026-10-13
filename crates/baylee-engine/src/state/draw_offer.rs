@@ -286,9 +286,19 @@ impl GameState {
             return None;
         };
         // Replacements that do the same thing are the same in either order
-        // (two Chains, two Rings, two Lamps of one X); anything else in
-        // company is the player's choice (CR 616.1e).
-        let interchangeable = mandatory.iter().all(|m| matches!(m, Mandatory::Chains(_)))
+        // (two Chains of one controller, two Rings, two Lamps of one X);
+        // anything else in company is the player's choice (CR 616.1e). Two
+        // players' Chains are not the same: the discard is the Chains'
+        // controller's effect (Psychic Purge reads whose).
+        let controller = |m: &Mandatory| {
+            m.source()
+                .and_then(|s| self.object(s))
+                .map(|o| o.controller)
+        };
+        let interchangeable = (mandatory.iter().all(|m| matches!(m, Mandatory::Chains(_)))
+            && mandatory
+                .windows(2)
+                .all(|pair| controller(&pair[0]) == controller(&pair[1])))
             || mandatory
                 .iter()
                 .all(|m| matches!(m, Mandatory::Wish { .. }))
