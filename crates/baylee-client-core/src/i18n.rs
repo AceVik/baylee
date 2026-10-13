@@ -1559,6 +1559,16 @@ messages! {
     GroupQuestions { en: "Questions", de: "Fragen" },
     /// Display
     GroupDisplay { en: "Display", de: "Darstellung" },
+    /// The chat's keys in Settings → Keys
+    GroupChat { en: "Chat", de: "Chat" },
+    /// Open the chat with a command
+    ActChatCommand { en: "Chat: type a command (/)", de: "Chat: Befehl tippen (/)" },
+    /// Answer the last whisper
+    ActChatReply { en: "Chat: answer the last whisper", de: "Chat: letztem Flüstern antworten" },
+    /// Open the chat's box
+    ActChatOpen { en: "Chat: open the box", de: "Chat: Eingabe öffnen" },
+    /// Open the friends list
+    ActFriends { en: "Friends list", de: "Freundesliste" },
     /// Pass when there is nothing to do
     AutoPassLabel {
         en: "Pass when there is nothing to do",

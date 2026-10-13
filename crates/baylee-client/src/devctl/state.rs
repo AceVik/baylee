@@ -36,6 +36,31 @@ pub(super) struct Believed<'w, 's> {
     rebuilds: Option<Res<'w, crate::lobby::UiRebuilds>>,
     /// The report form, for its own redraw count beside the lobby's.
     report: Option<Res<'w, crate::report::ReportDesk>>,
+    /// The chat (`/state.chat`): the machine and the window, and every chat
+    /// control where a pointer would press it.
+    chat: (
+        Option<Res<'w, crate::social::SocialHost>>,
+        Option<Res<'w, crate::social::ChatUi>>,
+        Query<
+            'w,
+            's,
+            (
+                Option<&'static crate::social::window::ChatPress>,
+                Option<&'static crate::social::drawer::DrawerPress>,
+                Option<&'static crate::social::sheet::SheetPress>,
+                Option<&'static crate::social::toasts::ToastPress>,
+                &'static ComputedNode,
+                &'static UiGlobalTransform,
+                &'static InheritedVisibility,
+            ),
+            Or<(
+                With<crate::social::window::ChatPress>,
+                With<crate::social::drawer::DrawerPress>,
+                With<crate::social::sheet::SheetPress>,
+                With<crate::social::toasts::ToastPress>,
+            )>,
+        >,
+    ),
     /// The builder's virtual lists: rows found visible before they were
     /// mounted, and rows mounted (§17 WP4: "0 placeholders").
     lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
@@ -748,6 +773,41 @@ fn report_json(believed: &Believed) -> String {
     value.to_string()
 }
 
+/// The chat (the chat window design §13): what the machine and the window
+/// hold, and every chat control where a pointer would press it (`press`
+/// is its Debug spelling: `Tab(Private)`, `Accept("af03")`, …).
+fn chat_json(believed: &Believed) -> String {
+    let (host, ui, controls) = &believed.chat;
+    let (Some(host), Some(ui)) = (host.as_deref(), ui.as_deref()) else {
+        return "null".to_string();
+    };
+    let mut value = crate::social::state_json(host, ui);
+    let rows: Vec<serde_json::Value> = controls
+        .iter()
+        .filter(|(.., seen)| seen.get())
+        .map(|(chat, drawer, sheet, toast, node, place, _)| {
+            let press = chat
+                .map(|p| format!("{p:?}"))
+                .or_else(|| drawer.map(|p| format!("{p:?}")))
+                .or_else(|| sheet.map(|p| format!("{p:?}")))
+                .or_else(|| toast.map(|p| format!("{p:?}")))
+                .unwrap_or_default();
+            let scale = node.inverse_scale_factor * believed.ui();
+            let size = node.size() * scale;
+            let mid = place.translation * scale;
+            serde_json::json!({
+                "press": press,
+                "x": mid.x,
+                "y": mid.y,
+                "w": size.x,
+                "h": size.y,
+            })
+        })
+        .collect();
+    value["controls"] = serde_json::Value::Array(rows);
+    value.to_string()
+}
+
 /// All front-door controls in logical pixels, without field values or credentials.
 /// The updater's buttons where they are drawn, as `lobby_controls` lists
 /// the lobby's.
@@ -979,7 +1039,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
-         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\
+         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
          \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour}}}",
         tour = tour_json(believed, settings),
         reveal = reveal_json(believed, duel),
@@ -992,6 +1052,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
         report = report_json(believed),
+        chat = chat_json(believed),
         shell_nodes = shell_nodes_json(believed),
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See

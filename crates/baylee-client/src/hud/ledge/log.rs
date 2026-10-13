@@ -64,12 +64,12 @@ use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 ///
 /// A column of sentences, and wide enough that a line naming two cards
 /// mostly fits on one row. A narrow window gets less: see [`log_size`].
-pub(in crate::hud) const LOG_W: f32 = 360.0;
+pub(crate) const LOG_W: f32 = 360.0;
 
 /// How wide the panel grows at most (the owner, 12.10.2026: "etwas
 /// breiter"): a line naming a spell, its mode and two targets reads on two
 /// rows rather than five.
-pub(in crate::hud) const LOG_W_MAX: f32 = 540.0;
+pub(crate) const LOG_W_MAX: f32 = 540.0;
 
 /// The share of the window's width the panel takes between the two.
 ///
@@ -90,10 +90,10 @@ const LOG_H_MAX: f32 = 640.0;
 const LOG_H_SHARE: f32 = 0.72;
 
 /// The air inside the panel's border, and round the list.
-pub(super) const LOG_PAD: f32 = 10.0;
+pub(crate) const LOG_PAD: f32 = 10.0;
 
 /// The head's height: the zone dialog's title bar.
-const LOG_HEAD_H: f32 = 24.0;
+pub(crate) const LOG_HEAD_H: f32 = 24.0;
 
 /// The cross in the head, square and a pixel inside the head each way.
 const LOG_CLOSE: f32 = LOG_HEAD_H - 2.0;
@@ -103,14 +103,14 @@ const LOG_CLOSE_PT: f32 = 10.0;
 
 /// A line's size: the shelf's label size, which is what the rest of this
 /// strip of the screen is read at.
-const LOG_LINE_PT: f32 = LABEL_PT;
+pub(crate) const LOG_LINE_PT: f32 = LABEL_PT;
 
 /// A turn's heading, which is quieter than a line and not smaller than the
 /// shelf's captions.
-const LOG_TURN_PT: f32 = CAP_PT;
+pub(crate) const LOG_TURN_PT: f32 = CAP_PT;
 
 /// Between two lines.
-pub(in crate::hud) const LOG_ROW_GAP: f32 = 3.0;
+pub(crate) const LOG_ROW_GAP: f32 = 3.0;
 
 /// Above a turn's heading, so a turn reads as a paragraph.
 const LOG_TURN_GAP: f32 = 8.0;
@@ -120,16 +120,16 @@ const LOG_TURN_GAP: f32 = 8.0;
 /// Drawn empty today: it is filled from the seat a line is about once the
 /// book says which seat that is (`LogLine::subject`, from the log's owner).
 /// It already takes its width, so the lines do not move when it is filled.
-const SWATCH_W: f32 = 3.0;
+pub(crate) const SWATCH_W: f32 = 3.0;
 
 /// Between the swatch and the sentence.
-const SWATCH_GAP: f32 = 6.0;
+pub(crate) const SWATCH_GAP: f32 = 6.0;
 
 /// The scrollbar's track.
-pub(in crate::hud) const TRACK_W: f32 = 6.0;
+pub(crate) const TRACK_W: f32 = 6.0;
 
 /// The shortest the thumb gets, so a long log's thumb can still be caught.
-pub(in crate::hud) const THUMB_MIN: f32 = 20.0;
+pub(crate) const THUMB_MIN: f32 = 20.0;
 
 /// How near its end the list has to be to count as following.
 ///
@@ -153,12 +153,12 @@ pub struct LogNewBelow;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct LogFollow {
     /// At the end, and kept there as lines arrive.
-    stuck: bool,
+    pub(crate) stuck: bool,
     /// Where this left the list last. A position that is not this one was
     /// moved by the player, with the wheel or the bar.
-    set: f32,
+    pub(crate) set: f32,
     /// Lines arrived while the list was not following.
-    unseen: bool,
+    pub(crate) unseen: bool,
 }
 
 impl Default for LogFollow {
@@ -232,7 +232,7 @@ impl LogRevision {
 ///
 /// On the strip's top edge rather than the strip's bottom: see the module
 /// doc. Its own function so a test can read it without an app.
-pub(in crate::hud) fn root_node() -> Node {
+pub(crate) fn root_node() -> Node {
     Node {
         position_type: PositionType::Absolute,
         bottom: px(hand::HAND_ZONE_H - STRIP_LIP + STRIP_H),
@@ -254,7 +254,7 @@ pub(in crate::hud) fn root_node() -> Node {
 /// least height, and a short window (a phone on its side) would grow the
 /// panel past the top of the window and under the button, which is over
 /// everything.
-pub(in crate::hud) fn log_band(window: Vec2) -> (f32, f32) {
+pub(crate) fn log_band(window: Vec2) -> (f32, f32) {
     (window.x, window.y - TOP_CLEAR - hand::HAND_ZONE_H)
 }
 
@@ -264,7 +264,7 @@ pub(in crate::hud) fn log_band(window: Vec2) -> (f32, f32) {
 /// [`LOG_W`] by [`LOG_H`] and [`LOG_W_MAX`] by [`LOG_H_MAX`], and never more
 /// than the room there is: the window less its margins across, and the band
 /// above the strip up.
-pub(in crate::hud) fn log_size(band: (f32, f32)) -> (f32, f32) {
+pub(crate) fn log_size(band: (f32, f32)) -> (f32, f32) {
     let width = (band.0 * LOG_W_SHARE)
         .clamp(LOG_W, LOG_W_MAX)
         .min(band.0 - 2.0 * EDGE)
@@ -280,7 +280,7 @@ pub(in crate::hud) fn log_size(band: (f32, f32)) -> (f32, f32) {
 ///
 /// Pickable, for the menu's reason: it floats over the table, and a press on
 /// its padding must not reach a card under it.
-pub(in crate::hud) fn spawn_log_panel(commands: &mut Commands) -> Entity {
+pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
     commands
         .spawn((
             LogPanel,
@@ -310,6 +310,7 @@ pub fn sync_log(
     mut revision: ResMut<LogRevision>,
     mut panel: Query<(Entity, Option<&Children>, &mut LogZoom, &mut Node), With<LogPanel>>,
     mut lists: Query<(Entity, &mut LogFollow), With<LogList>>,
+    chat: Option<Res<crate::social::SocialHost>>,
 ) {
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
         return;
@@ -324,6 +325,19 @@ pub fn sync_log(
         node.height = px(height);
     }
     let lang = Lang::of(&settings.lang);
+    // With a social session the panel is the chat window, the log one of
+    // its tabs (the beta.8 chat window design §1): `social::window` fills
+    // it. What is drawn here is forgotten, so the log comes back whole if
+    // the session ends mid-game.
+    if chat.as_ref().is_some_and(|c| c.active()) {
+        let open = duel.log_open && duel.ending().is_none();
+        if open == fold.closing {
+            fold.closing = !open;
+            fold.t = 0.0;
+        }
+        revision.panel = None;
+        return;
+    }
     // A finished game closes it, for the menu's reason: `DuelSet::Input`
     // does not run in `Finished`, so its cross would answer nothing. The end
     // screen shows the whole log instead.
@@ -479,7 +493,7 @@ fn draw_all(
 /// The catalog's text as the log reads it: card names, and the words of a
 /// modal card's modes, through the cast chooser's own door
 /// ([`crate::choices::mode_words`]).
-pub(in crate::hud) struct LogTexts<'a>(pub Option<&'a crate::cardtext::CardTexts>);
+pub(crate) struct LogTexts<'a>(pub Option<&'a crate::cardtext::CardTexts>);
 
 impl CardTextLookup for LogTexts<'_> {
     fn text(&self, card: CardIndex, face: u8) -> Option<CardText> {
@@ -497,7 +511,7 @@ impl CardTextLookup for LogTexts<'_> {
 /// gets none of its own; every later phase gets one before its first line,
 /// and a phase in which nothing happened gets none at all.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
-pub(in crate::hud) struct PhaseRun {
+pub(crate) struct PhaseRun {
     /// The turn and phase of the last line read.
     last: Option<(u32, Phase)>,
 }
@@ -505,7 +519,7 @@ pub(in crate::hud) struct PhaseRun {
 impl PhaseRun {
     /// The phase whose heading stands before `line`, if one does, and the
     /// run moved on past it.
-    pub(in crate::hud) fn heading(&mut self, line: &LogLine) -> Option<Phase> {
+    pub(crate) fn heading(&mut self, line: &LogLine) -> Option<Phase> {
         if line.header {
             self.last = Some((line.turn, Phase::Beginning));
             return None;
@@ -518,7 +532,7 @@ impl PhaseRun {
 }
 
 /// What a phase's heading says.
-pub(in crate::hud) const fn phase_words(phase: Phase) -> Phrase {
+pub(crate) const fn phase_words(phase: Phase) -> Phrase {
     match phase {
         Phase::Beginning => Phrase::LogPhaseBeginning,
         Phase::FirstMain => Phrase::LogPhaseFirstMain,
@@ -530,7 +544,7 @@ pub(in crate::hud) const fn phase_words(phase: Phase) -> Phrase {
 
 /// A phase's heading: a small caption in the quieter ink, set in from the
 /// lines under it.
-pub(in crate::hud) fn spawn_phase(
+pub(crate) fn spawn_phase(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
@@ -565,7 +579,7 @@ const PHASE_GAP: f32 = 4.0;
 const PHASE_INDENT: f32 = CLOCK_W + SWATCH_GAP;
 
 /// Who the lines are written for.
-pub(in crate::hud) fn wording<'a>(
+pub(crate) fn wording<'a>(
     duel: &'a Duel,
     lang: Lang,
     texts: &'a dyn CardTextLookup,
@@ -580,7 +594,7 @@ pub(in crate::hud) fn wording<'a>(
 
 /// The swatch of a line about `subject`: the seat's own colour, the one its
 /// bar wears ([`seat_colour`]), and none for a line about the table.
-pub(in crate::hud) fn subject_ink(wording: &Wording, subject: Option<PlayerId>) -> Color {
+pub(crate) fn subject_ink(wording: &Wording, subject: Option<PlayerId>) -> Color {
     subject.map_or(Color::NONE, |player| {
         seat_colour(wording.seat, wording.statics, player)
     })
@@ -645,7 +659,7 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
 
 /// The list's scrollbar: Bevy's own, so the thumb can be dragged. The
 /// track and the thumb are `track` and `thumb`, put on by `paint`.
-pub(in crate::hud) fn scrollbar(
+pub(crate) fn scrollbar(
     commands: &mut Commands,
     list: Entity,
     colours: (Color, Color),
@@ -657,7 +671,7 @@ pub(in crate::hud) fn scrollbar(
 /// [`scrollbar`], answering with the track and its thumb, for a caller that
 /// puts more on the thumb (a stack entry's text box fades both in with its
 /// row).
-pub(in crate::hud) fn scrollbar_parts(
+pub(crate) fn scrollbar_parts(
     commands: &mut Commands,
     list: Entity,
     (track, thumb): (Color, Color),
@@ -684,7 +698,7 @@ pub(in crate::hud) fn scrollbar_parts(
 
 /// The pill at the list's bottom, hidden until lines arrive under a list the
 /// player has scrolled up. Pressing it takes the list back to its end.
-fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
     commands
         .spawn((
             LogNewBelow,
@@ -737,7 +751,7 @@ fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entit
 /// the veil rises, so its colours go on clear and are remembered
 /// (`finish::Settling`). Everything else about a line, its pieces, its
 /// weights and its count, is the same line in both.
-pub(in crate::hud) struct LineInks {
+pub(crate) struct LineInks {
     /// A line.
     pub line_pt: f32,
     /// A turn's heading.
@@ -756,7 +770,7 @@ pub(in crate::hud) struct LineInks {
 
 /// One colour a line puts on one node.
 #[derive(Clone, Copy, Debug)]
-pub(in crate::hud) enum Paint {
+pub(crate) enum Paint {
     /// A text's or a span's.
     Ink(Color),
     /// A rule's.
@@ -766,7 +780,7 @@ pub(in crate::hud) enum Paint {
 }
 
 /// The panel's inks.
-pub(in crate::hud) const PANEL_INKS: LineInks = LineInks {
+pub(crate) const PANEL_INKS: LineInks = LineInks {
     line_pt: LOG_LINE_PT,
     turn_pt: LOG_TURN_PT,
     ink: palette::DIALOG_INK,
@@ -777,7 +791,7 @@ pub(in crate::hud) const PANEL_INKS: LineInks = LineInks {
 };
 
 /// A colour as it stands from the first frame.
-fn at_rest(node: &mut EntityCommands, paint: Paint) {
+pub(crate) fn at_rest(node: &mut EntityCommands, paint: Paint) {
     match paint {
         Paint::Ink(colour) => node.insert(TextColor(colour)),
         Paint::Rule(colour) => node.insert(BorderColor::all(colour)),
@@ -801,7 +815,7 @@ fn at_rest(node: &mut EntityCommands, paint: Paint) {
 /// wrapped or not (`the_list_ends_at_its_last_line`). The sentence grows into
 /// its row from nothing (`min_width: 0`); the heading is set at its own
 /// width.
-const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
+pub(crate) const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
 
 /// One line of the log, as a row.
 ///
@@ -810,7 +824,7 @@ const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
 /// ([`subject_ink`]), and the sentence, cut into its [`Piece`]s: players in
 /// bold, a card the seat was shown as a link, a card it was not shown a
 /// weight up, and "(×N)" after a line that happened more than once.
-pub(in crate::hud) fn spawn_line(
+pub(crate) fn spawn_line(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
@@ -984,7 +998,7 @@ const FOLLOWS_MARK: &str = "\u{2192} ";
 
 /// How wide a line's time is: "00:00" at the line's size, with a little to
 /// spare for the widest figures.
-const CLOCK_W: f32 = 34.0;
+pub(crate) const CLOCK_W: f32 = 34.0;
 
 /// A line's time on the device's own clock, "14:05" (#300).
 ///
@@ -992,7 +1006,7 @@ const CLOCK_W: f32 = 34.0;
 /// not for now, so a line from before the clocks changed keeps its hour.
 /// Where the platform will not say, the time is UTC, which is what the host
 /// stamped.
-pub(in crate::hud) fn local_clock(line: &LogLine) -> Option<String> {
+pub(crate) fn local_clock(line: &LogLine) -> Option<String> {
     let offset = i64::try_from(line.at / 1000)
         .ok()
         .and_then(|secs| time::OffsetDateTime::from_unix_timestamp(secs).ok())
@@ -1025,7 +1039,7 @@ impl LogLink {
     }
 
     /// The picture its preview shows, at `size`.
-    pub(in crate::hud) fn art(self, size: ArtSize) -> Option<ImageKey> {
+    pub(crate) fn art(self, size: ArtSize) -> Option<ImageKey> {
         match (self.card, self.token) {
             (Some(card), _) => Some(ImageKey::new(card.print, card.face, size)),
             (None, Some(token)) => Some(ImageKey::token(token, size)),
@@ -1036,7 +1050,7 @@ impl LogLink {
 
 /// What a piece of a line's sentence is, which is how it is set.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(in crate::hud) enum Piece {
+pub(crate) enum Piece {
     /// The sentence's own words.
     Words,
     /// A player, "you" included, in bold: a line is found by who it is about.
@@ -1055,7 +1069,7 @@ pub(in crate::hud) enum Piece {
 /// A range the sentence cannot be cut at, or two that overlap, is read as no
 /// mark at all rather than as a panic: the sentence is still true, only set
 /// in one weight.
-pub(in crate::hud) fn pieces(line: &LogLine) -> Vec<(String, Piece)> {
+pub(crate) fn pieces(line: &LogLine) -> Vec<(String, Piece)> {
     let whole = || vec![(line.text.clone(), Piece::Words)];
     let mut marks: Vec<(std::ops::Range<usize>, Piece)> = line
         .names
@@ -1186,7 +1200,7 @@ pub fn hover_log_links(
 ///
 /// Not [`LogLine::plain`], which returns one string: the names are drawn as
 /// their own spans, so the count has to be one too.
-pub(in crate::hud) fn times(line: &LogLine, lang: Lang) -> Option<String> {
+pub(crate) fn times(line: &LogLine, lang: Lang) -> Option<String> {
     if line.times <= 1 {
         return None;
     }

@@ -762,6 +762,10 @@ pub enum LobbyRequest {
         seat: Option<u32>,
         /// The room's password, for a locked room.
         password: String,
+        /// A friend's table invite (beta.8 social §8.3): it stands in for
+        /// the password and is spent by the join. Additive: an older
+        /// gateway ignores it.
+        invite: Option<String>,
     },
     /// `POST /lobby/games/{id}/seat` — the ticket for a chair this player is
     /// already sitting in.
@@ -2538,6 +2542,22 @@ impl Lobby {
     /// Sits down in a named chair, sending whatever is in the room password
     /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
+        self.join_with(game_id, seat, None)
+    }
+
+    /// Sits down at a friend's table their invite named (the beta.8 social
+    /// design §11.7): the selected deck, the first free chair, and the
+    /// invite in the password's place.
+    pub fn join_invited(&mut self, game_id: &str, invite: &str) -> Option<LobbyRequest> {
+        self.join_with(game_id, None, Some(invite.to_string()))
+    }
+
+    fn join_with(
+        &mut self,
+        game_id: &str,
+        seat: Option<u32>,
+        invite: Option<String>,
+    ) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() {
             return None;
         }
@@ -2559,6 +2579,7 @@ impl Lobby {
             deck_id,
             seat,
             password,
+            invite,
         })
     }
 

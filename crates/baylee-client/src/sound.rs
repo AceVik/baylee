@@ -1334,6 +1334,57 @@ fn source(bytes: Vec<u8>) -> AudioSource {
     }
 }
 
+/// The chat's four cues (the beta.8 social design §11.11): a whisper, a
+/// mention, a friend request or invite, a group line. Synthesised here like
+/// every interface cue, so no sample is shipped (`docs/legal.md` §5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ChatSound {
+    /// Two soft rising notes.
+    Whisper,
+    /// A brighter ping.
+    Mention,
+    /// A chime of three.
+    FriendRequest,
+    /// One quiet note.
+    GroupLine,
+}
+
+/// One of [`ChatSound`]'s voices: struck tones with a soft octave partial,
+/// decaying, stereo PCM.
+pub(crate) fn chat_voice(kind: ChatSound) -> AudioSource {
+    // (onset s, Hz, level, decay per s)
+    let notes: &[(f32, f32, f32, f32)] = match kind {
+        ChatSound::Whisper => &[(0.0, 587.33, 0.16, 9.0), (0.12, 739.99, 0.16, 8.0)],
+        ChatSound::Mention => &[(0.0, 1174.66, 0.18, 11.0), (0.05, 1760.0, 0.06, 14.0)],
+        ChatSound::FriendRequest => &[
+            (0.0, 659.25, 0.13, 7.0),
+            (0.10, 880.0, 0.13, 7.0),
+            (0.20, 1318.51, 0.12, 6.0),
+        ],
+        ChatSound::GroupLine => &[(0.0, 523.25, 0.10, 10.0)],
+    };
+    let frames = (RATE * 0.9) as usize;
+    let mut samples = Vec::with_capacity(frames * 2);
+    for i in 0..frames {
+        let t = i as f32 / RATE;
+        let mut sample = 0.0;
+        for &(at, hz, level, decay) in notes {
+            let age = t - at;
+            if age >= 0.0 {
+                let tau = std::f32::consts::TAU;
+                // A 3 ms attack, so the onset is a strike and not a click.
+                let attack = (age / 0.003).min(1.0);
+                let envelope = attack * (-age * decay).exp() * level;
+                sample += (tau * hz * age).sin() * envelope;
+                sample += (tau * hz * 2.0 * age).sin() * envelope * 0.18;
+            }
+        }
+        let sample = sample * MASTER;
+        samples.extend_from_slice(&[sample, sample]);
+    }
+    source(wav(&samples))
+}
+
 /// A quiet gear train with a low resonant catch, synthesised once per client:
 /// [`Cue::TurnPassed`]'s voice, the dial's turn hand setting off. Stereo PCM,
 /// owning no shipped asset.

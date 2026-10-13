@@ -212,7 +212,7 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
             // browser can stand open for a whole turn, and nobody opens the
             // menu and then forgets it.
             duel.game_menu = false;
-        } else if duel.log_open {
+        } else if duel.log_open && !duel.chat_panel {
             // Under the menu and over the browser. It stands beside the strip
             // the browser is put away into, and like the menu it is only ever
             // up because the player put it there; the browser can have been

@@ -100,6 +100,7 @@ pub mod shellkit;
 pub mod shellmat;
 pub mod shellui;
 pub mod sky;
+pub mod social;
 pub mod softkeys;
 pub mod sound;
 pub mod standalone;
@@ -868,6 +869,14 @@ pub struct Duel {
     /// it, and it stays up while the game goes on under it, because a log is
     /// read beside the table and not instead of it.
     pub log_open: bool,
+    /// A door to the log's panel pressed this frame, for the chat (the
+    /// beta.8 chat window design §4): with a social session the panel is the
+    /// chat window and the log one of its tabs, so the chat decides what a
+    /// door does. `crate::social::window` takes it.
+    pub chat_door: Option<ChatDoor>,
+    /// Whether the panel is the chat window this frame (a social session):
+    /// `Esc` then never closes it (§2.3).
+    pub chat_panel: bool,
     /// Whether the AI log's panel is open.
     pub ai_log_open: bool,
     /// Whether an AI seat's mind has said anything this game: the AI log's
@@ -1805,6 +1814,15 @@ impl Duel {
 }
 
 mod duel_plugin;
+
+/// Which door to the log's panel was pressed ([`Duel::chat_door`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChatDoor {
+    /// The log's scroll, its cross, or `L`.
+    Log,
+    /// The chat's bubble.
+    Chat,
+}
 pub use duel_plugin::*;
 
 /// Opens and closes the duel on request.

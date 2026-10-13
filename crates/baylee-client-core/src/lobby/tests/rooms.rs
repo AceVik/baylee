@@ -51,6 +51,7 @@ fn joining_brings_the_selected_deck_to_someone_elses_table() {
             deck_id: "d1".to_string(),
             seat: None,
             password: String::new(),
+            invite: None,
         })
     );
 }
@@ -73,6 +74,7 @@ fn the_room_password_goes_with_the_next_table_and_is_then_forgotten() {
             deck_id: "d1".to_string(),
             seat: Some(2),
             password: "kitchen".to_string(),
+            invite: None,
         })
     );
     assert!(lobby.room_password().is_empty(), "and it is gone");

@@ -442,6 +442,19 @@ pub(crate) mod glyph {
     /// "file-lines" were the other two candidates; a book reads as rules, a
     /// page with lines as a document to open.
     pub const LOG: char = '\u{f70e}';
+    /// Comments, two overlapping speech bubbles: the chat's door (the beta.8
+    /// chat window design §4.1). Verified in the shipped
+    /// `fa-solid-900.ttf`; one bubble (`f4ad`, `f075`) reads as a single
+    /// message rather than a conversation.
+    pub const CHAT: char = '\u{f086}';
+    /// Lock: a conversation's encryption sheet.
+    pub const LOCK: char = '\u{f023}';
+    /// User group: the friends drawer.
+    pub const FRIENDS: char = '\u{f500}';
+    /// Paper plane: send.
+    pub const SEND: char = '\u{f1d8}';
+    /// Ellipsis: a row's menu.
+    pub const MORE: char = '\u{f141}';
 }
 
 /// Root of the overlay.
@@ -569,6 +582,9 @@ pub enum MenuAction {
     /// Open the game log, or shut it again (#262): the scroll on the tray,
     /// the cross on the panel's head, and `L`.
     ToggleLog,
+    /// Open the chat window on its last chat tab, or shut it (the beta.8
+    /// chat window design §4.1): the bubble in the tray.
+    ToggleChat,
     /// Open the AI log, or shut it again.
     ToggleAiLog,
     /// Decline a payment window: pass it without paying. The pay button is
@@ -2286,6 +2302,9 @@ pub(crate) use ledge::drawer::{ATTACK_LIST_FOLD, sheet_asked};
 pub use ledge::drawer::{
     DrawerRevision, DrawerRoot, SheetPill, SheetSource, SheetTitle, sync_drawer, zoom_the_drawer,
 };
+/// The log panel's parts, which the chat window draws its Log tab with
+/// (`crate::social::window`).
+pub(crate) use ledge::log as logpanel;
 pub use ledge::log::{
     CardLens, LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log,
     hover_log_links, sync_log,

@@ -11,6 +11,7 @@ pub struct KeyClaims<'w> {
     arrangements: Option<ResMut<'w, crate::arrangement::ArrangementFrame>>,
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
     tour: Option<Res<'w, crate::tour::TourDesk>>,
+    chat: Option<Res<'w, crate::social::ChatUi>>,
 }
 
 impl KeyClaims<'_> {
@@ -20,6 +21,7 @@ impl KeyClaims<'_> {
     fn held(&self) -> bool {
         self.desk.as_ref().is_some_and(|desk| desk.holds_keyboard())
             || self.tour.as_ref().is_some_and(|t| t.holds_keyboard())
+            || self.chat.as_ref().is_some_and(|c| c.holds_keyboard())
     }
 }
 
@@ -290,6 +292,7 @@ pub(super) fn look_around(
     if fired.has(Action::ToggleLog) {
         // A latch for the browser's reason: a log is read, not glanced at.
         duel.log_open = !duel.log_open;
+        duel.chat_door = Some(crate::ChatDoor::Log);
     }
     // Here rather than beside the other answers, because a hold is the one
     // thing a seat says while it is *not* being asked: the engine takes a

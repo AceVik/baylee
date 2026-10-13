@@ -87,6 +87,8 @@ impl Plugin for LobbyPlugin {
         crate::music::install(app);
         // The report form stands over the lobby and every table (#309).
         crate::report::install(app);
+        // Friends and chat, over the lobby and every table (beta.8).
+        crate::social::install(app);
         crate::loading::install(app);
         crate::shellkit::install(app);
         crate::tour::install(app);
@@ -114,6 +116,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<dock::Surfaces>()
             .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
+            .init_resource::<ChatJoins>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
             .init_resource::<focusing::Kept>()
@@ -130,7 +133,7 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    feed::feed,
+                    (feed::feed, chat_joins),
                     (poll, entrance::advance).chain(),
                     localization::update,
                     watch,
@@ -774,6 +777,26 @@ impl Default for LobbyState {
 /// change to the lobby, or the UI would rebuild itself every frame.
 #[derive(Resource, Clone, Default)]
 struct Mailbox(Arc<Mutex<Vec<Reply>>>);
+
+/// Tables the chat asked to sit down at: a friend's invite's Join (the
+/// beta.8 social design §11.7), with the invite that stands in for the
+/// password.
+#[derive(Resource, Default)]
+pub(crate) struct ChatJoins(pub(crate) Vec<(String, Option<String>)>);
+
+/// Sits down where the chat asked, as the listing's Join does.
+fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
+    if asks.0.is_empty() {
+        return;
+    }
+    for (game, invite) in std::mem::take(&mut asks.0) {
+        let request = match invite.as_deref() {
+            Some(invite) => state.lobby.join_invited(&game, invite),
+            None => state.lobby.join(&game),
+        };
+        http::dispatch(&mut state, &mailbox, request);
+    }
+}
 
 /// What a finished HTTP call hands back.
 enum Reply {

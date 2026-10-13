@@ -124,11 +124,22 @@ pub enum Action {
     TextPageUp,
     /// Scroll it a box on.
     TextPageDown,
+    /// Open the chat on the last chat tab with `/` typed (the beta.8 chat
+    /// design §4.2; bound by the character, so `⇧7` on a German keyboard).
+    ChatCommand,
+    /// Open the chat with `/r <last whisperer> ` typed.
+    ChatReply,
+    /// Open the chat on the last chat tab, the box empty (`Ctrl`/`Cmd`+
+    /// `Enter`; never `⇧Enter`, which is [`Action::ConfirmTargetBatch`]).
+    ChatOpen,
+    /// Open or shut the friends drawer (unbound by default; `/friends` and
+    /// the game menu's row open it too).
+    Friends,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 39] = [
+    pub const ALL: [Self; 43] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -168,6 +179,10 @@ impl Action {
         Self::ToggleBrowser,
         Self::ToggleLog,
         Self::Report,
+        Self::ChatOpen,
+        Self::ChatCommand,
+        Self::ChatReply,
+        Self::Friends,
     ];
 
     /// How the action is named to a player.
@@ -217,6 +232,10 @@ impl Action {
             Self::HandDrawer => Phrase::ActHandDrawer,
             Self::FoldDecision => Phrase::ActFoldDecision,
             Self::Report => Phrase::ReportButton,
+            Self::ChatCommand => Phrase::ActChatCommand,
+            Self::ChatReply => Phrase::ActChatReply,
+            Self::ChatOpen => Phrase::ActChatOpen,
+            Self::Friends => Phrase::ActFriends,
         }
     }
 
@@ -265,6 +284,9 @@ impl Action {
             | Self::Report
             | Self::TextPageUp
             | Self::TextPageDown => Phrase::GroupDisplay,
+            Self::ChatCommand | Self::ChatReply | Self::ChatOpen | Self::Friends => {
+                Phrase::GroupChat
+            }
         }
     }
 }
@@ -524,6 +546,18 @@ impl Keymap {
         bind(Action::Report, vec![Chord::key("F8")]);
         bind(Action::TextPageUp, vec![Chord::key("PageUp")]);
         bind(Action::TextPageDown, vec![Chord::key("PageDown")]);
+        bind(Action::ChatCommand, vec![Chord::key("Slash")]);
+        bind(Action::ChatReply, vec![Chord::key("KeyR")]);
+        // Cmd on a Mac, Ctrl elsewhere: the platform's own "send" chord.
+        bind(
+            Action::ChatOpen,
+            vec![Chord {
+                ctrl: !cfg!(target_os = "macos"),
+                meta: cfg!(target_os = "macos"),
+                ..Chord::key("Enter")
+            }],
+        );
+        bind(Action::Friends, Vec::new());
         Self { bindings }
     }
 
@@ -560,6 +594,10 @@ impl Keymap {
         map.bindings.remove(&Action::FoldDecision);
         map.bindings.remove(&Action::TextPageUp);
         map.bindings.remove(&Action::TextPageDown);
+        map.bindings.remove(&Action::ChatCommand);
+        map.bindings.remove(&Action::ChatReply);
+        map.bindings.remove(&Action::ChatOpen);
+        map.bindings.remove(&Action::Friends);
         map
     }
 
@@ -864,6 +902,11 @@ pub struct Preferences {
     /// per top-level key, so leaving it out when the last star goes would
     /// keep the stored list.
     pub favourites: Vec<String>,
+    /// The chat's settings that follow the account (the beta.8 chat window
+    /// design §3.5): each tab's filter, the history length, the sounds.
+    /// A top-level key of its own, so an old blob keeps loading and the
+    /// gateway's per-key merge keeps it whole.
+    pub chat: crate::social::ChatPrefs,
     /// Every top-level key this client does not know, kept as it came.
     ///
     /// A newer client on the player's other device may have stored a

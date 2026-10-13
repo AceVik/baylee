@@ -265,14 +265,11 @@ pub(super) fn build(
             deck_id,
             seat,
             password,
+            invite,
         } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/join"),
-                &serde_json::json!({
-                    "deck_id": deck_id,
-                    "seat": seat,
-                    "password": password,
-                }),
+                &join_body(&deck_id, seat, &password, invite.as_deref()),
             ),
             Expect::Seat,
         ),
@@ -889,6 +886,25 @@ pub(super) fn read_older(answer: &Result<ehttp::Response, String>) -> Probe {
         }
         _ => Probe::Silent,
     }
+}
+
+/// `POST /lobby/games/{id}/join`'s body: the invite only when there is
+/// one, so a join without it is byte for byte what it was.
+fn join_body(
+    deck_id: &str,
+    seat: Option<u32>,
+    password: &str,
+    invite: Option<&str>,
+) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "deck_id": deck_id,
+        "seat": seat,
+        "password": password,
+    });
+    if let Some(invite) = invite {
+        body["invite"] = serde_json::Value::String(invite.to_string());
+    }
+    body
 }
 
 fn library_request(
