@@ -24,6 +24,31 @@ fn spymaster_s_vault_enters_untapped_with_swamp_and_taps_for_black() {
     assert!(is_tapped(&engine, land));
 }
 
+/// p0 floats {R}, casts a Lightning Bolt at `victim` and lets it resolve.
+#[track_caller]
+fn bolt_creature(e: &mut Engine<RegistryLookup>, victim: ObjectId) {
+    let p0 = PlayerId::new(0);
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    e.refresh_offer();
+    cast_with_floating(e, p0, baylee_core::generated::index::LIGHTNING_BOLT);
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![victim],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(e, stack_is_empty);
+    assert_eq!(
+        e.state().object(victim).unwrap().zone,
+        Zone::Graveyard,
+        "the Bolt killed its target"
+    );
+}
+
 /// "…where X is the number of creatures that died this turn." The count is
 /// every creature, not only ours: the deaths here are real (Lightning Bolts
 /// resolving on Grizzly Bears) rather than a number written into the turn's
@@ -62,26 +87,8 @@ fn vault_connives_x_for_every_creature_that_died_this_turn_an_opponents_included
             )
             .collect();
         assert_eq!(victims.len(), deaths);
-        for victim in &victims {
-            e.dev_state_mut(p0).unwrap().players[0]
-                .mana_pool
-                .add(ManaColor::Red, 1);
-            e.refresh_offer();
-            cast_with_floating(&mut e, p0, index::LIGHTNING_BOLT);
-            e.apply(
-                p0,
-                PlayerAction::ChooseTargets {
-                    objects: vec![*victim],
-                    players: vec![],
-                },
-            )
-            .unwrap();
-            pass_until(&mut e, stack_is_empty);
-            assert_eq!(
-                e.state().object(*victim).unwrap().zone,
-                Zone::Graveyard,
-                "the Bolt killed its target"
-            );
+        for victim in victims {
+            bolt_creature(&mut e, victim);
         }
         assert_eq!(
             e.state().per_turn.creatures_died,
