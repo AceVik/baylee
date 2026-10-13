@@ -717,11 +717,13 @@ async fn a_reported_message_is_checked_and_reaches_the_service_as_a_chat_report(
         text.contains("rude") && text.contains("you are all useless"),
         "{text}"
     );
-    // Who sent and who reported are pseudonyms, never an account.
-    let sender = report["client"]["chat"]["sender"]
-        .as_str()
-        .expect("a sender");
-    assert!(!sender.is_empty() && sender != x.alice.id, "{report}");
+    // No sender pseudonym rides beside the tag: it is the keyed hash a
+    // reporter is known by, so the pair would resolve the sender's own
+    // reports. The reporter is a pseudonym, never an account.
+    assert!(
+        report["client"]["chat"].get("sender").is_none(),
+        "no sender pseudonym: {report}"
+    );
     assert_ne!(
         report["reporter"].as_str(),
         Some(x.bob.id.as_str()),

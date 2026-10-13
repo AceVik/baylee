@@ -155,11 +155,13 @@ pub(crate) async fn post_report(
             "chat": {
                 "verified": verified,
                 "conversation": conv_kind(&conv),
-                "sender": sender.as_ref().map(|who| feedback.pseudonym(&who.id.to_string())),
                 // The sender's public tag, so a moderator can find the
                 // account and act on what it wrote: only when the check
                 // held, because an unverified report could name anyone.
-                // The reporter stays a pseudonym and is never resolvable.
+                // No sender pseudonym beside it: it is the same keyed hash
+                // a reporter is known by, and paired with the tag it would
+                // resolve every report that account ever filed. The
+                // reporter stays a pseudonym and is never resolvable.
                 "sender_tag": sender
                     .as_ref()
                     .filter(|_| verified)

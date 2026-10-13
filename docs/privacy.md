@@ -35,7 +35,7 @@ the pointers, because line numbers move.
 | Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
 | Chat keys | the player's device: the OS credential store (`baylee-chat`), or a `0600` file where there is none | until the device is forgotten | the player, or a guest's sign-out |
 | Chat history and state (encrypted) | the player's device, `chat/` beside the settings | 30 days by default (the player chooses off, 7, 30 or 365) | the client's pruning, or the player |
-| A reported chat message (its text, whether its signature checked, the sender's pseudonym and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
+| A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
@@ -74,9 +74,10 @@ counts, never a tag, handle, conversation or ciphertext.
 **What leaves the device on purpose.** A report of a message sends its text
 and the key of that one message, so that the gateway can check that the
 sender really wrote it. A report never carries other messages or the
-history. The feedback service is sent the text, whether the check held, and
-the sender as a pseudonym (the same keyed hash reporters get), never an
-account id; and, only when the check held, the sender's public tag
+history. The feedback service is sent the text and whether the check held; of the
+sender never an account id and no pseudonym (it would be the keyed hash
+that account's own reports carry, and beside the tag it would resolve
+them), and only when the check held the sender's public tag
 (`sender_tag`), so that an admin can find the account that wrote it and
 act on it (ban it): a moderator must be able to act on reported content,
 and the tag is already public in every handle. An unverified report names

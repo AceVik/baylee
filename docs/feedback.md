@@ -121,10 +121,11 @@ intake as any report with `kind: "chat"`:
 - `text`: the reporter's note, then the message's text;
 - `game_id`: the table's game for a table or team message, else none;
 - `client.chat`: `{verified, conversation ("whisper" | "group" | "table" |
-  "team"), sender (the sender's pseudonym, made with the reporter key, or
-  null when the sending device is gone), sender_tag (the sender's public
-  tag in hex, only when `verified`; else null or absent), sent_at (the
-  sender's clock, ms), message, note}`;
+  "team"), sender_tag (the sender's public tag in hex, only when
+  `verified`; else null), sent_at (the sender's clock, ms), message,
+  note}`. No sender pseudonym (since 13.10.2026): it was the same keyed
+  hash a reporter is known by, and beside the tag it would have resolved
+  every report that account ever filed;
 - no record.
 
 `verified: false` means the check failed or could not run (the sender's
