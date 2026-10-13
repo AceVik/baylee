@@ -622,6 +622,9 @@ impl Library {
         for entry in &mut self.entries {
             if &entry.source == source && entry.sharing.is_some() {
                 entry.sharing = Some(shared);
+                for player in entry.players.iter_mut().filter(|p| p.you) {
+                    player.shared = shared;
+                }
             }
         }
     }

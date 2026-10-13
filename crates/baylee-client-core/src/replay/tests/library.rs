@@ -1107,9 +1107,20 @@ fn set_sharing_writes_the_consent_of_one_hosted_entry() {
     library.set_sharing(&hosted_source("a"), false);
     assert_eq!(sharing(&library, &hosted_source("a")), Some(Some(false)));
     assert_eq!(sharing(&library, &hosted_source("b")), Some(Some(true)));
+    let viewer_shared = |library: &Library, source: &EntrySource| {
+        library
+            .entries()
+            .iter()
+            .find(|e| &e.source == source)
+            .and_then(|e| e.players.iter().find(|p| p.you))
+            .map(|p| p.shared)
+    };
+    assert_eq!(viewer_shared(&library, &hosted_source("a")), Some(false));
+    assert_eq!(viewer_shared(&library, &hosted_source("b")), Some(true));
 
     library.set_sharing(&hosted_source("a"), true);
     assert_eq!(sharing(&library, &hosted_source("a")), Some(Some(true)));
+    assert_eq!(viewer_shared(&library, &hosted_source("a")), Some(true));
 
     // A kept record has no consent: asking for one gives it none.
     let record = EntrySource::Local {
