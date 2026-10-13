@@ -283,9 +283,17 @@ Urheber- und Medienrecht.
    details are in no file of the repository: they live in a private JSON
    on the owner's machine, `scripts/site/impressum_blob.py` turns them into
    an obfuscated blob that only the server holds, and the page's script
-   renders them as text at runtime; robots.txt, `X-Robots-Tag` and a
-   same-origin check keep crawlers off (`web/site/README.md` §"The
-   Impressum").
+   renders them at runtime; robots.txt, `X-Robots-Tag` and a same-origin
+   check keep crawlers off (`web/site/README.md` §"The Impressum").
+   Every field is drawn character by character in a shuffled DOM order
+   among invisible decoys (owner, 13.10.2026), so whatever reads the DOM as
+   text (textContent, innerText, the accessibility tree) gets a jumble, and
+   the page holds no `mailto:`/`tel:` link: writing, calling and copying
+   happen in a click handler. **Trade-off, accepted by the owner:** the
+   drawn block is `aria-hidden`, so a screen reader cannot read the address
+   either; a sentence only screen readers hear says so and points to the
+   copy buttons (which put the right text on the clipboard) and to the
+   contact form.
 5. **Audio:** interface/gameplay cues remain original computed PCM in
    `crates/baylee-client/src/sound.rs`. The revised five-suite score
    (10.10.2026) is newly composed for Baylee (AGPL-3.0-only), with five

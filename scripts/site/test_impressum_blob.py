@@ -280,7 +280,10 @@ class ReadableCheckTests(unittest.TestCase):
         with mock.patch.object(ib, "_readable", return_value=True) as readable:
             with self.assertRaises(ValueError):
                 ib.encode(FAKE, nonce=NONCE)
-            self.assertEqual(readable.call_count, 1, "a given nonce is not redrawn")
+            # a given nonce stays, the characters are shuffled again
+            self.assertGreater(readable.call_count, 1, "a given nonce is reshuffled")
+            for call in readable.call_args_list:
+                self.assertEqual(_unb64(call.args[0])[5:21], NONCE)
 
     def test_a_readable_first_draw_is_redrawn(self):
         with mock.patch.object(ib, "_readable", side_effect=[True, False]) as readable:

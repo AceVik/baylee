@@ -121,7 +121,8 @@ def _readable(blob: bytes, fields: dict) -> bool:
 def encode(fields: dict, nonce: bytes | None = None) -> bytes:
     """The blob for `fields` (every key in FIELDS, each a non-empty string).
     A blob in which a value or a word of it could be read is never returned:
-    with a random nonce another is drawn, a given nonce raises."""
+    the characters are shuffled again (and a new nonce drawn unless one is
+    given), and after 64 tries it raises."""
     missing = [k for k in FIELDS if not isinstance(fields.get(k), str) or not fields[k].strip()]
     if missing:
         raise ValueError("missing or empty field(s): " + ", ".join(missing))
@@ -132,21 +133,20 @@ def encode(fields: dict, nonce: bytes | None = None) -> bytes:
     if long:
         raise ValueError(f"field(s) longer than {MAX_LEN} characters: " + ", ".join(long))
     rng = secrets.SystemRandom()
-    scattered = {}
-    for k in FIELDS:
-        pairs = [[i, ord(c)] for i, c in enumerate(clean[k])]
-        rng.shuffle(pairs)
-        scattered[k] = pairs
-    doc = {"v": VERSION, "fields": scattered}
-    plain = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     for _ in range(64):
+        scattered = {}
+        for k in FIELDS:
+            pairs = [[i, ord(c)] for i, c in enumerate(clean[k])]
+            rng.shuffle(pairs)
+            scattered[k] = pairs
+        doc = {"v": VERSION, "fields": scattered}
+        plain = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        # a given nonce stays; the shuffle alone changes the blob
         n = nonce if nonce is not None else secrets.token_bytes(NONCE_LEN)
         raw = MAGIC + bytes([VERSION]) + n + _xor(plain, n)
         blob = base64.urlsafe_b64encode(raw).rstrip(b"=")
         if not _readable(blob, clean):
             return blob
-        if nonce is not None:
-            break
     raise ValueError("every blob tried showed part of the data; try again")
 
 
