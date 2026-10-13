@@ -117,7 +117,9 @@ impl GroupPick {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TabFilter {
-    /// The game log's lines.
+    /// The game log's lines. Stored as `game_log`: a bare `log` key in the
+    /// preferences a report carries read as the report's own log part.
+    #[serde(rename = "game_log", alias = "log")]
     pub log: bool,
     /// Table chat.
     pub table: bool,
