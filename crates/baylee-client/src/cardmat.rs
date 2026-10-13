@@ -1079,10 +1079,13 @@ impl Plugin for CardMaterialPlugin {
         embedded_asset!(app, "shaders/card.wesl");
         embedded_asset!(app, "shaders/card_ui.wesl");
         // The file both of them import, and the keyword strip's two shaders
-        // (`marksmat`) besides. Registered here rather than loaded on demand
-        // because it is not a shader in its own right: nothing sets it on a
-        // pipeline, and the four that import it name it by this path.
-        embedded_asset!(app, "shaders/card_common.wesl");
+        // (`marksmat`) besides. It is not a shader in its own right: nothing
+        // sets it on a pipeline. Since bevy 0.20 an import names a module
+        // (`baylee_client::shaders::card_common`), and a module resolves only
+        // once its file is a loaded `Shader` — embedding it is not enough
+        // ("module not found … no shader registered"), so it is loaded as a
+        // library, the way bevy loads its own.
+        bevy::shader::load_shader_library!(app, "shaders/card_common.wesl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
             .init_resource::<UiCardMaterials>()
@@ -3197,19 +3200,17 @@ struct Globals { time: f32 };
         "bevy_ui_render::ui_vertex_output",
     ];
 
-    /// Every `import` in every shader names a module that exists.
-    ///
-    /// An import of a path that is not there fails when the shader is
-    /// composed, which is at pipeline build, on a GPU. Ours are checked
-    /// against the files; bevy's against the list of modules this client
-    /// uses, taken from the bevy 0.20 sources, so a path that moved in a
-    /// later bevy is found by this test rather than by a black screen.
-    #[test]
-    fn every_shader_import_names_a_module_that_exists() {
-        let mut imports = 0;
-        let mut faults = Vec::new();
+    /// Every `import` statement of every shader, as the file it is in and the
+    /// module it names: the path without the item (or the `{…}` list) it
+    /// brings in.
+    fn shader_imports() -> Vec<(String, String)> {
+        let mut imports = Vec::new();
         for path in shader_files("wesl") {
-            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
             let source = std::fs::read_to_string(&path).expect("a shader");
             // A statement runs to its `;`, which may be lines later.
             let code = code_of(&source);
@@ -3222,7 +3223,6 @@ struct Globals { time: f32 };
                     text.push_str(line.trim());
                     if line.contains(';') {
                         let full = statement.take().unwrap_or_default();
-                        imports += 1;
                         let path_text = full
                             .trim_start_matches("import ")
                             .split(';')
@@ -3235,33 +3235,99 @@ struct Globals { time: f32 };
                                 .rsplit_once("::")
                                 .map_or(path_text.clone(), |(module, _)| module.to_string()),
                         };
-                        if module.starts_with("baylee_client::shaders::") {
-                            let target = module.split("::").nth(2).unwrap_or("");
-                            if !shader_dir().join(format!("{target}.wesl")).is_file() {
-                                faults.push(format!(
-                                    "{name}: `{module}` has no src/shaders/{target}.wesl"
-                                ));
-                            }
-                        } else if !BEVY_MODULES.contains(&module.as_str()) {
-                            faults.push(format!(
-                                "{name}: `{module}` is not a module this client is known to \
-                                 import; check the module path against the bevy 0.20 sources \
-                                 (and add it to BEVY_MODULES if it is right)"
-                            ));
-                        }
+                        imports.push((name.clone(), module));
                     }
                 }
             }
             assert!(statement.is_none(), "{name}: an import with no `;`");
         }
-        assert!(imports >= 30, "only {imports} imports found");
+        imports
+    }
+
+    /// Every `import` in every shader names a module that exists.
+    ///
+    /// An import of a path that is not there fails when the shader is
+    /// composed, which is at pipeline build, on a GPU. Ours are checked
+    /// against the files; bevy's against the list of modules this client
+    /// uses, taken from the bevy 0.20 sources, so a path that moved in a
+    /// later bevy is found by this test rather than by a black screen.
+    #[test]
+    fn every_shader_import_names_a_module_that_exists() {
+        let imports = shader_imports();
+        let mut faults = Vec::new();
+        for (name, module) in &imports {
+            if module.starts_with("baylee_client::shaders::") {
+                let target = module.split("::").nth(2).unwrap_or("");
+                if !shader_dir().join(format!("{target}.wesl")).is_file() {
+                    faults.push(format!(
+                        "{name}: `{module}` has no src/shaders/{target}.wesl"
+                    ));
+                }
+            } else if !BEVY_MODULES.contains(&module.as_str()) {
+                faults.push(format!(
+                    "{name}: `{module}` is not a module this client is known to import; check \
+                     the module path against the bevy 0.20 sources (and add it to BEVY_MODULES \
+                     if it is right)"
+                ));
+            }
+        }
+        assert!(imports.len() >= 30, "only {} imports found", imports.len());
         assert!(faults.is_empty(), "{faults:#?}");
+    }
+
+    /// Every module of ours that a shader imports is registered as a shader
+    /// library.
+    ///
+    /// In bevy 0.20 an imported WESL module resolves only if its file was
+    /// loaded as a shader (`load_shader_library!`); `embedded_asset!` puts
+    /// the bytes in the binary but registers no module path, so the import
+    /// fails at pipeline build with "module not found … no shader
+    /// registered for this module path", on a GPU and never in a test that
+    /// only parses. The registration is a string in Rust that agrees with
+    /// the import only by being typed the same, so it is looked for as text
+    /// in the source tree, the pattern put together here so this file does
+    /// not find itself.
+    #[test]
+    fn every_module_a_shader_imports_is_registered_as_a_shader_library() {
+        let mut libraries: Vec<String> = shader_imports()
+            .into_iter()
+            .filter_map(|(_, module)| {
+                module
+                    .strip_prefix("baylee_client::shaders::")
+                    .map(|name| name.split("::").next().unwrap_or("").to_string())
+            })
+            .collect();
+        libraries.sort();
+        libraries.dedup();
+        assert!(
+            libraries.len() >= 3,
+            "only {libraries:?} imported (noise, card_common and shell_common are)"
+        );
+        let mut sources = Vec::new();
+        rust_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut sources,
+        );
+        let registrations: String = sources
+            .iter()
+            .map(|path| std::fs::read_to_string(path).expect("a source file"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let call = ["load_shader_library", "!(app, \"shaders/"].concat();
+        let unregistered: Vec<_> = libraries
+            .iter()
+            .filter(|name| !registrations.contains(&format!("{call}{name}.wesl\")")))
+            .collect();
+        assert!(
+            unregistered.is_empty(),
+            "imported by a shader but never registered with load_shader_library: {unregistered:?}"
+        );
     }
 
     /// Every shader the Rust side names is a file that exists.
     ///
-    /// A shader is embedded with `embedded_asset!` and asked for by an
-    /// `embedded://` path; the two are strings that agree only by being typed
+    /// A shader is embedded with `embedded_asset!` (or registered with
+    /// `load_shader_library!`) and asked for by an `embedded://` path; the two are strings that agree only by being typed
     /// the same. A path to a file that was renamed to `.wesl` (or not
     /// renamed) is no compile error: the pipeline waits for a shader that
     /// never loads and the material draws nothing. The patterns are put
@@ -3269,6 +3335,7 @@ struct Globals { time: f32 };
     #[test]
     fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
         let embed = ["embedded_asset", "!("].concat();
+        let library = ["load_shader_library", "!("].concat();
         let url = ["\"embedded", "://baylee_client/shaders/"].concat();
         let mut sources = Vec::new();
         rust_files(
@@ -3288,20 +3355,23 @@ struct Globals { time: f32 };
                     faults.push(format!("{file}: {how} names `{name}`, no .wesl shader"));
                 }
             };
-            for (at, _) in source.match_indices(&embed) {
-                let call = &source[at + embed.len()..];
-                let Some(open) = call.find('"') else { continue };
-                // `app, "shaders/x.wesl"`: the literal is the call's second
-                // argument; anything else before the quote is not a call.
-                if call[..open].contains(')') {
-                    continue;
+            for (pattern, how) in [
+                (&embed, "an embedded asset"),
+                (&library, "a shader library"),
+            ] {
+                for (at, _) in source.match_indices(pattern) {
+                    let call = &source[at + pattern.len()..];
+                    let Some(open) = call.find('"') else { continue };
+                    // `app, "shaders/x.wesl"`: the literal is the call's
+                    // second argument; anything else before the quote is
+                    // not a call.
+                    if call[..open].contains(')') {
+                        continue;
+                    }
+                    let name = call[open + 1..].split('"').next().unwrap_or("");
+                    embedded += 1;
+                    check(name.strip_prefix("shaders/").unwrap_or(name), how);
                 }
-                let name = call[open + 1..].split('"').next().unwrap_or("");
-                embedded += 1;
-                check(
-                    name.strip_prefix("shaders/").unwrap_or(name),
-                    "an embedded asset",
-                );
             }
             for (at, _) in source.match_indices(&url) {
                 let name = source[at + url.len()..].split('"').next().unwrap_or("");

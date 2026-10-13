@@ -413,7 +413,10 @@ impl Plugin for FrontalPlugin {
         {
             return;
         }
-        embedded_asset!(app, "shaders/noise.wesl");
+        // The shared grain the sky, the felt, the vista and the ambience
+        // import too: a library, loaded so its module resolves (`cardmat`'s
+        // plugin says why embedding it is not enough since bevy 0.20).
+        bevy::shader::load_shader_library!(app, "shaders/noise.wesl");
         embedded_asset!(app, "shaders/frontal.wesl");
         app.add_plugins(UiMaterialPlugin::<FrontalMaterial>::default())
             .add_systems(Update, hang);

@@ -424,7 +424,9 @@ pub struct ShellMaterialPlugin;
 
 impl Plugin for ShellMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/shell_common.wesl");
+        // A library, loaded so its module resolves (`cardmat`'s plugin says
+        // why embedding it is not enough since bevy 0.20).
+        bevy::shader::load_shader_library!(app, "shaders/shell_common.wesl");
         embedded_asset!(app, "shaders/shell.wesl");
         app.add_plugins(MaterialPlugin::<ShellMaterial>::default());
     }
