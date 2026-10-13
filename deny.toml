@@ -11,6 +11,14 @@ ignore = [
     # `cargo-audit` reports it as a warning, which is why only one of the
     # two jobs went red on it.
     "RUSTSEC-2026-0192",
+    # `ruzstd` 0.8.3, a decompression bomb (a tiny input exhausts memory). It
+    # reaches us only through `bevy_image`'s `zstd_rust`, which `tonemapping_luts`
+    # needs for bevy's own LUTs: KTX2 files compiled into the binary, trusted
+    # input. The client loads no KTX2 or zstd from anywhere else (card art is
+    # JPEG/PNG/WebP through `artreader.rs`), so no untrusted byte reaches the
+    # decoder. The fix is ruzstd 0.9.1, which bevy_image 0.19 cannot take;
+    # drop this line with the next bevy upgrade (accepted 13.10.2026).
+    "RUSTSEC-2026-0344",
 ]
 
 [licenses]
