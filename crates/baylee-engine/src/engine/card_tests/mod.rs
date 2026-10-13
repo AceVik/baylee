@@ -26,6 +26,7 @@ mod activation_cost_bounds;
 mod alpha_completion_review;
 mod archon_kismet;
 mod artifacts;
+mod aura_kit;
 mod batch43;
 mod batch45;
 mod batch46;
