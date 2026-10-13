@@ -9057,6 +9057,54 @@ table's own preview stands under the sheet). On Send the brackets that
 name a candidate become `client.refs` (`docs/feedback.md` §"References in
 the text").
 
+## Friends and chat (beta.8)
+
+`crates/baylee-client/src/social/` draws and carries out what
+`baylee_client_core::social::Social` decides (the beta.8 social design §11;
+the chat window design). The renderer never builds a frame or an HTTP body.
+
+- **The host.** `SocialHost` starts the machine once the lobby is signed in at
+  a gateway whose `GET /info` names `social` (version and `keep_days`), and
+  drops it at sign-out. Every `/social/ws` dial buys a fresh ticket with the
+  session (`POST /ws-ticket {"socket":"social"}`); a `403` stops dialling for
+  good, any other failure redials after 0.5 s doubling to 15 s. Keys live in
+  the OS credential store (`baylee-chat`, `{tag}@{host}`), else in the `0600`
+  key file in the chat folder `<config>/chat/<gw>/<tag>/`; `BAYLEE_KEY_STORE=off`
+  takes the file (live checks: a rebuilt binary is a new signature to the
+  Keychain). The sealed state file is written 2 s after its last change.
+- **One window, two frames.** At a table the log's panel is the chat window
+  while a social session exists (`sync_log` leaves the panel to
+  `social::window`): fixed tabs All · Log · Table · Team · Private · Group,
+  the log one of them and drawn incrementally as before; All merges log and
+  chat lines in arrival order (`Arrivals`), never by time, and drops phase
+  captions. The tray carries a bubble left of the scroll with the unread
+  count outside its corner (rose for a whisper or a mention). The scroll and
+  `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
+  closes it. Shut, new chat lines peek above the strip for 10 s and fade.
+  In the lobby the same window docks bottom-right (560 × 38 % of the height,
+  320–520), minimises to its tab row or hides to the chat pill.
+- **Per-tab filters** (`⚙`) ride in `Preferences.chat` (`ChatPrefs.tabs`), so
+  they follow the account; the Group tab shows one group at a time
+  (its dropdown), All shows every group with its name as the prefix.
+- **Keys.** The composer holds every key but the F-keys while it has the
+  caret (`ChatUi::holds_keyboard`, asked by `KeyClaims`, `KitHolds`, the
+  shell's walker and stack). A press outside the chat's surfaces
+  (`ChatSurface`) gives the keys back.
+- **Presses act on release** (`social::released`): a panel that closes on a
+  click is still standing when the pointer comes up, so the release cannot
+  land on the lobby control under it.
+- **Drawer, toasts, sheets.** The friends drawer (requests, table and group
+  invites, friends by presence with Whisper/Watch/Invite and a `⋯` menu,
+  groups with their menu, recent players, blocked, status, Chat & privacy)
+  overlays the right edge. Toasts with buttons stay until answered. The
+  encryption notice stands the first time the chat opens on a device, and
+  from every lock; Chat & privacy holds the server settings, history length,
+  sounds, this account's devices and Forget this device.
+- **Sounds** are four synthesised cues (`sound::chat_voice`), no samples,
+  at the interface level and the device's effects volume.
+- `/state.chat` reports the machine and the window and every chat control
+  where a pointer would press it (`controls[].press`).
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
