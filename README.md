@@ -126,9 +126,9 @@ non-commercial fan project and not affiliated with Wizards of the Coast.
   notice (Impressum).
 - **An Intel Mac build.** Six downloads now: Windows (x64, ARM64), macOS
   (Apple silicon, Intel) and Linux (x86-64, ARM64).
-- **About 470 more cards play exactly as printed** (2,702 in beta.6, 3,172
+- **500 more cards play exactly as printed** (2,702 in beta.6, 3,202
   now), most of them partial cards finished; partial cards went from 571 to
-  98 ([Where the cards stand](#where-the-cards-stand)).
+  68 ([Where the cards stand](#where-the-cards-stand)).
 
 This release is for desktop computers only. The browser version and the
 phone apps are not part of beta.7 ([docs/mobile.md](docs/mobile.md) says
@@ -588,8 +588,8 @@ Counted on the beta.7 release candidate (13 October 2026):
 
 | | Cards |
 | --- | --- |
-| Play **exactly as printed** (`Implemented`) | **3,172** |
-| Play, but **not every sentence** yet (`Partial`, the deck builder warns) | 98 |
+| Play **exactly as printed** (`Implemented`) | **3,202** |
+| Play, but **not every sentence** yet (`Partial`, the deck builder warns) | 68 |
 | In the pool, **no rules yet** (the deck builder warns) | 48 |
 | **Never built** on purpose (ante, dexterity and subgame cards) | 13 |
 | **All Magic cards** we are working towards (every distinct card, one per Oracle text) | 33,694 |
@@ -604,9 +604,9 @@ card counted in the set it first appeared in:
 | Set | Cards | Play as printed | Partial | No rules yet | Not in the pool yet | Never built |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Limited Edition Alpha (and the two cards Beta added) | 292 | 288 | 0 | 0 | 0 | 4 |
-| Arabian Nights | 77 | 63 | 12 | 0 | 0 | 2 |
-| Antiquities | 85 | 79 | 5 | 0 | 0 | 1 |
-| Legends | 310 | 259 | 42 | 6 | 0 | 3 |
+| Arabian Nights | 77 | 64 | 11 | 0 | 0 | 2 |
+| Antiquities | 85 | 81 | 3 | 0 | 0 | 1 |
+| Legends | 310 | 277 | 24 | 6 | 0 | 3 |
 | The Dark | 119 | 19 | 0 | 2 | 98 | 0 |
 | Fallen Empires | 102 | 23 | 0 | 0 | 79 | 0 |
 

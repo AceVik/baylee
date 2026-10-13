@@ -137,9 +137,9 @@ keiner Verbindung zu Wizards of the Coast.
   auf das Impressum des Betreibers.
 - **Eine Version für Intel-Macs.** Jetzt sechs Downloads: Windows (x64,
   ARM64), macOS (Apple Silicon, Intel) und Linux (x86-64, ARM64).
-- **Rund 470 Karten mehr spielen genau wie gedruckt** (2.702 in beta.6,
-  jetzt 3.172), die meisten davon fertiggestellte Teil-Karten; die Zahl der
-  teilweise umgesetzten Karten sank von 571 auf 98
+- **500 Karten mehr spielen genau wie gedruckt** (2.702 in beta.6,
+  jetzt 3.202), die meisten davon fertiggestellte Teil-Karten; die Zahl der
+  teilweise umgesetzten Karten sank von 571 auf 68
   ([Wo die Karten stehen](#wo-die-karten-stehen)).
 
 Diese Version ist nur für Desktop-Rechner. Die Browser-Version und die
@@ -628,8 +628,8 @@ Gezählt am Release-Kandidaten von beta.7 (13. Oktober 2026):
 
 | | Karten |
 | --- | --- |
-| Spielen **genau wie gedruckt** (`Implemented`) | **3.172** |
-| Spielen, aber **noch nicht jeder Satz** (`Partial`, der Deckbauer warnt) | 98 |
+| Spielen **genau wie gedruckt** (`Implemented`) | **3.202** |
+| Spielen, aber **noch nicht jeder Satz** (`Partial`, der Deckbauer warnt) | 68 |
 | Im Pool, **noch ohne Regeln** (der Deckbauer warnt) | 48 |
 | Absichtlich **nie gebaut** (Ante-, Geschicklichkeits- und Subgame-Karten) | 13 |
 | **Alle Magic-Karten**, auf die wir hinarbeiten (jede Karte einmal, eine pro Oracle-Text) | 33.694 |
@@ -644,9 +644,9 @@ gedruckt hat; jede Karte zählt in dem Set, in dem sie zuerst erschien:
 | Set | Karten | Wie gedruckt | Teilweise | Noch ohne Regeln | Noch nicht im Pool | Nie gebaut |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Limited Edition Alpha (und die zwei Karten, die Beta dazubrachte) | 292 | 288 | 0 | 0 | 0 | 4 |
-| Arabian Nights | 77 | 63 | 12 | 0 | 0 | 2 |
-| Antiquities | 85 | 79 | 5 | 0 | 0 | 1 |
-| Legends | 310 | 259 | 42 | 6 | 0 | 3 |
+| Arabian Nights | 77 | 64 | 11 | 0 | 0 | 2 |
+| Antiquities | 85 | 81 | 3 | 0 | 0 | 1 |
+| Legends | 310 | 277 | 24 | 6 | 0 | 3 |
 | The Dark | 119 | 19 | 0 | 2 | 98 | 0 |
 | Fallen Empires | 102 | 23 | 0 | 0 | 79 | 0 |
 
