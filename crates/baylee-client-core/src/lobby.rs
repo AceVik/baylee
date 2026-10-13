@@ -3154,6 +3154,9 @@ impl Lobby {
     fn forget_the_session(&mut self) {
         self.me = None;
         self.stats = None;
+        // Which hosted models are open is the account's own.
+        self.hosted_profiles.clear();
+        self.hosted_listed = false;
         self.deleting = None;
         self.account_password.clear();
         self.close_library();

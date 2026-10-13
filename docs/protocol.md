@@ -2870,7 +2870,8 @@ goes to …").
 
 ### Which profiles a player sees: `GET /lobby/llm-profiles`
 
-Any signed-in session (`401` without):
+Any signed-in session (`401` without); listed are only the profiles open
+to its account (§"Who may seat which model"), so a guest's list is empty:
 
 ```json
 {"profiles": [
@@ -2896,7 +2897,9 @@ The room's host, signed in to a **registered account**, with its session:
 `{"profile": "<id>", "deck_text"?: "<deck>"}`.
 
 - `403` for a guest (`a guest cannot seat a hosted model; sign in with an
-  account`) and for anyone but the room's host; `404` no such room or seat;
+  account`), for a profile not open to the account (`that hosted model is
+  not open to your account`, whether a seat agent holds it or not; checked
+  before the profile's state) and for anyone but the room's host; `404` no such room or seat;
   `409` a chair that is not an open person's chair of a waiting room, or a
   profile that is not available now — then `{"error", "state",
   "until_unix"}`, also for a profile no seat agent holds (`state`
@@ -2931,6 +2934,53 @@ taken or ordered again). A hosted bridge plays **pseudonymised**
 (`--hosted`): its prompts name seats `P1…Pn`, never a display name. Its
 record line says `llm_api`/`llm_cli` as any bridge's does
 (§"Who answers a seat, as it says").
+
+### Who may seat which model
+
+Owner, 13.10.2026: the operator decides per profile which players may seat
+it. A profile **id** (the id players order by, over every seat agent that
+holds it) has a **policy** on the gateway, in its database
+(`llm_profile_access`, `llm_profile_allow`; `baylee_db::llm_access`):
+
+- `registered`: every registered account;
+- `listed`: only the accounts on the profile's list;
+- `nobody`.
+
+A guest is admitted to none, whatever the policy. A profile without a
+stored policy is `listed` with nobody on its list: a **new profile is
+open to nobody** until an admin opens it. One profile may be marked
+`default_for_registered`, the operator's default seat: it is always
+`registered`; marking it takes the mark from any other profile, and setting
+another policy on it takes the mark away. A policy and a list may name a
+profile no seat agent reports, so an operator can set one up before its
+seat agent connects, and stay when it goes. A list row goes with its
+account.
+
+The policy is read at each listing (`GET /lobby/llm-profiles` lists only
+the profiles the account may seat) and at each order (`403` otherwise);
+nothing else reads it. So a change **stops nothing already ordered**: a
+chair ordered before, starting or ready, keeps its model, and a game
+playing goes on. The client shows the hosted entry of a chair's menu only
+when its latest list holds a profile.
+
+On the console (§"The admin console"), with its checks; every change names
+its admin and writes an audit line (`baylee_gateway::audit`,
+`action=llm.access.policy` with `profile`, `policy` and
+`default_for_registered`, `llm.access.allow` / `llm.access.disallow` with
+`profile` and the account `accounts` ids; never a username or handle):
+
+| route | what |
+|---|---|
+| `GET /admin/llm/access` | `{"profiles": [{"id", "policy", "stored", "default_for_registered", "listed", "updated_at", "updated_by", "connected", "label", "vendor"}]}`: every profile a seat agent reports or a policy names, by id. `stored` false: no policy is kept, and `policy` says `listed` (with nobody on it); `listed` counts the accounts on its list; `connected`, `label` and `vendor` say whether a seat agent reports it now and as what |
+| `GET /admin/llm/access/{id}` | the same row and `"accounts": [{"id", "username", "display_name", "handle", "added_at", "added_by"}]`, by username |
+| `PUT /admin/llm/access/{id}` | `{"policy", "default_for_registered"?}`; answers as `GET`. `400` for another policy word, or the mark with a policy other than `registered` |
+| `POST /admin/llm/access/{id}/allow` | `{"accounts": [<uuid>…]}` (1–200): puts registered accounts on the list (a profile without a policy gets `listed`); all or nothing: `404` for an id no account has, `409` for a guest's. Answers as `GET` with `"added"` (those not on it already) |
+| `POST /admin/llm/access/{id}/disallow` | the same body; takes them off; answers with `"removed"` |
+| `GET /admin/accounts/lookup?q=` | `{"accounts": [{"id", "username", "display_name", "handle"}]}`: registered accounts whose username or display name **starts** with `q` (any case; `%` and `_` are themselves), the username equal to `q` first, then by username; fewer than 2 characters find nothing, at most 10 are answered, over 100 characters `400`. The list editor's type-ahead; a read, not audited |
+
+`{id}` is 1–64 of `A-Za-z0-9._-` (`400` otherwise). None of these routes
+answers `403`: the feedback service reads a `403` from the console as its
+token refused (`docs/feedback.md` §"The admin console").
 
 ### The console: `/admin/llm/…`
 

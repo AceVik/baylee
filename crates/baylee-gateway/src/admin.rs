@@ -201,6 +201,8 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         )
         // Acting on an account or a game (beta.8): `moderation.rs`.
         .merge(crate::moderation::console_routes())
+        // Who may seat which hosted model (beta.8): `llmaccess.rs`.
+        .merge(crate::llmaccess::console_routes())
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))

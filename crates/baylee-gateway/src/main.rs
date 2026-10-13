@@ -19,6 +19,7 @@ mod departure;
 mod engine;
 mod handle;
 mod invite;
+mod llmaccess;
 mod lobby;
 mod mail;
 mod metrics;

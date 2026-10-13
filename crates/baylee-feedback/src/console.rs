@@ -29,6 +29,11 @@
 //! - `/ui/api/admin/llm/…`: the hosted models (seat agents, their profiles,
 //!   a profile written, deleted, switched, probed, its key set write-only),
 //!   passed to the gateway's `/admin/llm/…`.
+//! - `/ui/api/admin/llm/access…`: who may seat which hosted model (a
+//!   profile's policy and its list of accounts), and
+//!   `GET /ui/api/admin/accounts/lookup?q=`, the list editor's type-ahead
+//!   over registered accounts (a prefix of two characters or more, at most
+//!   ten); passed to the gateway's routes of the same names.
 //!
 //! The service builds every request itself: a body is read into the four
 //! fields the gateway takes and written out again, and an id must be a
@@ -159,6 +164,17 @@ pub(crate) fn routes() -> Router<Shared> {
         .route(
             "/ui/api/admin/llm/seathosts/{host}/profiles/{id}/key",
             post(llm_key),
+        )
+        .route("/ui/api/admin/accounts/lookup", get(lookup))
+        .route("/ui/api/admin/llm/access", get(access_list))
+        .route(
+            "/ui/api/admin/llm/access/{id}",
+            get(access_one).put(access_policy),
+        )
+        .route("/ui/api/admin/llm/access/{id}/allow", post(access_allow))
+        .route(
+            "/ui/api/admin/llm/access/{id}/disallow",
+            post(access_disallow),
         )
 }
 
@@ -677,11 +693,16 @@ async fn unblock_card(
 
 /// Whether `name` may be a seat agent's name or a profile's id, as the
 /// gateway takes them: 1-64 of `A-Za-z0-9._-`.
+///
+/// The rule of `baylee_protocol::seathost::valid_name`, which this service
+/// does not link: dots alone (`.`, `..`) are refused, since a path made of
+/// them is normalised to another route.
 fn llm_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+        && !name.bytes().all(|b| b == b'.')
 }
 
 /// `{host}` and `{id}`, checked.
@@ -879,6 +900,195 @@ async fn llm_key(
     Ok(answer(done))
 }
 
+// ------------------------------------------------- who may seat which model
+
+/// What `GET /ui/api/admin/accounts/lookup` takes, and all it passes on.
+#[derive(Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
+struct Lookup {
+    q: String,
+}
+
+async fn lookup(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    query: Result<axum::extract::Query<Lookup>, axum::extract::rejection::QueryRejection>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let axum::extract::Query(query) =
+        query.map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a search for accounts"))?;
+    ask(
+        &gateway,
+        "GET",
+        format!("/admin/accounts/lookup?q={}", encoded(&query.q)),
+        &admin,
+        None,
+    )
+    .await
+    .map(answer)
+}
+
+/// `{id}`, checked: a profile's id as the gateway takes it.
+fn access_path(id: &str) -> Result<String, Refusal> {
+    if llm_name(id) {
+        Ok(format!("/admin/llm/access/{id}"))
+    } else {
+        Err(refuse(
+            StatusCode::BAD_REQUEST,
+            "a profile's id is 1-64 of A-Z a-z 0-9 . - _",
+        ))
+    }
+}
+
+async fn access_list(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/llm/access".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+async fn access_one(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = access_path(&id)?;
+    ask(&gateway, "GET", path, &admin, None).await.map(answer)
+}
+
+/// What `PUT /ui/api/admin/llm/access/{id}` takes, and all it passes on.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AccessPolicy {
+    policy: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_for_registered: Option<bool>,
+}
+
+/// One audit line's detail for a policy: the profile, the policy, and
+/// whether it is the default one; nothing else.
+fn policy_detail(id: &str, order: &AccessPolicy) -> String {
+    let word = match order.policy.as_str() {
+        "registered" => "registered",
+        "listed" => "listed",
+        "nobody" => "nobody",
+        _ => "?",
+    };
+    match order.default_for_registered {
+        Some(true) => format!("{id}: {word}, the default"),
+        Some(false) => format!("{id}: {word}, not the default"),
+        None => format!("{id}: {word}"),
+    }
+}
+
+async fn access_policy(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = access_path(&id)?;
+    let order: AccessPolicy = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a policy"))?;
+    let body =
+        serde_json::to_vec(&order).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a policy"))?;
+    let done = ask(&gateway, "PUT", path, &admin, Some(body)).await?;
+    if done.status == 200 {
+        let detail = policy_detail(&id, &order);
+        tracing::info!(admin, action = "gateway.llm.access.policy", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.llm.access.policy", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+/// What `…/allow` and `…/disallow` take, and all they pass on: account
+/// ids, each a UUID, at most 200.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AccessAccounts {
+    accounts: Vec<Uuid>,
+}
+
+/// An audit line's detail for a change to a list: the profile and the
+/// account ids; never a username or a handle.
+fn accounts_detail(id: &str, accounts: &[Uuid]) -> String {
+    let ids: Vec<String> = accounts.iter().map(Uuid::to_string).collect();
+    format!("{id}: {}", ids.join(","))
+}
+
+async fn access_change(
+    shared: &Shared,
+    headers: &HeaderMap,
+    id: &str,
+    body: &[u8],
+    allow: bool,
+) -> Result<Response, Refusal> {
+    same_origin(headers)?;
+    let (admin, gateway) = signed_in(shared, headers).await?;
+    let path = access_path(id)?;
+    let change: AccessAccounts = serde_json::from_slice(body).map_err(|_| {
+        refuse(
+            StatusCode::BAD_REQUEST,
+            "send {\"accounts\": [\"<id>\", …]}",
+        )
+    })?;
+    if change.accounts.is_empty() || change.accounts.len() > 200 {
+        return Err(refuse(
+            StatusCode::BAD_REQUEST,
+            "name 1 to 200 accounts at a time",
+        ));
+    }
+    let body = serde_json::to_vec(&change)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a list of accounts"))?;
+    let (suffix, action) = if allow {
+        ("allow", "gateway.llm.access.allow")
+    } else {
+        ("disallow", "gateway.llm.access.disallow")
+    };
+    let done = ask(
+        &gateway,
+        "POST",
+        format!("{path}/{suffix}"),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 200 {
+        let detail = accounts_detail(id, &change.accounts);
+        tracing::info!(admin, action, %detail, "admin console");
+        if let Err(e) = note(shared, &admin, action, &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+async fn access_allow(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    access_change(&shared, &headers, &id, &body, true).await
+}
+
+async fn access_disallow(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    access_change(&shared, &headers, &id, &body, false).await
+}
+
 /// An audit row about no report: a change made through the console.
 pub(crate) async fn note(
     shared: &Shared,
@@ -1002,5 +1212,72 @@ mod tests {
              0199aaaa-0000-7000-8000-000000000001, 0199aaaa-0000-7000-8000-000000000002"
         );
         assert!(!line.contains("BAYLEE-") && !line.contains("Max"));
+    }
+
+    #[test]
+    fn an_access_path_takes_only_a_profiles_id() {
+        assert_eq!(
+            access_path("sonnet-5.5_a").ok().as_deref(),
+            Some("/admin/llm/access/sonnet-5.5_a")
+        );
+        assert!(access_path(&"a".repeat(64)).is_ok());
+        for id in ["", "a/b", "a/../b", "a b", "a?x=1", "a%2Fb", "ä"] {
+            let Err(refused) = access_path(id) else {
+                panic!("{id:?} passed");
+            };
+            assert_eq!(refused.0, StatusCode::BAD_REQUEST, "{id:?}");
+        }
+        assert!(access_path(&"a".repeat(65)).is_err(), "65 characters");
+        // `..` is made of allowed characters; it must still not reach the
+        // gateway as a path segment.
+        assert!(access_path("..").is_err(), "{:?}", access_path("..").ok());
+    }
+
+    #[test]
+    fn a_policys_audit_line_names_the_profile_the_policy_and_the_default() {
+        let order = |policy: &str, default: Option<bool>| AccessPolicy {
+            policy: policy.into(),
+            default_for_registered: default,
+        };
+        assert_eq!(
+            policy_detail("sonnet", &order("registered", None)),
+            "sonnet: registered"
+        );
+        assert_eq!(
+            policy_detail("sonnet", &order("registered", Some(true))),
+            "sonnet: registered, the default"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("listed", Some(false))),
+            "opus: listed, not the default"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("nobody", None)),
+            "opus: nobody"
+        );
+        // Whatever else a caller typed as a policy is never echoed.
+        assert_eq!(
+            policy_detail("opus", &order("<script>alert(1)</script>", None)),
+            "opus: ?"
+        );
+        assert_eq!(
+            policy_detail("opus", &order("", Some(true))),
+            "opus: ?, the default"
+        );
+    }
+
+    #[test]
+    fn a_lists_audit_line_names_ids_only() {
+        let a = Uuid::parse_str("0199aaaa-0000-7000-8000-000000000001").unwrap();
+        let b = Uuid::parse_str("0199aaaa-0000-7000-8000-000000000002").unwrap();
+        assert_eq!(
+            accounts_detail("opus", &[a, b]),
+            "opus: 0199aaaa-0000-7000-8000-000000000001,0199aaaa-0000-7000-8000-000000000002"
+        );
+        assert_eq!(
+            accounts_detail("opus", &[a]),
+            "opus: 0199aaaa-0000-7000-8000-000000000001"
+        );
+        assert_eq!(accounts_detail("opus", &[]), "opus: ");
     }
 }

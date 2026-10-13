@@ -17,14 +17,18 @@ use serde::{Deserialize, Serialize};
 pub const PATH: &str = "/seathost/ws";
 
 /// Whether `name` may name a seat agent or a profile: 1–64 of
-/// `A-Za-z0-9._-`, so it goes into a path, a log field and a file name
-/// as it is.
+/// `A-Za-z0-9._-`, not dots alone, so it goes into a path, a log field and
+/// a file name as it is: `.` and `..` would be a path segment that walks
+/// (a URL normalised to the parent route, a file name to the parent
+/// directory). The feedback service, which links no protocol crate, keeps
+/// the same rule in `console::llm_name`.
 #[must_use]
 pub fn valid_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+        && !name.bytes().all(|b| b == b'.')
 }
 
 /// Whether `text` may be a profile's label or vendor: 1–40 characters,
@@ -427,6 +431,12 @@ mod tests {
         assert!(!valid_name(""));
         assert!(!valid_name("a/b"));
         assert!(!valid_name(&"a".repeat(65)));
+        // Dots alone walk a path; a dot inside a name does not.
+        assert!(!valid_name("."));
+        assert!(!valid_name(".."));
+        assert!(!valid_name("..."));
+        assert!(valid_name(".hidden"));
+        assert!(valid_name("a..b"));
         assert!(valid_label("Claude Sonnet"));
         assert!(!valid_label("  "));
         assert!(!valid_label("a\nb"));

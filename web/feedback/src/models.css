@@ -349,3 +349,232 @@
     transform: translateY(0.5rem) scale(0.98);
   }
 }
+
+/* Who may seat each model: profiles as rows with their policy, and the
+   editor's policy cards, type-ahead, chips and list. */
+.access-profiles,
+.access-chips,
+.access-rows,
+.access-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.access-profiles {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.access-profile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+}
+
+.access-profile .llm-badges {
+  margin-top: 0.3rem;
+}
+
+.access-editor {
+  inline-size: min(44rem, calc(100vw - 2rem));
+}
+
+.access-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.access-policies {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.access-policies legend {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.access-policy {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  min-block-size: 44px;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.access-policy > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.access-policy.on {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
+.access-default {
+  margin-top: 0.4rem;
+}
+
+.access-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.access-list h4 {
+  margin: 0;
+}
+
+.access-list.dim .access-rows,
+.access-list.dim .access-pending {
+  opacity: 0.7;
+}
+
+.access-picker {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.access-picker p {
+  margin: 0;
+}
+
+.access-options {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 4.4rem;
+  z-index: 5;
+  max-block-size: 18rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.access-option {
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.access-option.active {
+  background: var(--selected);
+}
+
+.access-option.taken {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.access-pending p {
+  margin: 0 0 0.3rem;
+}
+
+.access-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.2rem 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--info-bg);
+}
+
+.access-pending.removing .access-chip {
+  background: var(--warn-bg);
+  text-decoration: line-through;
+}
+
+.access-chip-x {
+  min-inline-size: 2rem;
+  min-block-size: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+.access-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.access-tools input[type="search"] {
+  flex: 1 1 12rem;
+}
+
+.access-rows {
+  display: grid;
+  max-block-size: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.access-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.access-row:last-child {
+  border-bottom: 0;
+}
+
+.access-row.going .access-who {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.access-who {
+  overflow-wrap: anywhere;
+}
+
+.access-review ul {
+  margin: 0.4rem 0 0.6rem;
+  padding-inline-start: 1.2rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+@media (max-width: 640px) {
+  .access-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .access-row > .muted {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .access-policy {
+    transition: none;
+  }
+}
