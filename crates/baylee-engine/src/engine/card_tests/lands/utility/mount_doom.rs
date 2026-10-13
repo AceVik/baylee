@@ -367,7 +367,7 @@ fn mount_doom_destroys_so_indestructible_and_regenerating_creatures_survive() {
 
 /// "{1}{B}{R}, {T}: Mount Doom deals 1 damage to each opponent."
 ///
-/// At a table of three both opponents are dealt 1 damage and the Gate's
+/// At a table of three both opponents are dealt 1 damage and Mount Doom's
 /// controller none; the `{1}{B}{R}` is spent and Mount Doom is tapped.
 #[test]
 fn mount_doom_deals_one_damage_to_each_opponent() {

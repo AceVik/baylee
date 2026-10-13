@@ -552,3 +552,31 @@ fn metzali_choosing_an_indestructible_attacker_destroys_nothing() {
         "and the creature that did not attack was never a candidate"
     );
 }
+
+/// "Choose a creature at random that attacked this turn": any creature,
+/// whoever controls it, and the ability has no timing restriction. On player
+/// 1's turn their Ogre attacks player 0 while player 0's own Ogre stays home;
+/// player 0 activates Metzali with the attack declared, and the creature
+/// destroyed is the opponent's attacker.
+#[test]
+fn metzali_destroys_an_opponents_attacker_on_their_turn() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let (mut engine, metzali) = metzali_with(2, &[gray_ogre()], &[gray_ogre()]);
+    let at_home = on_battlefield(&engine, p0, gray_ogre()).expect("my Ogre");
+    let attacker = on_battlefield(&engine, p1, gray_ogre()).expect("their Ogre");
+    kit::attack_on_their_turn(&mut engine, p1, &[attacker], p0);
+    tap_mana_except(&mut engine, p0, metzali);
+
+    activate(&mut engine, p0, path_of_mettle(), 2);
+    kit::resolve_the_stack(&mut engine, |_, _| None);
+
+    assert_eq!(
+        kit::zone_of(&engine, attacker),
+        Zone::Graveyard,
+        "the only creature that attacked this turn is theirs, and it is destroyed"
+    );
+    assert!(
+        kit::is_on_battlefield(&engine, at_home),
+        "my own creature did not attack and is not a candidate"
+    );
+}

@@ -282,3 +282,45 @@ fn hive_of_the_eye_tyrant_with_an_empty_defending_graveyard_asks_nothing() {
         "player 2's card is not the defending player's and stays"
     );
 }
+
+/// "Until end of turn, this land becomes a 3/3 black Beholder creature": on
+/// the next turn it is a plain land again, no creature and no 3/3.
+#[test]
+fn hive_of_the_eye_tyrant_stops_being_a_creature_at_end_of_turn() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[hive_of_the_eye_tyrant(), swamp(), swamp(), swamp(), swamp()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, hive_of_the_eye_tyrant()).expect("the Hive");
+    tap_mana_except(&mut engine, p0, land);
+    activate(&mut engine, p0, hive_of_the_eye_tyrant(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        types(&engine, land).contains(TypeSet::CREATURE),
+        "a creature this turn"
+    );
+    assert!(
+        keywords(&engine, land).contains(KeywordSet::MENACE),
+        "with menace"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && matches!(e.state().turn.phase, Phase::FirstMain)
+    });
+
+    let now = types(&engine, land);
+    assert!(
+        !now.contains(TypeSet::CREATURE),
+        "the animation lasted until end of turn only"
+    );
+    assert!(now.contains(TypeSet::LAND), "and it is a land throughout");
+    assert!(
+        !keywords(&engine, land).contains(KeywordSet::MENACE),
+        "menace went with the animation"
+    );
+}

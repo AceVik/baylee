@@ -275,59 +275,164 @@ fn the_black_gate_offers_every_player_tied_for_the_most_life() {
 /// Whether the Gate's restriction holds against `defender`'s creatures: the
 /// Gate is used on a fresh table with these `lives`, where `leader` is the one
 /// player with the most life, and one of the Gate controller's Ogres is sent
-/// at `defender`. A choice with one candidate is forced, so the question is
-/// either not asked or offers exactly `leader`; the asserted behaviour is where
-/// the restriction lands. Returns whether `defender`'s Ogre may block that Ogre.
+/// at `defender`. Returns the question the Gate asked (if any) and whether
+/// `defender`'s Ogre may block that Ogre.
 #[track_caller]
-fn may_the_defenders_ogre_block(lives: [i32; 3], leader: PlayerId, defender: PlayerId) -> bool {
+fn may_the_defenders_ogre_block(
+    lives: [i32; 3],
+    leader: PlayerId,
+    defender: PlayerId,
+) -> (Option<(PlayerId, Vec<PlayerId>)>, bool) {
     let (mut engine, gate, [target, _], [first, second]) = the_gate_table(lives);
-    if let Some((_, menu)) = use_the_gate(&mut engine, gate, target, leader) {
-        assert_eq!(
-            menu,
-            vec![leader],
-            "a question, if any, offers only the leader"
-        );
-    }
+    let asked = use_the_gate(&mut engine, gate, target, leader);
     let their_ogre = if defender == kit::P1 { first } else { second };
     let pairs = what_may_block(&mut engine, &[target], defender);
-    pairs.contains(&(their_ogre, target))
+    (asked, pairs.contains(&(their_ogre, target)))
 }
 
 /// "…a player with the most life": a single leader is the only choice, so
 /// there is nothing to ask. Player 1 is on 20 against 12 and 8: the choice is
-/// forced, and the restriction lands on player 1 (their Ogre can't block the
-/// target) and on nobody else (player 2's Ogre still can).
+/// forced and not put to the controller, and the restriction lands on player 1
+/// (their Ogre can't block the target) and on nobody else (player 2's Ogre
+/// still can).
 #[test]
 fn the_black_gate_takes_the_only_player_with_the_most_life() {
-    let may_block = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P1);
+    let (asked, may_block) = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P1);
+    assert!(
+        asked.is_none(),
+        "one candidate: the choice is forced and not asked: {asked:?}"
+    );
     assert!(
         !may_block,
         "the sole leader, player 1, was chosen: their Ogre can't block the target"
     );
 
-    let may_block = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P2);
+    let (asked, may_block) = may_the_defenders_ogre_block([12, 20, 8], kit::P1, kit::P2);
+    assert!(asked.is_none(), "forced here too: {asked:?}");
     assert!(
         may_block,
         "player 2 was not chosen: their Ogre may block the target"
     );
 }
 
-/// "Choose a player with the most life…" does not exclude the Gate's own
-/// controller: on 20 against 10 and 5 they are the only candidate. The choice
-/// is forced; the restriction lands on the controller's own creatures, which
-/// restricts no opponent: both opponents' Ogres may block the target.
-#[test]
-fn the_black_gate_takes_its_controller_when_they_have_the_most_life() {
-    let may_block = may_the_defenders_ogre_block([20, 10, 5], kit::P0, kit::P1);
+/// Player 0 and a blocker of theirs against player 1's two attacking Ogres, on
+/// player 1's turn. Player 0 leads on life (22 against 20, after paying the
+/// Gate's 3), so a use of the Gate has one candidate: player 0. With
+/// `use_the_gate_first`, player 0 spends the Gate on the first attacker once
+/// the attackers are declared (the ability has no timing restriction) and
+/// before blockers.
+///
+/// Returns the question the Gate asked (if any), the `(blocker, attacker)`
+/// pairs player 0 may declare, player 0's Ogre and the two attackers.
+#[track_caller]
+#[allow(clippy::type_complexity)] // a test's tuple of what it saw
+fn blocking_player_ones_two_ogres(
+    use_the_gate_first: bool,
+) -> (
+    Option<(PlayerId, Vec<PlayerId>)>,
+    Vec<(ObjectId, ObjectId)>,
+    ObjectId,
+    [ObjectId; 2],
+) {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(SEED, forest())
+        .life(0, 25)
+        .battlefield(0, &[the_black_gate(), swamp(), swamp(), gray_ogre()])
+        .battlefield(1, &[gray_ogre(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    kit::answer_the_entry_question(&mut engine, true);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(kit::life(&engine, p0), 22, "25 less the Gate's 3");
+    let gate = on_battlefield(&engine, p0, the_black_gate()).expect("the Gate");
+    let mine = on_battlefield(&engine, p0, gray_ogre()).expect("my Ogre");
+    let theirs = all_on_battlefield(&engine, p1, gray_ogre());
+    assert_eq!(theirs.len(), 2, "player 1's two Ogres");
+
+    // Through player 0's turn, to player 1's attack; then player 0 has priority.
+    kit::attack_on_their_turn(&mut engine, p1, &theirs, p0);
     assert!(
-        may_block,
-        "the controller was chosen, not player 1: their Ogre may block"
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "player 0 holds priority with the attackers declared: {:?}",
+        engine.pending()
     );
 
-    let may_block = may_the_defenders_ogre_block([20, 10, 5], kit::P0, kit::P2);
+    let mut asked = None;
+    if use_the_gate_first {
+        tap_mana_except(&mut engine, p0, gate);
+        let offered = kit::offered(&engine, gate);
+        assert!(
+            offered.len() >= 2,
+            "the mana ability and the `{{1}}{{B}}, {{T}}` ability are both offered: {offered:?}"
+        );
+        kit::activate_object(
+            &mut engine,
+            p0,
+            gate,
+            *offered.last().expect("a third ability"),
+        );
+        kit::resolve_the_stack(&mut engine, |_, pending| match pending {
+            Pending::ChoosePlayer { player, options } => {
+                asked = Some((*player, options.clone()));
+                Some(PlayerAction::ChoosePlayer(p0))
+            }
+            other => kit::choose_targets(other, &[theirs[0]], &[]),
+        });
+    }
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        player, blockers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the declaration of blockers")
+    };
+    assert_eq!(player, p0, "the defending player declares the blocks");
+    let pairs = blockers
+        .iter()
+        .flat_map(|option| {
+            option
+                .attackers
+                .iter()
+                .map(move |attacker| (option.blocker, *attacker))
+        })
+        .collect();
+    (asked, pairs, mine, [theirs[0], theirs[1]])
+}
+
+/// "Choose a player with the most life…" does not exclude the Gate's own
+/// controller, and a use of the Gate at a time when they lead has no one else
+/// to choose: the choice is forced to player 0 and not asked, and their own
+/// creatures are the ones that can't block the target.
+///
+/// Player 1 attacks player 0 with two Ogres on player 1's turn, and player 0
+/// answers with the Gate on the first. Without the Gate player 0's Ogre may
+/// block either attacker (the control: it is a legal blocker); with it, it may
+/// block only the second, because the restriction is on creatures *player 0*
+/// controls and names one attacker.
+#[test]
+fn the_black_gate_chosen_for_its_controller_stops_their_own_creatures_blocking_the_target() {
+    let (_, without, mine, [target, other]) = blocking_player_ones_two_ogres(false);
     assert!(
-        may_block,
-        "and not player 2 either: their Ogre may block the target"
+        without.contains(&(mine, target)) && without.contains(&(mine, other)),
+        "without the Gate player 0's Ogre may block either attacker: {without:?}"
+    );
+
+    let (asked, with, mine, [target, other]) = blocking_player_ones_two_ogres(true);
+    assert!(
+        asked.is_none(),
+        "player 0 alone leads, so the choice is forced and not asked: {asked:?}"
+    );
+    assert!(
+        !with.contains(&(mine, target)),
+        "player 0 was chosen, so player 0's Ogre can't block the target: {with:?}"
+    );
+    assert!(
+        with.contains(&(mine, other)),
+        "the restriction names one creature: the other attacker may still be blocked \
+         ({with:?})"
     );
 }
 

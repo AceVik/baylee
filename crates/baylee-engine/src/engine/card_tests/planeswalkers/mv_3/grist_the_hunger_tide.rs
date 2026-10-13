@@ -298,6 +298,13 @@ fn grist_plus_one_resolves_in_full_even_if_grist_has_left_the_battlefield() {
     for card in milled {
         assert_eq!(kit::zone_of(&engine, card), Zone::Graveyard, "milled");
     }
+    let dead = in_graveyard(&engine, p0, grist_the_hunger_tide()).expect("Grist died");
+    assert_eq!(
+        kit::loyalty(&engine, dead),
+        0,
+        "\"you won't be able to put a loyalty counter on Grist\": the card in the \
+         graveyard got none"
+    );
 }
 
 /// "−2: You may sacrifice a creature. When you do, destroy target creature or
@@ -544,5 +551,81 @@ fn grist_cast_under_doubling_season_enters_with_six_and_drains_for_the_graveyard
         kit::life(&engine, kit::P1),
         18,
         "two creature cards in the graveyard: the opponent loses 2"
+    );
+}
+
+/// Ruling 2021-06-18: "If Grist is in your graveyard at this time, it'll be a
+/// creature card and will contribute to the count."
+///
+/// Grist at exactly five loyalty uses the `-5` and so has none left: it goes to
+/// the graveyard as a state-based action (CR 704.5i) while the ability is on the
+/// stack, with no other creature card there. When the ability resolves Grist
+/// itself is the one creature card, and the opponent loses 1.
+#[test]
+fn grist_minus_five_at_exactly_five_loyalty_counts_itself_in_the_graveyard() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let (mut engine, grist) = with_grist_at(
+        Duel::new(SEED, forest())
+            .battlefield(0, &[grist_the_hunger_tide()])
+            .start(),
+        5,
+    );
+
+    activate_nth(&mut engine, grist, 2);
+    kit::settle(&mut engine, p0, |_, _| None);
+
+    assert!(
+        in_graveyard(&engine, p0, grist_the_hunger_tide()).is_some(),
+        "Grist paid its last loyalty and died"
+    );
+    assert_eq!(
+        kit::life(&engine, p1),
+        19,
+        "Grist in the graveyard is a creature card: one"
+    );
+}
+
+/// Ruling 2021-06-18 for the static ability: "Grist is a creature spell while
+/// it's on the stack" — so a counterspell for creature spells can counter it.
+///
+/// Player 0 casts Grist and player 1 answers with Remove Soul. Grist never
+/// reaches the battlefield and lies in its owner's graveyard.
+#[test]
+fn grist_is_a_creature_spell_on_the_stack_that_remove_soul_can_counter() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let remove_soul = card_index("b13c0f76-fbda-4911-9442-c3d7e97f1aac");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[remove_soul])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    let spell = on_stack(&engine, grist_the_hunger_tide()).expect("Grist is on the stack");
+    assert!(
+        types(&engine, spell).contains(TypeSet::CREATURE),
+        "a creature spell while it is on the stack"
+    );
+    kit::let_the_engine_step(&mut engine);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "player 1 may respond: {:?}",
+        engine.pending()
+    );
+
+    cast_from_hand(&mut engine, p1, remove_soul);
+    aim_at(&mut engine, p1, spell);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, grist_the_hunger_tide()).is_none(),
+        "countered: Grist never arrived"
+    );
+    assert!(
+        in_graveyard(&engine, p0, grist_the_hunger_tide()).is_some(),
+        "and lies in its owner's graveyard"
     );
 }

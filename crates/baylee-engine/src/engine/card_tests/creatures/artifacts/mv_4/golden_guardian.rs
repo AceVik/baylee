@@ -384,3 +384,62 @@ fn gold_forge_garrison_creates_a_four_four_colorless_golem_artifact_token() {
     assert!(kit::colors_of(&engine, token).is_empty(), "colorless");
     assert!(is_tapped(&engine, garrison), "{{T}} is part of the cost");
 }
+
+/// "…return it to the battlefield transformed under **your** control": the
+/// player who activated the fight, not the card's owner.
+///
+/// Player 1 owns the Golden Guardian and player 0 has taken it with Control
+/// Magic. Player 0 pays `{2}` and fights their own Earth Elemental (a 4/5, so
+/// it deals the 4 damage that kills a 4/4). The Guardian dies and goes to its
+/// *owner's* graveyard, and comes back as Gold-Forge Garrison under player 0's
+/// control while player 1 still owns it.
+#[test]
+fn a_stolen_golden_guardian_returns_transformed_under_the_control_of_the_player_who_fought() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                forest(),
+                forest(),
+                earth_elemental(),
+            ],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[golden_guardian()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guardian = on_battlefield(&engine, p1, golden_guardian()).expect("their Guardian");
+    let elemental = on_battlefield(&engine, p0, earth_elemental()).expect("my Elemental");
+
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, guardian);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(kit::controller_of(&engine, guardian), p0, "stolen");
+    assert_eq!(kit::owner_of(&engine, guardian), p1, "and still theirs");
+
+    fight(&mut engine, guardian, elemental);
+
+    assert!(
+        kit::is_on_battlefield(&engine, elemental),
+        "a 4/5 survives the 4 damage it takes back"
+    );
+    let garrison = on_battlefield(&engine, p0, golden_guardian())
+        .expect("it came back to the battlefield under the control of the player who fought");
+    assert_eq!(kit::face_of(&engine, garrison), 1, "transformed");
+    assert_eq!(
+        kit::controller_of(&engine, garrison),
+        p0,
+        "\"under your control\" is the activating player, not the owner"
+    );
+    assert_eq!(kit::owner_of(&engine, garrison), p1, "it is still theirs");
+    assert!(
+        on_battlefield(&engine, p1, golden_guardian()).is_none(),
+        "and it is not under its owner's control"
+    );
+}

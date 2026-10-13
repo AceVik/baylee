@@ -144,6 +144,52 @@ pub(super) fn let_the_engine_step(engine: &mut Engine<RegistryLookup>) {
         .expect("passing priority is always legal");
 }
 
+/// Walks to `attacker`'s declaration of attackers (it is `attacker`'s turn),
+/// declares `attackers` against `defender`, and lets `attacker` pass priority,
+/// so that the next player holds priority in the declare attackers step with
+/// the attack on the table. The way to act in an opponent's combat.
+#[track_caller]
+pub(super) fn attack_on_their_turn(
+    engine: &mut Engine<RegistryLookup>,
+    attacker: PlayerId,
+    attackers: &[ObjectId],
+    defender: PlayerId,
+) {
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == attacker),
+    );
+    engine
+        .apply(
+            attacker,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|a| (*a, Defender::Player(defender)))
+                    .collect(),
+            },
+        )
+        .unwrap_or_else(|err| panic!("{attackers:?} may attack {defender:?}: {err:?}"));
+    let_the_engine_step(engine);
+}
+
+/// Passes priority and answers questions with `answer` until the stack is
+/// empty again and somebody holds priority: whatever was put on it has
+/// resolved. Unlike [`settle`], it does not insist the same seat holds that
+/// priority, which on an opponent's turn is not the seat that acted (the
+/// active player receives priority first after a resolution).
+#[track_caller]
+pub(super) fn resolve_the_stack(
+    engine: &mut Engine<RegistryLookup>,
+    answer: impl FnMut(&Engine<RegistryLookup>, &Pending) -> Option<PlayerAction>,
+) {
+    drive(
+        engine,
+        |e| stack_is_empty(e) && matches!(e.pending(), Pending::Priority { .. }),
+        answer,
+    );
+}
+
 /// Answers a `ChooseCards` question with those of `wanted` it offers (at most
 /// `max` of them); every other question is left to the default.
 pub(super) fn choose_cards(pending: &Pending, wanted: &[ObjectId]) -> Option<PlayerAction> {

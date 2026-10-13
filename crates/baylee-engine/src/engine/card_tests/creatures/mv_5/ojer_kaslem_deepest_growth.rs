@@ -522,12 +522,10 @@ fn temple_of_cultivation_needs_ten_permanents_to_transform() {
 
 /// Temple of Cultivation's "{2}{G}, {T}: Transform this land. Activate only if
 /// you control ten or more permanents and only as a sorcery." The land is
-/// placed on its back face (its dies trigger, the other way there, is not
-/// written) beside nine Forests: ten permanents. It turns over into Ojer
-/// Kaslem where it stands (CR 701.27a) and is the same permanent (CR 712.18):
-/// still tapped from the activation, and no newcomer to its controller, so it
-/// is not summoning sick (CR 302.6). The stand-in (#206) returned a new,
-/// untapped, summoning-sick god.
+/// placed on its back face beside nine Forests: ten permanents. It turns over
+/// into Ojer Kaslem where it stands (CR 701.27a) and is the same permanent
+/// (CR 712.18): still tapped from the activation, and no newcomer to its
+/// controller, so it is not summoning sick (CR 302.6).
 #[test]
 fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
     let p0 = PlayerId::new(0);
@@ -574,5 +572,48 @@ fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
     assert!(
         !crate::combat::summoning_sick(engine.state(), god),
         "under p0's control since the turn began"
+    );
+}
+
+/// "…and only as a sorcery": with ten permanents and `{2}{G}` floating, the
+/// transform is offered in the first main phase with an empty stack and is not
+/// offered in the end step, where the Temple's own mana ability still is (so
+/// the missing ability is the timing's doing and not a missing Temple).
+#[test]
+fn temple_of_cultivation_transform_is_sorcery_speed_only() {
+    let p0 = kit::P0;
+    let temple_with_ten_permanents = || {
+        let mut board = vec![ojer_kaslem_deepest_growth()];
+        board.extend([forest(); 9]);
+        let mut engine = Duel::new(SEED, forest()).battlefield(0, &board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let temple = on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).expect("the card");
+        kit::turn_over(&mut engine, p0, temple, ojer_kaslem_deepest_growth());
+        (engine, temple)
+    };
+
+    let (mut engine, temple) = temple_with_ten_permanents();
+    tap_mana_except(&mut engine, p0, temple);
+    let in_main = kit::offered(&engine, temple);
+    assert!(
+        in_main.contains(&1),
+        "in the main phase the transform is offered: {in_main:?}"
+    );
+
+    let (mut engine, temple) = temple_with_ten_permanents();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    tap_mana_except(&mut engine, p0, temple);
+    let in_the_end_step = kit::offered(&engine, temple);
+    assert!(
+        in_the_end_step.contains(&0),
+        "the mana ability is offered in the end step: {in_the_end_step:?}"
+    );
+    assert!(
+        !in_the_end_step.contains(&1),
+        "the transform is a sorcery-speed ability: {in_the_end_step:?}"
     );
 }
