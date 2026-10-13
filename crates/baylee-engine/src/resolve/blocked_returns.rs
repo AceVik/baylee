@@ -44,13 +44,12 @@ pub(super) fn start(
         else {
             continue;
         };
-        let Some(record) = state
-            .per_turn
-            .blocks
-            .iter()
-            .rev()
-            .find(|r| r.blocker.object == wall && r.attacker.object == object)
-        else {
+        let died_as = entry.departure.as_ref().map(|d| d.version);
+        let Some(record) = state.per_turn.blocks.iter().rev().find(|r| {
+            r.blocker.object == wall
+                && r.attacker.object == object
+                && died_as.is_none_or(|v| r.attacker.version == v)
+        }) else {
             continue;
         };
         match owed
@@ -95,9 +94,18 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut returns: Returns) -> Opt
             .iter()
             .copied()
             .filter(|id| !returns.picked.contains(id))
+            // "A creature card": a token in a graveyard is no card (CR
+            // 108.2b), even before the state-based action removes it.
             .filter(|id| {
                 state.object(*id).is_some_and(|o| {
-                    eval::matches_with_context(returns.filter, state, o, you, res.rule_context())
+                    o.is_card()
+                        && eval::matches_with_context(
+                            returns.filter,
+                            state,
+                            o,
+                            you,
+                            res.rule_context(),
+                        )
                 })
             })
             .collect();

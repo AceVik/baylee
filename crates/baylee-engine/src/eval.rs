@@ -595,33 +595,52 @@ fn left_combat_partner(
 /// Whether `blocker` blocked `attacker` earlier this turn, both as the
 /// objects they are now (CR 400.7; [`crate::state::PerTurn::blocks`]).
 pub(crate) fn blocked_this_turn(state: &GameState, blocker: ObjectId, attacker: ObjectId) -> bool {
-    let (Some(b), Some(a)) = (state.object(blocker), state.object(attacker)) else {
+    let (Some(b), Some(a)) = (
+        last_battlefield_version(state, blocker),
+        last_battlefield_version(state, attacker),
+    ) else {
         return false;
     };
     state.per_turn.blocks.iter().any(|record| {
         record.blocker.object == blocker
-            && record.blocker.version == b.version
+            && record.blocker.version == b
             && record.attacker.object == attacker
-            && record.attacker.version == a.version
+            && record.attacker.version == a
     })
+}
+
+/// `id` as the permanent it is, or, once it has left the battlefield, as it
+/// last existed there (CR 608.2h): Glyph of Doom's Wall that died in combat
+/// still names the creatures it blocked. The version it had as it left is
+/// the journal's record of the departure.
+pub(crate) fn last_battlefield_version(state: &GameState, id: ObjectId) -> Option<u32> {
+    let object = state.object(id)?;
+    if object.zone == crate::zone::Zone::Battlefield {
+        return Some(object.version);
+    }
+    state
+        .journal
+        .entries()
+        .iter()
+        .rev()
+        .find_map(|entry| match &entry.event {
+            crate::event::GameEvent::ZoneChanged {
+                object,
+                from: crate::zone::Zone::Battlefield,
+                ..
+            } if *object == id => entry.departure.as_ref().map(|d| d.version),
+            _ => None,
+        })
 }
 
 /// The incarnation of `source` the damage this turn counts against: the one
 /// on the battlefield now, or the last one damaged before it left (a dies
 /// trigger reads the creature that died, CR 603.10a).
 fn damaged_incarnation(state: &GameState, source: ObjectId) -> Option<u32> {
-    let current = state.object(source)?;
-    if current.zone == crate::zone::Zone::Battlefield {
-        return Some(current.version);
-    }
-    state
-        .per_turn
-        .damage_log
-        .iter()
-        .filter(|e| e.to == crate::event::DamageTarget::Object(source))
-        .filter_map(|e| e.to_version)
-        .filter(|v| *v != current.version)
-        .max()
+    // The permanent as it last existed on the battlefield, not merely the
+    // last one damaged: a creature damaged, blinked and then destroyed by
+    // something else took no damage as the object that died (CR 400.7).
+    last_battlefield_version(state, source)
 }
 
 /// Brine Hag's "creatures that dealt damage to it this turn": `obj`, as the
@@ -871,7 +890,10 @@ pub fn amount_with_context(
         | Amount::EventAmount
         | Amount::TargetsPutIntoGraveyard
         | Amount::ThisWay(_)
-        | Amount::ThisWayBy { .. } => 0,
+        | Amount::ThisWayBy { .. }
+        // A payment's sacrifices, read off the stack object
+        // (`resolve::amount2`).
+        | Amount::SacrificedTotalPower => 0,
         Amount::DamageThisTurn { to, by, combat } => {
             damage_this_turn(state, you, context, *to, by, *combat)
         }

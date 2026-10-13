@@ -548,6 +548,33 @@ pub(super) fn resume_inner(
                 super::attachments::attach_to(state, source, host, false);
             }
         }
+        AwaitingOp::UntapPayingEach { player, each } => {
+            let chosen: Vec<(ObjectId, u32)> = chosen
+                .iter()
+                .filter_map(|id| state.object(*id).map(|o| (*id, o.version)))
+                .collect();
+            if !chosen.is_empty() {
+                let times = u32::try_from(chosen.len()).unwrap_or(u32::MAX);
+                let cost = (0..times).fold(baylee_core::mana::ManaCost::ZERO, |total, _| {
+                    total.combine(&each)
+                });
+                res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                    player,
+                    cost,
+                    outcome: super::ManaPaymentOutcome::Untap { chosen },
+                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::YesNo {
+                        player,
+                        prompt: crate::choice::YesNoPrompt::PayMana { cost },
+                        source: super::resolving_ability(state, res),
+                    },
+                );
+            }
+        }
         AwaitingOp::AttackingTokens(tokens) => {
             if let Some(pending) =
                 super::attacking_tokens::resume_walker(state, res, *tokens, chosen)

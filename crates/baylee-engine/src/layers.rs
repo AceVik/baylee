@@ -244,6 +244,12 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
 
 fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
+    // CR 202.3e: on the stack, X is the number chosen for it.
+    c.x_on_stack = if obj.zone == crate::zone::Zone::Stack {
+        obj.x_value
+    } else {
+        0
+    };
     // "As long as this permanent's dash cost was paid, it has haste"
     // (CR 702.109a): an ability of the permanent itself, so it is there
     // before any effect applies and an effect that removes abilities

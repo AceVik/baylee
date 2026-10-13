@@ -723,6 +723,25 @@ fn both_mana_payment_outcomes_are_visited() {
 }
 
 #[test]
+fn both_repeated_mana_payment_outcomes_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayManaEachThenElse {
+        player: PlayerRel::You,
+        each: baylee_core::mana::ManaCost::ZERO,
+        times: Amount::Fixed(2),
+        paid: &[Effect::CounterEventAbility],
+        unpaid: &[Effect::RemoveEventObjectFromCombat { unblock: true }],
+    }];
+    let mut seen = 0;
+    let (mut paid, mut unpaid) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        paid |= matches!(effect, Effect::CounterEventAbility);
+        unpaid |= matches!(effect, Effect::RemoveEventObjectFromCombat { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(paid && unpaid);
+}
+
+#[test]
 fn transform_history_operations_are_leaf_effects() {
     static EFFECTS: &[Effect] = &[
         Effect::DiscardAnyThenDraw,

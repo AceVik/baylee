@@ -698,6 +698,11 @@ impl Effect {
                 then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
+            | Effect::PlayerMayPayManaEachThenElse {
+                paid: then,
+                unpaid: otherwise,
+                ..
+            }
             | Effect::IfTargetMatchesElse { filter: _, then, otherwise }
             | Effect::IfKicked { then, otherwise }
             | Effect::FlipCoin {
@@ -972,6 +977,8 @@ impl Effect {
         | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
             | Effect::NextSpellThisTurnHasImprovise
+            | Effect::UntapChosenPayingEach { .. }
+            | Effect::ExileSourceAndSacrificed
             | Effect::CreateTokenForTargetController { .. }
             | Effect::Amass { .. }
             | Effect::PutSourceOnTopOfLibrary
