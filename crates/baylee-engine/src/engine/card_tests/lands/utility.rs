@@ -259,7 +259,6 @@ mod unholy_grotto;
 mod unstable_frontier;
 mod urban_retreat;
 mod urborg;
-mod urza_s_fun_house;
 mod valakut_the_molten_pinnacle;
 mod vault_of_the_archangel;
 mod veldt;

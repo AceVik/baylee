@@ -21,6 +21,7 @@ mod metamorphosis;
 mod mind_twist;
 mod prismatic_ending;
 mod raise_dead;
+mod recall;
 mod reconstruction;
 mod rite_of_flame;
 mod scorching_spear;
@@ -29,4 +30,5 @@ mod steelshaper_s_gift;
 mod stream_of_life;
 mod thoughtseize;
 
+mod winds_of_change;
 mod winter_blast;

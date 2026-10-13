@@ -139,6 +139,7 @@ fn ability_context(
     RuleContext {
         source: object.id,
         text: list.base_text(index).then(object_text(state, object)),
+        reference: None,
     }
 }
 
@@ -1766,6 +1767,7 @@ fn collect_for_objects(
             let context = RuleContext {
                 source: permanent,
                 text,
+                reference: None,
             };
             let look_back = matches!(
                 trigger,

@@ -591,7 +591,8 @@ fn token_instruction_words_are_copiable_but_later_text_changes_are_not() {
         me(),
         RuleContext {
             source: made,
-            text: rules.base_text(0)
+            text: rules.base_text(0),
+            reference: None,
         },
     ));
     let identity = state.source_identity(made).unwrap();

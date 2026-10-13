@@ -106,6 +106,7 @@ impl GameState {
                     crate::text_changes::RuleContext {
                         source: action.offer.source.object,
                         text: crate::text_changes::TextChangeMap::IDENTITY,
+                        reference: None,
                     },
                     Some(action.offer.source.version),
                     player,

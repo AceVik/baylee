@@ -56,6 +56,7 @@ pub(crate) fn destroy_event_and_offer(
     let context = RuleContext {
         source: res.source,
         text: res.text,
+        reference: None,
     };
     let options: Vec<_> = state
         .battlefield_seen()

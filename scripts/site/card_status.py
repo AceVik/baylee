@@ -13,7 +13,7 @@ tree, so what the page says is what that commit holds:
 - every card file under `crates/baylee-cards/src/cards/`: its `oracle_id`,
   its `scryfall_id` and its `coverage` (`Implemented`, `Partial("reason")`,
   or none, which is a generated stub and `Unimplemented` by default);
-- `data/unplayable.tsv`: the cards never built (ante, dexterity, subgame),
+- `data/unplayable.tsv`: the cards never built (ante, dexterity, subgame, un-set),
   which a set is counted complete without.
 
 Status per card, first match wins: `never` (unplayable.tsv), `implemented`,

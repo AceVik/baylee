@@ -233,6 +233,7 @@ impl<L: CardLookup> Engine<L> {
             return crate::text_changes::RuleContext {
                 source,
                 text: granted.text,
+                reference: None,
             };
         }
         let text = self
@@ -243,7 +244,11 @@ impl<L: CardLookup> Engine<L> {
                 || self.state.ability_text(source, index),
                 |(_, list)| list.base_text(index as usize),
             );
-        crate::text_changes::RuleContext { source, text }
+        crate::text_changes::RuleContext {
+            source,
+            text,
+            reference: None,
+        }
     }
 
     /// Whether a targeting ability has anything legal to point at
