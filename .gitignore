@@ -49,3 +49,12 @@ deck-images/
 # Python bytecode from the card lanes in scripts/llm/.
 __pycache__/
 *.pyc
+
+# The Impressum's private data and the blob built from it
+# (scripts/site/impressum_blob.py, web/site/README.md §"The Impressum"):
+# the owner's address never enters the repository, in any form.
+# `scripts/site/test_impressum_blob.py` fails if either appears under web/.
+impressum-data*.json
+impressum*.bin
+/web/**/*.bin
+/web/**/private/

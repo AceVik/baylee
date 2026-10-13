@@ -268,8 +268,24 @@ Urheber- und Medienrecht.
    keyword, so its border stays off the print (the shell's mask, above).
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
-   (#292)"); no tracking. As a private, GitHub-hosted open-source project
-   no Impressum is required (no commercial/public telemedia service).
+   (#292)"); no tracking.
+
+   **Impressum (owner decision, 13.10.2026).** The landing page carries one
+   (`web/site/impressum.html`, linked from the footer and the contact
+   section): "Angaben gemäß § 5 DDG" for a private, non-commercial project
+   of a private individual, with name, postal address, e-mail address and
+   telephone number, and the contact form as an additional channel. No
+   company, VAT, register or profession lines, because there are none. No
+   "Verantwortlich nach § 18 Abs. 2 MStV": the site is a project page
+   (what Baylee is, downloads, card status, release data), not a
+   journalistic-editorial offer. No ODR or consumer-arbitration block (no
+   contracts with consumers); one neutral sentence says so. The owner's
+   details are in no file of the repository: they live in a private JSON
+   on the owner's machine, `scripts/site/impressum_blob.py` turns them into
+   an obfuscated blob that only the server holds, and the page's script
+   renders them as text at runtime; robots.txt, `X-Robots-Tag` and a
+   same-origin check keep crawlers off (`web/site/README.md` §"The
+   Impressum").
 5. **Audio:** interface/gameplay cues remain original computed PCM in
    `crates/baylee-client/src/sound.rs`. The revised five-suite score
    (10.10.2026) is newly composed for Baylee (AGPL-3.0-only), with five

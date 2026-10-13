@@ -2,8 +2,9 @@
 #
 # Directives for the gateway's own site block, served ahead of the gateway:
 # exactly `/` is the page, `/favicon.ico` its icon (browsers ask for it
-# unasked, and the gateway would answer 404), everything under /site/ its
-# files, and everything else stays the gateway's (/info, /lobby, /health,
+# unasked, and the gateway would answer 404), `/robots.txt`, everything under
+# /site/ its files (the Impressum is /site/impressum.html), the Impressum's
+# private details at /private/impressum.bin (below), and everything else stays the gateway's (/info, /lobby, /health,
 # /terms, /catalog, …) or the browser client's (/play/,
 # scripts/server/play.caddy). /site/ is no route of the gateway's, so the
 # two never meet.
@@ -14,6 +15,13 @@
 #   cp -R web/site /opt/baylee/web/site.new
 #   rm -rf /opt/baylee/web/site && mv /opt/baylee/web/site.new /opt/baylee/web/site
 #   install -m644 scripts/server/site.caddy /etc/caddy/baylee-site.caddy
+#   install -d -m755 /etc/baylee/site-private
+#   install -m644 /tmp/impressum.bin /etc/baylee/site-private/impressum.bin
+#
+# The last line needs the blob, which is never in the repository: build it
+# where the private data is, with scripts/site/impressum_blob.py, and copy it
+# to the server's /tmp first (web/site/README.md §"The Impressum"). Without
+# it the Impressum page says the details could not be loaded.
 #
 # and in the gateway's site block (the file under /etc/caddy/sites/), import
 # it beside the play snippet, before the proxy's `handle`, so no two of them
@@ -35,7 +43,7 @@
 # No `log` here, on purpose, like the other snippets: the page keeps nothing
 # about a visitor, and an access log would.
 
-@baylee_site path / /favicon.ico /site/*
+@baylee_site path / /favicon.ico /robots.txt /site/*
 handle @baylee_site {
 	root * /opt/baylee/web/site
 	# `/site/site.css` is `site.css` in that folder; `/` and `/favicon.ico`
@@ -46,13 +54,15 @@ handle @baylee_site {
 	# changed, so a new build shows at once. The stylesheet and the script
 	# change with the page and are not named by content, so an hour; fonts
 	# and pictures a week. Everything is revalidated once it is stale.
-	@page path /
+	# (`header` runs before `uri`, so these matchers see the path as asked;
+	# the Impressum is named both ways to hold if that order ever changes.)
+	@page path / /site/impressum.html /impressum.html
 	header @page Cache-Control "no-cache"
 	# The card status (data/*.json, scripts/site/card_status.py) is
 	# regenerated with the cards, so it is treated like the code.
-	@code path *.css *.js *.json
+	@code path *.css *.js *.json *.txt
 	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
-	@assets not path / *.css *.js *.json
+	@assets not path / /site/impressum.html /impressum.html *.css *.js *.json *.txt
 	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
 
 	# What the page may do: its own files, GitHub's API for the release
@@ -69,7 +79,38 @@ handle @baylee_site {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 	}
+	# The Impressum is for people who look for it, not for search engines
+	# (robots.txt disallows it too; no sitemap names it).
+	@impressum path /site/impressum.html /impressum.html
+	header @impressum X-Robots-Tag "noindex, noarchive, nosnippet"
 
 	encode zstd gzip
+	file_server
+}
+
+# The Impressum's details: the blob scripts/site/impressum_blob.py writes from
+# the owner's private data, kept in a directory only the server has (never
+# under /opt/baylee/web, which a page update replaces, and never in the
+# repository). web/site/impressum.js fetches it and writes the text into the
+# page. Only a same-origin fetch gets it: browsers send `Sec-Fetch-Site:
+# same-origin` with that fetch, and `none`, `cross-site` or nothing at all
+# with a typed address, another site's request or a plain curl, which get 403.
+# (A Referer check would be useless: the page sends no referrer.) Anybody can
+# forge the header; the point is that a harvester walking links gets nothing,
+# and that what it would get is no text (the blob's own comment). Never
+# cached, never indexed.
+handle /private/impressum.bin {
+	header {
+		Cache-Control "no-store"
+		X-Robots-Tag "noindex, noarchive, nosnippet"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Cross-Origin-Resource-Policy same-origin
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+	}
+	@foreign not header Sec-Fetch-Site same-origin
+	respond @foreign 403
+	root * /etc/baylee/site-private
+	uri strip_prefix /private
 	file_server
 }

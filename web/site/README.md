@@ -91,6 +91,50 @@ them in `fonts/`), the painting and the logo (ours, `docs/legal.md` §10)
 and the screenshots (`docs/images/readme/`, Baylee's text view, no card
 image) are in this folder. No analytics, no cookies.
 
+## The Impressum
+
+`impressum.html` is the legal notice (§ 5 DDG; `docs/legal.md` §4 says what
+it carries and why). The owner's name, address, e-mail address and
+telephone number are in no file of this repository, and nothing a crawler
+reads as text holds them:
+
+- the data is a private JSON on the owner's machine (`name`, `street`,
+  `postcode`, `city`, `country_de`, `country_en`, `email`, `phone`);
+- `scripts/site/impressum_blob.py <private.json> [<out>]` (standard library
+  only) writes from it a blob: base64url of the JSON XORed with a SHA-256
+  keystream, its key split between `SCRIPT_KEY` in the script and in
+  `impressum.js` and a random nonce in the blob. That is obfuscation, not
+  security: there is no `@` and no `.` in it and none of the data as text, so a
+  harvester grepping for addresses finds nothing, and anybody running the
+  page reads it, which is what an Impressum is for. The output defaults to
+  `~/.local/share/baylee/impressum.bin` and a path inside the repository is
+  refused; `.gitignore` keeps `*.bin` and `private/` out of `web/`, and
+  `scripts/site/test_impressum_blob.py` fails if a blob or the data appears
+  under `web/`;
+- the server keeps the blob in `/etc/baylee/site-private/impressum.bin`
+  (outside `/opt/baylee/web`, which a page update replaces) and Caddy serves
+  it at `/private/impressum.bin` with `Cache-Control: no-store` and
+  `X-Robots-Tag: noindex, noarchive, nosnippet`, to same-origin fetches only
+  (`Sec-Fetch-Site: same-origin`; a typed address, another site or a plain
+  `curl` get 403; `scripts/server/site.caddy`);
+- `impressum.js` (not `site.js`, which would ask GitHub for nothing here)
+  fetches the blob, decodes it with `crypto.subtle` (a secure context:
+  https, or `localhost`) and writes the address as text into the page; the
+  e-mail address and the telephone number become `mailto:`/`tel:` links
+  when the visitor presses "show". Without JavaScript the page says to turn
+  it on or use the contact form; when the blob does not come, it says the
+  details could not be loaded.
+
+The page itself is served with `X-Robots-Tag: noindex, noarchive,
+nosnippet` (and the same `<meta name="robots">`), `robots.txt` disallows it
+and the blob, and no sitemap names it.
+
+Deploying a changed address: edit the private JSON, run the script, copy the
+blob to the server and install it as above; nothing in the page or in Caddy
+changes. Trying it locally: put a blob built from a made-up JSON at
+`private/impressum.bin` beside `site/` in a scratch copy of `web/`, never in
+the repository, and serve that copy as below.
+
 ## Trying it locally
 
 The page references its files as `/site/…`, so serve the parent folder:
