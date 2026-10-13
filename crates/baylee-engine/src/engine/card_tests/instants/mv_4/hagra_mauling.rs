@@ -83,3 +83,28 @@ fn hagra_reduction_counts_basic_lands_of_each_opponent_not_teammates() {
         }
     }
 }
+
+/// "{T}: Add {B}." — the back face's one mana ability, and "This land enters
+/// tapped" before it: the land must be untapped by other means to use it.
+#[test]
+fn hagra_broodpit_enters_tapped_and_taps_for_exactly_one_black() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) = play_land_face(hagra_mauling(), 1).expect("plays as Hagra Broodpit");
+    assert!(
+        is_tapped(&engine, land),
+        "\"This land enters tapped\" pins the entry"
+    );
+    engine.dev_state_mut(p0).unwrap().set_tapped(land, false);
+    engine.refresh_offer();
+
+    activate(&mut engine, p0, hagra_mauling(), 0);
+
+    assert!(is_tapped(&engine, land), "{{T}} is the cost of the ability");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "\"{{T}}: Add {{B}}\" adds one black mana"
+    );
+    assert_eq!(pool.total(), 1, "and no mana of any other colour");
+}
