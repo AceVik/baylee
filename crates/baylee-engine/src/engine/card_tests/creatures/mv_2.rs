@@ -22,6 +22,7 @@ mod basal_thrull;
 mod bay_falcon;
 mod benalish_trapper;
 mod black_knight;
+mod blazing_effigy;
 mod blighted_shaman;
 mod blood_artist;
 mod bloom_tender;
