@@ -874,6 +874,9 @@ pub fn sync_overlay(
                 let size = Vec2::new(thumb_w, thumb_h + CAPTION_H);
                 let at = underneath_place(taken, size, window);
                 taken = taken.union(Rect::from_corners(at, at + size));
+                // The preview's own stopgap (above): the table's `Small`
+                // picture until the `Normal` one has arrived, never a blank.
+                let under = beside_art(under, &textures);
                 let image = textures.get(under, statics, &assets);
                 let card = spawn_card_art(
                     &mut commands,
@@ -969,9 +972,14 @@ pub fn sync_overlay(
                     for group in pair {
                         // At the size it is drawn at now (report 29), not
                         // the table's thumbnail.
-                        let key = group.art.map(|key| ImageKey {
-                            size: ArtSize::Normal,
-                            ..key
+                        let key = group.art.map(|key| {
+                            beside_art(
+                                ImageKey {
+                                    size: ArtSize::Normal,
+                                    ..key
+                                },
+                                &textures,
+                            )
                         });
                         let built = match key {
                             Some(_) => None,

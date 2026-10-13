@@ -166,6 +166,26 @@ pub(in crate::hud) fn beside_width(
         .max(FLOOR)
 }
 
+/// The picture a card beside a preview is drawn from: `big`, the size it is
+/// drawn at, once that has arrived; until then the table's `Small` picture
+/// where that one is resident, as the preview's own stopgap does — the board
+/// preloads only `Small` for what lies on the table, and the first hover of a
+/// host would otherwise stand its attachments beside it as card backs.
+pub(in crate::hud) fn beside_art(
+    big: ImageKey,
+    textures: &crate::textures::CardTextures,
+) -> ImageKey {
+    let small = ImageKey {
+        size: ArtSize::Small,
+        ..big
+    };
+    if !textures.has_arrived(big) && textures.has_arrived(small) {
+        small
+    } else {
+        big
+    }
+}
+
 /// Where the preview panel's top-left corner goes when a badge reaches
 /// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
