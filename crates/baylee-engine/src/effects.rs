@@ -191,6 +191,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
@@ -1345,6 +1346,7 @@ mod tests {
             Modifier::BlockableWithoutLandwalk(baylee_cards_dsl::KeywordSet::SWAMPWALK),
             Modifier::IgnoreOpponentsHexproof,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
@@ -1431,7 +1433,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            130,
+            131,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );

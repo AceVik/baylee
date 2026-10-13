@@ -232,6 +232,65 @@ pub enum Amount {
     },
     /// Mana value of the captured triggering spell, including its chosen X.
     EventManaValue,
+    /// "… this way" and "that many" (CR 608.2c): what the resolving spell
+    /// or ability has already done, counted as this instruction runs — never
+    /// what anything else did, and never what a later instruction of the
+    /// same resolution will do. Hellfire's "the number of creatures that
+    /// died this way", Syphon Soul's "the damage dealt this way", Recall's
+    /// "for each card discarded this way".
+    ///
+    /// Read only where a spell or ability resolves off the stack; anywhere
+    /// else (a static ability, a mana ability, a cost) it is 0. It counts
+    /// every player's part; [`Self::ThisWayBy`] counts one player's.
+    ThisWay(ThisWay),
+    /// [`Self::ThisWay`], counting only the part of the players `who`
+    /// names: whose cards were discarded or put into a library, whose
+    /// permanents died or were returned (as their controller as they left),
+    /// or to whom damage was dealt. Winds of Change's "each player … then
+    /// draws that many cards" is
+    /// `ThisWayBy { what: PutIntoLibraryFromHand, who: PlayerRel::Recipient }`
+    /// inside `Effect::DrawCardsFor { who: EachPlayer, .. }`: each player
+    /// draws the number they shuffled in.
+    ThisWayBy {
+        /// What is counted.
+        what: ThisWay,
+        /// Whose part.
+        who: super::PlayerRel,
+    },
+}
+
+/// What a resolution has done, as [`Amount::ThisWay`] counts it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ThisWay {
+    /// Damage the resolving spell's or ability's source dealt, after
+    /// prevention (damage prevented was never dealt, CR 615.1): Syphon
+    /// Soul's "you gain life equal to the damage dealt this way".
+    DamageDealt,
+    /// The part of that damage dealt to the ability's controller: Mishra's
+    /// War Machine's "if it deals damage to you this way".
+    DamageDealtToYou,
+    /// Permanents put into a graveyard from the battlefield (CR 700.4,
+    /// "dies") that matched the filter as they last existed there
+    /// (CR 608.2h): Hellfire's "creatures that died this way". A creature
+    /// that was regenerated, or went to exile instead, did not die.
+    Died(&'static Filter),
+    /// Permanents returned from the battlefield to a hand that matched the
+    /// filter as they last existed there: Arid Archway's "if another Desert
+    /// was returned this way" (`Filter::Another` excludes the source).
+    ReturnedToHand(&'static Filter),
+    /// Cards discarded (CR 701.9): Recall's "for each card discarded this
+    /// way".
+    Discarded,
+    /// Cards milled (CR 701.17a: put from a library into a graveyard) that
+    /// match the filter as they are in the graveyard: Grist, the Hunger
+    /// Tide's "if an Insect card was milled this way".
+    Milled(&'static Filter),
+    /// Cards put from a hand into a library: Winds of Change's shuffle,
+    /// Valakut Awakening's "put any number of cards from your hand on the
+    /// bottom of your library, then draw that many cards plus one". A card
+    /// a replacement put somewhere else (a commander to the command zone,
+    /// CR 903.9b) was not put there.
+    PutIntoLibraryFromHand,
 }
 
 impl Amount {

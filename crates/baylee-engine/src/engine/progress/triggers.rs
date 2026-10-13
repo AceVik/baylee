@@ -324,6 +324,7 @@ impl<L: CardLookup> Engine<L> {
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
+                this_way_from: None,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]

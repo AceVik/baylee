@@ -82,7 +82,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if subjects::on_battlefield(state, reference) {
                 let amount = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
                 if remove {
-                    crate::replacement::remove_counters(state, reference.object, kind, amount);
+                    crate::replacement::remove_counters_by(
+                        state,
+                        reference.object,
+                        kind,
+                        amount,
+                        Some(res.controller),
+                    );
                 } else {
                     crate::replacement::put_counters_by(
                         state,
@@ -239,14 +245,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !subjects::source(state, res).is_some_and(|r| subjects::on_battlefield(state, r)) {
                 return None;
             }
-            crate::replacement::remove_counters(state, res.source, kind, n);
+            crate::replacement::remove_counters_by(
+                state,
+                res.source,
+                kind,
+                n,
+                Some(res.controller),
+            );
             None
         }
         Effect::RemoveAllCountersSelf { kind } => {
             let source = subjects::source(state, res)?;
             if subjects::on_battlefield(state, source) {
                 let n = state.object(source.object)?.counters.get(kind);
-                crate::replacement::remove_counters(state, source.object, kind, n);
+                crate::replacement::remove_counters_by(
+                    state,
+                    source.object,
+                    kind,
+                    n,
+                    Some(res.controller),
+                );
             }
             None
         }
@@ -299,8 +317,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .map(|o| o.counters.iter().collect())
                     .unwrap_or_default();
                 for (kind, n) in held {
-                    drained = drained
-                        .saturating_add(crate::replacement::remove_counters(state, id, kind, n));
+                    drained = drained.saturating_add(crate::replacement::remove_counters_by(
+                        state,
+                        id,
+                        kind,
+                        n,
+                        Some(res.controller),
+                    ));
                 }
             }
             // The drain half above is removal and stays where it is. The
@@ -545,6 +568,7 @@ mod pump_tests {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            this_way_from: None,
         }
     }
 

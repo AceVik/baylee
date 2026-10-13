@@ -47,7 +47,9 @@ mod milling;
 mod reanimation;
 mod reflexive;
 mod retarget;
+mod reveal_put;
 pub(crate) mod subjects;
+mod this_way;
 mod token_choices;
 mod top_card;
 pub use subjects::SubjectContext;
@@ -269,6 +271,10 @@ pub struct Resolution {
     pub retarget_left: Option<usize>,
     /// Connive/recruit state held while their draws may be replaced.
     pub loot: Option<Box<loot::Loot>>,
+    /// Where "this way" (`Amount::ThisWay`) starts counting in the journal
+    /// when an instruction narrowed it to one pass of a repeated process
+    /// (`Effect::RepeatWhile`); `None` counts from the resolution's start.
+    pub this_way_from: Option<usize>,
 }
 
 impl Resolution {
@@ -299,6 +305,7 @@ impl Resolution {
                 self.text,
                 self.retarget_left,
                 &self.loot,
+                self.this_way_from,
             ),
         ));
         hash = hash
@@ -535,6 +542,7 @@ fn sacrificed_value(lki: crate::object::SacrificedLki, amount: &Amount) -> u32 {
     }
 }
 
+#[allow(clippy::too_many_lines)] // one arm per resolution-only amount
 pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
         Amount::CountersOnSource(kind) => state
@@ -598,6 +606,11 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
+        Amount::ThisWay(what) => this_way::count(state, res, *what, None),
+        Amount::ThisWayBy { what, who } => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|player| this_way::count(state, res, *what, Some(player)))
+            .fold(0, u32::saturating_add),
         // A target is a new object in a graveyard since the resolution began
         // (its snapshot, CR 400.7): what this resolution put there.
         Amount::TargetsPutIntoGraveyard => {
@@ -645,6 +658,50 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
         }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
+    }
+}
+
+/// [`amount2`] for an instruction applied to each player of a relation in
+/// turn (`DrawCardsFor`, `DealDamage` to players, `LoseLife`, …), with
+/// `player` the one it is applying to now: [`PlayerRel::Recipient`] inside
+/// the amount names `player` ("the number of Islands that player controls",
+/// "draws that many cards"), and every other amount reads as [`amount2`]
+/// reads it.
+pub(super) fn amount_for_player(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    res: &Resolution,
+    player: PlayerId,
+) -> u32 {
+    let each = |inner: &Amount| amount_for_player(inner, state, you, res, player);
+    match amount {
+        Amount::ThisWayBy {
+            what,
+            who: PlayerRel::Recipient,
+        } => this_way::count(state, res, *what, Some(player)),
+        Amount::ControlledCount {
+            who: PlayerRel::Recipient,
+            filter,
+        } => eval::count_controlled_by(state, player, you, filter, res.rule_context()),
+        Amount::HandSize(PlayerRel::Recipient) => {
+            u32::try_from(state.zones.list(ZoneLocation::Hand(player)).len()).unwrap_or(u32::MAX)
+        }
+        Amount::LibrarySize(PlayerRel::Recipient) => {
+            u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
+        }
+        Amount::Plus { base, offset } => each(base).saturating_add(*offset),
+        Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
+        Amount::ConstantMinus { constant, subtract } => constant.saturating_sub(each(subtract)),
+        Amount::Negated(base) => each(base),
+        Amount::Half { base, round_up } => {
+            let n = each(base);
+            if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Times { base, factor } => each(base).saturating_mul(*factor),
+        Amount::Sum { left, right } => each(left).saturating_add(each(right)),
+        Amount::Difference { left, right } => each(left).saturating_sub(each(right)),
+        other => amount2(other, state, you, res),
     }
 }
 
@@ -756,6 +813,21 @@ pub(super) fn players_of(
             .into_iter()
             .collect(),
         PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
+        // Only an instruction applying to each player names one, and it
+        // reads its amounts through `amount_for_player`.
+        PlayerRel::Recipient => Vec::new(),
+        // A card has its owner wherever it is (CR 108.3).
+        PlayerRel::OwnerOfEvent => res
+            .event_object
+            .and_then(|id| state.object_or_departed(id))
+            .map(|o| o.owner)
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
+        // Of the source's own attack (CR 508.5).
+        PlayerRel::DefendingPlayer => eval::defending_player_of(state, res.source, you)
+            .into_iter()
+            .collect(),
         // Last known first (CR 608.2h), for the same reason as the event's
         // below: "Exile target creature. Its controller gains life …" reads
         // its second sentence after the first has moved the creature, and
@@ -1277,6 +1349,7 @@ fn run_nested_with(
         event_mana: res.event_mana,
         retarget_left: None,
         loot: None,
+        this_way_from: res.this_way_from,
     };
     let flow = run(state, &mut nested);
     res.subject = nested.subject.clone();

@@ -377,6 +377,7 @@ fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
         mana_ability: false,
         countered_source: None,
         text: TextChangeMap::IDENTITY,
+        this_way_from: None,
     };
     assert!(matches!(run(state, &mut res), Flow::Complete));
     state.refresh_characteristics();

@@ -710,6 +710,7 @@ static MONARCH_TAKEOVER: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effec
 /// The event object is the card, which is what "return it" reads
 /// (`TargetSpec::EventObject`); the source and controller are the ones the
 /// watch was created with (CR 603.7d, 603.7e).
+#[allow(clippy::too_many_lines)] // one flat read of each watch kind
 fn watch_triggers(
     state: &GameState,
     events: &[crate::event::JournalEntry],
@@ -789,7 +790,15 @@ fn watch_triggers(
                         .unwrap_or(0),
                 )),
             ),
-            None => (Some(card), None),
+            // The card as it is right after it left: the incarnation the
+            // trigger is about (CR 400.7), so a return reads that one and
+            // not a later one.
+            None => (
+                Some(card),
+                state
+                    .object(card)
+                    .map(|o| (o.version, o.characteristics().power.unwrap_or(0))),
+            ),
         };
         triggers.push(PendingTrigger {
             text,
@@ -2417,6 +2426,19 @@ fn matches(
                 ..
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
+        // "When you remove the last [kind] counter from this": an effect of
+        // the ability's controller took the count from some to none.
+        (
+            Trigger::LastCounterRemoved { kind },
+            GameEvent::CounterChanged {
+                object,
+                kind: changed,
+                old,
+                new,
+                by: Some(remover),
+                ..
+            },
+        ) => *object == source && changed == kind && *old > 0 && *new == 0 && *remover == you,
         (
             Trigger::TappedForMana { by, filter },
             GameEvent::ManaProduced {
@@ -2576,7 +2598,10 @@ fn matches(
             _ => true,
         },
         (Trigger::AttackWithAtLeast(minimum), GameEvent::BecameAttacker { .. }) => {
-            event_groups::attack_threshold(event, batch, state, you, *minimum)
+            event_groups::attack_threshold(event, batch, state, you, *minimum, None)
+        }
+        (Trigger::AttackWithAtLeastMatching { n, filter }, GameEvent::BecameAttacker { .. }) => {
+            event_groups::attack_threshold(event, batch, state, you, *n, Some((filter, context)))
         }
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)

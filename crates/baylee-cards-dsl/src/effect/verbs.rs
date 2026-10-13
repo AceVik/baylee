@@ -642,6 +642,11 @@ impl Effect {
             | Effect::MayDo { effects }
             | Effect::MayDoOnceEachTurn { effects }
             | Effect::NthResolutionThisTurn { effects }
+            | Effect::Repeat { times: _, effects }
+            | Effect::RepeatWhile {
+                effects,
+                condition: _,
+            }
             | Effect::Reflexive {
                 when: _,
                 effects,
@@ -664,6 +669,7 @@ impl Effect {
             | Effect::AtNextEndStep { effects }
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
+            | Effect::WhenSourceDiesThisTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::SacrificeOneThen {
@@ -792,6 +798,8 @@ impl Effect {
             | Effect::Radiation
             | Effect::Proliferate
             | Effect::LoseGame
+            | Effect::WinGame
+            | Effect::DrawGame
             | Effect::ReanimateEnchanted
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
@@ -838,6 +846,16 @@ impl Effect {
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::DiscardAnyThenDraw
+            | Effect::DiscardCount { .. }
+            | Effect::ReturnFromGraveyardOf { .. }
+            | Effect::DestroyRandom { .. }
+            | Effect::RevealTopPutOntoBattlefield { .. }
+            | Effect::ChoosePlayerFrom { .. }
+            | Effect::CantBeBlockedByPlayerThisTurn { .. }
+            | Effect::ReturnAllOwnedToHand { .. }
+            | Effect::DestroyAllExceptChosen { .. }
+            | Effect::PutAnyFromHandOnBottom
+            | Effect::ExileDamagedThisWayIfDies
             | Effect::DiscoverAmount { .. }
             | Effect::GraveyardToBattlefieldLinked { .. }
             | Effect::CounterEventAbility

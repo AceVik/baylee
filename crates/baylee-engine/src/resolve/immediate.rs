@@ -72,6 +72,32 @@ pub(super) fn exec_immediate(
             let _ = sba::lose_by_effect(state, you);
             None
         }
+        // CR 104.2b: the controller wins, and with them their team; the
+        // game ends at once (CR 104.1), which the engine reads before
+        // anything else (`Engine::game_result`). The first ending stands.
+        Effect::WinGame => {
+            if !state.has_left(you) && state.game_end.is_none() {
+                let winner = match state.side_of(you) {
+                    crate::state::Side::Team(team) => crate::win::Victor::Team(team),
+                    crate::state::Side::Solo(player) => crate::win::Victor::Player(player),
+                };
+                state.game_end = Some(crate::win::GameResult {
+                    winner: Some(winner),
+                    reason: crate::win::EndReason::EffectWin,
+                });
+            }
+            None
+        }
+        // CR 104.4c.
+        Effect::DrawGame => {
+            if state.game_end.is_none() {
+                state.game_end = Some(crate::win::GameResult {
+                    winner: None,
+                    reason: crate::win::EndReason::Draw,
+                });
+            }
+            None
+        }
         Effect::ReanimateEnchanted => {
             if let Some(finish) = crate::aura_bindings::begin_reanimation(state, res, false) {
                 state.reanimation_finishes.push(finish);
@@ -240,6 +266,7 @@ pub(super) fn exec_immediate(
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
+        | Effect::ReturnAllOwnedToHand { .. }
         | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyAll { .. }
         | Effect::ExileAll { .. }
@@ -410,8 +437,16 @@ pub(super) fn exec_immediate(
         Effect::Connive { amount } => loot::start(state, res, amount, None),
         Effect::Recruit { token } => loot::start(state, res, Amount::Fixed(1), Some(token)),
         Effect::DrawCardsFor { amount, who } => {
-            let n = amount2(&amount, state, you, res) as usize;
-            for player in players_of(who, state, you, res) {
+            // Every count is read before anybody draws: a draw is a later
+            // event than the instruction's own numbers (CR 608.2c).
+            let draws: Vec<(PlayerId, usize)> = players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let n = super::amount_for_player(&amount, state, you, res, player);
+                    (player, n as usize)
+                })
+                .collect();
+            for (player, n) in draws {
                 state.draw_cards(player, n);
             }
             None
@@ -721,6 +756,211 @@ pub(super) fn exec_immediate(
             discover(state, res, amount2(&mana_value, state, you, res))
         }
         Effect::DiscardAnyThenDraw => super::discard_any::offer(state, res),
+        Effect::ReturnFromGraveyardOf { whose, filter } => {
+            let owner = players_of(whose, state, you, res).first().copied()?;
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Graveyard(owner))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ReturnFromGraveyardOf);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::FromGraveyard,
+                total: None,
+            })
+        }
+        // As `WhenTargetDiesThisTurn`, about the source.
+        Effect::WhenSourceDiesThisTurn { effects } => {
+            let source = subjects::source(state, res)
+                .filter(|source| subjects::on_battlefield(state, *source))?;
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::DiesThisTurn {
+                    card: source.object,
+                    version: source.version,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source.version,
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::DestroyRandom { filter } => {
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            let picked = options[state.rng.below(options.len() as u64) as usize];
+            sba::destroy(state, picked);
+            None
+        }
+        Effect::RevealTopPutOntoBattlefield { count, picks } => {
+            let n = amount2(&count, state, you, res);
+            super::reveal_put::start(state, res, n, picks)
+        }
+        Effect::ChoosePlayerFrom { among } => {
+            let options = players_of(among, state, you, res);
+            match options.as_slice() {
+                [] => {
+                    res.chosen_player = None;
+                    None
+                }
+                [only] => {
+                    res.chosen_player = Some(*only);
+                    None
+                }
+                _ => {
+                    res.awaiting = Some(AwaitingOp::ChoosePlayerFrom);
+                    Some(Pending::ChoosePlayer {
+                        player: you,
+                        options,
+                    })
+                }
+            }
+        }
+        // The player as this resolves; each target, until end of turn.
+        Effect::CantBeBlockedByPlayerThisTurn { by } => {
+            let player = players_of(by, state, you, res).first().copied()?;
+            let modifier = baylee_cards_dsl::Modifier::CantBeBlockedByPlayer(player);
+            let timestamp = state.next_timestamp();
+            for target in res.targets.clone() {
+                let Some(obj) = state.object(target) else {
+                    continue;
+                };
+                if obj.zone != crate::zone::Zone::Battlefield {
+                    continue;
+                }
+                let filter = crate::effects::EffectFilter::object(state, target);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    filter,
+                    modifier,
+                });
+            }
+            None
+        }
+        Effect::DestroyAllExceptChosen { filter, keep } => {
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            let max = u8::try_from(options.len()).unwrap_or(u8::MAX).min(keep);
+            res.awaiting = Some(AwaitingOp::DestroyAllExcept { filter });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::Keep,
+                total: None,
+            })
+        }
+        Effect::DiscardCount { who, count } => {
+            let n = u8::try_from(amount2(&count, state, you, res)).unwrap_or(u8::MAX);
+            super::discard::start_chain(state, res, who, n, false)
+        }
+        Effect::Repeat { times, effects } => {
+            // Read once, as the instruction begins (CR 608.2c). Bounded so a
+            // nonsense count is a number and not an allocation.
+            let n = amount2(&times, state, you, res).min(REPEAT_CAP);
+            let once = flatten(effects);
+            let mut program = Vec::with_capacity(once.len() * n as usize);
+            for _ in 0..n {
+                program.extend_from_slice(&once);
+            }
+            if program.is_empty() {
+                return None;
+            }
+            let targets = res.targets.clone();
+            super::run_nested_with(state, res, program, targets)
+        }
+        // One pass, then the same op again as its check: the pass is spliced
+        // into this program (so a question inside it suspends and resumes
+        // like any other), and `this_way_from` marks where it began, which
+        // is how the op tells a check from a first entry.
+        Effect::RepeatWhile { effects, condition } => {
+            let again = match res.this_way_from {
+                None => true,
+                Some(_) => resolution_condition(state, res, condition),
+            };
+            if again {
+                res.this_way_from = Some(state.journal.len());
+                let mut pass = flatten(effects);
+                pass.push(op);
+                let next = res.pc + 1;
+                res.effects.splice(next..next, pass);
+            } else {
+                res.this_way_from = None;
+            }
+            None
+        }
+        Effect::PutAnyFromHandOnBottom => {
+            let hand = state.zones.list(ZoneLocation::Hand(you)).clone();
+            if hand.is_empty() || state.has_left(you) {
+                return None;
+            }
+            let max = u8::try_from(hand.len()).unwrap_or(u8::MAX);
+            res.awaiting = Some(AwaitingOp::HandToBottom);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: hand,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::PutOnBottom,
+                total: None,
+            })
+        }
+        Effect::ExileDamagedThisWayIfDies => {
+            for id in super::this_way::damaged_permanents(state, res) {
+                if let Some(obj) = state.object(id)
+                    && obj.zone == crate::zone::Zone::Battlefield
+                {
+                    let named = (id, obj.version);
+                    if !state.per_turn.exile_if_dies.contains(&named) {
+                        state.per_turn.exile_if_dies.push(named);
+                    }
+                }
+            }
+            None
+        }
         Effect::NthResolutionThisTurn { effects } => {
             // This resolution is the ability's nth this turn, counted in the
             // turn's per-ability tally. A spell has no ability to count.
@@ -1985,6 +2225,10 @@ pub(super) fn exec_immediate(
 
 // Resolution-only source-power tests use CR 608.2h's retained value after
 // the source leaves. Activation restrictions still inspect the live source.
+/// The most times an [`Effect::Repeat`] runs its list: a bound on the
+/// program it builds, far above any count a card reaches.
+const REPEAT_CAP: u32 = 4096;
+
 fn resolution_condition(
     state: &GameState,
     res: &Resolution,
@@ -2019,6 +2263,11 @@ fn resolution_condition(
                 })
                 .unwrap_or(0)
                 >= *n
+        }
+        // Read through the resolution's own amount reader, which knows the
+        // stack object and what this resolution has done (`ThisWay`).
+        Condition::AmountAtLeast(amount, minimum) => {
+            amount2(&amount, state, res.controller, res) >= minimum
         }
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),

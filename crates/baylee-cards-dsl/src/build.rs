@@ -986,7 +986,7 @@ pub mod prelude {
         Amount, ColorSubject, CounterKind, DivisionAmount, Effect, ExilePlay, ExileUntil, Find,
         LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
         ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
-        TargetSlot, TargetSpec, TokenDef, ZoneSel,
+        TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{

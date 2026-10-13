@@ -3646,3 +3646,154 @@ by the six mana types, not the numeric cost.
 Underdome is hand-authored using the existing DSL. The corpus reader remains
 fail-closed where its source grammar has not been verified; no speculative
 parser rule is introduced to claim automatic support.
+
+### What a resolution did: "this way" and "that many" (`Amount::ThisWay`)
+
+A sentence that counts what its own spell or ability has already done —
+"the creatures that died this way", "the damage dealt this way", "for each
+card discarded this way", "then draws that many cards" — is
+`Amount::ThisWay(ThisWay::…)`. It is read when its instruction runs
+(CR 608.2c) and counts only this resolution's earlier instructions, never a
+trigger or anything another spell did. Outside a resolution off the stack it
+is 0.
+
+| `ThisWay::` | counts | card |
+|---|---|---|
+| `DamageDealt` | damage the resolving source dealt (after prevention) | Syphon Soul |
+| `DamageDealtToYou` | the part of it dealt to the controller | Mishra's War Machine |
+| `Died(&Filter)` | permanents put into a graveyard from the battlefield that matched the filter as they left | Hellfire |
+| `ReturnedToHand(&Filter)` | permanents returned from the battlefield to a hand, matched as they left (`Filter::Another` excludes the source) | Arid Archway |
+| `Discarded` | cards discarded | Recall |
+| `Milled(&Filter)` | cards milled (CR 701.17a) that match the filter in the graveyard | Grist, the Hunger Tide |
+| `PutIntoLibraryFromHand` | cards put from a hand into a library | Winds of Change, Valakut Awakening |
+
+```rust
+// Hellfire: "Destroy all nonblack creatures. Hellfire deals X plus 3 damage
+// to you, where X is the number of creatures that died this way."
+spell!(&[
+    Effect::destroy_all(&NONBLACK_CREATURE),
+    Effect::DealDamage {
+        amount: Amount::Plus { base: &Amount::ThisWay(ThisWay::Died(&Filter::CREATURE)), offset: 3 },
+        target: TargetSpec::Player(PlayerRel::You),
+    },
+])
+// "If it deals damage to you this way, tap it." — a condition on the count:
+Effect::IfCondition {
+    condition: Condition::AmountAtLeast(Amount::ThisWay(ThisWay::DamageDealtToYou), 1),
+    then: &[Effect::TapSelf],
+    otherwise: &[],
+}
+```
+
+`Condition::AmountAtLeast` inside `Effect::IfCondition` reads the amount
+through the resolution, so every resolution-only amount works there.
+
+`Amount::ThisWay` counts every player's part. `Amount::ThisWayBy { what, who }`
+counts only the part of the players `who` names (whose cards, whose
+permanents as they left, or to whom damage was dealt).
+
+**"That player" inside an each-player instruction** is `PlayerRel::Recipient`:
+the player a `DealDamage` to players, `LoseLife`, `GainLifeFor` or
+`DrawCardsFor` is applying to now. Its amount is read once per player, every
+player's before anything happens:
+
+```rust
+// Typhoon: "deals damage to each opponent equal to the number of Islands that player controls."
+Effect::DealDamage {
+    amount: Amount::ControlledCount { who: PlayerRel::Recipient, filter: &ISLAND },
+    target: TargetSpec::Player(PlayerRel::EachOpponent),
+}
+// Winds of Change: "Each player shuffles the cards from their hand into their library, then draws that many cards."
+Effect::ShuffleIntoLibrary { who: PlayerRel::EachPlayer, hand: true, graveyard: false },
+Effect::DrawCardsFor {
+    amount: Amount::ThisWayBy { what: ThisWay::PutIntoLibraryFromHand, who: PlayerRel::Recipient },
+    who: PlayerRel::EachPlayer,
+},
+```
+
+Anywhere else `Recipient` names nobody.
+
+The verbs that go with it:
+
+- `Effect::DiscardCount { who, count: Amount }` — each player in `who`
+  discards `count` cards of their choice (Recall's "Discard X cards").
+- `Effect::Repeat { times: Amount, effects }` — the list `times` times, the
+  count read once as it begins (Recall's "return a card from your graveyard to
+  your hand for each card discarded this way" is a `Repeat` of one
+  `ChooseFromYourGraveyard`).
+- `Effect::PutAnyFromHandOnBottom` — the controller puts any number of hand
+  cards on the bottom of their library, in the order chosen (Valakut
+  Awakening); `ThisWay::PutIntoLibraryFromHand` counts them.
+- `Effect::ExileDamagedThisWayIfDies` — "if a permanent dealt damage this way
+  would die this turn, exile it instead" (Spikefield Hazard): each permanent
+  the source has dealt damage to in this resolution, and nothing it only
+  aimed at.
+- `PlayerRel::EachOtherPlayer` — "each other player" (Syphon Soul). Not
+  `EachOpponent`: with teams a teammate is another player and no opponent
+  (CR 102.3).
+
+### Ending the game, player relations and death watches (wave 1)
+
+- `Effect::WinGame` — "you win the game" (CR 104.2b): the controller wins
+  (with their team), and the game ends at once (CR 104.1). Maze's End:
+  `Effect::IfCondition { condition: Condition::ControlDistinctNames(&GATE, 10), then: &[Effect::WinGame], otherwise: &[] }`.
+- `Effect::DrawGame` — "the game is a draw" (CR 104.4c).
+- `Trigger::LastCounterRemoved { kind }` — "When you remove the last [kind]
+  counter from this": its controller took the count from some to none, by an
+  effect they control (e.g. its own `Effect::RemoveCounterSelf`) or a cost
+  they pay. Another player's effect does not trigger it.
+- New counter ids in `counters`: `INTERVENTION`, `WIND`, `GLYPH`, `SCREAM`,
+  `SOUL`, `LUCK`.
+- `PlayerRel::EachOtherPlayer` — "each other player" (not `EachOpponent`).
+- `PlayerRel::MostLifeOrTied` — every player with the most life or tied.
+- `PlayerRel::DefendingPlayer` — the defending player of an ability of an
+  attacking creature (CR 508.5): the player the source attacks (or the
+  controller of the planeswalker it attacks). Works in `LoseLife`'s target,
+  in `TargetSpec::CardInGraveyard(&filter, PlayerRel::DefendingPlayer)` for a
+  granted attack trigger (Hive of the Eye Tyrant), and wherever an effect
+  names a player. Not the same as `Filter::ControlledByDefendingPlayer`.
+- `PlayerRel::OwnerOfEvent` — the owner of the triggering event's object
+  (Reincarnation's "its owner's graveyard").
+- `Effect::ChoosePlayerFrom { among }` — "choose a player with the most life
+  or tied for most life": the controller picks one of `among` (asked only
+  with more than one); the rest of the resolution reads `PlayerRel::Chosen`.
+- `Effect::CantBeBlockedByPlayerThisTurn { by }` — each target can't be
+  blocked by creatures the player `by` names (as it resolves) controls this
+  turn (The Black Gate: `by: PlayerRel::Chosen` after `ChoosePlayerFrom`).
+- `Effect::ReturnAllOwnedToHand { filter, owner }` — "return all artifacts
+  target player owns to their hand" (Hurkyl's Recall: target
+  `TargetSpec::AnyPlayer`, `owner: PlayerRel::Chosen`).
+- `Effect::DestroyAllExceptChosen { filter, keep }` — "choose up to two
+  creatures, then destroy the rest" (Mount Doom), nothing targeted.
+- `Effect::ReturnFromGraveyardOf { whose, filter }` — the controller chooses
+  a matching card from `whose`'s graveyard as this resolves and returns it to
+  the battlefield under its owner's control (Reincarnation's delayed trigger,
+  `whose: PlayerRel::OwnerOfEvent`, inside `Effect::WhenTargetDiesThisTurn`).
+- `Effect::WhenSourceDiesThisTurn { effects }` — "when this creature dies
+  this turn, …" (Golden Guardian); `Effect::ReturnSourceFromGraveyard { face: Some(1), .. }`
+  inside it returns the card that died, transformed.
+- `Trigger::AttackWithAtLeastMatching { n, filter }` — "whenever you attack
+  with at least two creatures that have first strike, double strike,
+  vigilance, and/or haste" (Path of Mettle).
+- `Effect::DestroyRandom { filter }` — "choose a creature at random that
+  attacked this turn. Destroy that creature" (Metzali).
+- `Effect::RevealTopPutOntoBattlefield { count, picks }` — "reveal that many
+  cards … you may put a creature card and/or a land card from among them onto
+  the battlefield. Put the rest on the bottom in a random order" (Ojer
+  Kaslem: `count: Amount::EventAmount`, `picks: &[&Filter::CREATURE, &Filter::LAND]`).
+- `ReflexiveEvent::Sacrificed(&Filter)` — "you may sacrifice a creature.
+  When you do, …": `Effect::MayDo { effects: &[Effect::SacrificeFilter { who: PlayerRel::You, filter: &Filter::CREATURE }] }`
+  directly followed by `Effect::Reflexive { when: ReflexiveEvent::Sacrificed(&Filter::CREATURE), effects, target }`
+  (Grist's −2).
+- `Effect::RepeatWhile { effects, condition }` — "… if [condition], [more]
+  and repeat this process" (Grist's +1): one pass of `effects`, then again
+  while `condition` holds of what that pass did. `Amount::ThisWay` inside
+  counts only the current pass:
+  `RepeatWhile { effects: &[CreateToken(INSECT), Mill 1, IfCondition { condition: AmountAtLeast(ThisWay(Milled(&INSECT_CARD)), 1), then: &[AddCounterSource loyalty 1], otherwise: &[] }], condition: AmountAtLeast(ThisWay(Milled(&INSECT_CARD)), 1) }`.
+- A static ability that "functions everywhere but the battlefield"
+  (CR 113.6c; Grist's "as long as Grist isn't on the battlefield, it's a 1/1
+  Insect creature in addition to its other types") is
+  `static_ability!(&Filter::This, modifier, zone = ZoneRef::NotBattlefield)`,
+  one per layer (`AddType`, `AddSubtype`, `SetPT`).
+- `resolves_if_targets_illegal = true` on `triggered!` — Gilded Drake's
+  "this ability still resolves if its target becomes illegal".

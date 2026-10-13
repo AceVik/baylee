@@ -181,6 +181,24 @@ pub(super) fn finish_split(
     state.shuffle_library(library);
 }
 
+/// Resumes `Effect::ChoosePlayerFrom` with the player its controller chose:
+/// the rest of the resolution reads that player as `PlayerRel::Chosen`.
+///
+/// # Panics
+/// If no such choice is suspended.
+pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen: PlayerId) -> Flow {
+    assert!(
+        matches!(res.awaiting.take(), Some(AwaitingOp::ChoosePlayerFrom)),
+        "no player choice suspended"
+    );
+    super::subjects::begin_resume(state, res);
+    res.chosen_player = Some(chosen);
+    res.pc += 1;
+    let flow = super::run(state, res);
+    super::subjects::flush(state, res);
+    flow
+}
+
 /// Resumes a split search once the controller named the opponent who
 /// chooses.
 ///

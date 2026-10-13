@@ -92,6 +92,7 @@ fn resolving(effects: &'static [Effect], floating: ManaColor) -> (GameState, Res
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     };
     (state, res)
 }

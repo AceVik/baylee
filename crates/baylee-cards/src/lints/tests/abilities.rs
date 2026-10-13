@@ -50,8 +50,13 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::EachOpponent
                     | PlayerRel::EachPlayer
                     | PlayerRel::ActivePlayer
+                    | PlayerRel::EachOtherPlayer
+                    | PlayerRel::MostLifeOrTied
                     | PlayerRel::MostLife => true,
                     PlayerRel::Chosen
+                    | PlayerRel::Recipient
+                    | PlayerRel::DefendingPlayer
+                    | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer

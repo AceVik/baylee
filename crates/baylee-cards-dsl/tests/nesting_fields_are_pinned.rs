@@ -79,7 +79,9 @@
 // MayBehold adds its successful-action branch, tested by behold_body_is_visited.
 // LookAtTopMayTake adds a successful-move continuation, walker tested.
 // PlayerMayPayThenElse carries both outcomes; walker regression covers both.
-const NESTING_FIELDS: usize = 49;
+// Repeat, RepeatWhile and WhenSourceDiesThisTurn (wave 1) add one each,
+// covered by `repeated_and_source_watching_bodies_are_visited`.
+const NESTING_FIELDS: usize = 52;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -118,7 +120,9 @@ const NESTING_FIELDS: usize = 49;
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
 /// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
-const CARRYING_VARIANTS: usize = 43;
+/// `Repeat`, `RepeatWhile` and `WhenSourceDiesThisTurn` (2026-10-13) are
+/// the forty-fourth to forty-sixth.
+const CARRYING_VARIANTS: usize = 46;
 
 /// The floor under the reader itself.
 ///

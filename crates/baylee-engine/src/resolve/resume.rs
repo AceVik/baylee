@@ -521,6 +521,56 @@ pub(super) fn resume_inner(
                 );
             }
         }
+        AwaitingOp::DestroyAllExcept { filter } => {
+            let you = res.controller;
+            let doomed: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    !chosen.contains(id)
+                        && state.object(*id).is_some_and(|o| {
+                            crate::eval::matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                you,
+                                res.rule_context(),
+                            )
+                        })
+                })
+                .collect();
+            crate::sba::destroy_all(state, &doomed, false);
+        }
+        AwaitingOp::ReturnFromGraveyardOf => {
+            if let Some(&card) = chosen.first() {
+                super::reanimation::return_card(state, card, res.controller, true, None);
+            }
+        }
+        AwaitingOp::RevealPut(reveal) => {
+            if let Some(pending) = super::reveal_put::resume(state, res, *reveal, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::ChoosePlayerFrom => {
+            unreachable!("a chosen player resumes through resume_chosen_player")
+        }
+        AwaitingOp::HandToBottom => {
+            // In the order chosen: the owner orders cards put into a library
+            // together (CR 401.4). A card no longer in the hand is not put.
+            for &card in chosen {
+                if state
+                    .zones
+                    .list(ZoneLocation::Hand(res.controller))
+                    .contains(&card)
+                {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Library(res.controller),
+                        ZonePosition::Bottom,
+                        Cause::Effect,
+                    );
+                }
+            }
+        }
         AwaitingOp::PutBackOnTop => {
             // Chosen cards go on top in chosen order (last chosen = top).
             for &card in chosen {

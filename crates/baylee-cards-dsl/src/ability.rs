@@ -595,6 +595,16 @@ pub enum Trigger {
         /// The count that must be reached.
         n: u8,
     },
+    /// "When you remove the last [kind] counter from this permanent"
+    /// (Divine Intervention): its controller takes the count of that kind on
+    /// the source from one or more to none, however they do it — an effect
+    /// they control or a cost they pay. A removal by another player's effect,
+    /// or by the game's rules (a stun counter, damage to a planeswalker), does
+    /// not trigger it.
+    LastCounterRemoved {
+        /// The kind removed.
+        kind: crate::effect::CounterKind,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {
@@ -653,6 +663,16 @@ pub enum Trigger {
     OneOrMoreAttack(&'static Filter),
     /// Once when this controller declares at least this many creature attackers.
     AttackWithAtLeast(u8),
+    /// "Whenever you attack with at least `n` creatures that [filter]" (Path
+    /// of Mettle): once for a declaration of attackers in which at least `n`
+    /// of this controller's attacking creatures match the filter as they are
+    /// declared (CR 508.3a, 603.2c).
+    AttackWithAtLeastMatching {
+        /// How many.
+        n: u8,
+        /// What each of them must be.
+        filter: &'static Filter,
+    },
     /// This creature blocks a creature matching the filter (CR 509.3b) or
     /// becomes blocked by one (CR 509.3d): once for each such pair, each
     /// time a blocker is declared, so a creature blocked by two of them

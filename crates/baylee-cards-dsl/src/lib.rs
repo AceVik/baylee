@@ -48,7 +48,7 @@ pub use effect::{
     Amount, ColorSubject, CounterKind, DivisionAmount, Effect, ExilePlay, ExileUntil, Find,
     LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
     PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
-    TargetSpec, TokenDef, ZoneSel,
+    TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
