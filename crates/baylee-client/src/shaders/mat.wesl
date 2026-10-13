@@ -25,8 +25,8 @@
 // Uniforms only, no textures, no loops — the WebGL2 envelope, kept although
 // the browser build renders through WebGPU now. See `cardmat`'s header.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::globals;
 
 struct MatParams {
     /// The seat's colour, and `w` how brightly the mat is drawn at all — the
@@ -59,7 +59,7 @@ struct MatParams {
     ledge_outer: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: MatParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: MatParams;
 
 const TAU: f32 = 6.2831855;
 

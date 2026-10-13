@@ -4,7 +4,7 @@
 //! the table never did. `Overflow::scroll_y` only *clips* — Bevy moves the
 //! content when [`ScrollPosition`] changes and nothing changes it on its own
 //! — so the zone browser's card grid carried an overflow, a comment about
-//! `Pointer<Scroll>`, and no way to reach the second row of a library. The
+//! `PointerScroll`, and no way to reach the second row of a library. The
 //! wheel fell through to `input::camera_controls` and zoomed the
 //! table instead, which is the owner's report exactly: *"oft möchte ich
 //! eigentlich nur irgendwo was scrollen, auf einmal verschiebe ich den
@@ -37,7 +37,7 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use bevy::input::mouse::MouseScrollUnit;
-use bevy::picking::events::{Pointer, Scroll};
+use bevy::picking::events::PointerScroll;
 use bevy::ui::ScrollPosition;
 
 // What one line of wheel travel moves a panel, in logical pixels: the
@@ -150,7 +150,7 @@ pub struct StackTexts<'w, 's> {
 /// the preview of the table card under it ([`PreviewScroll`]).
 #[allow(clippy::too_many_arguments)] // two targets a wheel can have, and their stores
 pub fn scrolls(
-    mut wheels: MessageReader<Pointer<Scroll>>,
+    mut wheels: MessageReader<PointerScroll>,
     parents: Query<&ChildOf>,
     mut panels: Query<Scrolled, Panel>,
     hand: Query<(), With<HandScroll>>,
@@ -367,15 +367,15 @@ mod tests {
 
     /// A wheel aimed at one entity. The location is required of the message
     /// and read by nothing here.
-    fn aimed(entity: Entity, y: f32) -> Pointer<Scroll> {
+    fn aimed(entity: Entity, y: f32) -> PointerScroll {
         aimed_both(entity, 0.0, y)
     }
 
     /// The same, turned `x` lines sideways as well.
-    fn aimed_both(entity: Entity, x: f32, y: f32) -> Pointer<Scroll> {
+    fn aimed_both(entity: Entity, x: f32, y: f32) -> PointerScroll {
         use bevy::camera::NormalizedRenderTarget;
         use bevy::window::WindowRef;
-        Pointer::new(
+        crate::test_pointer::aim(
             PointerId::Mouse,
             Location {
                 target: NormalizedRenderTarget::Window(
@@ -385,7 +385,7 @@ mod tests {
                 ),
                 position: Vec2::ZERO,
             },
-            Scroll {
+            crate::test_pointer::Scroll {
                 unit: MouseScrollUnit::Line,
                 x,
                 y,
@@ -401,7 +401,7 @@ mod tests {
     /// client's order.
     fn app() -> App {
         let mut app = App::new();
-        app.add_message::<Pointer<Scroll>>();
+        app.add_message::<PointerScroll>();
         app.init_resource::<Duel>();
         app.init_resource::<PreviewScroll>();
         app.add_systems(
@@ -413,7 +413,7 @@ mod tests {
 
     fn wheel(app: &mut App, entity: Entity, y: f32) {
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .resource_mut::<Messages<PointerScroll>>()
             .write(aimed(entity, y));
         app.update();
     }
@@ -628,7 +628,7 @@ mod tests {
         );
         let kept = offset(&app, text);
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .resource_mut::<Messages<PointerScroll>>()
             .write(aimed_both(card, -1.0, 0.0));
         app.update();
         assert!(app.world().resource::<Duel>().hand_scroll > 0.0, "sideways");
@@ -829,7 +829,7 @@ mod tests {
         wheel(&mut app, card, -1.0);
         assert_eq!(first_land(&app), 0, "the upright wheel moved the row");
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .resource_mut::<Messages<PointerScroll>>()
             .write(aimed_both(card, -2.0, 0.0));
         app.update();
         assert_eq!(first_land(&app), 2, "two lines sideways are two cards");
@@ -854,7 +854,7 @@ mod tests {
         wheel(&mut app, pad, -1.0);
         assert_eq!(first_land(&app), 1, "upright");
         app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .resource_mut::<Messages<PointerScroll>>()
             .write(aimed_both(pad, -1.0, 0.0));
         app.update();
         assert_eq!(first_land(&app), 2, "sideways");

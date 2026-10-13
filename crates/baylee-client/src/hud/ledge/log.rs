@@ -51,12 +51,13 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::card_face::CardText;
 use baylee_client_core::gamelog::{CardTextLookup, LogLine, NameSpan, Wording};
 use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_core::ids::CardIndex;
 use baylee_view::{CardIdentity, Phase, RulesFace};
-use bevy::picking::events::{Click, Out, Over, Pointer};
+use bevy::picking::events::{PointerClick, PointerOut, PointerOver};
 use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
@@ -612,7 +613,7 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
         .id();
     let close = commands
         .spawn((
-            Button,
+            LegacyButton,
             MenuButton {
                 action: MenuAction::ToggleLog,
             },
@@ -702,7 +703,7 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
     commands
         .spawn((
             LogNewBelow,
-            Button,
+            LegacyButton,
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,
@@ -746,7 +747,7 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
             ],
         ))
         .observe(
-            |mut click: On<Pointer<Click>>, mut lists: Query<&mut LogFollow, With<LogList>>| {
+            |mut click: On<PointerClick>, mut lists: Query<&mut LogFollow, With<LogList>>| {
                 click.propagate(false);
                 for mut follow in &mut lists {
                     follow.stuck = true;
@@ -1149,8 +1150,8 @@ pub struct CardLens;
 /// redraw gate sees a hover and not a frame.
 #[allow(clippy::too_many_arguments)] // the pointer, the links, a lens's box and a span's visibility
 pub fn hover_log_links(
-    mut overs: MessageReader<Pointer<Over>>,
-    mut outs: MessageReader<Pointer<Out>>,
+    mut overs: MessageReader<PointerOver>,
+    mut outs: MessageReader<PointerOut>,
     links: Query<&LogLink>,
     lenses: Query<(&ComputedNode, &UiGlobalTransform), With<CardLens>>,
     ui: Option<Res<UiScale>>,
@@ -1170,7 +1171,7 @@ pub fn hover_log_links(
             duel.hovered_log = Some(LogHover {
                 span: over.entity,
                 link: *link,
-                at: over.pointer_location.position,
+                at: over.pointer.position,
                 card,
             });
         }
@@ -1589,11 +1590,11 @@ mod tests {
     }
 
     /// A pointer event aimed at one entity, from where the pointer stands.
-    fn at<E: std::fmt::Debug + Clone + Reflect>(entity: Entity, event: E) -> Pointer<E> {
+    fn at<E: crate::test_pointer::Aim>(entity: Entity, event: E) -> E::Event {
         use bevy::camera::NormalizedRenderTarget;
         use bevy::picking::pointer::{Location, PointerId};
         use bevy::window::WindowRef;
-        Pointer::new(
+        crate::test_pointer::aim(
             PointerId::Mouse,
             Location {
                 target: NormalizedRenderTarget::Window(
@@ -1614,8 +1615,8 @@ mod tests {
     fn the_hover_follows_the_pointer_onto_a_link_and_off_it() {
         let mut app = App::new();
         app.init_resource::<Duel>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
             .add_systems(Update, hover_log_links);
         let link = LogLink {
             card: Some(bolt_identity()),
@@ -1627,12 +1628,12 @@ mod tests {
         let hovered = |app: &App| app.world().resource::<Duel>().hovered_log;
 
         app.world_mut()
-            .write_message(at(words, Over { hit: hit.clone() }));
+            .write_message(at(words, crate::test_pointer::Over { hit: hit.clone() }));
         app.update();
         assert_eq!(hovered(&app), None, "words are no link");
 
         app.world_mut()
-            .write_message(at(span, Over { hit: hit.clone() }));
+            .write_message(at(span, crate::test_pointer::Over { hit: hit.clone() }));
         app.update();
         assert_eq!(
             hovered(&app),
@@ -1644,11 +1645,12 @@ mod tests {
             })
         );
         app.world_mut()
-            .write_message(at(span, Out { hit: hit.clone() }));
+            .write_message(at(span, crate::test_pointer::Out { hit: hit.clone() }));
         app.update();
         assert_eq!(hovered(&app), None, "left by the pointer");
 
-        app.world_mut().write_message(at(span, Over { hit }));
+        app.world_mut()
+            .write_message(at(span, crate::test_pointer::Over { hit }));
         app.update();
         assert!(hovered(&app).is_some());
         app.world_mut().despawn(span);
@@ -1663,8 +1665,8 @@ mod tests {
     fn lens_over_a_card() -> (App, Entity) {
         let mut app = App::new();
         app.init_resource::<Duel>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
             .add_systems(Update, hover_log_links);
         let lens = app
             .world_mut()
@@ -1687,7 +1689,8 @@ mod tests {
 
     fn point_at(app: &mut App, entity: Entity) -> Option<LogHover> {
         let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
-        app.world_mut().write_message(at(entity, Over { hit }));
+        app.world_mut()
+            .write_message(at(entity, crate::test_pointer::Over { hit }));
         app.update();
         app.world().resource::<Duel>().hovered_log
     }
@@ -1751,8 +1754,8 @@ mod tests {
     fn the_hover_is_dropped_when_the_panel_is_shut_under_it() {
         let mut app = App::new();
         app.init_resource::<Duel>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Out>>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
             .add_systems(Update, hover_log_links);
         let link = LogLink {
             card: Some(bolt_identity()),
@@ -1764,7 +1767,7 @@ mod tests {
         let hovered = |app: &App| app.world().resource::<Duel>().hovered_log;
 
         app.world_mut()
-            .write_message(at(span, Over { hit: hit.clone() }));
+            .write_message(at(span, crate::test_pointer::Over { hit: hit.clone() }));
         app.update();
         app.update();
         assert!(
@@ -1780,7 +1783,8 @@ mod tests {
 
         // The pointer is over a link in a shut panel (events do not stop at
         // a hidden node's door in every backend): refused at once.
-        app.world_mut().write_message(at(span, Over { hit }));
+        app.world_mut()
+            .write_message(at(span, crate::test_pointer::Over { hit }));
         app.update();
         assert_eq!(hovered(&app), None, "and a hidden link is not hovered");
 
@@ -1790,7 +1794,8 @@ mod tests {
             .spawn((link, InheritedVisibility::HIDDEN))
             .id();
         let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
-        app.world_mut().write_message(at(own, Over { hit }));
+        app.world_mut()
+            .write_message(at(own, crate::test_pointer::Over { hit }));
         app.update();
         assert_eq!(hovered(&app), None, "a span hidden itself");
     }

@@ -530,7 +530,7 @@ pub(super) fn keep_gateways(state: &LobbyState, settings: &mut crate::settings::
 
 /// Leaves a finished game and comes back here.
 pub(super) fn leave_clicks(
-    mut pointer: MessageReader<Pointer<Click>>,
+    mut pointer: MessageReader<PointerClick>,
     presses: Query<&Press>,
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,

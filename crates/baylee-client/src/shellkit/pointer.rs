@@ -15,6 +15,7 @@
 //! The window's [`CursorIcon`] is written only when the shape changes, so a
 //! still pointer writes nothing (`rest_tests`).
 
+use crate::legacy_ui::LegacyButton;
 use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
@@ -58,7 +59,7 @@ pub(crate) struct Marks {
     feel: Has<Feel>,
     clickable: Has<Clickable>,
     slider: Has<Slider>,
-    button: Has<Button>,
+    button: Has<LegacyButton>,
 }
 
 /// The table's own buttons, which answer through their own components.

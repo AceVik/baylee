@@ -83,10 +83,10 @@ fn headless() -> App {
         .init_state::<DuelPhase>()
         .add_message::<DuelCommand>()
         .add_message::<KeyboardInput>()
-        .add_message::<Pointer<Click>>()
-        .add_message::<Pointer<Scroll>>()
-        .add_message::<Pointer<Drag>>()
-        .add_message::<Pointer<DragEnd>>()
+        .add_message::<PointerClick>()
+        .add_message::<PointerScroll>()
+        .add_message::<PointerDrag>()
+        .add_message::<PointerDragEnd>()
         // The duel plugin's startup system would load these; a test has
         // no asset server and does not need one to build a tree.
         .insert_resource(UiFonts {
@@ -340,10 +340,10 @@ fn press_target(app: &mut App, wanted: Press) -> Entity {
 /// A plain press on one control.
 fn tap(app: &mut App, entity: Entity) {
     app.world_mut()
-        .resource_mut::<Messages<Pointer<Click>>>()
+        .resource_mut::<Messages<PointerClick>>()
         .write(aimed(
             entity,
-            Click {
+            crate::test_pointer::Click {
                 button: PointerButton::Primary,
                 hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
                 duration: std::time::Duration::ZERO,
@@ -354,11 +354,11 @@ fn tap(app: &mut App, entity: Entity) {
 
 /// A pointer event aimed at one entity. The location is required and
 /// never read by anything the lobby runs.
-fn aimed<E: std::fmt::Debug + Clone + Reflect>(entity: Entity, event: E) -> Pointer<E> {
+fn aimed<E: crate::test_pointer::Aim>(entity: Entity, event: E) -> E::Event {
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::pointer::{Location, PointerId};
     use bevy::window::WindowRef;
-    Pointer::new(
+    crate::test_pointer::aim(
         PointerId::Mouse,
         Location {
             target: NormalizedRenderTarget::Window(

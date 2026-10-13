@@ -265,29 +265,29 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     });
 
     app.world_mut()
-        .resource_mut::<Messages<Pointer<Drag>>>()
+        .resource_mut::<Messages<PointerDrag>>()
         .write(aimed(
             card,
-            Drag {
+            crate::test_pointer::Drag {
                 button: PointerButton::Primary,
                 distance: Vec2::new(0.0, -40.0),
                 delta: Vec2::new(0.0, -40.0),
             },
         ));
     app.world_mut()
-        .resource_mut::<Messages<Pointer<DragEnd>>>()
+        .resource_mut::<Messages<PointerDragEnd>>()
         .write(aimed(
             card,
-            DragEnd {
+            crate::test_pointer::DragEnd {
                 button: PointerButton::Primary,
                 distance: Vec2::new(0.0, -40.0),
             },
         ));
     app.world_mut()
-        .resource_mut::<Messages<Pointer<Click>>>()
+        .resource_mut::<Messages<PointerClick>>()
         .write(aimed(
             card,
-            Click {
+            crate::test_pointer::Click {
                 button: PointerButton::Primary,
                 hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
                 duration: std::time::Duration::ZERO,
@@ -1043,7 +1043,6 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
 #[test]
 fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
     use crate::buildui::virtual_rows::VirtualList;
-    use bevy::ui::CalculatedClip;
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 1400.0);
@@ -1071,7 +1070,7 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
             entity.insert(UiGlobalTransform::from(
                 bevy::math::Affine2::from_translation(Vec2::new(200.0, 150.0)),
             ));
-            entity.insert(CalculatedClip { clip });
+            entity.insert(window_clip(clip));
         }
         app.update();
     };
@@ -1115,7 +1114,6 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
 #[test]
 fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
     use crate::buildui::virtual_rows::VirtualList;
-    use bevy::ui::CalculatedClip;
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 1400.0);
@@ -1157,9 +1155,7 @@ fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
         entity.insert(UiGlobalTransform::from(
             bevy::math::Affine2::from_translation(Vec2::new(0.0, 4320.0)),
         ));
-        entity.insert(CalculatedClip {
-            clip: Rect::new(0.0, 0.0, 600.0, 380.0),
-        });
+        entity.insert(window_clip(Rect::new(0.0, 0.0, 600.0, 380.0)));
     }
     // The new wheel position must mount the destination before layout has
     // updated the old transforms; otherwise a fast scroll flashes blank.
@@ -1438,4 +1434,12 @@ fn the_builders_history_is_the_one_sheet_over_the_builder_and_esc_stays_there() 
         "Esc stays in the builder"
     );
     assert!(state.lobby.library().page.is_none());
+}
+
+/// A clip that leaves `visible` (window space) of a node showing, as
+/// `bevy_ui`'s clipping system would for an unrotated scrolling ancestor.
+fn window_clip(visible: Rect) -> bevy::ui::CalculatedClip {
+    let mut clip = bevy::ui::CalculatedClip::default();
+    clip.push_rect(visible, bevy::math::Affine2::IDENTITY);
+    clip
 }

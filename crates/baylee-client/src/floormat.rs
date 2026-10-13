@@ -22,7 +22,7 @@ use bevy::shader::ShaderRef;
 use crate::cardmat::glow;
 
 /// How far past the card's edge the light reaches, in card widths:
-/// `card_common.wgsl`'s `FLOOR_REACH`, which a test holds this to.
+/// `card_common.wesl`'s `FLOOR_REACH`, which a test holds this to.
 pub const REACH: f32 = 0.10;
 
 /// What the light's shader reads.
@@ -67,7 +67,7 @@ impl FloorMaterial {
 
 impl Material for FloorMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/floor.wgsl".into()
+        "embedded://baylee_client/shaders/floor.wesl".into()
     }
 
     /// Light, so it adds to the felt rather than covering it.
@@ -95,12 +95,12 @@ pub fn quad_size() -> Vec2 {
 
 /// Registers the material and ships its shader in the binary, for the reason
 /// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own.
-/// `card_common.wgsl`, which it imports, is registered there.
+/// `card_common.wesl`, which it imports, is registered there.
 pub struct FloorMaterialPlugin;
 
 impl Plugin for FloorMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/floor.wgsl");
+        embedded_asset!(app, "shaders/floor.wesl");
         app.add_plugins(MaterialPlugin::<FloorMaterial>::default());
     }
 }
@@ -125,8 +125,8 @@ struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
         check_wgsl(
-            include_str!("shaders/floor.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/floor.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -141,7 +141,7 @@ struct Globals { time: f32 };
     /// the reason the strip's test gives.
     #[test]
     fn the_shader_reads_the_uniform_rust_writes() {
-        let src = include_str!("shaders/floor.wgsl");
+        let src = include_str!("shaders/floor.wesl");
         let open = src.find("struct FloorParams {").expect("the uniform");
         let body = &src[open..open + src[open..].find('}').expect("it closes")];
         let fields: Vec<&str> = body
@@ -152,7 +152,7 @@ struct Globals { time: f32 };
         assert_eq!(
             fields,
             ["glow: u32,", "motion: f32,", "pad: vec2<u32>,"],
-            "floor.wgsl lays the uniform out differently from `FloorParams`"
+            "floor.wesl lays the uniform out differently from `FloorParams`"
         );
     }
 
@@ -161,7 +161,7 @@ struct Globals { time: f32 };
     /// fragments spent on nothing.
     #[test]
     fn the_quad_reaches_as_far_as_the_light() {
-        let theirs = wgsl_const(include_str!("shaders/card_common.wgsl"), "FLOOR_REACH");
+        let theirs = wgsl_const(include_str!("shaders/card_common.wesl"), "FLOOR_REACH");
         assert!(
             (theirs - REACH).abs() < 1e-6,
             "FLOOR_REACH: {REACH} here, {theirs} in the shader"

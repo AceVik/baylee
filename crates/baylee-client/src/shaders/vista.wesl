@@ -1,8 +1,8 @@
 // Baylee's sanctuary: original painted world, separately lit foreground,
 // analytic fireflies, drifting mist and reflected moonlight. All movement
 // reads virtual seconds; reduced motion freezes both time and pointer.
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/noise.wgsl"::{noise2, hash2, fbm2}
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::noise::{noise2, hash2, fbm2};
 
 struct VistaParams {
     panel: vec4<f32>,

@@ -766,7 +766,7 @@ pub struct TrayMinimise;
 /// argued from a mark ("the corner draws a ⤢ — so it is read as a maximise
 /// button and has to be one") that has now moved onto a button that *is* one.
 ///
-/// Unlike its neighbour it needs no `Pointer<Click>` workaround. The corner
+/// Unlike its neighbour it needs no `PointerClick` workaround. The corner
 /// could not use one because a resize ends over the corner — the corner
 /// travels under the hand — so every drag would have fired it; a button in
 /// the head does not move.
@@ -1351,7 +1351,7 @@ pub(crate) mod palette {
     /// A seat that has lost.
     pub const DEAD: Color = Color::srgb(0.30, 0.32, 0.34);
     /// The accent used for anything asking for a decision: the dial's
-    /// priority hand (`dial::PRIORITY_INK`, `felt.wgsl`'s `TEAL`).
+    /// priority hand (`dial::PRIORITY_INK`, `felt.wesl`'s `TEAL`).
     pub const ACCENT: Color = {
         let [r, g, b] = baylee_client_core::dial::PRIORITY_INK;
         Color::srgb(r, g, b)
@@ -2032,7 +2032,7 @@ const _: () = assert!(
 ///
 /// The number is the printed one — 3 mm on a 63 mm card, 4.76% — and it has
 /// to be, because the card material cuts its own corners at exactly that
-/// radius (`PRINTED_CORNER` in `shaders/card_ui.wgsl`). This node clips its
+/// radius (`PRINTED_CORNER` in `shaders/card_ui.wesl`). This node clips its
 /// child and carries the drop shadow, so a rounder radius here would slice
 /// into the printed border and leave the shadow hanging off the corners. It
 /// used to be 10%, from before the shader cut anything at all.

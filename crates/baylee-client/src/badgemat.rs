@@ -12,7 +12,7 @@
 //! the rows leave the room, beside the right edge where they do not
 //! ([`cardplate::BadgePlace`]). `baylee_client_core::cardplate` says where
 //! the quad lies ([`cardplate::badge_quad_rect`]) and where the count lies
-//! in it; `card_common.wgsl`'s `count_badge` draws it, for both shaders
+//! in it; `card_common.wesl`'s `count_badge` draws it, for both shaders
 //! here.
 //!
 //! **The material key is the count, the place and which way up it reads.**
@@ -116,7 +116,7 @@ impl BadgeMaterial {
 
 impl Material for BadgeMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/badge.wgsl".into()
+        "embedded://baylee_client/shaders/badge.wesl".into()
     }
 
     /// The badge's edge is antialiased and its shadow is soft, so it blends.
@@ -145,7 +145,7 @@ pub struct BadgeUiMaterial {
 
 impl UiMaterial for BadgeUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/badge_ui.wgsl".into()
+        "embedded://baylee_client/shaders/badge_ui.wesl".into()
     }
 }
 
@@ -185,14 +185,14 @@ impl UiBadgeMaterials {
 
 /// Registers both badge materials and ships their shaders in the binary, for
 /// the reason [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin)
-/// embeds its own. `card_common.wgsl`, which both import, is registered
+/// embeds its own. `card_common.wesl`, which both import, is registered
 /// there.
 pub struct BadgeMaterialPlugin;
 
 impl Plugin for BadgeMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/badge.wgsl");
-        embedded_asset!(app, "shaders/badge_ui.wgsl");
+        embedded_asset!(app, "shaders/badge.wesl");
+        embedded_asset!(app, "shaders/badge_ui.wesl");
         app.add_plugins(MaterialPlugin::<BadgeMaterial>::default())
             .add_plugins(UiMaterialPlugin::<BadgeUiMaterial>::default())
             .init_resource::<UiBadgeMaterials>();
@@ -217,8 +217,8 @@ struct VertexOutput {
 };
 ";
         check_wgsl(
-            include_str!("shaders/badge.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/badge.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -229,14 +229,15 @@ struct VertexOutput {
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 ";
         check_wgsl(
-            include_str!("shaders/badge_ui.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/badge_ui.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -255,8 +256,8 @@ struct UiVertexOutput {
     #[test]
     fn both_shaders_read_the_uniform_rust_writes() {
         for (which, src) in [
-            ("badge.wgsl", include_str!("shaders/badge.wgsl")),
-            ("badge_ui.wgsl", include_str!("shaders/badge_ui.wgsl")),
+            ("badge.wesl", include_str!("shaders/badge.wesl")),
+            ("badge_ui.wesl", include_str!("shaders/badge_ui.wesl")),
         ] {
             let open = src.find("struct BadgeParams {").expect("the uniform");
             let body = &src[open..open + src[open..].find('}').expect("it closes")];

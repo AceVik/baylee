@@ -26,6 +26,7 @@
 //! other seats or the room's players ([`gather`], `refs`), and a finished
 //! reference previews its card.
 
+use crate::legacy_ui::LegacyButton;
 use std::sync::{Arc, Mutex};
 
 use baylee_client_core::bugreport::{
@@ -1113,9 +1114,9 @@ pub(crate) fn button(
     commands
         .entity(id)
         .remove::<crate::lobby::Press>()
-        .insert(Button)
+        .insert(LegacyButton)
         .observe(
-            |mut click: On<Pointer<Click>>, mut desk: ResMut<ReportDesk>| {
+            |mut click: On<PointerClick>, mut desk: ResMut<ReportDesk>| {
                 click.propagate(false);
                 desk.asked = true;
             },

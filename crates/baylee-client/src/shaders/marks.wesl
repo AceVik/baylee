@@ -2,14 +2,14 @@
 // card's label: its counters' chip, its moon and its crests beside the marks.
 //
 // One quad per card with something to say, a child of the card lying just
-// over its face, and this is all it draws: `card_common.wgsl`'s
+// over its face, and this is all it draws: `card_common.wesl`'s
 // `label_strip`, blended over the card. The quad is `cardrail::quad_rect` —
 // the largest strip with its shadow round it — so every strip is the same
 // mesh and the only thing that differs between two of them is the words.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{label_strip}
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::globals;
+import baylee_client::shaders::card_common::{label_strip};
 
 struct MarksParams {
     /// The marks, one bit each in `cardrail::MARK_ORDER`'s order.
@@ -27,9 +27,9 @@ struct MarksParams {
     pad: vec2<u32>,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: MarksParams;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var marks: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(2) var marks_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: MarksParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var marks: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var marks_sampler: sampler;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {

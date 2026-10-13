@@ -51,6 +51,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names, ViewMode, grid_across};
 
 /// How long the sheet takes to arrive.
@@ -1294,7 +1295,7 @@ fn clipped(commands: &mut Commands, line: Entity, box_node: Node) -> Entity {
 fn head_button(commands: &mut Commands, fonts: &UiFonts, mark: char) -> Entity {
     commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 width: px(HEAD_BTN),
                 height: px(HEAD_BTN),
@@ -1692,7 +1693,7 @@ pub(super) fn spawn_tray(
         let filter_line = commands
             .spawn((
                 TrayFilter,
-                Button,
+                LegacyButton,
                 Node {
                     flex_grow: 1.0,
                     flex_basis: px(0),
@@ -1722,7 +1723,7 @@ pub(super) fn spawn_tray(
         let gear = commands
             .spawn((
                 TrayGear,
-                Button,
+                LegacyButton,
                 Node {
                     width: px(TRAY_CTRL_H - 8.0),
                     height: px(TRAY_CTRL_H - 8.0),
@@ -1923,7 +1924,7 @@ pub(super) fn spawn_tray(
     // search field and the sort control have to stay where they are while a
     // hundred-card library is scrolled past them. `Pickable` and not
     // `Pickable::IGNORE`, because the picking backend is what turns a wheel
-    // into the `Pointer<Scroll>` a scrolling node listens for — the same
+    // into the `PointerScroll` a scrolling node listens for — the same
     // reason `dev-control` has to put the pointer over a list before it can
     // send one.
     //
@@ -2055,7 +2056,7 @@ pub(super) fn spawn_tray(
         commands
             .spawn((
                 TrayResize,
-                Button,
+                LegacyButton,
                 Node {
                     position_type: PositionType::Absolute,
                     right: px(4),
@@ -2246,7 +2247,7 @@ fn spawn_footer(
     commands.entity(confirm).add_child(words);
     if ready {
         commands.entity(confirm).insert((
-            Button,
+            LegacyButton,
             PromptButton {
                 // The question's own identity, as the shelf's Confirm carries
                 // it (`ledge::sync`): `PromptButton::matches_decision_id`
@@ -2323,7 +2324,7 @@ fn spawn_footer(
         let cancel = commands
             .spawn((
                 TrayNone,
-                Button,
+                LegacyButton,
                 Node {
                     height: px(TRAY_FOOT_H),
                     padding: UiRect::horizontal(px(14)),
@@ -2400,7 +2401,7 @@ fn spawn_tab(
         commands.entity(tab).add_child(mark);
     }
     if live {
-        commands.entity(tab).insert((Button, Feel::new(fill)));
+        commands.entity(tab).insert((LegacyButton, Feel::new(fill)));
     } else {
         // No `Button` and no `Feel` either: a control that lights under the
         // pointer and then refuses the click is worse than one that never
@@ -2497,7 +2498,7 @@ fn spawn_view(commands: &mut Commands, fonts: &UiFonts, mode: ViewMode, current:
     let button = commands
         .spawn((
             super::TrayView { mode },
-            Button,
+            LegacyButton,
             Node {
                 width: px(26),
                 height: percent(100),
@@ -2534,7 +2535,7 @@ fn spawn_control<C: Component>(
     let button = commands
         .spawn((
             marker,
-            Button,
+            LegacyButton,
             Node {
                 height: percent(100),
                 padding: UiRect::horizontal(px(pad)),
@@ -2825,7 +2826,7 @@ fn spawn_tile(
     let tile = commands
         .spawn((
             TrayCard { object: row.id },
-            Button,
+            LegacyButton,
             Node {
                 width: px(width + TRAY_TILE_CHROME),
                 padding: UiRect::all(px(2.0)),
@@ -3155,7 +3156,7 @@ fn row_slot(commands: &mut Commands, row: &BrowseRow, height: f32, pad: f32) -> 
     commands
         .spawn((
             TrayCard { object: row.id },
-            Button,
+            LegacyButton,
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,

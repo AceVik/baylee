@@ -1400,13 +1400,14 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     let before = labels(&mut app);
     let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
     app.world_mut()
-        .write_message(aimed(*mark, Over { hit: hit.clone() }));
+        .write_message(aimed(*mark, crate::test_pointer::Over { hit: hit.clone() }));
     app.update();
     let sentence = labels(&mut app)
         .into_iter()
         .find(|l| l.contains(&newer) && !before.contains(l))
         .expect("pointing at the mark drew a sentence naming the version");
-    app.world_mut().write_message(aimed(*mark, Out { hit }));
+    app.world_mut()
+        .write_message(aimed(*mark, crate::test_pointer::Out { hit }));
     app.update();
     assert!(!labels(&mut app).contains(&sentence), "{sentence:?} stayed");
 }

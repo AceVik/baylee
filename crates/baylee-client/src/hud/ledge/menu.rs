@@ -64,6 +64,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 
 /// How wide the panel is.
 ///
@@ -282,7 +283,7 @@ pub(super) fn burger(commands: &mut Commands, fonts: &UiFonts, open: bool) -> En
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            Button,
+            LegacyButton,
             Feel::new(ground),
             MenuButton {
                 action: MenuAction::ToggleGameMenu,
@@ -605,7 +606,7 @@ fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
     commands
         .entity(id)
         .remove::<crate::lobby::Press>()
-        .insert(Button)
+        .insert(LegacyButton)
         .with_child((
             Text::new(""),
             crate::hud::tf(fonts, metrics.text),
@@ -614,8 +615,7 @@ fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
             Pickable::IGNORE,
         ))
         .observe(
-            |mut click: On<Pointer<Click>>,
-             mut settings: ResMut<crate::settings::ClientSettings>| {
+            |mut click: On<PointerClick>, mut settings: ResMut<crate::settings::ClientSettings>| {
                 click.propagate(false);
                 settings.audio.priority_cue = !settings.audio.priority_cue;
                 settings.save();

@@ -1,5 +1,5 @@
-// What the shells round a permanent share between the table (`shell.wgsl`)
-// and the preview (`shell_ui.wgsl`): the card they stand round, a keyword's
+// What the shells round a permanent share between the table (`shell.wesl`)
+// and the preview (`shell_ui.wesl`): the card they stand round, a keyword's
 // border and summoning sickness's wave. `shellmat.rs` says what each shell
 // is and why it may stand where it stands; the two shaders say where it is
 // seen from, the table's through its real camera and the preview's from

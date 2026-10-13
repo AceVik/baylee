@@ -9,7 +9,7 @@
 //! part of the card in sight, where the next card reaches that far, and
 //! upright under a tapped card. `baylee_client_core::cardplate` says where
 //! ([`cardplate::plate_rect`]) and how big the quad is
-//! ([`cardplate::plate_quad`]); `card_common.wgsl`'s `plate_object` draws
+//! ([`cardplate::plate_quad`]); `card_common.wesl`'s `plate_object` draws
 //! it, for both shaders here. The chip stays on the strip.
 //!
 //! **The material key is the two words and nothing else.** Every plate is
@@ -151,7 +151,7 @@ impl PlateMaterial {
 
 impl Material for PlateMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/plate.wgsl".into()
+        "embedded://baylee_client/shaders/plate.wesl".into()
     }
 
     /// The plate's edge is antialiased and its shadow is soft, so it blends.
@@ -180,7 +180,7 @@ pub struct PlateUiMaterial {
 
 impl UiMaterial for PlateUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/plate_ui.wgsl".into()
+        "embedded://baylee_client/shaders/plate_ui.wesl".into()
     }
 }
 
@@ -220,14 +220,14 @@ impl UiPlateMaterials {
 
 /// Registers both plate materials and ships their shaders in the binary, for
 /// the reason [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin)
-/// embeds its own. `card_common.wgsl`, which both import, is registered
+/// embeds its own. `card_common.wesl`, which both import, is registered
 /// there.
 pub struct PlateMaterialPlugin;
 
 impl Plugin for PlateMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/plate.wgsl");
-        embedded_asset!(app, "shaders/plate_ui.wgsl");
+        embedded_asset!(app, "shaders/plate.wesl");
+        embedded_asset!(app, "shaders/plate_ui.wesl");
         app.add_plugins(MaterialPlugin::<PlateMaterial>::default())
             .add_plugins(UiMaterialPlugin::<PlateUiMaterial>::default())
             .init_resource::<UiPlateMaterials>();
@@ -253,8 +253,8 @@ struct VertexOutput {
 };
 ";
         check_wgsl(
-            include_str!("shaders/plate.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/plate.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -265,14 +265,15 @@ struct VertexOutput {
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 ";
         check_wgsl(
-            include_str!("shaders/plate_ui.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/plate_ui.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -290,8 +291,8 @@ struct UiVertexOutput {
     #[test]
     fn both_shaders_read_the_uniform_rust_writes() {
         for (which, src) in [
-            ("plate.wgsl", include_str!("shaders/plate.wgsl")),
-            ("plate_ui.wgsl", include_str!("shaders/plate_ui.wgsl")),
+            ("plate.wesl", include_str!("shaders/plate.wesl")),
+            ("plate_ui.wesl", include_str!("shaders/plate_ui.wesl")),
         ] {
             let open = src.find("struct PlateParams {").expect("the uniform");
             let body = &src[open..open + src[open..].find('}').expect("it closes")];

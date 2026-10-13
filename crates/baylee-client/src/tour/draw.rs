@@ -22,6 +22,7 @@
 //!   frame. An anchor missing for a frame (its screen rebuilding) holds
 //!   everything where it was instead of sending the bubble to the centre.
 
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tour::{Kind, Mode, Run};
 use bevy::prelude::*;
@@ -799,10 +800,10 @@ type Controls<'w, 's> = Query<
         &'static UiGlobalTransform,
         &'static InheritedVisibility,
         Option<&'static crate::shellkit::Role>,
-        Has<Button>,
+        Has<LegacyButton>,
     ),
     (
-        Or<(With<crate::shellkit::Role>, With<Button>)>,
+        Or<(With<crate::shellkit::Role>, With<LegacyButton>)>,
         Without<TourPress>,
         Without<Scrim>,
         Without<Ring>,

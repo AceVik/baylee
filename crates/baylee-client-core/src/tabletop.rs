@@ -217,7 +217,7 @@ pub fn table_corner(span: Vec2) -> f32 {
 /// competes with its own cards is a table nobody can read.
 ///
 /// This is the **reference**, not the surface: the table is drawn by
-/// `felt.wgsl`, which cannot sample a texture big enough to stay sharp at
+/// `felt.wesl`, which cannot sample a texture big enough to stay sharp at
 /// this camera. The same arithmetic lives here so a test can measure it, and
 /// `table::shader_tests` reads the constants above out of the shader and
 /// fails when the two drift apart.
@@ -283,7 +283,7 @@ pub fn parchment(size: u32) -> Texture {
     /// The sheet where it has been handled least.
     ///
     /// The same parchment the card shader draws a saga's page with
-    /// (`shaders/card_common.wgsl`), and the same one
+    /// (`shaders/card_common.wesl`), and the same one
     /// `baylee_client::hud::palette::PARCHMENT` is painted flat with. The
     /// three were three
     /// colours until now: the UI's #EDE3CC and the card's #E0D4B0 for one
@@ -627,7 +627,7 @@ pub fn rim_dash(turn: f32) -> f32 {
 ///
 /// **Nothing draws with this any more.** The renderer stopped stretching an
 /// image over a mat and started drawing one — `baylee-client`'s
-/// `shaders/mat.wgsl`, where the corner is a distance in table units and an
+/// `shaders/mat.wesl`, where the corner is a distance in table units and an
 /// edge is one pixel wide however close the camera comes. What this is now is
 /// that arithmetic in its readable form and its test bench: every number it
 /// works from is a `MAT_*` constant above, and `table::shader_tests` fails if

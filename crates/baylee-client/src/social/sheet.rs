@@ -5,6 +5,7 @@
 //! sounds, this account's devices, blocked players).
 
 use super::zoom::{z, zpx};
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ConvId, Intent, KeyHome, Social};
 use baylee_protocol::social::{SocialSettings, WhispersFrom};
@@ -77,7 +78,7 @@ fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
 
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(Entity, &Interaction, &SheetPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &LegacyInteraction, &SheetPress), Changed<LegacyInteraction>>,
     mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
@@ -178,7 +179,7 @@ fn button(
 ) -> Entity {
     commands
         .spawn((
-            Button,
+            LegacyButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(10.0), zpx(4.0)),
@@ -460,7 +461,7 @@ fn sync(
     });
     let close = commands
         .spawn((
-            Button,
+            LegacyButton,
             SheetPress::Close,
             Node {
                 width: zpx(26.0),

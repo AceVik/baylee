@@ -242,9 +242,36 @@ fn resize(body: &str, win: &mut Window) -> String {
 /// without the focus and lets the real pointer through (hit testing off),
 /// so the owner can watch an agent's checks while using the machine without
 /// a stray hover or click landing in them. Dev-control's injected input is
-/// unaffected: it never came from the OS.
+/// unaffected: it never came from the OS. It stays above other windows
+/// (`standalone`): a covered window draws nothing since bevy 0.20.
 pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
+}
+
+/// Keeps a passive window's process out of macOS App Nap.
+///
+/// Since bevy 0.20 an app whose windows all open unfocused is not activated
+/// at startup (`bevy_winit` asks for activation only when one is focused).
+/// A passive client is therefore never the active app, and behind other
+/// windows macOS naps it: measured on the M1 Max, scheduling priority 4
+/// against 47 for a 0.19 client started the same way, under a frame a
+/// second, and once a hang of minutes with the dev-control socket timing
+/// out, after "Play the house". A process activity for the run takes it out
+/// of App Nap without activating anything: no focus is taken and no window
+/// comes forward, which is what passive promises. The system may still
+/// sleep (`…AllowingIdleSystemSleep`).
+#[cfg(target_os = "macos")]
+pub(crate) fn keep_a_passive_window_awake() {
+    use objc2_foundation::{NSActivityOptions, NSProcessInfo, ns_string};
+    if !passive() {
+        return;
+    }
+    let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
+        NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+        ns_string!("a dev-control client watched from behind (BAYLEE_DEV_PASSIVE)"),
+    );
+    // The activity lasts as long as its token; this one lasts the process.
+    std::mem::forget(activity);
 }
 
 /// Whether a driven run stays silent: with `BAYLEE_DEV_CONTROL` set, the
@@ -417,7 +444,7 @@ struct Stepping {
 ///
 /// It cannot be done in one. Bevy's picking backend does not read
 /// [`ButtonInput`] at all — it reads [`WindowEvent`] messages, keeps the last
-/// cursor location in a `Local`, and only turns a press into a `Pointer<Click>`
+/// cursor location in a `Local`, and only turns a press into a `PointerClick`
 /// once a press and a release have landed on the same hovered entity. So the
 /// move has to be seen, hovered against the UI tree, and only then pressed,
 /// in that order, exactly as a real mouse produces them. Doing it in one
@@ -971,7 +998,7 @@ fn pump(
 ///
 /// It is written twice for the same reason a click is: the picking backend
 /// reads [`WindowEvent`], and it is picking that turns a wheel into the
-/// `Pointer<Scroll>` a list listens for, while the plain message is what
+/// `PointerScroll` a list listens for, while the plain message is what
 /// everything else reads.
 fn turn_the_wheel(
     body: &str,

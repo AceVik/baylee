@@ -55,7 +55,7 @@ pub(crate) struct TileOf(pub usize);
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn keys_press(
     mut activated: MessageReader<Activated>,
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     parents: Query<&ChildOf>,
     presses: Query<&Press>,
     primaries: Query<&Primary>,

@@ -219,9 +219,13 @@ pub(crate) fn update(
             german: list.german,
         };
         let top = transform.translation.y - node.size.y * 0.5 - scroll_delta(parent, &scrollers);
+        let Some(visible) = crate::shellkit::clip_bounds(clip) else {
+            mounted += list.mounted.len();
+            continue;
+        };
         let scale = node.inverse_scale_factor();
-        let from = ((clip.clip.min.y - top) * scale).max(0.0);
-        let to = ((clip.clip.max.y - top) * scale).max(from);
+        let from = ((visible.min.y - top) * scale).max(0.0);
+        let to = ((visible.max.y - top) * scale).max(from);
         let view = (to - from).max(1.0);
         let seen = within(&list, from, to);
         let missing = seen.filter(|i| !list.mounted.contains_key(i)).count();

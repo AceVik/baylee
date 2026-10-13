@@ -6,14 +6,15 @@ members = ["crates/*", "xtask"]
 version = "0.1.0-beta.7"
 edition = "2024"
 # MSRV: not a preference but the floor the dependency graph sets. `bevy`
-# 0.19.1 declares `rust-version = "1.95.0"` and `sea-orm` 2.0.2 (through
-# sqlx 0.9.0) declares 1.94.0, so 1.95 is the maximum over the whole resolved
-# graph and nothing here can be built with less. It said 1.88 for a long time,
-# which was not merely stale: `cargo upgrade` is MSRV-aware, read this number,
-# and offered to **downgrade** bevy to 0.17 and sea-orm to 1.1 to honour a
-# promise the code could not keep. CI builds against exactly this version, and
-# reads it from here rather than repeating it.
-rust-version = "1.95"
+# 0.20.0 and the `wesl` shader compiler it builds on (`wesl`, `wesl-core`,
+# `wgsl-parse`, `wgsl-types` 0.6) declare `rust-version = "1.97.1"`, the
+# maximum over the whole resolved graph (`sea-orm` 2.0.2, through sqlx 0.9.0,
+# declares 1.94.0), so nothing here can be built with less. It said 1.88 for
+# a long time, which was not merely stale: `cargo upgrade` is MSRV-aware, read
+# this number, and offered to **downgrade** bevy to 0.17 and sea-orm to 1.1
+# to honour a promise the code could not keep. CI builds against exactly this
+# version, and reads it from here rather than repeating it.
+rust-version = "1.97.1"
 license = "AGPL-3.0-only"
 # The AGPL's own "How to Apply" appendix asks for a copyright holder and a
 # way to reach the source, and here both are obligations rather than
@@ -71,7 +72,7 @@ bytes = "1"
 unicode-normalization = "0.1"
 futures-util = "0.3"
 rustc-hash = "2"
-glam = "0.32"
+glam = "0.33"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.10"
 rand_core = "0.10"
@@ -209,9 +210,9 @@ qrcodegen = "1.8"
 # The card shader is validated at build time. Without this it would compile
 # only when a real GPU pipeline is built — which in the browser means the one
 # environment that cannot be debugged by looking at a filesystem.
-naga = { version = "29", features = ["wgsl-in"] }
+naga = { version = "30", features = ["wgsl-in"] }
 criterion = { version = "0.8", features = ["html_reports"] }
-bevy = { version = "0.19", default-features = false, features = [
+bevy = { version = "0.20", default-features = false, features = [
     "std", "async_executor", "multi_threaded",
     "bevy_asset", "bevy_log", "bevy_state", "reflect_auto_register",
     "bevy_winit", "default_font", "custom_cursor",

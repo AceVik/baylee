@@ -20,8 +20,8 @@ fn a_hand_card_that_is_played_takes_its_hover_with_it() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel::default())
         .add_systems(Update, pointer_hover);
@@ -68,8 +68,8 @@ fn a_hover_this_system_did_not_write_is_left_alone() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel::default())
         .add_systems(Update, pointer_hover);
@@ -117,8 +117,8 @@ fn the_keyboard_cursor_follows_a_card_it_played_onto_the_table() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel::default())
         .add_systems(Update, pointer_hover);
@@ -233,8 +233,8 @@ fn a_permanent_that_only_moves_keeps_its_hover() {
 fn a_target_choice_previews_its_card_and_pagination_clears_the_hover() {
     use bevy::prelude::*;
     let mut app = App::new();
-    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel::default())
         .add_systems(Update, pointer_hover);
@@ -300,14 +300,14 @@ fn opening_a_hand_inspection_clears_the_source_preview_but_not_later_hovers() {
 fn moving_onto_a_row_s_own_scrollbar_keeps_the_row_hovered() {
     use bevy::ecs::entity::EntityHashMap;
     use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Out, Over, Pointer};
+    use bevy::picking::events::{PointerOut, PointerOver};
     use bevy::picking::hover::HoverMap;
     use bevy::picking::pointer::PointerId;
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_message::<Pointer<Over>>()
-        .add_message::<Pointer<Out>>()
+    app.add_message::<PointerOver>()
+        .add_message::<PointerOut>()
         .add_message::<bevy::window::CursorMoved>()
         .insert_resource(crate::Duel::default())
         .init_resource::<HoverMap>()
@@ -329,10 +329,10 @@ fn moving_onto_a_row_s_own_scrollbar_keeps_the_row_hovered() {
         .0
         .insert(PointerId::Mouse, under);
     let at = pointer_at(&mut app);
-    app.world_mut().write_message(Pointer::new(
+    app.world_mut().write_message(crate::test_pointer::aim(
         PointerId::Mouse,
         at.clone(),
-        Out {
+        crate::test_pointer::Out {
             hit: HitData::new(row, 0.0, None, None),
         },
         row,
@@ -356,10 +356,10 @@ fn moving_onto_a_row_s_own_scrollbar_keeps_the_row_hovered() {
         position: Vec2::ONE,
         delta: None,
     });
-    app.world_mut().write_message(Pointer::new(
+    app.world_mut().write_message(crate::test_pointer::aim(
         PointerId::Mouse,
         at,
-        Out {
+        crate::test_pointer::Out {
             hit: HitData::new(thumb, 0.0, None, None),
         },
         thumb,

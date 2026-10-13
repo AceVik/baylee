@@ -6,12 +6,12 @@
 // card, a child of the card lying under it just above its contact shadow,
 // `floormat::REACH` past the card on every side. The card covers every part
 // of it that would be under the print, and so does the next card of a fanned
-// lane. This is all it draws: `card_common.wgsl`'s `floor_light`, added to
+// lane. This is all it draws: `card_common.wesl`'s `floor_light`, added to
 // whatever is under it.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{floor_light, FLOOR_REACH, CARD_ASPECT}
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::globals;
+import baylee_client::shaders::card_common::{floor_light, FLOOR_REACH, CARD_ASPECT};
 
 struct FloorParams {
     /// The offers, `cardmat::glow::OFFERS` of the card's glow word.
@@ -23,7 +23,7 @@ struct FloorParams {
     pad: vec2<u32>,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FloorParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: FloorParams;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {

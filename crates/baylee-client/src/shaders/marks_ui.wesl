@@ -1,13 +1,13 @@
 // The keyword strip on a card drawn as a UI node: the preview (#274).
 //
-// The table shader's twin, as `card_ui.wgsl` is `card.wgsl`'s: a creature
+// The table shader's twin, as `card_ui.wesl` is `card.wesl`'s: a creature
 // held up to the light has to wear the marks it wears on the felt, and the
-// one drawing both is `card_common.wgsl`'s `label_strip`. The node is laid
+// one drawing both is `card_common.wesl`'s `label_strip`. The node is laid
 // over the card at `cardrail::quad_rect`, so its UV is the quad's.
 
-#import bevy_render::globals::Globals
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{label_strip}
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::card_common::{label_strip};
 
 struct MarksParams {
     bits: u32,

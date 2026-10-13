@@ -178,7 +178,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
 /// The one gesture on this surface that is about *nothing*: every branch of
 /// [`pointer`] answers a thing that was clicked, and this answers a click that
 /// found nothing to answer it. So it cannot be a branch there —
-/// `Pointer<Click>` is only ever raised on an entity that was hit, and the
+/// `PointerClick` is only ever raised on an entity that was hit, and the
 /// felt is `Pickable::IGNORE`, so a click on bare cloth raises no message at
 /// all. What it reads instead is the press and [`HoverMap`], which is the one
 /// place that knows the pointer is over **nothing**.
@@ -232,7 +232,7 @@ pub fn close_the_sheet_on_a_press_outside_it(
 /// A press anywhere that is neither the game menu nor its own button shuts it.
 ///
 /// [`close_the_sheet_on_a_press_outside_it`]'s sibling, on the same two
-/// mechanics and for the same reason: `Pointer<Click>` is only ever raised on
+/// mechanics and for the same reason: `PointerClick` is only ever raised on
 /// an entity that was hit, so a press on bare felt raises nothing at all, and
 /// [`HoverMap`] is the one place that knows the pointer is over **nothing**.
 /// It is the press and not the click, for that function's reason as well — a

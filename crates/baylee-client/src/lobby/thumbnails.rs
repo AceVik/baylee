@@ -84,7 +84,10 @@ pub(super) fn load(
             continue;
         }
         let bounds = Rect::from_center_size(transform.translation, node.size);
-        if clip.is_some_and(|clip| bounds.intersect(clip.clip).is_empty()) {
+        if clip
+            .and_then(crate::shellkit::clip_bounds)
+            .is_some_and(|visible| bounds.intersect(visible).is_empty())
+        {
             continue;
         }
         let handle = if let Some(handle) = cache.images.get(&thumb.0) {
@@ -258,7 +261,10 @@ pub(super) fn load_art(
             continue;
         }
         let bounds = Rect::from_center_size(place.translation, node.size);
-        if clip.is_some_and(|clip| bounds.intersect(clip.clip).is_empty()) {
+        if clip
+            .and_then(crate::shellkit::clip_bounds)
+            .is_some_and(|visible| bounds.intersect(visible).is_empty())
+        {
             continue;
         }
         let handle = if let Some(handle) = cache.images.get(&band.0) {

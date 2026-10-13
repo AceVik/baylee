@@ -12,15 +12,15 @@
 // A keyword's border (the owner, 13.10.2026) is a slim band standing round
 // the card from a hair over its face down to the felt, or lying on the felt
 // as a ring where it has no room; its layers and their patterns are
-// `shell_common.wgsl`'s `ward_border`, which the preview draws with too.
+// `shell_common.wesl`'s `ward_border`, which the preview draws with too.
 // Summoning sickness's wave is a sheet over the face that this vertex stage
 // raises a crest in, running out from the card's middle and resting.
 
-#import bevy_pbr::mesh_functions::{get_world_from_local, get_local_from_world, mesh_position_local_to_world}
-#import bevy_pbr::view_transformations::position_world_to_clip
-#import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::perimeter
-#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_RING, SHELL_WAVE, MASK_FEATHER, RIM_RISE, RIM_DROP, KEY, WAVE_LIFT, WAVE_CREST, WAVE_PERIOD, MOONLIGHT, card_sdf, crest_at, crest_lean, wave_along, wave_glow, ward_border}
+import bevy_pbr::render::mesh_functions::{get_world_from_local, get_local_from_world, mesh_position_local_to_world};
+import bevy_pbr::render::view_transformations::position_world_to_clip;
+import bevy_pbr::render::mesh_view_bindings::{view, globals};
+import baylee_client::shaders::card_common::perimeter;
+import baylee_client::shaders::shell_common::{SHELL_RING, SHELL_WAVE, MASK_FEATHER, RIM_RISE, RIM_DROP, KEY, WAVE_LIFT, WAVE_CREST, WAVE_PERIOD, MOONLIGHT, card_sdf, crest_at, crest_lean, wave_along, wave_glow, ward_border};
 
 struct ShellParams {
     /// `shellmat::ShellKind`.
@@ -39,7 +39,7 @@ struct ShellParams {
     spare: vec2<f32>,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: ShellParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: ShellParams;
 
 struct ShellVertex {
     @builtin(instance_index) instance_index: u32,

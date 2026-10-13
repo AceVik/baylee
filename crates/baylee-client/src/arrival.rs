@@ -2,6 +2,7 @@
 //! Keep an opaque screen across camera handoff, prepare the real scene below,
 //! then acknowledge actual render preparation before scheduling its reveal.
 
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -108,6 +109,7 @@ impl Journey {
 /// previous scene from releasing a newly opened table. Shared atomics only
 /// carry feedback; no main-world resources are touched by the render thread.
 #[derive(Resource, Clone, ExtractResource, Default)]
+#[extract_app(RenderApp)]
 struct Prepared {
     generation: u64,
     scene_revision: u64,
@@ -164,7 +166,7 @@ struct PassageParams {
 
 impl UiMaterial for PassageMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/loading.wgsl".into()
+        "embedded://baylee_client/shaders/loading.wesl".into()
     }
 }
 
@@ -187,7 +189,7 @@ pub(crate) fn install(app: &mut App) {
     if !app.world().contains_resource::<AssetServer>() || app.get_sub_app(RenderApp).is_none() {
         return;
     }
-    embedded_asset!(app, "shaders/loading.wgsl");
+    embedded_asset!(app, "shaders/loading.wesl");
     app.init_resource::<Journey>()
         .init_resource::<Prepared>()
         .add_plugins((
@@ -519,7 +521,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
             });
             root.spawn((
                 Exit,
-                Button,
+                LegacyButton,
                 Node {
                     padding: UiRect::axes(Val::Px(22.0), Val::Px(12.0)),
                     border: UiRect::all(Val::Px(1.0)),
@@ -677,11 +679,11 @@ fn cancel(
     journey: Res<Journey>,
     keys: Res<ButtonInput<KeyCode>>,
     mut commands: MessageWriter<DuelCommand>,
-    buttons: Query<&Interaction, (With<Exit>, Changed<Interaction>)>,
+    buttons: Query<&LegacyInteraction, (With<Exit>, Changed<LegacyInteraction>)>,
 ) {
     if journey.destination == Destination::Table
         && (keys.just_pressed(KeyCode::Escape)
-            || buttons.iter().any(|i| *i == Interaction::Pressed))
+            || buttons.iter().any(|i| *i == LegacyInteraction::Pressed))
     {
         commands.write(DuelCommand::Close);
     }
@@ -760,7 +762,7 @@ mod tests {
     #[test]
     fn loading_shader_is_valid() {
         crate::cardmat::tests::check_wgsl(
-            include_str!("shaders/loading.wgsl"),
+            include_str!("shaders/loading.wesl"),
             "
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,

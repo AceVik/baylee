@@ -93,7 +93,7 @@ pub mod glow {
     /// Bit 23 because the bits below it were other claims once — sickness,
     /// the commander, the rail's twelve marks, provenance — and the ones that
     /// are left kept their numbers rather than moving, because
-    /// `card_common.wgsl`'s `GLOW_*` constants are the other half of each.
+    /// `card_common.wesl`'s `GLOW_*` constants are the other half of each.
     pub const REACHABLE: u32 = 1 << 23;
     /// This card is one the question this seat is answering will take: a
     /// legal target, or a card it may choose (report 09).
@@ -359,7 +359,7 @@ pub struct CardParams {
     pub veil_rate: f32,
 }
 
-/// A card's passing states, as `card_common.wgsl` numbers them: what comes
+/// A card's passing states, as `card_common.wesl` numbers them: what comes
 /// and goes with the game and may lie on the print while it lasts (the
 /// owner, 13.10.2026; `docs/legal.md` §3). A keyword's border lasts as long
 /// as the keyword and stays off the print ([`crate::shellmat`]).
@@ -497,7 +497,7 @@ impl VeilTrack {
 /// The five doors a permanent goes through, as the shader numbers them.
 ///
 /// The names are [`baylee_client_core::zones::Passage`]'s; these are the
-/// wire between it and `card_common.wgsl`, and
+/// wire between it and `card_common.wesl`, and
 /// `the_doors_are_numbered_the_same_in_both_languages` is what keeps the two
 /// lists from drifting.
 pub mod door {
@@ -590,7 +590,7 @@ pub struct CardMaterial {
 
 impl Material for CardMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/card.wgsl".into()
+        "embedded://baylee_client/shaders/card.wesl".into()
     }
 
     /// Cards are opaque rectangles. The mesh's rounded corners are cut out of
@@ -623,7 +623,7 @@ pub struct CardUiMaterial {
 
 impl UiMaterial for CardUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/card_ui.wgsl".into()
+        "embedded://baylee_client/shaders/card_ui.wesl".into()
     }
 }
 
@@ -1076,13 +1076,16 @@ pub struct CardMaterialPlugin;
 
 impl Plugin for CardMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/card.wgsl");
-        embedded_asset!(app, "shaders/card_ui.wgsl");
+        embedded_asset!(app, "shaders/card.wesl");
+        embedded_asset!(app, "shaders/card_ui.wesl");
         // The file both of them import, and the keyword strip's two shaders
-        // (`marksmat`) besides. Registered here rather than loaded on demand
-        // because it is not a shader in its own right: nothing sets it on a
-        // pipeline, and the four that import it name it by this path.
-        embedded_asset!(app, "shaders/card_common.wgsl");
+        // (`marksmat`) besides. It is not a shader in its own right: nothing
+        // sets it on a pipeline. Since bevy 0.20 an import names a module
+        // (`baylee_client::shaders::card_common`), and a module resolves only
+        // once its file is a loaded `Shader` — embedding it is not enough
+        // ("module not found … no shader registered"), so it is loaded as a
+        // library, the way bevy loads its own.
+        bevy::shader::load_shader_library!(app, "shaders/card_common.wesl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
             .init_resource::<UiCardMaterials>()
@@ -1371,7 +1374,7 @@ pub(crate) mod tests {
     /// function in non-uniform control flow, and Chrome's WGSL compiler
     /// (Tint) refuses `fwidth`, `dpdx`, `dpdy` and implicit-level sampling
     /// there; naga accepts it, so the native build and `check_wgsl` never
-    /// see it. Measured in the beta.6 QA: `felt.wgsl` took `fwidth(table)`
+    /// see it. Measured in the beta.6 QA: `felt.wesl` took `fwidth(table)`
     /// after the tear's early returns, the felt pipeline was invalid in the
     /// browser and the web client quit the moment a table opened.
     ///
@@ -1393,7 +1396,7 @@ pub(crate) mod tests {
         let mut entries: Vec<_> = std::fs::read_dir(&dir)
             .expect("the shaders directory")
             .map(|e| e.expect("an entry").path())
-            .filter(|p| p.extension().is_some_and(|x| x == "wgsl"))
+            .filter(|p| p.extension().is_some_and(|x| x == "wesl"))
             .collect();
         entries.sort();
         let mut scanned = 0;
@@ -1453,19 +1456,27 @@ pub(crate) mod tests {
 
     /// Parses and validates a shader the way `wgpu` will.
     ///
-    /// The two things naga cannot see are stripped first: `#import` lines,
-    /// which `naga_oil` resolves against bevy's own modules, and
-    /// `#{MATERIAL_BIND_GROUP}`, which the pipeline substitutes. What they
-    /// bring in is stubbed by the caller with the same shapes bevy declares,
-    /// so a use that would not type-check against the real ones does not
-    /// type-check here either.
+    /// The shaders are WESL (bevy 0.20 composes them with the `wesl` crate),
+    /// and what they add to WGSL here is two things naga cannot see, both
+    /// stripped first: `import …;` lines, which bevy resolves against its own
+    /// modules and ours, and `constants::MATERIAL_BIND_GROUP`, which the
+    /// pipeline substitutes. What the imports bring in is stubbed by the
+    /// caller with the same shapes bevy declares, so a use that would not
+    /// type-check against the real ones does not type-check here either.
     pub(crate) fn check_wgsl(source: &str, prelude: &str) {
+        // An import statement runs to its `;`, which may be lines later.
+        let mut in_import = false;
         let body: String = source
             .lines()
-            .filter(|line| !line.trim_start().starts_with("#import"))
+            .filter(|line| {
+                in_import |= line.trim_start().starts_with("import ");
+                let keep = !in_import;
+                in_import &= !line.contains(';');
+                keep
+            })
             .collect::<Vec<_>>()
             .join("\n")
-            .replace("#{MATERIAL_BIND_GROUP}", "3");
+            .replace("constants::MATERIAL_BIND_GROUP", "3");
         let full = format!("{prelude}{body}");
 
         let module = naga::front::wgsl::parse_str(&full)
@@ -1482,7 +1493,7 @@ pub(crate) mod tests {
     ///
     /// Reading the shader's own text is the only way these constants can be
     /// checked at all: one side is a Rust `const` the compiler knows about,
-    /// the other is a number in a `.wgsl` file that nothing but the GPU ever
+    /// the other is a number in a `.wesl` file that nothing but the GPU ever
     /// parses. A mismatch is silent, and looks like a rail drawn in the wrong
     /// place on a machine nobody is testing on.
     pub(crate) fn wgsl_const(source: &str, name: &str) -> f32 {
@@ -1561,7 +1572,7 @@ pub(crate) mod tests {
     /// either compiler can notice that they are.
     #[test]
     fn the_strip_is_in_the_same_place_in_both_languages() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         for (name, ours) in [
             ("STRIP_PAD", cardrail::STRIP_PAD),
             ("MARK", cardrail::MARK),
@@ -1700,8 +1711,8 @@ pub(crate) mod tests {
             "veil_rate",
         ];
         for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+            ("card.wesl", include_str!("shaders/card.wesl")),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl")),
         ] {
             let theirs = wgsl_fields(src, "CardParams");
             assert_eq!(theirs, ours, "{which} disagrees about `CardParams`");
@@ -1718,7 +1729,7 @@ pub(crate) mod tests {
     /// the cards flickering at rest and which no test noticed for months.
     #[test]
     fn the_sheen_crosses_once_from_the_bottom_right() {
-        let common = include_str!("shaders/card_common.wgsl");
+        let common = include_str!("shaders/card_common.wesl");
         // `uv` is 0 at the top left and 1 at the bottom right on both axes,
         // so this diagonal is the travel and the band is across it.
         assert!(
@@ -1739,8 +1750,8 @@ pub(crate) mod tests {
         );
 
         for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+            ("card.wesl", include_str!("shaders/card.wesl")),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl")),
         ] {
             assert!(
                 src.contains(
@@ -1769,7 +1780,7 @@ pub(crate) mod tests {
     #[test]
     fn the_doors_are_numbered_the_same_in_both_languages() {
         use baylee_client_core::zones::Passage;
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         for (name, ours) in [
             ("DOOR_NONE", door::NONE),
             ("DOOR_BOUNCE", door::BOUNCE),
@@ -1805,8 +1816,8 @@ pub(crate) mod tests {
     #[test]
     fn a_door_replaces_the_arrival_band_rather_than_joining_it() {
         for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+            ("card.wesl", include_str!("shaders/card.wesl")),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl")),
         ] {
             assert!(
                 src.contains("let plain = select(0.0, travel, door == DOOR_NONE);"),
@@ -1819,7 +1830,7 @@ pub(crate) mod tests {
                 "{which} draws a door on a card that was given no sweep"
             );
         }
-        let common = include_str!("shaders/card_common.wgsl");
+        let common = include_str!("shaders/card_common.wesl");
         // The two exile doors are one ring, run in opposite directions — the
         // owner's "the same effect reversed" in one line each.
         assert!(
@@ -1849,7 +1860,7 @@ pub(crate) mod tests {
 
     /// A card shader may only call what it has asked for by name.
     ///
-    /// `card_common.wgsl` is imported with an explicit item list, so adding a
+    /// `card_common.wesl` is imported with an explicit item list, so adding a
     /// function to it and calling it from a card shader is *two* edits and
     /// the second one is invisible: the file parses, every test that reads
     /// the WGSL as text passes, and the composition fails at run time with
@@ -1858,7 +1869,7 @@ pub(crate) mod tests {
     /// caught by reading the import line, not by anything that ran.
     #[test]
     fn a_card_shader_imports_every_shared_helper_it_calls() {
-        let common = include_str!("shaders/card_common.wgsl");
+        let common = include_str!("shaders/card_common.wesl");
         let shared: Vec<&str> = common
             .lines()
             .filter_map(|line| line.strip_prefix("fn "))
@@ -1870,12 +1881,12 @@ pub(crate) mod tests {
         );
 
         for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+            ("card.wesl", include_str!("shaders/card.wesl")),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl")),
         ] {
             let line = src
                 .lines()
-                .find(|line| line.starts_with("#import") && line.contains("card_common.wgsl"))
+                .find(|line| line.starts_with("import baylee_client::shaders::card_common::"))
                 .unwrap_or_else(|| panic!("{which} no longer imports the shared file"));
             let asked = line
                 .split_once('{')
@@ -1904,11 +1915,11 @@ pub(crate) mod tests {
     /// either compiler can notice when one of them moves. A wrong number here
     /// has no error and no crash: the felt lights a card for an offer it does
     /// not have, or two flags share a bit and one offer draws as another.
-    /// `floor_light` in `card_common.wgsl` is the one reader (#298), and no
+    /// `floor_light` in `card_common.wesl` is the one reader (#298), and no
     /// other shader may keep a table of its own that could drift from it.
     #[test]
     fn the_glow_flags_are_the_same_number_on_both_sides() {
-        let common = include_str!("shaders/card_common.wgsl");
+        let common = include_str!("shaders/card_common.wesl");
         let mut taken = 0u32;
         for (name, ours, drawn) in [
             ("GLOW_INDESTRUCTIBLE", glow::INDESTRUCTIBLE, false),
@@ -1924,7 +1935,7 @@ pub(crate) mod tests {
                 let theirs = wgsl_const(common, name);
                 assert!(
                     (theirs - ours as f32).abs() < f32::EPSILON,
-                    "{name}: {ours} here, {theirs} in card_common.wgsl"
+                    "{name}: {ours} here, {theirs} in card_common.wesl"
                 );
                 assert_ne!(
                     ours & glow::OFFERS,
@@ -1942,9 +1953,9 @@ pub(crate) mod tests {
             "the felt is lit for five offers, and the protection is not one"
         );
         for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
-            ("floor.wgsl", include_str!("shaders/floor.wgsl")),
+            ("card.wesl", include_str!("shaders/card.wesl")),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl")),
+            ("floor.wesl", include_str!("shaders/floor.wesl")),
         ] {
             assert!(
                 !src.contains("const GLOW_"),
@@ -1976,8 +1987,8 @@ pub(crate) mod tests {
     #[test]
     fn nothing_but_the_finish_is_drawn_on_the_print() {
         for (which, src, angle) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl"), "facing"),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl"), "tilt"),
+            ("card.wesl", include_str!("shaders/card.wesl"), "facing"),
+            ("card_ui.wesl", include_str!("shaders/card_ui.wesl"), "tilt"),
         ] {
             let body = src
                 .split_once("fn fragment(")
@@ -2294,7 +2305,7 @@ pub(crate) mod tests {
     /// quietly left the phase on the floor.
     #[test]
     fn the_rail_declares_every_mark_that_does_not_move() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let open = src.find("fn mark_pulse(").expect("the pulse table");
         let body = &src[open..];
         let body = &body[..body.find("\n}").expect("a brace at column zero")];
@@ -2386,7 +2397,7 @@ pub(crate) mod tests {
     /// sentence that is true afterwards.
     #[test]
     fn the_ink_below_a_mark_is_not_told_which_mark_it_is() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let open = src.find("fn label_strip(").expect("the strip");
         let body = &src[open..];
         let body = &body[..body.find("\n}").expect("a brace at column zero")];
@@ -2437,7 +2448,7 @@ pub(crate) mod tests {
     /// edge moves, the halo changes size, and nothing anywhere errors.
     #[test]
     fn the_shader_and_the_baker_agree_about_the_atlas() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         assert!(
             (wgsl_const(src, "MARK_CELL") - crate::markatlas::CELL as f32).abs() < 1e-5,
             "one mark's square, in texels"
@@ -2500,8 +2511,8 @@ struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
         check_wgsl(
-            include_str!("shaders/card.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/card.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -2517,7 +2528,7 @@ struct Globals { time: f32 };
     #[test]
     fn the_plate_is_the_same_plate_in_both_languages() {
         use baylee_client_core::cardplate as plate;
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
 
         for (name, ours) in [
             ("PLATE_W", plate::PLATE_W),
@@ -2620,7 +2631,7 @@ struct Globals { time: f32 };
     /// whatever it was copied from, including a mistake.
     #[test]
     fn the_parchment_is_the_same_paper_in_both_languages() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let page = wgsl_rgb(src, "PARCHMENT");
         let sheet = crate::hud::palette::PARCHMENT.to_srgba();
         for (channel, (shader, ui)) in [
@@ -2730,7 +2741,7 @@ struct Globals { time: f32 };
     /// clear of the band, and a hue nothing else in this corner owns.
     #[test]
     fn the_damage_band_is_the_figure_and_its_numerals_are_the_ground() {
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let heat = wgsl_rgb(src, "HEAT");
         let plate = wgsl_rgb(src, "PLATE");
         let ink = wgsl_rgb(src, "INK");
@@ -2787,7 +2798,7 @@ struct Globals { time: f32 };
     #[test]
     fn the_band_says_marked_at_the_table_and_how_much_in_the_preview() {
         use baylee_client_core::cardplate as plate;
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         let floor = wgsl_const(src, "DAMAGE_FLOOR");
         let tick_aa = wgsl_const(src, "TICK_AA");
         let tick_max = wgsl_const(src, "TICK_MAX");
@@ -2835,7 +2846,7 @@ struct Globals { time: f32 };
     #[test]
     fn the_text_face_is_the_same_face_in_both_languages() {
         use baylee_client_core::textface::{self as face, Hue};
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         for (name, ours) in [
             ("TEXT_BORDER", face::BORDER),
             ("TEXT_SEAM", face::seam()),
@@ -2972,7 +2983,7 @@ struct Globals { time: f32 };
     fn the_identity_papers_are_the_same_in_both_languages() {
         use baylee_client_core::cardcrest as crest;
 
-        let src = include_str!("shaders/card_common.wgsl");
+        let src = include_str!("shaders/card_common.wesl");
         for (name, ours) in [
             ("CREST_BASE", crate::markatlas::CREST_BASE),
             ("CREST_TOKEN", crest::GLYPH_TOKEN),
@@ -3008,7 +3019,7 @@ struct Globals { time: f32 };
     /// happened to be built first.
     #[test]
     fn the_marks_module_compiles() {
-        check_wgsl(include_str!("shaders/card_common.wgsl"), "");
+        check_wgsl(include_str!("shaders/card_common.wesl"), "");
     }
     /// The UI twin, held to the same standard. Its bind group is group 1 —
     /// `bevy_ui_render` puts the view layout first — and it reads `globals`
@@ -3019,15 +3030,16 @@ struct Globals { time: f32 };
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) border_widths: vec4<f32>,
-    @location(2) border_radius: vec4<f32>,
-    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 struct Globals { time: f32 };
 ";
         check_wgsl(
-            include_str!("shaders/card_ui.wgsl"),
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            include_str!("shaders/card_ui.wesl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wesl")),
         );
     }
 
@@ -3087,5 +3099,294 @@ struct Globals { time: f32 };
             Some(&printed),
             "a constructed face was dressed as a card back"
         );
+    }
+
+    /// The directory the client's shaders live in.
+    fn shader_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/shaders")
+    }
+
+    /// The files in the shader directory with the given extension, sorted.
+    fn shader_files(extension: &str) -> Vec<std::path::PathBuf> {
+        let mut files: Vec<_> = std::fs::read_dir(shader_dir())
+            .expect("the shaders directory")
+            .map(|e| e.expect("an entry").path())
+            .filter(|p| p.extension().is_some_and(|x| x == extension))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// Every `.rs` file under a directory, however deep.
+    fn rust_files(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("a source directory") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                rust_files(&path, found);
+            } else if path.extension().is_some_and(|x| x == "rs") {
+                found.push(path);
+            }
+        }
+    }
+
+    /// The shaders are WESL, and a `.wgsl` file is not.
+    ///
+    /// Bevy 0.20 hands a `.wgsl` file to wgpu verbatim, with no composition
+    /// at all, so a `naga_oil` directive or a `baylee_client::shaders::…`
+    /// import left in one fails only when the pipeline is built, on a GPU,
+    /// long after every test has passed. Nothing here is meant to be plain
+    /// WGSL; a file with that extension is a shader that was not moved over.
+    #[test]
+    fn the_shaders_are_wesl_and_none_is_left_as_wgsl() {
+        let wgsl = shader_files("wgsl");
+        assert!(
+            wgsl.is_empty(),
+            "a .wgsl file reaches wgpu uncomposed in bevy 0.20; rename it to .wesl and convert \
+             its directives: {wgsl:#?}"
+        );
+        let wesl = shader_files("wesl").len();
+        assert!(wesl >= 20, "only {wesl} .wesl shaders found");
+    }
+
+    /// The code of a shader: its source without `//` comments, which are
+    /// free to say "#import" (and do, explaining what replaced it).
+    fn code_of(source: &str) -> String {
+        source
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// No shader still speaks `naga_oil`.
+    ///
+    /// WESL has `import`, `@if` and constants where `naga_oil` had `#import`,
+    /// `#ifdef`, `#define_import_path` and `#{…}` substitution. WESL does
+    /// not read the old directives: they stay in the source as text that is
+    /// not WGSL, and the shader fails when its pipeline is built.
+    #[test]
+    fn no_shader_still_uses_naga_oil_directives() {
+        let mut faults = Vec::new();
+        for path in shader_files("wesl") {
+            let source = std::fs::read_to_string(&path).expect("a shader");
+            for (n, line) in code_of(&source).lines().enumerate() {
+                let line = line.trim_start();
+                let old = ["#import", "#ifdef", "#define_import_path"]
+                    .into_iter()
+                    .any(|directive| line.starts_with(directive))
+                    || line.contains("#{");
+                if old {
+                    faults.push(format!(
+                        "{}:{}: `{line}`",
+                        path.file_name().unwrap_or_default().to_string_lossy(),
+                        n + 1
+                    ));
+                }
+            }
+        }
+        assert!(
+            faults.is_empty(),
+            "naga_oil syntax in a WESL shader: {faults:#?}"
+        );
+    }
+
+    /// The bevy 0.20 shader modules this client imports, as WESL paths.
+    const BEVY_MODULES: [&str; 6] = [
+        "bevy_pbr::render::forward_io",
+        "bevy_pbr::render::mesh_view_bindings",
+        "bevy_pbr::render::mesh_functions",
+        "bevy_pbr::render::view_transformations",
+        "bevy_render::globals",
+        "bevy_ui_render::ui_vertex_output",
+    ];
+
+    /// Every `import` statement of every shader, as the file it is in and the
+    /// module it names: the path without the item (or the `{…}` list) it
+    /// brings in.
+    fn shader_imports() -> Vec<(String, String)> {
+        let mut imports = Vec::new();
+        for path in shader_files("wesl") {
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            let source = std::fs::read_to_string(&path).expect("a shader");
+            // A statement runs to its `;`, which may be lines later.
+            let code = code_of(&source);
+            let mut statement: Option<String> = None;
+            for line in code.lines() {
+                if statement.is_none() && line.starts_with("import ") {
+                    statement = Some(String::new());
+                }
+                if let Some(text) = statement.as_mut() {
+                    text.push_str(line.trim());
+                    if line.contains(';') {
+                        let full = statement.take().unwrap_or_default();
+                        let path_text = full
+                            .trim_start_matches("import ")
+                            .split(';')
+                            .next()
+                            .unwrap_or("")
+                            .replace(' ', "");
+                        let module = match path_text.split_once("::{") {
+                            Some((module, _)) => module.to_string(),
+                            None => path_text
+                                .rsplit_once("::")
+                                .map_or(path_text.clone(), |(module, _)| module.to_string()),
+                        };
+                        imports.push((name.clone(), module));
+                    }
+                }
+            }
+            assert!(statement.is_none(), "{name}: an import with no `;`");
+        }
+        imports
+    }
+
+    /// Every `import` in every shader names a module that exists.
+    ///
+    /// An import of a path that is not there fails when the shader is
+    /// composed, which is at pipeline build, on a GPU. Ours are checked
+    /// against the files; bevy's against the list of modules this client
+    /// uses, taken from the bevy 0.20 sources, so a path that moved in a
+    /// later bevy is found by this test rather than by a black screen.
+    #[test]
+    fn every_shader_import_names_a_module_that_exists() {
+        let imports = shader_imports();
+        let mut faults = Vec::new();
+        for (name, module) in &imports {
+            if module.starts_with("baylee_client::shaders::") {
+                let target = module.split("::").nth(2).unwrap_or("");
+                if !shader_dir().join(format!("{target}.wesl")).is_file() {
+                    faults.push(format!(
+                        "{name}: `{module}` has no src/shaders/{target}.wesl"
+                    ));
+                }
+            } else if !BEVY_MODULES.contains(&module.as_str()) {
+                faults.push(format!(
+                    "{name}: `{module}` is not a module this client is known to import; check \
+                     the module path against the bevy 0.20 sources (and add it to BEVY_MODULES \
+                     if it is right)"
+                ));
+            }
+        }
+        assert!(imports.len() >= 30, "only {} imports found", imports.len());
+        assert!(faults.is_empty(), "{faults:#?}");
+    }
+
+    /// Every module of ours that a shader imports is registered as a shader
+    /// library.
+    ///
+    /// In bevy 0.20 an imported WESL module resolves only if its file was
+    /// loaded as a shader (`load_shader_library!`); `embedded_asset!` puts
+    /// the bytes in the binary but registers no module path, so the import
+    /// fails at pipeline build with "module not found … no shader
+    /// registered for this module path", on a GPU and never in a test that
+    /// only parses. The registration is a string in Rust that agrees with
+    /// the import only by being typed the same, so it is looked for as text
+    /// in the source tree, the pattern put together here so this file does
+    /// not find itself.
+    #[test]
+    fn every_module_a_shader_imports_is_registered_as_a_shader_library() {
+        let mut libraries: Vec<String> = shader_imports()
+            .into_iter()
+            .filter_map(|(_, module)| {
+                module
+                    .strip_prefix("baylee_client::shaders::")
+                    .map(|name| name.split("::").next().unwrap_or("").to_string())
+            })
+            .collect();
+        libraries.sort();
+        libraries.dedup();
+        assert!(
+            libraries.len() >= 3,
+            "only {libraries:?} imported (noise, card_common and shell_common are)"
+        );
+        let mut sources = Vec::new();
+        rust_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut sources,
+        );
+        let registrations: String = sources
+            .iter()
+            .map(|path| std::fs::read_to_string(path).expect("a source file"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let call = ["load_shader_library", "!(app, \"shaders/"].concat();
+        let unregistered: Vec<_> = libraries
+            .iter()
+            .filter(|name| !registrations.contains(&format!("{call}{name}.wesl\")")))
+            .collect();
+        assert!(
+            unregistered.is_empty(),
+            "imported by a shader but never registered with load_shader_library: {unregistered:?}"
+        );
+    }
+
+    /// Every shader the Rust side names is a file that exists.
+    ///
+    /// A shader is embedded with `embedded_asset!` (or registered with
+    /// `load_shader_library!`) and asked for by an `embedded://` path; the two are strings that agree only by being typed
+    /// the same. A path to a file that was renamed to `.wesl` (or not
+    /// renamed) is no compile error: the pipeline waits for a shader that
+    /// never loads and the material draws nothing. The patterns are put
+    /// together here so this file does not find itself.
+    #[test]
+    fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
+        let embed = ["embedded_asset", "!("].concat();
+        let library = ["load_shader_library", "!("].concat();
+        let url = ["\"embedded", "://baylee_client/shaders/"].concat();
+        let mut sources = Vec::new();
+        rust_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut sources,
+        );
+        let (mut embedded, mut asked) = (0, 0);
+        let mut faults = Vec::new();
+        for path in sources {
+            let source = std::fs::read_to_string(&path).expect("a source file");
+            let file = path.file_name().unwrap_or_default().to_string_lossy();
+            let mut check = |name: &str, how: &str| {
+                let is_wesl = std::path::Path::new(name)
+                    .extension()
+                    .is_some_and(|extension| extension == "wesl");
+                if !is_wesl || !shader_dir().join(name).is_file() {
+                    faults.push(format!("{file}: {how} names `{name}`, no .wesl shader"));
+                }
+            };
+            for (pattern, how) in [
+                (&embed, "an embedded asset"),
+                (&library, "a shader library"),
+            ] {
+                for (at, _) in source.match_indices(pattern) {
+                    let call = &source[at + pattern.len()..];
+                    let Some(open) = call.find('"') else { continue };
+                    // `app, "shaders/x.wesl"`: the literal is the call's
+                    // second argument; anything else before the quote is
+                    // not a call.
+                    if call[..open].contains(')') {
+                        continue;
+                    }
+                    let name = call[open + 1..].split('"').next().unwrap_or("");
+                    embedded += 1;
+                    check(name.strip_prefix("shaders/").unwrap_or(name), how);
+                }
+            }
+            for (at, _) in source.match_indices(&url) {
+                let name = source[at + url.len()..].split('"').next().unwrap_or("");
+                asked += 1;
+                check(name, "an embedded:// path");
+            }
+        }
+        assert!(
+            (20..=80).contains(&(embedded + asked)),
+            "{embedded} embedded and {asked} asked-for shaders found"
+        );
+        assert!(
+            embedded >= 10 && asked >= 10,
+            "{embedded} embedded and {asked} asked-for shaders found"
+        );
+        assert!(faults.is_empty(), "{faults:#?}");
     }
 }

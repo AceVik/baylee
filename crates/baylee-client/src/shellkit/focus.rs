@@ -187,8 +187,8 @@ pub(super) fn install(app: &mut App) {
         .init_resource::<Remembered>()
         .init_resource::<WalkerYields>()
         .add_message::<Activated>()
-        .add_message::<Pointer<Press>>()
-        .add_message::<Pointer<Click>>()
+        .add_message::<PointerPress>()
+        .add_message::<PointerClick>()
         .add_observer(give_a_ring)
         .add_systems(
             Update,
@@ -210,7 +210,7 @@ pub struct FocusSystems;
 
 /// Every stop gets its ring hidden, so focusing it later changes a colour
 /// and inserts nothing.
-fn give_a_ring(added: On<Add, Stop>, mut commands: Commands) {
+fn give_a_ring(added: On<Add<Stop>>, mut commands: Commands) {
     commands.entity(added.entity).insert(Outline::new(
         px_fixed(tokens::RING_WIDTH),
         px_fixed(tokens::RING_OFFSET),
@@ -422,7 +422,7 @@ fn walk(
 
 /// A pointer press focuses the stop it lands in and hides the ring.
 fn pointer_focus(
-    mut presses: MessageReader<Pointer<Press>>,
+    mut presses: MessageReader<PointerPress>,
     stops: Query<(), With<Stop>>,
     parents: Query<&ChildOf>,
     mut focus: ResMut<InputFocus>,
@@ -500,7 +500,7 @@ fn edit_fields(
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 fn activate(
     mut keys: MessageReader<KeyboardInput>,
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     focus: Res<InputFocus>,
     stops: Query<&Stop>,

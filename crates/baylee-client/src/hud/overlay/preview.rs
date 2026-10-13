@@ -45,7 +45,7 @@ pub(in crate::hud) fn plate_reach(img_w: f32) -> f32 {
 /// Lays one of the preview's shells over its card: a node of the frame's,
 /// one side's like the badge and the plate, so it turns with the front and
 /// is hidden with it at the quarter turn, over
-/// [`crate::shellui::PREVIEW_QUAD`], where `shell_ui.wgsl` lays each shell
+/// [`crate::shellui::PREVIEW_QUAD`], where `shell_ui.wesl` lays each shell
 /// out.
 pub(super) fn spawn_shell(
     commands: &mut Commands,

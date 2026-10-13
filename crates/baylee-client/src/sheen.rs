@@ -11,7 +11,7 @@
 //! So the sweep happens **once**, on the three occasions where a card is new
 //! to the player: it is drawn, it is played, or its preview is opened. This
 //! module is the part that decides that. The band itself is `sweep_amount` in
-//! `shaders/card_common.wgsl`, shared by the table shader and its UI twin so
+//! `shaders/card_common.wesl`, shared by the table shader and its UI twin so
 //! that a card picked up off the table keeps the light it caught.
 //!
 //! # Why a resource and not a spawn hook

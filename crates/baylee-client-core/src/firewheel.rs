@@ -12,7 +12,7 @@
 //! lamplight and the compass ring this wheel stands in. This module draws
 //! nothing either: it says where the five stand, what each is made of, how
 //! hard each burns given what is on the battlefield, and on what rhythm it
-//! flickers. `felt.wgsl` paints it and `table::shader_tests` reads the
+//! flickers. `felt.wesl` paints it and `table::shader_tests` reads the
 //! shader's own text back and fails when the two drift.
 //!
 //! # Why the flames are painted flat on the cloth
@@ -90,14 +90,14 @@ pub const FOOT_RADIUS: f32 = 0.68;
 
 /// How far from the middle of the table anything on this wheel may reach.
 ///
-/// The branch in `felt.wgsl` is `length(table) < FLAME_REACH`, so this is
+/// The branch in `felt.wesl` is `length(table) < FLAME_REACH`, so this is
 /// both the budget and the optimisation: outside it the cloth is the cloth,
 /// and the five flames cost nothing at all over 99% of a thirty-five-unit
 /// slab.
 pub const FLAME_REACH: f32 = 1.6;
 
 /// Where flame `n`'s foot stands, in table units: `(x, y)` with `y` running
-/// **away from the viewer**, which is the table space `felt.wgsl` works in.
+/// **away from the viewer**, which is the table space `felt.wesl` works in.
 ///
 /// White at the top of the screen and then clockwise, which is the wheel as
 /// it is printed on a card.
@@ -243,7 +243,7 @@ pub const POOL_OUTER: f32 = 0.80;
 /// pools are added after the sky, the way the rail lamp's glow is. A number
 /// written as though it were display-referred lands at a different lift on
 /// cloth, on worn cloth and in the shadow, and this table has made that
-/// mistake before (`felt.wgsl`'s own note: a surface meant for 0.22 measured
+/// mistake before (`felt.wesl`'s own note: a surface meant for 0.22 measured
 /// 0.45).
 ///
 /// It was 0.020 on the first pass, which the brief costed at about +13 sRGB

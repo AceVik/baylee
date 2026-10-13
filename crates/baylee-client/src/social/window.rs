@@ -10,6 +10,7 @@
 //! nothing here writes.
 
 use super::zoom::{z, zpx};
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{
     ChatPhrase, ChatTab, ComposerKey, ConvId, GroupRef, Intent, Social, TabFilter, TableContext,
@@ -248,11 +249,7 @@ pub(crate) fn install(app: &mut App) {
             follow_in_the_lobby.run_if(in_state(DuelPhase::Closed)),
             wheel_in_the_lobby
                 .run_if(in_state(DuelPhase::Closed))
-                .run_if(
-                    resource_exists::<
-                        Messages<bevy::picking::events::Pointer<bevy::picking::events::Scroll>>,
-                    >,
-                ),
+                .run_if(resource_exists::<Messages<bevy::picking::events::PointerScroll>>),
             hover_chat_links,
             lobby_card_links.run_if(in_state(DuelPhase::Closed)),
             peek,
@@ -593,7 +590,7 @@ fn panel_follows_the_window(
 /// The window's presses.
 #[allow(clippy::too_many_lines)] // one arm per control, read top to bottom
 fn presses(
-    pressed: Query<(Entity, &Interaction, &ChatPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &LegacyInteraction, &ChatPress), Changed<LegacyInteraction>>,
     mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
@@ -1079,7 +1076,7 @@ fn chat_pill(
     };
     commands
         .spawn((
-            Button,
+            LegacyButton,
             ChatPress::Restore,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -1171,7 +1168,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
     let note = commands
         .spawn((
             Part::Note,
-            Button,
+            LegacyButton,
             ChatPress::Lock,
             Node {
                 display: Display::None,
@@ -1493,7 +1490,7 @@ fn head_parts(
             .id();
         let button = commands
             .spawn((
-                Button,
+                LegacyButton,
                 ChatPress::Tab(*tab),
                 Node {
                     flex_direction: FlexDirection::Row,
@@ -1528,7 +1525,7 @@ fn head_parts(
     let tool = |commands: &mut Commands, glyph: char, press: ChatPress| {
         commands
             .spawn((
-                Button,
+                LegacyButton,
                 press,
                 Node {
                     width: zpx(HEAD_BTN),
@@ -1653,7 +1650,7 @@ fn group_bar(
     });
     let picker = commands
         .spawn((
-            Button,
+            LegacyButton,
             ChatPress::GroupMenu,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -1748,7 +1745,7 @@ pub(crate) fn text_button(
 ) -> Entity {
     commands
         .spawn((
-            Button,
+            LegacyButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(8.0), zpx(3.0)),
@@ -2262,7 +2259,7 @@ fn composer_parts(
     let (chip_text, chip_ink, _) = target_label(machine, c.target(), lang);
     let chip = commands
         .spawn((
-            Button,
+            LegacyButton,
             ChatPress::Chip,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -2295,7 +2292,7 @@ fn composer_parts(
     let text = c.text();
     let field = commands
         .spawn((
-            Button,
+            LegacyButton,
             ChatPress::Field,
             Text::default(),
             tf(fonts, z(inks.pt)),
@@ -2428,7 +2425,7 @@ fn composer_parts(
         .id();
     let send = commands
         .spawn((
-            Button,
+            LegacyButton,
             ChatPress::Send,
             Node {
                 width: zpx(26.0),
@@ -2485,7 +2482,7 @@ fn composer_parts(
             let lit = i == highlight;
             let row = commands
                 .spawn((
-                    Button,
+                    LegacyButton,
                     ChatPress::Suggestion(i),
                     Node {
                         padding: UiRect::axes(zpx(8.0), zpx(3.0)),
@@ -2543,8 +2540,8 @@ fn lobby_card_links(
 /// Hovering a card link in a chat line at the table opens the table's own
 /// preview, when the game knows a printing of that card (§12.3).
 fn hover_chat_links(
-    mut overs: MessageReader<bevy::picking::events::Pointer<bevy::picking::events::Over>>,
-    mut outs: MessageReader<bevy::picking::events::Pointer<bevy::picking::events::Out>>,
+    mut overs: MessageReader<bevy::picking::events::PointerOver>,
+    mut outs: MessageReader<bevy::picking::events::PointerOut>,
     links: Query<&rows::ChatCardLink>,
     duel: Option<ResMut<Duel>>,
 ) {
@@ -2576,7 +2573,7 @@ fn hover_chat_links(
                     }),
                     token: None,
                 },
-                at: over.pointer_location.position,
+                at: over.pointer.position,
                 card: None,
             });
         }
@@ -2824,7 +2821,7 @@ fn filter_dialog(
         let mark = if on { "\u{2611}" } else { "\u{2610}" };
         let row = commands
             .spawn((
-                Button,
+                LegacyButton,
                 ChatPress::Filter(kind),
                 Node {
                     padding: UiRect::axes(zpx(4.0), zpx(3.0)),
@@ -2892,7 +2889,7 @@ fn follow_in_the_lobby(
 /// The wheel over the chat's lists in the lobby (the table's `hud::scrolls`
 /// takes it there): the list under the pointer scrolls, by lines.
 fn wheel_in_the_lobby(
-    mut wheels: MessageReader<bevy::picking::events::Pointer<bevy::picking::events::Scroll>>,
+    mut wheels: MessageReader<bevy::picking::events::PointerScroll>,
     parents: Query<&ChildOf>,
     mut lists: Query<(&mut ScrollPosition, &ComputedNode), With<crate::hud::Scrolls>>,
 ) {

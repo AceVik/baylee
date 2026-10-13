@@ -16,9 +16,9 @@
 // Reduced motion zeros both the clock and energy, leaving a designed still
 // surface rather than a frozen bright pose. Cards keep their own signals.
 
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import bevy_render::globals::Globals
-#import "embedded://baylee_client/shaders/noise.wgsl"::fbm1
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import bevy_render::globals::Globals;
+import baylee_client::shaders::noise::fbm1;
 
 struct FrontalParams {
     /// The one dye, in **linear** light; `w` is how far the folds move it.

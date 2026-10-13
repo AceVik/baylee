@@ -498,7 +498,7 @@ pub(super) fn place_the_caret(
         .run_geometry
         .iter()
         .map(|run| baylee_client_core::caretspot::Run {
-            section: run.section_index,
+            section: run.section_index as usize,
             left: run.bounds.min.x / scale,
             top: run.bounds.min.y / scale,
             right: run.bounds.max.x / scale,

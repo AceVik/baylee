@@ -414,7 +414,7 @@ fn draw_rows(
 /// A click on a row runs it; Edit keys… opens Settings; Close closes.
 fn clicks(
     mut activated: MessageReader<Activated>,
-    mut pointer: MessageReader<Pointer<Click>>,
+    mut pointer: MessageReader<PointerClick>,
     rows: Query<&OverlayRow>,
     parents: Query<&ChildOf>,
     mut overlay: ResMut<Overlay>,

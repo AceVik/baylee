@@ -326,7 +326,7 @@ fn stack_layers(under: usize) -> usize {
 /// fixed while chasing them. One was a pickable preview panel opening over the
 /// card it described, on cards nowhere near this bound (the fix is in
 /// `hud/overlay.rs`); the other was the metallic coat looping continuously in
-/// `card_ui.wgsl`, which moved no card at all (`sheen.rs`). `docs/client.md`
+/// `card_ui.wesl`, which moved no card at all (`sheen.rs`). `docs/client.md`
 /// ("The pointer only speaks when it moves") has the measurements that tell
 /// the three apart, and is normative on which is which.
 const HOVER_LIFT: f32 = 0.04;

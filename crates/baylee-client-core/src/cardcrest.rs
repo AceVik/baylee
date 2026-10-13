@@ -27,7 +27,7 @@
 //! same claim twice.
 //!
 //! Like [`crate::cardplate`] this module draws nothing. It says which glyph
-//! each crest is and what it is printed on; `card_common.wgsl`
+//! each crest is and what it is printed on; `card_common.wesl`
 //! draws it and a mirror test in `baylee-client` reads the WGSL text and
 //! fails when the two drift.
 

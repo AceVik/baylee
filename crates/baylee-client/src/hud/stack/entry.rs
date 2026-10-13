@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the stack panel shares one drawing vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 
 pub(in crate::hud) fn control_button(
     commands: &mut Commands,
@@ -12,7 +13,7 @@ pub(in crate::hud) fn control_button(
 ) -> Entity {
     let button = commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 min_height: px(28),
                 padding: UiRect::axes(px(8), px(5)),
@@ -158,7 +159,7 @@ pub(in crate::hud) fn spawn_controls(
         let button = control_button(commands, controls, label.text(lang), running, fonts);
         commands
             .entity(button)
-            .observe(|mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>| {
+            .observe(|mut click: On<PointerClick>, mut duel: ResMut<Duel>| {
                 click.propagate(false);
                 if let Some(action) = duel.hold_action(false) {
                     duel.submit(action);
@@ -186,7 +187,7 @@ pub(in crate::hud) fn spawn_controls(
         let mark = pass_check(commands, fonts, order.pass);
         commands.entity(pass).insert_children(0, &[mark]);
         commands.entity(pass).observe(
-            move |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+            move |mut click: On<PointerClick>, mut prefs: ResMut<crate::prefs::Prefs>| {
                 click.propagate(false);
                 let mut order = ability_order(&prefs.all().ability_orders, ability);
                 order.pass = !order.pass;
@@ -219,7 +220,7 @@ pub(in crate::hud) fn spawn_controls(
                 fonts,
             );
             commands.entity(button).observe(
-                move |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+                move |mut click: On<PointerClick>, mut prefs: ResMut<crate::prefs::Prefs>| {
                     click.propagate(false);
                     let mut order = ability_order(&prefs.all().ability_orders, ability);
                     order.answer = answer;
@@ -248,7 +249,7 @@ pub(in crate::hud) fn spawn_controls(
             fonts,
         );
         commands.entity(reset).observe(
-            |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+            |mut click: On<PointerClick>, mut prefs: ResMut<crate::prefs::Prefs>| {
                 click.propagate(false);
                 prefs.edit().ability_orders.clear();
             },

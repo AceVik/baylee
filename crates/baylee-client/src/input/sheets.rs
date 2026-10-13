@@ -157,7 +157,7 @@ pub(super) fn lineage_bearer<'a, T: Component, F: bevy::ecs::query::QueryFilter>
 
 /// Moves and stretches the zone browser's sheet.
 ///
-/// # Why this is not `Pointer<Drag>`
+/// # Why this is not `PointerDrag`
 ///
 /// Bevy's picking backend has a perfectly good drag gesture, and the lobby
 /// uses it. The duel HUD cannot: it is a retained tree rebuilt from scratch
@@ -182,8 +182,8 @@ pub(super) fn lineage_bearer<'a, T: Component, F: bevy::ecs::query::QueryFilter>
 /// gate.
 #[allow(clippy::too_many_arguments)] // two message readers, three queries, two stores
 pub fn tray_drag(
-    mut downs: MessageReader<Pointer<Press>>,
-    mut ups: MessageReader<Pointer<Release>>,
+    mut downs: MessageReader<PointerPress>,
+    mut ups: MessageReader<PointerRelease>,
     grips: Query<&crate::hud::TrayGrip>,
     corners: Query<&crate::hud::TrayResize>,
     closes: Query<&TrayMinimise>,
@@ -283,7 +283,7 @@ pub fn tray_drag(
 
     // The corner used to maximise as well, on a press and release that
     // travelled less than a `TAP_SLOP` of 4 px between them. It was found
-    // this way rather than through a `Pointer<Click>` because a resize *ends*
+    // this way rather than through a `PointerClick` because a resize *ends*
     // over the corner — the corner travels under the hand — so every drag
     // would have fired one; and it existed at all because the corner drew a
     // ⤢, which is an argument from a mark rather than from a control. The
@@ -382,8 +382,8 @@ fn write_placement(panels: &mut Query<&mut Node, With<crate::hud::TrayPanel>>, p
 #[allow(clippy::too_many_arguments)] // events + queries + state, all needed
 pub fn preview_resize(
     keys: Res<ButtonInput<KeyCode>>,
-    mut downs: MessageReader<Pointer<Press>>,
-    mut ups: MessageReader<Pointer<Release>>,
+    mut downs: MessageReader<PointerPress>,
+    mut ups: MessageReader<PointerRelease>,
     resize: Query<&PreviewResize>,
     parents: Query<&ChildOf>,
     mut motions: MessageReader<MouseMotion>,

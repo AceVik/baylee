@@ -9,8 +9,8 @@
 // ground and under its words, as light: alpha only, the colour is the
 // light's.
 
-#import bevy_render::globals::Globals
-#import bevy_ui::ui_vertex_output::UiVertexOutput
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
 struct SheenParams {
     /// The light's colour (linear); its alpha is unused.
@@ -35,7 +35,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let size = max(in.size, vec2<f32>(1.0, 1.0));
     // The node's rounded corners: outside them, nothing.
     let p = (in.uv - vec2<f32>(0.5, 0.5)) * size;
-    let r = min(in.border_radius.x, min(size.x, size.y) * 0.5);
+    let r = min(in.border_radius_x.x, min(size.x, size.y) * 0.5);
     let q = abs(p) - size * 0.5 + vec2<f32>(r, r);
     let d = length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - r;
     let inside = clamp(0.5 - d, 0.0, 1.0);

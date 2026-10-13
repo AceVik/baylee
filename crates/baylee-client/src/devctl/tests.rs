@@ -496,7 +496,7 @@ fn a_press_can_be_held_and_let_go_of_separately() {
 
 /// The same regression one gesture along: a wheel written only as a
 /// `MouseWheel` message scrolled nothing at all, because it is picking
-/// that turns a wheel into the `Pointer<Scroll>` a list listens for, and
+/// that turns a wheel into the `PointerScroll` a list listens for, and
 /// picking reads `WindowEvent`. Both, or neither is any use.
 #[test]
 fn a_wheel_is_written_where_picking_reads_it() {

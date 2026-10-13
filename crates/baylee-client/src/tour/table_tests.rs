@@ -5,7 +5,7 @@
 use baylee_client_core::tour::{Mode, Run, Tour};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 
 use crate::{Duel, DuelPhase, DuelReport, InstalledHost, textures};
@@ -31,7 +31,7 @@ fn table() -> App {
         .init_resource::<Duel>()
         .init_state::<DuelPhase>()
         .add_message::<DuelReport>()
-        .add_message::<Pointer<Click>>()
+        .add_message::<PointerClick>()
         .init_resource::<super::TourDesk>()
         .insert_resource(crate::settings::ClientSettings::default())
         .insert_resource(InstalledHost(Box::new(host)))

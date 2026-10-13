@@ -34,9 +34,9 @@
 // to four literally. `globals.time` comes from the view bind group, so the
 // rail runs without the CPU touching a material asset per frame.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#import "embedded://baylee_client/shaders/noise.wgsl"::{hash_cell}
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::globals;
+import baylee_client::shaders::noise::{hash_cell};
 
 struct FeltParams {
     /// The phase lamp: `rgb` its colour, `a` how much of it there is.
@@ -122,7 +122,7 @@ struct FeltParams {
     trail: vec4<f32>,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: FeltParams;
 
 // The molten seam's colours, display-referred: emitted, never lit — white
 // hot at contact, through orange, to a dark red that goes out.
@@ -301,7 +301,7 @@ fn void_floor(uv: vec2<f32>) -> vec4<f32> {
 /// value noises per cell (`baylee_client_core::feltveins`, which computes it
 /// once per cut with this file's own `vnoise`). Read with `textureLoad`: one
 /// texel is one cell, never filtered.
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var vein_points: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var vein_points: texture_2d<f32>;
 
 // The baize, and the rail around it. Display-referred, like every colour this
 // project writes down, and therefore run through `to_linear` before use.
@@ -516,8 +516,8 @@ struct Veins {
 /// The slow fields, baked once per cut on the CPU with this file's own
 /// arithmetic (`baylee_client_core::feltwarp`): the warp's two noises in
 /// `xy`, the heat in `z`, the silt in `w`.
-@group(#{MATERIAL_BIND_GROUP}) @binding(2) var warp_field: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(3) var warp_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var warp_field: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) var warp_sampler: sampler;
 
 /// The baked fields at table point `p`, or a negative `x` where there are
 /// none (before the grid arrives, or past its edge).

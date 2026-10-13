@@ -43,6 +43,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::manapip;
 
@@ -1171,7 +1172,7 @@ pub(super) fn spawn_stack_panel(
 
     let toggle = commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 width: px(28),
                 height: px(26),
@@ -1193,12 +1194,10 @@ pub(super) fn spawn_stack_panel(
                 Pickable::IGNORE
             )],
         ))
-        .observe(
-            |mut click: On<Pointer<Click>>, mut fold: ResMut<StackFold>| {
-                click.propagate(false);
-                fold.collapsed = !fold.collapsed;
-            },
-        )
+        .observe(|mut click: On<PointerClick>, mut fold: ResMut<StackFold>| {
+            click.propagate(false);
+            fold.collapsed = !fold.collapsed;
+        })
         .id();
     commands.entity(head).add_child(toggle);
     // Above the list, except on a phone, where the list comes first and the

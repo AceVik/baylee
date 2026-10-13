@@ -14,6 +14,7 @@
 use super::super::*;
 use super::keys::{self, ABOUT};
 use super::{FAN_CONTENT_NOTICE, FrontPress, source_address};
+use crate::legacy_ui::LegacyButton;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::focus::{Current, Stop};
 use crate::shellkit::metrics::px_fixed;
@@ -618,7 +619,7 @@ fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     let frame = qr_frame(commands, picture);
     commands
         .entity(frame)
-        .insert((Button, Press::Front(FrontPress::OpenSource)));
+        .insert((LegacyButton, Press::Front(FrontPress::OpenSource)));
     frame
 }
 

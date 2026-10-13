@@ -5,6 +5,7 @@
 //! The machine's own behaviour is tested in `baylee-client-core`; what is
 //! asked here is only what this crate adds to it.
 
+use crate::legacy_ui::LegacyInteraction;
 use std::collections::HashSet;
 
 use baylee_client_core::i18n::Lang;
@@ -32,7 +33,7 @@ struct Held(HashSet<Entity>);
 struct Clicks(Vec<Press>);
 
 fn record_clicks(
-    changed: Query<(Entity, &Interaction, &Press), Changed<Interaction>>,
+    changed: Query<(Entity, &LegacyInteraction, &Press), Changed<LegacyInteraction>>,
     mut held: ResMut<Held>,
     mut clicks: ResMut<Clicks>,
 ) {
@@ -48,16 +49,19 @@ fn click_app() -> App {
 }
 
 fn control(app: &mut App, name: &'static str) -> Entity {
-    let id = app.world_mut().spawn((Interaction::None, Press(name))).id();
+    let id = app
+        .world_mut()
+        .spawn((LegacyInteraction::None, Press(name)))
+        .id();
     app.update();
     id
 }
 
-/// The pointer's state over `entity`, as one frame of `Interaction`.
-fn point(app: &mut App, entity: Entity, state: Interaction) {
+/// The pointer's state over `entity`, as one frame of `LegacyInteraction`.
+fn point(app: &mut App, entity: Entity, state: LegacyInteraction) {
     *app.world_mut()
         .entity_mut(entity)
-        .get_mut::<Interaction>()
+        .get_mut::<LegacyInteraction>()
         .expect("an interaction") = state;
     app.update();
 }
@@ -75,13 +79,13 @@ fn clicked(app: &App) -> Vec<&'static str> {
 fn a_press_released_over_its_control_clicks_once() {
     let mut app = click_app();
     let send = control(&mut app, "send");
-    point(&mut app, send, Interaction::Pressed);
+    point(&mut app, send, LegacyInteraction::Pressed);
     assert!(clicked(&app).is_empty(), "the press itself is no click");
-    point(&mut app, send, Interaction::Hovered);
+    point(&mut app, send, LegacyInteraction::Hovered);
     assert_eq!(clicked(&app), ["send"]);
     // A hover that follows is not a second click.
-    point(&mut app, send, Interaction::None);
-    point(&mut app, send, Interaction::Hovered);
+    point(&mut app, send, LegacyInteraction::None);
+    point(&mut app, send, LegacyInteraction::Hovered);
     assert_eq!(clicked(&app), ["send"], "hovering again clicks nothing");
 }
 
@@ -89,12 +93,12 @@ fn a_press_released_over_its_control_clicks_once() {
 fn a_press_released_elsewhere_clicks_nothing() {
     let mut app = click_app();
     let send = control(&mut app, "send");
-    point(&mut app, send, Interaction::Pressed);
+    point(&mut app, send, LegacyInteraction::Pressed);
     // The pointer slid off before the button came up.
-    point(&mut app, send, Interaction::None);
+    point(&mut app, send, LegacyInteraction::None);
     assert!(clicked(&app).is_empty());
     // Coming back over it later is a hover, not the release of that press.
-    point(&mut app, send, Interaction::Hovered);
+    point(&mut app, send, LegacyInteraction::Hovered);
     assert!(clicked(&app).is_empty(), "the press was forgotten");
 }
 
@@ -102,9 +106,9 @@ fn a_press_released_elsewhere_clicks_nothing() {
 fn a_hover_that_was_never_pressed_clicks_nothing() {
     let mut app = click_app();
     let send = control(&mut app, "send");
-    point(&mut app, send, Interaction::Hovered);
-    point(&mut app, send, Interaction::None);
-    point(&mut app, send, Interaction::Hovered);
+    point(&mut app, send, LegacyInteraction::Hovered);
+    point(&mut app, send, LegacyInteraction::None);
+    point(&mut app, send, LegacyInteraction::Hovered);
     assert!(clicked(&app).is_empty());
 }
 
@@ -113,11 +117,11 @@ fn a_release_over_another_control_clicks_neither() {
     let mut app = click_app();
     let first = control(&mut app, "first");
     let second = control(&mut app, "second");
-    point(&mut app, first, Interaction::Pressed);
+    point(&mut app, first, LegacyInteraction::Pressed);
     // The pointer left the first and came up over the second, which was
     // never pressed.
-    point(&mut app, first, Interaction::None);
-    point(&mut app, second, Interaction::Hovered);
+    point(&mut app, first, LegacyInteraction::None);
+    point(&mut app, second, LegacyInteraction::Hovered);
     assert!(clicked(&app).is_empty());
 }
 
@@ -129,13 +133,13 @@ fn two_controls_pressed_in_one_frame_each_click_on_their_own_release() {
     for e in [a, b] {
         *app.world_mut()
             .entity_mut(e)
-            .get_mut::<Interaction>()
-            .expect("an interaction") = Interaction::Pressed;
+            .get_mut::<LegacyInteraction>()
+            .expect("an interaction") = LegacyInteraction::Pressed;
     }
     app.update();
-    point(&mut app, b, Interaction::Hovered);
+    point(&mut app, b, LegacyInteraction::Hovered);
     assert_eq!(clicked(&app), ["b"], "a is still held");
-    point(&mut app, a, Interaction::Hovered);
+    point(&mut app, a, LegacyInteraction::Hovered);
     assert_eq!(clicked(&app), ["b", "a"]);
 }
 
@@ -144,8 +148,8 @@ fn a_second_press_of_the_same_control_clicks_again() {
     let mut app = click_app();
     let send = control(&mut app, "send");
     for _ in 0..2 {
-        point(&mut app, send, Interaction::Pressed);
-        point(&mut app, send, Interaction::Hovered);
+        point(&mut app, send, LegacyInteraction::Pressed);
+        point(&mut app, send, LegacyInteraction::Hovered);
     }
     assert_eq!(clicked(&app), ["send", "send"]);
 }
@@ -975,7 +979,7 @@ mod swallowed_key {
 mod line_copy {
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Over, Pointer, Press};
+    use bevy::picking::events::{PointerOver, PointerPress};
     use bevy::picking::pointer::{Location, PointerButton, PointerId};
 
     use super::*;
@@ -1014,9 +1018,9 @@ mod line_copy {
                 open: true,
                 ..ChatUi::default()
             })
-            .add_message::<Pointer<bevy::picking::events::Click>>()
-            .add_message::<Pointer<Press>>()
-            .add_message::<Pointer<Over>>();
+            .add_message::<bevy::picking::events::PointerClick>()
+            .add_message::<PointerPress>()
+            .add_message::<PointerOver>();
         menu::install(&mut app);
         let list = app.world_mut().spawn(Node::default()).id();
         let rows = [2usize, 0, 1]
@@ -1060,12 +1064,12 @@ mod line_copy {
 
         fn press(&mut self, order: usize, button: PointerButton) {
             let entity = self.row(order);
-            let event = Press {
+            let event = crate::test_pointer::Press {
                 button,
                 hit: HitData::new(entity, 0.0, None, None),
                 count: 1,
             };
-            self.app.world_mut().write_message(Pointer::new(
+            self.app.world_mut().write_message(crate::test_pointer::aim(
                 PointerId::Mouse,
                 Self::location(),
                 event,
@@ -1075,10 +1079,10 @@ mod line_copy {
 
         fn over(&mut self, order: usize) {
             let entity = self.row(order);
-            let event = Over {
+            let event = crate::test_pointer::Over {
                 hit: HitData::new(entity, 0.0, None, None),
             };
-            self.app.world_mut().write_message(Pointer::new(
+            self.app.world_mut().write_message(crate::test_pointer::aim(
                 PointerId::Mouse,
                 Self::location(),
                 event,
@@ -1317,10 +1321,10 @@ mod line_copy {
         rig.app.update();
         rig.select(0);
         // The pointer crosses a row of the other list: the span stays here.
-        let event = Over {
+        let event = crate::test_pointer::Over {
             hit: HitData::new(stranger, 0.0, None, None),
         };
-        rig.app.world_mut().write_message(Pointer::new(
+        rig.app.world_mut().write_message(crate::test_pointer::aim(
             PointerId::Mouse,
             Rig::location(),
             event,
@@ -1329,12 +1333,12 @@ mod line_copy {
         rig.app.update();
         assert_eq!(rig.copy().as_deref(), Some("text0"));
         // And a press in the other list moves the selection over to it.
-        let event = Press {
+        let event = crate::test_pointer::Press {
             button: PointerButton::Primary,
             hit: HitData::new(stranger, 0.0, None, None),
             count: 1,
         };
-        rig.app.world_mut().write_message(Pointer::new(
+        rig.app.world_mut().write_message(crate::test_pointer::aim(
             PointerId::Mouse,
             Rig::location(),
             event,
@@ -1358,12 +1362,12 @@ mod line_copy {
             .world_mut()
             .resource_mut::<ButtonInput<MouseButton>>()
             .press(MouseButton::Left);
-        let event = Press {
+        let event = crate::test_pointer::Press {
             button: PointerButton::Primary,
             hit: HitData::new(word, 0.0, None, None),
             count: 1,
         };
-        rig.app.world_mut().write_message(Pointer::new(
+        rig.app.world_mut().write_message(crate::test_pointer::aim(
             PointerId::Mouse,
             Rig::location(),
             event,
@@ -1697,8 +1701,8 @@ mod pane {
             let mut app = App::new();
             app.add_plugins((MinimalPlugins, StatesPlugin))
                 .init_state::<crate::DuelPhase>()
-                .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
-                .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+                .add_message::<bevy::picking::events::PointerOver>()
+                .add_message::<bevy::picking::events::PointerOut>()
                 .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
                     FRAME,
                 )))

@@ -140,14 +140,14 @@ impl Default for TablePattern {
 ///
 /// Above 1.0 deliberately, and what that buys is **saturation, not bloom**.
 /// This comment used to say the camera was HDR and a value past white would
-/// bloom; it is not and it does not. In bevy 0.19 an HDR intermediate is the
-/// opt-in `Hdr` *component*, the table camera carries `Tonemapping::None`
-/// and nothing else, and there is no bloom pass anywhere in this client — so
+/// bloom; it is not and it does not. Since bevy 0.19 an HDR intermediate is
+/// the opt-in `Hdr` *component*, the table camera carries no tone curve
+/// (`Tonemapping::Linear`) and nothing else, and there is no bloom pass anywhere in this client — so
 /// everything past 1.0 is clipped by the 8-bit target. The mistake is worth
 /// recording rather than quietly deleting, because it is the mechanism the
 /// next person designing light on this table will reach for: there is no
 /// bloom to reach for, and a glow here has to be *painted* — an additive
-/// term on the cloth, which is exactly what `felt.wgsl` does with this
+/// term on the cloth, which is exactly what `felt.wesl` does with this
 /// number.
 ///
 /// What the overshoot does do is hold the middle of the rail at white while
@@ -317,7 +317,7 @@ pub fn vein_points(span: Vec2, pattern: Vec4) -> (Image, Vec4) {
 
 impl Material for FeltMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/felt.wgsl".into()
+        "embedded://baylee_client/shaders/felt.wesl".into()
     }
 
     /// The slab is the floor of the scene: opaque, and the only thing under
@@ -345,7 +345,7 @@ pub struct FeltMaterialPlugin;
 
 impl Plugin for FeltMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/felt.wgsl");
+        embedded_asset!(app, "shaders/felt.wesl");
         app.add_plugins(MaterialPlugin::<FeltMaterial>::default());
     }
 }

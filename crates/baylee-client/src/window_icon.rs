@@ -1,8 +1,8 @@
 //! The window's own icon on Windows and X11, and the names that tie the
 //! running window to the entry a player started it from.
 //!
-//! Bevy 0.19 has no window icon, so [`install`] sets it through winit on the
-//! main thread once the primary window exists. Windows: the icon resource
+//! Bevy (0.19, and 0.20 still) has no window icon, so [`install`] sets it
+//! through winit on the main thread once the primary window exists. Windows: the icon resource
 //! `build.rs` embeds, loaded at the size each place draws (title bar and
 //! taskbar), so each is the `.ico`'s crisp entry rather than a scaled one.
 //! X11: `baylee-window.png` as `_NET_WM_ICON`. Wayland has no window icon in

@@ -1033,21 +1033,17 @@ fn slide_to(
 }
 
 fn slide_on_press(
-    press: On<Pointer<Press>>,
+    press: On<PointerPress>,
     mut sliders: Query<(&mut Slider, &ComputedNode, &UiGlobalTransform)>,
 ) {
-    slide_to(
-        press.entity,
-        press.pointer_location.position.x,
-        &mut sliders,
-    );
+    slide_to(press.entity, press.pointer.position.x, &mut sliders);
 }
 
 fn slide_on_drag(
-    drag: On<Pointer<Drag>>,
+    drag: On<PointerDrag>,
     mut sliders: Query<(&mut Slider, &ComputedNode, &UiGlobalTransform)>,
 ) {
-    slide_to(drag.entity, drag.pointer_location.position.x, &mut sliders);
+    slide_to(drag.entity, drag.pointer.position.x, &mut sliders);
 }
 
 /// Draws a slider's value where it changed: the fill, the knob, the readout.

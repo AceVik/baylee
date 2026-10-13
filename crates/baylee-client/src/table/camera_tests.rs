@@ -797,7 +797,7 @@ fn a_table_with_nobody_at_it_frames_nothing_rather_than_dividing_by_zero() {
 /// and the three the rail and its apron are.
 #[test]
 fn the_shader_and_the_generator_agree_about_the_cloth() {
-    let src = include_str!("../shaders/felt.wgsl");
+    let src = include_str!("../shaders/felt.wesl");
     for (name, ours) in [
         ("FELT_DEEP", tabletop::FELT_DEEP),
         ("FELT_CLOTH", tabletop::FELT_CLOTH),
@@ -844,7 +844,7 @@ fn the_shader_and_the_generator_agree_about_the_cloth() {
 /// travel to the GPU as uniforms, so there is only ever one of each.
 #[test]
 fn the_shader_and_the_generator_agree_about_the_mat() {
-    let src = include_str!("../shaders/mat.wgsl");
+    let src = include_str!("../shaders/mat.wesl");
     let read = |name: &str| crate::cardmat::tests::wgsl_const(src, name);
     for (name, ours) in [
         ("LANE_NEAR", tabletop::MAT_LANES[0]),
@@ -892,7 +892,7 @@ struct VertexOutput {
 struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
-    crate::cardmat::tests::check_wgsl(include_str!("../shaders/mat.wgsl"), prelude);
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/mat.wesl"), prelude);
 }
 
 /// The felt's own shader, which nothing compiled until the firewheel was
@@ -901,7 +901,7 @@ struct Globals { time: f32 };
 /// Two hundred lines of WGSL went in beside the cloth — five flames, a
 /// one-dimensional noise, a footprint-faded `fbm2` — and `cargo check` has
 /// nothing to say about any of it: a shader is text until a GPU reads it,
-/// and the first reader is a player's machine. `mat.wgsl` and the card
+/// and the first reader is a player's machine. `mat.wesl` and the card
 /// shaders have had this test for as long as they have existed and this one
 /// simply never got one, which is the kind of gap that is only ever noticed
 /// by the change that needed it.
@@ -917,9 +917,9 @@ struct VertexOutput {
 struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
-    // `check_wgsl` strips `#import` lines: the shared hash goes back by hand.
-    let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wgsl"));
-    crate::cardmat::tests::check_wgsl(include_str!("../shaders/felt.wgsl"), &prelude);
+    // `check_wgsl` strips `import` lines: the shared hash goes back by hand.
+    let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wesl"));
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/felt.wesl"), &prelude);
 }
 
 /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's
@@ -938,7 +938,7 @@ fn a_pile_stands_clear_of_the_mat_it_serves() {
 
 #[test]
 fn the_firewheel_burns_in_the_open_middle() {
-    let src = include_str!("../shaders/felt.wgsl");
+    let src = include_str!("../shaders/felt.wesl");
     let read = |name: &str| crate::cardmat::tests::wgsl_const(src, name);
 
     // The shader's own number, not the model's: the branch that decides
@@ -1296,4 +1296,37 @@ fn on_no_seat_s_place_in(
             }
         }
     }
+}
+
+/// The table camera is spawned with `Tonemapping::Linear`, not `None`.
+///
+/// Everything on the table is unlit and display-referred, so no tone curve
+/// may touch it. In bevy 0.19 `None` meant exactly that; in 0.20 `None` is a
+/// full passthrough that also drops the deband dither and the clamp of
+/// negative channels, and `Linear` is the old `None`. A camera that went
+/// back to `None` would compile, run, and draw the felt's gradients with
+/// visible banding. Runs `spawn_stage` itself on empty asset stores, which
+/// needs no GPU, and reads the component off the entity that carries
+/// `TableCamera`.
+#[test]
+fn the_table_camera_is_toned_linear_not_none() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_asset::<Mesh>()
+        .init_asset::<StandardMaterial>()
+        .init_asset::<CardMaterial>()
+        .init_asset::<Image>()
+        .init_resource::<SceneIndex>()
+        .add_systems(Update, spawn_stage);
+    app.update();
+    let mut cameras = app
+        .world_mut()
+        .query_filtered::<&Tonemapping, With<TableCamera>>();
+    let tones: Vec<_> = cameras.iter(app.world()).collect();
+    assert_eq!(tones.len(), 1, "one table camera, with a tone mapping");
+    assert!(
+        matches!(tones[0], Tonemapping::Linear),
+        "the table camera's tone mapping is {:?}, not Linear",
+        tones[0]
+    );
 }

@@ -23,12 +23,13 @@
 pub mod native;
 
 use crate::hud::{UiFonts, palette, tf};
+use crate::legacy_ui::LegacyButton;
 use crate::lobby::Metrics;
 use crate::settings::ClientSettings;
 use crate::{DuelPhase, lobby};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::resume::RestartOffer;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
 use serde::{Deserialize, Serialize};
@@ -314,7 +315,7 @@ impl Plugin for UpdatePlugin {
 
 /// Answers a click on any of the updater's buttons.
 fn press(
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     mut keyed: MessageReader<crate::shellkit::focus::Activated>,
     buttons: Query<&UpdateButton>,
     mut notice: ResMut<UpdateNotice>,
@@ -780,7 +781,7 @@ pub(crate) fn menu_line(
     let shown = notice?.shown.as_ref()?;
     let line = commands
         .spawn((
-            Button,
+            LegacyButton,
             Node {
                 width: percent(100),
                 ..default()

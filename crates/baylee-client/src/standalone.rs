@@ -40,6 +40,10 @@ pub fn run() {
     // (twenty, at most 64 MB together), and nothing waits on it.
     #[cfg(not(target_arch = "wasm32"))]
     std::thread::spawn(crate::records::recover);
+    // A passive dev-control window is never the active app, so macOS would
+    // nap it (`devctl::keep_a_passive_window_awake`).
+    #[cfg(all(feature = "dev-control", target_os = "macos"))]
+    crate::devctl::keep_a_passive_window_awake();
     // Hot shader reload is watching from a root, and the wrong root reloads
     // nothing while looking exactly like the right one.
     #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]
@@ -234,10 +238,19 @@ fn primary_window() -> Window {
         window.resolution.set(width, height);
     }
     // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
-    // without the focus, see `primary_cursor_options` below.
+    // without the focus, see `primary_cursor_options` below, and
+    // stays above other windows. Since bevy 0.20 an unfocused window
+    // no longer activates the app, so it opens *behind* whatever the
+    // owner is using; and wgpu acquires no drawable for a window
+    // macOS reports occluded (`wgpu-hal` `metal::surface`), so a
+    // covered passive window draws nothing at all, and every
+    // `/screenshot` of it came back black. On top, it is always
+    // drawn; with hit testing off the owner's clicks still go
+    // through it to what lies beneath.
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     if crate::devctl::passive() {
         window.focused = false;
+        window.window_level = bevy::window::WindowLevel::AlwaysOnTop;
     }
     window
 }

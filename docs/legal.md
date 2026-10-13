@@ -283,7 +283,7 @@ Urheber- und Medienrecht.
    (CR 702.26b); a creature under **summoning sickness** wears a cool
    moonlit edge until it may attack (CR 302.6). They are one term in each
    card shader, weighed by the card's own `veil` and zero on every other
-   card (`cardmat::veil`, `card_common.wgsl`'s `veiled`); the guard test
+   card (`cardmat::veil`, `card_common.wesl`'s `veiled`); the guard test
    above allows that one term and no other, so a lasting stamp, a keyword
    for instance, is still refused there. A keyword lasts as long as the
    keyword, so its border stays off the print (the shell's mask, above).

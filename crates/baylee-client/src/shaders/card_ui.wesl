@@ -11,9 +11,9 @@
 // shaders that disagreed about what "foil" looks like would be worse than one
 // that only ran on the table.
 
-#import bevy_render::globals::Globals
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON, veiled, veil_amounts}
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::card_common::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON, veiled, veil_amounts};
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.

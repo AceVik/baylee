@@ -305,15 +305,19 @@ pub fn spawn_stage(
             fov: FOV,
             ..default()
         }),
-        // No tone mapping. Bevy attaches none to a camera by default, so
-        // this is belt and braces rather than a fix — but it is the right
-        // thing to say out loud: everything in this scene is unlit and
+        // No tone curve. Everything in this scene is unlit and
         // display-referred (a generated texture says what the table should
         // *look* like, and a card's art is the same PNG the hand draws
         // unaltered through the UI pass), so a tone mapper reading those
         // numbers as radiance would be wrong. Naming it here stops a future
         // default from quietly doing that.
-        Tonemapping::None,
+        //
+        // `Linear`, not `None`: since bevy 0.20 `None` is a full passthrough
+        // that also drops the deband dither and the clamp of negative
+        // channels, and `Linear` is exactly what `None` was in 0.19 — no
+        // curve, dither and clamp kept. Bevy also warns about `None` next to
+        // the `DebandDither::Enabled` every `Camera3d` carries.
+        Tonemapping::Linear,
         // And no clustering, for the same reason: nothing here is lit, so
         // there is nothing to bin (`crate::unlit`).
         crate::unlit::CAMERA_CLUSTERS,
@@ -340,7 +344,7 @@ pub fn spawn_stage(
     // Nothing is spawned for the middle of the table either. The colour
     // wheel used to be a quad here with a 512-texel medallion on it — five
     // soft discs of the pie on two rings of worn gold — and it is five
-    // flames painted into `felt.wgsl` now, because the light a fire throws
+    // flames painted into `felt.wesl` now, because the light a fire throws
     // has to be *added to the cloth* to have the weave show through it, and
     // a quad blended over the felt can only ever cover it.
     // `baylee_client_core::firewheel` is normative.

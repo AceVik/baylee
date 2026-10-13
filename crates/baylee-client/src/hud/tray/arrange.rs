@@ -18,6 +18,7 @@ use super::{
 };
 use crate::ambience::Feel;
 use crate::hud::{ArrangeSlot, btn_radius, palette};
+use crate::legacy_ui::LegacyButton;
 use baylee_client_core::arrange::{Arrangement, Row};
 use baylee_client_core::i18n::{Lang, Phrase};
 use bevy::prelude::*;
@@ -156,7 +157,7 @@ fn spawn_pile_end(
         commands
             .spawn((
                 ArrangeSlot(row),
-                Button,
+                LegacyButton,
                 node,
                 BackgroundColor(palette::CANDLE_WASH),
                 BorderColor::all(palette::CANDLE),

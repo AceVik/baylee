@@ -16,8 +16,9 @@ ignore = [
     # needs for bevy's own LUTs: KTX2 files compiled into the binary, trusted
     # input. The client loads no KTX2 or zstd from anywhere else (card art is
     # JPEG/PNG/WebP through `artreader.rs`), so no untrusted byte reaches the
-    # decoder. The fix is ruzstd 0.9.1, which bevy_image 0.19 cannot take;
-    # drop this line with the next bevy upgrade (accepted 13.10.2026).
+    # decoder. The fix is ruzstd 0.9.1, which bevy_image cannot take: 0.19
+    # and 0.20 both ask `ruzstd = "0.8.0"` (checked at the 0.20 upgrade);
+    # drop this line with the bevy release that moves (accepted 13.10.2026).
     "RUSTSEC-2026-0344",
 ]
 

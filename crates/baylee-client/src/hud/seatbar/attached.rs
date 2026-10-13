@@ -412,7 +412,7 @@ pub(crate) struct MatEdge {
 ///
 /// The battlefield is the framed field of lanes, which the shelf (the band
 /// the seat's ink is written on) borders on the hearth side. Its edge is
-/// taken where `mat.wgsl` draws it, not where the layout's shelf ends: the
+/// taken where `mat.wesl` draws it, not where the layout's shelf ends: the
 /// shader crops the field at `LEDGE_FRAC` of the mat's drawn depth, and a
 /// duel's mat is deeper than `MAT_DRAWN_DEPTH` (`layout`'s roomy boards),
 /// so its drawn shelf is deeper than `ledge_corners`' by a quarter of a

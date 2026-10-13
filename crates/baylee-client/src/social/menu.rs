@@ -4,9 +4,10 @@
 //! sender's name writes to them.
 
 use super::zoom::{z, zpx};
+use crate::legacy_ui::{LegacyButton, LegacyInteraction};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, Intent, LineKind, LineState};
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::PointerClick;
 use bevy::picking::pointer::PointerButton;
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
@@ -47,7 +48,7 @@ pub(crate) fn install(app: &mut App) {
                 clicks_on_lines,
                 presses,
                 sync,
-                select_lines.run_if(resource_exists::<Messages<Pointer<Press>>>),
+                select_lines.run_if(resource_exists::<Messages<PointerPress>>),
                 paint_selection,
                 copy_selection,
             )
@@ -117,8 +118,8 @@ fn row_of(
 /// Press and drag over the history's lines.
 #[allow(clippy::too_many_arguments)] // a Bevy system: the pointer's messages
 fn select_lines(
-    mut presses: MessageReader<Pointer<bevy::picking::events::Press>>,
-    mut overs: MessageReader<Pointer<bevy::picking::events::Over>>,
+    mut presses: MessageReader<bevy::picking::events::PointerPress>,
+    mut overs: MessageReader<bevy::picking::events::PointerOver>,
     rows: Query<&Copyable>,
     parents: Query<&ChildOf>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
@@ -271,7 +272,7 @@ fn lineage<T: Component + Clone>(
 /// them; a left press anywhere but the menu shuts it.
 #[allow(clippy::too_many_arguments)] // a Bevy system: the pointer and what it lands on
 fn clicks_on_lines(
-    mut clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<PointerClick>,
     rows: Query<&ChatRow>,
     names: Query<&ChatName>,
     parents: Query<&ChildOf>,
@@ -292,7 +293,7 @@ fn clicks_on_lines(
             PointerButton::Secondary => {
                 if let Some(row) = lineage(click.entity, &rows, &parents) {
                     ui.row_menu = Some(row.key);
-                    at.0 = click.pointer_location.position;
+                    at.0 = click.pointer.position;
                 }
             }
             PointerButton::Primary => {
@@ -308,7 +309,7 @@ fn clicks_on_lines(
 }
 
 fn presses(
-    pressed: Query<(Entity, &Interaction, &RowPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &LegacyInteraction, &RowPress), Changed<LegacyInteraction>>,
     mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
@@ -431,7 +432,7 @@ fn sync(
     for (phrase, press) in items {
         let item = commands
             .spawn((
-                Button,
+                LegacyButton,
                 press,
                 Node {
                     padding: UiRect::axes(zpx(10.0), zpx(4.0)),

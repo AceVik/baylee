@@ -26,9 +26,9 @@
 // Uniforms only, no storage buffers, every loop bound at compile time. The
 // star field counts to a literal.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::{globals, view}
-#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2, hash_cell}
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::{globals, view};
+import baylee_client::shaders::noise::{hash2, hash_cell};
 
 struct SkyParams {
     /// 0 is full night, 1 is full day. `baylee_client_core::sky::phase`.
@@ -41,7 +41,7 @@ struct SkyParams {
     budget: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: SkyParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: SkyParams;
 
 const TAU: f32 = 6.2831855;
 

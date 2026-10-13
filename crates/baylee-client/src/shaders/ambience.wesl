@@ -3,7 +3,7 @@
 // Ornament, and therefore arithmetic: `docs/legal.md` §2 is the reason there
 // is no picture here. Everything below is value noise over a drifting domain,
 // which borrows nothing from anyone and costs one pass over the node. The
-// noise itself is `shaders/noise.wgsl`, shared with the cloth under the hand
+// noise itself is `shaders/noise.wesl`, shared with the cloth under the hand
 // — two surfaces that grained differently would be two authors.
 //
 // Three layers, in the order they read: a slow warped field that gives the
@@ -14,9 +14,9 @@
 // surface is still there and simply stops moving, which is what
 // `Preferences::reduce_motion` asks for.
 
-#import bevy_render::globals::Globals
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/noise.wgsl"::{noise2, hash2}
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::noise::{noise2, hash2};
 
 struct AmbienceParams {
     /// The ground, and what the bands are drawn in.

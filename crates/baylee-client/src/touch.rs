@@ -53,7 +53,7 @@ pub struct Touched {
     ///
     /// A release over the same card is left to the click that follows it,
     /// which is where the answer is known — but bevy raises a
-    /// `Pointer<Click>` only when the press and the release land on the same
+    /// `PointerClick` only when the press and the release land on the same
     /// **entity**, and this hand is rebuilt on every hover change and on
     /// every view that arrives. A tree rebuilt between the two swallows the
     /// click, nothing is ever written back, and the tap the player made never
@@ -113,7 +113,7 @@ impl Touched {
     /// The card whose tap nobody heard, if there is one.
     ///
     /// A finger that went down on a card and came up on the same card with no
-    /// `Pointer<Click>` in between is a tap the player made and the tree ate.
+    /// `PointerClick` in between is a tap the player made and the tree ate.
     /// It has to be read *after* the frame's clicks and not before them: a tap
     /// that **was** heard sets this too, until the click clears it, so acting
     /// on it first would play every land twice.
@@ -140,8 +140,8 @@ impl Touched {
 /// the click, and this system only has to handle the release that resolves
 /// *nothing* — a press dragged off the card, or let go over the felt.
 pub fn watch_the_finger(
-    mut downs: MessageReader<Pointer<Press>>,
-    mut ups: MessageReader<Pointer<Release>>,
+    mut downs: MessageReader<PointerPress>,
+    mut ups: MessageReader<PointerRelease>,
     hand_cards: Query<&crate::hud::HandCardVisual, With<crate::hud::HandRowCard>>,
     parents: Query<&ChildOf>,
     mut touched: ResMut<Touched>,
@@ -275,7 +275,7 @@ pub fn settle(
 #[cfg(test)]
 mod running {
     use super::*;
-    use bevy::picking::events::{Pointer, Press, Release};
+    use bevy::picking::events::{PointerPress, PointerRelease};
     use bevy::picking::pointer::{Location, PointerId};
     use bevy::window::{PrimaryWindow, WindowRef};
 
@@ -287,8 +287,8 @@ mod running {
     /// not a frame count.
     fn harness() -> (App, ObjectId, Entity, Entity) {
         let mut app = App::new();
-        app.add_message::<Pointer<Press>>()
-            .add_message::<Pointer<Release>>()
+        app.add_message::<PointerPress>()
+            .add_message::<PointerRelease>()
             .init_resource::<Time>()
             .init_resource::<Touched>()
             .init_resource::<crate::Duel>()
@@ -343,23 +343,31 @@ mod running {
 
     fn press(app: &mut App, entity: Entity) {
         let location = at(app);
-        let event = Press {
+        let event = crate::test_pointer::Press {
             button: bevy::picking::pointer::PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
             count: 1,
         };
-        app.world_mut()
-            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+        app.world_mut().write_message(crate::test_pointer::aim(
+            PointerId::Mouse,
+            location,
+            event,
+            entity,
+        ));
     }
 
     fn release(app: &mut App, entity: Entity) {
         let location = at(app);
-        let event = Release {
+        let event = crate::test_pointer::Release {
             button: bevy::picking::pointer::PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
         };
-        app.world_mut()
-            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+        app.world_mut().write_message(crate::test_pointer::aim(
+            PointerId::Mouse,
+            location,
+            event,
+            entity,
+        ));
     }
 
     /// Arms `object` the way a key does — with no finger anywhere near it.
@@ -511,7 +519,7 @@ mod running {
 
     /// The same rebuild, across the *whole* tap — and the card must come back.
     ///
-    /// Bevy raises a `Pointer<Click>` only when the press and the release
+    /// Bevy raises a `PointerClick` only when the press and the release
     /// land on the same **entity**. A hand rebuilt between the two therefore
     /// answers nothing at all, and nothing is what the card was left holding:
     /// sunk and dark until the player pressed something else. Sitting between

@@ -1103,7 +1103,7 @@ mod tests {
     #[test]
     fn a_wheel_scrolls_the_log_after_the_game() {
         use bevy::input::mouse::MouseScrollUnit;
-        use bevy::picking::events::{Pointer, Scroll};
+        use bevy::picking::events::PointerScroll;
         use bevy::picking::pointer::{Location, PointerId};
 
         use bevy::ecs::system::RunSystemOnce;
@@ -1112,7 +1112,7 @@ mod tests {
             let mut app = App::new();
             app.add_plugins(bevy::state::app::StatesPlugin)
                 .init_state::<crate::DuelPhase>()
-                .add_message::<Pointer<Scroll>>()
+                .add_message::<PointerScroll>()
                 .insert_resource(logged(7))
                 .insert_resource(crate::settings::ClientSettings::default())
                 .insert_resource(fonts())
@@ -1138,7 +1138,7 @@ mod tests {
             // the row under it and the list under that pass it up.
             let row = app.world().get::<Children>(list).expect("rows")[1];
             let sentence = app.world().get::<Children>(row).expect("a sentence")[0];
-            let wheel = Pointer::new(
+            let wheel = crate::test_pointer::aim(
                 PointerId::Mouse,
                 Location {
                     target: bevy::camera::NormalizedRenderTarget::Window(
@@ -1148,7 +1148,7 @@ mod tests {
                     ),
                     position: Vec2::ZERO,
                 },
-                Scroll {
+                crate::test_pointer::Scroll {
                     unit: MouseScrollUnit::Line,
                     x: 0.0,
                     y: -1.0,
@@ -1158,7 +1158,7 @@ mod tests {
                 sentence,
             );
             app.world_mut()
-                .resource_mut::<Messages<Pointer<Scroll>>>()
+                .resource_mut::<Messages<PointerScroll>>()
                 .write(wheel);
             app.update();
             app.world().get::<ScrollPosition>(list).expect("a list").y > 0.0

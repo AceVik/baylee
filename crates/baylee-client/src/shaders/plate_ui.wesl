@@ -1,12 +1,12 @@
 // The plate on a card drawn as a UI node: the preview (the owner, 25.09).
 //
-// The table shader's twin, as `badge_ui.wgsl` is `badge.wgsl`'s: a creature
+// The table shader's twin, as `badge_ui.wesl` is `badge.wesl`'s: a creature
 // held up to the light says its numbers where it says them on the felt, and
-// the one drawing both is `card_common.wgsl`'s `plate_object`. The node is
+// the one drawing both is `card_common.wesl`'s `plate_object`. The node is
 // laid over the card at `cardplate::plate_quad`, so its UV is the quad's.
 
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{plate_object}
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import baylee_client::shaders::card_common::{plate_object};
 
 struct PlateParams {
     quad: vec2<f32>,

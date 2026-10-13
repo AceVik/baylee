@@ -2,7 +2,7 @@
 //! similar"): a quiet glow from the top edge at rest, and while the pointer
 //! is on the button a soft band of light sweeping across it.
 //!
-//! One small UI material per primary button (`shaders/kit_sheen.wgsl`,
+//! One small UI material per primary button (`shaders/kit_sheen.wesl`,
 //! uniforms only), laid over the button's ground and under its words. The
 //! band moves on `globals.time`, never on a time written into the material;
 //! the material is written only while the pointer's warmth on the button
@@ -56,7 +56,7 @@ pub struct SheenMaterial {
 
 impl UiMaterial for SheenMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/kit_sheen.wgsl".into()
+        "embedded://baylee_client/shaders/kit_sheen.wesl".into()
     }
 }
 

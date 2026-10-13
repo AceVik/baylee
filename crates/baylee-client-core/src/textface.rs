@@ -162,7 +162,7 @@ pub const fn seam() -> f32 {
 /// How a face is laid out down the card ([module docs](self#four-layouts-wp6)).
 ///
 /// The number is the code [`face_word`] carries at [`FACE_LAYOUT_SHIFT`],
-/// and `card_common.wgsl`'s `text_face` switches on the same codes.
+/// and `card_common.wesl`'s `text_face` switches on the same codes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[repr(u32)]
 pub enum Layout {
@@ -829,7 +829,7 @@ pub const BAR_CORNER: f32 = 0.012;
 /// A part's colour: one of the five, gold for two or more, grey for none.
 ///
 /// The number is what the shader reads out of [`face_word`]: the tones below
-/// are in this order, and `card_common.wgsl`'s `face_hue` is the same table.
+/// are in this order, and `card_common.wesl`'s `face_hue` is the same table.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u32)]
 pub enum Hue {
@@ -1019,7 +1019,7 @@ pub const COST_LINE: f32 = LINE_BOX * SMALL_EM + 2.0 * BAR_PAD;
 
 /// A table face's colour discs, each its centre `[x, y]` in card widths and
 /// its hue: one for a card whose art box is one colour, two side by side
-/// for two ([`DISC_RADIUS`]). `card_common.wgsl`'s `text_face` draws them by
+/// for two ([`DISC_RADIUS`]). `card_common.wesl`'s `text_face` draws them by
 /// the same arithmetic.
 #[must_use]
 pub fn discs(word: u32, regions: &Regions) -> Vec<([f32; 2], Hue)> {

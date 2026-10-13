@@ -1,7 +1,7 @@
 //! The cloth's slow fields, baked once per cut: where the glass is warped,
 //! how hot it runs and how much silt lies in it.
 //!
-//! `felt.wgsl` bends its veins through a domain warp — two four-octave value
+//! `felt.wesl` bends its veins through a domain warp — two four-octave value
 //! noises per pixel — and reads a third for the silt and one more lookup for
 //! the heat that decides which river a vein carries: thirteen value noises,
 //! fifty-two hashes, on every pixel of the slab on every frame, and none of
@@ -37,10 +37,10 @@ pub const MAX_TEXELS: u32 = 2048;
 /// table's cut face reads the field a little beyond its line.
 pub const MARGIN: f32 = 2.0;
 
-/// How far the warp can push a point (`felt.wgsl`: `fbm(…) * 3.4`).
+/// How far the warp can push a point (`felt.wesl`: `fbm(…) * 3.4`).
 pub const WARP_REACH: f32 = 3.4;
 
-/// `felt.wgsl`'s `fbm`: four octaves of [`vnoise`], normalised to `0..1`.
+/// `felt.wesl`'s `fbm`: four octaves of [`vnoise`], normalised to `0..1`.
 #[must_use]
 pub fn fbm(px: f32, py: f32) -> f32 {
     let (mut sum, mut amplitude, mut total) = (0.0, 0.5, 0.0);
@@ -55,7 +55,7 @@ pub fn fbm(px: f32, py: f32) -> f32 {
     sum / total
 }
 
-/// `felt.wgsl`'s `veins_at` domain: the table point turned by the pattern's
+/// `felt.wesl`'s `veins_at` domain: the table point turned by the pattern's
 /// angle, scaled by its scale and moved by its offset.
 #[must_use]
 pub fn domain(p: [f32; 2], pattern: [f32; 4]) -> [f32; 2] {

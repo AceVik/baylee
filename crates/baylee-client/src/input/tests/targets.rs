@@ -42,7 +42,7 @@ fn a_click_on_a_stack_row_answers_the_question_it_was_asked() {
         .init_resource::<crate::table::CameraRig>()
         .init_resource::<crate::touch::Touched>()
         .init_resource::<crate::settings::ClientSettings>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<bevy::picking::events::PointerClick>()
         .insert_resource(crate::Duel {
             interaction: Some(baylee_client_core::interaction::Interaction::new(
                 Pending::ChooseTargets {
@@ -150,7 +150,7 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
         .init_resource::<crate::table::CameraRig>()
         .init_resource::<crate::touch::Touched>()
         .init_resource::<crate::settings::ClientSettings>()
-        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<bevy::picking::events::PointerClick>()
         .insert_resource(crate::Duel {
             interaction: Some(baylee_client_core::interaction::Interaction::new(
                 Pending::ChooseTargets {
