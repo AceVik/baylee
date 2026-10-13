@@ -55,7 +55,7 @@ fn plate(commands: &mut Commands, kit: Kit) -> Entity {
 
 /// How a [`link`] reads.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Look {
+pub(super) enum Look {
     /// A plain word.
     Plain,
     /// The chosen one of a group (the language): on a selected ground.
@@ -66,7 +66,13 @@ enum Look {
 
 /// A word on a mist plate a press reaches: a ghost button in the kit's hit
 /// area.
-fn link(commands: &mut Commands, kit: Kit, text: &str, look: Look, action: impl Bundle) -> Entity {
+pub(super) fn link(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    look: Look,
+    action: impl Bundle,
+) -> Entity {
     // A link, not a button: it reads as words (an address may be long), so
     // it holds no button's label budget; its hit area is the kit's.
     let face = commands
@@ -756,6 +762,17 @@ pub(crate) fn about(
     body.push(source);
     if let Some(code) = state.source_code.as_ref() {
         body.push(qr(commands, code));
+    }
+    // The gateway operator's legal notice, where it names one: a link with
+    // the host it opens in sight.
+    if let Some((_, host)) = super::impressum_link(state) {
+        body.push(link(
+            commands,
+            kit,
+            &Phrase::ImpressumLink.fill(lang, &[&host]),
+            Look::Underlined,
+            (Press::Front(FrontPress::OpenImpressum), at("impressum")),
+        ));
     }
     body.push(surfaces::heading(
         commands,

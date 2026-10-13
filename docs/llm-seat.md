@@ -13,6 +13,26 @@ decision tells the model and what its answer may say (plans, `until`,
 `react`, the deck as the provider reads it, the cache) is
 `docs/llm-protocol.md`.
 
+**No player is named to a model** (owner, 13.10.2026). Every bridge, a
+hosted one on the operator's machine and a player's own `baylee-seat` on
+their device, with every provider (an API or an agent CLI), names the
+chairs `P1…Pn` (seat order) and its own seat "you" in everything it sends:
+the prompt's prefix says `P2 is an opponent.`, never a display name,
+handle, tag or account id; neither the game's id nor the deck's own name
+is in a prompt, a CLI's directory name or a managed session's label.
+There is no option that names them: `GameContext` carries no names, and
+the narrator's roster for the log writes `P2`
+(`baylee_seat::narrator`). The people at the table did not choose the
+provider, and the terms say so. What the requests carry besides the game
+text: the API's own fields (`model`, `messages`/`system`, `max_tokens`,
+`tools`/`tool_choice`, `response_format`, `reasoning_effort`,
+`output_config`, `cache_control`), never an OpenAI `user` or an
+Anthropic `metadata`; the headers `content-type`, `anthropic-version`,
+the key (`x-api-key` or `authorization`) and, for a managed session, the
+`x-session-id` its endpoint issued; the HTTP library's own `user-agent`
+(`ureq/<version>`). A CLI gets the argv and environment listed under
+[A CLI as the model](#a-cli-as-the-model).
+
 An example file, with no key in it:
 
 ```json
@@ -107,8 +127,9 @@ sessions**. Ordinary API profiles remain unchanged; no capability is guessed
 from a vendor, model name, port or address.
 
 - Before its first model call, each game/seat creates `POST {base}/sessions`
-  with `{"label":"game <anonymous UUID> / seat <number>"}`. The label contains
-  no player names, profile names or actual game identifier. The response names
+  with `{"label":"game <random UUID> / seat <number>"}`. The label contains
+  no player names, profile names, actual game identifier or clock (a v4
+  UUID, not a v7 that carries the time it was made). The response names
   `id` (1–128 ASCII letters/digits, `_`, `-`) and optionally `idle_timeout_secs`.
 - The bridge adds `X-Session-Id` to Chat Completions. It still sends the complete
   ordered transcript, including the exact assistant content; the endpoint can
@@ -319,7 +340,10 @@ before playing.
   `DISABLE_AUTOUPDATER=1`, so a game never updates the tool itself.
 - **Locked down.** The working directory is a fresh, empty directory under
   the OS's temp directory, readable by this user alone and removed with
-  the process, so no project's `CLAUDE.md` or settings are found. The
+  the process, so no project's `CLAUDE.md` or settings are found. It is
+  named `baylee-cli-<seat>-<random>` (a resuming tool's store
+  `baylee-cli-store-<seat>-<random>`, 122 random bits), never after the
+  game: a tool may tell its provider the directory it runs in. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
   `NO_COLOR=1`, the tool's own login variables where set
@@ -744,11 +768,13 @@ describes it.
   seat agent's user does the same on the machine.
 - **A chair.** For each order the seat agent writes a settings file that
   holds the profile alone (its caps as the file's) and starts
-  `baylee-seat join <room> --chair <n> --chair-ticket --tethered --hosted
+  `baylee-seat join <room> --chair <n> --chair-ticket --tethered
   --config … --profile <id> --ledger spend/<id>.json --name <label>` with
-  the gateway's chair ticket as stdin's first line. `--hosted` names no
-  player to the model: the prompt's prefix says `P2 is an opponent`, never a
-  display name, because the other players did not choose the provider. A
+  the gateway's chair ticket as stdin's first line. Like every bridge it
+  names no player to the model ([above](#the-language-model-seat-settings-and-spend)):
+  the prompt's prefix says `P2 is an opponent.`, never a display name. (A
+  `--hosted` switch did this for hosted seats alone until 13.10.2026; it is
+  gone, because no bridge names anyone now.) A
   stop from the gateway closes the bridge's stdin, and a tethered bridge
   gives its chair back.
 - **States** (reported whole on every change, never derived by the

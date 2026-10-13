@@ -98,10 +98,6 @@ pub struct BridgeConfig {
     pub stops: Vec<(RailSide, RailRow)>,
     /// The house the bridge falls back on.
     pub house: AIProfile,
-    /// Name no player to the mind (a hosted seat, `--hosted`): the prompt
-    /// says `P1…Pn` and never a display name, because the other players at
-    /// the table did not choose the provider it goes to.
-    pub pseudonymous: bool,
 }
 
 impl Default for BridgeConfig {
@@ -114,7 +110,6 @@ impl Default for BridgeConfig {
             allow_blitz: false,
             stops: MIND_STOPS.to_vec(),
             house: AIProfile::default(),
-            pseudonymous: false,
         }
     }
 }
@@ -684,17 +679,6 @@ impl SeatCore {
                 seat: statics.your_seat,
                 seats: u8::try_from(statics.seats.len()).unwrap_or(u8::MAX),
                 teams: statics.seats.iter().map(|seat| seat.team).collect(),
-                names: statics
-                    .seats
-                    .iter()
-                    .map(|seat| {
-                        if self.config.pseudonymous {
-                            String::new()
-                        } else {
-                            seat.display_name.clone()
-                        }
-                    })
-                    .collect(),
                 format: if commander {
                     FormatId::Commander
                 } else {

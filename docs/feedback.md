@@ -121,13 +121,24 @@ intake as any report with `kind: "chat"`:
 - `text`: the reporter's note, then the message's text;
 - `game_id`: the table's game for a table or team message, else none;
 - `client.chat`: `{verified, conversation ("whisper" | "group" | "table" |
-  "team"), sender (the sender's pseudonym, made with the reporter key, or
-  null when the sending device is gone), sent_at (the sender's clock, ms),
-  message, note}`;
+  "team"), sender_tag (the sender's public tag in hex, only when
+  `verified`; else null), sent_at (the sender's clock, ms), message,
+  note}`. No sender pseudonym (since 13.10.2026): it was the same keyed
+  hash a reporter is known by, and beside the tag it would have resolved
+  every report that account ever filed;
 - no record.
 
 `verified: false` means the check failed or could not run (the sender's
-device was removed since): say so before acting on it. 10 reports an hour
+device was removed since): say so before acting on it. Such a report names
+no sender tag, so nobody can be framed by a forged report.
+
+**Who can be found (13.10.2026).** The sender of a verified message can:
+a moderator must be able to act on reported content (ban the account that
+wrote it), and the tag is public in every handle. The report detail shows
+the tag and *Find sender's account*, which opens **Accounts** filtered to
+that one tag (`?tag=`, the gateway's `GET /admin/accounts?tag=`, exact,
+registered or guest). The reporter cannot (below, §"A reporter is never
+resolved to an account"). 10 reports an hour
 per account; `503` without `BAYLEE_FEEDBACK_URL`. Deploy the service (which
 knows the `chat` kind since its migration `m0006_chat_kind`) before the
 gateway. `POST /client/reports` refuses `chat`: only a gateway can check one.
@@ -417,7 +428,8 @@ one audit row each; there is no bulk route), a quiet refresh every 30
 seconds that announces new reports instead of moving the rows, an export
 of what is shown as CSV made in the browser, and an unread marker kept in
 the browser's `localStorage` only (the service keeps no per-admin state).
-**A reporter is never resolved to an account.** The pseudonym is an HMAC
+**A reporter is never resolved to an account** (the sender of a reported
+chat message is, above). The pseudonym is an HMAC
 the gateway makes so that this service cannot know who wrote a report
 (§"The gateway" above, `docs/privacy.md`); asking the gateway's console to
 turn it back into a name would undo that promise in one request, so the UI
@@ -542,7 +554,7 @@ the browser never sees:
 | `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
 | `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
 | `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
-| `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
+| `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `tag`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`); `tag` is one exact tag, a chat report's sender |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
 | `DELETE /ui/api/admin/accounts/{id}` | the gateway's `DELETE /admin/accounts/{id}`: the account deleted as its player's own deletion does (beta.8) |
 | `POST /ui/api/admin/accounts/{id}/password` | the gateway's reset: `200 {"password"}`, the one time the new password is shown; nothing here writes it down (beta.8) |

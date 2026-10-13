@@ -38,8 +38,9 @@ impl Session {
             agent,
             base,
             headers,
-            // No player name, room name, profile, or actual game identifier.
-            label: format!("game {} / seat {seat}", uuid::Uuid::now_v7()),
+            // No player name, room name, profile, game identifier or clock:
+            // a random v4 UUID, so the label cannot be matched to a game.
+            label: format!("game {} / seat {seat}", uuid::Uuid::new_v4()),
             closed: AtomicBool::new(false),
             heartbeat_secs: AtomicU64::new(300),
             changed: Arc::default(),

@@ -1,11 +1,11 @@
 THE GAME
 You are P1 at a table of 4 players (Commander: 40 life, commander tax).
-P2 is «TEST-a», opponent.
-P3 is «TEST-b», opponent.
-P4 is «TEST-c», opponent.
+P2 is an opponent.
+P3 is an opponent.
+P4 is an opponent.
 The table gives each decision 90 seconds.
 
-YOUR DECK «Reap the Elements» (100 cards), by name. A card's full text is shown the first time it is seen, under "New cards".
+YOUR DECK (100 cards), by name. A card's full text is shown the first time it is seen, under "New cards".
 Commander:
   1× Aesi, Tyrant of Gyre Strait
 Main deck:

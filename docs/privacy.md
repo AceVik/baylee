@@ -35,9 +35,9 @@ the pointers, because line numbers move.
 | Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
 | Chat keys | the player's device: the OS credential store (`baylee-chat`), or a `0600` file where there is none | until the device is forgotten | the player, or a guest's sign-out |
 | Chat history and state (encrypted) | the player's device, `chat/` beside the settings | 30 days by default (the player chooses off, 7, 30 or 365) | the client's pruning, or the player |
-| A reported chat message (its text, whether its signature checked, the sender's pseudonym) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
+| A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
-| A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
+| A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
 | Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
@@ -75,9 +75,18 @@ counts, never a tag, handle, conversation or ciphertext.
 **What leaves the device on purpose.** A report of a message sends its text
 and the key of that one message, so that the gateway can check that the
 sender really wrote it. A report never carries other messages or the
-history. The feedback service is sent the text, whether the check held, and
-the sender as a pseudonym (the same keyed hash reporters get), never an
-account id or handle.
+history. The feedback service is sent the text and whether the check held; of the
+sender never an account id and no pseudonym (it would be the keyed hash
+that account's own reports carry, and beside the tag it would resolve
+them), and only when the check held the sender's public tag
+(`sender_tag`), so that an admin can find the account that wrote it and
+act on it (ban it): a moderator must be able to act on reported content,
+and the tag is already public in every handle. An unverified report names
+no tag, so a forged one frames nobody. The reporter is never resolvable:
+only the pseudonym reaches the service, and no route turns it back into an
+account (owner's promise; `docs/feedback.md`). Who can resolve the sender:
+an admin signed in to the feedback UI with the gateway's console
+configured, through `GET /admin/accounts?tag=`.
 
 **What is never chat.** The engine, game records (#315), record exports,
 the AI's view and bug reports never contain chat. AI and language-model
@@ -89,17 +98,26 @@ requests, blocks, group memberships and every message still waiting for or
 from it. Its groups pass to the member who joined first. Signing a guest
 out deletes it, and the client deletes its local chat folder and keys.
 
-## Hosted models
+## Language-model seats
 
 A room's host may seat a language model the operator runs (`docs/llm-seat.md`
-§"A hosted seat"). Its bridge sends the profile's provider what any language
-model seat sends: its own seat's view as text (the board, its own hand, the
-counts of the others' hands and libraries, the log lines its seat is told,
-the question), its deck, and the Oracle text of cards it sees. A hosted
-bridge names no player (`--hosted`): every other seat is `P1…Pn`, so no
-display name, account or deck list of another player is sent; cards they
-play face up are part of the game. The room shows the vendor on the chair
-before anyone says ready. The gateway keeps only what the seat agents
+§"A hosted seat"), and a player may sit their own model with `baylee-seat`
+on their own device. Either bridge sends the profile's provider, with every
+provider (an API or an agent CLI), the same: its own seat's view as text
+(the board, its own hand, the counts of the others' hands and libraries,
+the log lines its seat is told, the question), its deck's cards, and the
+Oracle text of cards it sees. No bridge names a player (owner, 13.10.2026;
+`baylee_seat::narrator`): every seat is `P1…Pn` and the seat itself "you",
+so no display name, handle, tag or account of anyone is sent, nor the
+game's id or the deck's own name; there is no setting that names them.
+Cards the others play face up are part of the game. The request carries no
+other identifier either: no OpenAI `user` or Anthropic `metadata` field, no
+header but the content type, the API version, the key and (for a managed
+session) the session id the endpoint issued, whose label is a random UUID
+and the seat number; an agent CLI runs in a directory named by the seat
+number and a random UUID, never the game's id (`docs/llm-seat.md` §"A CLI
+as the model"). The room shows the vendor on the chair before anyone says
+ready. The gateway keeps only what the seat agents
 report about their profiles, in memory; the seat agent keeps its profiles,
 one spend book per profile (when, which model, what was reserved and
 spent) and its keys on its own machine. A key the console sets passes
@@ -791,8 +809,8 @@ report once it has it is theirs to describe.
   (`[Lightning Bolt]`, `[@steady 1]`), `client.refs` says which: positions
   in the text, the card's registry index and printing, at a table the
   object, zone and owner's seat number, and a player's seat number. Never
-  an account; it is derived from the text, so it is as consented as the
-  text, and a name the player typed goes as typed. `#` offers only cards
+  an account; it is derived from the text, so it goes only where the
+  text goes, and a name the player typed goes as typed. `#` offers only cards
   the seat's own view shows face up outside other players' hands
   (`bugreport::refs`), so no reference can name a hidden card.
 - **Every attachment starts selected (owner, 10.10.2026).** Each box below
@@ -857,9 +875,16 @@ report once it has it is theirs to describe.
   backtrace and the build, and the system details only if that box is
   ticked. The file is deleted once the gateway has it (or has
   refused it for good); unanswered, it waits for the next start.
-- **Consent is per device** (`client-settings.json`, `reports`), shown and
-  changed in the form itself: un-ticking a box, or the crash box, is the
-  revocation, and holds from the next report on.
+- **Attachments are a choice before sending, not a consent** (owner,
+  13.10.2026): the boxes are an opt-out the player uses before pressing
+  Send (the legal basis the owner names for them is legitimate interest),
+  and nothing is sent before Send. The form and its tour call them a
+  choice, never a consent. The choice is kept per device
+  (`client-settings.json`, `reports`), shown and changed in the form
+  itself; un-ticking a box holds from the next report on.
+- **Crash reports stay a consent**, asked once (`CrashConsent`) and kept
+  per device the same way; un-ticking the crash box withdraws it from the
+  next crash on.
 - **Game records (#315):** the gateway keeps each game's full record in
   its database without a time limit; the record numbers its seats and
   names nobody (see "Game records and reports" above).

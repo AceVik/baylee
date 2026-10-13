@@ -717,15 +717,33 @@ async fn a_reported_message_is_checked_and_reaches_the_service_as_a_chat_report(
         text.contains("rude") && text.contains("you are all useless"),
         "{text}"
     );
-    // Who sent and who reported are pseudonyms, never an account.
-    let sender = report["client"]["chat"]["sender"]
-        .as_str()
-        .expect("a sender");
-    assert!(!sender.is_empty() && sender != x.alice.id, "{report}");
+    // No sender pseudonym rides beside the tag: it is the keyed hash a
+    // reporter is known by, so the pair would resolve the sender's own
+    // reports. The reporter is a pseudonym, never an account.
+    assert!(
+        report["client"]["chat"].get("sender").is_none(),
+        "no sender pseudonym: {report}"
+    );
     assert_ne!(
         report["reporter"].as_str(),
         Some(x.bob.id.as_str()),
         "{report}"
+    );
+    // A verified message names its sender by public tag, so a moderator
+    // can find the account (`GET /admin/accounts?tag=`); the tag is the
+    // sender's, and the reporter is still only the keyed pseudonym.
+    assert_eq!(
+        report["client"]["chat"]["sender_tag"], x.alice.tag,
+        "the sender's tag, in hex: {report}"
+    );
+    let reporter = report["reporter"].as_str().expect("a reporter");
+    assert!(!reporter.is_empty(), "{report}");
+    for who in [x.bob.tag.as_str(), x.bob.handle.as_str(), x.bob.id.as_str()] {
+        assert_ne!(reporter, who, "the reporter is no tag, handle or id");
+    }
+    assert!(
+        !report.to_string().contains(&x.bob.handle) && !report.to_string().contains(&x.bob.id),
+        "nothing of the reporter's account rides in the report: {report}"
     );
 
     // Each way of not being the message the sender sent is still reported,
@@ -758,6 +776,11 @@ async fn a_reported_message_is_checked_and_reaches_the_service_as_a_chat_report(
             stored["client"]["chat"]["verified"], false,
             "{what}: {stored}"
         );
+        // Unverified, so it could name anyone: no tag is given.
+        assert!(
+            stored["client"]["chat"]["sender_tag"].is_null(),
+            "{what}: {stored}"
+        );
     }
 
     // The sending device removed since: nothing to check the signature
@@ -769,6 +792,7 @@ async fn a_reported_message_is_checked_and_reaches_the_service_as_a_chat_report(
     assert_eq!(status, 201, "{body}");
     let stored = service.report(json_field(&body, "report_id"));
     assert_eq!(stored["client"]["chat"]["verified"], false, "{stored}");
+    assert!(stored["client"]["chat"]["sender_tag"].is_null(), "{stored}");
 }
 
 #[tokio::test]

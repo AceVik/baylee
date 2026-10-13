@@ -660,6 +660,17 @@ pub(crate) fn sheet(
             .id();
         body.push(caption);
     }
+    // The gateway operator's legal notice, where it names one, with the
+    // host it opens in sight: who asks for these terms.
+    if let Some((_, host)) = super::impressum_link(state) {
+        body.push(super::door::link(
+            commands,
+            kit,
+            &Phrase::ImpressumLink.fill(lang, &[&host]),
+            super::door::Look::Underlined,
+            (Press::Front(FrontPress::OpenImpressum), at("impressum")),
+        ));
+    }
     match state.terms.sheet() {
         Sheet::Closed => {}
         Sheet::Fetching => {

@@ -834,6 +834,9 @@ fn agent_list(app: &crate::AppState) -> Vec<serde_json::Value> {
 #[serde(default)]
 struct AccountsQuery {
     q: String,
+    /// Exactly one tag (`af03`, `#af03` or a whole handle `Alice#af03`):
+    /// the sender of a reported chat message, whose tag the report names.
+    tag: String,
     kind: String,
     sort: String,
     online: bool,
@@ -848,8 +851,21 @@ fn online_ids(app: &crate::AppState) -> std::collections::BTreeSet<String> {
     ids
 }
 
-/// `GET /admin/accounts?q=&kind=&sort=&online=&offset=&limit=`: a page of
-/// accounts, each with whether it is online now.
+/// The tag `typed` names exactly: `af03`, `#af03` or `Alice#af03` (the name
+/// is not checked: a tag is unique, and a name may have changed since the
+/// handle was seen). `None` for anything else.
+fn exact_tag(typed: &str) -> Option<i32> {
+    let typed = typed.trim();
+    if typed.contains(crate::handle::SEP) {
+        crate::handle::parse_tag(typed)
+    } else {
+        crate::handle::parse_tag(&format!("{}{typed}", crate::handle::SEP))
+    }
+}
+
+/// `GET /admin/accounts?q=&tag=&kind=&sort=&online=&offset=&limit=`: a page
+/// of accounts, each with whether it is online now. `tag` narrows it to the
+/// one account with that tag, registered or guest.
 async fn list_accounts(
     State(console): State<Admin>,
     axum::extract::Query(query): axum::extract::Query<AccountsQuery>,
@@ -863,9 +879,19 @@ async fn list_accounts(
             "sort is newest, oldest, name, games or active",
         )
     })?;
-    if query.q.chars().count() > 100 {
+    if query.q.chars().count() > 100 || query.tag.chars().count() > 100 {
         return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
     }
+    let tag = if query.tag.trim().is_empty() {
+        None
+    } else {
+        Some(exact_tag(&query.tag).ok_or_else(|| {
+            err(
+                StatusCode::BAD_REQUEST,
+                "tag is a tag in hex, such as af03 or Alice#af03",
+            )
+        })?)
+    };
     let online = online_ids(app);
     let playing = app.lobby.lock().playing_accounts();
     let in_lobby = app.presence.accounts();
@@ -879,6 +905,7 @@ async fn list_accounts(
         &app.db,
         &baylee_db::console::Query {
             text: query.q,
+            tag,
             kind,
             only,
             order,

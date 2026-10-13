@@ -9,9 +9,11 @@
 //! - `GET /ui/api/admin/sets`, `GET /ui/api/admin/sets/{code}`: how far
 //!   the pool is through each set, and one set's cards; a code is letters
 //!   and digits, lower-cased here.
-//! - `GET /ui/api/admin/accounts?q=&kind=&sort=&online=&offset=&limit=`:
-//!   a page of accounts; the query is read into those six fields and
-//!   written out again.
+//! - `GET /ui/api/admin/accounts?q=&tag=&kind=&sort=&online=&offset=&limit=`:
+//!   a page of accounts; the query is read into those seven fields and
+//!   written out again. `tag` is one exact tag, the sender a chat report
+//!   names (`client.chat.sender_tag`), so an admin can act on the account
+//!   that wrote it.
 //! - `GET /ui/api/admin/accounts/{id}`: one account, its decks and games.
 //! - `GET /ui/api/admin/invites`: its closed-beta keys, never a key.
 //! - `POST /ui/api/admin/invites` `{uses?, expires?, note?, count?}`: makes
@@ -397,6 +399,8 @@ async fn one_set(
 #[serde(default, deny_unknown_fields)]
 struct AccountsQuery {
     q: Option<String>,
+    /// One exact tag: a reported chat message's sender (`sender_tag`).
+    tag: Option<String>,
     kind: Option<String>,
     sort: Option<String>,
     online: Option<bool>,
@@ -422,7 +426,12 @@ impl AccountsQuery {
     /// The gateway's query string, built from the fields alone.
     fn path(&self) -> String {
         let mut pairs: Vec<String> = Vec::new();
-        for (key, value) in [("q", &self.q), ("kind", &self.kind), ("sort", &self.sort)] {
+        for (key, value) in [
+            ("q", &self.q),
+            ("tag", &self.tag),
+            ("kind", &self.kind),
+            ("sort", &self.sort),
+        ] {
             if let Some(value) = value.as_deref().filter(|v| !v.is_empty()) {
                 pairs.push(format!("{key}={}", encoded(value)));
             }
@@ -1178,10 +1187,11 @@ mod tests {
     }
 
     #[test]
-    fn an_account_search_passes_on_its_six_fields_and_nothing_else() {
+    fn an_account_search_passes_on_its_seven_fields_and_nothing_else() {
         assert_eq!(AccountsQuery::default().path(), "/admin/accounts");
         let query = AccountsQuery {
             q: Some("Al ice#af&x=1".into()),
+            tag: Some("Alice#af03&x=1".into()),
             kind: Some("guest".into()),
             sort: Some(String::new()),
             online: Some(true),
@@ -1190,8 +1200,19 @@ mod tests {
         };
         assert_eq!(
             query.path(),
-            "/admin/accounts?q=Al%20ice%23af%26x%3D1&kind=guest&online=true&offset=50&limit=25"
+            "/admin/accounts?q=Al%20ice%23af%26x%3D1&tag=Alice%23af03%26x%3D1&kind=guest&online=true&offset=50&limit=25"
         );
+        // A tag alone, and a blank one is none.
+        let alone = AccountsQuery {
+            tag: Some("af03".into()),
+            ..AccountsQuery::default()
+        };
+        assert_eq!(alone.path(), "/admin/accounts?tag=af03");
+        let blank = AccountsQuery {
+            tag: Some(String::new()),
+            ..AccountsQuery::default()
+        };
+        assert_eq!(blank.path(), "/admin/accounts");
     }
 
     #[test]

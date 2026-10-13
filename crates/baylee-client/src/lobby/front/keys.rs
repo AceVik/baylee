@@ -130,14 +130,21 @@ pub(crate) const NEW_PASSWORD: TabOrder = TabOrder {
 pub(crate) const TERMS: TabOrder = TabOrder {
     name: "terms",
     stops: &[
-        "text", "retry", "not-now", "decline", "accept", "stay", "leave",
+        "impressum",
+        "text",
+        "retry",
+        "not-now",
+        "decline",
+        "accept",
+        "stay",
+        "leave",
     ],
     modal: true,
 };
 /// The About sheet.
 pub(crate) const ABOUT: TabOrder = TabOrder {
     name: "about",
-    stops: &["text", "source", "close"],
+    stops: &["text", "source", "impressum", "close"],
     modal: true,
 };
 

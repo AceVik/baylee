@@ -956,6 +956,16 @@ pub(super) fn source_address(state: &LobbyState) -> &str {
     .unwrap_or(baylee_build::REPOSITORY)
 }
 
+/// The chosen gateway's legal notice as a link: its address and the host
+/// to show beside it, or `None` when the gateway has not answered or names
+/// none (`/info` `impressum`, checked by `legal_address`).
+pub(crate) fn impressum_link(state: &LobbyState) -> Option<(String, String)> {
+    match state.probes.get(&state.gateway) {
+        Some(Probe::Known(info)) => baylee_client_core::lobby::gateway_info::impressum_link(info),
+        _ => None,
+    }
+}
+
 /// Two controls sharing a row in equal halves.
 fn halves(commands: &mut Commands, metrics: Metrics, controls: &[Entity]) -> Entity {
     let halves = commands
@@ -1180,6 +1190,9 @@ pub(crate) enum FrontPress {
     OpenSource,
     /// Open the community's Discord invitation in the browser.
     OpenDiscord,
+    /// Open the gateway's legal notice (Impressum, `/info` `impressum`) in
+    /// the browser.
+    OpenImpressum,
     /// Nothing (a control drawn while the form is busy).
     Nothing,
     /// `‹ Back` on the create-account and guest faces.
@@ -1275,7 +1288,9 @@ impl FrontPress {
                     terms::perform(ask, state, prefs, scrolled, mailbox, settings);
                 }
             }
-            press @ (FrontPress::OpenSource | FrontPress::OpenDiscord) => {
+            press @ (FrontPress::OpenSource
+            | FrontPress::OpenDiscord
+            | FrontPress::OpenImpressum) => {
                 super::source::open(press, state);
             }
             FrontPress::ToggleRegistering => state.lobby.toggle_registering(),

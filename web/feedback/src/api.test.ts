@@ -1,6 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { api, filterQuery, onSignedOut, parseFilter, Refused, SignedOut, type Filter } from "./api";
+import {
+  accountQuery,
+  api,
+  filterQuery,
+  onSignedOut,
+  parseAccountFilter,
+  parseFilter,
+  Refused,
+  senderTag,
+  SignedOut,
+  type Filter,
+} from "./api";
 import { serve } from "./test-utils";
 
 describe("filters in the query string", () => {
@@ -31,6 +42,40 @@ describe("filters in the query string", () => {
       parseFilter("?kind=rant&status=lost&from=2026-9-1&to=yesterday&has_record=maybe&offset=-5&gateway="),
     ).toEqual({});
     expect(parseFilter("?has_record=true&offset=3.5")).toEqual({ has_record: true });
+  });
+});
+
+describe("the sender a chat report names", () => {
+  test("a tag is lowercase hex of one to eight digits, with a # and a name before it dropped", () => {
+    expect(senderTag("af03")).toBe("af03");
+    expect(senderTag("0001")).toBe("0001");
+    expect(senderTag("AF03")).toBe("af03");
+    expect(senderTag("#af03")).toBe("af03");
+    expect(senderTag("Alice#af03")).toBe("af03");
+    expect(senderTag("  Alice#AF03 ")).toBe("af03");
+    expect(senderTag("7fffffff")).toBe("7fffffff");
+    expect(senderTag("1")).toBe("1");
+  });
+
+  test("anything else is no tag", () => {
+    for (const value of ["", "  ", "#", "Alice#", "zz", "af 03", "123456789", "af03x", "0x1f", null, undefined, 4, {}]) {
+      expect(senderTag(value)).toBeNull();
+    }
+  });
+
+  test("an account filter with a tag goes out and comes back the same", () => {
+    const filter = { q: "ali", tag: "af03", kind: "guest", sort: "name", online: true, offset: 50 } as const;
+    const query = accountQuery(filter);
+    expect(query).toBe("q=ali&tag=af03&kind=guest&sort=name&online=true&offset=50");
+    expect(parseAccountFilter(`?${query}`)).toEqual(filter);
+  });
+
+  test("a tag typed with its name or # in the URL is read as the tag alone, and a bad one is dropped", () => {
+    expect(parseAccountFilter("?tag=Alice%23AF03")).toEqual({ tag: "af03" });
+    expect(accountQuery({ tag: "#af03" })).toBe("tag=af03");
+    expect(parseAccountFilter("?tag=zz&q=x")).toEqual({ q: "x" });
+    expect(accountQuery({ tag: "zz" })).toBe("");
+    expect(accountQuery({})).toBe("");
   });
 });
 

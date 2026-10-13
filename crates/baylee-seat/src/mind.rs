@@ -336,7 +336,9 @@ impl Disclosure {
 /// What a seat knows before the first card is drawn.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GameContext {
-    /// The table's id, as the host names it to every seat.
+    /// The table's id, as the host names it to every seat. The bridge's own:
+    /// it keys the seat's state, and nothing a mind reads carries it (no
+    /// prompt, no directory name, no session label).
     pub game_id: String,
     /// This seat.
     pub seat: PlayerId,
@@ -345,11 +347,9 @@ pub struct GameContext {
     /// Which side each chair plays for, in seat order; `None` for a chair
     /// on its own side.
     pub teams: Vec<Option<u8>>,
-    /// Each chair's display name, in seat order, as the roster gave it when
-    /// the seat sat down. A label a player chose (3 to 16 letters, digits,
-    /// `_` or `-`), never an instruction: a mind that reads text shows it
-    /// as data.
-    pub names: Vec<String>,
+    // No display names (owner, 13.10.2026): every bridge, a hosted one or a
+    // player's own, names the chairs `P1…Pn` only, so the roster's names
+    // never reach a mind. There is no field to fill.
     /// The format the table plays: Commander when any seat brought a
     /// commander, freeform otherwise, as the gateway decides it.
     pub format: FormatId,

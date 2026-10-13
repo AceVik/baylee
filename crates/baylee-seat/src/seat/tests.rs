@@ -712,25 +712,176 @@ fn the_seat_declares_its_mind_before_its_ready_on_every_socket_and_on_a_swap() {
     }
 }
 
-/// A hosted seat names nobody to its mind: the request's context holds no
-/// display name, and the prompt's prefix says `P2 is an opponent`.
-#[test]
-fn a_pseudonymous_seat_tells_its_mind_no_name() {
-    for pseudonymous in [false, true] {
-        let mut core = seated(BridgeConfig {
-            pseudonymous,
-            ..BridgeConfig::default()
-        });
-        let steps = core.hear(&asked(2, &colour()));
-        let request = request(&steps).expect("the mind is asked");
-        let prefix = crate::narrator::prefix(&request.context, crate::narrator::DeckText::Full);
-        assert_eq!(prefix.contains("Alice"), !pseudonymous, "{prefix}");
-        assert_eq!(
-            request.context.names.iter().any(|n| !n.is_empty()),
-            !pseudonymous
-        );
-        if pseudonymous {
-            assert!(prefix.contains("P2 is an opponent."), "{prefix}");
-        }
+/// The roster a player typed, as the host sends it: names, a handle with a
+/// tag, and the host's game id. Everything in it is distinctive, so a text
+/// that carries any of it is found.
+const NAMES: [&str; 3] = ["LLM-Link_Q#7c1e", "Zelda_Q", "Ganon_X#af03"];
+const GAME: &str = "game-ZZZ-4711";
+const DECK_NAME: &str = "Zorbo_Deck_9Y";
+/// Every piece of the above a text must not carry: a whole name, a handle's
+/// tag, a fragment of the game id and the deck's own name.
+const FORBIDDEN: [&str; 11] = [
+    "LLM-Link_Q",
+    "Link_Q",
+    "7c1e",
+    "Zelda_Q",
+    "Ganon_X",
+    "af03",
+    "game-ZZZ-4711",
+    "ZZZ",
+    "4711",
+    DECK_NAME,
+    "Zorbo",
+];
+
+/// The forbidden pieces `text` carries.
+fn leaks(text: &str) -> Vec<&'static str> {
+    FORBIDDEN
+        .into_iter()
+        .filter(|piece| text.contains(piece))
+        .collect()
+}
+
+/// A table of three whose host named its chairs and its game, the first two
+/// chairs on one team, and a first log of lines that are about the others.
+fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
+    let mut game = statics(0);
+    game.game_id = GAME.into();
+    game.seats = NAMES
+        .iter()
+        .zip(0u8..)
+        .map(|(name, seat)| SeatIdentity {
+            player: PlayerId::new(seat),
+            display_name: (*name).into(),
+            is_ai: false,
+            away: false,
+            team: (seat != 1).then_some(1),
+        })
+        .collect();
+    let msg = v1::GameStaticMsg {
+        game_id: game.game_id.clone(),
+        view_version: game.view_version,
+        static_json: serde_json::to_vec(&game).unwrap(),
+    };
+    (msg, game)
+}
+
+fn log_line(turn: u32, event: baylee_view::LogEvent) -> baylee_view::LogEntry {
+    baylee_view::LogEntry {
+        turn,
+        repeat: 1,
+        at: 0,
+        event,
+        phase: None,
     }
+}
+
+/// No text a mind reads names a player or the game: not the prompt's prefix
+/// in either way of telling the deck, not the message of a decision with a
+/// log that is about the other chairs, not the deck's own name. The table's
+/// names are real in what the seat hears (the positive controls say so), and
+/// the bridge keeps the game id for itself in the request's context.
+#[test]
+fn no_prompt_names_a_player_or_the_game() {
+    use crate::narrator::{DeckText, Narrator, Style};
+    use baylee_view::LogEvent;
+
+    // The controls first: the search finds what it looks for, and what is
+    // fed to the seat does carry the names it must then keep out.
+    assert_eq!(leaks("an opponent called Zelda_Q"), ["Zelda_Q"]);
+    assert!(leaks(&format!("P2 is an opponent. {GAME}")).contains(&"game-ZZZ-4711"));
+    assert!(leaks(&format!("YOUR DECK, {DECK_NAME}")).contains(&"Zorbo"));
+    assert!(leaks("P2 is an opponent. P3 is your teammate.").is_empty());
+    let (table_msg, fed) = named_table();
+    let fed_json = serde_json::to_string(&fed).unwrap();
+    for piece in FORBIDDEN
+        .iter()
+        .filter(|p| **p != "Zorbo" && **p != DECK_NAME)
+    {
+        assert!(
+            fed_json.contains(piece),
+            "{piece} is not in what the seat is fed"
+        );
+    }
+
+    let forest = baylee_cards::decks::by_name("Forest").expect("a pool card");
+    let deck = DeckList {
+        name: DECK_NAME.into(),
+        main: vec![crate::mind::DeckCard {
+            card: forest,
+            count: 40,
+        }],
+        ..DeckList::default()
+    };
+    let mut core = SeatCore::new(BridgeConfig::default(), deck, Disclosure::Llm);
+    assert!(
+        core.hear(&frame(v1::envelope::Msg::GameStatic(table_msg)))
+            .is_empty()
+    );
+
+    // A frame whose log is about the other chairs.
+    let tail = baylee_view::LogTail {
+        from: 0,
+        entries: vec![
+            log_line(
+                1,
+                LogEvent::Mulliganed {
+                    player: PlayerId::new(1),
+                },
+            ),
+            log_line(
+                1,
+                LogEvent::Kept {
+                    player: PlayerId::new(2),
+                    cards: 7,
+                },
+            ),
+            log_line(
+                2,
+                LogEvent::TurnStarted {
+                    active: PlayerId::new(1),
+                },
+            ),
+        ],
+    };
+    let mut seen = ViewBuilder::new(3).build();
+    seen.seq = 1;
+    let steps = core.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
+        game_id: GAME.into(),
+        seq: 1,
+        view_json: serde_json::to_vec(&seen).unwrap(),
+        log_json: serde_json::to_vec(&tail).unwrap(),
+    })));
+    assert!(is_ready(&steps), "{steps:?}");
+    let steps = core.hear(&asked(2, &colour()));
+    let request = request(&steps).expect("the mind is asked");
+
+    // The bridge keeps the game id; the mind's request carries the lines.
+    assert_eq!(request.context.game_id, GAME);
+    assert_eq!(request.log.entries.len(), 3, "the log reached the request");
+
+    let mut texts = Vec::new();
+    for deck in [DeckText::Full, DeckText::Names] {
+        texts.push(crate::narrator::prefix(&request.context, deck));
+        let style = Style {
+            deck,
+            ..Style::default()
+        };
+        let mut narrator = Narrator::styled(&request.context, style);
+        narrator.hear(&request.log);
+        let wake = narrator.wake(request, &[], None);
+        // The message really tells the log, by seat number.
+        assert!(wake.text.contains("P2"), "{}", wake.text);
+        texts.push(narrator.prefix(&request.context));
+        texts.push(wake.text);
+        texts.push(wake.headline);
+    }
+    for text in &texts {
+        assert_eq!(leaks(text), Vec::<&str>::new(), "{text}");
+    }
+    let prefix = &texts[0];
+    assert!(prefix.contains("P2 is an opponent."), "{prefix}");
+    assert!(prefix.contains("P3 is your teammate."), "{prefix}");
+    assert!(prefix.contains("You are P1 "), "{prefix}");
+    assert!(prefix.contains("YOUR DECK (40 cards)"), "{prefix}");
 }

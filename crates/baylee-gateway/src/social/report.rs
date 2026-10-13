@@ -10,6 +10,11 @@
 //! removed since cannot be checked: the report goes on unverified. Revealing
 //! the key reveals this one message and nothing else. Nothing of it is
 //! logged.
+//!
+//! Who can be found from a report: the sender of a verified message, by its
+//! public tag (`client.chat.sender_tag`), so a moderator can act on what was
+//! written (`GET /admin/accounts?tag=`); never the reporter, who reaches the
+//! service as a keyed pseudonym only.
 
 use super::routes::caller;
 use crate::{ErrorBody, Shared, err};
@@ -150,7 +155,17 @@ pub(crate) async fn post_report(
             "chat": {
                 "verified": verified,
                 "conversation": conv_kind(&conv),
-                "sender": sender.as_ref().map(|who| feedback.pseudonym(&who.id.to_string())),
+                // The sender's public tag, so a moderator can find the
+                // account and act on what it wrote: only when the check
+                // held, because an unverified report could name anyone.
+                // No sender pseudonym beside it: it is the same keyed hash
+                // a reporter is known by, and paired with the tag it would
+                // resolve every report that account ever filed. The
+                // reporter stays a pseudonym and is never resolvable.
+                "sender_tag": sender
+                    .as_ref()
+                    .filter(|_| verified)
+                    .map(|who| crate::handle::tag_text(who.tag)),
                 "sent_at": header.ts,
                 "message": message,
                 "note": report.note,

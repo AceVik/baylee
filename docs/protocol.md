@@ -152,7 +152,7 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true}
+ "registration":"invite","guests":true,"impressum":"https://example.org/impressum"}
 ```
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
@@ -182,6 +182,18 @@ is no account yet:
 - `terms` is the version of the terms of use a player accepts here, or
   `null` on a gateway without terms (§"Terms of use (WG-1)"). It is one
   version for every language the terms are in.
+- `impressum` is the operator's legal notice (Impressum), `BAYLEE_IMPRESSUM_URL`,
+  or `null` when unset (13.10.2026): each gateway is run by someone, and
+  each may have its own notice, as it has its own terms. It must be
+  `https://` with a host (no user before it), at most 200 characters, with
+  no whitespace, control or bidirectional character, or the gateway refuses
+  to start. No separate privacy address: the terms carry the privacy
+  notice. The client keeps it only when it passes the same check
+  (`gateway_info::legal_address`) and draws it as a link with the host it
+  opens in sight (`Legal notice (Impressum) · example.org`) on the front
+  door's About, the terms sheet and Settings → Network; it opens only on
+  the player's click, in the system browser, and only that address. Absent
+  from a gateway older than the field.
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -2558,7 +2570,7 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/metrics` | the last hour of server samples, below |
 | `GET /admin/sets` | how far the pool is through each set, below |
 | `GET /admin/sets/{code}` | one set's cards; `404` for a code the ledger has not, `400` for one that is not letters and digits |
-| `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
+| `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `tag=` (exactly one account by its tag: `af03`, `#af03` or a whole handle `Alice#af03`, the name not checked; registered or guest; not a tag `400`; the sender a chat report names, §"Who a report can find"), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
 | `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
@@ -2722,7 +2734,20 @@ ban or delete a player or guest, from the console and not a shell
 (`crates/baylee-gateway/src/moderation.rs`; the columns are migration
 `m20261012_000016_account_moderation`). Finding the player is the search
 `GET /admin/accounts?q=` already does (owner, 09.10.2026); nothing new
-lists people. Every act is a change, so it names its admin
+lists people.
+
+#### Who a report can find
+
+The **sender** of a reported chat message can be found; the **reporter**
+never (13.10.2026). A moderator must be able to act on reported content,
+and the sender's tag is public in every handle anyway: the gateway adds
+`client.chat.sender_tag` (the tag in hex, as a handle draws it) to the
+forwarded report only when the message's signature and key checked
+(`verified`), because an unverified report could name anyone, and the
+feedback UI's *Find sender's account* opens the accounts filtered by
+`GET /admin/accounts?tag=`, where the admin can ban. The reporter reaches
+the service as the keyed pseudonym only, and no route turns it back into an
+account. Every act is a change, so it names its admin
 (`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
 `action=account.password.reset`, `account.ban` (with `until` and whether
 it is a guest), `account.unban`, `account.delete` or `game.close`, the
@@ -3019,8 +3044,9 @@ In the room's listing a chair carries
 `"hosted": {"profile", "label", "vendor", "model", "state", "note"}` or
 `null`: `state` is `starting` (ordered, not ready yet), `ready`, or
 `failed` (the chair is open again; `note` says why, until the chair is
-taken or ordered again). A hosted bridge plays **pseudonymised**
-(`--hosted`): its prompts name seats `P1…Pn`, never a display name. Its
+taken or ordered again). A hosted bridge, like every bridge, plays
+**pseudonymised**: its prompts name seats `P1…Pn`, never a display name,
+handle, tag, account or game id (`docs/llm-seat.md`). Its
 record line says `llm_api`/`llm_cli` as any bridge's does
 (§"Who answers a seat, as it says").
 

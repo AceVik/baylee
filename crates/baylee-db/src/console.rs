@@ -110,6 +110,10 @@ impl Order {
 pub struct Query {
     /// Part of a username, a display name, or a tag in hex (`#af03`).
     pub text: String,
+    /// Exactly the account with this tag, registered or guest, when set:
+    /// the moderator's "find the sender of a reported chat message" (the
+    /// tag is public in every handle, and unique).
+    pub tag: Option<i32>,
     /// Registered, guests or both.
     pub kind: Kind,
     /// Only these accounts, when set: the console's "online" filter, the
@@ -331,10 +335,11 @@ const ACCOUNT_FILTER: &str = "\
     ($4 = '' \
         OR strpos(coalesce(a.username_key, ''), lower($4)) > 0 \
         OR strpos(lower(a.display_name), lower($4)) > 0 \
-        OR lower(to_hex(a.tag)) = lower(split_part($4, '#', 2)) \
+        OR to_hex(a.tag) = ltrim(lower(split_part($4, '#', 2)), '0') \
         OR a.id::text = lower($4)) \
     AND ($5 = 'all' OR a.guest = ($5 = 'guest')) \
-    AND ($6::text IS NULL OR a.id::text = ANY(string_to_array($6::text, ',')))";
+    AND ($6::text IS NULL OR a.id::text = ANY(string_to_array($6::text, ','))) \
+    AND ($7::int4 IS NULL OR a.tag = $7::int4)";
 
 fn iso_of(at: OffsetDateTime) -> String {
     let at = at.to_offset(time::UtcOffset::UTC);
@@ -422,6 +427,7 @@ pub async fn accounts(
         query.text.trim().to_owned().into(),
         query.kind.sql().into(),
         only.into(),
+        query.tag.into(),
     ]);
     let backend = db.get_database_backend();
     // The count reads the same filter with the same numbering, so the three

@@ -179,6 +179,7 @@ fn the_front_door_says_where_the_source_is() {
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some(fork.to_string()),
                     terms: None,
+                    impressum: None,
                 }),
             );
         }
@@ -234,6 +235,7 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some("javascript:alert(1)".to_string()),
                     terms: None,
+                    impressum: None,
                 }),
             );
         }
@@ -255,6 +257,73 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
             discord,
             usize::from(width > 1000.0),
             "{width} px: the Discord tile stands on a desktop window whatever the gateway says"
+        );
+    }
+}
+
+/// The gateway operator's legal notice (Impressum): the About sheet offers
+/// a link to it when the gateway's `/info` names one, and the press opens
+/// exactly that address. Nothing opens when the gateway names none, has not
+/// answered, or (planted past the check on the way in, as a gateway's
+/// answer never is) names an address that would show one host and open
+/// another.
+#[test]
+fn the_about_sheet_links_the_gateways_impressum_only_when_it_is_a_plain_https_address() {
+    use super::super::source::address_of;
+    let impressum_probe = |impressum: Option<&str>| {
+        Probe::Known(baylee_client_core::lobby::gateway_info::GatewayInfo {
+            name: None,
+            version: String::new(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            view_version: baylee_view::VIEW_VERSION,
+            source: None,
+            terms: None,
+            impressum: impressum.map(str::to_string),
+        })
+    };
+    let count = |app: &mut App| {
+        presses(app)
+            .into_iter()
+            .filter(|press| *press == Press::Front(FrontPress::OpenImpressum))
+            .count()
+    };
+    let mut app = headless();
+    sized(&mut app, 390.0);
+    to_gateway_face(&mut app);
+    app.world_mut().resource_mut::<LobbyState>().about_open = true;
+    app.update();
+    // No gateway has answered: no link, and a press would open nothing.
+    assert_eq!(count(&mut app), 0, "no answer yet");
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(address_of(FrontPress::OpenImpressum, state), None);
+
+    for (planted, offered) in [
+        (None, None),
+        (
+            Some("https://example.org/impressum"),
+            Some("https://example.org/impressum"),
+        ),
+        (Some("https://a@b.example/"), None),
+        (Some("http://example.org/impressum"), None),
+        (Some("javascript:alert(1)"), None),
+        (Some("https://example.org/\u{202E}x"), None),
+    ] {
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            let gateway = state.gateway.clone();
+            state.probes.insert(gateway, impressum_probe(planted));
+        }
+        app.update();
+        assert_eq!(
+            count(&mut app),
+            usize::from(offered.is_some()),
+            "{planted:?}: the About sheet's link"
+        );
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(
+            address_of(FrontPress::OpenImpressum, state).as_deref(),
+            offered,
+            "{planted:?}: what a press opens"
         );
     }
 }
@@ -1110,6 +1179,7 @@ fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
         view_version: view,
         source: None,
         terms: None,
+        impressum: None,
     })
 }
 

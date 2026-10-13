@@ -40,8 +40,9 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
-# A session directory's name, unguessable, for an agent CLI's process (`cli`).
-uuid.workspace = true
+# A session directory's name, unguessable and random (v4: no clock, no game
+# id), for an agent CLI's process (`cli`), and a managed session's label.
+uuid = { workspace = true, features = ["v4"] }
 # The player's clock for the spend book: the day a game counts in is the
 # player's own, where the platform says what its offset is (the client's
 # log reads it the same way).
