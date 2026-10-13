@@ -346,6 +346,8 @@ pub(crate) fn answer_box(host: &mut SocialHost, ui: &mut ChatUi) {
             if typed.contains('#') {
                 host.act(Intent::AddFriend { handle: typed });
                 ui.find.clear();
+                ui.typing = false;
+                ui.swallow = true;
             }
         }
         Field::Entry => {

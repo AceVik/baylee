@@ -25,7 +25,12 @@ pub(super) fn poll(
         let Ok(mut box_) = mailbox.0.lock() else {
             return;
         };
-        if box_.is_empty() {
+        // A seat waiting for its host is taken up on the next frame even
+        // with nothing in the mailbox: a watch the chat started (a friend's
+        // Watch, beta.8) arrives with no reply behind it, and the feed that
+        // would have brought one hangs up once a seat is held.
+        let seat_waiting = matches!(state.lobby.screen(), Screen::Seated(_)) && !state.connected;
+        if box_.is_empty() && !seat_waiting {
             return;
         }
         std::mem::take(&mut *box_)

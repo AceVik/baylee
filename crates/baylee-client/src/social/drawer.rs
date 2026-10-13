@@ -113,6 +113,8 @@ fn asks(
                     && !at_table
                 {
                     joins.0.push((game, invite));
+                    ui.drawer = false;
+                    ui.typing = false;
                 }
             }
             UiAsk::Watch { game } => {
@@ -120,6 +122,8 @@ fn asks(
                     && !at_table
                 {
                     lobby.lobby.watch_table(&game);
+                    ui.drawer = false;
+                    ui.typing = false;
                 }
             }
         }
@@ -153,6 +157,7 @@ fn presses(
             DrawerPress::Add(handle) => {
                 host.act(Intent::AddFriend { handle });
                 ui.find.clear();
+                ui.typing = false;
             }
             DrawerPress::Accept(tag) => host.act(Intent::Accept { tag }),
             DrawerPress::Decline(tag) => host.act(Intent::Decline { tag }),
