@@ -4936,9 +4936,13 @@ and the mana floating (`PlanSpellRefused`). `fire_cast_payment` starts
 `ManaRun::cast_first` for a card in `LegalActions::payable`: the cast is sent
 first, the cast's own questions (mode through `take_the_chosen_cast_mode`,
 X, targets) are the player's and the run waits through them, and the payment
-window the cast opens is planned the way the pay button plans it
-(`Duel::compute_owed_plan`, against the pool as it stands) and settled. A
-window nothing can pay is passed, which reverses the cast. `reachable` still
+window the cast opens is planned the way "Pay now" plans it
+(`Duel::compute_owed_plan`, against the pool as it stands), staged, and sent
+as one `PlayerAction::PayWindow` (§"Paying a window: staged, then sent
+whole"). A window nothing plans is left open with the reason said — never
+passed on the player's behalf, which would reverse the cast in silence; the
+shelf's "Don't pay — the spell goes back" and "Cancel cast" are the player's
+ways out. `reachable` still
 decides whether the card is lit; the plan that made it reachable is only the
 promise that the window can be paid. A card already `castable` (mana floating,
 or Phyrexian life alone) takes the old run. The house AI still floats first:
@@ -5010,6 +5014,60 @@ the order is asserted rather than trusted.
 whole field exists for, and it is the house-AI bug written from the client's
 side. If it is ever green for the wrong reason the feature is a permanent glow
 on every land a player owns, all game.
+
+## Paying a window: staged, then sent whole (`PayWindow`, 13.10.2026)
+
+The owner's report: a "pay or …" price (Pact of Negation's upkeep, Rhystic
+Study's tax) answered Yes counted as unpaid unless the lands had been tapped
+by hand first, and every tap made by hand was real at once — a painland's
+damage, City of Brass's point, a land tapped by mistake that stayed tapped.
+The engine now takes a window's whole payment as one all-or-nothing action
+(`docs/protocol.md` §"Paying a window in one action"), and the client
+stages the taps until the player confirms. One surface for every window that
+owes a fixed cost (`Duel::paying`): a spell's own (the `payable` road), an
+activation's, a tax, a pact, ward.
+
+- **Staging** is `client-core::paystage::Staging` on `Duel::pay_staged`, in
+  the order the player made it, one tap per permanent. A click on a land in
+  the window (`activate_card` → `arm_ability`) stages it instead of sending
+  it: a mana-bubble pip carries its colour, which is the answer the tap will
+  ask; a written row stages only when the planner's reading says its tap
+  asks nothing (`staging_step`), and anything else is sent one action at a
+  time as before, which the window still accepts. A click on a staged land,
+  `Esc` (above the cast's own rung) or the shelf's "Untap all" takes taps
+  back; nothing was sent, so nothing else changes.
+- **Drawn** as `Proposal::Staged`: the permanent splits from its pile and
+  lies turned (`board::card_group` sets the tapped bit on the group, never on
+  the view) with `WILL_TAP` on the felt; the suggestion "Pay now" would add
+  is lit and upright, as the owed plan always was (`Proposing::Owed { plan,
+  staged }`).
+- **What is owed**: the shelf's strip says the cost and, once anything pays
+  part of it, what is still open (`Duel::payment_remaining`: the pool plus
+  each staged tap's worth by the planner's reading of its source,
+  `paystage::worth`, which never over-counts).
+- **The confirm** (`Duel::confirm_payment`, `Space`/`Enter`, the shelf's
+  primary) is one of two answers by one predicate: Go (`send_payment`) once
+  the pool and the staged taps cover the cost, else "Pay now"
+  (`stage_owed_plan`), which stages the plan for the rest and sends nothing.
+  Go sends `PayWindow { steps }`: each staged tap as the engine offers it
+  (`paystage::tap_action`), followed by `ChooseColor` exactly where the step
+  carries a colour.
+- **A refusal** comes back as the engine's sentence with the same window
+  re-asked (`reask`, both hosts). `Duel::keep_staging` keeps the staging for
+  the same window — same owed cost — and drops only the taps no longer
+  offered, so the player corrects it rather than starting again; a closed
+  window or a different cost empties it.
+- **Declining** is the pass, labelled with what it costs where the client
+  knows: a cast goes back, a pact's debt loses the game
+  (`Duel::declining_costs`, from the `YesNoPrompt` the seat said yes to).
+
+A spell paid in its own window does not stop there for a third press: the
+armed card with its lit lands was the staging, and the click that confirmed
+it is the Go (`advance_cast_first`). The tap-first runs that are not windows
+(a cast not in `payable`, an `unpaid_abilities` activation, a mana bubble
+outside a window) keep `ManaRun`; the house AI and the seat bridge keep
+paying one action at a time. Granted mana actions in a window are still
+taken at once.
 
 ## Tapping lands for a spell
 

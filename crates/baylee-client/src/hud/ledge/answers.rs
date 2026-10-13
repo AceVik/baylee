@@ -87,6 +87,12 @@ fn payment_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
                 Says::Answer(PromptAction::Confirm),
                 Phrase::PayStage.fill(lang, &[&plan.taps().to_string()]),
             )],
+            // A granted action makes the mana first, for real; the same
+            // press pays once the pool covers the rest.
+            _ if !super::granted_offers(duel).is_empty() => vec![(
+                Says::Answer(PromptAction::Confirm),
+                Phrase::PayGo.text(lang).to_string(),
+            )],
             _ => Vec::new(),
         }
     };
