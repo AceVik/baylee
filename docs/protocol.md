@@ -1684,6 +1684,21 @@ that are themselves recorded inputs. JSON Lines, so a record cut off with its
 engine is readable up to the cut; the header names the build
 (`baylee_build::short`).
 
+The hash checks a replay only on the build that played it: any change to
+the engine's state moves it. So the header and every input also carry
+`seen` (`baylee_gamehost::record::seen`, 16 hex like `hash`): FNV-1a 64 of
+the **public** table in a fixed encoding of our own numbers (turn, active
+seat, the step in CR 500.1's order; per seat in the game, life, poison,
+hand, library and exile counts and the graveyard's cards; the battlefield's
+card, controller, tapped and face-down, sorted; the stack's size), cards by
+their append-only `CardIndex`. It means the same on every build, so a replay
+on a later one is checked against what the table showed (§"Replays"). The
+encoding is frozen (a golden test pins it): a change is a new field name,
+never an edit. The end line carries `turn`, the turn the game ended on. Both
+are optional and skipped when absent: a record from before them reads as it
+did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
+unverified.
+
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
 (`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each

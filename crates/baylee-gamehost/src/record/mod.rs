@@ -416,6 +416,11 @@ pub enum ReplayError {
         /// The end line's number.
         n: u64,
     },
+    /// A replay was asked for a seat the table does not have.
+    NoSuchSeat {
+        /// The seat asked for.
+        seat: u8,
+    },
 }
 
 /// The record's whole lines, parsed: a trailing line without its newline is
@@ -526,7 +531,7 @@ mod tests {
     use baylee_core::preset::SeatController;
 
     /// The acceptance decks, seat 0 a player's chair and seat 1 the house's.
-    fn table(seed: u64) -> GamePreset {
+    pub(super) fn table(seed: u64) -> GamePreset {
         let text = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../data/acceptance-decks.txt"
@@ -545,7 +550,7 @@ mod tests {
     /// player's own answers, the decision clock's, a stand-in's after the
     /// player leaves and the house AI's throughout, with chairs changing
     /// hands on the way. Returns the finished session.
-    fn played(seed: u64) -> Session {
+    pub(super) fn played(seed: u64) -> Session {
         played_saying(seed, |_, _| {})
     }
 
@@ -593,7 +598,7 @@ mod tests {
         session
     }
 
-    fn lines(record: &[u8]) -> Vec<Line> {
+    pub(super) fn lines(record: &[u8]) -> Vec<Line> {
         record
             .split(|&b| b == b'\n')
             .filter(|l| !l.is_empty())
@@ -601,7 +606,7 @@ mod tests {
             .collect()
     }
 
-    fn encode(lines: &[Line]) -> Vec<u8> {
+    pub(super) fn encode(lines: &[Line]) -> Vec<u8> {
         let mut out = Vec::new();
         for line in lines {
             serde_json::to_writer(&mut out, line).expect("a line");
@@ -1044,5 +1049,206 @@ mod tests {
             serde_json::to_string(&Source::StandIn).unwrap(),
             r#""stand_in""#
         );
+    }
+
+    fn is_hex16(text: &str) -> bool {
+        text.len() == 16
+            && text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    }
+
+    /// The record names, in plain JSON, what the table showed: `seen` on the
+    /// header and on every input in the 16 digits of a hash, and the turn
+    /// the game ended on at its end, the engine's own.
+    #[test]
+    fn a_record_carries_seen_on_header_and_inputs_and_the_turn_on_its_end() {
+        let mut session = played(3);
+        let turn = session.state().turn.number;
+        assert!(turn > 1, "a game that ended on turn 1 proves little");
+        let finally = hex(seen(session.state()));
+        let record = session.take_record();
+        let text = String::from_utf8(record).expect("a record is text");
+        let values: Vec<serde_json::Value> = text
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("json"))
+            .collect();
+        assert_eq!(values[0]["kind"], "header");
+        assert!(
+            is_hex16(values[0]["seen"].as_str().expect("the header's seen")),
+            "{}",
+            values[0]
+        );
+        let mut inputs = 0;
+        for value in &values {
+            if value["kind"] == "input" {
+                inputs += 1;
+                let seen = value["seen"].as_str().expect("an input's seen");
+                assert!(is_hex16(seen), "{value}");
+            }
+        }
+        assert!(inputs > 30, "{inputs} inputs");
+        let end = values.last().expect("a line");
+        assert_eq!(end["kind"], "end");
+        assert_eq!(end["turn"], turn, "{end}");
+        let last_input = values
+            .iter()
+            .rev()
+            .find(|v| v["kind"] == "input")
+            .expect("an input");
+        assert_eq!(
+            last_input["seen"].as_str(),
+            Some(finally.as_str()),
+            "the last input's seen is the finished table's"
+        );
+        // Nothing else is given the keys.
+        for value in &values {
+            let kind = value["kind"].as_str().expect("a kind");
+            assert_eq!(
+                value.get("seen").is_some(),
+                matches!(kind, "header" | "input"),
+                "{value}"
+            );
+            assert_eq!(value.get("turn").is_some(), kind == "end", "{value}");
+        }
+    }
+
+    /// A line from before `seen` and `turn` is written without them, not
+    /// with `null`: a reader of the older shape sees what it always saw.
+    #[test]
+    fn a_line_without_seen_or_turn_omits_the_keys() {
+        let header = Line::Header {
+            record: RECORD_VERSION,
+            build: "b".into(),
+            preset: table(3),
+            hash: hex(1),
+            seen: None,
+        };
+        let input = Line::Input {
+            n: 0,
+            at: 0,
+            seat: 0,
+            by: Source::Seat,
+            action: PlayerAction::PassPriority,
+            hash: hex(2),
+            seen: None,
+        };
+        let end = Line::End {
+            n: 1,
+            at: 0,
+            winners: vec![0],
+            reason: "r".into(),
+            turn: None,
+        };
+        for line in [header, input, end] {
+            let json = serde_json::to_string(&line).unwrap();
+            let top: serde_json::Value = serde_json::from_str(&json).unwrap();
+            let keys = top.as_object().expect("a line is an object");
+            assert!(!keys.contains_key("seen"), "{json}");
+            assert!(!keys.contains_key("turn"), "{json}");
+            // And it reads back as it was.
+            assert_eq!(serde_json::from_str::<Line>(&json).unwrap(), line);
+        }
+        // With the values, the keys are there and read back.
+        let with = Line::End {
+            n: 1,
+            at: 0,
+            winners: vec![0],
+            reason: "r".into(),
+            turn: Some(7),
+        };
+        let json = serde_json::to_string(&with).unwrap();
+        assert!(json.contains(r#""turn":7"#), "{json}");
+        assert_eq!(serde_json::from_str::<Line>(&json).unwrap(), with);
+        let with = Line::Input {
+            n: 0,
+            at: 0,
+            seat: 0,
+            by: Source::Seat,
+            action: PlayerAction::PassPriority,
+            hash: hex(2),
+            seen: Some(hex(0xabc)),
+        };
+        let json = serde_json::to_string(&with).unwrap();
+        assert!(json.contains(r#""seen":"0000000000000abc""#), "{json}");
+        assert_eq!(serde_json::from_str::<Line>(&json).unwrap(), with);
+    }
+
+    /// What the record says the table showed is what a replay's table
+    /// shows, before the first input and after each one: the check a later
+    /// build makes where the hash cannot be compared.
+    #[test]
+    fn the_recorded_seen_is_the_replays_seen_at_every_step() {
+        let written = lines(&played(3).take_record());
+        let Some(Line::Header { preset, seen, .. }) = written.first() else {
+            panic!("no header");
+        };
+        let mut engine =
+            Engine::new(preset, RegistryLookup).expect("the header's preset builds an engine");
+        assert_eq!(
+            seen.as_deref(),
+            Some(hex(super::seen(engine.state())).as_str())
+        );
+        let mut checked = 0;
+        let mut distinct = std::collections::BTreeSet::new();
+        for line in &written {
+            if let Line::Input {
+                seat, action, seen, ..
+            } = line
+            {
+                engine
+                    .apply(PlayerId::new(*seat), action.clone())
+                    .expect("the engine takes what it took");
+                let now = hex(super::seen(engine.state()));
+                assert_eq!(seen.as_deref(), Some(now.as_str()), "after input {checked}");
+                distinct.insert(now);
+                checked += 1;
+            }
+        }
+        assert!(checked > 30, "{checked}");
+        assert!(
+            distinct.len() > checked / 3,
+            "the digest hardly moved over {checked} inputs: {} values",
+            distinct.len()
+        );
+    }
+
+    /// A record from before `seen` and `turn` still replays, on either door,
+    /// to the game the full one does.
+    #[test]
+    fn a_record_without_seen_or_turn_replays_as_before() {
+        let mut session = played(3);
+        let record = session.take_record();
+        let mut older = lines(&record);
+        let mut stripped = 0;
+        for line in &mut older {
+            match line {
+                Line::Header { seen, .. } | Line::Input { seen, .. } => {
+                    assert!(seen.take().is_some());
+                    stripped += 1;
+                }
+                Line::End { turn, .. } => {
+                    assert!(turn.take().is_some());
+                    stripped += 1;
+                }
+                Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            }
+        }
+        assert!(stripped > 30);
+        let older = encode(&older);
+        let text = String::from_utf8(older.clone()).unwrap();
+        assert!(!text.contains("\"seen\""), "the keys are gone");
+        assert!(!text.contains("\"turn\""), "the keys are gone");
+
+        let full = replay(&record).expect("the record replays");
+        let replayed = replay(&older).expect("the older record replays");
+        assert!(replayed.ended);
+        assert_eq!(replayed.inputs, full.inputs);
+        assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
+        assert_eq!(replayed.engine.snapshot_hash(), full.engine.snapshot_hash());
+
+        let resumed = Session::resume_recorded(&older).expect("the older record resumes");
+        assert_eq!(resumed.snapshot_hash(), session.snapshot_hash());
+        assert!(matches!(resumed.pending(), Pending::GameOver(_)));
     }
 }
