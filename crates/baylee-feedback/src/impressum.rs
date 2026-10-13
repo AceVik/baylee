@@ -201,9 +201,12 @@ pub struct Verdict {
     pub decoy: bool,
 }
 
-/// User agents that say what they are: tools, libraries, crawlers.
-const ROBOT_MARKERS: [&str; 16] = [
-    "bot",
+/// User agents that say what they are: tools, libraries, crawlers
+/// (`Googlebot/2.1`, `bingbot/2.0`; a crawler's contact link `+http`).
+/// "bot" alone would also be a phone maker's name.
+const ROBOT_MARKERS: [&str; 17] = [
+    "bot/",
+    "+http",
     "crawl",
     "spider",
     "curl",
