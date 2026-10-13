@@ -630,19 +630,6 @@
       g.style.setProperty("--my", (e.clientY - r.top).toFixed(0) + "px");
     }, { passive: true });
 
-    // a click leaves a ring of light where it landed
-    document.addEventListener("pointerdown", function (e) {
-      if (calm()) return;
-      var b = e.target.closest && e.target.closest(".button, .lang-btn, .cfilter-btn");
-      if (!b || !b.classList.contains("button")) return;
-      var r = b.getBoundingClientRect();
-      var dot = el("span", { class: "ripple", "aria-hidden": "true" });
-      dot.style.left = (e.clientX - r.left) + "px";
-      dot.style.top = (e.clientY - r.top) + "px";
-      b.appendChild(dot);
-      setTimeout(function () { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 700);
-    });
-
     // the menu on narrow screens
     var menu = document.querySelector(".menu-btn"), nav = document.getElementById("nav");
     function setMenu(open) {
@@ -751,8 +738,17 @@
       if (en) status.appendChild(t(en, de));
     }
 
+    // the button says where the message is: idle, sending, sent, error. It
+    // is never `disabled` while sending, which would drop the keyboard's
+    // focus to the page; a second press is ignored instead.
+    function state(s) {
+      send.setAttribute("data-state", s);
+      if (s === "sending") { send.setAttribute("aria-disabled", "true"); send.setAttribute("aria-busy", "true"); }
+      else { send.removeAttribute("aria-disabled"); send.removeAttribute("aria-busy"); }
+    }
     form.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (send.getAttribute("data-state") === "sending") return;
       var text = msg.value.trim();
       var mail = email.value.trim();
       if (!text) {
@@ -774,30 +770,34 @@
         language: lang,
         website: document.getElementById("c-website").value
       };
-      send.setAttribute("aria-busy", "true");
-      send.disabled = true;
+      state("sending");
       say("", "Sending…", "Wird gesendet …");
       fetch(endpoint, {
         method: "POST", credentials: "omit", referrerPolicy: "no-referrer", mode: "cors",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
       }).then(function (r) {
         if (r.status === 201) {
-          form.reset();
-          counted();
-          say("", "", "");
-          card.classList.add("sent");
-          var done = document.getElementById("contact-done");
-          if (done) done.focus();
+          state("sent");
+          say("ok", "Sent.", "Gesendet.");
+          // a moment for the button's tick, then the thank-you
+          setTimeout(function () {
+            form.reset();
+            counted();
+            say("", "", "");
+            state("idle");
+            card.classList.add("sent");
+            var done = document.getElementById("contact-done");
+            if (done) done.focus();
+          }, still.matches ? 0 : 650);
           return;
         }
+        state("error");
         if (r.status === 429) say("bad", "Too many messages from here in the last hour. Please try again later.", "Zu viele Nachrichten von hier in der letzten Stunde. Bitte versuch es später noch einmal.");
         else if (r.status === 400 || r.status === 413) say("bad", "The message was not accepted. Is it shorter than 5,000 characters, and the address a real one?", "Die Nachricht wurde nicht angenommen. Ist sie kürzer als 5.000 Zeichen und die Adresse eine echte?");
         else say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
       }).catch(function () {
+        state("error");
         say("bad", "The form could not reach us just now. Please try again later, or write on Discord or GitHub.", "Das Formular hat uns gerade nicht erreicht. Bitte versuch es später noch einmal, oder schreib auf Discord oder GitHub.");
-      }).then(function () {
-        send.removeAttribute("aria-busy");
-        send.disabled = false;
       });
     });
     var again = document.getElementById("c-again");
