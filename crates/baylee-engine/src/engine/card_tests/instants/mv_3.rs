@@ -27,6 +27,7 @@ mod piety;
 mod psionic_blast;
 mod realms_uncharted;
 mod regress;
+mod reincarnation;
 mod rend_flesh;
 mod rend_spirit;
 mod repulse;

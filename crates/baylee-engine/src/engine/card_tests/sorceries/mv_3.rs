@@ -32,6 +32,7 @@ mod symbol_of_unsummoning;
 mod timetwister;
 mod toxic_deluge;
 mod tranquility;
+mod typhoon;
 mod untamed_wilds;
 mod volcanic_eruption;
 mod wheel_of_fortune;
