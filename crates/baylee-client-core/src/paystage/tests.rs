@@ -1,5 +1,7 @@
 use super::*;
 use crate::manaplan::Dear;
+use baylee_core::ids::GrantedActionId;
+use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer};
 
 fn id(n: u32) -> ObjectId {
     ObjectId::new(n, 0)
@@ -417,4 +419,200 @@ fn extend_appends_a_plan_and_skips_what_is_staged() {
     };
     staging.extend(&plan);
     assert_eq!(sources_of(&staging), [id(5), id(6), id(7)]);
+}
+
+/// A granted special action (`TakeGrantedAction`) that adds mana.
+fn granted_offer(
+    n: u64,
+    cost: baylee_cards_dsl::SpecialActionCost,
+    effect: GrantedActionKind,
+) -> GrantedActionOffer {
+    GrantedActionOffer {
+        id: GrantedActionId::new(n),
+        source: baylee_core::ids::DamageSourceRef {
+            object: id(77),
+            version: 0,
+        },
+        ability: None,
+        timing: baylee_cards_dsl::SpecialActionTiming::ManaAbility,
+        cost,
+        effect,
+    }
+}
+
+fn adds(color: ManaColor, amount: u16) -> GrantedActionKind {
+    GrantedActionKind::AddMana { color, amount }
+}
+
+fn life_mana(n: u64, color: ManaColor, amount: u16) -> GrantedMana {
+    GrantedMana::of(&granted_offer(
+        n,
+        baylee_cards_dsl::SpecialActionCost::Life(1),
+        adds(color, amount),
+    ))
+    .expect("a life-paid fixed AddMana stages")
+}
+
+fn granted_legal(ids: &[u64]) -> LegalActions {
+    LegalActions {
+        granted_actions: ids
+            .iter()
+            .map(|&n| {
+                granted_offer(
+                    n,
+                    baylee_cards_dsl::SpecialActionCost::Life(1),
+                    adds(ManaColor::White, 1),
+                )
+            })
+            .collect(),
+        ..LegalActions::default()
+    }
+}
+
+/// Only a fixed `AddMana` paid with life can be staged: a mana-costed offer
+/// would spend the pool the payment is counting, and any other effect makes
+/// no mana at all.
+#[test]
+fn granted_mana_of_reads_life_paid_add_mana_and_nothing_else() {
+    use baylee_cards_dsl::SpecialActionCost;
+    let staged = GrantedMana::of(&granted_offer(
+        9,
+        SpecialActionCost::Life(2),
+        adds(ManaColor::Blue, 3),
+    ));
+    assert_eq!(
+        staged,
+        Some(GrantedMana {
+            id: GrantedActionId::new(9),
+            color: ManaColor::Blue,
+            amount: 3,
+        })
+    );
+    assert_eq!(
+        GrantedMana::of(&granted_offer(
+            9,
+            SpecialActionCost::Mana(cost("{1}")),
+            adds(ManaColor::Blue, 3),
+        )),
+        None,
+        "a mana cost is not staged"
+    );
+    assert_eq!(
+        GrantedMana::of(&granted_offer(
+            9,
+            SpecialActionCost::Life(1),
+            GrantedActionKind::CancelDelayedLifeLoss { amount: 1 },
+        )),
+        None,
+        "an effect that makes no mana is not staged"
+    );
+}
+
+/// Toggling stages in order, again takes it back, and the answer says which.
+#[test]
+fn toggle_granted_stages_and_unstages() {
+    let mut staging = Staging::default();
+    let (a, b) = (
+        life_mana(1, ManaColor::White, 1),
+        life_mana(2, ManaColor::Blue, 1),
+    );
+    assert!(staging.toggle_granted(a));
+    assert!(staging.toggle_granted(b));
+    assert_eq!(staging.granted(), [a, b], "in the order staged");
+    assert!(!staging.is_empty());
+    assert!(!staging.toggle_granted(a), "again takes it back");
+    assert_eq!(staging.granted(), [b]);
+    assert!(staging.steps().is_empty(), "no tap was involved");
+}
+
+/// A staged granted action adds colour x amount to the pool, so it counts
+/// toward `remaining` and `covers` beside the taps.
+#[test]
+fn a_staged_granted_action_counts_toward_the_payment() {
+    let sources = three_lands();
+    let owed = cost("{2}{W}");
+    let mut staging = staged(&[step(1)]);
+    staging.toggle_granted(life_mana(5, ManaColor::White, 2));
+
+    let out = staging.pool_with(&ManaPoolView::default(), &sources);
+    assert_eq!(
+        (out.white, out.green),
+        (2, 1),
+        "colour x amount, and the tap"
+    );
+    assert!(staging.covers(&owed, &ManaPoolView::default(), &sources));
+    assert!(
+        staging
+            .remaining(&owed, &ManaPoolView::default(), &sources)
+            .is_empty()
+    );
+
+    let short = cost("{3}{W}");
+    assert!(!staging.covers(&short, &ManaPoolView::default(), &sources));
+    assert_eq!(
+        staging.remaining(&short, &ManaPoolView::default(), &sources),
+        [ManaSymbol::Generic(1)],
+        "one generic is still owed"
+    );
+
+    staging.toggle_granted(life_mana(5, ManaColor::White, 2));
+    assert!(
+        !staging.covers(&owed, &ManaPoolView::default(), &sources),
+        "taken back, it no longer pays"
+    );
+}
+
+/// The wire: every tap step first, in staging order, then each granted
+/// action as `TakeGrantedAction`; an offer that has gone makes it `None`.
+#[test]
+fn wire_appends_granted_actions_after_the_taps_and_refuses_a_gone_offer() {
+    let mut staging = Staging::default();
+    staging.toggle_granted(life_mana(7, ManaColor::White, 1));
+    staging.toggle(step(1));
+    staging.toggle_granted(life_mana(8, ManaColor::White, 1));
+    let mut legal = granted_legal(&[7, 8]);
+    legal.mana_abilities = vec![id(1)];
+    assert_eq!(
+        staging.wire(&legal),
+        Some(vec![
+            PlayerAction::ActivateManaAbility { source: id(1) },
+            PlayerAction::TakeGrantedAction {
+                id: GrantedActionId::new(7)
+            },
+            PlayerAction::TakeGrantedAction {
+                id: GrantedActionId::new(8)
+            },
+        ]),
+        "taps first even though a granted action was staged before them"
+    );
+    let mut gone = granted_legal(&[8]);
+    gone.mana_abilities = vec![id(1)];
+    assert_eq!(staging.wire(&gone), None, "offer 7 is gone: all or nothing");
+}
+
+/// `keep_offered` drops a granted entry whose offer left `legal`, counts it
+/// as a drop, and keeps the rest in order.
+#[test]
+fn keep_offered_drops_a_granted_action_that_is_no_longer_offered() {
+    let mut staging = Staging::default();
+    let b = life_mana(8, ManaColor::White, 1);
+    staging.toggle_granted(life_mana(7, ManaColor::White, 1));
+    staging.toggle_granted(b);
+    assert!(!staging.keep_offered(&granted_legal(&[7, 8])), "both stay");
+    assert!(staging.keep_offered(&granted_legal(&[8])), "7 went");
+    assert_eq!(staging.granted(), [b]);
+    assert!(staging.keep_offered(&granted_legal(&[])));
+    assert!(staging.is_empty());
+}
+
+/// `clear` takes granted actions back too, and a staging with only a granted
+/// action is not empty.
+#[test]
+fn clear_and_is_empty_include_granted_actions() {
+    let mut staging = Staging::default();
+    staging.toggle_granted(life_mana(7, ManaColor::White, 1));
+    assert!(!staging.is_empty());
+    staging.clear();
+    assert!(staging.is_empty());
+    assert!(staging.granted().is_empty());
 }
