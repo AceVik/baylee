@@ -507,3 +507,167 @@ fn the_card_under_the_pointer_wears_the_candle_edge_until_it_leaves() {
         "the edge stayed on after the pointer left"
     );
 }
+
+// ---------------------------------------------------- the text face
+
+/// A `table()` that has card texts, standing a reveal of Llanowar Elves
+/// (print 7; the log line deliberately calls it something else, so a face
+/// drawn from the line's words would not pass for the registry's).
+fn elves_standing() -> App {
+    let mut app = table();
+    app.insert_resource(crate::cardtext::CardTexts::default());
+    let mut line = revealed_line(1, 40, 7);
+    if let baylee_view::LogEvent::Revealed { cards, .. } = &mut line.event
+        && let Some(baylee_view::LogObject::Known { card, name, .. }) = cards.first_mut()
+    {
+        card.as_mut().expect("a known card").index =
+            crate::cardtext::fixture::card("Llanowar Elves");
+        *name = "Log Name".to_string();
+    }
+    reveal(&mut app, vec![line]);
+    app.update();
+    app
+}
+
+/// Everything under the cards of the standing reveal.
+fn under_the_cards(app: &mut App) -> Vec<Entity> {
+    let roots: Vec<Entity> = {
+        let mut q = app.world_mut().query_filtered::<Entity, With<RevealCard>>();
+        q.iter(app.world()).collect()
+    };
+    let mut out = Vec::new();
+    let mut todo = roots;
+    while let Some(next) = todo.pop() {
+        out.push(next);
+        if let Some(kids) = app.world().get::<Children>(next) {
+            todo.extend(kids.iter());
+        }
+    }
+    out
+}
+
+/// Whether the standing card is drawn as a text face (its name written in
+/// `Text`) and whether as plain art (an `ImageNode`).
+fn how_drawn(app: &mut App) -> (bool, bool) {
+    let under = under_the_cards(app);
+    let named = under.iter().any(|e| {
+        app.world()
+            .get::<Text>(*e)
+            .is_some_and(|t| t.0 == "Llanowar Elves")
+    });
+    let art = under
+        .iter()
+        .any(|e| app.world().get::<ImageNode>(*e).is_some());
+    (named, art)
+}
+
+/// Where the print has not arrived, a revealed card is its text face, not a
+/// blank or a bare empty picture: its name is written on the card (the
+/// registry's, whatever the log line called it) and no picture stands in it.
+/// Guards the reveal sheet showing nothing while art is in flight or the
+/// gateway serves none.
+#[test]
+fn a_reveal_whose_art_has_not_arrived_is_drawn_as_its_text_face() {
+    let mut app = elves_standing();
+    assert_eq!(cards(&mut app), 1);
+    assert_eq!(
+        how_drawn(&mut app),
+        (true, false),
+        "the face, not the art: {:?}",
+        words(&mut app)
+    );
+}
+
+/// Once the print is there the card is the print again, and a face is only
+/// the fallback: no name is written over a picture. Keeps the face from
+/// being drawn always.
+#[test]
+fn a_reveal_whose_art_has_arrived_is_the_art_and_not_the_face() {
+    let mut app = elves_standing();
+    let own = art_of_card(&app, 0);
+    app.world_mut()
+        .resource_mut::<CardTextures>()
+        .mark_arrived(own);
+    app.update();
+    assert_eq!(
+        how_drawn(&mut app),
+        (false, true),
+        "the picture alone: {:?}",
+        words(&mut app)
+    );
+}
+
+/// The text view setting wins over arrived art, also while the sheet
+/// stands: switching it redraws the card (the sheet's revision holds it).
+#[test]
+fn the_text_view_setting_turns_a_standing_reveal_into_its_face_and_back() {
+    let mut app = elves_standing();
+    let own = art_of_card(&app, 0);
+    app.world_mut()
+        .resource_mut::<CardTextures>()
+        .mark_arrived(own);
+    app.update();
+    assert_eq!(how_drawn(&mut app), (false, true), "art to begin with");
+
+    app.world_mut()
+        .resource_mut::<crate::settings::ClientSettings>()
+        .prefer_text_view = true;
+    app.update();
+    assert_eq!(
+        how_drawn(&mut app),
+        (true, false),
+        "the text view turned the standing card into its face"
+    );
+
+    app.world_mut()
+        .resource_mut::<crate::settings::ClientSettings>()
+        .prefer_text_view = false;
+    app.update();
+    assert_eq!(how_drawn(&mut app), (false, true), "and back to the art");
+}
+
+/// Holding the "show me the text" modifier draws the face over arrived art
+/// (`FaceMode::held`), as it does at the table, and letting go brings the
+/// art back.
+#[test]
+fn holding_the_text_modifier_draws_the_face_over_arrived_art() {
+    let mut app = elves_standing();
+    app.insert_resource(crate::face::FaceMode::default());
+    let own = art_of_card(&app, 0);
+    app.world_mut()
+        .resource_mut::<CardTextures>()
+        .mark_arrived(own);
+    app.update();
+    assert_eq!(how_drawn(&mut app), (false, true), "art, nothing held");
+
+    app.world_mut().resource_mut::<crate::face::FaceMode>().held = true;
+    app.update();
+    assert_eq!(how_drawn(&mut app), (true, false), "held: the face");
+
+    app.world_mut().resource_mut::<crate::face::FaceMode>().held = false;
+    app.update();
+    assert_eq!(how_drawn(&mut app), (false, true), "let go: the art");
+}
+
+/// A translation arriving while a text face stands redraws it in the
+/// player's language (the card texts' generation is part of the sheet's
+/// revision), so the face is not stuck in English until something else
+/// moves the sheet.
+#[test]
+fn a_translation_arriving_redraws_a_standing_face() {
+    let mut app = elves_standing();
+    assert_eq!(how_drawn(&mut app), (true, false), "English to begin with");
+
+    app.insert_resource(crate::cardtext::CardTexts::filed(
+        crate::cardtext::fixture::german("Llanowar Elves", "Llanowar-Elfen", None),
+    ));
+    app.update();
+    let under = under_the_cards(&mut app);
+    let named = |name: &str| {
+        under
+            .iter()
+            .any(|e| app.world().get::<Text>(*e).is_some_and(|t| t.0 == name))
+    };
+    assert!(named("Llanowar-Elfen"), "{:?}", words(&mut app));
+    assert!(!named("Llanowar Elves"), "the English name stayed");
+}
