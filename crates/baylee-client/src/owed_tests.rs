@@ -271,3 +271,170 @@ fn outside_a_payment_window_paying_does_nothing() {
     assert!(!duel.pay_owed());
     assert!(duel.mana_run.is_none() && duel.take_outbox().is_empty());
 }
+
+/// What the engine sends after a tap: `green` floating, the lands in
+/// `tapped` (by slot) spent, `offered` still tappable, the window still open.
+fn the_engine_answers(duel: &mut Duel, green: u32, tapped: &[u32], offered: &[ObjectId]) {
+    let mut view = duel.view.clone().expect("the view");
+    view.seats[0].mana_pool.green = green;
+    for object in &mut view.battlefield {
+        if tapped.contains(&object.id.slot()) {
+            object.status = baylee_view::ObjectStatus::TAPPED;
+        }
+    }
+    duel.receive_view(view);
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            mana_abilities: offered.to_vec(),
+            ..LegalActions::default()
+        }),
+    });
+}
+
+/// A settle run whose plan is `slots` of the Forests, tapping them in order.
+fn a_settle_run(duel: &mut Duel, slots: &[u32]) {
+    use baylee_client_core::manaplan::{Plan, Step, Tap};
+    let steps = slots
+        .iter()
+        .map(|slot| Step {
+            source: ObjectId::new(*slot, 0),
+            tap: Tap::Intrinsic,
+            color: None,
+        })
+        .collect();
+    let plan = Plan {
+        steps,
+        cost: ManaCost::parse("{G}"),
+    };
+    duel.mana_run = Some(ManaRun::new(plan, ObjectId::new(1, 0), RunEnd::Settle));
+}
+
+fn tap(slot: u32) -> PlayerAction {
+    PlayerAction::ActivateManaAbility {
+        source: ObjectId::new(slot, 0),
+    }
+}
+
+/// Report 01: a settle run whose plan came up one mana short does not pass
+/// the window when its taps end. `{G}{G}` is owed, the run planned one Forest;
+/// with one green floating and the other Forest still offered, it plans the
+/// rest afresh and taps that Forest, and passes only once two green float.
+/// Before the fix it sent `PassPriority` the moment its steps ran out, which
+/// refused the payment (a Pact of Negation's upkeep lost the game that way).
+#[test]
+fn a_settle_run_that_came_up_short_taps_the_rest_before_it_passes() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{G}{G}")));
+    a_settle_run(&mut duel, &[1]);
+
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(duel.take_outbox(), [tap(1)]);
+
+    the_engine_answers(&mut duel, 1, &[1], &[ObjectId::new(2, 0)]);
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(
+        duel.take_outbox(),
+        [tap(2)],
+        "one green of two floats: the second Forest is tapped, no pass"
+    );
+    assert!(duel.mana_run.is_some(), "the run goes on");
+
+    the_engine_answers(&mut duel, 2, &[1, 2], &[]);
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(
+        duel.take_outbox(),
+        [PlayerAction::PassPriority],
+        "now the pool pays what is owed, and the window is settled"
+    );
+    assert!(duel.mana_run.is_none(), "and the run is over");
+}
+
+/// Report 01: short, with nothing left to tap, the run stops and leaves the
+/// window open with a message; it never passes on the player's behalf.
+#[test]
+fn a_settle_run_with_nothing_left_to_tap_hands_the_window_back_unpassed() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{G}{G}{G}")));
+    a_settle_run(&mut duel, &[1, 2]);
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(duel.take_outbox(), [tap(1)]);
+    the_engine_answers(&mut duel, 1, &[1], &[ObjectId::new(2, 0)]);
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(duel.take_outbox(), [tap(2)]);
+    the_engine_answers(&mut duel, 2, &[1, 2], &[]);
+
+    crate::advance_mana_run(&mut duel);
+    assert!(
+        duel.take_outbox().is_empty(),
+        "two green against {{G}}{{G}}{{G}} is not a payment"
+    );
+    assert!(duel.mana_run.is_none(), "the run stopped");
+    assert_eq!(
+        duel.last_error,
+        Some(baylee_client_core::i18n::Refusal::Said(
+            baylee_client_core::i18n::Phrase::PaymentShort
+        ))
+    );
+    assert!(duel.paying(), "the window is still the player's");
+}
+
+/// Report 01: `confirm_payment` with no plan and a short pool sends nothing
+/// and says why; the pass it used to be is the "Don't pay" button's.
+#[test]
+fn confirming_a_short_payment_sends_nothing_and_says_the_mana_is_short() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{G}{G}{G}")));
+    assert!(duel.paying());
+    assert!(
+        duel.owed_plan.is_none(),
+        "two Forests cannot pay three green"
+    );
+    duel.confirm_payment();
+    assert!(duel.take_outbox().is_empty());
+    assert!(duel.mana_run.is_none());
+    assert_eq!(
+        duel.last_error,
+        Some(baylee_client_core::i18n::Refusal::Said(
+            baylee_client_core::i18n::Phrase::PaymentShort
+        ))
+    );
+}
+
+/// Report 01: and the same press sends the pass once the pool covers what is
+/// owed, or taps first when there is a plan.
+#[test]
+fn confirming_a_covered_payment_passes_and_an_uncovered_one_with_a_plan_taps() {
+    let mut duel = seat_with_two_forests(None);
+    let mut view = duel.view.clone().expect("the view");
+    view.owed = Some(baylee_core::mana::ManaPayment::Fixed(ManaCost::parse(
+        "{1}",
+    )));
+    view.seats[0].mana_pool.green = 1;
+    duel.receive_view(view);
+    assert!(duel.pool_covers_owed());
+    duel.confirm_payment();
+    assert_eq!(duel.take_outbox(), [PlayerAction::PassPriority]);
+    assert!(duel.last_error.is_none());
+
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    assert!(!duel.pool_covers_owed());
+    duel.confirm_payment();
+    let sent = duel.take_outbox();
+    assert!(
+        matches!(sent.as_slice(), [PlayerAction::ActivateManaAbility { .. }]),
+        "a tap, not a pass: {sent:?}"
+    );
+    assert!(duel.mana_run.is_some(), "and a run to settle after it");
+}
+
+/// Report 01: only a fixed debt is ever short: a voluntary amount is settled
+/// by passing, whatever floats.
+#[test]
+fn a_voluntary_amount_is_never_short() {
+    let mut duel = seat_with_two_forests(None);
+    let mut view = duel.view.clone().expect("the view");
+    view.owed = Some(baylee_core::mana::ManaPayment::AnyAmount {
+        preventable_damage: 2,
+    });
+    duel.receive_view(view);
+    assert!(duel.pool_covers_owed());
+}

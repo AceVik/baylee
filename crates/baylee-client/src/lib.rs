@@ -893,6 +893,11 @@ pub struct Duel {
     /// the two arrive in either order. [`Self::refresh_owed_plan`] is called
     /// from both for that reason, and neither one alone is enough.
     pub owed_plan: Option<baylee_client_core::manaplan::Plan>,
+    /// What this seat could tap the last time it held priority, kept past
+    /// it for a cast's X question: that question carries no mana abilities
+    /// of its own (only priority does), and the mana it is paid with is made
+    /// after it is answered (CR 601.2b, 601.2g). See [`Self::cap_x`].
+    priority_legal: Option<baylee_engine::choice::LegalActions>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -1132,7 +1137,55 @@ impl Duel {
             self.browser.saw_reveal(v);
         }
         self.clear_hover_for_new_browser(was_choosing);
+        // The view and the question arrive in either order; capping only
+        // ever lowers, so asking on both edges is safe.
+        self.cap_x();
         self.refresh_owed_plan();
+    }
+
+    /// Caps a cast's X question at what this seat's own mana pays (#20).
+    ///
+    /// The engine bounds X by the mana already floating, but a cast whose
+    /// mana is made in its payment window is bounded only by the number type
+    /// there, so the question offered every X up to four billion. A player
+    /// who announced more than the board pays had the cast reversed (CR
+    /// 601.2h) or, worse, read the range as a promise. The cap is the
+    /// planner's: the largest X the pool and the sources this seat could tap
+    /// at its last priority pay ([`manaplan::greatest_x`]). Where nothing
+    /// plans even X = 0 the sources are ones this client cannot read, and
+    /// the engine's range stands.
+    ///
+    /// [`manaplan::greatest_x`]: baylee_client_core::manaplan::greatest_x
+    fn cap_x(&mut self) {
+        let Some(cap) = self.x_cap() else {
+            return;
+        };
+        if let Some(interaction) = self.interaction.as_mut() {
+            interaction.cap_number(cap);
+        }
+    }
+
+    fn x_cap(&self) -> Option<u32> {
+        let interaction = self.interaction.as_ref()?;
+        let view = self.view.as_ref()?;
+        let Pending::ChooseNumber {
+            player,
+            reason: baylee_engine::choice::NumberPrompt::X,
+            ..
+        } = interaction.pending()
+        else {
+            return None;
+        };
+        if *player != view.seat {
+            return None;
+        }
+        let card = view.casting?;
+        let legal = self.priority_legal.as_ref()?;
+        let cost = spell_cost(view, legal, card)?;
+        let pool = view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool;
+        baylee_client_core::manaplan::greatest_x(&cost, &pool, &manasources::sources(view, legal))
     }
 
     /// Works out afresh which lands would settle an open payment window.
@@ -1231,6 +1284,42 @@ impl Duel {
         true
     }
 
+    /// What a confirm press does in a payment window, by key or by button.
+    ///
+    /// Taps what the plan says and settles ([`Self::pay_owed`]); with nothing
+    /// to tap, settles only if the pool already covers what is owed. A press
+    /// that would pass the window short sends nothing and says why (#01):
+    /// passing it is declining it, and declining is the other button's.
+    pub fn confirm_payment(&mut self) {
+        if !self.paying() || self.mana_run.is_some() {
+            return;
+        }
+        if self.pay_owed() {
+            return;
+        }
+        if self.pool_covers_owed() {
+            self.submit(PlayerAction::PassPriority);
+        } else {
+            self.last_error = Some(Refusal::Said(Phrase::PaymentShort));
+        }
+    }
+
+    /// Whether the floating pool alone pays what this seat owes, so that
+    /// passing the window settles it rather than refusing it. A voluntary
+    /// amount (`ManaPayment::AnyAmount`) is never short.
+    pub(crate) fn pool_covers_owed(&self) -> bool {
+        let Some(view) = self.view.as_ref() else {
+            return false;
+        };
+        let Some(baylee_core::mana::ManaPayment::Fixed(cost)) = view.owed else {
+            return true;
+        };
+        view.seat(baylee_client_core::decision::resource_player(view))
+            .is_some_and(|seat| {
+                baylee_client_core::manaplan::plan(&cost, &seat.mana_pool, &[]).is_some()
+            })
+    }
+
     /// What this client is proposing, if anything.
     ///
     /// An armed deed wins: it is a commitment the player made, and a payment
@@ -1324,6 +1413,14 @@ impl Duel {
     /// and returns the attacker the last one was a river label for.
     fn install_question(&mut self, pending: Pending, seat: PlayerId) -> Option<ObjectId> {
         let label_before = self.interaction.as_ref().and_then(river_label);
+        if let Some(legal) = self
+            .interaction
+            .as_ref()
+            .filter(|i| matches!(i.pending(), Pending::Priority { player, .. } if *player == seat))
+            .and_then(Interaction::legal_actions)
+        {
+            self.priority_legal = Some(legal.clone());
+        }
         self.interaction = Some(Interaction::new_keeping(
             pending,
             self.view
@@ -1348,6 +1445,7 @@ impl Duel {
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
         let label_before = self.install_question(pending, seat);
+        self.cap_x();
         self.refresh_owed_plan();
         // My own attackers or blockers being asked for brings the camera home
         // as the question opens: its subject is my board (DESIGN-v7 §2.4).
@@ -1998,6 +2096,10 @@ pub struct ManaRun {
     /// then wait until the spell is cast (CR 601.2i). `None` for a run that
     /// taps first.
     cast_first: Option<CastFirst>,
+    /// How many times a settle has been planned afresh because the taps it
+    /// made left the window short (#01). Bounded, so a planner that keeps
+    /// miscounting stops and hands the window back instead of looping.
+    replans: u8,
 }
 
 /// Where a cast-first run stands.
@@ -2019,6 +2121,7 @@ impl ManaRun {
             card,
             then,
             cast_first: None,
+            replans: 0,
         }
     }
 
@@ -2032,6 +2135,7 @@ impl ManaRun {
             card,
             then: RunEnd::Cast,
             cast_first: Some(CastFirst::Unsent),
+            replans: 0,
         }
     }
 
@@ -2102,6 +2206,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
     }
     let mut action = None;
     let mut finished = false;
+    let mut replanned = false;
     let mut abort = None;
 
     match &pending {
@@ -2157,13 +2262,28 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     // Still a payment window this seat owes in: settle it.
                     // Anything else and the window was closed under the run,
                     // which is the game moving on, not a pass to send.
+                    //
+                    // Passed only once the pool covers what is owed: a pass
+                    // settles the window with whatever is floating, and a
+                    // window passed short is a payment refused — a Pact of
+                    // Negation's upkeep lost the game that way with an
+                    // untapped Plains beside it (#01). Short with sources
+                    // left, the run plans the rest afresh (twice at most);
+                    // short with nothing that plans, the window stays open
+                    // for the player, never passed on their behalf.
                     Some((_, RunEnd::Settle))
                         if legal.can_pass
                             && duel.view.as_ref().is_some_and(|v| {
                                 v.owed.is_some() && v.awaiting == Some(v.seat)
                             }) =>
                     {
-                        action = Some(PlayerAction::PassPriority);
+                        match settle(duel, legal) {
+                            Ok((tap, again)) => {
+                                action = Some(tap);
+                                replanned = again;
+                            }
+                            Err(reason) => abort = Some(reason),
+                        }
                     }
                     Some((_, RunEnd::Settle)) => {
                         abort = Some(Phrase::PlanQuestionChanged);
@@ -2176,7 +2296,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     }
                     None => abort = Some(Phrase::PlanCardGone),
                 }
-                finished = true;
+                finished = !replanned;
             }
         }
         // Mana abilities do not use the stack, so priority never leaves the
@@ -2196,6 +2316,31 @@ pub fn advance_mana_run(duel: &mut Duel) {
     if let Some(action) = action {
         duel.submit(action);
     }
+}
+
+/// The end of a settle run: the pass, once the pool covers what is owed, or
+/// the first tap of a fresh plan for what is still short (`true`), or the
+/// reason the window is handed back to the player unpassed (#01).
+fn settle(
+    duel: &mut Duel,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Result<(PlayerAction, bool), Phrase> {
+    if duel.pool_covers_owed() {
+        return Ok((PlayerAction::PassPriority, false));
+    }
+    let replans = duel.mana_run.as_ref().map_or(u8::MAX, |r| r.replans);
+    let plan = duel
+        .compute_owed_plan()
+        .filter(|plan| !plan.is_empty() && replans < 2)
+        .ok_or(Phrase::PaymentShort)?;
+    let first = *plan.steps.first().ok_or(Phrase::PaymentShort)?;
+    let tap = tap_action(&first, legal).ok_or(Phrase::PaymentShort)?;
+    if let Some(run) = duel.mana_run.as_mut() {
+        run.steps = plan.steps.into_iter().skip(1).collect();
+        run.asking = first.color;
+        run.replans += 1;
+    }
+    Ok((tap, true))
 }
 
 /// The cast-first half of a run (CR 601.2g); returns whether it handled this
@@ -2368,17 +2513,35 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     // three [`reachable`] admits — a card in one set and not the other is a
     // card that lights up and then does nothing when it is clicked. The
     // graveyard's price is the flashback cost, for the reason given there.
+    if let Some(hand_card) = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|c| c.id == card)
+        && baylee_cards::by_index(hand_card.card.index)
+            .is_some_and(|def| def.faces[0].kicked_targets.is_some())
+    {
+        return castmodes::reachable_modes(view, legal, card)
+            .first()
+            .map(|mode| mode.plan.clone());
+    }
+    let cost = reach::least_x(spell_cost(view, legal, card)?);
+    let pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
+    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+}
+
+/// What casting `card` the ordinary way costs this seat: a hand card's
+/// printed cost, a graveyard card's flashback cost, a commander's cost plus
+/// its tax, each with what effects add to the spell.
+fn spell_cost(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    card: ObjectId,
+) -> Option<baylee_core::mana::ManaCost> {
     let cost = if let Some(hand_card) = baylee_client_core::decision::hand(view)
         .iter()
         .find(|c| c.id == card)
     {
-        if baylee_cards::by_index(hand_card.card.index)
-            .is_some_and(|def| def.faces[0].kicked_targets.is_some())
-        {
-            return castmodes::reachable_modes(view, legal, card)
-                .first()
-                .map(|mode| mode.plan.clone());
-        }
         manasources::hand_cost(hand_card)?
     } else if let Some(buried) = view
         .graveyards
@@ -2394,12 +2557,11 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             .find(|c| c.object == card)?;
         commander_cost(commander)?.with_more_generic(2 * commander.casts)
     };
-    let cost = cost
-        .with_more_generic(legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal));
-    let pool = view
-        .seat(baylee_client_core::decision::resource_player(view))?
-        .mana_pool;
-    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    Some(
+        cost.with_more_generic(
+            legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal),
+        ),
+    )
 }
 
 /// The taps that would make `card` suspendable, if any.

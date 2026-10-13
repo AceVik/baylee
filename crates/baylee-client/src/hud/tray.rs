@@ -2184,7 +2184,13 @@ fn spawn_footer(
         commands.entity(confirm).insert((
             Button,
             PromptButton {
-                decision_id: None,
+                // The question's own identity, as the shelf's Confirm carries
+                // it (`ledge::sync`): `PromptButton::matches_decision_id`
+                // drops a Confirm whose identity is not the current one, and
+                // a versioned question — a copy's "choose new targets"
+                // (`DecisionId::Retarget`) — never matched `None`, so the lit
+                // button under a retarget's graveyard rows did nothing (#03).
+                decision_id: it.decision_id(),
                 action: PromptAction::Confirm,
             },
             Feel::new(palette::CANDLE),

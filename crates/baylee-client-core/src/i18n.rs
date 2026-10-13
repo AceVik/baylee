@@ -1940,6 +1940,12 @@ messages! {
     DeclinePayment { en: "Don't pay", de: "Nicht zahlen" },
     /// Settle a payment window the pool already covers.
     PayNow { en: "Pay", de: "Zahlen" },
+    /// A payment the client could not complete: it leaves the window open
+    /// rather than pass it short, which would refuse the payment (#01).
+    PaymentShort {
+        en: "Not enough mana is floating to pay. Tap the rest, or choose \"Don't pay\".",
+        de: "Es schwebt nicht genug Mana zum Bezahlen. Tappe den Rest oder wähle „Nicht zahlen“.",
+    },
     /// The AI log's heading line for one entry: whose mind it is.
     AiSaidHead { en: "{0} thinks", de: "{0} denkt" },
     /// What the model thought before it answered.
@@ -2970,6 +2976,13 @@ messages! {
     CardWrongTime {
         en: "This card cannot be played in this window",
         de: "Diese Karte lässt sich in diesem Zeitfenster nicht spielen",
+    },
+    /// A "choose one" spell whose printed-price mode has no legal target,
+    /// so only its mode with a price of its own (overload) can be cast, and
+    /// the mana in reach does not pay that price (#00).
+    OnlyDearerModeLeft {
+        en: "No legal target for its normal mode, so only its costlier mode (such as overload) can be cast, and your mana does not pay for that",
+        de: "Der normale Modus hat kein legales Ziel; nur der teurere Modus (etwa Überladen) ist möglich, und dein Mana reicht dafür nicht",
     },
     /// The current resources do not cover the card's costs (#112).
     CardCostsUnavailable {

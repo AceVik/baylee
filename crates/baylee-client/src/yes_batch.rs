@@ -82,6 +82,16 @@ impl YesBatch {
                 self.answered = Some(top);
                 PlayerAction::YesNo(true)
             }
+            // A payment window is a priority this seat owes mana in: passing
+            // it refuses the payment (#01), so the batch stops there.
+            Pending::Priority { player, .. }
+                if *player == view.seat
+                    && view.owed.is_some()
+                    && view.awaiting == Some(view.seat) =>
+            {
+                self.remaining.clear();
+                return None;
+            }
             Pending::Priority { player, .. } if *player == view.seat => PlayerAction::PassPriority,
             Pending::Priority { .. } => return None,
             _ => {
@@ -173,5 +183,66 @@ mod tests {
             None,
             "future triggers are not approved"
         );
+    }
+
+    /// A seat with two identical abilities stacked, a batch begun over the
+    /// first "may" and answered once.
+    fn a_batch_answered_once() -> (YesBatch, PlayerView) {
+        let mut view = ViewBuilder::new(2).build();
+        for id in 1..=2 {
+            let mut o = token(id, 0, "Ondu Cleric", 1, 1);
+            o.stack_item = Some(StackItem::Ability {
+                token: None,
+                source: ObjectId::new(500 + id, 0),
+                ability: None,
+                rules: Some(baylee_view::RulesFace {
+                    card: baylee_core::ids::CardIndex::new(12),
+                    face: 0,
+                }),
+                text: Some(baylee_view::StackText {
+                    face: 0,
+                    line: 0,
+                    of: 1,
+                }),
+            });
+            view.stack.push(o);
+        }
+        let yes = Pending::YesNo {
+            player: view.seat,
+            prompt: YesNoPrompt::MayDo,
+            source: None,
+        };
+        let mut batch = YesBatch::begin(&view, &yes).unwrap();
+        assert_eq!(batch.answer(&view, &yes), Some(PlayerAction::YesNo(true)));
+        view.stack.pop();
+        view.seq += 1;
+        (batch, view)
+    }
+
+    /// Report 01: the yes-to-all batch passes its seat's priority between
+    /// answers, but not a payment window, which is a priority this seat owes
+    /// mana in and which a pass would refuse. Before the fix it sent
+    /// `PassPriority` there too. The control is the same window owing nothing.
+    #[test]
+    fn the_batch_stops_at_a_payment_window_instead_of_passing_it() {
+        let priority = |view: &PlayerView| Pending::Priority {
+            player: view.seat,
+            legal: Box::default(),
+        };
+
+        let (mut batch, view) = a_batch_answered_once();
+        assert_eq!(
+            batch.answer(&view, &priority(&view)),
+            Some(PlayerAction::PassPriority),
+            "a quiet window is passed, as before"
+        );
+
+        let (mut batch, mut view) = a_batch_answered_once();
+        view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::parse("{3}{U}{U}"),
+        ));
+        view.awaiting = Some(view.seat);
+        assert_eq!(batch.answer(&view, &priority(&view)), None);
+        assert!(batch.is_idle(), "and it does not go on after it");
     }
 }

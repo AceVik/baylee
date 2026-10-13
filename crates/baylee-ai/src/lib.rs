@@ -28,6 +28,7 @@ mod restricted;
 pub mod search;
 mod tactics;
 mod worth;
+pub use worth::mana_poured;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
