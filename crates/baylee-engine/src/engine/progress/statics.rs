@@ -190,6 +190,7 @@ impl crate::state::GameState {
                 let context = crate::text_changes::RuleContext {
                     source: id,
                     text: origin.resolve(&self.text_changes),
+                    reference: None,
                 };
                 let registered = self
                     .effects

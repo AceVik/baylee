@@ -222,6 +222,11 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
             duel.browser.close();
         } else if prefs.orders().selected().is_some() {
             prefs.rail_cursor().clear_selection();
+        } else if duel.paying() && duel.unstage_all() {
+            // The taps staged in a payment window, all of them: nothing was
+            // sent, so this is the cheapest thing on the table to take back —
+            // and it stands above the cast's own rung, which would reverse
+            // the spell when the player meant only to untap a land.
         } else if duel.visiting.is_some()
             && duel
                 .interaction

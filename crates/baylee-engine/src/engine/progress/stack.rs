@@ -72,6 +72,38 @@ impl<L: CardLookup> Engine<L> {
         crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
+    /// Whether the triggered ability `on_stack` prints "this ability still
+    /// resolves if its target becomes illegal" (Gilded Drake), read off the
+    /// list it was put on the stack with, as its requirement is.
+    fn resolves_if_targets_illegal(&self, on_stack: ObjectId) -> bool {
+        let Some(obj) = self.state.object(on_stack) else {
+            return false;
+        };
+        let Some(loc) = obj.ability else {
+            return false;
+        };
+        if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
+            return false;
+        }
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
+        matches!(
+            abilities.get(loc.index as usize),
+            Some(baylee_cards_dsl::AbilityDef::Triggered {
+                resolves_if_targets_illegal: true,
+                ..
+            })
+        )
+    }
+
     /// The damage a triggered ability on the stack divides as its controller
     /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
     /// the list it was put on the stack with, as its second target is.
@@ -180,6 +212,16 @@ impl<L: CardLookup> Engine<L> {
                 .is_none_or(|(objects, players)| objects.is_empty() && players.is_empty())
         };
         if lost(&first) && lost(&second) {
+            // Gilded Drake prints its own exception to CR 608.2b: it
+            // resolves with nothing to aim at, and its effects do what
+            // they do with no target.
+            if self.resolves_if_targets_illegal(on_stack) {
+                return TargetLegality::Kept {
+                    objects: SmallVec::new(),
+                    players: SeatSet::new(),
+                    second: SmallVec::new(),
+                };
+            }
             return TargetLegality::AllIllegal;
         }
         // An instance that was not asked keeps what it holds.
@@ -509,6 +551,7 @@ impl<L: CardLookup> Engine<L> {
                     event_mana: None,
                     retarget_left: None,
                     loot: None,
+                    this_way_from: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -550,6 +593,7 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: None,
                 retarget_left: None,
                 loot: None,
+                this_way_from: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
@@ -613,6 +657,7 @@ impl<L: CardLookup> Engine<L> {
                 retarget_left,
                 loot: None,
                 event_mana: None,
+                this_way_from: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);

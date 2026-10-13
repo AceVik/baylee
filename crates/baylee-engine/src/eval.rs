@@ -27,6 +27,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
                     version: object.version,
                 })
             }),
+        reference: None,
     }
 }
 
@@ -392,6 +393,12 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
+        PlayerRel::EachOtherPlayer => state
+            .players
+            .iter()
+            .filter(|p| p.id != you && !p.has_lost())
+            .map(|p| p.id)
+            .collect(),
         PlayerRel::ActivePlayer => state
             .players
             .iter()
@@ -399,8 +406,25 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .map(|p| p.id)
             .collect(),
         PlayerRel::MostLife => most_life(state).into_iter().collect(),
+        PlayerRel::MostLifeOrTied => {
+            let best = state
+                .players
+                .iter()
+                .filter(|p| !p.has_lost())
+                .map(|p| p.life)
+                .max();
+            state
+                .players
+                .iter()
+                .filter(|p| !p.has_lost() && Some(p.life) == best)
+                .map(|p| p.id)
+                .collect()
+        }
         PlayerRel::ControllerOfTarget
         | PlayerRel::ControllerOfEvent
+        | PlayerRel::Recipient
+        | PlayerRel::DefendingPlayer
+        | PlayerRel::OwnerOfEvent
         | PlayerRel::Chosen
         | PlayerRel::DamagedPlayer
         | PlayerRel::EventPlayer
@@ -429,6 +453,36 @@ pub fn most_life(state: &GameState) -> Option<PlayerId> {
     (!tied).then_some(best.id)
 }
 
+/// "Defending player" as an ability of `source` means it (CR 508.5): the
+/// player `source` is attacking, or the controller of the planeswalker or
+/// protector of the battle it is attacking. A source that is not attacking
+/// names the one opponent of a two-player game during combat (CR 506.2),
+/// and nobody at a larger table, where CR 508.5a makes it one specific
+/// player that the attack no longer names.
+#[must_use]
+pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -> Option<PlayerId> {
+    if let Some(attack) = state
+        .combat
+        .attackers()
+        .iter()
+        .find(|attack| attack.creature == source)
+    {
+        return crate::combat::blocking_player(state, attack.defending)
+            .filter(|p| !state.has_left(*p));
+    }
+    if state.turn.phase != crate::turn::Phase::Combat {
+        return None;
+    }
+    let mut opponents = state
+        .players
+        .iter()
+        .filter(|p| state.is_opponent(p.id, you) && !p.has_lost());
+    match (opponents.next(), opponents.next()) {
+        (Some(only), None) => Some(only.id),
+        _ => None,
+    }
+}
+
 /// The graveyard cards a `CardInGraveyard` spec may point at.
 ///
 /// Legality is enumerated *before* any resolution exists, so the two context
@@ -455,8 +509,15 @@ fn graveyard_options(
     } else {
         rel
     };
-    let Some(seats) = players(rel, state, you) else {
-        return Vec::new();
+    let seats = if rel == PlayerRel::DefendingPlayer {
+        defending_player_of(state, context.source, you)
+            .into_iter()
+            .collect()
+    } else {
+        let Some(seats) = players(rel, state, you) else {
+            return Vec::new();
+        };
+        seats
     };
     let mut out = Vec::new();
     for player in seats {
@@ -606,7 +667,9 @@ pub fn amount_with_context(
         | Amount::EventLastToughness
         | Amount::EventManaValue
         | Amount::EventAmount
-        | Amount::TargetsPutIntoGraveyard => 0,
+        | Amount::TargetsPutIntoGraveyard
+        | Amount::ThisWay(_)
+        | Amount::ThisWayBy { .. } => 0,
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -1480,6 +1543,7 @@ fn protected_from_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    reference: None,
                 },
             )
     })
@@ -1527,6 +1591,7 @@ fn untargetable_by_source_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    reference: None,
                 },
             )
     })
@@ -2150,6 +2215,7 @@ pub fn stack_target_options(
     let context = RuleContext {
         source: this,
         text: live_context(state, obj.id).text,
+        reference: None,
     };
     let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));

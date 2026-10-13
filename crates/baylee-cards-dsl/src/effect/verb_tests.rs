@@ -507,6 +507,32 @@ fn at_next_upkeep_body_is_visited() {
     assert!(body_seen);
 }
 
+/// Wave 1's three carriers: a repeated list, a repeated pass and a watch on
+/// the source's death each hold a body every walker must read.
+#[test]
+fn repeated_and_source_watching_bodies_are_visited() {
+    static REPEAT: &[Effect] = &[Effect::Repeat {
+        times: Amount::Fixed(2),
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    static WHILE: &[Effect] = &[Effect::RepeatWhile {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+        condition: crate::Condition::YourTurn,
+    }];
+    static WATCH: &[Effect] = &[Effect::WhenSourceDiesThisTurn {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    for list in [REPEAT, WHILE, WATCH] {
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(list, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 2, "{list:?}");
+        assert!(body_seen, "{list:?}");
+    }
+}
+
 #[test]
 fn mana_retention_preserves_restrictions_and_spend_riders() {
     assert_eq!(

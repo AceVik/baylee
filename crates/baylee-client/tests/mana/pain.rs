@@ -207,3 +207,95 @@ fn a_painland_beside_a_damage_trigger_pays_for_a_creature_cast_first() {
     assert_eq!(stack[0], "Crystalline Sliver");
     assert_eq!(life(&table), before - 1, "the Wastes' blue cost a life");
 }
+
+/// [`click_to_cast`], and every action it submitted, in order.
+fn click_to_cast_recorded(table: &mut Table, name: &str) -> (Option<String>, Vec<PlayerAction>) {
+    use baylee_client::Duel;
+    use baylee_client::input::activate_card;
+    let card = id_in_hand(table, name);
+    let mut duel = Duel::default();
+    let mut sent = Vec::new();
+    refresh(&mut duel, table);
+    activate_card(&mut duel, card);
+    activate_card(&mut duel, card);
+    for _ in 0..16 {
+        for action in duel.take_outbox() {
+            sent.push(action.clone());
+            table.submit(action);
+        }
+        refresh(&mut duel, table);
+        if duel.mana_run.is_none() {
+            break;
+        }
+        baylee_client::advance_mana_run(&mut duel);
+    }
+    for action in duel.take_outbox() {
+        sent.push(action.clone());
+        table.submit(action);
+    }
+    (duel.last_error.map(|e| format!("{e:?}")), sent)
+}
+
+/// A spell paid in its own window goes out as ONE `PayWindow`: with only a
+/// painland untapped, Serra Zealot's `{W}` is paid by the Wastes' coloured
+/// tap, and that tap (with the colour it asks) travels inside the window's
+/// single action, never as a separate top-level activation before it. The
+/// damage is dealt once, when the whole payment is applied.
+#[test]
+fn a_painland_pays_a_spell_inside_one_pay_window() {
+    let mut table = table_with(&[ZEALOT], &[ADARKAR]);
+    let wastes = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Adarkar Wastes")
+        .expect("the Wastes")
+        .id;
+    let before = life(&table);
+
+    let (refusal, sent) = click_to_cast_recorded(&mut table, "Serra Zealot");
+    assert_eq!(refusal, None, "sent: {sent:?}");
+    assert!(on_stack_or_battlefield(&table, "Serra Zealot"));
+    assert_eq!(life(&table), before - 1, "the Wastes' white cost a life");
+
+    let windows: Vec<&Vec<PlayerAction>> = sent
+        .iter()
+        .filter_map(|action| match action {
+            PlayerAction::PayWindow { steps } => Some(steps),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(windows.len(), 1, "exactly one PayWindow in {sent:?}");
+    let steps = windows[0];
+    assert!(
+        matches!(
+            steps.first(),
+            Some(PlayerAction::ActivateAbility { source, .. }) if *source == wastes
+        ),
+        "the Wastes' activation leads the window: {steps:?}"
+    );
+    if let Some(PlayerAction::ActivateAbility { ability_index, .. }) = steps.first() {
+        assert_eq!(*ability_index, 1, "the coloured mode, not the free {{C}}");
+    }
+    assert_eq!(
+        steps.get(1),
+        Some(&PlayerAction::ChooseColor(
+            baylee_core::mana::ManaColor::White
+        )),
+        "the colour answer follows its tap inside the same action: {steps:?}"
+    );
+    assert_eq!(steps.len(), 2, "and nothing else is in the window");
+
+    let loose: Vec<&PlayerAction> = sent
+        .iter()
+        .filter(|action| {
+            matches!(
+                action,
+                PlayerAction::ActivateAbility { .. }
+                    | PlayerAction::ActivateManaAbility { .. }
+                    | PlayerAction::ChooseColor(_)
+            )
+        })
+        .collect();
+    assert!(loose.is_empty(), "taps sent outside the window: {loose:?}");
+}

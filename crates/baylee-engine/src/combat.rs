@@ -911,6 +911,10 @@ pub fn can_block(
     // the attacker's restriction, asked of this blocker.
     if state.effects.iter().any(|fx| {
         let (filter, affected, other, source) = match fx.modifier {
+            // The Black Gate: a player, bound as its ability resolved.
+            baylee_cards_dsl::Modifier::CantBeBlockedByPlayer(player) => {
+                return b.controller == player && crate::effects::applies_to(state, fx, a);
+            }
             baylee_cards_dsl::Modifier::CantBeBlockedBy(filter) => (filter, a, b, attacker),
             baylee_cards_dsl::Modifier::CantBlock(filter) => (filter, b, a, blocker),
             _ => return false,
@@ -3039,6 +3043,7 @@ mod tests {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            this_way_from: None,
         };
         let _ = crate::resolve::run(state, &mut res);
         assert!(

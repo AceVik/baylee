@@ -28,6 +28,10 @@ pub struct PoolStrip;
 #[derive(Component)]
 pub struct PoolOwed;
 
+/// One of the strip's words (`Owed`, `left`), as against a pip.
+#[derive(Component)]
+pub struct PoolWord;
+
 /// Where the **strip** is in its own arrival or departure.
 ///
 /// A component on the strip and not a resource, which is the shape
@@ -69,31 +73,35 @@ pub struct PoolRevision {
 /// pool that pays a pip rebuilds it even when the cost did not change.
 #[derive(Clone, PartialEq, Debug)]
 enum Owing {
-    /// A fixed cost, less what the pool already pays
-    /// ([`baylee_client_core::manaplan::remainder`]); empty once it is paid.
-    Fixed(Vec<baylee_core::mana::ManaSymbol>),
+    /// A fixed cost, and what is still open of it once the pool and the
+    /// staged taps have paid what they can (`Duel::payment_remaining`);
+    /// `left` is empty once it is covered.
+    Fixed {
+        /// The whole cost the window owes.
+        cost: Vec<baylee_core::mana::ManaSymbol>,
+        /// What is still open.
+        left: Vec<baylee_core::mana::ManaSymbol>,
+    },
     /// A number the player chooses (CR 605.3a's optional payments): the word
     /// alone, there being no cost to subtract from.
     AnyAmount,
 }
 
 impl Owing {
-    /// What `view`'s own seat still owes, if it is the seat being asked.
+    /// What this seat still owes, if it is the seat being asked.
     ///
     /// Only its own window: `owed` names what the *awaited* seat owes, and an
     /// opponent's ward tax is not owed from this seat's pool.
-    fn of(view: &baylee_view::PlayerView) -> Option<Self> {
+    fn of(duel: &Duel) -> Option<Self> {
+        let view = duel.view.as_ref()?;
         if view.awaiting != Some(view.seat) {
             return None;
         }
         Some(match view.owed? {
-            baylee_core::mana::ManaPayment::Fixed(cost) => {
-                let pool = view
-                    .seat(baylee_client_core::decision::resource_player(view))
-                    .map(|s| s.mana_pool)
-                    .unwrap_or_default();
-                Self::Fixed(baylee_client_core::manaplan::remainder(&cost, &pool))
-            }
+            baylee_core::mana::ManaPayment::Fixed(cost) => Self::Fixed {
+                cost: cost.symbols().collect(),
+                left: duel.payment_remaining().unwrap_or_default(),
+            },
             baylee_core::mana::ManaPayment::AnyAmount { .. } => Self::AnyAmount,
         })
     }
@@ -134,7 +142,7 @@ pub fn sync_pool(
     let lang = Lang::of(&settings.lang);
     let next = PoolRevision {
         lang: Some(lang),
-        owed: duel.view.as_ref().and_then(Owing::of),
+        owed: Owing::of(&duel),
     };
     if *revision == next {
         return;
@@ -218,37 +226,59 @@ fn owed_group(commands: &mut Commands, fonts: &UiFonts, lang: Lang, owing: &Owin
             Pickable::IGNORE,
         ))
         .id();
-    let word = commands
-        .spawn((
-            Text::new(
-                match owing {
-                    Owing::Fixed(_) => Phrase::Owed,
-                    Owing::AnyAmount => Phrase::OptionalPayment,
-                }
-                .text(lang)
-                .to_string(),
-            ),
-            tf(fonts, POOL_LABEL_PT),
-            TextColor(palette::LEDGE_SOFT),
-            Node {
-                margin: UiRect::right(px(POOL_LABEL_GAP - POOL_ENTRY_GAP)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let mut kids = vec![word];
-    if let Owing::Fixed(left) = owing {
+    let word = |commands: &mut Commands, phrase: Phrase, gap: f32| {
+        commands
+            .spawn((
+                PoolWord,
+                Text::new(phrase.text(lang).to_string()),
+                tf(fonts, POOL_LABEL_PT),
+                TextColor(palette::LEDGE_SOFT),
+                Node {
+                    margin: UiRect::new(
+                        px(gap),
+                        px(POOL_LABEL_GAP - POOL_ENTRY_GAP),
+                        px(0.0),
+                        px(0.0),
+                    ),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
+    let pips = |commands: &mut Commands, symbols: &[baylee_core::mana::ManaSymbol]| {
         let paid = [baylee_core::mana::ManaSymbol::Generic(0)];
-        let left = if left.is_empty() { &paid[..] } else { left };
-        kids.extend(left.iter().map(|symbol| {
-            crate::manaui::spawn_pip(
-                commands,
-                fonts,
-                baylee_client_core::manapip::pip(*symbol),
-                POOL_PIP,
-            )
-        }));
+        let symbols = if symbols.is_empty() {
+            &paid[..]
+        } else {
+            symbols
+        };
+        symbols
+            .iter()
+            .map(|symbol| {
+                crate::manaui::spawn_pip(
+                    commands,
+                    fonts,
+                    baylee_client_core::manapip::pip(*symbol),
+                    POOL_PIP,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut kids = Vec::new();
+    match owing {
+        // The cost, and once anything pays part of it, what is still open:
+        // "Owed {2}{G} left {1}". While nothing does, the two would say the
+        // same pips twice.
+        Owing::Fixed { cost, left } => {
+            kids.push(word(commands, Phrase::Owed, 0.0));
+            kids.extend(pips(commands, cost));
+            if left != cost {
+                kids.push(word(commands, Phrase::OwedLeft, POOL_LABEL_GAP));
+                kids.extend(pips(commands, left));
+            }
+        }
+        Owing::AnyAmount => kids.push(word(commands, Phrase::OptionalPayment, 0.0)),
     }
     commands.entity(group).replace_children(&kids);
     group
@@ -290,11 +320,16 @@ mod tests {
             .get::<Children>()
             .map(|c| c.iter().collect())
             .unwrap_or_default();
-        // The first child is the word; each one after is a pip's disc, whose
-        // own text (or its two halves' texts) is the glyph.
+        // The words are `PoolWord`s; what follows the last of them is what is
+        // still open, each a pip's disc whose own text (or its two halves'
+        // texts) is the glyph.
+        let last_word = kids
+            .iter()
+            .rposition(|e| world.entity(*e).contains::<PoolWord>())
+            .unwrap_or(0);
         let glyphs = kids
             .into_iter()
-            .skip(1)
+            .skip(last_word + 1)
             .map(|disc| {
                 let mut stack = vec![disc];
                 let mut glyph = String::new();

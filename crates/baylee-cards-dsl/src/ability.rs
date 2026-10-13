@@ -595,6 +595,16 @@ pub enum Trigger {
         /// The count that must be reached.
         n: u8,
     },
+    /// "When you remove the last [kind] counter from this permanent"
+    /// (Divine Intervention): its controller takes the count of that kind on
+    /// the source from one or more to none, however they do it — an effect
+    /// they control or a cost they pay. A removal by another player's effect,
+    /// or by the game's rules (a stun counter, damage to a planeswalker), does
+    /// not trigger it.
+    LastCounterRemoved {
+        /// The kind removed.
+        kind: crate::effect::CounterKind,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {
@@ -653,6 +663,16 @@ pub enum Trigger {
     OneOrMoreAttack(&'static Filter),
     /// Once when this controller declares at least this many creature attackers.
     AttackWithAtLeast(u8),
+    /// "Whenever you attack with at least `n` creatures that [filter]" (Path
+    /// of Mettle): once for a declaration of attackers in which at least `n`
+    /// of this controller's attacking creatures match the filter as they are
+    /// declared (CR 508.3a, 603.2c).
+    AttackWithAtLeastMatching {
+        /// How many.
+        n: u8,
+        /// What each of them must be.
+        filter: &'static Filter,
+    },
     /// This creature blocks a creature matching the filter (CR 509.3b) or
     /// becomes blocked by one (CR 509.3d): once for each such pair, each
     /// time a blocker is declared, so a creature blocked by two of them
@@ -821,6 +841,14 @@ pub enum AbilityDef {
         /// did trigger is removed from the stack and does nothing if it
         /// has stopped being true by the time it would resolve.
         condition: Option<Condition>,
+        /// "This ability still resolves if its target becomes illegal"
+        /// (Gilded Drake): the card's own exception to CR 608.2b, which
+        /// otherwise removes an ability whose every target has become
+        /// illegal from the stack without resolving it. With this set it
+        /// resolves with no target, and its effects do what they do with
+        /// none — the Drake's "if you don't or can't make an exchange,
+        /// sacrifice this creature".
+        resolves_if_targets_illegal: bool,
     },
     /// Ward {N}: "whenever this becomes the target of a spell or ability
     /// an opponent controls, counter it unless that player pays {N}".
@@ -1402,6 +1430,7 @@ mod tests {
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+                resolves_if_targets_illegal: false,
             },
             AbilityDef::Ward { mana: 2 },
             AbilityDef::SagaChapter {

@@ -43,6 +43,7 @@ fn theirs(effect: Effect, target: ObjectId) -> Resolution {
         targeted: true,
         mana_ability: false,
         countered_source: None,
+        this_way_from: None,
     }
 }
 

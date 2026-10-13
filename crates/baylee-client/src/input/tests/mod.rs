@@ -43,6 +43,7 @@ mod hover;
 mod keep_targets;
 mod keyboard;
 mod menu;
+mod pay_keys;
 mod taps;
 mod targets;
 mod tray;

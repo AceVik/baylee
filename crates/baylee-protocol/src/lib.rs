@@ -21,7 +21,9 @@ pub mod tape;
 /// Version 27 carries a damage decision's `DamageEffectKind::PreventAll`.
 /// Version 28 carries independent delayed-life-loss cancellation offers.
 /// Version 29 preserves full-width explicit life-payment amounts.
-pub const PROTOCOL_VERSION: u32 = 29;
+/// Version 30 adds `PlayerAction::PayWindow`, a payment window paid in one
+/// all-or-nothing action.
+pub const PROTOCOL_VERSION: u32 = 30;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -290,10 +292,11 @@ mod tests {
         // 27: a damage decision's `DamageEffectKind::PreventAll`.
         // 28: independent delayed-life-loss cancellation offers.
         // 29: explicit life-payment amounts above 65535 require u32 readers.
-        // Not 30 for `CloseGame`/`GameClosed` (an admin ends a game, beta.8):
-        // `CloseGame` is engine link only, and an engine or client from
-        // before `GameClosed` passes over it, as with `AiLog`.
-        assert_eq!(PROTOCOL_VERSION, 29);
+        // 30: `PlayerAction::PayWindow`, an action an older engine cannot
+        // decode. Not for `CloseGame`/`GameClosed` (an admin ends a game,
+        // beta.8): `CloseGame` is engine link only, and an engine or client
+        // from before `GameClosed` passes over it, as with `AiLog`.
+        assert_eq!(PROTOCOL_VERSION, 30);
     }
 
     #[test]

@@ -236,6 +236,7 @@ mod tests {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             retarget_left: None,
             loot: None,
+            this_way_from: None,
         };
         (state, res)
     }

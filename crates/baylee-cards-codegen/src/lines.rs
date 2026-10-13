@@ -669,11 +669,16 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Druid Class, "When this Class becomes level 3".
         T::CountersPlaced { .. } => &["counter"],
         T::CountersReach { .. } => &["becomes level"],
+        // Divine Intervention, "When you remove the last intervention counter".
+        T::LastCounterRemoved { .. } => &["remove the last"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
         T::PlaysAnotherLand => &["play another land"],
-        T::Attacks(_) | T::OneOrMoreAttack(_) | T::AttackWithAtLeast(_) => &["attack"],
+        T::Attacks(_)
+        | T::OneOrMoreAttack(_)
+        | T::AttackWithAtLeast(_)
+        | T::AttackWithAtLeastMatching { .. } => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it

@@ -29,6 +29,7 @@ mod spoils_of_victory;
 mod stone_rain;
 mod sundering_eruption;
 mod symbol_of_unsummoning;
+mod syphon_soul;
 mod timetwister;
 mod toxic_deluge;
 mod tranquility;

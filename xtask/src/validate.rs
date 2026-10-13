@@ -50,6 +50,9 @@ pub(crate) struct PrintingTally {
     pub(crate) enters_tapped: usize,
     /// Back faces whose castability was held against the printed layout.
     pub(crate) back_faces: usize,
+    /// Costless coloured faces whose colour indicator was held against the
+    /// printing (CR 202.2e).
+    pub(crate) color_indicators: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -153,6 +156,7 @@ pub(crate) const PRINTING_FLOOR: PrintingTally = PrintingTally {
     defined_pt: 4,
     enters_tapped: 38,
     back_faces: 55,
+    color_indicators: 12,
 };
 
 /// What [`check_header_matches_code`]'s type segment reached, less a margin.
@@ -395,6 +399,11 @@ pub(crate) fn check_printing_floors(tally: &PrintingTally, problems: &mut usize)
     for (what, seen, floor) in [
         ("payloads", tally.payloads, PRINTING_FLOOR.payloads),
         ("back face", tally.back_faces, PRINTING_FLOOR.back_faces),
+        (
+            "color indicator",
+            tally.color_indicators,
+            PRINTING_FLOOR.color_indicators,
+        ),
         ("loyalty", tally.loyalty, PRINTING_FLOOR.loyalty),
         ("color identity", tally.identity, PRINTING_FLOOR.identity),
         ("keyword", tally.keywords, PRINTING_FLOOR.keywords),

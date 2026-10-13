@@ -681,6 +681,21 @@ pub enum AwaitingOp {
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
+    /// "Put any number of cards from your hand on the bottom of your
+    /// library" (`Effect::PutAnyFromHandOnBottom`).
+    HandToBottom,
+    /// The player `Effect::ChoosePlayerFrom` asked for.
+    ChoosePlayerFrom,
+    /// The card `Effect::ReturnFromGraveyardOf` returns.
+    ReturnFromGraveyardOf,
+    /// One pick of `Effect::RevealTopPutOntoBattlefield`.
+    RevealPut(Box<super::reveal_put::Reveal>),
+    /// The permanents kept from `Effect::DestroyAllExceptChosen`; every
+    /// other one the filter matches is destroyed.
+    DestroyAllExcept {
+        /// What is destroyed.
+        filter: &'static baylee_cards_dsl::Filter,
+    },
     /// Color chosen before opponents can prevent mana production.
     ManaUnlessPaidColor {
         /// Mana produced if nobody pays.

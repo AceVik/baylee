@@ -729,11 +729,11 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
     for turn in [Turn::Mine, Turn::Theirs] {
         assert_eq!(
             i.prompt().headline(Lang::En, turn, None, true),
-            "You owe mana. Activate mana abilities to pay, or pass."
+            "You owe mana. Click lands to stage them or choose \"Pay now\"; nothing taps until you pay."
         );
         assert_eq!(
             i.prompt().headline(Lang::De, turn, None, true),
-            "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe."
+            "Du schuldest Mana. Klicke Länder zum Vormerken oder wähle „Jetzt zahlen“; getappt wird erst beim Bezahlen."
         );
     }
 }

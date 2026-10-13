@@ -30,6 +30,7 @@ pub(super) fn attack_threshold(
     state: &GameState,
     you: PlayerId,
     minimum: u8,
+    filter: Option<(&Filter, RuleContext)>,
 ) -> bool {
     let mut matching = batch.iter().filter(|entry| {
         let GameEvent::BecameAttacker { object, .. } = entry.event else {
@@ -41,6 +42,9 @@ pub(super) fn attack_threshold(
                     .characteristics()
                     .types
                     .contains(baylee_core::types::TypeSet::CREATURE)
+                && filter.is_none_or(|(filter, context)| {
+                    crate::eval::matches_with_context(filter, state, object, you, context)
+                })
         })
     });
     matching.next().is_some_and(|first| {

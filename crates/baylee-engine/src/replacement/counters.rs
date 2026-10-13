@@ -160,6 +160,19 @@ pub fn remove_counters(
     kind: baylee_cards_dsl::CounterKind,
     n: u16,
 ) -> u16 {
+    remove_counters_by(state, id, kind, n, None)
+}
+
+/// [`remove_counters`], naming the player whose effect removes them, which
+/// the journal keeps: Divine Intervention's "when **you** remove the last
+/// intervention counter" (`Trigger::LastCounterRemoved`) asks it.
+pub fn remove_counters_by(
+    state: &mut GameState,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+    by: Option<baylee_core::ids::PlayerId>,
+) -> u16 {
     let mut taken = 0;
     if let Some(obj) = state.object_mut(id) {
         let version = obj.version;
@@ -170,7 +183,7 @@ pub fn remove_counters(
         state.journal.record(GameEvent::CounterChanged {
             object: id,
             version,
-            by: None,
+            by,
             first_this_turn: false,
             kind,
             old,
@@ -221,7 +234,7 @@ pub(crate) fn move_counter(
     kind: baylee_cards_dsl::CounterKind,
 ) {
     if can_move_counter(state, from, to, kind) {
-        remove_counters(state, from.object, kind, 1);
+        remove_counters_by(state, from.object, kind, 1, Some(by));
         put_counters_by(state, by, to.object, kind, 1);
     }
 }

@@ -659,6 +659,7 @@ fn resolve(
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     };
     if let crate::resolve::Flow::Wait(pending) = crate::resolve::run(state, &mut res) {
         return Err(format!(

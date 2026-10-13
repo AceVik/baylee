@@ -116,6 +116,25 @@ pub const EON: CounterKind = CounterKind::Custom(23);
 /// Burden counters accumulated by The One Ring.
 pub const BURDEN: CounterKind = CounterKind::Custom(24);
 
+/// Intervention counters (Divine Intervention: the game is a draw when the
+/// last one is removed).
+pub const INTERVENTION: CounterKind = CounterKind::Custom(25);
+
+/// Wind counters (Cyclone).
+pub const WIND: CounterKind = CounterKind::Custom(26);
+
+/// Glyph counters (Glyph of Delusion).
+pub const GLYPH: CounterKind = CounterKind::Custom(27);
+
+/// Scream counters (All Hallow's Eve).
+pub const SCREAM: CounterKind = CounterKind::Custom(28);
+
+/// Soul counters (Hostile Hostel).
+pub const SOUL: CounterKind = CounterKind::Custom(29);
+
+/// Luck counters (Gemstone Caverns).
+pub const LUCK: CounterKind = CounterKind::Custom(30);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -146,6 +165,12 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("doom", DOOM),
     ("eon", EON),
     ("burden", BURDEN),
+    ("intervention", INTERVENTION),
+    ("wind", WIND),
+    ("glyph", GLYPH),
+    ("scream", SCREAM),
+    ("soul", SOUL),
+    ("luck", LUCK),
 ];
 
 #[cfg(test)]

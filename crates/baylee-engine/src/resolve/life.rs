@@ -30,9 +30,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::GainLifeFor { amount, who } => {
-            let n = amount2(&amount, state, you, res) as i32;
-            let players = super::players_of(who, state, you, res);
-            for player in players {
+            // Every amount is read before anybody's life changes.
+            let gains: Vec<(PlayerId, i32)> = super::players_of(who, state, you, res)
+                .into_iter()
+                .map(|p| {
+                    (
+                        p,
+                        super::amount_for_player(&amount, state, you, res, p) as i32,
+                    )
+                })
+                .collect();
+            for (player, n) in gains {
                 gain_life(state, player, n);
             }
             None
@@ -43,10 +51,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::LoseLife { amount, target } => {
-            let n = amount2(&amount, state, you, res) as i32;
+            // Every amount is read before anybody's life changes.
+            let losses: Vec<(PlayerId, i32)> = super::players_of(target, state, you, res)
+                .into_iter()
+                .map(|p| {
+                    (
+                        p,
+                        super::amount_for_player(&amount, state, you, res, p) as i32,
+                    )
+                })
+                .collect();
             // "Can't lose life" is the door's to answer, for this loss as
             // for damage.
-            for player in super::players_of(target, state, you, res) {
+            for (player, n) in losses {
                 state.change_life(player, -n, Cause::Effect);
             }
             None
@@ -406,9 +423,21 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
             .collect::<Vec<_>>()
     };
     match op {
-        Effect::DealDamage { amount, target } => {
-            for_spec(res.source, amount2(&amount, state, you, res), target)
-        }
+        // Each recipient's amount is determined as the effect is applied
+        // (CR 608.2h), before any of it is dealt; a player recipient's
+        // through `amount_for_player` ("that player", Typhoon).
+        Effect::DealDamage { amount, target } => recipients(state, res, you, target)
+            .into_iter()
+            .map(|to| {
+                let n = match to {
+                    DamageTarget::Player(player) => {
+                        super::amount_for_player(&amount, state, you, res, player)
+                    }
+                    DamageTarget::Object(_) => amount2(&amount, state, you, res),
+                };
+                assignment(state, res, res.source, to, n)
+            })
+            .collect(),
         Effect::DealDamageWithCappedLifeGain { amount } => for_spec(
             res.source,
             amount2(&amount, state, you, res),
@@ -1308,6 +1337,7 @@ mod tests {
             targeted: false,
             mana_ability: false,
             countered_source: None,
+            this_way_from: None,
         }
     }
 

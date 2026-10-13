@@ -14146,20 +14146,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(7260),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
-        },
-    ),
-    (
-        CardIndex::new(7261),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
-        },
-    ),
-    (
         CardIndex::new(7265),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("boros")],
@@ -20611,13 +20597,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(24679),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
         },
     ),
     (

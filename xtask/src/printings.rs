@@ -267,14 +267,19 @@ pub(crate) fn fill_pinned_printings(
 /// was measuring whether it still was.
 pub(crate) const PINNED_PRINTING_HINT: usize = 100;
 
-/// The oracle ids `data/unplayable.tsv` rules out: ante, dexterity and
-/// subgame cards, which are never built (the file's header says why).
+/// The oracle ids `data/unplayable.tsv` rules out: ante, dexterity, subgame
+/// and unplayable Un-set cards, which are never built (the file's header
+/// says why).
 ///
 /// A row that is not `oracle_id<TAB>name<TAB>reason`, or whose reason is not
-/// one of the three words, fails rather than being skipped: a misspelt row is
+/// one of the four words, fails rather than being skipped: a misspelt row is
 /// a card that would quietly count as buildable again.
 pub(crate) fn unplayable_ids(root: &Path) -> anyhow::Result<BTreeMap<String, String>> {
-    let text = fs::read_to_string(root.join("data/unplayable.tsv"))?;
+    parse_unplayable(&fs::read_to_string(root.join("data/unplayable.tsv"))?)
+}
+
+/// [`unplayable_ids`] over the file's text.
+fn parse_unplayable(text: &str) -> anyhow::Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     for (n, line) in text.lines().enumerate() {
         if line.trim().is_empty() || line.starts_with('#') {
@@ -282,12 +287,53 @@ pub(crate) fn unplayable_ids(root: &Path) -> anyhow::Result<BTreeMap<String, Str
         }
         let cols: Vec<&str> = line.split('\t').collect();
         anyhow::ensure!(
-            cols.len() == 3 && matches!(cols[2], "ante" | "dexterity" | "subgame"),
-            "data/unplayable.tsv:{}: expected oracle_id<TAB>name<TAB>ante|dexterity|subgame",
+            cols.len() == 3 && matches!(cols[2], "ante" | "dexterity" | "subgame" | "un-set"),
+            "data/unplayable.tsv:{}: expected oracle_id<TAB>name<TAB>ante|dexterity|subgame|un-set",
             n + 1
         );
         out.insert(cols[0].to_string(), cols[1].to_string());
     }
     anyhow::ensure!(!out.is_empty(), "data/unplayable.tsv lists no card");
     Ok(out)
+}
+
+#[cfg(test)]
+mod unplayable_tests {
+    use super::parse_unplayable;
+
+    /// The four reasons are read, and a fifth word is refused rather than
+    /// skipped: a misspelt row would be a card that counts as buildable.
+    #[test]
+    fn the_four_reasons_are_read_and_a_fifth_is_refused() {
+        let ok = "# header\n\
+                  a\tChaos Orb\tdexterity\n\
+                  b\tDarkpact\tante\n\
+                  c\tShahrazad\tsubgame\n\
+                  d\tCity of Ass\tun-set\n";
+        let ids = parse_unplayable(ok).expect("four valid rows");
+        assert_eq!(ids.len(), 4);
+        assert_eq!(ids.get("d").map(String::as_str), Some("City of Ass"));
+        assert!(parse_unplayable("e\tSomething\tsilly\n").is_err());
+    }
+
+    /// The repository's own file reads, and the three Un-set cards the owner
+    /// ruled out on 13.10.2026 are in it as `un-set`.
+    #[test]
+    fn the_repository_file_lists_the_unplayable_un_cards() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../data/unplayable.tsv");
+        let text = std::fs::read_to_string(&path).expect("data/unplayable.tsv");
+        let ids = parse_unplayable(&text).expect("the file parses");
+        for (oracle_id, name) in [
+            ("b6be7abe-cee3-418f-bf52-8b5405e3462f", "R&D's Secret Lair"),
+            ("e043a795-6936-4d7e-9a77-e0175a27c8f5", "City of Ass"),
+            ("6538fb05-7cc6-4bb9-9b57-11f4f07b5e59", "Urza's Fun House"),
+        ] {
+            assert_eq!(ids.get(oracle_id).map(String::as_str), Some(name));
+            assert!(
+                text.lines()
+                    .any(|line| line.starts_with(oracle_id) && line.ends_with("\tun-set")),
+                "{name} is listed as un-set"
+            );
+        }
+    }
 }

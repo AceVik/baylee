@@ -151,6 +151,9 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
                 duel.submit(PlayerAction::PassPriority);
             }
         }
+        MenuAction::UnstagePayment => {
+            duel.unstage_all();
+        }
         MenuAction::HoldForStack => {
             if duel.can_hold_for_stack()
                 && let Some(action) = duel.hold_action(false)

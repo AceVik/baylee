@@ -70,6 +70,7 @@ impl GameState {
             synthetic_copies,
             commanders,
             monarch,
+            game_end,
             day_night,
             previous_turn,
             starting_player,
@@ -162,6 +163,7 @@ impl GameState {
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
+        game_end.hash(&mut h);
         format.hash(&mut h);
         starting_player.hash(&mut h);
         per_turn.hash(&mut h);

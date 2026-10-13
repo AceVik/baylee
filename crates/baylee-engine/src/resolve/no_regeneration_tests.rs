@@ -43,6 +43,7 @@ fn the_target_keeps_its_shield_and_is_destroyed_through_it() {
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     };
     assert!(matches!(run(&mut state, &mut res), Flow::Complete));
     let version = state.object(troll).expect("still there").version;

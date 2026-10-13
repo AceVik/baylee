@@ -191,6 +191,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
@@ -839,6 +840,7 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                reference: None,
             },
         ),
     }
@@ -1345,6 +1347,7 @@ mod tests {
             Modifier::BlockableWithoutLandwalk(baylee_cards_dsl::KeywordSet::SWAMPWALK),
             Modifier::IgnoreOpponentsHexproof,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
@@ -1431,7 +1434,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            130,
+            131,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1495,7 +1498,9 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (45, 85));
+        // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
+        // modifier registered on the one object it names.
+        assert_eq!((locking, all.len() - locking), (45, 86));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

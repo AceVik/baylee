@@ -132,3 +132,69 @@ fn gilded_drake_exchanges_control_or_sacrifices_itself_when_the_exchange_is_decl
         "the creature the exchange never named is still where it was"
     );
 }
+
+/// "This ability still resolves if its target becomes illegal." The Elf the
+/// trigger named is returned to its owner's hand in response, so CR 608.2b
+/// would take an ordinary ability off the stack unresolved — and the Drake,
+/// which never exchanged, would stay. This one resolves anyway: no exchange
+/// can be made, so the Drake is sacrificed.
+#[test]
+fn gilded_drake_still_resolves_and_is_sacrificed_when_its_target_leaves() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(90210, island())
+        .battlefield(0, &[island(), island()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[gilded_drake()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let their_elf = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is out");
+    cast_from_hand(&mut engine, p0, gilded_drake());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_elf],
+            },
+        )
+        .expect("the Elf is a legal target");
+    assert!(
+        !stack_is_empty(&engine),
+        "the trigger waits on the stack with its target"
+    );
+
+    // In response, the Elf goes back to its owner's hand: the target is gone.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness seats have dev commands");
+    let _ = state.move_object(
+        their_elf,
+        ZoneLocation::Hand(p1),
+        crate::zone::ZonePosition::Top,
+        crate::event::Cause::Effect,
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, gilded_drake()).is_none()
+            && on_battlefield(&engine, p1, gilded_drake()).is_none(),
+        "the ability resolved without a target, so no exchange was made and \
+         the Drake was sacrificed"
+    );
+    assert!(
+        in_graveyard(&engine, p0, gilded_drake()).is_some(),
+        "the sacrificed Drake is in its owner's graveyard"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p1))
+            .contains(&their_elf),
+        "the Elf stayed in its owner's hand"
+    );
+}

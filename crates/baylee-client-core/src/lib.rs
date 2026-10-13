@@ -83,6 +83,7 @@ pub mod manapip;
 pub mod manaplan;
 pub mod manapool;
 pub mod music;
+pub mod paystage;
 pub mod peekchips;
 pub mod prefs;
 pub mod prose;

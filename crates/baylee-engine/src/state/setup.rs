@@ -98,6 +98,7 @@ impl GameState {
             synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
+            game_end: None,
             day_night: None,
             previous_turn: None,
             starting_player: PlayerId::new(0),

@@ -48,6 +48,7 @@ fn mine(effect: Effect) -> Resolution {
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     }
 }
 

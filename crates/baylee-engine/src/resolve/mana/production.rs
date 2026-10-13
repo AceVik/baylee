@@ -123,6 +123,7 @@ fn read(state: &GameState, land: &GameObject) -> Production {
             let context = RuleContext {
                 source: land.id,
                 text: state.ability_text(land.id, index as u32),
+                reference: None,
             };
             read_ability(
                 state,
@@ -138,6 +139,7 @@ fn read(state: &GameState, land: &GameObject) -> Production {
         let context = RuleContext {
             source: land.id,
             text: grant.text,
+            reference: None,
         };
         read_ability(
             state,
