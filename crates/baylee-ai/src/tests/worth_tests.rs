@@ -779,7 +779,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The One Ring adds a contextual counter-count draw activation.
     // Quarum Trench Gnomes adds a contextual permanent mana replacement.
     // Rebased main adds Goblin Artisans: one activation with a readable outcome.
-    assert_eq!((read, of), (1031, 1297), "activated/loyalty reader census");
+    // Maze's End's Gate tutor now ends in "if you control ten or more Gates
+    // with different names, you win the game" (astra-review): the table reads
+    // neither that condition nor `WinGame`, so the row is unread, not guessed.
+    assert_eq!((read, of), (1030, 1297), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

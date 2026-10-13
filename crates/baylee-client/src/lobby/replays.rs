@@ -945,6 +945,7 @@ fn row_menu(
     items
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// What each seat of a kept record is called: as the live table called it
 /// (`offline::seat_names`, from the record's own preset).
 fn record_names(record: &[u8], lang: Lang) -> Vec<String> {
