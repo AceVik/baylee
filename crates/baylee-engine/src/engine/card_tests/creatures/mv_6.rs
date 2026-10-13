@@ -39,6 +39,7 @@ mod primeval_titan;
 mod princess_lucrezia;
 mod progenitor_mimic;
 mod ramirez_de_pietro;
+mod rohgahh_of_kher_keep;
 mod rorix_bladewing;
 mod scaled_hulk;
 mod sea_serpent;

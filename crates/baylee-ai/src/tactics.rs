@@ -294,6 +294,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             Effect::CreateToken { .. }
             | Effect::CreateTokenN { .. }
             | Effect::CreateTokenModified { .. }
+            | Effect::CreateTokenAttacking { .. }
             | Effect::Amass { .. } => {
                 m.value = 500;
             }

@@ -157,9 +157,17 @@ pub fn matches_projected_with_context(
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
+        // An attacking source's own defending player (CR 508.5: Floral
+        // Spuzzem's "target artifact defending player controls" at a table of
+        // three is the one it attacks); for anything else, any opponent of
+        // the attacking player during combat, as before.
         Filter::ControlledByDefendingPlayer => {
-            state.turn.phase == crate::turn::Phase::Combat
-                && state.is_opponent(obj.controller, state.turn.active)
+            if let Some(defender) = last_defender(state, this) {
+                crate::combat::blocking_player(state, defender) == Some(obj.controller)
+            } else {
+                state.turn.phase == crate::turn::Phase::Combat
+                    && state.is_opponent(obj.controller, state.turn.active)
+            }
         }
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
@@ -271,14 +279,76 @@ pub fn matches_projected_with_context(
                         .contains(baylee_core::generated::subtypes::enchantment::AURA)
             })
         }),
-        Filter::BlockingSource => state.combat.is_blocking(obj.id, this),
-        Filter::BlockedBySource => state.combat.is_blocking(this, obj.id),
+        // As the source last existed when it has left the battlefield
+        // (CR 608.2h): Abu Ja'far's dies trigger reads its partners there.
+        Filter::BlockingSource => {
+            state.combat.is_blocking(obj.id, this) || left_combat_partner(state, this, obj, true)
+        }
+        Filter::BlockedBySource => {
+            state.combat.is_blocking(this, obj.id) || left_combat_partner(state, this, obj, false)
+        }
+        Filter::Reference => context.reference == Some(obj.id),
+        Filter::BlockingReference => context
+            .reference
+            .is_some_and(|reference| state.combat.is_blocking(obj.id, reference)),
+        Filter::BlockedByReferenceThisTurn => context.reference.is_some_and(|reference| {
+            blocked_this_turn(state, reference, obj.id)
+        }),
+        Filter::BlockedReferenceThisTurn => context.reference.is_some_and(|reference| {
+            blocked_this_turn(state, obj.id, reference)
+        }),
+        Filter::AttachedTo(inner) => obj
+            .attached_to
+            .and_then(|host| state.object(host))
+            .is_some_and(|host| matches_with_context(inner, state, host, you, context)),
+        Filter::SharesTypeWithReference(types) => context
+            .reference
+            .and_then(|reference| state.object(reference))
+            .is_some_and(|reference| {
+                chars
+                    .types
+                    .intersection(reference.characteristics().types)
+                    .intersects(*types)
+            }),
+        Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
+        Filter::BlockedThisTurnBy(inner) => state.per_turn.blocks.iter().any(|record| {
+            record.attacker.object == obj.id
+                && record.attacker.version == obj.version
+                && state
+                    .object(record.blocker.object)
+                    .filter(|b| b.version == record.blocker.version)
+                    .is_some_and(|b| matches_with_context(inner, state, b, you, context))
+        }),
         Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)
             .is_some_and(|s| chars.subtypes.contains(s)),
+        Filter::OfSourceChosenColor => {
+            use baylee_core::color::Color;
+            use baylee_core::mana::ManaColor;
+            let chosen = match state.object(this).and_then(|src| src.chosen_color) {
+                Some(ManaColor::White) => Some(Color::White),
+                Some(ManaColor::Blue) => Some(Color::Blue),
+                Some(ManaColor::Black) => Some(Color::Black),
+                Some(ManaColor::Red) => Some(Color::Red),
+                Some(ManaColor::Green) => Some(Color::Green),
+                Some(ManaColor::Colorless) | None => None,
+            };
+            chosen.is_some_and(|c| chars.colors.contains(c))
+        }
+        // CR 105.2c: a colourless object shares a colour with nothing.
+        Filter::SharesAColorWith(inner) => {
+            !chars.colors.is_empty()
+                && state.battlefield_seen().any(|id| {
+                    id != obj.id
+                        && state.object(id).is_some_and(|other| {
+                            other.characteristics().colors.intersects(chars.colors)
+                                && matches_with_context(inner, state, other, you, context)
+                        })
+                })
+        }
         // The live attachment first, then what `this` was wearing the moment
         // `obj` left the battlefield (CR 603.10a). The fallback is what lets
         // "whenever equipped creature dies" fire at all: the state-based
@@ -455,20 +525,19 @@ pub fn most_life(state: &GameState) -> Option<PlayerId> {
 
 /// "Defending player" as an ability of `source` means it (CR 508.5): the
 /// player `source` is attacking, or the controller of the planeswalker or
-/// protector of the battle it is attacking. A source that is not attacking
-/// names the one opponent of a two-player game during combat (CR 506.2),
-/// and nobody at a larger table, where CR 508.5a makes it one specific
-/// player that the attack no longer names.
+/// protector of the battle it is attacking, and once it has been removed
+/// from combat, the one it was attacking before
+/// ([`crate::combat::CombatState::last_defender_of`]). A source that did
+/// not attack this combat names the one opponent of a two-player game
+/// during combat (CR 506.2), and nobody at a larger table, where CR 508.5a
+/// makes it one specific player that no attack names.
 #[must_use]
 pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -> Option<PlayerId> {
-    if let Some(attack) = state
-        .combat
-        .attackers()
-        .iter()
-        .find(|attack| attack.creature == source)
-    {
-        return crate::combat::blocking_player(state, attack.defending)
-            .filter(|p| !state.has_left(*p));
+    // Attacking, or attacking earlier this combat and removed since (CR
+    // 508.5: "the player that creature was attacking before it was removed
+    // from combat").
+    if let Some(defender) = last_defender(state, source) {
+        return crate::combat::blocking_player(state, defender).filter(|p| !state.has_left(*p));
     }
     if state.turn.phase != crate::turn::Phase::Combat {
         return None;
@@ -481,6 +550,157 @@ pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -
         (Some(only), None) => Some(only.id),
         _ => None,
     }
+}
+
+/// What `id` attacks, or attacked before it was removed from combat (CR
+/// 508.5), as long as it is still that creature: one that left the
+/// battlefield is read as it last existed there, but one back on the
+/// battlefield as a new object (CR 400.7) that never attacked this combat
+/// attacked nothing.
+pub(crate) fn last_defender(state: &GameState, id: ObjectId) -> Option<baylee_core::ids::Defender> {
+    if let Some(defender) = state.combat.defender_of(id) {
+        return Some(defender);
+    }
+    let (version, remembered) = state.combat.remembered_defender(id)?;
+    let new_object_here = state
+        .object(id)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version != version);
+    (!new_object_here).then_some(remembered)
+}
+
+/// Whether `partner` was in combat with `source` the moment `source` left
+/// the battlefield ([`GameState::ltb_combat`]), blocking it (`blocking`) or
+/// blocked by it, and is still the object it was. Only once `source` has
+/// gone: a source on the battlefield is asked of the live combat.
+fn left_combat_partner(
+    state: &GameState,
+    source: ObjectId,
+    partner: &crate::object::GameObject,
+    blocking: bool,
+) -> bool {
+    state
+        .object(source)
+        .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+        && state
+            .ltb_combat
+            .iter()
+            .find(|(id, _)| *id == source)
+            .is_some_and(|(_, partners)| {
+                partners.iter().any(|(r, blocks_it)| {
+                    *blocks_it == blocking && r.object == partner.id && r.version == partner.version
+                })
+            })
+}
+
+/// Whether `blocker` blocked `attacker` earlier this turn, both as the
+/// objects they are now (CR 400.7; [`crate::state::PerTurn::blocks`]).
+pub(crate) fn blocked_this_turn(state: &GameState, blocker: ObjectId, attacker: ObjectId) -> bool {
+    let (Some(b), Some(a)) = (
+        last_battlefield_version(state, blocker),
+        last_battlefield_version(state, attacker),
+    ) else {
+        return false;
+    };
+    state.per_turn.blocks.iter().any(|record| {
+        record.blocker.object == blocker
+            && record.blocker.version == b
+            && record.attacker.object == attacker
+            && record.attacker.version == a
+    })
+}
+
+/// `id` as the permanent it is, or, once it has left the battlefield, as it
+/// last existed there (CR 608.2h): Glyph of Doom's Wall that died in combat
+/// still names the creatures it blocked. The version it had as it left is
+/// the journal's record of the departure.
+pub(crate) fn last_battlefield_version(state: &GameState, id: ObjectId) -> Option<u32> {
+    let object = state.object(id)?;
+    if object.zone == crate::zone::Zone::Battlefield {
+        return Some(object.version);
+    }
+    state
+        .journal
+        .entries()
+        .iter()
+        .rev()
+        .find_map(|entry| match &entry.event {
+            crate::event::GameEvent::ZoneChanged {
+                object,
+                from: crate::zone::Zone::Battlefield,
+                ..
+            } if *object == id => entry.departure.as_ref().map(|d| d.version),
+            _ => None,
+        })
+}
+
+/// The incarnation of `source` the damage this turn counts against: the one
+/// on the battlefield now, or the last one damaged before it left (a dies
+/// trigger reads the creature that died, CR 603.10a).
+fn damaged_incarnation(state: &GameState, source: ObjectId) -> Option<u32> {
+    // The permanent as it last existed on the battlefield, not merely the
+    // last one damaged: a creature damaged, blinked and then destroyed by
+    // something else took no damage as the object that died (CR 400.7).
+    last_battlefield_version(state, source)
+}
+
+/// Brine Hag's "creatures that dealt damage to it this turn": `obj`, as the
+/// object it is now, dealt damage this turn to `source`'s incarnation.
+fn dealt_damage_to_this_turn(
+    state: &GameState,
+    source: ObjectId,
+    obj: &crate::object::GameObject,
+) -> bool {
+    let Some(version) = damaged_incarnation(state, source) else {
+        return false;
+    };
+    state.per_turn.damage_log.iter().any(|e| {
+        e.to == crate::event::DamageTarget::Object(source)
+            && e.to_version == Some(version)
+            && e.source.object == obj.id
+            && e.source.version == obj.version
+    })
+}
+
+/// `Amount::DamageThisTurn`: damage dealt this turn to `to` by sources the
+/// filter matches as they were when they dealt it.
+pub(crate) fn damage_this_turn(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    to: baylee_cards_dsl::DamageTo,
+    by: &Filter,
+    combat: Option<bool>,
+) -> u32 {
+    use baylee_cards_dsl::DamageTo;
+    let source_incarnation = match to {
+        DamageTo::Source => damaged_incarnation(state, context.source),
+        _ => None,
+    };
+    state
+        .per_turn
+        .damage_log
+        .iter()
+        .filter(|e| combat.is_none_or(|c| c == e.combat))
+        .filter(|e| match to {
+            DamageTo::You => e.to == crate::event::DamageTarget::Player(you),
+            DamageTo::Source => {
+                e.to == crate::event::DamageTarget::Object(context.source)
+                    && source_incarnation.is_some_and(|v| e.to_version == Some(v))
+            }
+            DamageTo::Anything => true,
+        })
+        .filter(|e| {
+            matches_projected_with_context(
+                by,
+                state,
+                &e.snapshot,
+                e.snapshot.characteristics(),
+                you,
+                context,
+            )
+        })
+        .map(|e| e.amount)
+        .fold(0, u32::saturating_add)
 }
 
 /// The graveyard cards a `CardInGraveyard` spec may point at.
@@ -580,6 +800,7 @@ pub fn amount(
 
 /// Evaluate an amount using the captured semantic text for its nested filters.
 #[must_use]
+#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
 pub fn amount_with_context(
     amount: &Amount,
     state: &GameState,
@@ -669,7 +890,13 @@ pub fn amount_with_context(
         | Amount::EventAmount
         | Amount::TargetsPutIntoGraveyard
         | Amount::ThisWay(_)
-        | Amount::ThisWayBy { .. } => 0,
+        | Amount::ThisWayBy { .. }
+        // A payment's sacrifices, read off the stack object
+        // (`resolve::amount2`).
+        | Amount::SacrificedTotalPower => 0,
+        Amount::DamageThisTurn { to, by, combat } => {
+            damage_this_turn(state, you, context, *to, by, *combat)
+        }
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -905,8 +1132,29 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
-        // This condition requires the triggering incarnation, supplied separately.
-        Condition::ControlCountExceptEvent(_, _) => false,
+        // These need the triggering incarnation, supplied separately, or a
+        // resolution (`resolve::immediate::resolution_condition`).
+        Condition::ControlCountExceptEvent(_, _)
+        | Condition::EventBlockedByOthers { .. }
+        | Condition::TargetSpellWouldDestroy(_) => false,
+        // "Only after combat": a main or ending phase after this turn's
+        // combat (the postcombat main phase or the end phase).
+        Condition::ChosenOpponentControls(filter) => state
+            .object(source)
+            .and_then(crate::object::GameObject::chosen_opponent)
+            .filter(|p| !state.has_left(*p))
+            .is_some_and(|opponent| {
+                state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|o| {
+                        o.controller == opponent
+                            && matches_with_context(filter, state, o, you, context)
+                    })
+                })
+            }),
+        Condition::AfterCombat => matches!(
+            state.turn.phase,
+            crate::turn::Phase::SecondMain | crate::turn::Phase::Ending
+        ),
         Condition::Revolt => state.per_turn.revolt[usize::from(you.get())],
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
@@ -1423,7 +1671,7 @@ pub(crate) fn intervening_if_for_incarnation(
 /// An event-dependent clause excludes an incarnation, never a reusable handle.
 pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     match condition {
-        Condition::ControlCountExceptEvent(_, _) => true,
+        Condition::ControlCountExceptEvent(_, _) | Condition::EventBlockedByOthers { .. } => true,
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
@@ -1455,6 +1703,28 @@ pub(crate) fn condition_with_event(
                 .take(usize::from(minimum))
                 .count()
                 >= usize::from(minimum)
+        }
+        // Wall of Caltrops: the creature it blocks, as that event names it.
+        Condition::EventBlockedByOthers { some, none } => {
+            let Some(event) = event else { return false };
+            if state
+                .object(event.object)
+                .is_none_or(|o| o.version != event.version)
+            {
+                return false;
+            }
+            let blockers: Vec<&crate::object::GameObject> = state
+                .combat
+                .blockers
+                .iter()
+                .filter(|b| b.attacker == event.object)
+                .filter_map(|b| state.object(b.blocker))
+                .collect();
+            blockers.iter().any(|b| {
+                b.id != context.source && matches_with_context(some, state, b, you, context)
+            }) && !blockers
+                .iter()
+                .any(|b| matches_with_context(none, state, b, you, context))
         }
         Condition::All(conditions) => conditions
             .iter()
@@ -1972,6 +2242,23 @@ pub(crate) fn spell_target_options_for(
     form: Option<crate::casting::SpellForm>,
     wall_only: bool,
 ) -> Vec<ObjectId> {
+    spell_target_options_relative(spec, state, you, source, face, form, wall_only, None)
+}
+
+/// [`spell_target_options_for`] for a second instance of "target" whose
+/// requirement names the first (`Filter::Reference` and its family, CR
+/// 601.2c chooses them in order): `reference` is the first target.
+#[allow(clippy::too_many_arguments)] // the face, the form and the domain are each the caller's
+pub(crate) fn spell_target_options_relative(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    source: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    form: Option<crate::casting::SpellForm>,
+    wall_only: bool,
+    reference: Option<ObjectId>,
+) -> Vec<ObjectId> {
     let Some(original) = state.object(source) else {
         return Vec::new();
     };
@@ -1996,7 +2283,9 @@ pub(crate) fn spell_target_options_for(
     let projected = crate::layers::recompute(state, &spell);
     spell.base = std::sync::Arc::new(projected.characteristics);
     spell.controller = projected.controller;
-    let mut options = choice_options(spec, state, you, source)
+    let mut context = live_context(state, source);
+    context.reference = reference;
+    let mut options = choice_options_with_context(spec, state, you, context)
         .into_iter()
         .filter(|id| {
             !protected_from_object(state, *id, &spell)
@@ -2206,6 +2495,18 @@ pub fn stack_target_options(
     obj: &GameObject,
     spec: &TargetSpec,
 ) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    stack_target_options_relative(state, obj, spec, None)
+}
+
+/// [`stack_target_options`] for a second instance of "target" whose
+/// requirement names the first: `reference` is the first target.
+#[must_use]
+pub fn stack_target_options_relative(
+    state: &GameState,
+    obj: &GameObject,
+    spec: &TargetSpec,
+    reference: Option<ObjectId>,
+) -> (Vec<ObjectId>, Vec<PlayerId>) {
     let you = obj.controller;
     let this = if obj.kind == crate::object::ObjectKind::AbilityOnStack {
         obj.ability.map_or(obj.id, |loc| loc.source)
@@ -2215,7 +2516,7 @@ pub fn stack_target_options(
     let context = RuleContext {
         source: this,
         text: live_context(state, obj.id).text,
-        reference: None,
+        reference,
     };
     let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));

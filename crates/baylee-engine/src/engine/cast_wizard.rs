@@ -351,6 +351,7 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
             | CostPart::DiscardHand
+            | CostPart::DiscardLastDrawnThisTurn
     )
 }
 
@@ -1046,8 +1047,8 @@ impl<L: CardLookup> Engine<L> {
         let help = [
             (face.delve, graveyard),
             (
-                face.convoke,
-                casting::convoke_sources(&self.state, player).len(),
+                face.convoke || casting::has_improvise(&self.state, face, player),
+                casting::tap_to_pay_sources(&self.state, face, player).len(),
             ),
             (
                 face.waterbend && wizard.kicked,
@@ -1392,6 +1393,18 @@ impl<L: CardLookup> Engine<L> {
         wizard: &CastWizard,
         spec: &TargetSpec,
     ) -> Vec<ObjectId> {
+        self.wizard_target_options_relative(wizard, spec, None)
+    }
+
+    /// [`Self::wizard_target_options`] with the object a relational
+    /// requirement is relative to: the first target, for the second
+    /// instance of "target" (Glyph of Delusion's Wall).
+    pub(super) fn wizard_target_options_relative(
+        &self,
+        wizard: &CastWizard,
+        spec: &TargetSpec,
+        reference: Option<ObjectId>,
+    ) -> Vec<ObjectId> {
         let Some(def) = self
             .state
             .object(wizard.card)
@@ -1406,7 +1419,7 @@ impl<L: CardLookup> Engine<L> {
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
-        eval::spell_target_options_for(
+        eval::spell_target_options_relative(
             spec,
             &self.state,
             wizard.player,
@@ -1417,6 +1430,7 @@ impl<L: CardLookup> Engine<L> {
                 self.wizard_target_req(wizard),
                 self.wizard_second_target_req(wizard),
             ),
+            reference,
         )
     }
 
@@ -1576,6 +1590,7 @@ impl<L: CardLookup> Engine<L> {
         !wizard.makes_mana_after_choices()
             && !face.delve
             && !face.convoke
+            && !casting::has_improvise(&self.state, face, wizard.player)
             && !face.waterbend
             && face.extra_target_cost == 0
             && self.state.granted_colorless_capacity(wizard.player) == 0
@@ -1606,8 +1621,8 @@ impl<L: CardLookup> Engine<L> {
                     .len(),
             ),
             (
-                face.convoke,
-                casting::convoke_sources(&self.state, wizard.player).len(),
+                face.convoke || casting::has_improvise(&self.state, face, wizard.player),
+                casting::tap_to_pay_sources(&self.state, face, wizard.player).len(),
             ),
             (
                 face.waterbend,

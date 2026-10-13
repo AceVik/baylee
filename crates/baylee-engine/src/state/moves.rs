@@ -165,6 +165,34 @@ impl GameState {
     /// Each store is cleared for this object on **every** move and written
     /// again only on a departure from the battlefield, so each describes the
     /// last such departure and no earlier one.
+    /// Who `id` was in combat with as it left the battlefield (Abu Ja'far:
+    /// "destroy all creatures blocking or blocked by it", read as it last
+    /// existed, CR 608.2h): [`GameState::ltb_combat`].
+    fn record_combat_partners(&mut self, id: ObjectId, from_zone: Zone) {
+        self.ltb_combat.retain(|(other, _)| *other != id);
+        if from_zone != Zone::Battlefield {
+            return;
+        }
+        let partners: Vec<(baylee_core::ids::DamageSourceRef, bool)> = self
+            .combat
+            .blockers
+            .iter()
+            .filter_map(|b| {
+                let (partner, blocks_it) = if b.attacker == id {
+                    (b.blocker, true)
+                } else if b.blocker == id {
+                    (b.attacker, false)
+                } else {
+                    return None;
+                };
+                self.source_identity(partner).map(|r| (r, blocks_it))
+            })
+            .collect();
+        if !partners.is_empty() {
+            self.ltb_combat.push((id, partners));
+        }
+    }
+
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
         self.ltb_mana_values.retain(|(other, _)| *other != id);
         self.ltb_controllers.retain(|(other, _)| *other != id);
@@ -235,6 +263,7 @@ impl GameState {
         {
             self.ltb_counters.push((id, counters));
         }
+        self.record_combat_partners(id, from_zone);
         // What it was.
         self.ltb_characteristics.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
@@ -812,6 +841,12 @@ impl GameState {
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
+            if let Some(object) = self.object(id).filter(|o| o.card.is_some()) {
+                let seat = usize::from(object.controller.get());
+                if let Some(flag) = self.per_turn.put_nontoken_permanent.get_mut(seat) {
+                    *flag = true;
+                }
+            }
             if from_zone != Zone::Battlefield {
                 self.note_entry_history(id);
             }

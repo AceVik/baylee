@@ -15,8 +15,10 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod attacking_tokens;
 mod blocks;
 mod branches;
+mod combat_memory;
 mod control;
 mod costs;
 mod crew_saddle;
@@ -28,6 +30,8 @@ mod preparation;
 mod tokens;
 mod transforms;
 mod triggers;
+mod wave3_rules;
+mod wave3b_rules;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};
@@ -185,9 +189,14 @@ fn entry(card: u32) -> DeckEntry {
     }
 }
 
-/// A two-seat game over these cards: the seats as given, Forests in both
-/// libraries, and both opening hands kept.
-pub(super) fn bench(seed: u64, cards: Vec<&'static CardDef>, seats: [Seat; 2]) -> Bench {
+/// A game over these cards, one seat per entry (two, or three where a test
+/// needs a player who is neither attacking nor attacked): the seats as given,
+/// Forests in every library, and every opening hand kept.
+pub(super) fn bench<const N: usize>(
+    seed: u64,
+    cards: Vec<&'static CardDef>,
+    seats: [Seat; N],
+) -> Bench {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(forest())).collect();
     let seat = |s: Seat| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
@@ -217,8 +226,14 @@ pub(super) fn bench(seed: u64, cards: Vec<&'static CardDef>, seats: [Seat; 2]) -
         }],
         seats: seats.into_iter().map(seat).collect(),
     };
-    let mut engine = Engine::new(&preset, SyntheticLookup::new(cards)).expect("a two-seat game");
-    super::synthetic::keep_mulligans(&mut engine);
+    let mut engine =
+        Engine::new(&preset, SyntheticLookup::new(cards)).expect("a game over the bench");
+    // Every seat keeps (the synthetic helper answers two).
+    while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+        engine
+            .apply(player, PlayerAction::MulliganKeep)
+            .expect("a seat keeps its hand");
+    }
     engine
 }
 

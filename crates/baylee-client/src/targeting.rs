@@ -285,6 +285,7 @@ fn is_unblocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
 /// answers `None`. Every arm is named for the reason the engine's own version
 /// names them, so a new [`Filter`] variant has to be looked at here too
 /// rather than falling into a wildcard and being quietly declared absent.
+#[allow(clippy::too_many_lines)] // One arm per `Filter` variant, exhaustive on purpose.
 fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<bool> {
     // Neither a card nor a registry token, which is **two** kinds of object
     // and the reason this is a bail rather than a reading. A face-down
@@ -457,7 +458,20 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::SpellTargetingAffected
         | Filter::InZone(_)
         | Filter::Kicked
-        | Filter::CastFromHand => return None,
+        | Filter::CastFromHand
+        // Relative to a resolution's reference object, this turn's blocks
+        // and damage, an Aura's host, or a colour chosen or compared across
+        // the board: nothing a target probe from the view can close.
+        | Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::BlockedThisTurnBy(_)
+        | Filter::AttachedTo(_)
+        | Filter::SharesTypeWithReference(_)
+        | Filter::DealtDamageToSourceThisTurn
+        | Filter::OfSourceChosenColor
+        | Filter::SharesAColorWith(_) => return None,
     })
 }
 

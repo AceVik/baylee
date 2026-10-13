@@ -983,8 +983,8 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, ColorSubject, CounterKind, DivisionAmount, Effect, ExilePlay, ExileUntil, Find,
-        LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
+        Amount, ColorSubject, CounterKind, DamageTo, DivisionAmount, Effect, ExilePlay, ExileUntil,
+        Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
         ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
         TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
     };

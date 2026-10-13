@@ -117,6 +117,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::Discard(_)
                     | CostPart::DiscardRandom
                     | CostPart::DiscardHand
+                    | CostPart::DiscardLastDrawnThisTurn
                     | CostPart::PayEnergy(_)
                     | CostPart::PayEnergyX
                     | CostPart::DiscardSelf
@@ -195,6 +196,15 @@ impl<L: CardLookup> Engine<L> {
                         .copied()
                         .ok_or(EngineError::IllegalAction("unanswered discard cost"))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::DiscardLastDrawnThisTurn => {
+                    let card =
+                        self.state
+                            .last_drawn_in_hand(player)
+                            .ok_or(EngineError::IllegalAction(
+                                "no card drawn this turn to discard",
+                            ))?;
+                    self.state.discard_card(card, player, Cause::Cost, None);
                 }
                 CostPart::DiscardHand => {
                     for card in self.state.zones.list(ZoneLocation::Hand(player)).clone() {
@@ -443,6 +453,16 @@ impl<L: CardLookup> Engine<L> {
             .get_mut(player.get() as usize)
         {
             *v = v.saturating_add(1);
+        }
+        // "The next spell you cast this turn has improvise" is spent by this
+        // cast, whatever it tapped (Archway of Innovation).
+        if let Some(flag) = self
+            .state
+            .per_turn
+            .improvise_next_spell
+            .get_mut(player.get() as usize)
+        {
+            *flag = false;
         }
         // "If you do, you can't cast additional spells this turn": the
         // spell is cast, so the lock is on.

@@ -5,6 +5,7 @@ use super::*;
 
 mod farmstead;
 mod feedback;
+mod infinite_authority;
 mod journey_to_eternity;
 mod kudzu;
 mod lure;

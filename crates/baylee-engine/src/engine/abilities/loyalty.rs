@@ -188,11 +188,13 @@ impl<L: CardLookup> Engine<L> {
                 cost as u16,
             );
         } else {
-            crate::replacement::remove_counters(
+            // A cost its activator pays: they remove the counters.
+            crate::replacement::remove_counters_by(
                 &mut self.state,
                 source,
                 baylee_cards_dsl::CounterKind::Loyalty,
                 (-cost) as u16,
+                Some(player),
             );
         }
         self.loyalty_used_this_turn.push(source);

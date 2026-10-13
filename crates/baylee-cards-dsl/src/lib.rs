@@ -45,10 +45,10 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, DivisionAmount, Effect, ExilePlay, ExileUntil, Find,
-    LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
-    TargetSpec, ThisWay, TokenDef, ZoneSel,
+    Amount, ColorSubject, CounterKind, DamageTo, DivisionAmount, Effect, ExilePlay, ExileUntil,
+    Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
+    ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
+    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -378,6 +378,13 @@ pub struct FaceDef {
     /// pays for {1} of the spell's total cost. Creatures only, never an
     /// artifact; paying a coloured pip with a creature of that colour is #230.
     pub convoke: bool,
+    /// Improvise (CR 702.126a): "for each generic mana in this spell's total
+    /// cost, you may tap an untapped artifact you control rather than pay
+    /// that mana", after the total cost is determined (CR 702.126b). With
+    /// convoke on the same face an artifact creature is one permanent and
+    /// pays once. `Effect::NextSpellThisTurnHasImprovise` gives a player's
+    /// next spell the same.
+    pub improvise: bool,
     /// Waterbend (CR 701.67a): the face's optional additional cost is a
     /// waterbend cost, so when it is paid each untapped artifact or creature
     /// tapped pays for {1} of *that* cost's generic mana and of nothing else
@@ -448,6 +455,7 @@ impl FaceDef {
         beam_me_up: None,
         delve: false,
         convoke: false,
+        improvise: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,

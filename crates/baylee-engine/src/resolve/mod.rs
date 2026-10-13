@@ -39,6 +39,9 @@ mod graveyard_choice;
 mod landwalk;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
+mod attacking_tokens;
+mod blocked_returns;
+mod half_damage;
 mod life;
 pub(crate) mod linked_counters;
 pub mod loot;
@@ -52,6 +55,7 @@ pub(crate) mod subjects;
 mod this_way;
 mod token_choices;
 mod top_card;
+mod would_destroy;
 pub use subjects::SubjectContext;
 mod amass;
 mod card_copies;
@@ -609,6 +613,17 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::SacrificedTotalPower => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| {
+                let total: i64 = p
+                    .sacrificed_many
+                    .iter()
+                    .map(|(_, _, power)| i64::from(*power))
+                    .sum();
+                u32::try_from(total.max(0)).unwrap_or(u32::MAX)
+            }),
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
         Amount::ThisWay(what) => this_way::count(state, res, *what, None),
         Amount::ThisWayBy { what, who } => players_of(*who, state, you, res)
@@ -762,6 +777,22 @@ pub(super) fn bound_now_with_context(
     context: crate::text_changes::RuleContext,
     only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
+    // A filter that names the resolution's reference object (Feint's "that
+    // creature and each creature blocking it"): the reference is gone once
+    // the resolution is, so an effect that does not lock its set (CR 611.2c)
+    // keeps the object it is about, and one that does is bound now.
+    if !crate::effects::locks_its_set(modifier) && crate::state::filter_reads_reference(filter) {
+        debug_assert!(
+            only.is_none(),
+            "a dynamic effect cannot carry the seat its card named",
+        );
+        return context
+            .reference
+            .and_then(|id| state.object(id).map(|o| (id, o.version)))
+            .map(|(id, version)| crate::effects::EffectFilter::DslAbout(filter, id, version))
+            .into_iter()
+            .collect();
+    }
     if !crate::effects::locks_its_set(modifier) {
         debug_assert!(
             only.is_none(),
@@ -1195,6 +1226,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
+        | Effect::PlayerMayPayManaEachThenElse { .. }
+        | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }
@@ -1511,7 +1544,7 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
 ///
 /// Summoning sickness restarts where control moved (CR 302.6), as the
 /// projection moves it; the journal says who has each object now.
-fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
+pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
     let before: Vec<(ObjectId, PlayerId)> = changes
         .iter()
         .filter_map(|&(id, _)| state.object(id).map(|o| (id, o.controller)))

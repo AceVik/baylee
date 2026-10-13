@@ -4427,3 +4427,55 @@ land type"; both are convention tests that fire on a first try.
 - Preserved the owner's pre-existing `Cargo.lock` byte-for-byte (`/tmp/baylee-perf-preserved.Yu2zqk/Cargo.lock.observed`) and left private/untracked working files unstaged. Main contains the previously saved `web/play-soon` files with identical bytes.
 - Post-rebase validation: the full workspace/all-targets test run executed **12,299 tests: 12,287 passed, 12 failed, 21 skipped**. All engine tests passed. The 12 integration failures were subsequently corrected and their entire affected targets rerun: client mana **44/44**, server recording **10/10**, gamehost coverage guards **7/7**, and the AI census **1/1** pass. The entire 12,299-test run was not repeated after these focused corrections. Codegen **311/311**, xtask **64/64** (with required local socket access), generated-table reproducibility, card validation for all **3321** entries, formatting, and workspace/all-targets/dev-control Clippy pass.
 - The seven-crate browser WebAssembly compiler gate also passes. No agents or implementation work should be resumed automatically at this checkpoint; wait for the owner.
+
+### Partials lane wave 1: 22 cards, pairs A and B (2026-10-13)
+
+- Process (owner 13.10): Opus builds the engine/DSL pack and its rule tests first; then per pair two
+  Sonnet 5.5 agents in separate worktrees — a card author (DSL only) and a tester who never opens
+  the card files and writes from Oracle text, rulings and the CR; then an Opus reviewer with a
+  checklist and a `BAYLEE_MUTATE` run per ability. Pair A: 11 cards, 69 tests; pair B: 11 cards,
+  89 tests; every mutant killed in both. Un-cards (R&D's Secret Lair, City of Ass, Urza's Fun
+  House) went to `data/unplayable.tsv` as `un-set` (owner).
+- The tester's red list against the still-partial card is the best early signal: in pair B all
+  62 reds turned green with the cards except ten, and all ten were test shapes, not cards: a
+  player-only target is asked as `Pending::ChoosePlayer`; a choice with one candidate is not asked
+  (assert behaviour, never "a question was asked"); `walk_to_own_main` returns at once when the
+  seat already holds priority in its first main phase; three seats need more walk budget; a dev
+  move (`bury`, `hand_to_graveyard`) is not seen by statics until the engine takes a step.
+- The review found what the gates could not: an animation printed "becomes a … black … creature"
+  written as `AddColor` instead of `SetColor` (CR 105.3), and the same slip in twelve manlands,
+  fixed together with one data-driven colour test that fails on all twelve old cards. Tests that
+  assert inside `if let`, and a forced-choice test that an ability doing nothing would also pass,
+  were rewritten with positive controls.
+- Engine findings from the cards: "defending player" must survive the attacker's removal from
+  combat (CR 508.5) — now `CombatState::remember_defender`/`last_defender`; an off-battlefield
+  static (Grist, CR 113.6) is applied on the engine's next pass, so a check inside the same
+  resolution that moved the card (Agatha's Soul Cauldron's "creature card exiled this way") still
+  reads the old types — open engine item.
+- Integration: a full `cargo test -p baylee-engine --lib` on the merged tree caught two failures
+  the narrow card runs could not: an old test that pinned the partial Grist's ability position,
+  and the land census ceiling (1028 promises once pair B's lands were Implemented).
+
+### Partials lane wave 2: 19 cards, pairs C and D (2026-10-13)
+
+- Pair C (11 cards: Glyphs, Feint, Backdraft, Reverse Polarity, Abu Ja'far, Blazing Effigy, Brine
+  Hag, Floral Spuzzem) and pair D (8 of 9: Gauntlets of Chaos, Mirror Universe, Marble Priest,
+  Wall of Caltrops, Rohgahh of Kher Keep, Enchantment Alteration, Remove Enchantments, Contested
+  War Zone) are Implemented; 56 and 55 tests, every whole-ability mutant killed. Infinite
+  Authority went back to Partial on review: its trigger is the Aura's own (CR 113.1a, 603.3a),
+  not one granted to the enchanted creature, so a lose-all-abilities effect on the creature must
+  not silence it. That needs an engine pair trigger with a recorded subject.
+- The review's engine findings were real defects the narrow card runs could not see: a Glyph of
+  Doom whose Wall died in the same combat damage step lost its memory of the blocked creature
+  (the delayed trigger now carries the event object's identity, CR 608.2h); Glyph of
+  Reincarnation offered a token it had destroyed (tokens are not cards, CR 108.2b); Wall of
+  Caltrops' condition never saw its block event; a spell with a relative second target ("another
+  target creature that shares a type with the first") was never castable because the second
+  target's reachability was checked without the first.
+- A test asserting on a question must also assert who is asked: Enchantment Alteration's
+  chooser and Glyph of Reincarnation's every asked seat are pinned now (CR 608.2d).
+- After merging, the land census ceiling moved again (1029, Contested War Zone). Any land a
+  pair flips to Implemented moves it; read the number off the failure and record why.
+- Whir of Invention's mana value on the stack was X-less: `layers::needs_projection` skipped a
+  stack object with X that no effect touched (CR 202.3e). A rule-test with a synthetic effect on
+  the spell had hidden it; the card test without one found it.

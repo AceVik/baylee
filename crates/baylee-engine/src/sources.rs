@@ -767,6 +767,7 @@ impl GameState {
         for delayed in &self.delayed {
             if let DelayedWhen::DiesOrIsExiled { card, version, .. }
             | DelayedWhen::DiesThisTurn { card, version, .. }
+            | DelayedWhen::DealtDamageThisTurn { card, version, .. }
             | DelayedWhen::LeavesBattlefield { card, version, .. } = delayed.when
             {
                 out.insert(DamageSourceRef {

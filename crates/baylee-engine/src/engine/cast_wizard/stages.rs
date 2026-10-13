@@ -254,7 +254,11 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
-                let options = self.wizard_target_options(&wizard, &req.spec);
+                let options = self.wizard_target_options_relative(
+                    &wizard,
+                    &req.spec,
+                    wizard.targets.first().copied(),
+                );
                 if options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
@@ -476,9 +480,13 @@ impl<L: CardLookup> Engine<L> {
                         crate::casting::waterbend_sources(&self.state, wizard.player),
                         generic(&waterbend),
                     )
-                } else if face.convoke {
+                } else if face.convoke
+                    || crate::casting::has_improvise(&self.state, face, wizard.player)
+                {
+                    // Convoke's creatures and improvise's artifacts
+                    // (CR 702.126a), each permanent once.
                     (
-                        crate::casting::convoke_sources(&self.state, wizard.player),
+                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player),
                         generic(&wizard_total_cost(face, &wizard))
                             .saturating_sub(wizard.delve_exiles.len()),
                     )

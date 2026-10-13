@@ -207,6 +207,7 @@ fn a_treasure_carries_the_ability_printed_on_it() {
             rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
+            x_on_stack: 0,
         },
     );
 

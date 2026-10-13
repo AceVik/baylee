@@ -39,8 +39,9 @@ pub use lands::*;
 pub(crate) use payment::*;
 pub(crate) use permissions::*;
 pub use pricing::{
-    ability_mana_spending, commander_tax, convoke_sources, delve_sources, keyword_reduction,
-    mana_is_wild, mana_spending, printed_reduction, reduction_amount, waterbend_sources,
+    ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
+    keyword_reduction, mana_is_wild, mana_spending, printed_reduction, reduction_amount,
+    tap_to_pay_sources, waterbend_sources,
 };
 pub(crate) use pricing::{
     activation_increase, component_affordable, face_adjustment, face_increase,
@@ -234,7 +235,8 @@ pub fn face_has_a_legal_target(
                 crate::eval::target_domain::walls(Some(req), second),
             )
         }))
-        && requirement_is_reachable_for(
+        && second_is_reachable(
+            req,
             second,
             state,
             player,
@@ -242,6 +244,61 @@ pub fn face_has_a_legal_target(
             Some((def, face)),
             crate::eval::target_domain::walls(req, second),
         )
+}
+
+/// Whether a target spec's filter reads the first target (`Filter::Reference`
+/// and its family): a second instance of "target" chosen relative to the
+/// first (Gauntlets of Chaos, Glyph of Delusion).
+pub(crate) fn spec_reads_reference(spec: baylee_cards_dsl::TargetSpec) -> bool {
+    use baylee_cards_dsl::TargetSpec as S;
+    match spec {
+        S::Object(f)
+        | S::ObjectOfEachOpponent(f)
+        | S::OpponentOrObject(f)
+        | S::ObjectOfFirstTargetsPlayer(f)
+        | S::ObjectOfEventPlayer(f)
+        | S::Spell(f)
+        | S::StackOrBattlefield(f)
+        | S::PlayerOrObject(f) => crate::state::filter_reads_reference(f),
+        _ => false,
+    }
+}
+
+/// The second instance of "target" can be satisfied (CR 601.2c). One whose
+/// requirement names the first target is satisfied only together with a
+/// first target it accepts: some legal first target must leave enough second
+/// ones, read with that first target as the reference.
+fn second_is_reachable(
+    first: Option<baylee_cards_dsl::TargetReq>,
+    second: Option<baylee_cards_dsl::TargetReq>,
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    wall_only: bool,
+) -> bool {
+    let (Some(first), Some(second_req)) = (first, second) else {
+        return requirement_is_reachable_for(second, state, player, card, face, wall_only);
+    };
+    if second_req.min == 0 || !spec_reads_reference(second_req.spec) {
+        return requirement_is_reachable_for(second, state, player, card, face, wall_only);
+    }
+    crate::eval::spell_target_options_for(&first.spec, state, player, card, face, None, wall_only)
+        .into_iter()
+        .any(|reference| {
+            crate::eval::spell_target_options_relative(
+                &second_req.spec,
+                state,
+                player,
+                card,
+                face,
+                None,
+                wall_only,
+                Some(reference),
+            )
+            .len()
+                >= usize::from(second_req.min)
+        })
 }
 
 /// Whether the ordinary spell target requirement can be satisfied.
@@ -427,9 +484,8 @@ fn requirements_are_reachable(
     card: ObjectId,
 ) -> bool {
     let wall_only = crate::eval::target_domain::walls(first, second);
-    [first, second]
-        .into_iter()
-        .all(|req| requirement_is_reachable_for(req, state, player, card, None, wall_only))
+    requirement_is_reachable_for(first, state, player, card, None, wall_only)
+        && second_is_reachable(first, second, state, player, card, None, wall_only)
 }
 
 /// Kicker replaces the first targeting group, retaining the second group.
@@ -1431,6 +1487,7 @@ fn alternative_parts_payable(
                     .count()
         }
         CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
+        CostPart::DiscardLastDrawnThisTurn => state.last_drawn_in_hand(player).is_some(),
         CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
         // The same question `can_afford` asks of an activation, asked of the
         // card about to be cast. It answers `false` for every card in hand,

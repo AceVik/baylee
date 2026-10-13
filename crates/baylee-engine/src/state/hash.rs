@@ -60,6 +60,7 @@ impl GameState {
             ltb_attachments,
             ltb_counters,
             ltb_characteristics,
+            ltb_combat,
             // Empty again before any question is out; the field says why.
             ceased: _,
             // Empty whenever a question is out, by a rule the build
@@ -251,6 +252,7 @@ impl GameState {
         }
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
+        ltb_combat.hash(&mut h);
         synthetic_copies.hash(&mut h);
         hash_unordered(&mut h, restriction_info.iter(), |(id, provenance)| {
             let mut one = Hasher::new();
@@ -496,6 +498,8 @@ impl GameState {
             attackers.hash(h);
         }
         self.per_turn.revolt.hash(h);
+        self.per_turn.put_nontoken_permanent.hash(h);
+        self.per_turn.improvise_next_spell.hash(h);
         self.per_turn.main_phases_begun.hash(h);
         self.per_turn.descended.hash(h);
         self.per_turn.sacrificed_subtypes.hash(h);
@@ -1314,6 +1318,12 @@ fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
             id.hash(h);
             version.hash(h);
         }
+        crate::effects::EffectFilter::DslAbout(filter, id, version) => {
+            h.u8(2);
+            filter_hash(h, filter);
+            id.hash(h);
+            version.hash(h);
+        }
     }
     hash_modifier(h, modifier);
 }
@@ -1334,6 +1344,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_started,
         turns_to_skip,
         last_turn_attackers,
+        last_turn_acted,
         tried_empty_draw,
         commander_damage,
         loss,
@@ -1355,6 +1366,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turns_started.hash(h);
     turns_to_skip.hash(h);
     last_turn_attackers.hash(h);
+    last_turn_acted.hash(h);
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
     // seats on the same life with twelve and twenty points from the same
@@ -1394,6 +1406,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         rules_text_lost,
         abilities_lost,
         front_mana_value,
+        x_on_stack,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -1415,6 +1428,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     rules_text_lost.hash(h);
     abilities_lost.hash(h);
     front_mana_value.hash(h);
+    x_on_stack.hash(h);
 }
 
 /// What [`GameState::snapshot_hash`] last wrote for each arena chunk: the
@@ -1984,6 +1998,30 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(29);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));
             h.bytes(name.as_bytes());
+        }
+        // Relational filters (partials wave 2), tagged from 120 so a
+        // neighbouring lane's next tag cannot collide.
+        F::Reference => h.u8(120),
+        F::BlockingReference => h.u8(121),
+        F::BlockedByReferenceThisTurn => h.u8(122),
+        F::BlockedReferenceThisTurn => h.u8(123),
+        F::AttachedTo(inner) => {
+            h.u8(124);
+            filter_hash(h, inner);
+        }
+        F::SharesTypeWithReference(types) => {
+            h.u8(125);
+            h.u32(u32::from(types.bits()));
+        }
+        F::DealtDamageToSourceThisTurn => h.u8(126),
+        F::BlockedThisTurnBy(inner) => {
+            h.u8(127);
+            filter_hash(h, inner);
+        }
+        F::OfSourceChosenColor => h.u8(128),
+        F::SharesAColorWith(inner) => {
+            h.u8(129);
+            filter_hash(h, inner);
         }
     }
 }

@@ -179,6 +179,7 @@ pub(super) fn copy_spell(
         Box::new(crate::object::PaidRecord {
             sacrificed_lki: paid.sacrificed_lki,
             sacrificed: paid.sacrificed,
+            sacrificed_many: paid.sacrificed_many.clone(),
             source_after_cost: paid.source_after_cost,
             tapped: paid.tapped,
             ..crate::object::PaidRecord::default()

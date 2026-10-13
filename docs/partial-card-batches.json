@@ -726,12 +726,28 @@
           "name": "Infinite Authority",
           "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/infinite_authority.rs"
         }
+      ],
+      "completed_cards": [
+        "Reincarnation",
+        "Abu Ja'far",
+        "Brine Hag",
+        "Blazing Effigy",
+        "Wall of Caltrops",
+        "Feint",
+        "Glyph of Reincarnation",
+        "Glyph of Doom",
+        "Glyph of Delusion",
+        "Glyph of Life"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3).",
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
       "batch": 51,
       "title": "Multiplayer relations and control changes",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Rohgahh of Kher Keep",
@@ -793,6 +809,24 @@
           "name": "Gauntlets of Chaos",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_5/gauntlets_of_chaos.rs"
         }
+      ],
+      "completed_cards": [
+        "Arid Archway",
+        "Hurkyl's Recall",
+        "The Black Gate",
+        "Restless Fortress",
+        "Hive of the Eye Tyrant",
+        "Mount Doom",
+        "Typhoon",
+        "Rohgahh of Kher Keep",
+        "Contested War Zone",
+        "Mirror Universe",
+        "Gauntlets of Chaos"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3).",
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
@@ -871,7 +905,7 @@
     {
       "batch": 53,
       "title": "Banding families and combat constraints",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Master of the Hunt",
@@ -893,6 +927,12 @@
           "name": "Caverns of Despair",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_4/caverns_of_despair.rs"
         }
+      ],
+      "completed_cards": [
+        "Marble Priest"
+      ],
+      "partials_lane_notes": [
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
@@ -931,7 +971,7 @@
     {
       "batch": 55,
       "title": "Attacking tokens and combat keywords",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Floral Spuzzem",
@@ -965,12 +1005,18 @@
           "name": "Inkmoth Nexus",
           "path": "crates/baylee-cards/src/cards/lands/manlands/inkmoth_nexus.rs"
         }
+      ],
+      "completed_cards": [
+        "Floral Spuzzem"
+      ],
+      "partials_lane_notes": [
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
       "batch": 56,
       "title": "Linked incarnations and return effects",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Firestorm Phoenix",
@@ -1012,12 +1058,18 @@
           "name": "Tawnos's Coffin",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/tawnos_s_coffin.rs"
         }
+      ],
+      "completed_cards": [
+        "Spikefield Hazard // Spikefield Cave"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
       ]
     },
     {
       "batch": 57,
       "title": "Replacement ordering, damage and measured results",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Ali from Cairo",
@@ -1083,6 +1135,17 @@
           "name": "Diamond City",
           "path": "crates/baylee-cards/src/cards/lands/restricted/diamond_city.rs"
         }
+      ],
+      "completed_cards": [
+        "Mishra's War Machine",
+        "Syphon Soul",
+        "Hellfire",
+        "Backdraft",
+        "Reverse Polarity"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
@@ -1111,7 +1174,7 @@
     {
       "batch": 59,
       "title": "Variable hand operations and turn history",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Valakut Awakening // Valakut Stoneforge",
@@ -1141,12 +1204,20 @@
           "name": "Cyclone",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_4/cyclone.rs"
         }
+      ],
+      "completed_cards": [
+        "Valakut Awakening // Valakut Stoneforge",
+        "Recall",
+        "Winds of Change"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
       ]
     },
     {
       "batch": 60,
       "title": "Attachment and selected object relations",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Remove Enchantments",
@@ -1176,6 +1247,13 @@
           "name": "Triassic Egg",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/triassic_egg.rs"
         }
+      ],
+      "completed_cards": [
+        "Remove Enchantments",
+        "Enchantment Alteration"
+      ],
+      "partials_lane_notes": [
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
       ]
     },
     {
@@ -1196,7 +1274,7 @@
     {
       "batch": 62,
       "title": "Transform and meld progressions",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Ojer Kaslem, Deepest Growth // Temple of Cultivation",
@@ -1226,6 +1304,17 @@
           "name": "Path of Mettle // Metzali, Tower of Triumph",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_2/path_of_mettle.rs"
         }
+      ],
+      "completed_cards": [
+        "Argoth, Sanctum of Nature",
+        "Ojer Kaslem, Deepest Growth // Temple of Cultivation",
+        "Golden Guardian // Gold-Forge Garrison",
+        "Grist, the Hunger Tide",
+        "Path of Mettle // Metzali, Tower of Triumph"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3)."
       ]
     },
     {
@@ -1298,7 +1387,7 @@
     {
       "batch": 66,
       "title": "Explicit victory and draw results",
-      "status": "pending",
+      "status": "completed",
       "cards": [
         {
           "name": "Maze's End",
@@ -1308,12 +1397,19 @@
           "name": "Divine Intervention",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_8/divine_intervention.rs"
         }
+      ],
+      "completed_cards": [
+        "Maze's End",
+        "Divine Intervention"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
       ]
     },
     {
       "batch": 67,
       "title": "Pregame, printing-sensitive and nonstandard cards",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Gemstone Caverns",
@@ -1339,6 +1435,14 @@
           "name": "City in a Bottle",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_2/city_in_a_bottle.rs"
         }
+      ],
+      "withdrawn_cards": [
+        "R&D's Secret Lair",
+        "City of Ass",
+        "Urza's Fun House"
+      ],
+      "partials_lane_notes": [
+        "Un-cards listed in data/unplayable.tsv as un-set and removed from the pool (owner 13.10.2026)."
       ]
     },
     {

@@ -751,6 +751,37 @@ fn nothing_is_projected_that_no_effect_and_no_counter_reaches() {
     );
 }
 
+/// CR 202.3e: "If an object on the stack has {X} in its mana cost, X is
+/// the number chosen for it." No effect has to reach the spell for that:
+/// a plain X spell on an empty table reads its X, and off the stack the
+/// same card reads zero again.
+#[test]
+fn an_x_spell_no_effect_reaches_counts_its_x_on_the_stack() {
+    let mut state = fresh();
+    let spell = artifact_with_cost(&mut state, "{X}{1}{R}");
+    let stack = crate::zone::ZoneLocation::Stack;
+    state
+        .move_object(
+            spell,
+            stack,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("onto the stack");
+    state.object_mut(spell).expect("on the stack").x_value = 2;
+    state.invalidate_projections();
+    state.refresh_characteristics();
+    assert_eq!(
+        state
+            .object(spell)
+            .expect("on the stack")
+            .characteristics()
+            .mana_value(),
+        4,
+        "X = 2 counts on the stack with nothing else touching the spell"
+    );
+}
+
 #[test]
 fn text_changes_type_line_before_type_effects_and_preserves_copiable_values() {
     use crate::text_changes::TextReplacement;

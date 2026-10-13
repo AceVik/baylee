@@ -602,6 +602,26 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                // Which player a token put onto the battlefield attacking
+                // attacks (CR 508.4).
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(r.awaiting, Some(resolve::AwaitingOp::AttackingTokens(_)))
+                }) {
+                    let mut res = self.resolution.take().expect("attack choice suspended");
+                    match resolve::resume_attacking_player(&mut self.state, &mut res, chosen) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // "Choose a player with the most life or tied" (The Black Gate).
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(r.awaiting, Some(resolve::AwaitingOp::ChoosePlayerFrom))
@@ -2212,6 +2232,9 @@ impl<L: CardLookup> Engine<L> {
                     .attacked
                     .push((creature, version, player));
                 self.state.combat.participants.push((creature, version));
+                self.state
+                    .combat
+                    .remember_defender(creature, version, defending);
             }
         }
         self.state
