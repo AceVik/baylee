@@ -101,7 +101,12 @@ const TRAY_BTN: f32 = menu::BURGER;
 
 /// How much of the shelf's right end the row takes, with the gap that parts
 /// it from the burger: what the right column reserves for it.
-pub(super) const WIDTH: f32 = 4.0 * TRAY_BTN + 4.0 * TRAY_GAP;
+pub(super) const WIDTH: f32 = 3.0 * TRAY_BTN + 3.0 * TRAY_GAP;
+
+/// What the chat's door adds to the row, with a social session: the right
+/// column reserves it only then, so a table without one keeps the room
+/// [`WIDTH`] was measured for.
+pub(super) const CHAT_DOOR: f32 = TRAY_BTN + TRAY_GAP;
 
 /// The icon in a tray button.
 const TRAY_ICON_PT: f32 = 12.0;

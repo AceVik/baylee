@@ -19,7 +19,7 @@ messages! {
     /// A verified contact's devices changed.
     VerifyAgain { en: "{0}'s devices changed · Verify again", de: "Die Geräte von {0} haben sich geändert · Erneut bestätigen" },
     /// This account gained a device.
-    OwnDeviceAdded { en: "A new device was added to your account: {0} · {1}. Not you? Remove it and change your password.", de: "Deinem Konto wurde ein neues Gerät hinzugefügt: {0} · {1}. Warst du das nicht? Entferne es und ändere dein Passwort." },
+    OwnDeviceAdded { en: "A new device was added to your account: {0} · {1}. Not you? Remove it under Settings → Chat & privacy → Your devices; the gateway's admin can reset your password.", de: "Deinem Konto wurde ein neues Gerät hinzugefügt: {0} · {1}. Warst du das nicht? Entferne es unter Einstellungen → Chat & Privatsphäre → Deine Geräte; der Admin des Gateways kann dein Passwort zurücksetzen." },
     /// The gateway listed someone the table doesn't show.
     RosterMismatch { en: "The server listed someone who isn't at this table; your message wasn't sent to them", de: "Der Server hat jemanden genannt, der nicht an diesem Tisch sitzt; deine Nachricht ging nicht an diese Person" },
     /// A send that failed for good.

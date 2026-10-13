@@ -1834,7 +1834,11 @@ fn fill_list(
     }
     // A chat tab, or All: a line more on the same list is appended, and
     // anything else draws it whole.
-    let chat = machine.lines_where(&filter, CHAT_ROWS);
+    let mut chat = machine.lines_where(&filter, CHAT_ROWS);
+    // A line the machine took after this frame's stamps (the socket is read
+    // later in the frame) waits a frame for its own: drawn unstamped it
+    // would sort above everything, as if it were the oldest.
+    chat.retain(|(_, line)| ui.arrivals.chat.contains_key(&line.key));
     let signature: Vec<(String, String, u8, bool)> = chat
         .iter()
         .map(|(c, l)| (c.to_string(), l.key.id.clone(), l.state as u8, l.hidden))

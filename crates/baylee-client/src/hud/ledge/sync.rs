@@ -28,6 +28,7 @@ pub fn sync_ledge(
     texts: Res<crate::cardtext::CardTexts>,
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
+    social: Option<Res<crate::social::SocialHost>>,
 ) {
     let Ok((shelf, standing)) = shelf.single() else {
         return;
@@ -222,7 +223,12 @@ pub fn sync_ledge(
         baylee_client_core::ledge::Columns {
             left: tools_reserved(window_w),
             mid,
-            right: RIGHT_RESERVED,
+            right: RIGHT_RESERVED
+                + if social.as_ref().is_some_and(|s| s.machine().is_some()) {
+                    tray::CHAT_DOOR
+                } else {
+                    0.0
+                },
         },
         caps_w,
     );

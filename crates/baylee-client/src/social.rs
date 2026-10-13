@@ -141,7 +141,7 @@ pub struct SocialHost {
     mailbox: Mailbox,
     socket: Socket,
     store: Option<Box<dyn social::SecretStore>>,
-    disk: Option<social::disk::DirDisk>,
+    disk: Option<ChatHome>,
     /// The state file, waiting out its debounce.
     save: Option<(f32, Vec<u8>)>,
     /// Since the last clock tick.
@@ -244,7 +244,7 @@ impl SocialHost {
                     self.save = None;
                 }
                 if let Some(disk) = self.disk.as_mut()
-                    && let Some(Err(why)) = social::disk::apply(&effect, disk)
+                    && let Some(Err(why)) = social::disk::apply(&effect, &mut **disk)
                 {
                     warn!("the chat's history could not be written: {why}");
                 }
@@ -280,7 +280,7 @@ impl SocialHost {
 
     fn flush_save(&mut self) {
         if let (Some((_, bytes)), Some(disk)) = (self.save.take(), self.disk.as_mut())
-            && let Err(why) = social::disk::ChatDisk::write(disk, social::disk::STATE_FILE, &bytes)
+            && let Err(why) = disk.write(social::disk::STATE_FILE, &bytes)
         {
             warn!("the chat's state could not be written: {why}");
         }
@@ -292,12 +292,9 @@ impl SocialHost {
         let Some(session) = self.session.clone() else {
             return;
         };
-        let Some(config) = config_dir() else {
+        let Some((disk, store)) = chat_home(&session) else {
             return;
         };
-        let folder = config.join(social::disk::chat_folder(&session.gateway, &session.tag));
-        let disk = social::disk::DirDisk::new(&folder);
-        let store = open_store(&folder);
         let slot = social::SecretSlot::new(&session.tag, &session.gateway);
         let secrets = match store.load(&slot) {
             Ok(value) => value,
@@ -306,7 +303,7 @@ impl SocialHost {
                 None
             }
         };
-        let stored = social::disk::ChatDisk::read(&disk, social::disk::STATE_FILE);
+        let stored = disk.read(social::disk::STATE_FILE);
         let me = Me {
             tag: session.tag.clone(),
             handle: session.handle.clone(),
@@ -317,7 +314,7 @@ impl SocialHost {
         let (mut machine, effects) = Social::start(me, stored, secrets, prefs, now, &mut OsEntropy);
         machine.set_key_home(store.home());
         machine.set_keep_days(keep_days);
-        let restored = machine.restore(&disk, now, &mut OsEntropy);
+        let restored = machine.restore(&*disk, now, &mut OsEntropy);
         self.keep_days = keep_days;
         self.store = Some(store);
         self.disk = Some(disk);
@@ -327,8 +324,32 @@ impl SocialHost {
     }
 }
 
+/// Where the chat keeps its history and its keys: the chat folder in the
+/// config directory and the OS credential store (or the key file beside
+/// it); `None` in a process that never opened the settings store (a test).
+#[cfg(not(target_arch = "wasm32"))]
+fn chat_home(session: &Session) -> Option<(ChatHome, Box<dyn social::SecretStore>)> {
+    let folder = config_dir()?.join(social::disk::chat_folder(&session.gateway, &session.tag));
+    let store = open_store(&folder);
+    Some((Box::new(social::disk::DirDisk::new(&folder)), store))
+}
+
+/// In a browser the chat keeps both in memory: a tab's history and keys
+/// last as long as the tab (a page has no file to keep them in yet).
+#[cfg(target_arch = "wasm32")]
+fn chat_home(_session: &Session) -> Option<(ChatHome, Box<dyn social::SecretStore>)> {
+    Some((
+        Box::new(social::disk::MemoryDisk::new()),
+        Box::new(social::vault::MemorySecrets::new()),
+    ))
+}
+
+/// The chat's disk, behind the one interface every platform's has.
+type ChatHome = Box<dyn social::disk::ChatDisk + Send + Sync>;
+
 /// The client's config directory, where the chat folder lives; `None` in a
 /// process that never opened the store (a test).
+#[cfg(not(target_arch = "wasm32"))]
 fn config_dir() -> Option<std::path::PathBuf> {
     use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
     if !crate::settings::store_is_open() {
@@ -341,6 +362,7 @@ fn config_dir() -> Option<std::path::PathBuf> {
 /// where it does not open. `BAYLEE_KEY_STORE=off` takes the file even where
 /// the store would open (a live check whose rebuilt binary the Keychain
 /// would ask about on every start).
+#[cfg(not(target_arch = "wasm32"))]
 fn open_store(folder: &std::path::Path) -> Box<dyn social::SecretStore> {
     let file = folder.join(social::vault::KEY_FILE);
     if std::env::var("BAYLEE_KEY_STORE").is_ok_and(|v| v == "off") {
