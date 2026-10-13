@@ -13,7 +13,7 @@ use baylee_client_core::social::{ChatCue, ChatToast, ToastButton};
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
-use super::window::{ChatSurface, G_PANEL};
+use super::window::ChatSurface;
 use super::{SocialHost, UiAsk};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, tf, tf_bold};
@@ -203,7 +203,7 @@ fn sync(
                     row_gap: zpx(8.0),
                     ..default()
                 },
-                GlobalZIndex(G_PANEL + 40),
+                super::window::stacked(40),
                 Pickable::IGNORE,
             ))
             .id()

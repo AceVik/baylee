@@ -23,7 +23,10 @@ pub mod tape;
 /// Version 29 preserves full-width explicit life-payment amounts.
 /// Version 30 adds `PlayerAction::PayWindow`, a payment window paid in one
 /// all-or-nothing action.
-pub const PROTOCOL_VERSION: u32 = 30;
+/// Version 31 asks about draws: `ChoicePrompt::Dredge` and
+/// `ChoicePrompt::DrawReplacement` (dredge, Chains of Mephistopheles,
+/// Aladdin's Lamp).
+pub const PROTOCOL_VERSION: u32 = 31;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -253,7 +256,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_eleven() {
+    fn the_wire_version_is_thirty_one() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -296,7 +299,10 @@ mod tests {
         // decode. Not for `CloseGame`/`GameClosed` (an admin ends a game,
         // beta.8): `CloseGame` is engine link only, and an engine or client
         // from before `GameClosed` passes over it, as with `AiLog`.
-        assert_eq!(PROTOCOL_VERSION, 30);
+        // 31: draw questions, `ChoicePrompt::Dredge` and
+        // `ChoicePrompt::DrawReplacement`, variants an older client cannot
+        // decode.
+        assert_eq!(PROTOCOL_VERSION, 31);
     }
 
     #[test]

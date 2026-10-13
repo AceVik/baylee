@@ -140,6 +140,7 @@ pub(crate) enum Offer {
     Absent,
     /// The control, drawn off with its reason: a desktop whose install
     /// lacks the bridge (beta.6's packages shipped none).
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Missing,
     /// The control, live. With no profile in the settings file yet, its
     /// sheet says so and leads to Settings › Language models.
@@ -149,6 +150,7 @@ pub(crate) enum Offer {
 impl Offer {
     /// The offer of a build that is or is not a desktop with its store
     /// open, and finds its bridge or not.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn of(desktop_with_store: bool, bridge: bool) -> Self {
         match (desktop_with_store, bridge) {
             (false, _) => Self::Absent,

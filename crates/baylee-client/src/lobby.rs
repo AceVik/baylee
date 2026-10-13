@@ -1005,6 +1005,9 @@ pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldStops, FieldTail, Masked, text_field, text_field_with};
 pub(crate) use front::FrontPress;
+/// The shell's notice lane: the chat keeps it clear of the friends list and
+/// the chat window (`social::drawer::clear_the_lane`).
+pub(crate) use header::ToastLane;
 pub(crate) use header::{HeaderPress, ShellAsk};
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;

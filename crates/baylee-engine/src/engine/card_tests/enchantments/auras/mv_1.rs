@@ -12,6 +12,7 @@ mod capashen_standard;
 mod consecrate_land;
 mod crackling_club;
 mod earthbind;
+mod equinox;
 mod eternal_warrior;
 mod evil_presence;
 mod firebreathing;

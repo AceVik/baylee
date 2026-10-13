@@ -15,7 +15,7 @@ use baylee_protocol::social::{Place, Shown, Status};
 use bevy::prelude::*;
 use bevy::ui::{RelativeCursorPosition, ScrollPosition};
 
-use super::window::{ChatSurface, G_PANEL};
+use super::window::ChatSurface;
 use super::{ChatUi, Entry, Field, SocialHost, UiAsk};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, palette, tf, tf_bold, tf_italic};
@@ -74,7 +74,13 @@ pub(crate) fn install(app: &mut App) {
     app.init_resource::<DrawerSlide>()
         .add_systems(
             Update,
-            (asks, presses, sync_door, sync_drawer)
+            (
+                drawer_follows_the_room,
+                asks,
+                presses,
+                sync_door,
+                sync_drawer,
+            )
                 .chain()
                 .run_if(resource_exists::<UiFonts>),
         )
@@ -84,7 +90,8 @@ pub(crate) fn install(app: &mut App) {
         // every lobby press, paused-clock diff, 13.10.).
         .add_systems(
             PostUpdate,
-            slide_the_drawer
+            (slide_the_drawer, clear_the_lane)
+                .chain()
                 .before(bevy::ui::UiSystems::Prepare)
                 .run_if(resource_exists::<UiFonts>),
         );
@@ -107,6 +114,93 @@ impl DrawerSlide {
 /// had before.
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct Squeezed(pub Val);
+
+/// The friends list, open by default in the lobby, steps aside when a game
+/// opens (it would lie over the opponents' side of the table, RC 13.10.)
+/// and comes back with the lobby; opened at the table, it is the player's.
+fn drawer_follows_the_room(
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    mut ui: ResMut<ChatUi>,
+    mut was: Local<Option<bool>>,
+    mut reopen: Local<bool>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    if *was == Some(at_table) {
+        return;
+    }
+    match (*was, at_table) {
+        (Some(false), true) => {
+            *reopen = ui.drawer;
+            if ui.drawer {
+                ui.drawer = false;
+            }
+        }
+        (Some(true), false) => {
+            if *reopen && !ui.drawer {
+                ui.drawer = true;
+            }
+            *reopen = false;
+        }
+        _ => {}
+    }
+    *was = Some(at_table);
+}
+
+/// Where the shell's notice lane stood before the chat moved it.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct LaneBase {
+    right: Val,
+    bottom: Val,
+}
+
+/// Keeps the shell's notices ("Bob sat down at your table") in the content
+/// area: left of the friends list and above the chat's pill or window
+/// (RC: they were clipped by the list). A phone's lane hangs from the top
+/// and is left alone; without a session, or at a table, it stands where the
+/// shell put it.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a Bevy system: the lane, its node and where it stood
+fn clear_the_lane(
+    mut commands: Commands,
+    host: Res<SocialHost>,
+    ui: Res<ChatUi>,
+    slide: Res<DrawerSlide>,
+    zoom: Res<super::zoom::Zoom>,
+    windows: Query<&Window>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    mut lanes: Query<(Entity, &mut Node, Option<&LaneBase>), With<crate::lobby::ToastLane>>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let window_h = windows.iter().next().map_or(720.0, Window::height);
+    for (lane, mut node, base) in &mut lanes {
+        let base = base.copied().unwrap_or_else(|| {
+            let base = LaneBase {
+                right: node.right,
+                bottom: node.bottom,
+            };
+            commands.entity(lane).insert(base);
+            base
+        });
+        let (Val::Px(right), Val::Px(bottom)) = (base.right, base.bottom) else {
+            continue;
+        };
+        let (right, bottom) = if host.active() && !at_table {
+            let chat = if ui.open && !ui.minimised {
+                super::window::lobby_panel_height(window_h) + 16.0
+            } else {
+                64.0 * zoom.0
+            };
+            (right + slide.room(zoom.0), bottom.max(chat))
+        } else {
+            (right, bottom)
+        };
+        if node.right != Val::Px(right) {
+            node.right = Val::Px(right);
+        }
+        if node.bottom != Val::Px(bottom) {
+            node.bottom = Val::Px(bottom);
+        }
+    }
+}
 
 /// How long the drawer takes to slide in or out.
 const SLIDE_SECS: f32 = 0.18;
@@ -134,6 +228,7 @@ fn slide_the_drawer(
     kids: Query<&Children>,
     mut content: Query<(&mut Node, Option<&Squeezed>), Without<Drawer>>,
     mut commands: Commands,
+    mut wide: Local<f32>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let open = ui.drawer && host.active();
@@ -190,13 +285,19 @@ fn slide_the_drawer(
         });
     }
     // The lobby's content beside the header (the header keeps the whole
-    // width) gives the drawer its room: each sibling lets go of a fixed
-    // width, which a margin would only push past the edge, and gets it back
-    // when the drawer is in again.
+    // width) gives the drawer its room. A sibling written at a percentage of
+    // the width gets that share of what is left, in pixels (a width let go
+    // to `Auto` shrank a centred room to its content, and its Ready switch
+    // lay over the deck); any other keeps its width and takes a margin.
+    // Each gets its own back when the drawer is in again.
     let margin = if at_table { 0.0 } else { room };
-    for (header, role, _, parent) in &headers {
+    for (header, role, computed, parent) in &headers {
         if *role != crate::shellkit::role::Role::Header {
             continue;
+        }
+        let measured = computed.size().x * computed.inverse_scale_factor();
+        if measured > 0.0 {
+            *wide = measured;
         }
         let Ok(siblings) = kids.get(parent.parent()) else {
             continue;
@@ -212,12 +313,24 @@ fn slide_the_drawer(
                 continue;
             }
             if margin > 0.0 {
+                let base = squeezed.map_or(node.width, |s| s.0);
                 if squeezed.is_none() {
                     commands.entity(*kid).insert(Squeezed(node.width));
-                    node.width = Val::Auto;
                 }
-                if node.margin.right != Val::Px(margin) {
-                    node.margin.right = Val::Px(margin);
+                let (width, right) = match base {
+                    // The margin too: a parent that centres its children
+                    // would otherwise stand the narrower node in the middle,
+                    // half of it under the drawer.
+                    Val::Percent(share) if *wide > 0.0 => {
+                        (Val::Px(*wide * share / 100.0 - margin), Val::Px(margin))
+                    }
+                    _ => (Val::Auto, Val::Px(margin)),
+                };
+                if node.width != width {
+                    node.width = width;
+                }
+                if node.margin.right != right {
+                    node.margin.right = right;
                 }
             } else if let Some(Squeezed(width)) = squeezed {
                 node.width = *width;
@@ -504,7 +617,7 @@ fn sync_door(
                 BackgroundColor(super::rows::LOBBY_GROUND),
                 BorderColor::all(tokens::BORDER),
                 Feel::new(super::rows::LOBBY_GROUND),
-                GlobalZIndex(G_PANEL + 1),
+                super::window::stacked(1),
             ))
             .id()
     };
@@ -837,7 +950,7 @@ fn sync_drawer(
                 // A hair translucent over the painting (owner, 13.10.).
                 BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.92)),
                 BorderColor::all(tokens::BORDER),
-                GlobalZIndex(G_PANEL + 10),
+                super::window::stacked(10),
                 Visibility::Hidden,
             ))
             .id()

@@ -667,6 +667,7 @@ impl Effect {
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
             | Effect::AtNextEndStep { effects }
+            | Effect::AtNextEndStepAboutSubject { effects }
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
@@ -977,6 +978,7 @@ impl Effect {
         | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
             | Effect::NextSpellThisTurnHasImprovise
+            | Effect::NextDrawLooksAtTop { .. }
             | Effect::UntapChosenPayingEach { .. }
             | Effect::ExileSourceAndSacrificed
             | Effect::CreateTokenForTargetController { .. }

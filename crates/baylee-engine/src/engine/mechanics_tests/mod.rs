@@ -23,6 +23,7 @@ mod control;
 mod costs;
 mod crew_saddle;
 mod departed;
+mod draw_replacements;
 mod effects;
 mod mana;
 mod powerstone;

@@ -421,8 +421,32 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::DrawRevealDiscardUnless { keep } => {
-            let drawn = state.draw_cards(you, 1);
-            let &card = drawn.first()?;
+            let card = if let Some((drawn_before, replaced_before)) = res.draw_watch.take() {
+                // The draw waited for its replacements and is settled now.
+                // A card a replacement brought is not "it" (CR 614.11b).
+                if state.draws_replaced != replaced_before {
+                    return None;
+                }
+                state
+                    .per_turn
+                    .drawn
+                    .get(drawn_before)
+                    .map(|&(card, _)| card)
+                    .filter(|&card| {
+                        state
+                            .object(card)
+                            .is_some_and(|o| o.owner == you && o.zone == crate::zone::Zone::Hand)
+                    })?
+            } else {
+                let watch = (state.per_turn.drawn.len(), state.draws_replaced);
+                let drawn = state.draw_cards(you, 1);
+                if drawn.is_empty() && !state.draws_to_offer.is_empty() {
+                    // Run again, with the answer, once the draw is settled.
+                    res.draw_watch = Some(watch);
+                    return None;
+                }
+                *drawn.first()?
+            };
             state.journal.record(GameEvent::Revealed {
                 player: you,
                 cards: vec![card],
@@ -673,6 +697,26 @@ pub(super) fn exec_immediate(
             super::delayed_returns::schedule_untap(state, res);
             None
         }
+        Effect::AtNextEndStepAboutSubject { effects } => {
+            if let Some(subject) = subjects::event_subject(state, res) {
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::TriggerAbout {
+                        source: res.source,
+                        source_version: source_version(state, res)
+                            .or_else(|| state.object(res.source).map(|o| o.version))
+                            .unwrap_or(0),
+                        effects,
+                        text: res.text,
+                        object: subject.object,
+                        version: subject.version,
+                        subject: None,
+                    },
+                });
+            }
+            None
+        }
         Effect::AtNextEndStep { effects } | Effect::AtNextCleanup { effects } => {
             let about_ref = subjects::this(state, res);
             let action = match about_ref.map(|r| (r.object, r.version)) {
@@ -685,6 +729,7 @@ pub(super) fn exec_immediate(
                     text: res.text,
                     object,
                     version,
+                    subject: subjects::event_subject(state, res),
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
@@ -728,6 +773,7 @@ pub(super) fn exec_immediate(
                     text: res.text,
                     object,
                     version,
+                    subject: subjects::event_subject(state, res),
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
@@ -830,7 +876,6 @@ pub(super) fn exec_immediate(
             let n = amount2(&count, state, you, res);
             super::reveal_put::start(state, res, n, picks)
         }
-        // A delayed trigger (CR 603.7) on the first target as it is now.
         // Sword of the Ages: "then exile this artifact and those creature
         // cards", each from where its cost put it and only while it is still
         // that card there (CR 400.7).
@@ -864,6 +909,25 @@ pub(super) fn exec_immediate(
                     Cause::Effect,
                 );
             }
+            None
+        }
+        Effect::NextDrawLooksAtTop { count } => {
+            // X is read as the ability resolves and kept with the effect,
+            // which waits for the controller's next draw this turn.
+            let count = amount2(&count, state, you, res);
+            let timestamp = state.next_timestamp();
+            let modifier = baylee_cards_dsl::Modifier::NextDrawFromTop { count };
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: subjects::source(state, res).map(|source| source.object),
+                controller: you,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+                modifier,
+            });
             None
         }
         Effect::NextSpellThisTurnHasImprovise => {

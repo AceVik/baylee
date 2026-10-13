@@ -3,10 +3,9 @@
 //! Oracle: {T}: Add {R}.
 //! Oracle: {3}{R}: Until end of turn, this land becomes a 3/2 red Goblin creature with "Whenever this creature attacks, create a 1/1 red Goblin creature token that's tapped and attacking." It's still a land.
 //! Set: AFR #254 — Adventures in the Forgotten Realms | Scryfall ID: f231caf8-56c0-4719-a90d-5e5efbee3148 | Oracle ID: f451b8f0-1ff5-4e8d-9f30-9352d83ed687
-// PARTIAL — the enters-tapped count, the {T} mana ability, and the {3}{R}
-// animation (still a land, plus the creature type, the Goblin subtype, red
-// and 3/2); the ability the animation grants is left out — see the
-// NOT SUPPORTED line beside the activated ability.
+// IMPLEMENTED — enters tapped with two or more other lands, {T}: Add {R}, and
+// {3}{R} animates it into a 3/2 red Goblin creature with the attack trigger
+// that creates a 1/1 red Goblin token tapped and attacking.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -24,17 +23,9 @@ card!(
             at_most: 1,
         }],
     )],
-    coverage = Coverage::Partial(
-        "the animated land's granted ability — \"Whenever this creature attacks, create a 1/1 red Goblin creature token that's tapped and attacking\" — cannot be said: no `Effect` creates a token tapped and attacking, and a Goblin created any other way would play wrongly",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        // NOT SUPPORTED: "… with \"Whenever this creature attacks, create a
-        // 1/1 red Goblin creature token that's tapped and attacking.\"" — the
-        // granted trigger would need a token that is tapped and attacking,
-        // which no `Effect` produces. The 1/1 red Goblin exists
-        // (`GOBLIN_1_1_RED`), but made untapped and outside combat it would
-        // be a blocker the card never prints.
         activated!(
             cost!("{3}{R}"),
             &[Effect::Sequence(&[
@@ -56,6 +47,23 @@ card!(
                 Effect::continuous(
                     &Filter::This,
                     Modifier::SetPT(3, 2),
+                    Duration::UntilEndOfTurn,
+                ),
+                // "… with \"Whenever this creature attacks, create a 1/1 red
+                // Goblin creature token that's tapped and attacking.\"" —
+                // each activation grants its own instance of the trigger
+                // (2021-07-23 ruling).
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::GrantTriggered {
+                        trigger: Trigger::Attacks(&Filter::This),
+                        effects: &[Effect::CreateTokenAttacking {
+                            token: &crate::generated_tokens::GOBLIN_1_1_RED,
+                            amount: Amount::Fixed(1),
+                            sacrifice_at_next_end_step: false,
+                        }],
+                        target: None,
+                    },
                     Duration::UntilEndOfTurn,
                 ),
             ])],

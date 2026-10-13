@@ -34,13 +34,9 @@ pub(super) fn resume_inner(
         AwaitingOp::TapGroup(selection) => {
             return super::tap_group::resume(state, res, &selection, chosen);
         }
-        AwaitingOp::SkipDraw { source, .. } => {
-            if let Some((player, next)) = state.draw_wish_answered(source, chosen.first().copied())
-            {
-                res.awaiting = Some(AwaitingOp::SkipDraw {
-                    source: next,
-                    declined: Vec::new(),
-                });
+        AwaitingOp::SkipDraw { source } => {
+            if let Some((player, next)) = state.draw_choice_answered(source, chosen) {
+                res.awaiting = Some(AwaitingOp::SkipDraw { source: next });
                 return Flow::Wait(state.draw_offer_question(player, next));
             }
             return run(state, res);

@@ -55,6 +55,7 @@ pub(super) fn arm(
             text: res.text,
             source_version: None,
             related_objects: None,
+            event_subject: None,
             event_ability: None,
             event_object_identity: None,
             counter_source_version: None,
@@ -243,6 +244,7 @@ mod tests {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            draw_watch: None,
             this_way_from: None,
         }
     }

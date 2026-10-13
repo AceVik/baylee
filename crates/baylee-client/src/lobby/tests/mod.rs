@@ -12,6 +12,7 @@
 
 mod builder;
 mod builder_wp4;
+mod decks_visit;
 mod end_screen;
 mod entrance;
 mod feed;

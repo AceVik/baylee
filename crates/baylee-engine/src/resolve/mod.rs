@@ -275,6 +275,12 @@ pub struct Resolution {
     pub retarget_left: Option<usize>,
     /// Connive/recruit state held while their draws may be replaced.
     pub loot: Option<Box<loot::Loot>>,
+    /// An instruction that does something to "the card drawn" whose draw
+    /// had to wait for its replacements (`GameState::draws_to_offer`): how
+    /// many cards had been drawn this turn and how many waiting draws had
+    /// been replaced when it drew. It runs again once the draw is settled,
+    /// and acts only on a card drawn plainly (CR 614.11b).
+    pub draw_watch: Option<(usize, u32)>,
     /// Where "this way" (`Amount::ThisWay`) starts counting in the journal
     /// when an instruction narrowed it to one pass of a repeated process
     /// (`Effect::RepeatWhile`); `None` counts from the resolution's start.
@@ -309,6 +315,7 @@ impl Resolution {
                 self.text,
                 self.retarget_left,
                 &self.loot,
+                self.draw_watch,
                 self.this_way_from,
             ),
         ));
@@ -1081,10 +1088,7 @@ fn ask_offered_draw(state: &mut GameState, res: &mut Resolution) -> Option<Pendi
         return None;
     }
     let (player, source) = state.next_draw_offer()?;
-    res.awaiting = Some(AwaitingOp::SkipDraw {
-        source,
-        declined: Vec::new(),
-    });
+    res.awaiting = Some(AwaitingOp::SkipDraw { source });
     Some(state.draw_offer_question(player, source))
 }
 
@@ -1138,6 +1142,7 @@ pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flo
 /// Counted copies retain one instruction across every target-choice suspension.
 fn advance_program(res: &mut Resolution) {
     if res.loot.is_none()
+        && res.draw_watch.is_none()
         && !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
     {
         res.pc += 1;
@@ -1386,6 +1391,7 @@ fn run_nested_with(
         event_mana: res.event_mana,
         retarget_left: None,
         loot: None,
+        draw_watch: None,
         this_way_from: res.this_way_from,
     };
     let flow = run(state, &mut nested);
@@ -1395,6 +1401,7 @@ fn run_nested_with(
         Flow::Enter => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             // No public question was emitted, so the outer instruction still
             // advances once before this inserted continuation is resumed.
@@ -1405,6 +1412,7 @@ fn run_nested_with(
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             res.effects.splice(res.pc..=res.pc, tail);
             Some(pending)

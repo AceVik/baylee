@@ -113,6 +113,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Preserve event context independently of the source and event object.
+    #[allow(clippy::too_many_lines)] // one rider per thing a trigger remembers
     pub(crate) fn bind_top_trigger(&mut self, trigger: &crate::trigger::PendingTrigger) {
         let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied() else {
             return;
@@ -158,6 +159,11 @@ impl<L: CardLookup> Engine<L> {
                 object
                     .riders
                     .push(crate::object::Rider::EventAbility(ability));
+            }
+            if let Some(subject) = trigger.event_subject {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventSubject(subject));
             }
             if let Some(related) = &trigger.related_objects {
                 object.riders.extend(
@@ -307,6 +313,7 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: t.event_mana,
                 retarget_left: None,
                 loot: None,
+                draw_watch: None,
                 source: t.source,
                 on_stack: t.source,
                 controller: t.controller,

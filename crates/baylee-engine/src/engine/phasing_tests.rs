@@ -157,6 +157,7 @@ fn resolve_now(
         event_mana: None,
         retarget_left: None,
         loot: None,
+        draw_watch: None,
         this_way_from: None,
     };
     assert!(

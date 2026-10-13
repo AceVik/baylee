@@ -786,7 +786,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // rows: Gold-Forge Garrison's Golem and Grist's −5 are read; Gauntlets of
     // Chaos, Golden Guardian's fight, Grist's −2, Mirror Universe, Mount Doom,
     // Path of Mettle and The Black Gate are contextual.
-    assert_eq!((read, of), (1032, 1306), "activated/loyalty reader census");
+    // Wave 3 of the partials lane (pairs E and F, 2026-10-13) adds four
+    // activations and two read rows on top. Wave 4's Aladdin's Lamp adds one
+    // activation whose worth (a better next draw) the table does not read.
+    assert_eq!((read, of), (1034, 1311), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

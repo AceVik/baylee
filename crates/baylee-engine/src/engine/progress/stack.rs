@@ -554,6 +554,7 @@ impl<L: CardLookup> Engine<L> {
                     event_mana: None,
                     retarget_left: None,
                     loot: None,
+                    draw_watch: None,
                     this_way_from: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
@@ -596,6 +597,7 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: None,
                 retarget_left: None,
                 loot: None,
+                draw_watch: None,
                 this_way_from: None,
             };
             #[cfg(test)]
@@ -659,6 +661,7 @@ impl<L: CardLookup> Engine<L> {
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 retarget_left,
                 loot: None,
+                draw_watch: None,
                 event_mana: None,
                 this_way_from: None,
             };

@@ -1148,7 +1148,9 @@ impl<L: CardLookup> Engine<L> {
                         unreachable!("miracle and discover plans are answered via YesNo")
                     }
                     PlanKind::SkipTurn { .. } | PlanKind::SkipDraw { .. } => {
-                        unreachable!("turn and draw skips are answered via YesNo")
+                        unreachable!(
+                            "turn skips and draw questions are answered via YesNo or ChooseObjects"
+                        )
                     }
                     PlanKind::DivideDamage { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
@@ -1626,18 +1628,13 @@ impl<L: CardLookup> Engine<L> {
                 // resolution (Island Sanctuary): the answer settles that
                 // card, and the next waiting draw may be asked in turn.
                 if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
-                    let Some(PlanKind::SkipDraw {
-                        source,
-                        mut declined,
-                    }) = self.pending_plan.take()
-                    else {
+                    let Some(PlanKind::SkipDraw { source }) = self.pending_plan.take() else {
                         unreachable!()
                     };
                     if let Some((next_player, next)) =
-                        self.state
-                            .draw_offer_answered(source, answer, &mut declined)
+                        self.state.draw_offer_answered(source, answer)
                     {
-                        self.ask_draw_skip(next_player, next, declined);
+                        self.ask_draw_skip(next_player, next);
                     }
                     return Ok(());
                 }
@@ -1776,14 +1773,13 @@ impl<L: CardLookup> Engine<L> {
                 if *p == player =>
             {
                 if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
-                    let Some(PlanKind::SkipDraw { source, .. }) = self.pending_plan.take() else {
+                    let Some(PlanKind::SkipDraw { source }) = self.pending_plan.take() else {
                         unreachable!()
                     };
-                    if let Some((next_player, next)) = self
-                        .state
-                        .draw_wish_answered(source, objects.first().copied())
+                    if let Some((next_player, next)) =
+                        self.state.draw_choice_answered(source, &objects)
                     {
-                        self.ask_draw_skip(next_player, next, Vec::new());
+                        self.ask_draw_skip(next_player, next);
                     }
                     return Ok(());
                 }

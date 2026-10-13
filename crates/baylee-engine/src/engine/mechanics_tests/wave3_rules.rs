@@ -37,12 +37,22 @@ const TINKERING: u32 = 7514;
 const COG: u32 = 7515;
 const WORKSHOP: u32 = 7516;
 const WIDGET: u32 = 7517;
+const CHARM: u32 = 7518;
+const MAZE: u32 = 7519;
 
 // ------------------------------------------------------------- Arboria
 
 static WATCHTOWER_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
     Filter::CREATURE,
     Modifier::CantAttackPlayerIdleLastTurn
+)];
+
+/// "{0}: Exile target creature. At the beginning of the next end step,
+/// return it to the battlefield tapped under its owner's control"
+/// (Mystifying Maze, any creature).
+static MAZE_ABILITIES: &[AbilityDef] = &[free(
+    &[Effect::ExileAndReturnTappedAtEndStep],
+    Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
 )];
 
 // -------------------------------------------------------------- Jihad
@@ -107,6 +117,19 @@ static SPARK_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
 static LAND_WIPE_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(&[Effect::destroy_all(
     &Filter::LAND
 )])];
+/// "Choose one — You gain 1 life; or destroy target land."
+static CHARM_ABILITIES: &[AbilityDef] = &[AbilityDef::ModalSpell {
+    modes: &[
+        baylee_cards_dsl::mode!(&[Effect::GainLife {
+            amount: Amount::Fixed(1)
+        }]),
+        baylee_cards_dsl::mode!(
+            &[Effect::destroy(TargetSpec::Object(&Filter::LAND))],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))
+        ),
+    ],
+    choose: baylee_cards_dsl::ModeCount::ONE,
+}];
 
 // ---------------------------------------------------------- improvise
 
@@ -197,6 +220,18 @@ fn cards() -> Vec<&'static CardDef> {
             face("Spark", "{0}", T::INSTANT),
             KeywordSet::EMPTY,
             SPARK_ABILITIES,
+        ),
+        card(
+            MAZE,
+            face("Maze", "{0}", T::ARTIFACT),
+            KeywordSet::EMPTY,
+            MAZE_ABILITIES,
+        ),
+        card(
+            CHARM,
+            face("Charm", "{0}", T::INSTANT),
+            KeywordSet::EMPTY,
+            CHARM_ABILITIES,
         ),
         card(
             LAND_WIPE,
@@ -306,6 +341,53 @@ fn a_player_idle_during_their_last_turn_cannot_be_attacked() {
     );
 }
 
+/// Arboria cares who put a permanent onto the battlefield, not under whose
+/// control it entered (the card's 2022-12-08 ruling): my Maze returns their
+/// creature at their end step under their control, and they did nothing in
+/// that turn, so on my next turn they still can't be attacked.
+#[test]
+fn a_permanent_another_player_put_onto_the_battlefield_is_not_their_action() {
+    let mut engine = bench(
+        7505,
+        cards(),
+        [Seat::with(&[WATCHTOWER, RAIDER, MAZE]), Seat::with(&[ELF])],
+    );
+    let raider = the(&engine, ZoneLocation::Battlefield, RAIDER);
+    let maze = the(&engine, ZoneLocation::Battlefield, MAZE);
+    let elf = the(&engine, ZoneLocation::Battlefield, ELF);
+    to_main(&mut engine, them());
+    walk_until(&mut engine, |e| {
+        e.state().turn.active == them()
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == me())
+    });
+    activate(&mut engine, me(), maze, 0);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("their Elf is a legal target");
+    walk_until(&mut engine, |e| e.state().turn.active == me());
+    assert_eq!(
+        zone_of(&engine, elf),
+        Some(crate::zone::Zone::Battlefield),
+        "the Elf came back in their end step"
+    );
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.controller),
+        Some(them()),
+        "under its owner's control"
+    );
+    to_main(&mut engine, me());
+    assert!(
+        !may_attack(&mut engine, me(), raider),
+        "my Maze put the Elf there: they still did nothing"
+    );
+}
+
 /// Jihad: the Banner, cast, asks for a colour (red) and an opponent. While
 /// that opponent controls a nontoken red permanent, white creatures get
 /// +2/+1; once it controls none, the Banner is sacrificed.
@@ -398,16 +480,20 @@ fn a_spell_that_shares_no_colour_with_your_creatures_is_seen() {
 }
 
 /// Equinox: the Warden's ability counters a spell that would destroy a land
-/// its controller controls (Land Raze aimed at it, Land Wipe), and lets
-/// through one that would not (Land Raze aimed at the caster's own land,
-/// Spark aimed at mine).
+/// its controller controls (Land Raze aimed at it, Land Wipe, the Charm cast
+/// in its destroy mode, CR 700.2a), and lets through one that would not
+/// (Land Raze aimed at the caster's own land, Spark aimed at mine, the Charm
+/// cast in its life mode).
 #[test]
+#[allow(clippy::too_many_lines)] // one board, six spells
 fn a_spell_that_would_destroy_your_land_is_countered_and_others_are_not() {
-    for (spell, aim_at_mine, countered) in [
-        (LAND_RAZE, true, true),
-        (LAND_RAZE, false, false),
-        (SPARK, true, false),
-        (LAND_WIPE, true, true),
+    for (spell, mode, aim_at_mine, countered) in [
+        (LAND_RAZE, None, true, true),
+        (LAND_RAZE, None, false, false),
+        (SPARK, None, true, false),
+        (LAND_WIPE, None, true, true),
+        (CHARM, Some(1), true, true),
+        (CHARM, Some(0), true, false),
     ] {
         let mut engine = bench(
             7503,
@@ -439,6 +525,16 @@ fn a_spell_that_would_destroy_your_land_is_countered_and_others_are_not() {
             .expect("their Forest");
         to_main(&mut engine, them());
         let card = cast(&mut engine, them(), spell);
+        if let Some(mode) = mode {
+            assert!(
+                matches!(engine.pending(), Pending::ChooseCastMode { .. }),
+                "the Charm asks for its mode: {:?}",
+                engine.pending()
+            );
+            engine
+                .apply(them(), PlayerAction::ChooseMode(mode))
+                .expect("a mode");
+        }
         if let Pending::ChooseTargets { .. } = engine.pending() {
             let aim = if aim_at_mine { mine } else { theirs };
             engine
@@ -472,7 +568,7 @@ fn a_spell_that_would_destroy_your_land_is_countered_and_others_are_not() {
         walk_until(&mut engine, |e| e.state().zones.stack_is_empty());
         assert_eq!(
             zone_of(&engine, mine) == Some(crate::zone::Zone::Battlefield),
-            countered || !aim_at_mine || spell == SPARK,
+            countered || !aim_at_mine || spell == SPARK || mode == Some(0),
             "{spell} at mine {aim_at_mine}: my Forest"
         );
         let countered_now = engine.journal().entries().iter().any(|e| {
