@@ -166,28 +166,45 @@ reads as text holds them:
   `scripts/site/test_impressum_blob.py` fails if a blob or the data appears
   under `web/`;
 - the server keeps the blob in `/etc/baylee/site-private/impressum.bin`
-  (outside `/opt/baylee/web`, which a page update replaces) and Caddy serves
-  it at `/private/impressum.bin` with `Cache-Control: no-store` and
-  `X-Robots-Tag: noindex, noarchive, nosnippet`, to same-origin fetches only
-  (`Sec-Fetch-Site: same-origin`; a typed address, another site or a plain
-  `curl` get 403; `scripts/server/site.caddy`);
+  (outside `/opt/baylee/web`, which a page update replaces), and the
+  feedback service hands it out (`FEEDBACK_IMPRESSUM_BLOB`, read on each
+  request) for a solved proof of work: `GET /site/impressum/challenge`, then
+  `POST /site/impressum` (`docs/feedback.md` §"The Impressum"). The site's
+  Caddy passes `/site/impressum…` on to the service, so the page asks its
+  own origin (`scripts/server/site.caddy`). A request that looks like a
+  robot gets a harder puzzle, never a refusal; only a robot beyond doubt,
+  or an address that followed the page's honeypot link (`.hp`, hidden from
+  people, to `/site/impressum/kontakt`), gets invented details;
 - `impressum.js` (not `site.js`, which would ask GitHub for nothing here)
-  fetches the blob, decodes it with `crypto.subtle` (a secure context:
-  https, or `localhost`) and writes the address as text into the page; the
-  e-mail address and the telephone number become `mailto:`/`tel:` links
-  when the visitor presses "show". Without JavaScript the page says to turn
-  it on or use the contact form; when the blob does not come, it says the
-  details could not be loaded.
+  starts on *Impressum anzeigen*: it reports three facts about its own
+  browser (`navigator.webdriver`, no languages, a software WebGL renderer),
+  solves the puzzle in `impressum-worker.js` (plain SHA-256, a file because
+  the CSP allows no inline worker), posts it, decodes the blob with
+  `crypto.subtle` (a secure context: https, or `localhost`) and draws every
+  character as its own span, in a shuffled DOM order among decoys that take
+  no room (`.scr`, `.scr-x`, the order classes `.o0`–`.o63`), so the DOM's
+  text is a jumble while the screen reads right. The drawn block is
+  `aria-hidden` and not selectable; a sentence for screen readers, the
+  *copy* buttons (the clipboard gets the right text) and *write*/*call*
+  (a `mailto:`/`tel:` built in the click handler, never an `href` in the
+  page) are the ways to use it. Without JavaScript the page says to turn it
+  on or use the contact form; when the details do not come, it says they
+  could not be loaded.
 
 The page itself is served with `X-Robots-Tag: noindex, noarchive,
 nosnippet` (and the same `<meta name="robots">`), `robots.txt` disallows it
-and the blob, and no sitemap names it.
+and `/site/impressum/`, and no sitemap names it.
 
 Deploying a changed address: edit the private JSON, run the script, copy the
-blob to the server and install it as above; nothing in the page or in Caddy
-changes. Trying it locally: put a blob built from a made-up JSON at
-`private/impressum.bin` beside `site/` in a scratch copy of `web/`, never in
-the repository, and serve that copy as below.
+blob to the server and install it as above; nothing in the page, the
+service or Caddy changes. Trying it locally: write a blob from a made-up
+JSON to a scratch directory (never the repository), start the feedback
+service with `FEEDBACK_IMPRESSUM_KEY`, `FEEDBACK_IMPRESSUM_BLOB` (that file)
+and `FEEDBACK_CONTACT_ORIGINS=http://localhost:8000` on `127.0.0.1:28780`
+(the page's `data-endpoint-local`), and serve `web/` as below. The origin
+configured must be exactly the address the page is opened at (`localhost`
+and `127.0.0.1` are two origins); any other is refused, and the page then
+says the details could not be loaded.
 
 ## Trying it locally
 

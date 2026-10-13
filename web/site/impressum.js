@@ -4,25 +4,27 @@
 //      browser chose last time (the same localStorage key as site.js), then
 //      the browser's languages;
 //   2. the provider's details. They are in no file of the repository and in
-//      nothing a crawler reads as text: this script fetches a blob from a
-//      directory only the server has (/private/impressum.bin, Caddy answers
-//      it same-origin only, scripts/server/site.caddy), decodes it and puts
-//      the characters into the page one by one, readable on screen and
-//      scrambled for anything that reads the DOM as text ("the page",
-//      below); copying and the mailto:/tel: links happen only on a click.
+//      nothing a crawler reads as text. On the visitor's click ("show the
+//      details") the browser solves a small proof of work in a worker
+//      (impressum-worker.js) and the feedback service hands out the blob
+//      for it (/site/impressum, proxied by the site; crates/baylee-feedback/
+//      src/impressum.rs); this script decodes it and puts the characters
+//      into the page one by one, readable on screen and scrambled for
+//      anything that reads the DOM as text ("the page", below); copying and
+//      the mailto:/tel: links happen only on a click.
 //
 // The blob is written by scripts/site/impressum_blob.py, which says how it is
 // built; the key is split between SCRIPT_KEY here and a nonce in the blob.
-// That keeps harvesters that grep for addresses or read the DOM away, and
-// nobody who renders the page and reads the pixels; it is not meant to. Without JavaScript, or when the blob does not come, the page
-// says to turn JavaScript on or use the contact form.
+// All of it keeps away harvesters that grep for addresses, read the DOM or
+// walk many pages, and nobody who renders the page and reads the pixels; it
+// is not meant to. Without JavaScript, or when the details do not come, the
+// page says to turn JavaScript on or use the contact form.
 //
 // Nothing here identifies the visitor to anyone. The page's CSP allows no
 // inline script, so everything lives in this file.
 (function () {
   "use strict";
 
-  var BLOB = "/private/impressum.bin";
   var MAGIC = "BYIM";
   var VERSION = 2;
   var NONCE_LEN = 16;
@@ -295,10 +297,97 @@
     for (var i = 0; i < notes.length; i++) notes[i].hidden = false;
   }
 
-  if (!window.crypto || !crypto.subtle || !window.fetch || !window.TextDecoder) { failed(); return; }
-  fetch(BLOB, { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", headers: { Accept: "application/octet-stream" } })
-    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
-    .then(decode)
-    .then(render)
-    .catch(failed);
+  // ------------------------------------------------------------ the puzzle
+  // The details come from the feedback service, for a solved proof of work
+  // (crates/baylee-feedback/src/impressum.rs): a second of the browser's
+  // time costs a visitor nothing and a harvester of many pages a lot. It
+  // starts only on the visitor's click. What the page sees of its own
+  // browser goes along (`s`): a browser driven by a program, or one without
+  // languages or with a software renderer, gets a harder puzzle, never a
+  // refusal.
+  function browserBits() {
+    var bits = 0;
+    if (navigator.webdriver) bits |= 1;
+    if (!navigator.languages || navigator.languages.length === 0) bits |= 2;
+    try {
+      var gl = document.createElement("canvas").getContext("webgl");
+      var info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+      var renderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "";
+      if (/swiftshader|llvmpipe|software/i.test(renderer)) bits |= 4;
+    } catch (e) { /* no WebGL: nothing to say */ }
+    return bits;
+  }
+
+  function endpoint(box) {
+    var local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    return box.getAttribute(local ? "data-endpoint-local" : "data-endpoint");
+  }
+
+  function solve(challenge, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var worker = new Worker("/site/impressum-worker.js");
+      worker.onmessage = function (e) {
+        if (e.data && typeof e.data.progress === "number") { onProgress(e.data.progress); return; }
+        worker.terminate();
+        if (e.data && e.data.counters) resolve(e.data.counters);
+        else reject(new Error("no answer"));
+      };
+      worker.onerror = function () { worker.terminate(); reject(new Error("worker")); };
+      worker.postMessage({ nonce: challenge.nonce, parts: challenge.parts, difficulty: challenge.difficulty });
+    });
+  }
+
+  // one round: a challenge, solved, answered; `retry` once more when the
+  // answer came too late or twice
+  function fetchBlob(base, onProgress, retry) {
+    var opts = { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" };
+    return fetch(base + "/challenge?s=" + browserBits(), opts)
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (c) {
+        return solve(c, onProgress).then(function (counters) {
+          return fetch(base, {
+            method: "POST", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nonce: c.nonce, parts: c.parts, difficulty: c.difficulty, expires: c.expires, sig: c.sig, counters: counters })
+          });
+        });
+      })
+      .then(function (r) {
+        if ((r.status === 409 || r.status === 410) && retry) return fetchBlob(base, onProgress, false);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      });
+  }
+
+  var box = document.getElementById("imp-provider");
+  var show = document.getElementById("imp-show");
+  var showStatus = document.getElementById("imp-show-status");
+  var ready = window.crypto && crypto.subtle && crypto.getRandomValues && window.fetch && window.TextDecoder && window.Worker && window.Promise;
+  if (!box || !show) return;
+  if (!ready) { failed(); return; }
+  show.hidden = false;
+  show.addEventListener("click", function () {
+    if (show.getAttribute("aria-busy") === "true") return;
+    show.setAttribute("aria-busy", "true");
+    clear(showStatus);
+    showStatus.appendChild(t("One moment, your browser is working out a small puzzle …", "Einen Moment, dein Browser löst ein kleines Rätsel …"));
+    var bar = document.getElementById("imp-progress");
+    if (bar) { bar.value = 0; bar.hidden = false; }
+    fetchBlob(endpoint(box), function (p) { if (bar) bar.value = p; }, true)
+      .then(decode)
+      .then(function (fields) {
+        show.hidden = true;
+        if (bar) bar.hidden = true;
+        clear(showStatus);
+        render(fields);
+        var first = box.querySelector(".imp-btn");
+        if (first) first.focus();
+      })
+      .catch(function () {
+        show.removeAttribute("aria-busy");
+        if (bar) bar.hidden = true;
+        clear(showStatus);
+        failed();
+      });
+  });
 })();

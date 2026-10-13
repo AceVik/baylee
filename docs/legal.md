@@ -310,7 +310,20 @@ Urheber- und Medienrecht.
    among invisible decoys (owner, 13.10.2026), so whatever reads the DOM as
    text (textContent, innerText, the accessibility tree) gets a jumble, and
    the page holds no `mailto:`/`tel:` link: writing, calling and copying
-   happen in a click handler. **Trade-off, accepted by the owner:** the
+   happen in a click handler. The details load only when the visitor presses
+   *Impressum anzeigen* and the browser has solved a proof of work of about
+   a second, handed out by the feedback service, which also keeps a
+   honeypot (`docs/feedback.md` §"The Impressum: `/site/impressum`").
+   **The rule (owner, 13.10.2026): no person is ever locked out.** The
+   Impressum must stay easy to reach (one click from every page, the
+   details one click more), so nothing refuses a person: a request that
+   looks like a robot gets a harder puzzle (at most 16 times the work),
+   and only a robot beyond doubt, or an address that followed the
+   honeypot's invisible link, gets invented details; the contact form and
+   the no-JavaScript sentence stay as the other way. The one hard block,
+   a fail2ban ban of honeypot addresses, is opt-in for the operator and
+   says why (`scripts/server/impressum-honeypot.caddy`).
+   **Trade-off, accepted by the owner:** the
    drawn block is `aria-hidden`, so a screen reader cannot read the address
    either; a sentence only screen readers hear says so and points to the
    copy buttons (which put the right text on the clipboard) and to the

@@ -6,8 +6,10 @@
 The Impressum page (web/site/impressum.html) names the person behind the
 site, but the repository is public and the page is crawled, so no address,
 e-mail address or telephone number may appear in it, in its script or in any
-file a crawler reads as text. The page's script (web/site/impressum.js)
-fetches this blob from a directory only the server has, decodes it and
+file a crawler reads as text. The feedback service hands this blob out for
+a solved proof of work (FEEDBACK_IMPRESSUM_BLOB names it, on the server
+only; crates/baylee-feedback/src/impressum.rs), and the page's script
+(web/site/impressum.js) decodes it and
 places each character of each field into the page on its own, in a shuffled
 order among decoys, so that the values are never one string in the blob,
 in the decoded document or in the page's DOM (impressum.js says how).
@@ -16,8 +18,9 @@ This is obfuscation, not security: anybody who runs the script, or reads it,
 can read the data, which is the point of an Impressum. What it keeps away is
 the harvester that greps HTML, JavaScript or a fetched file for something
 shaped like an address, an e-mail address or a telephone number. Its key is
-split: one half is SCRIPT_KEY (the same constant in impressum.js, a test
-holds the two equal), the other a random nonce in each blob.
+split: one half is SCRIPT_KEY (the same constant in impressum.js and in the
+feedback service, which writes decoys of the same shape; tests hold the
+three equal), the other a random nonce in each blob.
 
 Blob (ASCII, base64url without padding, so it contains no "@", no "." and no
 "+"):

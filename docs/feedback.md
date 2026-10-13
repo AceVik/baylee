@@ -312,6 +312,71 @@ text or the address; they outlive the message. The console's audit list
 leaves them out. An answer goes by the admin's own mail (the page's
 *Reply by e-mail* is a `mailto:` link); the service sends no mail.
 
+### The Impressum: `/site/impressum`
+
+The landing page's Impressum (`web/site/impressum.html`) names the operator,
+a private person; the details are in no file of the repository and in
+nothing a crawler reads as text (`web/site/README.md` §"The Impressum",
+`docs/legal.md` §4). The service hands them out for a solved proof of work
+(`crates/baylee-feedback/src/impressum.rs`). The site's Caddy passes
+`/site/impressum` and everything under it on to the service
+(`scripts/server/site.caddy`), so the page asks its own origin. Off (`503`)
+until `FEEDBACK_IMPRESSUM_KEY` (at least 32 characters, none of the
+service's tokens) and `FEEDBACK_IMPRESSUM_BLOB` (the file
+`scripts/site/impressum_blob.py` wrote, on the server only, read on each
+request) are set, both or neither; a file that is not such a blob refuses
+startup.
+
+| route | what |
+| --- | --- |
+| `GET /site/impressum/challenge?s=<bits>` | `{"nonce", "parts", "difficulty", "expires", "sig"}`: 8 parts, 17 zero bits each for an ordinary browser, valid 5 minutes, signed with HMAC-SHA256 under the key |
+| `POST /site/impressum` | the challenge's fields and `"counters"` (one per part); `200` the blob as `text/plain` |
+| `GET /site/impressum/kontakt` | the honeypot: an invented Impressum as HTML |
+
+The puzzle, the same in `web/site/impressum-worker.js`: for each part, the
+smallest counter `c` with `SHA-256(nonce + ":" + part + ":" + c)` starting
+with `difficulty` zero bits. About a second of a laptop's time at 17 bits
+(the worker measured 2.4 million hashes a second in Chromium on an Apple
+laptop, so 8 × 2¹⁷ ≈ 0.4 s there); it starts only when the visitor presses
+*Impressum anzeigen*.
+
+**No person is ever locked out** (owner, 13.10.2026): no challenge is
+refused, a suspicious request only gets up to 4 more bits (each doubles
+the work; at 21 bits about 7 s on that laptop). Points: more than 10
+challenges from one address in an hour (+1, +2 past 30, +3 past 100), no
+`Accept-Language` (+1), no `Sec-Fetch-Site` (+1), an empty user agent or one
+that names a tool, a crawler or a headless browser (+2), and what the page
+reports in `s`: `navigator.webdriver` (1, +2), no `navigator.languages` (2,
++1), a software WebGL renderer such as SwiftShader or llvmpipe (4, +1). Only a
+robot beyond doubt (6 points with both a headless/tool user agent and
+`webdriver`) or an address that asked the honeypot in the last 24 hours gets
+a **decoy**: a blob of the same shape holding invented details (common
+names, `example.com`/`.net`/`.org` addresses, telephone numbers whose
+subscriber part starts with 0, which no German number does), the same for
+one address. The honeypot itself is a link on the Impressum page no person
+sees (hidden by CSS, `aria-hidden`, not focusable, disallowed in
+robots.txt).
+
+| answer | when |
+| --- | --- |
+| `403` | an `Origin` that is not one of `FEEDBACK_CONTACT_ORIGINS` from a request that is not same-origin (another site's page; never the Impressum's); on `POST`, a challenge this service did not sign or one changed since |
+| `400` | not a solution: malformed, the wrong number of counters, or a counter that does not solve its part |
+| `409` | that challenge was answered already (each is taken once) |
+| `410` | the challenge expired (the page then asks for a new one, once) |
+| `503` | the Impressum is not configured, or the blob file is gone |
+
+Every answer says `Cache-Control: no-store`, `X-Robots-Tag: noindex,
+noarchive, nosnippet` and `Vary: Origin`, and names a configured origin in
+`Access-Control-Allow-Origin` (a page tried locally, as for the contact
+form); the preflight is the contact form's. Memory only, never written down
+or logged: challenges per address for an hour (an IPv6 address by its /64),
+the honeypot's marks for 24 hours, answered challenges until they expire. The
+log says that the honeypot was asked and how often since the start, never
+by whom. An operator may also ban honeypot addresses at the firewall
+(`scripts/server/impressum-honeypot.caddy`, `scripts/server/fail2ban/`):
+opt-in, and a hard block of a possibly shared address, so the owner's
+decision.
+
 ### References in the text
 
 `text` stays plain printable text and reads on its own: a card the player
@@ -718,6 +783,8 @@ FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
 FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
+FEEDBACK_IMPRESSUM_KEY=<openssl rand -hex 32>       # only to hand out the Impressum (with the next)
+FEEDBACK_IMPRESSUM_BLOB=/etc/baylee/site-private/impressum.bin
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
 FEEDBACK_GATEWAY_ADMIN_TOKEN=<the gateway's BAYLEE_ADMIN_TOKEN>
 RUST_LOG=info

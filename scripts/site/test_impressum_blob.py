@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import contextlib
 import fnmatch
+import hashlib
 import io
 import json
 import re
@@ -428,6 +429,11 @@ class StaticFileTests(unittest.TestCase):
         m = re.search(r'var SCRIPT_KEY = "([0-9a-fA-F]{32})";', self.js)
         self.assertIsNotNone(m, "no SCRIPT_KEY in impressum.js")
         self.assertEqual(m.group(1).lower(), ib.SCRIPT_KEY.hex())
+        # The Rust service holds the same constant (it builds the decoy blob).
+        rust = (REPO_ROOT / "crates" / "baylee-feedback" / "src" / "impressum.rs").read_text(encoding="utf-8")
+        m = re.search(r'pub const SCRIPT_KEY: &str = "([0-9a-fA-F]{32})";', rust)
+        self.assertIsNotNone(m, "no SCRIPT_KEY in impressum.rs")
+        self.assertEqual(m.group(1).lower(), ib.SCRIPT_KEY.hex())
         m = re.search(r'var MAGIC = "([^"]+)";', self.js)
         self.assertIsNotNone(m)
         self.assertEqual(m.group(1).encode("ascii"), ib.MAGIC)
@@ -460,6 +466,27 @@ class StaticFileTests(unittest.TestCase):
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.html)
 
+    def test_honeypot_link_is_hidden_from_people_and_the_page_names_no_private_path(self):
+        links = re.findall(r"<a\b[^>]*href=\"/site/impressum/kontakt\"[^>]*>", self.html)
+        self.assertEqual(len(links), 1, "exactly one honeypot link")
+        tag = links[0]
+        self.assertIn('tabindex="-1"', tag)
+        self.assertIn('aria-hidden="true"', tag)
+        m = re.search(r'class="([^"]*)"', tag)
+        self.assertIsNotNone(m, "the honeypot link has no class")
+        self.assertIn("hp", m.group(1).split())
+        css = (SITE / "site.css").read_text(encoding="utf-8")
+        rules = re.findall(r"(?<![\w-])\.hp\s*\{([^{}]*)\}", css)
+        self.assertTrue(rules, "no .hp rule in site.css")
+        self.assertTrue(
+            any(re.search(r"display\s*:\s*none", body) for body in rules),
+            ".hp is not display: none",
+        )
+        # the honeypot is a trap only while robots.txt keeps real crawlers off
+        # it too, and nothing points at the old path
+        self.assertNotIn("/private/", self.html)
+        self.assertNotIn("/private/", self.js)
+
     def test_index_links_to_the_impressum_twice(self):
         self.assertGreaterEqual(self.index.count('"/site/impressum.html"'), 2)
 
@@ -481,7 +508,114 @@ class StaticFileTests(unittest.TestCase):
     def test_robots_keeps_crawlers_away(self):
         lines = {ln.strip() for ln in self.robots.splitlines()}
         self.assertIn("Disallow: /site/impressum.html", lines)
-        self.assertIn("Disallow: /private/", lines)
+        # the blob is the feedback service's, under /site/impressum/ (the
+        # challenge, the answer and the honeypot), not a Caddy /private/ path
+        self.assertIn("Disallow: /site/impressum/", lines)
+        self.assertNotIn("Disallow: /private/", lines)
+
+
+# The puzzle's hash, written out in web/site/impressum-worker.js, against
+# hashlib; node loads the file as a module (the worker's message handler is
+# attached only inside a worker).
+WORKER = SITE / "impressum-worker.js"
+
+
+def node_json(script: str):
+    """Runs `script` in node with the worker loaded as `w`; its JSON output."""
+    code = "const w = require(process.argv[1]);\n" + script
+    r = subprocess.run(
+        ["node", "-e", code, str(WORKER)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if r.returncode != 0:
+        raise AssertionError(f"node failed ({r.returncode}): {r.stderr}")
+    return json.loads(r.stdout)
+
+
+def zero_bits(digest: bytes, bits: int) -> bool:
+    return int.from_bytes(digest, "big") >> (256 - bits) == 0
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class WorkerTests(unittest.TestCase):
+    NONCE = "AAAAAAAAAAAAAAAAAAAAAA"
+
+    def test_the_hand_written_sha256_agrees_with_hashlib(self):
+        samples = [
+            "",
+            "abc",
+            "a" * 55,  # one block, the longest that fits with the padding
+            "a" * 56,  # the padding spills into a second block
+            "b" * 63,
+            "c" * 64,  # exactly one block of message
+            "d" * 119,
+            "e" * 120,
+            "f" * 130,
+            "g" * 200,  # the most the worker takes
+            "AAAAAAAAAAAAAAAAAAAAAA:3:1234567",
+            "The quick brown fox jumps over the lazy dog",
+            "-_09azAZ:~!#$%&()*+,./;<=>?@[]^`{|}",
+        ]
+        got = node_json("console.log(JSON.stringify(" + json.dumps(samples) + ".map(w.hex)));")
+        self.assertEqual(len(got), len(samples))
+        for text, hexed in zip(samples, got):
+            with self.subTest(length=len(text)):
+                # hex() is the first 8 words, the whole digest
+                self.assertEqual(hexed, hashlib.sha256(text.encode("ascii")).hexdigest())
+
+    def test_the_known_digests_are_right_in_both(self):
+        # FIPS 180-2 test vectors, so the comparison above is against truth.
+        got = node_json('console.log(JSON.stringify(["", "abc"].map(w.hex)));')
+        self.assertEqual(got[0], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        self.assertEqual(got[1], "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+
+    def test_the_solver_finds_the_smallest_counter_of_every_part(self):
+        for difficulty in (1, 7, 8, 9, 10, 12):
+            with self.subTest(difficulty=difficulty):
+                counters = node_json(
+                    f'console.log(JSON.stringify(w.solve("{self.NONCE}", 3, {difficulty})));'
+                )
+                self.assertEqual(len(counters), 3)
+                for part, counter in enumerate(counters):
+                    def solves(c: int) -> bool:
+                        digest = hashlib.sha256(f"{self.NONCE}:{part}:{c}".encode()).digest()
+                        return zero_bits(digest, difficulty)
+
+                    self.assertTrue(solves(counter), f"part {part}, counter {counter}")
+                    # the smallest: none below it solves
+                    for below in range(counter):
+                        self.assertFalse(solves(below), f"part {part}: {below} solves too")
+
+    def test_the_solver_agrees_with_the_rust_service_vector(self):
+        # The same numbers crates/baylee-feedback/src/impressum.rs holds,
+        # computed there with hashlib as well.
+        counters = node_json(f'console.log(JSON.stringify(w.solve("{self.NONCE}", 3, 8)));')
+        self.assertEqual(counters, [218, 8, 247])
+        counters = node_json(f'console.log(JSON.stringify(w.solve("{self.NONCE}", 3, 9)));')
+        self.assertEqual(counters, [961, 1478, 247])
+
+    def test_the_solver_reports_progress_after_every_part(self):
+        got = node_json(
+            "const seen = [];"
+            f'const c = w.solve("{self.NONCE}", 3, 4, (done, all) => seen.push([done, all]));'
+            "console.log(JSON.stringify({ seen, c }));"
+        )
+        self.assertEqual(got["seen"], [[1, 3], [2, 3], [3, 3]])
+        self.assertEqual(got["c"], [4, 8, 2])
+
+    def test_a_nonce_the_worker_cannot_take_throws(self):
+        r = subprocess.run(
+            ["node", "-e", 'const w = require(process.argv[1]); w.hex("x".repeat(201));', str(WORKER)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("too long", r.stderr)
 
 
 if __name__ == "__main__":
