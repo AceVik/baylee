@@ -461,6 +461,8 @@ express at all yet.
   `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
   matching permanent you control, including the source when it matches),
   `DiscardHand` (the entire hand, payable even when empty),
+  `DiscardLastDrawnThisTurn` (Jandor's Ring: the last card the payer drew this
+  turn, while still in hand),
   `Discard(filter)`, `DiscardSelf` (cycling), `DiscardRandom` (one random
   hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
   `PayCommanderColors` (one life per distinct color among all commanders;
@@ -3793,7 +3795,212 @@ The verbs that go with it:
 - A static ability that "functions everywhere but the battlefield"
   (CR 113.6c; Grist's "as long as Grist isn't on the battlefield, it's a 1/1
   Insect creature in addition to its other types") is
-  `static_ability!(&Filter::This, modifier, zone = ZoneRef::NotBattlefield)`,
+  `static_ability!(Filter::This, modifier, zone = ZoneRef::NotBattlefield)`,
   one per layer (`AddType`, `AddSubtype`, `SetPT`).
 - `resolves_if_targets_illegal = true` on `triggered!` — Gilded Drake's
   "this ability still resolves if its target becomes illegal".
+
+### Combat memory, damage this turn, attachments and control sets (wave 2)
+
+Engine side: `docs/engine-internals.md` §"What combat and damage leave behind
+(wave 2)" and §"The reference object". A relational filter reads the
+**reference object**: a resolution's first target, else its triggering
+event's object (the `about` object of an `Effect::AtEndOfCombat` delayed
+trigger), and, while a second target is chosen, the first target. Nowhere
+else does it match anything.
+
+Filters:
+
+- `Filter::Reference` — the reference object itself.
+- `Filter::BlockingReference` — blocking the reference object now (Feint:
+  `Effect::TapAll { filter: &Filter::BlockingReference }`).
+- `Filter::BlockedByReferenceThisTurn` — was blocked this turn by the
+  reference object, both still the objects they were (Glyph of Doom, Glyph of
+  Reincarnation).
+- `Filter::BlockedReferenceThisTurn` — blocked the reference object this turn
+  (as a `second_targets` requirement: Glyph of Delusion's Wall).
+- `Filter::BlockedThisTurnBy(&inner)` — was blocked this turn by a creature
+  the inner filter matches now (Glyph of Delusion's first target:
+  `BlockedThisTurnBy(&WALL)`).
+- `Filter::AttachedTo(&inner)` — attached to a permanent the inner filter
+  matches, read with the same "you" (Remove Enchantments: Auras you own
+  attached to permanents you control, or to attacking creatures your
+  opponents control).
+- `Filter::SharesTypeWithReference(types)` — has a card type among `types`
+  that the reference also has (Gauntlets of Chaos' second target:
+  `SharesTypeWithReference(TypeSet::ARTIFACT.union(TypeSet::CREATURE).union(TypeSet::LAND))`
+  next to `ControlledByOpponent`).
+- `Filter::DealtDamageToSourceThisTurn` — dealt damage this turn to the
+  source, as the object that dealt it (Brine Hag's dies trigger: "all
+  creatures that dealt damage to it this turn").
+- `Filter::BlockingSource` / `BlockedBySource` now also answer for a source
+  that has left the battlefield, as it last existed (Abu Ja'far:
+  `Trigger::Dies(&Filter::This)` →
+  `Effect::destroy_all_no_regen(&Filter::Or(&[Filter::BlockingSource, Filter::BlockedBySource]))`).
+- `Filter::ControlledByDefendingPlayer` and `PlayerRel::DefendingPlayer` on
+  an ability of an attacking creature name the player that creature attacks
+  (CR 508.5), at any table size, and still that player once it has been
+  removed from combat (killed in response to its own attack trigger).
+
+A continuous effect whose filter reads the reference keeps the object it is
+about: Feint's "prevent all combat damage that would be dealt this turn by
+that creature and each creature blocking it" is
+`Effect::continuous(&Filter::Or(&[Filter::Reference, Filter::BlockingReference]), Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)`,
+and since a prevention does not lock its set (CR 611.2c) a creature that
+blocks it later is covered too; an effect that changes characteristics or
+control is bound to the objects the filter names as it resolves. A second
+target whose requirement reads the reference makes the spell or ability
+castable or activatable only when some legal first target leaves a legal
+second one.
+
+Amounts:
+
+- `Amount::DamageThisTurn { to, by, combat }` — damage dealt this turn (after
+  prevention) to `to` by sources `by` matches **as they were when they dealt
+  it**, `combat: Some(true)` combat only, `Some(false)` noncombat only, `None`
+  both. `DamageTo::You` (the controller), `DamageTo::Source` (the source; in a
+  dies trigger, the creature that died), `DamageTo::Anything`. Reverse
+  Polarity: `Amount::Times { base: &Amount::DamageThisTurn { to: DamageTo::You, by: &Filter::ARTIFACT, combat: None }, factor: 2 }`;
+  Blazing Effigy: `Amount::Plus { base: &Amount::DamageThisTurn { to: DamageTo::Source, by: &Filter::And(&[Filter::Named("Blazing Effigy"), Filter::Another]), combat: None }, offset: 3 }`.
+
+Conditions and triggers:
+
+- `Condition::EventBlockedByOthers { some, none }` — intervening "if" about
+  the triggering event's creature: at least one creature other than this
+  source blocking it matches `some`, and none blocking it matches `none`
+  (Wall of Caltrops on `Trigger::BlocksCreature`).
+- `Condition::AfterCombat` — "cast this spell only after combat": the
+  postcombat main phase or the end phase (`spell!(…, condition = Some(Condition::AfterCombat))`).
+- `Trigger::DealsCombatDamageToYou(&filter)` — a matching source deals combat
+  damage to the ability's controller, once per source; the source is the
+  event object (Contested War Zone: `PlayerRel::ControllerOfEvent` gains
+  control of the land).
+
+Modifiers:
+
+- `Modifier::MustBeBlockedByAllAbleMatching(&filter)` — every creature the
+  filter matches that can block the affected creature does (Marble Priest:
+  Walls).
+- `Modifier::AssignsNoCombatDamage` — the affected creature assigns no combat
+  damage (Floral Spuzzem's "if you do, this creature assigns no combat damage
+  this turn": `Effect::continuous(&Filter::This, Modifier::AssignsNoCombatDamage, Duration::UntilEndOfTurn)`).
+  Not a prevention: nothing is assigned, divided, dealt or prevented.
+
+Effects:
+
+- `Effect::WheneverTargetDealtDamageThisTurn { by, effects }` — a delayed
+  trigger for the rest of the turn: each time the first target is dealt
+  damage by a source `by` matches; "that much" is `Amount::EventAmount`
+  (Glyph of Life: target Wall, `by` an attacking creature,
+  `effects: &[Effect::GainLife { amount: Amount::EventAmount }]`).
+- `Effect::AtEndOfCombatThisTurn { about, effects }` — "at this turn's next
+  end of combat" (Glyph of Doom): `Effect::AtEndOfCombat`, except that the
+  delayed trigger lapses with the turn; resolved after combat it never fires.
+  Glyph of Doom: `AtEndOfCombatThisTurn { about: TargetSpec::Object(&WALL), effects: &[Effect::destroy_all(&BLOCKED_BY_IT)] }`
+  with `BLOCKED_BY_IT = Filter::And(&[Filter::CREATURE, Filter::BlockedByReferenceThisTurn])`
+  (the delayed trigger's reference is its `about` object, the Wall).
+- `Effect::DealHalfOfSpellDamage { spell }` — Backdraft: one of the spells
+  `spell` matches cast this turn (the controller picks with more than one;
+  picking the spell names its caster), half of what it dealt this turn
+  rounded down, to its caster.
+- `Effect::MoveTargetAuraToAnother { types }` — Enchantment Alteration: the
+  target Aura moves to another permanent sharing a type in `types` with the
+  permanent it is on and that it could enchant (the controller chooses as it
+  resolves; only the Aura is targeted). Target:
+  `TargetSpec::Object(&Filter::And(&[AURA, Filter::AttachedTo(&CREATURE_OR_LAND)]))`
+  with the pool's own filter names.
+- `Effect::ExchangeLifeTotals { with }` — Mirror Universe: with the targeted
+  opponent (`targets = Some(TargetReq::one(TargetSpec::AnyOpponent))`,
+  `with: PlayerRel::Chosen`, which is how a resolution reads its target
+  player, as Hurkyl's Recall does); all or nothing (CR 701.12a).
+- `Effect::GainControlAll { filter, to }` — every permanent `filter` matches
+  comes under `to`'s control for the rest of the game (Rohgahh of Kher Keep:
+  `Effect::ChoosePlayerFrom { among: PlayerRel::EachOpponent }` then
+  `GainControlAll { filter: …, to: PlayerRel::Chosen }`).
+- `Effect::DestroyAurasOnTargets` — every Aura attached to any of the
+  resolution's targets (Gauntlets of Chaos, after `Effect::ExchangeControl`,
+  inside `IfCondition { condition: AmountAtLeast(ThisWay(ThisWay::ControlChanged), 2), .. }`).
+- `Effect::ReturnPerBlockedDeath { filter }` — Glyph of Reincarnation's second
+  sentence, after `Effect::destroy_all_no_regen(&Filter::And(&[Filter::CREATURE, Filter::BlockedByReferenceThisTurn]))`
+  in the same resolution: for each creature that died this way, one card
+  `filter` matches from the graveyard of the player who controlled it as it
+  became blocked by the reference Wall; the controller picks after every
+  death, all enter at once under their owners' control.
+
+### Tokens attacking, last-turn history, chosen values, would-destroy, improvise (wave 3)
+
+- `Effect::CreateTokenAttacking { token, amount, sacrifice_at_next_end_step }`
+  — "create … tokens that are tapped and attacking" (CR 508.4): during a
+  combat of their controller's turn they enter tapped and attacking, the
+  controller choosing per token which defending player (or planeswalker of
+  theirs) it attacks, asked only with more than one option; they never
+  "attacked" (no attack trigger hears them, CR 508.3a). Outside combat they
+  only enter tapped (CR 506.3b). `sacrifice_at_next_end_step: true` is
+  "Sacrifice them at the beginning of the next end step". Den of the
+  Bugbear's granted trigger: `Trigger::Attacks(&Filter::This)` →
+  `CreateTokenAttacking { token: &tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), sacrifice_at_next_end_step: false }`
+  (check the token constant's exact name in `crate::tokens`).
+- `Effect::WheneverYouAttackThisTurn { effects }` — "whenever you attack this
+  turn" (Dalkovan Encampment): a delayed trigger firing on each of the
+  controller's declarations of attackers for the rest of the turn (ruling:
+  "each time you declare at least one creature as an attacker"), even if the
+  source is gone; nothing on the next turn.
+- `Modifier::CantAttackPlayerIdleLastTurn` — Arboria:
+  `static_ability!(Filter::CREATURE, Modifier::CantAttackPlayerIdleLastTurn)`.
+  A player who neither cast a spell nor put a nontoken permanent onto the
+  battlefield during their last turn (a player who has had no turn yet
+  included) can't be attacked; their planeswalkers can.
+- `Filter::OfSourceChosenColor` — of the colour the source chose as it
+  entered (`EnterModifier::ChooseColor`).
+- `Condition::ChosenOpponentControls(&filter)` — the opponent the source chose
+  as it entered (`EnterModifier::ChooseOpponent`) controls a matching
+  permanent. Jihad: `enter_modifiers = &[EnterModifier::ChooseColor, EnterModifier::ChooseOpponent]`;
+  `static_ability!(WHITE_CREATURE, Modifier::ModifyPT(2, 1), condition = Some(Condition::ChosenOpponentControls(&NONTOKEN_OF_CHOSEN)))`
+  with `NONTOKEN_OF_CHOSEN = Filter::And(&[Filter::Not(&Filter::IsToken), Filter::OfSourceChosenColor])`
+  (a `const`); the state trigger
+  `triggered!(Trigger::State(&Condition::Not(&Condition::ChosenOpponentControls(&NONTOKEN_OF_CHOSEN))), &[Effect::SacrificeSelf])`.
+- `Filter::SharesAColorWith(&filter)` — shares a colour with a battlefield
+  permanent the inner filter matches (a colourless object shares none).
+  Invoke Prejudice: `Trigger::SpellCast(&Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent, Filter::Not(&Filter::SharesAColorWith(&YOUR_CREATURE))]))`
+  → `Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfEvent, mana: Amount::TargetCmc, effect: &Effect::CounterTargetSpell }`
+  with `targets = Some(TargetReq::one(TargetSpec::EventObject))` (as In the
+  Eye of Chaos).
+- `Condition::TargetSpellWouldDestroy(&filter)` — Equinox: a granted
+  `Modifier::GrantActivatedDefinition(&EQUINOX_ABILITY)` whose ability is
+  `activated!(Cost::TAP, &[Effect::IfCondition { condition: Condition::TargetSpellWouldDestroy(&YOUR_LAND), then: &[Effect::CounterTargetSpell], otherwise: &[] }], targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))`
+  (check `activated!`'s target field spelling). It reads the spell's own
+  top-level `Destroy` aimed at its targets and its `DestroyAll` sweeps; not a
+  destruction behind a choice, by damage or by sacrifice (rulings).
+- Improvise (CR 702.126a): `improvise = true` on the face (Whir of
+  Invention); the cast asks which untapped artifacts to tap, each paying {1}
+  of generic mana, through the same tap question as convoke.
+  `Effect::NextSpellThisTurnHasImprovise` (Archway of Innovation) gives the
+  controller's next spell this turn improvise; that cast spends it.
+
+### Paying per unit, the last card drawn, sacrificed totals (wave 3, push B)
+
+- `Effect::PlayerMayPayManaEachThenElse { player, each, times, paid, unpaid }`
+  — Cyclone's "sacrifice this enchantment unless you pay {G} for each wind
+  counter on it. If you pay, …": the price `each` repeated `times` (evaluated
+  as it resolves, e.g. `Amount::CountersOnSource(counters::WIND)`), asked and
+  paid at once; `paid` runs on a payment,
+  `unpaid` otherwise; a price of nothing is paid.
+- `Effect::UntapChosenPayingEach { who, filter, each }` — Magnetic Mountain's
+  "that player may choose any number of tapped blue creatures they control
+  and pay {4} for each creature chosen this way. If the player does, untap
+  those creatures": a choice (`ChoicePrompt::Untap`, any number), then one
+  payment of `each` per chosen permanent; unpaid, nothing untaps. For
+  "each player's upkeep … that player", `who: PlayerRel::ActivePlayer` on
+  `Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }`
+  (as Howling Mine); the "don't untap" half is
+  `Modifier::DoesNotUntap` on the blue creatures.
+- `CostPart::DiscardLastDrawnThisTurn` — Jandor's Ring's "Discard the last
+  card you drew this turn": the payer's last card drawn this turn while it is
+  still in their hand; otherwise the ability is not offered.
+- `Amount::SacrificedTotalPower` and `Effect::ExileSourceAndSacrificed` —
+  Sword of the Ages: `cost!(TapSelf, SacrificeSelf, SacrificeX(&YOUR_CREATURE))`
+  ("any number of creatures you control" is X chosen at activation), deal
+  `SacrificedTotalPower` (their powers as they last existed), then exile the
+  source and those cards from the graveyards.
+- A spell's mana value on the stack counts X as chosen (CR 202.3e): Whir of
+  Invention cast for X=2 has mana value 5 there.

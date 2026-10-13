@@ -92,6 +92,11 @@ pub enum Amount {
     /// "The sacrificed creature's toughness" (Diamond Valley, Miren, the
     /// Moaning Well): likewise, its toughness. Never negative.
     SacrificedToughness,
+    /// "The total power of the creatures sacrificed this way" (Sword of the
+    /// Ages): the sum of the powers the permanents a `CostPart::SacrificeX`
+    /// sacrificed had as they last existed on the battlefield (CR 608.2h;
+    /// the ruling), floored at 0 (CR 107.1b).
+    SacrificedTotalPower,
     /// "The amount of mana spent to cast this spell" (Memory Deluge): what
     /// the cast paid in mana (CR 601.2h), read off the stack object where
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
@@ -257,6 +262,36 @@ pub enum Amount {
         /// Whose part.
         who: super::PlayerRel,
     },
+    /// Damage dealt this turn (after prevention, CR 615.1) to `to` by
+    /// sources the filter matches **as they were when they dealt it**, read
+    /// with the ability's controller as "you" and its source as "this":
+    /// Reverse Polarity's "the damage dealt to you so far this turn by
+    /// artifacts", Blazing Effigy's "damage dealt to it this turn by other
+    /// sources named Blazing Effigy", Temple of Power's "red sources you
+    /// controlled dealt 4 or more noncombat damage this turn". `combat`
+    /// narrows it to combat (`Some(true)`) or noncombat (`Some(false)`)
+    /// damage.
+    DamageThisTurn {
+        /// Who or what was dealt it.
+        to: DamageTo,
+        /// The sources counted.
+        by: &'static Filter,
+        /// Only combat, only noncombat, or both.
+        combat: Option<bool>,
+    },
+}
+
+/// The recipient [`Amount::DamageThisTurn`] counts.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageTo {
+    /// The ability's controller.
+    You,
+    /// The ability's source, as the permanent it last was on the
+    /// battlefield (a dies trigger counts the damage the creature took
+    /// before it died).
+    Source,
+    /// Any player or permanent.
+    Anything,
 }
 
 /// What a resolution has done, as [`Amount::ThisWay`] counts it.
@@ -291,6 +326,9 @@ pub enum ThisWay {
     /// a replacement put somewhere else (a commander to the command zone,
     /// CR 903.9b) was not put there.
     PutIntoLibraryFromHand,
+    /// Permanents whose controller changed (Gauntlets of Chaos: "if those
+    /// permanents are exchanged this way" is two).
+    ControlChanged,
 }
 
 impl Amount {

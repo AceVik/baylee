@@ -52,6 +52,7 @@ pub trait CardLookup {
 
 /// A seat's mutable state.
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)] // Independent per-seat facts, not a state machine.
 pub struct Player {
     /// Seat handle.
     pub id: PlayerId,
@@ -95,6 +96,10 @@ pub struct Player {
     pub turns_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Whether this player cast a spell or put a nontoken permanent onto the
+    /// battlefield during their most recently completed turn (Arboria's
+    /// "during their last turn"); false before their first turn ends.
+    pub last_turn_acted: bool,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
     /// Combat damage this player has taken from each commander over the
@@ -243,6 +248,17 @@ pub enum DelayedWhen {
     /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
     /// combat").
     EndOfCombat,
+    /// [`Self::EndOfCombat`] of this turn only (Glyph of Doom's "this
+    /// turn's next end of combat"): dropped as the next turn begins.
+    EndOfCombatThisTurn,
+    /// "Whenever you attack this turn" (Dalkovan Encampment): each time the
+    /// watch's controller declares one or more attackers after `after`, for
+    /// the rest of the turn. Read off the journal's `BecameAttacker`
+    /// entries; it does not end when it fires.
+    YouAttackThisTurn {
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// At the beginning of the next cleanup step, whoever's turn it is.
     NextCleanup,
     /// During the controller's next actual untap, before untapping permanents.
@@ -284,6 +300,21 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "Whenever that creature is dealt damage by [a source the filter
+    /// matches] this turn" (Glyph of Life): each time `card`, as the object
+    /// it was at `version`, is dealt damage after `after` by such a source,
+    /// as it deals it. Not spent by triggering; dropped as the next turn
+    /// begins or once the object is gone.
+    DealtDamageThisTurn {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// Which sources count.
+        by: &'static baylee_cards_dsl::Filter,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// "When this Aura leaves the battlefield" (Animate Dead): the next time
     /// `card`, as the object it was at `version`, leaves the battlefield for
     /// any zone. Read off the journal like [`Self::DiesOrIsExiled`], after
@@ -297,6 +328,22 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+}
+
+impl DelayedWhen {
+    /// A "this turn" watch (`DiesThisTurn`, `DealtDamageThisTurn`,
+    /// `EndOfCombatThisTurn`, `YouAttackThisTurn`): it watches no other turn
+    /// and is dropped as the next one begins.
+    #[must_use]
+    pub const fn lapses_with_the_turn(self) -> bool {
+        matches!(
+            self,
+            Self::DiesThisTurn { .. }
+                | Self::DealtDamageThisTurn { .. }
+                | Self::EndOfCombatThisTurn
+                | Self::YouAttackThisTurn { .. }
+        )
+    }
 }
 
 /// What a delayed trigger does.
@@ -485,6 +532,15 @@ pub struct PerTurn {
         std::collections::BTreeMap<(PlayerId, baylee_core::ids::SubtypeId), u32>,
     /// Whether a permanent left under each player's control this turn.
     pub revolt: Vec<bool>,
+    /// Whether each player put a nontoken permanent onto the battlefield
+    /// this turn (Arboria), read as the player it entered under: who puts a
+    /// permanent onto the battlefield is, but for an effect that names
+    /// another player as its controller, the player it enters under.
+    pub put_nontoken_permanent: Vec<bool>,
+    /// Whether each player's next spell this turn has improvise (Archway of
+    /// Innovation, `Effect::NextSpellThisTurnHasImprovise`); spent by that
+    /// player's next cast.
+    pub improvise_next_spell: Vec<bool>,
     /// Whether each player cast an instant or sorcery this turn.
     pub instant_or_sorcery_cast: Vec<bool>,
     /// Source incarnations and players they actually damaged this turn.
@@ -574,6 +630,59 @@ pub struct PerTurn {
     /// `Engine::declare_attackers` and nothing else, so a creature put onto
     /// the battlefield attacking is not in it (CR 508.4).
     pub attacked: Vec<(ObjectId, u32, PlayerId)>,
+    /// Every block this turn: blocker and attacker as the objects they were
+    /// (CR 400.7), and who controlled the attacker as it became blocked
+    /// (Glyph of Reincarnation's "the player who controlled that creature
+    /// the last time it became blocked by that Wall"). Written by
+    /// `GameState::declare_block` and nothing else.
+    pub blocks: Vec<BlockRecord>,
+    /// Every positive amount of damage dealt this turn, after prevention,
+    /// with its source as it was when it dealt it (`Amount::DamageThisTurn`,
+    /// `Filter::DealtDamageToSourceThisTurn`, Backdraft).
+    pub damage_log: Vec<DamageLogEntry>,
+}
+
+/// One block declared this turn ([`PerTurn::blocks`]).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct BlockRecord {
+    /// The blocking creature as it was.
+    pub blocker: baylee_core::ids::DamageSourceRef,
+    /// The creature it blocked as it was.
+    pub attacker: baylee_core::ids::DamageSourceRef,
+    /// Who controlled the attacker as it became blocked.
+    pub attacker_controller: PlayerId,
+}
+
+/// One amount of damage dealt this turn ([`PerTurn::damage_log`]).
+#[derive(Clone, Debug)]
+pub struct DamageLogEntry {
+    /// The source as the object it was.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// The source as it was when it dealt the damage: its characteristics
+    /// and controller then, which "by artifacts" and "red sources you
+    /// controlled" are asked of.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+    /// What was dealt it.
+    pub to: crate::event::DamageTarget,
+    /// The recipient's incarnation, when it is an object.
+    pub to_version: Option<u32>,
+    /// How much.
+    pub amount: u32,
+    /// Combat damage.
+    pub combat: bool,
+}
+
+impl std::hash::Hash for DamageLogEntry {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (
+            self.source,
+            self.to,
+            self.to_version,
+            self.amount,
+            self.combat,
+        )
+            .hash(state);
+    }
 }
 
 /// One card played or cast from a graveyard under a
@@ -661,6 +770,8 @@ impl PerTurn {
             descended: vec![false; players],
             sacrificed_subtypes: std::collections::BTreeMap::new(),
             revolt: vec![false; players],
+            put_nontoken_permanent: vec![false; players],
+            improvise_next_spell: vec![false; players],
             instant_or_sorcery_cast: vec![false; players],
             player_damage: std::collections::BTreeSet::new(),
             noncreature_spells: vec![0; players],
@@ -688,6 +799,8 @@ impl PerTurn {
             camouflage: false,
             cant_regenerate: Vec::new(),
             attacked: Vec::new(),
+            blocks: Vec::new(),
+            damage_log: Vec::new(),
         }
     }
 
@@ -737,6 +850,8 @@ impl PerTurn {
         self.descended.fill(false);
         self.sacrificed_subtypes.clear();
         self.revolt.fill(false);
+        self.put_nontoken_permanent.fill(false);
+        self.improvise_next_spell.fill(false);
         self.instant_or_sorcery_cast.fill(false);
         self.player_damage.clear();
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
@@ -765,6 +880,8 @@ impl PerTurn {
         self.camouflage = false;
         self.cant_regenerate.clear();
         self.attacked.clear();
+        self.blocks.clear();
+        self.damage_log.clear();
     }
 }
 
@@ -1118,6 +1235,13 @@ pub struct GameState {
     ///
     /// Written and cleared exactly where [`Self::ltb_abilities`] is.
     pub ltb_characteristics: Vec<(ObjectId, crate::object::Characteristics)>,
+    /// Who a permanent was in combat with the moment it left the
+    /// battlefield: each partner as the object it was, and whether that
+    /// partner was blocking it (`true`) or blocked by it (`false`). Written
+    /// and cleared where [`Self::ltb_characteristics`] is;
+    /// `Filter::BlockingSource` and `BlockedBySource` read it once the
+    /// source is gone (Abu Ja'far).
+    pub ltb_combat: Vec<(ObjectId, Vec<(baylee_core::ids::DamageSourceRef, bool)>)>,
     /// Objects that have ceased to exist but whose triggers have not fired.
     ///
     /// CR 111.7 says it in a parenthesis, and the parenthesis is the whole
@@ -1387,6 +1511,7 @@ impl GameState {
             ltb_attachments,
             ltb_counters,
             ltb_characteristics,
+            ltb_combat,
             ceased,
             reflexive,
             discovered,
@@ -1498,6 +1623,7 @@ impl GameState {
                 "state.ltb_characteristics",
                 format!("{ltb_characteristics:?}"),
             ),
+            ("state.ltb_combat", format!("{ltb_combat:?}")),
             ("state.ceased", format!("{ceased:?}")),
             ("state.reflexive", format!("{reflexive:?}")),
             ("state.discovered", format!("{discovered:?}")),
@@ -2169,6 +2295,14 @@ impl GameState {
         if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
             *tally = tally.saturating_add(amount);
         }
+        self.log_damage(
+            source,
+            None,
+            crate::event::DamageTarget::Player(player),
+            None,
+            amount,
+            is_combat,
+        );
         self.journal.record(GameEvent::DamageDealt {
             source: Some(source),
             target: crate::event::DamageTarget::Player(player),
@@ -2284,7 +2418,8 @@ impl GameState {
     /// — this is one walk of a short table and nothing else.
     pub fn board_state_changed(&mut self) {
         if self.effects.iter().any(|fx| {
-            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f))
+            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f)
+                | crate::effects::EffectFilter::DslAbout(f, ..) if filter_reads_board_state(f))
                 || modifier_reads_combat(fx.modifier)
         }) {
             self.invalidate_projections();
@@ -2648,9 +2783,31 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Blocking
         | Filter::BlockingSource
         | Filter::BlockedBySource
-        | Filter::Unblocked => true,
+        | Filter::BlockingReference
+        | Filter::Unblocked
+        | Filter::SharesAColorWith(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) => filter_reads_board_state(f),
+        _ => false,
+    }
+}
+
+/// Whether a filter is relative to a resolution's reference object
+/// (`Filter::Reference` and its family), which only a resolution or a target
+/// choice can supply.
+pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::SharesTypeWithReference(_) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::SharesAColorWith(f) => filter_reads_reference(f),
         _ => false,
     }
 }

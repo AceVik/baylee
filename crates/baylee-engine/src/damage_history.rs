@@ -150,11 +150,52 @@ impl GameState {
                 self.per_turn.permanent_damage.push(damage);
             }
         }
+        let to_version = self.object(recipient).map(|o| o.version);
+        self.log_damage(
+            source,
+            source_version,
+            DamageTarget::Object(recipient),
+            to_version,
+            amount,
+            is_combat,
+        );
         self.journal.record(GameEvent::DamageDealt {
             source: Some(source),
             target: DamageTarget::Object(recipient),
             amount,
             is_combat,
+        });
+    }
+
+    /// Keeps one positive amount of damage in [`PerTurn::damage_log`] with its
+    /// source as it is now, as it deals it.
+    ///
+    /// [`PerTurn::damage_log`]: crate::state::PerTurn::damage_log
+    pub(crate) fn log_damage(
+        &mut self,
+        source: ObjectId,
+        source_version: Option<u32>,
+        to: DamageTarget,
+        to_version: Option<u32>,
+        amount: u32,
+        combat: bool,
+    ) {
+        if amount == 0 {
+            return;
+        }
+        let Some(snapshot) = self.damage_source(source, source_version).cloned() else {
+            return;
+        };
+        self.per_turn.damage_log.push(crate::state::DamageLogEntry {
+            source: baylee_core::ids::DamageSourceRef {
+                object: source,
+                version: snapshot.version,
+            },
+            snapshot: std::sync::Arc::new(snapshot),
+            to,
+            to_version,
+            amount,
+            combat,
         });
     }
 

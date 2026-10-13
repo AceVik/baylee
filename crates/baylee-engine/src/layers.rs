@@ -215,6 +215,9 @@ pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
         || obj.riders.contains(&crate::object::Rider::Dashed)
+        // CR 202.3e: on the stack, X is the number chosen for it, so a
+        // spell with X needs its projection even where no effect reaches it.
+        || (obj.zone == crate::zone::Zone::Stack && obj.x_value > 0)
 }
 
 /// Recomputes an object's characteristics from its base plus all matching
@@ -244,6 +247,12 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
 
 fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
+    // CR 202.3e: on the stack, X is the number chosen for it.
+    c.x_on_stack = if obj.zone == crate::zone::Zone::Stack {
+        obj.x_value
+    } else {
+        0
+    };
     // "As long as this permanent's dash cost was paid, it has haste"
     // (CR 702.109a): an ability of the permanent itself, so it is there
     // before any effect applies and an effect that removes abilities
@@ -593,6 +602,18 @@ fn applies(
                 reference: None,
             },
         ),
+        EffectFilter::DslAbout(filter, id, version) => eval::matches_projected_with_context(
+            filter,
+            state,
+            obj,
+            projected,
+            fx.controller,
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+                reference: crate::effects::still_the_object(state, *id, *version),
+            },
+        ),
     }
 }
 
@@ -820,10 +841,18 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::Named(_) | Filter::NamedBySource => matches!(modifier, Modifier::BecomeCopyOf(_)),
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
+        // Another object's characteristics decide these, so any modifier
+        // may move them.
+        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) | Filter::SharesAColorWith(_) => true,
+        Filter::OfSourceChosenColor => matches!(
+            modifier,
+            Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
+        ),
         Filter::HasType(_)
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
         | Filter::MatchesChosenTypeOfSource
+        | Filter::SharesTypeWithReference(_)
         | Filter::SharesSubtypeWithCommander => {
             matches!(
                 modifier,
@@ -925,6 +954,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
+        | Filter::Reference
+        | Filter::BlockingReference
+        | Filter::BlockedByReferenceThisTurn
+        | Filter::BlockedReferenceThisTurn
+        | Filter::DealtDamageToSourceThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
@@ -1430,11 +1464,14 @@ fn apply(
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
+        | Modifier::MustBeBlockedByAllAbleMatching(_)
+        | Modifier::AssignsNoCombatDamage
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)

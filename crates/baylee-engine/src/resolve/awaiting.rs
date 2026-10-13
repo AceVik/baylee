@@ -686,6 +686,24 @@ pub enum AwaitingOp {
     HandToBottom,
     /// The player `Effect::ChoosePlayerFrom` asked for.
     ChoosePlayerFrom,
+    /// Where `Effect::MoveTargetAuraToAnother` attaches the Aura.
+    MoveAura {
+        /// The targeted Aura.
+        aura: ObjectId,
+    },
+    /// Which spell `Effect::DealHalfOfSpellDamage` reads.
+    HalfSpell(Box<super::half_damage::Spells>),
+    /// Where the tokens of `Effect::CreateTokenAttacking` attack.
+    AttackingTokens(Box<super::attacking_tokens::Tokens>),
+    /// Which tapped permanents `Effect::UntapChosenPayingEach` pays for.
+    UntapPayingEach {
+        /// Who chooses and pays.
+        player: PlayerId,
+        /// The price per permanent.
+        each: baylee_core::mana::ManaCost,
+    },
+    /// One graveyard's picks of `Effect::ReturnPerBlockedDeath`.
+    BlockedReturns(Box<super::blocked_returns::Returns>),
     /// The card `Effect::ReturnFromGraveyardOf` returns.
     ReturnFromGraveyardOf,
     /// One pick of `Effect::RevealTopPutOntoBattlefield`.
@@ -811,6 +829,12 @@ pub enum AwaitingOp {
 /// Work to resume after a resolution-time mana payment.
 #[derive(Clone, Debug, Hash)]
 pub enum ManaPaymentOutcome {
+    /// Untap these permanents, each as the object it was when chosen, once
+    /// the price is paid (`Effect::UntapChosenPayingEach`).
+    Untap {
+        /// The chosen permanents.
+        chosen: Vec<(ObjectId, u32)>,
+    },
     /// Both outcomes of one optional payment, selected only after payment finishes.
     Branches {
         /// Printed successful-payment branch.

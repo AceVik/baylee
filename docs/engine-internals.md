@@ -1343,10 +1343,122 @@ planeswalker, SBAs) record nobody.
 
 `PlayerRel::DefendingPlayer` is `eval::defending_player_of(source)`: the player
 the source attacks, or the controller of the planeswalker it attacks (last
-known, CR 506.4c). A source no longer attacking names the one opponent of a
-two-player game during combat (CR 506.2) and nobody at a larger table.
-`Filter::ControlledByDefendingPlayer` is older and coarser (any opponent of
-the active player during combat) and is left as it is.
+known, CR 506.4c). A source that did not attack this combat names the one
+opponent of a two-player game during combat (CR 506.2) and nobody at a larger
+table.
+`Filter::ControlledByDefendingPlayer` read on an ability of an attacking
+creature is exact as well: the player that creature attacks (Floral Spuzzem's
+"target artifact defending player controls" at a table of three). Both read
+`CombatState::last_defender_of`, which keeps what each creature attacked this
+combat after it is removed from combat ("the player that creature was
+attacking before it was removed from combat", CR 508.5). Read on
+anything else (a spell such as False Orders) it stays coarse: any opponent of
+the active player during combat. `mechanics_tests::combat_memory` plays the
+three-seat case.
+
+### What combat and damage leave behind (wave 2)
+
+Four records, each read by name and never inferred from the journal:
+
+- `PerTurn::blocks` — every block declared this turn, as a `BlockRecord` of
+  the blocker and the attacker (each a `DamageSourceRef`, the object as it was)
+  and the attacker's controller at that moment. Written in
+  `GameState::declare_block`, cleared with the turn. `Filter::BlockedByReferenceThisTurn`,
+  `BlockedReferenceThisTurn` and `BlockedThisTurnBy` compare both versions, so
+  a creature that left and came back is a new object that was never blocked
+  (CR 400.7); `Effect::ReturnPerBlockedDeath` reads the controller.
+- `PerTurn::damage_log` — every damage event this turn after prevention
+  (CR 615.1: prevented damage was never dealt), with the amount, combat or
+  not, the recipient (and the version of an object recipient) and an
+  `Arc<GameObject>` snapshot of the source as it dealt it. Written in
+  `damage_history::log_damage`. `Amount::DamageThisTurn` matches its `by`
+  filter against the snapshot, so "damage dealt by artifacts" counts a
+  creature that was an artifact then; `Filter::DealtDamageToSourceThisTurn`
+  and `Effect::DealHalfOfSpellDamage` (damage a spell dealt while on the
+  stack) read it too. A dies trigger's "to it" counts the incarnation that
+  died (the last version damaged before it left).
+- `GameState::ltb_combat` — who a permanent was in combat with as it left the
+  battlefield, written and cleared where `ltb_characteristics` is.
+  `Filter::BlockingSource` / `BlockedBySource` fall back to it once the source
+  is gone (CR 608.2h: Abu Ja'far's dies trigger destroys the creatures that
+  were blocking it, though it died out of combat).
+- `DelayedWhen::DealtDamageThisTurn` — `Effect::WheneverTargetDealtDamageThisTurn`'s
+  delayed trigger (CR 603.7): it watches the first target as the object it is
+  now and fires on each damage event to it whose source the filter matches as
+  it deals it; "that much" is the event amount. It lapses with the turn.
+
+### The reference object (`RuleContext::reference`)
+
+A relational filter (`Filter::Reference`, `BlockingReference`,
+`BlockedByReferenceThisTurn`, `BlockedReferenceThisTurn`,
+`SharesTypeWithReference`) reads one object besides the source:
+`Resolution::rule_context` names the first target, else the triggering event's
+object (a delayed trigger made by `Effect::AtEndOfCombat { about, .. }` carries
+its `about` object as that, which is how Glyph of Doom's end-of-combat trigger
+still knows its Wall). While a second target is chosen (cast wizard,
+activation, the resolution-time legality check in `progress/stack.rs`) the
+reference is the first target, so `second_targets` may relate to it (Gauntlets
+of Chaos, Glyph of Delusion). A continuous effect whose filter reads the
+reference keeps it: `EffectFilter::DslAbout(filter, id, version)` evaluates
+the filter with that object as the reference while it is still that object
+(Feint's "that creature and each creature blocking it" covers a later
+blocker, CR 611.2c); an effect that locks its set is bound to the objects as
+it resolves (`resolve::bound_now_with_context`). Castability and activation
+offers ask a relative second target per legal first target
+(`casting::second_is_reachable`, `Engine::ability_has_targets`). Nothing outside a resolution or a target choice has a reference, and
+there every such filter matches nothing.
+
+### Tokens put onto the battlefield attacking (CR 508.4)
+
+`Effect::CreateTokenAttacking` creates its tokens tapped, then
+(`resolve/attacking_tokens.rs`), during a combat of their controller's turn,
+asks per token which defending player or planeswalker it attacks: no question
+with one option; else `Pending::ChoosePlayer` (skipped with one player) and,
+when that player controls planeswalkers, `Pending::ChooseCards` over them (none
+chosen = the player). The tokens join combat through
+`CombatState::declare_attackers` and `remember_defender`, and nothing else: no
+`BecameAttacker` is journalled and `per_turn.attacked` does not name them
+(CR 508.3a, they never "attacked"), and the declaration's requirements and
+restrictions are never asked (CR 508.4c). Outside combat, or for a player who
+is not the active one (CR 506.3b), they only enter tapped. "Whenever you
+attack this turn" is `DelayedWhen::YouAttackThisTurn`, read off the journal's
+`BecameAttacker` entries once per scan and dropped with the turn.
+
+### What a player did during their last turn (Arboria)
+
+`Player::last_turn_acted` is written as each player's turn ends
+(`remember_completed_turn_attackers`): they cast a spell
+(`per_turn.spells_cast`, countered or not) or a nontoken permanent entered the
+battlefield under their control (`per_turn.put_nontoken_permanent`, set in
+`GameState::move_object`). Who *put* a permanent onto the battlefield and under
+whose control it entered differ only for an effect that puts a permanent onto
+the battlefield under another player's control; the record reads the second.
+`Modifier::CantAttackPlayerIdleLastTurn` is asked as a pair restriction in
+`AttackRules::allows`, for players only (ruling: planeswalkers may be
+attacked).
+
+### A departed reference keeps its history (CR 608.2h)
+
+A delayed trigger about an object (`DelayedAction::TriggerAbout`) is queued
+with that object and the identity it had, whether or not it is still there:
+"that creature" affects nothing once the identity is no longer current (CR
+603.7c), but what the effect reads about it is its last information.
+`eval::last_battlefield_version` is a permanent's version, or, once it has
+left the battlefield, the version its departure recorded in the journal;
+`eval::blocked_this_turn` compares block records against it, so Glyph of
+Doom's Wall that died in combat still names the creatures it blocked, and
+`damaged_incarnation` (Brine Hag, Blazing Effigy) reads the incarnation that
+died. `CR 202.3e`: `Characteristics::x_on_stack`, written by the projection,
+makes a spell's mana value count X while it is on the stack.
+
+### Improvise and its grant
+
+Improvise (CR 702.126a) shares convoke's tap question
+(`TargetPrompt::Convoke`): `casting::tap_to_pay_sources` is creatures for a
+convoke face, artifacts for a face with improvise or while
+`per_turn.improvise_next_spell` is set for the caster (Archway of
+Innovation), each permanent once. The grant is spent in
+`cast_wizard/commit.rs` by the player's next cast, whatever it tapped.
 
 ## Two instances of "target", and a board that moves mid-resolution
 

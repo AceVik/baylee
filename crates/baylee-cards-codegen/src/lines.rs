@@ -654,6 +654,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToCreature(_)
         | T::DealsCombatDamageToPlayer(_)
+        | T::DealsCombatDamageToYou(_)
         | T::OneOrMoreDealCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToPlayer { .. }

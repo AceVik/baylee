@@ -3,20 +3,18 @@
 //! Oracle: {T}: Add {B}.
 //! Oracle: {3}{B}: Until end of turn, this land becomes a 3/3 black Beholder creature with menace and "Whenever this creature attacks, exile target card from defending player's graveyard." It's still a land.
 //! Set: AFR #258 — Adventures in the Forgotten Realms | Scryfall ID: 9eb391dc-0378-4793-a5de-899b09792a4b | Oracle ID: d17163d4-dd43-4de6-b7cf-576448160b7f
-// PARTIAL — the entry condition, the {B} mana ability and the whole animation
-// are built: the card turns into a 3/3 black Beholder creature that is still a
-// land, with menace and the granted attack trigger. One printed phrase has no
-// variant — see the `// NOT SUPPORTED:` line at the trigger.
+// IMPLEMENTED — enters tapped with two or more other lands, {T}: Add {B}, and
+// {3}{B} animates it into a 3/3 black Beholder creature with menace and the
+// attack trigger that exiles a card from the defending player's graveyard.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-// NOT SUPPORTED: "exile target card from the defending player's graveyard" — no PlayerRel names the defending player, so PlayerRel::Opponent stands in: exact in a two-player game, approximate in multiplayer (M3).
 // "Whenever this creature attacks, exile target card from defending player's
 // graveyard." — the ability the animation grants, and the one target it asks
 // for.
 static EXILE_DEFENDING_GRAVEYARD: &[Effect] = &[Effect::Exile {
-    target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::Opponent),
+    target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::DefendingPlayer),
 }];
 
 // "{3}{B}: Until end of turn, this land becomes a 3/3 black Beholder creature
@@ -41,7 +39,7 @@ static ANIMATE: &[Effect] = &[
     ),
     Effect::continuous(
         &Filter::This,
-        Modifier::AddColor(ColorSet::from_slice(&[Color::Black])),
+        Modifier::SetColor(ColorSet::from_slice(&[Color::Black])),
         Duration::UntilEndOfTurn,
     ),
     Effect::continuous(
@@ -61,7 +59,7 @@ static ANIMATE: &[Effect] = &[
             effects: EXILE_DEFENDING_GRAVEYARD,
             target: Some(TargetSpec::CardInGraveyard(
                 &Filter::Any,
-                PlayerRel::Opponent,
+                PlayerRel::DefendingPlayer,
             )),
         },
         Duration::UntilEndOfTurn,
@@ -81,9 +79,7 @@ card!(
             at_most: 1,
         }],
     ),],
-    coverage = Coverage::Partial(
-        "the granted attack trigger targets a card in the defending player's graveyard; PlayerRel has no defending player, so PlayerRel::Opponent is read — exact in a two-player game, approximate in multiplayer"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
         activated!(cost!("{3}{B}"), ANIMATE),

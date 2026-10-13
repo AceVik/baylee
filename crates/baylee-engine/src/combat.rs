@@ -138,6 +138,14 @@ pub struct CombatState {
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
+    /// What each creature that attacked this combat attacked, as the object
+    /// it was then, kept after it is removed from combat: "the player that
+    /// creature was attacking before it was removed from combat" (CR 508.5,
+    /// [`Self::remembered_defender`]). Written by
+    /// [`Self::remember_defender`] for declared attackers and creatures put
+    /// onto the battlefield attacking; the latest entry for a creature
+    /// wins. Cleared with the combat.
+    defended: Vec<(ObjectId, u32, Defender)>,
 }
 
 /// The declared lists and the chosen divisions: `attacking` is derived
@@ -153,6 +161,7 @@ impl std::hash::Hash for CombatState {
         self.participants.hash(state);
         self.first_strikers.hash(state);
         self.prepared_damage.hash(state);
+        self.defended.hash(state);
     }
 }
 
@@ -198,6 +207,24 @@ impl CombatState {
     pub fn declare_attackers(&mut self, infos: impl IntoIterator<Item = AttackerInfo>) {
         self.attackers.extend(infos);
         self.reindex();
+    }
+
+    /// Notes that `id`, as the object it is at `version`, attacks
+    /// `defender` this combat (CR 508.5).
+    pub fn remember_defender(&mut self, id: ObjectId, version: u32, defender: Defender) {
+        self.defended.retain(|(c, _, _)| *c != id);
+        self.defended.push((id, version, defender));
+    }
+
+    /// What `id` attacked this combat, and as which version of itself,
+    /// whether or not it is still attacking (`crate::eval::last_defender`
+    /// decides whether that is still the same creature).
+    #[must_use]
+    pub fn remembered_defender(&self, id: ObjectId) -> Option<(u32, Defender)> {
+        self.defended
+            .iter()
+            .find(|(c, _, _)| *c == id)
+            .map(|(_, v, d)| (*v, *d))
     }
 
     /// Keeps the attackers `keep` says to, in their order.
@@ -550,6 +577,7 @@ pub struct AttackRules<'a> {
     unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
+    idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
 }
 
 impl<'a> AttackRules<'a> {
@@ -560,9 +588,11 @@ impl<'a> AttackRules<'a> {
         let mut unless_defender_controls = Vec::new();
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
+        let mut idle_defenders = Vec::new();
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
                 _ => {}
@@ -573,6 +603,7 @@ impl<'a> AttackRules<'a> {
             unless_defender_controls,
             except_by,
             requirements,
+            idle_defenders,
         }
     }
 
@@ -593,13 +624,28 @@ impl<'a> AttackRules<'a> {
     /// the pair. Asked of a creature [`can_attack`] already allows.
     #[must_use]
     pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
-        if self.unless_defender_controls.is_empty() && self.except_by.is_empty() {
+        if self.unless_defender_controls.is_empty()
+            && self.except_by.is_empty()
+            && self.idle_defenders.is_empty()
+        {
             return true;
         }
         let state = self.state;
         let Some(obj) = state.object(creature) else {
             return false;
         };
+        // Arboria: a player who neither cast a spell nor put a nontoken
+        // permanent onto the battlefield during their last turn can't be
+        // attacked; their planeswalkers can (ruling 2022-12-08).
+        if let Defender::Player(attacked) = defender
+            && !state.players[usize::from(attacked.get())].last_turn_acted
+            && self
+                .idle_defenders
+                .iter()
+                .any(|fx| crate::effects::applies_to(state, fx, obj))
+        {
+            return false;
+        }
         // "You can't be attacked except by …" protects the player, and a
         // planeswalker they control is a defender of its own (CR 506.3).
         if let Defender::Player(attacked) = defender
@@ -1097,7 +1143,9 @@ impl<'a> BlockRules<'a> {
             match fx.modifier {
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
-                Modifier::MustBeBlockedByAllAble => rules.lures.push(fx),
+                Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
+                    rules.lures.push(fx);
+                }
                 Modifier::BlocksEachAttackerIfAble => rules.each.push(fx),
                 _ => {}
             }
@@ -1151,6 +1199,23 @@ impl<'a> BlockRules<'a> {
                 effects
                     .iter()
                     .filter(|fx| crate::effects::applies_to(state, fx, obj))
+                    // Marble Priest's lure binds only the blockers its
+                    // filter names (Walls), read with the effect's
+                    // controller as "you".
+                    .filter(|fx| match fx.modifier {
+                        baylee_cards_dsl::Modifier::MustBeBlockedByAllAbleMatching(filter) => {
+                            state.object(blocker).is_some_and(|b| {
+                                crate::eval::matches(
+                                    filter,
+                                    state,
+                                    b,
+                                    fx.controller,
+                                    fx.source.unwrap_or(attacker),
+                                )
+                            })
+                        }
+                        _ => true,
+                    })
                     .count()
             })
         };
@@ -1416,7 +1481,10 @@ fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
 pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
     for info in state.combat.attackers() {
-        if !info.blocked || !strikes_now(state, info.creature, first_strike_step) {
+        if !info.blocked
+            || !strikes_now(state, info.creature, first_strike_step)
+            || assigns_no_combat_damage(state, info.creature)
+        {
             continue;
         }
         let amount = power_of(state, info.creature);
@@ -1445,7 +1513,9 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
         }
     }
     for blocker in blocking_creatures(state) {
-        if !strikes_now(state, blocker, first_strike_step) {
+        if !strikes_now(state, blocker, first_strike_step)
+            || assigns_no_combat_damage(state, blocker)
+        {
             continue;
         }
         let amount = power_of(state, blocker);
@@ -1522,7 +1592,9 @@ pub(crate) fn collect_combat_damage(
     prepare_damage_step(state, first_strike_step);
     let mut assignments = Vec::new();
     for info in state.combat.attackers() {
-        if strikes_now(state, info.creature, first_strike_step) {
+        if strikes_now(state, info.creature, first_strike_step)
+            && !assigns_no_combat_damage(state, info.creature)
+        {
             assign_attacker_damage(
                 state,
                 info.creature,
@@ -1549,6 +1621,19 @@ pub(crate) fn collect_combat_damage(
     state.combat.divisions.clear();
     state.combat.prepared_damage = None;
     assignments
+}
+
+/// "This creature assigns no combat damage this turn" (Floral Spuzzem; the
+/// card overrides CR 510.1a's "assigns combat damage equal to its power",
+/// CR 101.1): it is left out of the step's assignments altogether, so there
+/// is nothing to deal, prevent or redirect.
+fn assigns_no_combat_damage(state: &GameState, creature: ObjectId) -> bool {
+    state.object(creature).is_some_and(|obj| {
+        state.effects.iter().any(|fx| {
+            fx.modifier == baylee_cards_dsl::Modifier::AssignsNoCombatDamage
+                && crate::effects::applies_to(state, fx, obj)
+        })
+    })
 }
 
 /// Assign every source before prevention can change a creature's power.
@@ -1638,6 +1723,13 @@ impl GameState {
             return;
         };
         self.combat.declare_block(blocker_ref, attacker_ref);
+        if let Some(controller) = self.object(attacker).map(|o| o.controller) {
+            self.per_turn.blocks.push(crate::state::BlockRecord {
+                blocker: blocker_ref,
+                attacker: attacker_ref,
+                attacker_controller: controller,
+            });
+        }
         self.journal.record(crate::event::GameEvent::BecameBlocker {
             object: blocker,
             attacker,

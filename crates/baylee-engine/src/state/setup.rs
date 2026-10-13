@@ -52,6 +52,7 @@ impl GameState {
                     turns_started: 0,
                     turns_to_skip: 0,
                     last_turn_attackers: Vec::new(),
+                    last_turn_acted: false,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
                     loss: None,
@@ -90,6 +91,7 @@ impl GameState {
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_characteristics: Vec::new(),
+            ltb_combat: Vec::new(),
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
@@ -305,6 +307,7 @@ impl GameState {
             rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
+            x_on_stack: 0,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -350,6 +353,7 @@ impl GameState {
             rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
+            x_on_stack: 0,
         });
         Arc::make_mut(&mut self.bases)
             .tokens

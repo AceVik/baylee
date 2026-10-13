@@ -522,7 +522,25 @@ fn repeated_and_source_watching_bodies_are_visited() {
     static WATCH: &[Effect] = &[Effect::WhenSourceDiesThisTurn {
         effects: &[Effect::destroy(TargetSpec::EventObject)],
     }];
-    for list in [REPEAT, WHILE, WATCH] {
+    static DAMAGE_WATCH: &[Effect] = &[Effect::WheneverTargetDealtDamageThisTurn {
+        by: &Filter::CREATURE,
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    static THIS_TURNS_COMBAT: &[Effect] = &[Effect::AtEndOfCombatThisTurn {
+        about: TargetSpec::EventObject,
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    static ATTACK_WATCH: &[Effect] = &[Effect::WheneverYouAttackThisTurn {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    for list in [
+        REPEAT,
+        WHILE,
+        WATCH,
+        DAMAGE_WATCH,
+        THIS_TURNS_COMBAT,
+        ATTACK_WATCH,
+    ] {
         let mut seen = 0;
         let mut body_seen = false;
         Effect::walk(list, &mut seen, &mut |effect| {
@@ -691,6 +709,25 @@ fn both_mana_payment_outcomes_are_visited() {
     static EFFECTS: &[Effect] = &[Effect::PlayerMayPayThenElse {
         player: PlayerRel::You,
         mana: Amount::Fixed(1),
+        paid: &[Effect::CounterEventAbility],
+        unpaid: &[Effect::RemoveEventObjectFromCombat { unblock: true }],
+    }];
+    let mut seen = 0;
+    let (mut paid, mut unpaid) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        paid |= matches!(effect, Effect::CounterEventAbility);
+        unpaid |= matches!(effect, Effect::RemoveEventObjectFromCombat { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(paid && unpaid);
+}
+
+#[test]
+fn both_repeated_mana_payment_outcomes_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayManaEachThenElse {
+        player: PlayerRel::You,
+        each: baylee_core::mana::ManaCost::ZERO,
+        times: Amount::Fixed(2),
         paid: &[Effect::CounterEventAbility],
         unpaid: &[Effect::RemoveEventObjectFromCombat { unblock: true }],
     }];

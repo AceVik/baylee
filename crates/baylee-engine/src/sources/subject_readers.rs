@@ -49,7 +49,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::AddCountersUpTo { .. }
             | Effect::AtNextEndStep { .. }
             | Effect::AtNextCleanup { .. } => implicit_source,
-            Effect::AtEndOfCombat { about, .. } => matches!(about, TargetSpec::ThisObject),
+            Effect::AtEndOfCombat { about, .. } | Effect::AtEndOfCombatThisTurn { about, .. } => {
+                matches!(about, TargetSpec::ThisObject)
+            }
             _ => false,
         };
     });

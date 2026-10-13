@@ -1135,6 +1135,17 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "At this turn's next end of combat, [effects]" (Glyph of Doom):
+    /// [`Self::AtEndOfCombat`], except that the delayed trigger lapses with
+    /// the turn (CR 603.7b, a stated duration): resolved after this turn's
+    /// last combat, it never triggers, where `AtEndOfCombat` would wait for
+    /// the next turn's.
+    AtEndOfCombatThisTurn {
+        /// What the delayed trigger remembers.
+        about: TargetSpec,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -2179,6 +2190,47 @@ pub enum Effect {
         /// Grant haste to exactly the created objects until end of turn.
         haste: bool,
     },
+    /// "Create [amount] [token]s that are tapped and attacking" (Den of the
+    /// Bugbear's Goblin, Dalkovan Encampment's Warriors): the tokens enter
+    /// tapped and, during a combat of their controller's turn, attacking
+    /// (CR 508.4): for each one its controller chooses which defending
+    /// player or planeswalker it attacks (asked only with more than one
+    /// option). Put onto the battlefield attacking, they never "attacked":
+    /// no attack trigger hears them (CR 508.3a) and no declaration
+    /// requirement or restriction applies to them (CR 508.4c). Outside
+    /// combat, or under a player who is not attacking, they only enter
+    /// tapped (CR 506.3b). `sacrifice_at_next_end_step`: "Sacrifice them at
+    /// the beginning of the next end step", one delayed trigger per token,
+    /// each naming exactly that token.
+    CreateTokenAttacking {
+        /// The token.
+        token: &'static TokenDef,
+        /// How many, before token-creation replacements.
+        amount: Amount,
+        /// Sacrifice each at the beginning of the next end step.
+        sacrifice_at_next_end_step: bool,
+    },
+    /// "Whenever you attack this turn, [effects]" (Dalkovan Encampment): a
+    /// delayed triggered ability (CR 603.7) of this ability's controller,
+    /// with this ability's source, that triggers each time that player
+    /// declares one or more attacking creatures for the rest of the turn
+    /// (once per declaration, as `Trigger::OneOrMoreAttack` reads one), and
+    /// lapses with the turn.
+    WheneverYouAttackThisTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Then exile this artifact and those creature cards" (Sword of the
+    /// Ages): the source and every card a `CostPart::SacrificeX` of this
+    /// ability sacrificed, each from the graveyard it went to and only while
+    /// it is still that card there (CR 400.7); a token sacrificed is gone.
+    ExileSourceAndSacrificed,
+    /// "The next spell you cast this turn has improvise" (Archway of
+    /// Innovation): the controller's next spell cast this turn is cast with
+    /// improvise (CR 702.126a); it is spent by that cast whether or not an
+    /// artifact was tapped, and lapses with the turn. Instances are
+    /// redundant (CR 702.126c).
+    NextSpellThisTurnHasImprovise,
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.
@@ -2409,6 +2461,36 @@ pub enum Effect {
         cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
+    },
+    /// "That player may choose any number of tapped blue creatures they
+    /// control and pay {4} for each creature chosen this way. If the player
+    /// does, untap those creatures." (Magnetic Mountain): the player `who`
+    /// names chooses any number of their tapped permanents the filter
+    /// matches, then is asked to pay `each` once per chosen permanent, all
+    /// at once; paid, they untap; declined or unpaid, nothing happens.
+    UntapChosenPayingEach {
+        /// Who chooses and pays.
+        who: PlayerRel,
+        /// What may be chosen (tapped, controlled by that player).
+        filter: &'static Filter,
+        /// The price per chosen permanent.
+        each: ManaCost,
+    },
+    /// "Sacrifice this enchantment unless you pay {G} for each wind counter
+    /// on it. If you pay, …" (Cyclone): [`Effect::PlayerMayPayThenElse`]
+    /// with a coloured price repeated `times` (evaluated as this resolves),
+    /// the whole of it paid at once. A price of nothing (`times` 0) is paid.
+    PlayerMayPayManaEachThenElse {
+        /// Player offered the payment.
+        player: PlayerRel,
+        /// The price of one.
+        each: ManaCost,
+        /// How many of it.
+        times: Amount,
+        /// Effects after successful payment.
+        paid: &'static [Effect],
+        /// Effects if payment is declined or cannot be completed.
+        unpaid: &'static [Effect],
     },
     /// Offer a generic mana payment and execute exactly one outcome.
     /// The paid branch requires successful payment; refusal or failure runs unpaid.
@@ -2831,6 +2913,77 @@ pub enum Effect {
         /// One optional pick per filter, in this order.
         picks: &'static [&'static Filter],
     },
+    /// "Whenever [the target] is dealt damage by [a source the filter
+    /// matches] this turn, …" (Glyph of Life: "Choose target Wall creature.
+    /// Whenever that creature is dealt damage by an attacking creature this
+    /// turn, you gain that much life"): a delayed triggered ability
+    /// (CR 603.7) of this ability's controller that triggers each time the
+    /// first target, as the object it is now, is dealt damage this turn by a
+    /// source the filter matches as it deals it. "That much" is
+    /// [`Amount::EventAmount`].
+    WheneverTargetDealtDamageThisTurn {
+        /// Which sources count.
+        by: &'static Filter,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Choose a player who cast one or more [spell] spells this turn. [This]
+    /// deals damage to that player equal to half the damage dealt by one of
+    /// those spells this turn, rounded down" (Backdraft): the controller
+    /// chooses the player (asked only with more than one), then one of that
+    /// player's spells the filter matched as cast this turn (asked only with
+    /// more than one), and the source deals half the damage that spell dealt
+    /// this turn, rounded down.
+    DealHalfOfSpellDamage {
+        /// Which spells.
+        spell: &'static Filter,
+    },
+    /// "Attach target Aura attached to a creature or land to another
+    /// permanent of that type" (Enchantment Alteration): the controller
+    /// chooses, as this resolves, another permanent that shares a type in
+    /// `types` with the permanent the first target is attached to and that
+    /// the Aura could enchant, and attaches the Aura to it (CR 701.3). Only
+    /// the Aura is targeted; with no such permanent nothing moves.
+    MoveTargetAuraToAnother {
+        /// The types "of that type" may be.
+        types: baylee_core::types::TypeSet,
+    },
+    /// "Exchange life totals with target opponent" (Mirror Universe,
+    /// CR 701.12c): you and the player `with` names each gain or lose the
+    /// life needed to equal the other's previous total. With nobody named,
+    /// or when either change can't happen (a player who can't lose life, a
+    /// life total that can't change), nothing happens: the whole exchange or
+    /// none of it (CR 701.12a).
+    ExchangeLifeTotals {
+        /// The other player.
+        with: PlayerRel,
+    },
+    /// "… then [player] gains control of them" (Rohgahh of Kher Keep): every
+    /// permanent the filter matches, whoever controls it, comes under the
+    /// control of the player `to` names, for the rest of the game
+    /// (CR 613.1b, layer 2).
+    GainControlAll {
+        /// What changes hands.
+        filter: &'static Filter,
+        /// Who gains control.
+        to: PlayerRel,
+    },
+    /// "For each creature that died this way, put a creature card from the
+    /// graveyard of the player who controlled that creature the last time it
+    /// became blocked by that Wall onto the battlefield under its owner's
+    /// control" (Glyph of Reincarnation): for each creature this resolution
+    /// put into a graveyard from the battlefield, the player who controlled it
+    /// as it last became blocked by the reference object (the first target)
+    /// gives one card the filter matches from their graveyard; the
+    /// controller chooses those cards after every death, and they all enter
+    /// at once, each under its owner's control.
+    ReturnPerBlockedDeath {
+        /// What may be returned.
+        filter: &'static Filter,
+    },
+    /// "Destroy all Auras attached to them" (Gauntlets of Chaos): every Aura
+    /// attached to any of this resolution's targets, of either instance.
+    DestroyAurasOnTargets,
     /// "Choose a player with the most life or tied for most life" (The Black
     /// Gate): the controller chooses one of the players `among` names, asked
     /// only when there is more than one, and the rest of the resolution

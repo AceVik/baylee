@@ -194,6 +194,17 @@ pub enum Filter {
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,
+    /// Is of the colour the SOURCE object chose as it entered (Jihad's "a
+    /// nontoken permanent of the chosen color", with
+    /// `EnterModifier::ChooseColor`). A source with no chosen colour matches
+    /// nothing.
+    OfSourceChosenColor,
+    /// Shares at least one colour with a permanent on the battlefield the
+    /// inner filter matches, read with the same "you" (Invoke Prejudice:
+    /// "a creature spell that doesn't share a color with a creature you
+    /// control" is `Not(SharesAColorWith(&YOUR_CREATURE))`). A colourless
+    /// object shares a colour with nothing (CR 105.2c).
+    SharesAColorWith(&'static Filter),
     /// Shares at least one creature subtype with your commander (Path of
     /// Ancestry's scry rider).
     SharesSubtypeWithCommander,
@@ -286,6 +297,40 @@ pub enum Filter {
     PowerAtMostSourcePower,
     /// Attacking the effect controller directly, not their planeswalkers.
     AttackingYou,
+    /// The reference object itself: a resolving spell's or ability's first
+    /// target, else its triggering event's object; while a second target is
+    /// chosen, the first target (the engine's `RuleContext::reference`).
+    /// Nothing anywhere else. A continuous effect whose filter reads the
+    /// reference is bound to the objects it names as it resolves.
+    Reference,
+    /// Blocking the reference object now (Feint: "all creatures blocking
+    /// target attacking creature").
+    BlockingReference,
+    /// Was blocked by the reference object earlier this turn, both as the
+    /// objects they are now (CR 400.7): Glyph of Doom's and Glyph of
+    /// Reincarnation's "creatures that were blocked by target Wall this
+    /// turn".
+    BlockedByReferenceThisTurn,
+    /// Blocked the reference object earlier this turn, both as the objects
+    /// they are now: Glyph of Delusion's "target Wall [that] blocked [target
+    /// creature] this turn", as the second target's requirement.
+    BlockedReferenceThisTurn,
+    /// Was blocked earlier this turn by a creature that is still the object
+    /// it was and that the inner filter matches now (Glyph of Delusion's
+    /// first target, "creature that target Wall blocked this turn").
+    BlockedThisTurnBy(&'static Filter),
+    /// Attached to a permanent the inner filter matches, read with the same
+    /// "you" (Remove Enchantments: "all Auras you own attached to permanents
+    /// you control").
+    AttachedTo(&'static Filter),
+    /// Has a card type among `types` that the reference object also has
+    /// (Gauntlets of Chaos: "target permanent an opponent controls that
+    /// shares one of those types with it").
+    SharesTypeWithReference(TypeSet),
+    /// Dealt damage this turn to the source as the permanent it last was on
+    /// the battlefield, and is the same object that dealt it (Brine Hag:
+    /// "all creatures that dealt damage to it this turn").
+    DealtDamageToSourceThisTurn,
 }
 
 /// Zone references for filters (engine zones, DSL view).

@@ -39,7 +39,7 @@ card!(
                 ),
                 Effect::continuous(
                     &Filter::This,
-                    Modifier::AddColor(ColorSet::from_slice(&[Color::White, Color::Blue])),
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::White, Color::Blue])),
                     Duration::UntilEndOfTurn,
                 ),
                 Effect::continuous(

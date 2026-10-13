@@ -81,3 +81,22 @@ impl GameState {
         self.next_draw_offer()
     }
 }
+
+impl GameState {
+    /// The card `player` drew last this turn, while it is still in their hand
+    /// as the object it was drawn as (Jandor's Ring's "the last card you drew
+    /// this turn"). A card drawn later and kept is what counts; one drawn
+    /// last and gone means there is nothing to discard, not the one before.
+    #[must_use]
+    pub(crate) fn last_drawn_in_hand(&self, player: PlayerId) -> Option<ObjectId> {
+        let &(id, version) = self
+            .per_turn
+            .drawn
+            .iter()
+            .rev()
+            .find(|(id, _)| self.object(*id).is_some_and(|o| o.owner == player))?;
+        self.object(id)
+            .filter(|o| o.version == version && o.zone == super::Zone::Hand)
+            .map(|_| id)
+    }
+}
