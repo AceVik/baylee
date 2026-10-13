@@ -377,9 +377,11 @@ pub struct ListedSeat {
     /// The deck's first commander, a `CardIndex`.
     pub commander: Option<u32>,
     /// Whether the seat's player shares its hidden cards in this game's
-    /// replays ([`set_share`]); `None` while it never said, which is
-    /// shared (the default, owner 13.10.2026).
-    pub shared: Option<bool>,
+    /// replays: what it said ([`set_share`]), else the default, which is yes
+    /// for a game recorded from the `replay_share_cutoff` on and no for one
+    /// recorded before (owner, 13.10.2026). An AI seat is shared whatever
+    /// this says; the caller knows which seats are AI.
+    pub shared: bool,
 }
 
 /// One game an account sat at, as the replay list shows it.
@@ -422,6 +424,7 @@ pub struct SeatedGame {
 pub async fn seated_games(
     db: &impl ConnectionTrait,
     account: Uuid,
+    archived: bool,
     offset: u64,
     limit: u64,
 ) -> Result<(Vec<SeatedGame>, u64), DbErr> {
@@ -432,9 +435,9 @@ pub async fn seated_games(
         .query_one_raw(Statement::from_sql_and_values(
             backend,
             "SELECT count(DISTINCT s.game_id) AS n FROM game_record_seat s \
-             WHERE s.account_id = $1 AND NOT EXISTS ( \
-                 SELECT 1 FROM replay_hidden h WHERE h.account_id = $1 AND h.game_id = s.game_id)",
-            [account.into()],
+             WHERE s.account_id = $1 AND $2 = EXISTS ( \
+                 SELECT 1 FROM replay_archived h WHERE h.account_id = $1 AND h.game_id = s.game_id)",
+            [account.into(), archived.into()],
         ))
         .await?
         .map_or(Ok(0), |row| row.try_get("", "n"))?;
@@ -451,11 +454,11 @@ pub async fn seated_games(
              FROM game_record r \
              WHERE EXISTS (SELECT 1 FROM game_record_seat s \
                            WHERE s.game_id = r.game_id AND s.account_id = $1) \
-               AND NOT EXISTS (SELECT 1 FROM replay_hidden h \
-                               WHERE h.account_id = $1 AND h.game_id = r.game_id) \
+               AND $4 = EXISTS (SELECT 1 FROM replay_archived h \
+                                WHERE h.account_id = $1 AND h.game_id = r.game_id) \
              ORDER BY r.started_at DESC, r.game_id \
              OFFSET $2 LIMIT $3",
-            [account.into(), offset.into(), limit.into()],
+            [account.into(), offset.into(), limit.into(), archived.into()],
         ))
         .await?;
     let mut games = Vec::with_capacity(rows.len());
@@ -513,9 +516,12 @@ async fn listed_seats(
         .query_all_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
             "SELECT s.game_id, s.seat, s.account_id, s.delegated_by, s.seated, s.colours, \
-                    s.commander, a.display_name, a.tag, g.shared \
+                    s.commander, a.display_name, a.tag, \
+                    coalesce(g.shared, r.started_at >= \
+                        coalesce((SELECT c.at FROM replay_share_cutoff c), '-infinity')) AS shared \
              FROM game_record_seat s LEFT JOIN account a ON a.id = s.account_id \
              LEFT JOIN game_record_share g ON g.game_id = s.game_id AND g.seat = s.seat \
+             JOIN game_record r ON r.game_id = s.game_id \
              WHERE s.game_id = ANY($1) ORDER BY s.game_id, s.seat",
             [games.into()],
         ))
@@ -569,16 +575,28 @@ pub async fn set_share(
     Ok(done.rows_affected() == 1)
 }
 
-/// Hides `game_id` from `account`'s replay list ([`seated_games`]); the
-/// record stays. Hiding it again changes nothing.
+/// Archives `game_id` for `account` (moves it to its archived list,
+/// [`seated_games`] with `archived`), or takes it back out; the record and
+/// the other accounts' lists are untouched. Saying the same again changes
+/// nothing.
 ///
 /// # Errors
 ///
 /// When the statement fails.
-pub async fn hide(db: &impl ConnectionTrait, account: Uuid, game_id: &str) -> Result<(), DbErr> {
+pub async fn set_archived(
+    db: &impl ConnectionTrait,
+    account: Uuid,
+    game_id: &str,
+    archived: bool,
+) -> Result<(), DbErr> {
+    let sql = if archived {
+        "INSERT INTO replay_archived (account_id, game_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    } else {
+        "DELETE FROM replay_archived WHERE account_id = $1 AND game_id = $2"
+    };
     db.execute_raw(Statement::from_sql_and_values(
         db.get_database_backend(),
-        "INSERT INTO replay_hidden (account_id, game_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        sql,
         [account.into(), game_id.into()],
     ))
     .await?;

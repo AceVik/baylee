@@ -620,10 +620,11 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 
 | What | Where | Kept | Removed by |
 | --- | --- | --- | --- |
-| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely, for training the house AI and balancing decks (the owner's decision, 13.10.2026: never deleted) | nothing: a player's "delete" hides it from their list, an account's deletion anonymises it |
+| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely, for training the house AI and balancing decks (the owner's decision, 13.10.2026: never deleted) | nothing: a player archives it in their list, an account's deletion anonymises it |
 | Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
-| A seat's choice to show its hidden cards in that game's replays (`shared`; no row = shared, the default) | gateway Postgres `game_record_share` (game, seat, yes/no, when) | with the record, also after the account is deleted (the seat is anonymous then) | nothing; the player changes it (`PUT /replays/{game}/share`) |
-| A game an account hid from its replay list ("delete") | gateway Postgres `replay_hidden` (account id, game id, when) | until the account is deleted | the account's deletion |
+| A seat's choice to show its hidden cards in that game's replays (`shared`; no row = the default: yes for a game recorded from the beta.7 deploy on, no before) | gateway Postgres `game_record_share` (game, seat, yes/no, when) | with the record, also after the account is deleted (the seat is anonymous then) | nothing; the player changes it (`PUT /replays/{game}/share`) |
+| The moment from which an unsaid choice reads yes (the beta.7 deploy) | gateway Postgres `replay_share_cutoff` (one time) | indefinitely | nothing |
+| A game an account archived in its replay list | gateway Postgres `replay_archived` (account id, game id, when) | while archived, at most until the account is deleted | unarchiving, or the account's deletion |
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
@@ -703,12 +704,15 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   showed them, and a former player's seat as "Former player" once that
   account is gone. Which seats' hidden cards a tape holds is each seat's
   own choice, made per game in the end-of-game dialog or the Replays list
-  (`game_record_share`; **shared by default**: the box is ticked and a
-  player unticks it; an AI seat is always shared): a tape drawn from a seat
+  (`game_record_share`; by default **shared** in a game recorded from the
+  beta.7 deploy on, where the box is ticked and a player unticks it, and
+  **not shared** in one recorded before, whose terms promised nobody at the
+  table the recording; an AI seat is always shared): a tape drawn from a seat
   that unticked it, or all hands, holds only the public table for that
   seat, enforced on the gateway's side. A player's own seat is always shown
-  to that player. "Delete" in the Replays list hides a game from that
-  player's list (`replay_hidden`); the record is never deleted. Beside the record the gateway keeps what the list shows
+  to that player. A player archives a game in the Replays list
+  (`replay_archived`; still watchable from the archived list); the record
+  is never deleted. Beside the record the gateway keeps what the list shows
   (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
   `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
   game and card data, not personal, kept with the record. A deleted

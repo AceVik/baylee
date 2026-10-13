@@ -1894,20 +1894,21 @@ at, from any device: the gateway has the game's record (§"The game record
 what one perspective was sent. No tape is stored: a replay is computed when
 asked, and the record never leaves the gateway but to that engine. The
 record itself is **never deleted** (it trains the house AI and balances
-decks); a player's "delete" hides a game from their own list
-(§"`DELETE /replays/{game}`"), and an account's deletion anonymises its seats
+decks); a player archives a game (§"Archiving a game"), never deletes it,
+and an account's deletion anonymises its seats
 (the account link is cut). Which seats' hidden cards a tape may hold is each
 seat's own choice (§"Sharing a seat's hidden cards").
 
-### `GET /replays?offset=0&limit=20`
+### `GET /replays?offset=0&limit=20&archived=false`
 
 The account's seated games (a seat it played; one its seat bridge played
-does not count) that it has not hidden, newest first (`started_at desc,
-game_id`), `limit` at most 50 (default 20):
+does not count) that it has not archived, or with `archived=true` only the
+ones it archived; newest first (`started_at desc, game_id`), `limit` at most
+50 (default 20); `total` counts the same list:
 
 ```json
 {"games":[{"game":"0199c8…","started_at":"2026-10-13T18:31:02Z","ended_at":"2026-10-13T19:02:40Z",
-  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,
+  "complete":true,"seat":1,"turn":12,"result":"lost","public":true,"archived":false,
   "check":"exact","build":"0.8.0+build.212 (3f9a1c7e21)",
   "seats":[{"seat":0,"who":"player","name":"Bob#0012","commander":null,"shared":false,"mine":false},
            {"seat":1,"who":"you","name":"Alice#af03","colours":"G","commander":null,"shared":true,"mine":true},
@@ -1931,16 +1932,19 @@ game_id`), `limit` at most 50 (default 20):
 - `public`: whether the account may ask the public perspective; every
   seated account may in v1.
 - `shared`: the seat's consent to show its hidden cards in this game's
-  replays (§"Sharing a seat's hidden cards"); `true` unless its player
-  unticked it, always `true` for `house` and `model`. `mine`: the asking account played this seat.
+  replays (§"Sharing a seat's hidden cards"), as said or by default; always
+  `true` for `house` and `model`. `mine`: the asking account played this
+  seat. `archived`: which of the two lists this is.
 
-### `DELETE /replays/{game}`
+### Archiving a game
 
-Hides the game from the asking account's list, and nothing else: the record
-stays (it is never deleted), other players' lists are unchanged, and the
-account's own tapes of it are still answered. `204` (also when already
-hidden); `403` the account sat at no seat of that game; `404` no such game.
-One `replay_hidden` row, which goes with the account. No unhide in v1.
+`PUT /replays/{game}/archived` `{"archived": true|false}` (any other field is
+`400`) moves the game to the asking account's archived list (`GET
+/replays?archived=true`) or back, and nothing else: the record stays (it is
+never deleted), other players' lists are unchanged, and an archived game's
+tapes are answered as before. `200 {"archived": bool}` (also when it already
+was); `403` the account sat at no seat of that game; `404` no such game. One
+`replay_archived` row while archived, which goes with the account.
 
 ### Sharing a seat's hidden cards
 
@@ -1951,9 +1955,13 @@ deck as the print table earns it) in that game's replays. The seat is the
 one `game_record_seat` names for the account, never the request's. `200
 {"seat": n, "shared": bool}`; `403` the account sat at no seat of that game;
 `404` no such game. Any time, also while the game is played (the end-of-game
-dialog shows it ticked). Default **shared** (the box is ticked; a player
-unticks it): a seat that never said, in any record, old ones too, is
-shared. An AI seat (the house, a host's seat bridge, a hosted model) is
+dialog shows it ticked). A seat that never said is **shared in a game
+recorded from the beta.7 deploy on** (the box is ticked; a player unticks
+it) and **not shared in one recorded before** (the terms those games were
+played under promised nobody at the table the recording; owner,
+13.10.2026). The moment is stored once, when migration 000019 runs
+(`replay_share_cutoff`), and compared with the record's `started_at`. An
+explicit choice overrides either default. An AI seat (the house, a host's seat bridge, a hosted model) is
 always shared. Stored per game and seat
 (`game_record_share`); a consent stays when the account is deleted.
 
@@ -1969,8 +1977,8 @@ far it is the recorded game).
 
 **Whose hidden cards a tape holds** is decided by the gateway and enforced
 by the projection: a seat's hidden cards appear only where that seat is the
-asker's own, an AI seat, or `shared` (the default; a player who unticked it
-is not). With **S** that set of seats:
+asker's own, an AI seat, or `shared` (as said, else by default: yes from
+the beta.7 deploy on, no before). With **S** that set of seats:
 
 - `seat`, the drawn seat in **S**: exactly what a socket at that seat was
   sent (its hand, what it looked at, its face-down cards, its log).
