@@ -259,7 +259,6 @@ mod unholy_grotto;
 mod unstable_frontier;
 mod urban_retreat;
 mod urborg;
-mod urza_s_fun_house;
 mod valakut_the_molten_pinnacle;
 mod vault_of_the_archangel;
 mod veldt;
@@ -277,6 +276,85 @@ mod witch_s_clinic;
 mod witch_s_cottage;
 mod yavimaya_hollow;
 mod zhalfirin_void;
+
+/// Whether player 0 is offered ability `index` of `source` right now.
+fn p0_offered(e: &Engine<RegistryLookup>, source: ObjectId, index: u32) -> bool {
+    matches!(
+        e.pending(),
+        Pending::Priority { player, legal }
+            if *player == PlayerId::new(0) && legal.abilities.contains(&(source, index))
+    )
+}
+
+/// The direct attempt of player 0 at ability `index` of `source`: refused,
+/// and the game state is left exactly as it was.
+#[track_caller]
+fn assert_p0_refused(e: &mut Engine<RegistryLookup>, source: ObjectId, index: u32) {
+    let before = e.state().snapshot_hash();
+    assert!(
+        e.apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: index,
+            },
+        )
+        .is_err(),
+        "ability {index} is refused outside sorcery timing"
+    );
+    assert_eq!(e.state().snapshot_hash(), before, "and nothing changed");
+}
+
+/// "Activate only as a sorcery" (CR 307.5, 602.5d): with its price floating,
+/// ability `index` of `source` is offered to player 0 in their own main phase
+/// with an empty stack, and not with a spell on the stack, nor in the
+/// opponent's main phase.
+///
+/// Player 0's hand must hold a Llanowar Elves (the spell put on the stack); no
+/// mana in `price` may be green.
+#[track_caller]
+fn assert_sorcery_timing_only(
+    e: &mut Engine<RegistryLookup>,
+    source: ObjectId,
+    index: u32,
+    price: &[(ManaColor, u32)],
+) {
+    use crate::engine::card_tests::legends_kit as kit;
+    kit::float(e, kit::P0, price);
+    assert!(
+        p0_offered(e, source, index),
+        "control: on offer in the own main phase with an empty stack"
+    );
+
+    kit::float(e, kit::P0, &[(ManaColor::Green, 1)]);
+    cast_with_floating(e, kit::P0, llanowar_elves());
+    assert!(!stack_is_empty(e), "the Elves wait on the stack");
+    assert!(
+        !p0_offered(e, source, index),
+        "not offered with a spell on the stack, price floating"
+    );
+    assert_p0_refused(e, source, index);
+
+    pass_until(e, stack_is_empty);
+    kit::float(e, kit::P0, &[]);
+    assert!(
+        p0_offered(e, source, index),
+        "control: the price was still floating, so the stack was the only bar"
+    );
+
+    pass_until(e, |e| {
+        e.state().turn.active == kit::P1
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0)
+    });
+    assert!(stack_is_empty(e), "an empty stack in their main phase");
+    kit::float(e, kit::P0, price);
+    assert!(
+        !p0_offered(e, source, index),
+        "not offered in the opponent's main phase, price floating"
+    );
+    assert_p0_refused(e, source, index);
+}
 
 #[test]
 fn flash_lands_unlock_their_printed_spell_types_until_cleanup() {

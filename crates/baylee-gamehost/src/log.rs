@@ -1410,6 +1410,7 @@ mod tests {
                 zone: baylee_cards_dsl::TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+                resolves_if_targets_illegal: false,
             },
             AbilityDef::Triggered {
                 trigger: Trigger::EntersBattlefield(&SELF_ONLY),
@@ -1419,6 +1420,7 @@ mod tests {
                 zone: baylee_cards_dsl::TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+                resolves_if_targets_illegal: false,
             },
         ],
         ..CardDef::DEFAULT

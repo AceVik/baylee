@@ -8,6 +8,73 @@ use super::{
 };
 
 impl<L: CardLookup> Engine<L> {
+    /// `PlayerAction::PayWindow`: the window's mana abilities and their
+    /// answers, then its settlement, as one action.
+    ///
+    /// Every step goes through the door it would take alone
+    /// ([`Self::take_answer`]), so nothing about a mana ability is decided
+    /// twice. The all-or-nothing half is [`Self::apply`]'s: it took a
+    /// checkpoint before this ran and restores it on any refusal returned
+    /// here, the journal cut back with it. So a refusal needs only to be
+    /// returned, at whatever step it is found.
+    pub(super) fn pay_window(
+        &mut self,
+        actor: PlayerId,
+        player: PlayerId,
+        steps: Vec<crate::choice::PlayerAction>,
+    ) -> Result<(), EngineError> {
+        let in_own_window = |engine: &Self| {
+            engine
+                .mana_window
+                .as_ref()
+                .is_some_and(|w| w.player == player)
+                && matches!(engine.pending, Pending::Priority { player: p, .. } if p == player)
+        };
+        if !in_own_window(self) {
+            return Err(EngineError::IllegalAction(
+                "no payment window is open for this seat",
+            ));
+        }
+        if self
+            .mana_window
+            .as_ref()
+            .is_some_and(|w| matches!(w.suspended, PaymentContinuation::LandMana(_)))
+        {
+            return Err(EngineError::IllegalAction(
+                "this window owes no payment to settle",
+            ));
+        }
+        for step in steps {
+            if !step.is_payment_step() {
+                return Err(EngineError::IllegalAction(
+                    "a payment carries only mana abilities and their answers",
+                ));
+            }
+            self.take_answer(actor, step)?;
+            if self.mana_window.as_ref().is_none_or(|w| w.player != player) {
+                return Err(EngineError::IllegalAction(
+                    "a payment step closed its own window",
+                ));
+            }
+        }
+        if !in_own_window(self) {
+            return Err(EngineError::IllegalAction(
+                "a payment step left its question unanswered",
+            ));
+        }
+        self.awaiting_answer = false;
+        if self.close_mana_window()? != WindowClose::Paid {
+            return Err(EngineError::IllegalAction(
+                "the payment does not cover what is owed",
+            ));
+        }
+        self.run_until_choice();
+        if !self.library_announcement_open() {
+            self.library_action_tops = None;
+        }
+        Ok(())
+    }
+
     /// Opens an arbitrary payment's mana opportunity before automation or
     /// a host can observe the suspended numeric choice.
     pub(super) fn open_variable_mana_window(&mut self) {
@@ -71,13 +138,15 @@ impl<L: CardLookup> Engine<L> {
         self.can_pay_mana(player, casting::SpendFor::Other, cost)
     }
 
-    /// Ends a payment window and settles the payment it was opened for.
+    /// Ends a payment window and settles the payment it was opened for, and
+    /// says how it settled ([`WindowClose`]).
     ///
     /// The player is taken at their word only as far as their pool goes: a
     /// window they leave short pays nothing and takes the effect's other
     /// branch, which is the same outcome as declining and is what the card
-    /// prints.
-    pub(super) fn close_mana_window(&mut self) -> Result<(), EngineError> {
+    /// prints. Passing takes that outcome; `PlayerAction::PayWindow` refuses
+    /// it and is undone whole.
+    pub(super) fn close_mana_window(&mut self) -> Result<WindowClose, EngineError> {
         // "The player plays that card if able" (Word of Command): while the
         // commanded card's price can still be paid and the pool does not
         // pay it yet, closing the window gives up a card the player is able
@@ -94,7 +163,7 @@ impl<L: CardLookup> Engine<L> {
         // decoration: it is what caught #167, where a mana ability that asked
         // a colour had taken the slot this resolution was waiting in.
         let Some(window) = self.mana_window.take() else {
-            return Ok(());
+            return Ok(WindowClose::Open);
         };
         let mut res = match window.suspended {
             PaymentContinuation::LandMana(work) => {
@@ -102,17 +171,17 @@ impl<L: CardLookup> Engine<L> {
                     player: window.player,
                     suspended: PaymentContinuation::LandMana(work),
                 });
-                return Ok(());
+                return Ok(WindowClose::Open);
             }
             PaymentContinuation::Tax(res) => *res,
             PaymentContinuation::Activation(payment) => {
-                self.finish_activation_payment(window.player, *payment);
-                return Ok(());
+                let paid = self.finish_activation_payment(window.player, *payment);
+                return Ok(WindowClose::settled(paid));
             }
             PaymentContinuation::GrantedAction { id, .. } => {
-                self.state.take_granted_action(window.player, id);
+                let paid = self.state.take_granted_action(window.player, id);
                 self.after_action(window.player);
-                return Ok(());
+                return Ok(WindowClose::settled(paid));
             }
             PaymentContinuation::Miracle {
                 wizard,
@@ -120,14 +189,17 @@ impl<L: CardLookup> Engine<L> {
                 opened,
                 ..
             } => {
-                return self.finish_miracle_payment(&wizard, version, &opened);
+                let paid = self.finish_miracle_payment(&wizard, version, &opened)?;
+                return Ok(WindowClose::settled(paid));
             }
             PaymentContinuation::Pact { cost, source } => {
                 let what = source.map_or(casting::SpendFor::Other, casting::SpendFor::OtherFrom);
-                if casting::pay_mana_for(&mut self.state, window.player, what, &cost).is_none() {
+                let paid =
+                    casting::pay_mana_for(&mut self.state, window.player, what, &cost).is_some();
+                if !paid {
                     let _ = sba::lose_by_effect(&mut self.state, window.player);
                 }
-                return Ok(());
+                return Ok(WindowClose::settled(paid));
             }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
@@ -141,13 +213,13 @@ impl<L: CardLookup> Engine<L> {
                 opened,
             } => {
                 let start = (*opened).clone();
-                if self
+                let paid = self
                     .start_paid_cast(window.player, card, version, then_no_more_spells, opened)
-                    .is_err()
-                {
+                    .is_ok();
+                if !paid {
                     self.give_back_window(window.player, &start);
                 }
-                return Ok(());
+                return Ok(WindowClose::settled(paid));
             }
         };
         let paid = self.can_settle_tax(&res);
@@ -167,7 +239,8 @@ impl<L: CardLookup> Engine<L> {
             };
             self.resolution = Some(res);
             self.awaiting_answer = true;
-            return Ok(());
+            // No fixed debt: what is paid is the number asked next.
+            return Ok(WindowClose::Paid);
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Enter => {
@@ -183,7 +256,7 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
-        Ok(())
+        Ok(WindowClose::settled(paid))
     }
 
     /// Where a window `player` is about to pay in begins
@@ -258,5 +331,24 @@ impl<L: CardLookup> Engine<L> {
             .clone_from(&opened.constrained);
         self.trigger_queue.truncate(opened.triggers);
         true
+    }
+}
+
+/// How a payment window settled as it closed ([`Engine::close_mana_window`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum WindowClose {
+    /// The payment it was opened for was made.
+    Paid,
+    /// It closed short: the effect's other branch, a reversed cast or
+    /// activation, a Pact's loss.
+    Short,
+    /// It is still open (a land-mana instruction's window, which passing
+    /// does not end).
+    Open,
+}
+
+impl WindowClose {
+    const fn settled(paid: bool) -> Self {
+        if paid { Self::Paid } else { Self::Short }
     }
 }

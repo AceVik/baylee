@@ -334,6 +334,7 @@ impl Reading<'_> {
 /// builder on every hover would mean tearing down two hundred rows to show
 /// one picture.
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+#[allow(clippy::too_many_lines)] // one picture, top to bottom
 pub(super) fn preview(
     mut commands: Commands,
     hovered: Res<Hovered>,
@@ -375,7 +376,13 @@ pub(super) fn preview(
 
     let bubble = spot.as_deref().and_then(|s| s.bubble);
     let rect = place_clear(hovered.at, canvas, bubble);
-    let (left, top, width, height) = (rect.min.x, rect.min.y, rect.width(), rect.height());
+    let (turning, rect, card_box) = standing(card, text.is_none(), rect, hovered.at, canvas);
+    let (left, top, width, height) = (
+        card_box.min.x,
+        card_box.min.y,
+        card_box.width(),
+        card_box.height(),
+    );
 
     // The frame that turns: it holds the position and the scale, and each
     // face fills it. Two nodes rather than one swapped material, so the back
@@ -388,7 +395,11 @@ pub(super) fn preview(
                 rect,
                 takes_pointer: text.is_some(),
             },
-            crate::flip::Flip::default(),
+            crate::flip::Flip {
+                reading: turning,
+                ..default()
+            },
+            crate::flip::rest_transform(turning),
             Node {
                 position_type: PositionType::Absolute,
                 left: px(left),
@@ -453,10 +464,58 @@ pub(super) fn preview(
     {
         face(url, crate::flip::Side::Front);
     }
-    let back = card.back_url.clone().unwrap_or_else(|| {
-        baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
-    });
-    face(&back, crate::flip::Side::Back);
+    // A card read by rotating has no back to turn to: the owner's rule for a
+    // card with two faces on its front.
+    if turning.over {
+        let back = card.back_url.clone().unwrap_or_else(|| {
+            baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
+        });
+        face(&back, crate::flip::Side::Back);
+    }
+}
+
+/// How the hovered printing stands in the preview placed at `upright`: its
+/// reading (owner, 13.10.2026: a split card or a battle lies across, a flip
+/// or an Aftermath card rotates to its other half under shift; only a scan
+/// is turned, `picture`), the preview's box — landscape for a card lying
+/// across, beside the pointer — and the card's own, upright box inside it,
+/// which is the frame's.
+fn standing(
+    card: &HoverCard,
+    picture: bool,
+    upright: Rect,
+    at: Vec2,
+    canvas: Vec2,
+) -> (crate::flip::Reading, Rect, Rect) {
+    let turning = match card.index {
+        Some(index) if picture => crate::flip::Reading::of(
+            baylee_cards::sides::quarter_turns(baylee_core::ids::CardIndex::new(index)),
+            0,
+            card.back_url.is_some(),
+        ),
+        _ => crate::flip::Reading::UPRIGHT,
+    };
+    if !turning.lies_across() {
+        return (turning, upright, upright);
+    }
+    let rect = across(upright, at, canvas);
+    let size = Vec2::new(rect.height(), rect.width());
+    (turning, rect, Rect::from_center_size(rect.center(), size))
+}
+
+/// The preview's place `upright` turned into a landscape one for a card
+/// lying across: as wide as the upright card is tall, on the same side of
+/// the pointer, centred on the same height, inside the window.
+fn across(upright: Rect, at: Vec2, canvas: Vec2) -> Rect {
+    let (wide, tall) = (upright.height(), upright.width());
+    let left = if upright.min.x >= at.x {
+        upright.min.x
+    } else {
+        upright.max.x - wide
+    };
+    let left = left.clamp(8.0, (canvas.x - wide - 8.0).max(8.0));
+    let top = (upright.center().y - tall / 2.0).clamp(8.0, (canvas.y - tall - 8.0).max(8.0));
+    Rect::new(left, top, left + wide, top + tall)
 }
 
 /// [`place`], clear of the tour's bubble where it can be (09.10.: a preview

@@ -696,6 +696,56 @@ taken back and its mana abilities stand. The player keeps priority
 object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would
 reveal a card in a hidden hand.
 
+## Paying a window in one action (`PlayerAction::PayWindow`, protocol 30)
+
+Every payment window — a spell's own cost (CR 601.2g-h, the `payable` road
+above), an activation's (CR 602.2b), and every "pay or …" price (CR 605.3a:
+Rhystic Study, Esper Sentinel, Smothering Tithe, Pact of Negation's upkeep,
+ward) — takes one action that pays it whole:
+
+```text
+PlayerAction::PayWindow { steps: Vec<PlayerAction> }
+```
+
+The decision before the window is unchanged: a "pay or …" price is still a
+`Pending::YesNo` (`YesNoPrompt::PayTax`, `PayPact`, …). No pays nothing. Yes
+pays at once when the pool already covers the price, and otherwise opens the
+window: a `Pending::Priority` narrowed to mana abilities, with
+`PlayerView::owed` naming the whole price (the section below). While it is
+open the client stages taps locally — the offer's `mana_abilities` and
+`abilities` are the sources it may use, and the remaining cost is the owed
+price less what is staged and what already floats — and a mistaken tap is
+simply un-staged. Nothing reaches the engine until the player confirms.
+
+`steps` are the actions the seat would have sent one at a time in that
+window, in the order they apply: `ActivateManaAbility`, `ActivateAbility` (a
+mana ability: the window offers nothing else), `TakeGrantedAction`, and the
+answers the activations ask for, each straight after the activation that
+asks it (`ChooseColor` for "one mana of any color", `ChooseMode`,
+`ChooseNumber`, `YesNo`, `ChooseObjects`, `ChoosePlayer`). Each step is
+checked and applied exactly as it would be alone, so its side effects happen
+in the listed order and only because the payment went through: a painland's
+damage, a Mana Confluence's life, a sacrificed Treasure, a triggered mana
+ability. The journal records the individual activations, so a replay or a
+log reads them as if they had been sent one by one. Mana floating before the
+window counts toward the price, and an empty `steps` pays from the pool
+alone.
+
+After the last step the window must stand on its own priority again (no
+question left open), and then it settles as passing would. If any step is
+refused, a step's question is left unanswered, a step closes the window, or
+the pool then does not pay what is owed, the whole action is refused
+(`EngineError::IllegalAction`, in one sentence) and the game is exactly as it
+was before it arrived — nothing tapped, made or paid, the journal unchanged
+— with the window still open for a payment that does cover it. Outside the
+seat's own payment window the action is refused the same way. Passing the
+window keeps its old meaning (short is unpaid: the effect's other branch, a
+reversed cast), and the one-at-a-time actions keep working, which is how the
+house AI and the seat bridge pay.
+
+`Pending::answer_fault` checks the action's shape only (every step one of the
+kinds above); whether a window is open is the engine's check.
+
 ## What a seat owes (view version 24)
 
 A player who agrees to pay ward's tax is handed a mana window (CR 605.3a) so

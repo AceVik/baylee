@@ -545,9 +545,13 @@ fn gather(
     });
     Gathered {
         build: build(),
+        // A replay of a hosted game names the gateway's game (its host's
+        // `game_id`), so the gateway attaches its own record when the
+        // reporter sat there.
         game_id: statics
             .filter(|_| networked)
-            .map(|statics| statics.game_id.clone()),
+            .map(|statics| statics.game_id.clone())
+            .or_else(|| host.and_then(|h| h.0.game_id()).map(str::to_owned)),
         system: Some(system(window, adapter, &settings.lang)),
         game,
         log,

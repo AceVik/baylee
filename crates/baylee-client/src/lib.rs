@@ -88,6 +88,7 @@ pub mod platemat;
 pub mod prefs;
 pub mod quality;
 pub(crate) mod records;
+pub mod replay;
 pub mod report;
 pub mod rowbar;
 #[cfg(not(target_arch = "wasm32"))]
@@ -258,8 +259,14 @@ pub enum Proposing<'a> {
     Nothing,
     /// A deed waiting on its second tap.
     Armed(&'a Armed),
-    /// An open payment window, and the taps that would settle it.
-    Owed(&'a baylee_client_core::manaplan::Plan),
+    /// An open payment window: the taps staged in it, and the taps "Pay
+    /// now" would add to them.
+    Owed {
+        /// What "Pay now" would stage, when anything plans the rest.
+        plan: Option<&'a baylee_client_core::manaplan::Plan>,
+        /// What is staged, in staging order.
+        staged: &'a [baylee_client_core::manaplan::Step],
+    },
 }
 
 /// Who is offering this seat a card that lies in a pile, if anyone.
@@ -335,12 +342,6 @@ pub enum RunEnd {
     /// pip is pressed, and `asking` answers the engine's `ChooseColor` on the
     /// very next frame.
     Float,
-    /// Settle a payment window (CR 605.3a, `PlayerView::owed`): once the
-    /// taps are made, pass, which is what pays it — a miracle is cast, a tax
-    /// paid. The pass is sent only after the last tap, so the engine hears
-    /// "pay" with the mana already floating; a run that stops early leaves
-    /// the window open and the player to finish it.
-    Settle,
 }
 
 /// The client's own question: which of several ways to cast one card.
@@ -919,6 +920,21 @@ pub struct Duel {
     /// the two arrive in either order. [`Self::refresh_owed_plan`] is called
     /// from both for that reason, and neither one alone is enough.
     pub owed_plan: Option<baylee_client_core::manaplan::Plan>,
+    /// The taps staged in this seat's open payment window, in the order
+    /// they will be sent (`client-core::paystage`). Nothing in it has
+    /// reached the engine: Go sends it whole as one
+    /// `PlayerAction::PayWindow`, and until then every tap can be taken
+    /// back. Kept across a refused payment — the engine hands the same
+    /// window back, and the player corrects the staging rather than
+    /// building it again.
+    pub pay_staged: baylee_client_core::paystage::Staging,
+    /// The window [`Self::pay_staged`] belongs to, by what it owes: a new
+    /// window starts with nothing staged.
+    pay_window: Option<baylee_core::mana::ManaCost>,
+    /// What this seat said yes to just before its window opened — a pact's
+    /// debt, a tax — so "Don't pay" can say what declining costs. The window
+    /// itself is a bare priority and carries none of it.
+    pay_reason: Option<baylee_engine::choice::YesNoPrompt>,
     /// What this seat could tap the last time it held priority, kept past
     /// it for a cast's X question: that question carries no mana abilities
     /// of its own (only priority does), and the mana it is paid with is made
@@ -944,6 +960,10 @@ pub struct Duel {
     /// a disconnected player cannot make, so the notice would have outlived
     /// the disconnection it described.
     pub link_note: Option<LinkNote>,
+    /// Where the replay this table plays stands (`docs/client.md`
+    /// §"Replays"), as its host last said; `None` at a live table. Written
+    /// by `poll_host` only when it differs: the transport bar reads it.
+    pub replay: Option<replay::ReplayStatus>,
 }
 
 impl Duel {
@@ -1081,6 +1101,21 @@ impl Duel {
         // And a grant that only hands this action back says nothing
         // (DESIGN-v7 §4.3, rule 3).
         self.cues.note_own_action();
+        // A "pay or …" answered yes opens the window "Don't pay" will have
+        // to name the price of; any other answer to a yes-or-no forgets it.
+        if let PlayerAction::YesNo(yes) = &action
+            && let Some(Pending::YesNo { prompt, .. }) =
+                self.interaction.as_ref().map(Interaction::pending)
+        {
+            self.pay_reason = (*yes
+                && matches!(
+                    prompt,
+                    baylee_engine::choice::YesNoPrompt::PayPact { .. }
+                        | baylee_engine::choice::YesNoPrompt::PayTax { .. }
+                        | baylee_engine::choice::YesNoPrompt::PayMana { .. }
+                ))
+            .then_some(*prompt);
+        }
         self.outbox.push(action);
     }
 
@@ -1227,24 +1262,191 @@ impl Duel {
     /// pool, which is the reason the view carries the total in the first
     /// place.
     pub(crate) fn refresh_owed_plan(&mut self) {
+        self.keep_staging();
         self.owed_plan = self.compute_owed_plan();
     }
 
-    fn compute_owed_plan(&self) -> Option<baylee_client_core::manaplan::Plan> {
+    /// The fixed cost this seat's own open window owes, if one is open.
+    fn owed_cost(&self) -> Option<baylee_core::mana::ManaCost> {
         let view = self.view.as_ref()?;
         // Only while this seat is the one being asked. `owed` names what the
         // *awaited* seat owes, and the pair is one sentence.
         if view.awaiting != Some(view.seat) {
             return None;
         }
-        let baylee_core::mana::ManaPayment::Fixed(cost) = view.owed? else {
-            return None;
+        match view.owed? {
+            baylee_core::mana::ManaPayment::Fixed(cost) => Some(cost),
+            baylee_core::mana::ManaPayment::AnyAmount { .. } => None,
+        }
+    }
+
+    /// Keeps the staging in step with the window it is for: emptied when the
+    /// window closes or another opens, and rid of every tap the engine no
+    /// longer offers. A refused payment hands the same window back with the
+    /// same sources, so what the player staged survives it.
+    fn keep_staging(&mut self) {
+        let Some(cost) = self.owed_cost() else {
+            if self.pay_window.take().is_some() {
+                self.pay_reason = None;
+            }
+            self.pay_staged.clear();
+            return;
         };
-        let legal = self.interaction.as_ref()?.legal_actions()?;
+        if self.pay_window != Some(cost) {
+            self.pay_window = Some(cost);
+            self.pay_staged.clear();
+        }
+        if let Some(legal) = self
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+        {
+            self.pay_staged.keep_offered(legal);
+        }
+    }
+
+    /// The pool, and what this seat could tap, for the payment it owes.
+    fn payment_inputs(
+        &self,
+    ) -> Option<(
+        baylee_core::mana::ManaCost,
+        baylee_view::ManaPoolView,
+        Vec<baylee_client_core::manaplan::Source>,
+    )> {
+        let cost = self.owed_cost()?;
+        let view = self.view.as_ref()?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
-        baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+        let sources = self
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .map(|legal| manasources::sources(view, legal))
+            .unwrap_or_default();
+        Some((cost, pool, sources))
+    }
+
+    /// What "Pay now" would stage: the taps that pay what the pool and the
+    /// staged taps leave owing, over the sources not staged yet.
+    fn compute_owed_plan(&self) -> Option<baylee_client_core::manaplan::Plan> {
+        self.interaction.as_ref()?.legal_actions()?;
+        let (cost, pool, sources) = self.payment_inputs()?;
+        self.pay_staged.suggest(&cost, &pool, &sources)
+    }
+
+    /// What the window still owes once the pool and the staged taps have
+    /// paid what they can; empty when they cover it. `None` outside this
+    /// seat's own fixed-cost window.
+    #[must_use]
+    pub fn payment_remaining(&self) -> Option<Vec<baylee_core::mana::ManaSymbol>> {
+        let (cost, pool, sources) = self.payment_inputs()?;
+        Some(self.pay_staged.remaining(&cost, &pool, &sources))
+    }
+
+    /// Whether the pool and the staged taps pay what is owed, so that Go is
+    /// the answer rather than "Pay now".
+    #[must_use]
+    pub fn staged_covers(&self) -> bool {
+        self.payment_inputs()
+            .is_some_and(|(cost, pool, sources)| self.pay_staged.covers(&cost, &pool, &sources))
+    }
+
+    /// Stages a tap in the open window, or takes it back when its permanent
+    /// is staged already. Nothing is sent. Returns whether anything changed.
+    pub fn stage(&mut self, step: baylee_client_core::manaplan::Step) -> bool {
+        if !self.paying() || self.mana_run.is_some() {
+            return false;
+        }
+        self.pay_staged.toggle(step);
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
+    /// Stages a granted mana action in the open window, or takes it back.
+    /// Nothing is sent. Returns whether the window took it.
+    pub fn stage_granted(&mut self, granted: baylee_client_core::paystage::GrantedMana) -> bool {
+        if !self.paying() || self.mana_run.is_some() {
+            return false;
+        }
+        self.pay_staged.toggle_granted(granted);
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
+    /// Takes back the staged tap of `source`, if there is one.
+    pub fn unstage(&mut self, source: ObjectId) -> bool {
+        if !self.pay_staged.unstage(source) {
+            return false;
+        }
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
+    /// Takes back every staged tap (`Esc`, the shelf's undo). Returns whether
+    /// anything was staged.
+    pub fn unstage_all(&mut self) -> bool {
+        if self.pay_staged.is_empty() {
+            return false;
+        }
+        self.pay_staged.clear();
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
+    /// "Pay now": stages the plan for whatever the pool and the staged taps
+    /// leave owing, visibly and without sending anything. Returns whether a
+    /// plan was staged.
+    pub fn stage_owed_plan(&mut self) -> bool {
+        let Some(plan) = self.owed_plan.clone().filter(|p| !p.is_empty()) else {
+            return false;
+        };
+        self.pay_staged.extend(&plan);
+        self.last_error = None;
+        self.owed_plan = self.compute_owed_plan();
+        true
+    }
+
+    /// Go: sends the staged taps, in staging order, as one
+    /// `PlayerAction::PayWindow`. The engine applies them all and settles
+    /// the window, or refuses the whole of it in one sentence and hands the
+    /// same window back — with the staging still here to correct.
+    pub fn send_payment(&mut self) -> bool {
+        if !self.paying() || self.mana_run.is_some() {
+            return false;
+        }
+        let Some(steps) = self
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .and_then(|legal| self.pay_staged.wire(legal))
+        else {
+            self.last_error = Some(Refusal::Said(Phrase::PlanLandGone));
+            return false;
+        };
+        self.submit(PlayerAction::PayWindow { steps });
+        true
+    }
+
+    /// What declining this window costs, as far as this client knows: a
+    /// cast is taken back, a pact's debt loses the game. `None` where the
+    /// effect's other branch is the card's to say.
+    #[must_use]
+    pub fn declining_costs(&self) -> Option<Phrase> {
+        if !self.paying() {
+            return None;
+        }
+        if self.view.as_ref().is_some_and(|v| v.casting.is_some()) {
+            return Some(Phrase::DeclinePaymentCast);
+        }
+        match self.pay_reason {
+            Some(baylee_engine::choice::YesNoPrompt::PayPact { .. }) => Some(Phrase::DeclinePact),
+            _ => None,
+        }
     }
 
     /// Whether this seat is in a payment window it owes a fixed amount in
@@ -1283,67 +1485,23 @@ impl Duel {
         self.submit(PlayerAction::CancelCast);
     }
 
-    /// Pays what a payment window still owes: taps the owed plan's lands,
-    /// then passes, which settles it ([`RunEnd::Settle`]). The confirm key
-    /// and the shelf's pay button both come here.
-    ///
-    /// The plan is for the **remainder**: it is worked out against the pool
-    /// (`manaplan::plan` spends the pool first), so lands the player tapped
-    /// by hand are already counted and only the rest is tapped. With nothing
-    /// left to tap, or nothing that could pay, it is a plain pass — the
-    /// first pays, the second declines, which is the engine's to say.
-    ///
-    /// Returns whether a run was started; `false` means the caller sends the
-    /// pass itself.
-    pub fn pay_owed(&mut self) -> bool {
-        if !self.paying() || self.mana_run.is_some() {
-            return false;
-        }
-        let Some(plan) = self.owed_plan.clone().filter(|p| !p.is_empty()) else {
-            return false;
-        };
-        let Some(first) = plan.steps.first().map(|s| s.source) else {
-            return false;
-        };
-        self.mana_run = Some(ManaRun::new(plan, first, RunEnd::Settle));
-        advance_mana_run(self);
-        true
-    }
-
     /// What a confirm press does in a payment window, by key or by button.
     ///
-    /// Taps what the plan says and settles ([`Self::pay_owed`]); with nothing
-    /// to tap, settles only if the pool already covers what is owed. A press
-    /// that would pass the window short sends nothing and says why (#01):
-    /// passing it is declining it, and declining is the other button's.
+    /// Go when the pool and the staged taps cover what is owed
+    /// ([`Self::send_payment`]); otherwise "Pay now", which stages the plan
+    /// for the rest and sends nothing ([`Self::stage_owed_plan`]), so the
+    /// next press is Go. With nothing that plans, it says so and sends
+    /// nothing: passing the window short refuses the payment (#01), and
+    /// declining is the other button's.
     pub fn confirm_payment(&mut self) {
         if !self.paying() || self.mana_run.is_some() {
             return;
         }
-        if self.pay_owed() {
-            return;
-        }
-        if self.pool_covers_owed() {
-            self.submit(PlayerAction::PassPriority);
-        } else {
+        if self.staged_covers() {
+            self.send_payment();
+        } else if !self.stage_owed_plan() {
             self.last_error = Some(Refusal::Said(Phrase::PaymentShort));
         }
-    }
-
-    /// Whether the floating pool alone pays what this seat owes, so that
-    /// passing the window settles it rather than refusing it. A voluntary
-    /// amount (`ManaPayment::AnyAmount`) is never short.
-    pub(crate) fn pool_covers_owed(&self) -> bool {
-        let Some(view) = self.view.as_ref() else {
-            return false;
-        };
-        let Some(baylee_core::mana::ManaPayment::Fixed(cost)) = view.owed else {
-            return true;
-        };
-        view.seat(baylee_client_core::decision::resource_player(view))
-            .is_some_and(|seat| {
-                baylee_client_core::manaplan::plan(&cost, &seat.mana_pool, &[]).is_some()
-            })
     }
 
     /// What this client is proposing, if anything.
@@ -1357,9 +1515,13 @@ impl Duel {
         if let Some(armed) = self.armed.as_ref() {
             return Proposing::Armed(armed);
         }
-        match self.owed_plan.as_ref() {
-            Some(plan) => Proposing::Owed(plan),
-            None => Proposing::Nothing,
+        if self.paying() && (self.owed_plan.is_some() || !self.pay_staged.is_empty()) {
+            Proposing::Owed {
+                plan: self.owed_plan.as_ref(),
+                staged: self.pay_staged.steps(),
+            }
+        } else {
+            Proposing::Nothing
         }
     }
 
@@ -1871,6 +2033,7 @@ fn poll_host(
     mut reports: MessageWriter<DuelReport>,
     mut journey: Option<ResMut<arrival::Journey>>,
     time: Option<Res<Time<Real>>>,
+    mut placing: Option<ResMut<table::Placing>>,
 ) {
     let Some(mut host) = host else {
         return;
@@ -1882,8 +2045,10 @@ fn poll_host(
     if duel.watching != watching {
         duel.watching = watching;
     }
+    let mut jumped = false;
     for message in host.0.poll() {
         match message {
+            HostMessage::Jump => jumped = jump(&mut duel, &phase, &mut next, &mut placing),
             HostMessage::Spectators(count) => {
                 if duel.spectators != count {
                     duel.spectators = count;
@@ -1996,6 +2161,40 @@ fn poll_host(
                 reports.write(DuelReport::Failed(reason));
             }
         }
+    }
+    follow_the_replay(&mut duel, host.0.replay(), jumped);
+}
+
+/// A replay moved other than one step on (`HostMessage::Jump`): the next
+/// frames are another moment, told from the log's first line
+/// (`docs/client.md` §"Replays"). The duel forgets what the frames told it,
+/// a finished table plays again, and the next board is placed, not glided.
+fn jump(
+    duel: &mut Duel,
+    phase: &State<DuelPhase>,
+    next: &mut NextState<DuelPhase>,
+    placing: &mut Option<ResMut<table::Placing>>,
+) -> bool {
+    duel.rewind();
+    if *phase.get() == DuelPhase::Finished {
+        next.set(DuelPhase::Playing);
+    }
+    if let Some(placing) = placing.as_mut() {
+        placing.arm();
+    }
+    true
+}
+
+/// A replay's place, for the transport bar, written only when it moved; and
+/// no cue across a jump, or at 4× and 8×, where they would run into each
+/// other (§7.3).
+fn follow_the_replay(duel: &mut Duel, status: Option<&replay::ReplayStatus>, jumped: bool) {
+    if duel.replay.as_ref() != status {
+        duel.replay = status.cloned();
+    }
+    let quiet = jumped || status.is_some_and(|s| !s.speed.cues());
+    if quiet && !duel.cues.pending().is_empty() {
+        duel.cues.take();
     }
 }
 
@@ -2164,10 +2363,6 @@ pub struct ManaRun {
     /// then wait until the spell is cast (CR 601.2i). `None` for a run that
     /// taps first.
     cast_first: Option<CastFirst>,
-    /// How many times a settle has been planned afresh because the taps it
-    /// made left the window short (#01). Bounded, so a planner that keeps
-    /// miscounting stops and hands the window back instead of looping.
-    replans: u8,
 }
 
 /// Where a cast-first run stands.
@@ -2189,7 +2384,6 @@ impl ManaRun {
             card,
             then,
             cast_first: None,
-            replans: 0,
         }
     }
 
@@ -2203,7 +2397,6 @@ impl ManaRun {
             card,
             then: RunEnd::Cast,
             cast_first: Some(CastFirst::Unsent),
-            replans: 0,
         }
     }
 
@@ -2274,7 +2467,6 @@ pub fn advance_mana_run(duel: &mut Duel) {
     }
     let mut action = None;
     let mut finished = false;
-    let mut replanned = false;
     let mut abort = None;
 
     match &pending {
@@ -2327,35 +2519,6 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     // nothing to check either: the mana is in the pool, which
                     // is a thing the player can see and spend.
                     Some((_, RunEnd::Float)) => {}
-                    // Still a payment window this seat owes in: settle it.
-                    // Anything else and the window was closed under the run,
-                    // which is the game moving on, not a pass to send.
-                    //
-                    // Passed only once the pool covers what is owed: a pass
-                    // settles the window with whatever is floating, and a
-                    // window passed short is a payment refused — a Pact of
-                    // Negation's upkeep lost the game that way with an
-                    // untapped Plains beside it (#01). Short with sources
-                    // left, the run plans the rest afresh (twice at most);
-                    // short with nothing that plans, the window stays open
-                    // for the player, never passed on their behalf.
-                    Some((_, RunEnd::Settle))
-                        if legal.can_pass
-                            && duel.view.as_ref().is_some_and(|v| {
-                                v.owed.is_some() && v.awaiting == Some(v.seat)
-                            }) =>
-                    {
-                        match settle(duel, legal) {
-                            Ok((tap, again)) => {
-                                action = Some(tap);
-                                replanned = again;
-                            }
-                            Err(reason) => abort = Some(reason),
-                        }
-                    }
-                    Some((_, RunEnd::Settle)) => {
-                        abort = Some(Phrase::PlanQuestionChanged);
-                    }
                     Some((_, RunEnd::Cast)) => {
                         abort = Some(Phrase::PlanSpellRefused);
                     }
@@ -2364,7 +2527,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     }
                     None => abort = Some(Phrase::PlanCardGone),
                 }
-                finished = !replanned;
+                finished = true;
             }
         }
         // Mana abilities do not use the stack, so priority never leaves the
@@ -2386,41 +2549,20 @@ pub fn advance_mana_run(duel: &mut Duel) {
     }
 }
 
-/// The end of a settle run: the pass, once the pool covers what is owed, or
-/// the first tap of a fresh plan for what is still short (`true`), or the
-/// reason the window is handed back to the player unpassed (#01).
-fn settle(
-    duel: &mut Duel,
-    legal: &baylee_engine::choice::LegalActions,
-) -> Result<(PlayerAction, bool), Phrase> {
-    if duel.pool_covers_owed() {
-        return Ok((PlayerAction::PassPriority, false));
-    }
-    let replans = duel.mana_run.as_ref().map_or(u8::MAX, |r| r.replans);
-    let plan = duel
-        .compute_owed_plan()
-        .filter(|plan| !plan.is_empty() && replans < 2)
-        .ok_or(Phrase::PaymentShort)?;
-    let first = *plan.steps.first().ok_or(Phrase::PaymentShort)?;
-    let tap = tap_action(&first, legal).ok_or(Phrase::PaymentShort)?;
-    if let Some(run) = duel.mana_run.as_mut() {
-        run.steps = plan.steps.into_iter().skip(1).collect();
-        run.asking = first.color;
-        run.replans += 1;
-    }
-    Ok((tap, true))
-}
-
 /// The cast-first half of a run (CR 601.2g); returns whether it handled this
-/// question, and `false` once the payment window is open and the run has
-/// become an ordinary settle.
+/// question.
 ///
 /// The cast goes out on this seat's priority. Every question after it that
 /// is not the window is the cast's own (its mode, X, targets) and is the
-/// player's to answer: the run waits. The window's plan is worked out the
-/// way the pay button's is ([`Duel::compute_owed_plan`]), against the pool
-/// as it stands, so a land tapped by hand is counted. A priority that is not
-/// a window means the cast is over: on the stack, or reversed.
+/// player's to answer: the run waits. When the window opens, the plan is
+/// worked out the way "Pay now" works it out ([`Duel::compute_owed_plan`]),
+/// against the pool as it stands, staged, and sent as one
+/// `PlayerAction::PayWindow`: the click that confirmed the armed card was
+/// the Go, and its lit lands were the staging. A plan the engine refuses
+/// comes back as one sentence with the window and the staging standing,
+/// and a window nothing plans stays open for the player — never passed on
+/// their behalf, which would reverse the cast in silence. A priority that is
+/// not a window means the cast is over: on the stack, or reversed.
 fn advance_cast_first(
     duel: &mut Duel,
     phase: CastFirst,
@@ -2465,42 +2607,17 @@ fn advance_cast_first(
         }
         return true;
     }
-    let Some(plan) = duel.compute_owed_plan() else {
-        // Nothing here pays it: passing reverses the cast (CR 601.2h).
-        duel.mana_run = None;
-        duel.submit(PlayerAction::PassPriority);
+    duel.mana_run = None;
+    duel.refresh_owed_plan();
+    if !duel.staged_covers() && !duel.stage_owed_plan() {
         duel.last_error = Some(Refusal::Said(Phrase::CardCostsUnavailable));
         return true;
-    };
-    if let Some(run) = duel.mana_run.as_mut() {
-        run.steps = plan.steps.into();
-        run.then = RunEnd::Settle;
-        run.cast_first = None;
     }
-    false
+    duel.send_payment();
+    true
 }
 
-/// The action for one tap, or `None` when the engine is no longer offering it.
-fn tap_action(
-    step: &baylee_client_core::manaplan::Step,
-    legal: &baylee_engine::choice::LegalActions,
-) -> Option<PlayerAction> {
-    match step.tap {
-        baylee_client_core::manaplan::Tap::Intrinsic => legal
-            .mana_abilities
-            .contains(&step.source)
-            .then_some(PlayerAction::ActivateManaAbility {
-                source: step.source,
-            }),
-        baylee_client_core::manaplan::Tap::Ability(ability_index) => legal
-            .abilities
-            .contains(&(step.source, ability_index))
-            .then_some(PlayerAction::ActivateAbility {
-                source: step.source,
-                ability_index,
-            }),
-    }
-}
+use baylee_client_core::paystage::tap_action;
 
 /// Answers the engine's `ChooseCastMode` with the way the player already
 /// chose, when they chose one.
@@ -2815,17 +2932,18 @@ pub fn proposals(
     duel: &Duel,
 ) -> std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal> {
     use baylee_client_core::board::Proposal;
-    let plan = match duel.proposing() {
+    let (plan, staged): (_, &[baylee_client_core::manaplan::Step]) = match duel.proposing() {
         Proposing::Armed(Armed {
             deed: Deed::Run { plan, .. },
             ..
-        })
-        | Proposing::Owed(plan) => Some(plan),
-        Proposing::Armed(_) | Proposing::Nothing => None,
+        }) => (Some(plan), &[]),
+        Proposing::Owed { plan, staged } => (plan, staged),
+        Proposing::Armed(_) | Proposing::Nothing => (None, &[]),
     };
     let spent = plan
         .into_iter()
-        .flat_map(|plan| plan.steps.iter().map(|step| (step.source, Proposal::Spent)));
+        .flat_map(|plan| plan.steps.iter().map(|step| (step.source, Proposal::Spent)))
+        .chain(staged.iter().map(|step| (step.source, Proposal::Staged)));
     let answer = duel.interaction.as_ref().into_iter().flat_map(|i| {
         i.assignments()
             .into_iter()

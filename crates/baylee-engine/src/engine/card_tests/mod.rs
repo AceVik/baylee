@@ -39,6 +39,7 @@ mod batch49_untap;
 mod batch49_wall;
 mod batch52_horse_johan;
 mod batch52_protection;
+mod battles;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;
@@ -1702,10 +1703,6 @@ fn carnage_tyrant() -> CardIndex {
     card_index("8c411f4e-a091-447c-9450-d895b10b4985")
 }
 
-fn city_of_ass() -> CardIndex {
-    card_index("e043a795-6936-4d7e-9a77-e0175a27c8f5")
-}
-
 fn city_of_traitors() -> CardIndex {
     card_index("f161111d-9747-47b3-bb10-3c8bded32e21")
 }
@@ -1988,10 +1985,6 @@ fn petrified_field() -> CardIndex {
 
 fn prahv_spires_of_order() -> CardIndex {
     card_index("37ff5ba6-0763-4c73-85bf-66856e67b8f3")
-}
-
-fn r_d_s_secret_lair() -> CardIndex {
-    card_index("b6be7abe-cee3-418f-bf52-8b5405e3462f")
 }
 
 fn rainbow_vale() -> CardIndex {

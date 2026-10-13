@@ -256,6 +256,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        reference: None,
                     },
                     None,
                     wall_only,
@@ -324,6 +325,7 @@ impl<L: CardLookup> Engine<L> {
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
+                this_way_from: None,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]
@@ -588,6 +590,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        reference: None,
                     },
                     None,
                     self.trigger_wall_only(&t),
@@ -643,6 +646,7 @@ impl<L: CardLookup> Engine<L> {
                             crate::text_changes::RuleContext {
                                 source: t.source,
                                 text: t.text,
+                                reference: None,
                             },
                             self.trigger_wall_only(&t),
                             first,
@@ -722,6 +726,7 @@ impl<L: CardLookup> Engine<L> {
                         crate::text_changes::RuleContext {
                             source: t.source,
                             text: t.text,
+                            reference: None,
                         },
                         self.trigger_wall_only(&t),
                         first,
@@ -745,6 +750,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        reference: None,
                     },
                     None,
                     self.trigger_wall_only(&t),

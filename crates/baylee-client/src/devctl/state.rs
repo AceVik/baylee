@@ -1073,8 +1073,9 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
-         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour}}}",
+         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay}}}",
         tour = tour_json(believed, settings),
+        replay = replay_json(duel),
         reveal = reveal_json(believed, duel),
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
@@ -2080,4 +2081,47 @@ fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool, ui: f32
         })
         .collect();
     format!("[{}]", rows.join(","))
+}
+
+/// `/state.replay`: where a replay stands (`docs/client.md` §"Replays"):
+/// the step, how many, whether it plays, how fast, whose table, the step's
+/// check, why the tape stops, what it still waits for; `null` at a live
+/// table.
+fn replay_json(duel: &crate::Duel) -> String {
+    let Some(status) = duel.replay.as_ref() else {
+        return "null".to_string();
+    };
+    let perspective = match status.perspective {
+        baylee_client_core::replay::Perspective::Seat(seat) => {
+            format!("{{\"seat\":{}}}", seat.get())
+        }
+        baylee_client_core::replay::Perspective::Public => "\"public\"".to_string(),
+        baylee_client_core::replay::Perspective::AllHands(seat) => {
+            format!("{{\"all_hands\":{}}}", seat.get())
+        }
+    };
+    let check = status
+        .check
+        .map_or_else(|| "null".to_string(), |c| quoted(&format!("{c:?}")));
+    let stop = status
+        .stop
+        .map_or_else(|| "null".to_string(), |s| quoted(&format!("{:?}", s.stop)));
+    let loading = status
+        .loading
+        .as_ref()
+        .map_or_else(|| "null".to_string(), |l| quoted(&format!("{l:?}")));
+    let problem = status
+        .problem
+        .as_deref()
+        .map_or_else(|| "null".to_string(), quoted);
+    let turns = status.timeline.as_ref().map_or(0, |t| t.0.turns().len());
+    format!(
+        "{{\"step\":{},\"steps\":{},\"turns\":{turns},\"playing\":{},\"speed\":{},\"perspective\":{perspective},\
+         \"check\":{check},\"stop\":{stop},\"loading\":{loading},\"problem\":{problem},\"verify\":{}}}",
+        status.step,
+        status.steps,
+        status.playing,
+        quoted(status.speed.label()),
+        quoted(status.verify.wire()),
+    )
 }

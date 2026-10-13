@@ -145,6 +145,18 @@ pub(super) fn moving_source(state: &GameState, res: &Resolution) -> Option<Damag
                 .filter(|reference| reference.object == res.source && is_current(state, *reference))
         })
         .or_else(|| aura_successor(state, res).filter(|reference| is_current(state, *reference)))
+        // A delayed trigger watching its own source die (Golden Guardian's
+        // "when this creature dies this turn, return it"): the event object
+        // is the source's card, as the graveyard has it now.
+        .or_else(|| {
+            event(state, res).filter(|reference| {
+                reference.object == res.source
+                    && is_current(state, *reference)
+                    && state
+                        .object(reference.object)
+                        .is_some_and(|o| o.zone == Zone::Graveyard)
+            })
+        })
 }
 
 /// The Aura's graveyard incarnation its departure trigger recorded

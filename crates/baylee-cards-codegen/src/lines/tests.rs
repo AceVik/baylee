@@ -375,6 +375,7 @@ fn a_triggered_mana_ability_is_mana_on_both_sides() {
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
+        resolves_if_targets_illegal: false,
     };
     assert_eq!(ability_shape(&cub), LineShape::Mana);
 }

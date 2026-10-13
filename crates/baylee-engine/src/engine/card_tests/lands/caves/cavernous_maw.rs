@@ -44,6 +44,20 @@ fn cavernous_maw_animates_into_a_three_three_elemental_creature() {
     assert!(t.contains(TypeSet::LAND));
     assert_eq!(pt(&engine, maw), (3, 3));
     assert!(!is_tapped(&engine, maw));
+    let subtypes = engine
+        .state()
+        .object(maw)
+        .unwrap()
+        .characteristics()
+        .subtypes;
+    assert!(
+        subtypes.contains(baylee_core::generated::subtypes::creature::ELEMENTAL),
+        "\"becomes a 3/3 Elemental creature\": it is an Elemental"
+    );
+    assert!(
+        subtypes.contains(baylee_core::generated::subtypes::land::CAVE),
+        "\"It's still a Cave land\": it keeps its Cave subtype"
+    );
 }
 
 #[test]

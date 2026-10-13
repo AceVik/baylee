@@ -412,6 +412,52 @@ pub fn sync_overlay(
             // `preview_place` can rescue it. The slider is a preference; the
             // window is not.
             let want = super::hand::preview_want(scale);
+            let key = art.map(|art| ImageKey {
+                size: ArtSize::Normal,
+                ..art
+            });
+            // What can actually be drawn *this frame*, which is not always
+            // what the preview asks for. This is the only place that wants
+            // `Normal`, and `Preload` warms that size for the hand and the
+            // local command zone alone — a battlefield has no bound, and
+            // eighty permanents at 1.3 MB apiece would spend the whole browser
+            // budget on a convenience. So hovering an opponent's permanent
+            // arrives here with nothing at this size every single time.
+            //
+            // What filled the gap was the *constructed face*: a text card,
+            // reading "Rules text unavailable" wherever the catalog is not
+            // wired up, for as long as the fetch takes. The board's own
+            // `Small` art is already resident for anything on the table, and
+            // stretching 146 pixels to 308 is soft for half a second — but it
+            // is a picture of the card, and the other thing is not.
+            let small = art.map(|art| ImageKey {
+                size: ArtSize::Small,
+                ..art
+            });
+            let stopgap = match (key, small) {
+                (Some(big), Some(small))
+                    if !textures.has_arrived(big) && textures.has_arrived(small) =>
+                {
+                    Some(small)
+                }
+                _ => None,
+            };
+            let shown = stopgap.or(key);
+            // The face first: it only borrows the cache, and the image below
+            // needs it mutably. Asked about `shown`, so the stopgap counts as
+            // art having arrived and the text card stays off the screen.
+            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, shown));
+            // How the picture is read (owner, 13.10.2026): a split card and a
+            // battle lie across their box, and a flip card or an Aftermath
+            // card rotates to its other half under shift. Only a scan is
+            // turned — a constructed text face is drawn upright already.
+            let reading = match (key, built.as_ref()) {
+                (Some(_), None) => super::preview::reading_of(match duel.hovered_log {
+                    Some(log) => log.link.card,
+                    None => super::preview::hovered_card(view, hovered),
+                }),
+                _ => crate::flip::Reading::UPRIGHT,
+            };
             // The sentence the stack is abbreviating, when that is what the
             // pointer is on. It is part of the bubble's *size* and therefore
             // has to be resolved before the picture is: a card sized to the
@@ -428,13 +474,20 @@ pub fn sync_overlay(
             });
             let art_size = preview_with_footer_size(want, window, asked);
             let (img_w, img_h) = (art_size.x, art_size.y);
-            let slip_h = slip
-                .as_ref()
-                .map_or(0.0, |s| super::slip::height(&runs, img_w, s.kind.is_some()));
+            // The box the card stands in: landscape for one that lies across
+            // it, which is the card's own size turned.
+            let card_box = if reading.lies_across() {
+                Vec2::new(img_h, img_w)
+            } else {
+                art_size
+            };
+            let slip_h = slip.as_ref().map_or(0.0, |s| {
+                super::slip::height(&runs, card_box.x, s.kind.is_some())
+            });
             // The panel is the picture plus its six pixels of padding on
             // every side, and the sheet under it when there is one.
             let panel =
-                art_size + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + super::preview_keys::HEIGHT);
+                card_box + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + super::preview_keys::HEIGHT);
             // The drawer, if one is open, as the rectangle the preview
             // must not cover. Read off the tree rather than rebuilt from
             // `drawer.rs`'s constants: what is drawn is what a player sees
@@ -482,9 +535,9 @@ pub fn sync_overlay(
                 0.0
             };
             // And the shells it wears on the felt (the PM, 25.09), from the
-            // door the table asks: a dome's foot off its sides and its foot,
-            // a wall over its top. The panel is placed as one that much
-            // bigger all round, and the clip lets them out as far.
+            // door the table asks: a border's foot off every edge. The panel
+            // is placed as one that much bigger all round, and the clip lets
+            // them out as far.
             let shells = hovered
                 .and_then(|id| board.group(id))
                 .map(crate::shellmat::Shells::of)
@@ -492,42 +545,7 @@ pub fn sync_overlay(
             let shell = shell_reach(img_w, shells);
             let [shell_side, shell_top] = shell;
             let place = place_around(anchor, panel, window, keep_out, [reach, plate_over], shell);
-            let [under, over] = shells.standing();
-            let key = art.map(|art| ImageKey {
-                size: ArtSize::Normal,
-                ..art
-            });
-            // What can actually be drawn *this frame*, which is not always
-            // what the preview asks for. This is the only place that wants
-            // `Normal`, and `Preload` warms that size for the hand and the
-            // local command zone alone — a battlefield has no bound, and
-            // eighty permanents at 1.3 MB apiece would spend the whole browser
-            // budget on a convenience. So hovering an opponent's permanent
-            // arrives here with nothing at this size every single time.
-            //
-            // What filled the gap was the *constructed face*: a text card,
-            // reading "Rules text unavailable" wherever the catalog is not
-            // wired up, for as long as the fetch takes. The board's own
-            // `Small` art is already resident for anything on the table, and
-            // stretching 146 pixels to 308 is soft for half a second — but it
-            // is a picture of the card, and the other thing is not.
-            let small = art.map(|art| ImageKey {
-                size: ArtSize::Small,
-                ..art
-            });
-            let stopgap = match (key, small) {
-                (Some(big), Some(small))
-                    if !textures.has_arrived(big) && textures.has_arrived(small) =>
-                {
-                    Some(small)
-                }
-                _ => None,
-            };
-            let shown = stopgap.or(key);
-            // The face first: it only borrows the cache, and the image below
-            // needs it mutably. Asked about `shown`, so the stopgap counts as
-            // art having arrived and the text card stays off the screen.
-            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, shown));
+            let standing = shells.standing();
             let image = match key {
                 // Always ask for the full-size art, even when the stopgap is
                 // what gets drawn — asking is what starts the fetch, and a
@@ -666,10 +684,15 @@ pub fn sync_overlay(
             // else at the table is looking at while you hold it.
             let frame = commands
                 .spawn((
-                    crate::flip::Flip::default(),
+                    crate::flip::Flip {
+                        reading,
+                        ..default()
+                    },
+                    crate::flip::rest_transform(reading),
                     Node {
                         width: px(img_w),
                         height: px(img_h),
+                        flex_shrink: 0.0,
                         ..default()
                     },
                     Pickable::IGNORE,
@@ -680,43 +703,55 @@ pub fn sync_overlay(
                 Visibility::Inherited,
                 face_node(img_w, img_h),
             ));
+            // A card that turns in the plane must not be cut to its upright
+            // box: Bevy clips to a node's box as laid out, unturned.
+            if reading != crate::flip::Reading::UPRIGHT {
+                super::preview::unclip(&mut commands, visual);
+            }
             commands.entity(frame).add_child(visual);
-            let (art, look) = match far_face(key, has_back_image(view, hovered)) {
-                Some(back) => (
-                    textures.get(back, statics, &assets),
-                    CardLook::art(back, finish_of(statics, Some(back))),
-                ),
-                // No corner on the back: power, toughness and counters are
-                // printed on the face and a card lying face down shows none
-                // of them.
-                None => (textures.card_back(), CardLook::back(FinishTreatment::Plain)),
-            };
-            let far = spawn_card_art(
-                &mut commands,
-                lang,
-                art,
-                None,
-                img_w,
-                img_h,
-                crate::face::Detail::Full,
-                &fonts,
-                look,
-                cards.as_mut(),
-                &faces.widths,
-            );
-            commands.entity(far).insert((
-                crate::flip::Side::Back,
-                // Hidden until the turn passes the quarter, where the card is
-                // edge-on and the swap cannot be seen.
-                Visibility::Hidden,
-                face_node(img_w, img_h),
-            ));
-            commands.entity(frame).add_child(far);
-            // The shells under the card's own objects, the wall and the rim,
-            // hang off the frame for the badge's reason below, and are laid
-            // before them: on the table they lie under the strip, the plate
-            // and the badge too.
-            for look in under {
+            // A card read by rotating has no back to turn to: the owner's
+            // rule for a card with two faces on its front (13.10.2026).
+            if reading.over {
+                let (art, look) = match far_face(key, has_back_image(view, hovered)) {
+                    Some(back) => (
+                        textures.get(back, statics, &assets),
+                        CardLook::art(back, finish_of(statics, Some(back))),
+                    ),
+                    // No corner on the back: power, toughness and counters
+                    // are printed on the face and a card lying face down
+                    // shows none of them.
+                    None => (textures.card_back(), CardLook::back(FinishTreatment::Plain)),
+                };
+                let far = spawn_card_art(
+                    &mut commands,
+                    lang,
+                    art,
+                    None,
+                    img_w,
+                    img_h,
+                    crate::face::Detail::Full,
+                    &fonts,
+                    look,
+                    cards.as_mut(),
+                    &faces.widths,
+                );
+                commands.entity(far).insert((
+                    crate::flip::Side::Back,
+                    // Hidden until the turn passes the quarter, where the
+                    // card is edge-on and the swap cannot be seen.
+                    Visibility::Hidden,
+                    face_node(img_w, img_h),
+                ));
+                if reading != crate::flip::Reading::UPRIGHT {
+                    super::preview::unclip(&mut commands, far);
+                }
+                commands.entity(frame).add_child(far);
+            }
+            // The shells, the wave and the border, hang off the frame for the
+            // badge's reason below, and are laid before the card's own
+            // objects: on the table they lie under the strip, the plate and
+            // the badge too.
+            for look in standing {
                 spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
             }
             // The badge hangs off the frame and not off the face, whose node
@@ -769,12 +804,26 @@ pub fn sync_overlay(
                     .id();
                 commands.entity(frame).add_child(node);
             }
-            // A dome last, over everything the card says: it is glass over
-            // the whole card, as on the table.
-            for look in over {
-                spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
+            // A card lying across stands in a landscape box, centred, and is
+            // turned into it; any other in its own.
+            if reading.lies_across() {
+                let holder = commands
+                    .spawn((
+                        Node {
+                            width: px(card_box.x),
+                            height: px(card_box.y),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(holder).add_child(frame);
+                commands.entity(tooltip).add_child(holder);
+            } else {
+                commands.entity(tooltip).add_child(frame);
             }
-            commands.entity(tooltip).add_child(frame);
             // The preview is a *description of* the hovered card, so it must
             // never take the pointer from it. The frame above already ignores
             // the pointer — but `Pickable` does not inherit, and the card face
@@ -810,14 +859,15 @@ pub fn sync_overlay(
                     &mut commands,
                     &slip,
                     runs,
-                    img_w,
+                    card_box.x,
                     window.y,
                     &fonts,
                     surfaces.sheets.as_deref(),
                 );
                 commands.entity(tooltip).add_child(sheet);
             }
-            let legend = super::preview_keys::spawn(&mut commands, &fonts, lang, img_w);
+            let legend =
+                super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x, reading);
             commands.entity(tooltip).add_child(legend);
             commands.entity(root).add_child(tooltip);
             // Over the end screen once it stands: its log's links open this

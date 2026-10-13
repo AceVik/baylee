@@ -85,3 +85,32 @@ fn drowner_only_triggers_for_colorless_actually_spent_and_tokens_survive_the_spe
         }
     }
 }
+
+#[test]
+fn drowned_jungle_asks_green_or_blue_and_adds_the_one_chosen() {
+    let p0 = PlayerId::new(0);
+    for (chosen, other) in [
+        (ManaColor::Blue, ManaColor::Green),
+        (ManaColor::Green, ManaColor::Blue),
+    ] {
+        let (mut e, land) = play_land_face(drowner_of_truth(), 1).expect("the back face is a land");
+        e.dev_state_mut(p0).unwrap().set_tapped(land, false);
+        e.refresh_offer();
+        activate(&mut e, p0, drowner_of_truth(), 0);
+        let Pending::ChooseColor { player, options } = e.pending().clone() else {
+            panic!("{{T}}: Add {{G}} or {{U}} asks which: {:?}", e.pending())
+        };
+        assert_eq!(player, p0);
+        let mut offered = options.clone();
+        offered.sort_by_key(|c| format!("{c:?}"));
+        let mut want = vec![ManaColor::Green, ManaColor::Blue];
+        want.sort_by_key(|c| format!("{c:?}"));
+        assert_eq!(offered, want, "exactly green and blue are on offer");
+        e.apply(p0, PlayerAction::ChooseColor(chosen)).unwrap();
+        assert!(is_tapped(&e, land), "{{T}}: the land taps for the mana");
+        let pool = &e.state().players[0].mana_pool;
+        assert_eq!(pool.available(chosen), 1, "one mana of the chosen colour");
+        assert_eq!(pool.available(other), 0, "and none of the other colour");
+        assert_eq!(pool.available(ManaColor::Colorless), 0);
+    }
+}

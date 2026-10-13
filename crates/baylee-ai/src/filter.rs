@@ -531,7 +531,20 @@ impl HeuristicAgent {
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
                 every().filter(|p| self.hostile(*p, view.seat)).collect()
             }
+            PlayerRel::EachOtherPlayer => every().filter(|p| *p != view.seat).collect(),
+            PlayerRel::MostLifeOrTied => {
+                let alive: Vec<_> = view.seats.iter().filter(|s| !s.has_lost()).collect();
+                let best = alive.iter().map(|s| s.life).max();
+                alive
+                    .iter()
+                    .filter(|s| Some(s.life) == best)
+                    .map(|s| s.player)
+                    .collect()
+            }
             PlayerRel::Chosen
+            | PlayerRel::Recipient
+            | PlayerRel::DefendingPlayer
+            | PlayerRel::OwnerOfEvent
             | PlayerRel::ControllerOfTarget
             | PlayerRel::ControllerOfEvent
             | PlayerRel::DamagedPlayer

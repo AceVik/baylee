@@ -184,3 +184,157 @@ fn battery_can_unattach_only_while_attached_and_recovers_its_creature_type() {
     assert!(!keywords(&e, bear).contains(baylee_cards_dsl::KeywordSet::HASTE));
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
 }
+
+/// Whether printed ability `index` of `source` is on the offer right now.
+fn battery_offered(e: &Engine<RegistryLookup>, source: ObjectId, index: u32) -> bool {
+    matches!(e.pending(), Pending::Priority { legal, .. } if legal.abilities.contains(&(source, index)))
+}
+
+/// "Attach to target creature **you control**": the menu holds p0's other
+/// creatures and neither the Battery itself nor an opponent's Ogre.
+#[test]
+fn battery_reconfigure_offers_only_other_creatures_its_controller_has() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[rabbit_battery(), grizzly_bears(), llanowar_elves()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut e);
+    assert!(
+        walk_to_own_main(&mut e, p0),
+        "p0 reaches its own main phase"
+    );
+    let battery = on_battlefield(&e, p0, rabbit_battery()).unwrap();
+    let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    let elves = on_battlefield(&e, p0, llanowar_elves()).unwrap();
+    let ogre = on_battlefield(&e, p1, gray_ogre()).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, rabbit_battery(), 2);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("reconfigure asks for a target: {:?}", e.pending())
+    };
+    assert!(
+        options.contains(&bears) && options.contains(&elves),
+        "both of p0's other creatures are legal: {options:?}"
+    );
+    assert!(
+        !options.contains(&ogre),
+        "\"target creature you control\": an opponent's creature is not: {options:?}"
+    );
+    assert!(
+        !options.contains(&battery),
+        "and it is another creature, not the Battery: {options:?}"
+    );
+}
+
+/// p0's main phase, `{R}` floating, the Battery loose (`attached` = false,
+/// its attach ability is index 2) or worn by the Bears (its unattach ability
+/// is index 4). Stops after the control: with an empty stack the ability is on
+/// the offer, so a later refusal is the timing's and nothing else's.
+fn battery_board(attached: bool) -> (Engine<RegistryLookup>, ObjectId, u32) {
+    let p0 = PlayerId::new(0);
+    let index = if attached { 4 } else { 2 };
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[rabbit_battery(), grizzly_bears()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    assert!(
+        walk_to_own_main(&mut e, p0),
+        "p0 reaches its own main phase"
+    );
+    let battery = on_battlefield(&e, p0, rabbit_battery()).unwrap();
+    let bears = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    float_red_and_green(&mut e);
+    if attached {
+        activate(&mut e, p0, rabbit_battery(), 2);
+        aim_at(&mut e, p0, bears);
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().object(battery).unwrap().attached_to,
+            Some(bears),
+            "the Battery is worn before the timing is probed"
+        );
+        e.refresh_offer();
+    }
+    assert!(
+        battery_offered(&e, battery, index),
+        "control: in p0's main phase with an empty stack and {{R}} floating, ability {index} \
+         (attached = {attached}) is on the offer"
+    );
+    (e, battery, index)
+}
+
+fn float_red_and_green(e: &mut Engine<RegistryLookup>) {
+    let pool = &mut e.dev_state_mut(PlayerId::new(0)).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Red, 3);
+    pool.add(ManaColor::Green, 1);
+    e.refresh_offer();
+}
+
+/// The refusal is also a refusal to the engine, and changes nothing.
+fn battery_activation_is_refused(e: &mut Engine<RegistryLookup>, battery: ObjectId, index: u32) {
+    let hash = e.state().snapshot_hash();
+    assert!(
+        e.apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateAbility {
+                source: battery,
+                ability_index: index
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(
+        e.state().snapshot_hash(),
+        hash,
+        "the refusal changed nothing"
+    );
+}
+
+/// "Reconfigure only as a sorcery", the stack half: the same board, the same
+/// floating `{R}`, but a creature spell sits on the stack.
+#[test]
+fn battery_reconfigure_and_unattach_are_not_offered_with_a_spell_on_the_stack() {
+    for attached in [false, true] {
+        let (mut e, battery, index) = battery_board(attached);
+        cast_with_floating(&mut e, PlayerId::new(0), llanowar_elves());
+        assert!(!stack_is_empty(&e), "the Elves spell is waiting to resolve");
+        assert!(
+            e.state().players[0].mana_pool.available(ManaColor::Red) >= 1,
+            "red is still floating, so mana is not what withholds the ability"
+        );
+        assert!(
+            !battery_offered(&e, battery, index),
+            "\"only as a sorcery\": not while a spell is on the stack (attached = {attached})"
+        );
+        battery_activation_is_refused(&mut e, battery, index);
+    }
+}
+
+/// "Reconfigure only as a sorcery", the turn half: p1's turn, p0 holding
+/// priority with `{R}` floating.
+#[test]
+fn battery_reconfigure_and_unattach_are_not_offered_on_the_opponents_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for attached in [false, true] {
+        let (mut e, battery, index) = battery_board(attached);
+        pass_until(&mut e, |e| {
+            e.state().turn.active == p1
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+        });
+        float_red_and_green(&mut e);
+        assert!(
+            e.state().players[0].mana_pool.available(ManaColor::Red) >= 1,
+            "red is floating on the opponent's turn"
+        );
+        assert!(
+            !battery_offered(&e, battery, index),
+            "\"only as a sorcery\": not on the opponent's turn (attached = {attached})"
+        );
+        battery_activation_is_refused(&mut e, battery, index);
+    }
+}

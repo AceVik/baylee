@@ -193,6 +193,8 @@ pub struct MenuRevision {
     house: bool,
     /// Whether this client only watches: its way out is *Stop watching*.
     watching: bool,
+    /// Whether the table is a replay: its way out is Leave replay.
+    replay: bool,
     /// Whether *Leave the table* is waiting for its second press.
     leaving: bool,
 }
@@ -336,6 +338,7 @@ pub fn sync_menu(
             .as_deref()
             .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
         watching: duel.watching,
+        replay: duel.replay.is_some(),
         leaving: duel.leave_armed,
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
@@ -395,14 +398,17 @@ pub fn sync_menu(
     }
     commands.entity(panel).add_child(offer);
 
-    let (words, weight) = if next.watching {
-        (Phrase::StopWatching, Weight::Secondary)
+    let leave_replay = baylee_client_core::replay::words::ReplayPhrase::LeaveReplay.text(lang);
+    let (words, weight) = if next.replay {
+        (leave_replay, Weight::Secondary)
+    } else if next.watching {
+        (Phrase::StopWatching.text(lang), Weight::Secondary)
     } else if next.armed {
-        (Phrase::ConcedeConfirm, Weight::Danger)
+        (Phrase::ConcedeConfirm.text(lang), Weight::Danger)
     } else {
-        (Phrase::Concede, Weight::Secondary)
+        (Phrase::Concede.text(lang), Weight::Secondary)
     };
-    let concede = answer(&mut commands, &fonts, words.text(lang), weight, None);
+    let concede = answer(&mut commands, &fonts, words, weight, None);
     commands.entity(concede).insert(MenuButton {
         action: MenuAction::Concede,
     });

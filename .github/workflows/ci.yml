@@ -541,3 +541,9 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # The same advisory deny.toml ignores, with its reason there:
+          # `ttf-parser` unmaintained, reached only through winit's Wayland
+          # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
+          # warning it opens an issue this read-only token may not write, so
+          # the job went red on a notice that is not a vulnerability.
+          ignore: RUSTSEC-2026-0192

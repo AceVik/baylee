@@ -401,3 +401,44 @@ fn bandit_haste_uses_layer_six_timestamp_order_instead_of_becoming_a_printed_key
         );
     }
 }
+
+/// "When you spend this mana to cast your commander, scry X": spending it on
+/// anything else scries nothing, even in a game where a commander has been
+/// cast from the command zone three times.
+#[test]
+fn study_hall_mana_spent_on_a_noncommander_spell_scries_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .commander(0, &[index::SHEOLDRED_THE_APOCALYPSE])
+        .battlefield(0, &[index::STUDY_HALL])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    e.dev_state_mut(p0).unwrap().commanders[0][0].casts = 3;
+    float(&mut e, ManaColor::Colorless, 1);
+    activate(&mut e, p0, index::STUDY_HALL, 1);
+    e.apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+    assert_eq!(
+        e.state().players[0].mana_pool.available(ManaColor::Green),
+        1
+    );
+
+    cast_with_floating(&mut e, p0, llanowar_elves());
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "only the Elves: casting a noncommander spell with the mana puts no scry trigger up"
+    );
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+            || (on_battlefield(e, p0, llanowar_elves()).is_some() && stack_is_empty(e))
+    });
+    assert!(
+        !matches!(e.pending(), Pending::Arrange { .. }),
+        "no scry, whatever X would have been: {:?}",
+        e.pending()
+    );
+    assert!(on_battlefield(&e, p0, llanowar_elves()).is_some());
+}

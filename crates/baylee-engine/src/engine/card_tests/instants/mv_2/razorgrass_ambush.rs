@@ -116,3 +116,47 @@ fn razorgrass_ambush_can_target_a_blocker() {
         Zone::Graveyard
     );
 }
+
+/// "As this land enters, you may pay 3 life. If you don't, it enters tapped.
+/// {T}: Add {W}." Both answers: paying leaves it untapped and 3 life lighter,
+/// declining leaves life alone and the land tapped.
+#[test]
+fn razorgrass_field_pay_three_life_enters_untapped_and_declining_enters_tapped() {
+    let p0 = PlayerId::new(0);
+    for pay in [true, false] {
+        let (mut engine, land) =
+            play_land_face(razorgrass_ambush(), 1).expect("plays as Razorgrass Field");
+        assert!(matches!(engine.pending(), Pending::YesNo {
+            player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+        } if *player == p0));
+        engine.apply(p0, PlayerAction::YesNo(pay)).unwrap();
+        assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);
+        assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+
+        assert_eq!(
+            is_tapped(&engine, land),
+            !pay,
+            "paying 3 life enters untapped; declining enters tapped (pay = {pay})"
+        );
+        assert_eq!(
+            engine.state().players[0].life,
+            if pay { 17 } else { 20 },
+            "3 life is lost exactly when it is paid (pay = {pay})"
+        );
+
+        if !pay {
+            engine.dev_state_mut(p0).unwrap().set_tapped(land, false);
+            engine.refresh_offer();
+        }
+        activate(&mut engine, p0, razorgrass_ambush(), 0);
+
+        assert!(is_tapped(&engine, land), "{{T}} is the cost of the ability");
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(
+            pool.available(ManaColor::White),
+            1,
+            "\"{{T}}: Add {{W}}\" adds one white mana (pay = {pay})"
+        );
+        assert_eq!(pool.total(), 1, "and no other mana (pay = {pay})");
+    }
+}

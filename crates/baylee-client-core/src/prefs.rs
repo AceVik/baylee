@@ -124,6 +124,22 @@ pub enum Action {
     TextPageUp,
     /// Scroll it a box on.
     TextPageDown,
+    /// A replay: a turn back (mid-turn, to its start). Resolves to nothing
+    /// at a live table. The replay's actions are last in the enum, so a
+    /// stored keymap's order does not move.
+    ReplayTurnBack,
+    /// A replay: a turn on.
+    ReplayTurnForward,
+    /// A replay: to its first moment.
+    ReplayStart,
+    /// A replay: to its last moment.
+    ReplayEnd,
+    /// A replay: slower.
+    ReplaySlower,
+    /// A replay: faster.
+    ReplayFaster,
+    /// A replay: the next perspective (your seat, the table, all hands).
+    ReplayPerspective,
     /// Open the chat on the last chat tab with `/` typed (the beta.8 chat
     /// design §4.2; bound by the character, so `⇧7` on a German keyboard).
     ChatCommand,
@@ -139,7 +155,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 43] = [
+    pub const ALL: [Self; 50] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -179,6 +195,13 @@ impl Action {
         Self::ToggleBrowser,
         Self::ToggleLog,
         Self::Report,
+        Self::ReplayTurnBack,
+        Self::ReplayTurnForward,
+        Self::ReplayStart,
+        Self::ReplayEnd,
+        Self::ReplaySlower,
+        Self::ReplayFaster,
+        Self::ReplayPerspective,
         Self::ChatOpen,
         Self::ChatCommand,
         Self::ChatReply,
@@ -232,6 +255,13 @@ impl Action {
             Self::HandDrawer => Phrase::ActHandDrawer,
             Self::FoldDecision => Phrase::ActFoldDecision,
             Self::Report => Phrase::ReportButton,
+            Self::ReplayTurnBack => Phrase::ActReplayTurnBack,
+            Self::ReplayTurnForward => Phrase::ActReplayTurnForward,
+            Self::ReplayStart => Phrase::ActReplayStart,
+            Self::ReplayEnd => Phrase::ActReplayEnd,
+            Self::ReplaySlower => Phrase::ActReplaySlower,
+            Self::ReplayFaster => Phrase::ActReplayFaster,
+            Self::ReplayPerspective => Phrase::ActReplayPerspective,
             Self::ChatCommand => Phrase::ActChatCommand,
             Self::ChatReply => Phrase::ActChatReply,
             Self::ChatOpen => Phrase::ActChatOpen,
@@ -284,6 +314,13 @@ impl Action {
             | Self::Report
             | Self::TextPageUp
             | Self::TextPageDown => Phrase::GroupDisplay,
+            Self::ReplayTurnBack
+            | Self::ReplayTurnForward
+            | Self::ReplayStart
+            | Self::ReplayEnd
+            | Self::ReplaySlower
+            | Self::ReplayFaster
+            | Self::ReplayPerspective => Phrase::GroupReplay,
             Self::ChatCommand | Self::ChatReply | Self::ChatOpen | Self::Friends => {
                 Phrase::GroupChat
             }
@@ -546,6 +583,13 @@ impl Keymap {
         bind(Action::Report, vec![Chord::key("F8")]);
         bind(Action::TextPageUp, vec![Chord::key("PageUp")]);
         bind(Action::TextPageDown, vec![Chord::key("PageDown")]);
+        bind(Action::ReplayTurnBack, vec![Chord::shift("ArrowLeft")]);
+        bind(Action::ReplayTurnForward, vec![Chord::shift("ArrowRight")]);
+        bind(Action::ReplayStart, vec![Chord::key("Home")]);
+        bind(Action::ReplayEnd, vec![Chord::key("End")]);
+        bind(Action::ReplaySlower, vec![Chord::key("Minus")]);
+        bind(Action::ReplayFaster, vec![Chord::key("Equal")]);
+        bind(Action::ReplayPerspective, vec![Chord::key("KeyV")]);
         bind(Action::ChatCommand, vec![Chord::key("Slash")]);
         bind(Action::ChatReply, vec![Chord::key("KeyR")]);
         // Cmd on a Mac, Ctrl elsewhere: the platform's own "send" chord.
@@ -592,6 +636,13 @@ impl Keymap {
         map.bindings.remove(&Action::NextArrangement);
         map.bindings.remove(&Action::HandDrawer);
         map.bindings.remove(&Action::FoldDecision);
+        map.bindings.remove(&Action::ReplayTurnBack);
+        map.bindings.remove(&Action::ReplayTurnForward);
+        map.bindings.remove(&Action::ReplayStart);
+        map.bindings.remove(&Action::ReplayEnd);
+        map.bindings.remove(&Action::ReplaySlower);
+        map.bindings.remove(&Action::ReplayFaster);
+        map.bindings.remove(&Action::ReplayPerspective);
         map.bindings.remove(&Action::TextPageUp);
         map.bindings.remove(&Action::TextPageDown);
         map.bindings.remove(&Action::ChatCommand);
@@ -1565,7 +1616,7 @@ mod tests {
     /// what they are bound to, and that the settings list names them.
     #[test]
     fn the_chat_actions_are_listed_grouped_and_bound_as_the_design_says() {
-        assert_eq!(Action::ALL.len(), 43);
+        assert_eq!(Action::ALL.len(), 50);
         let chat = [
             Action::ChatCommand,
             Action::ChatReply,

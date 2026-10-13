@@ -253,6 +253,15 @@ pub static DOUBLE_FACED: [CardIndex; 112] = [
     CardIndex::new(30483),
 ];
 
+/// How each face's picture is turned to be read, in quarter turns clockwise
+/// from the portrait scan, for every card with a face that is not upright
+/// (`ScryfallCard::quarter_turns`), sorted by card id.
+pub static TURNS: &[(CardIndex, &[u8])] = &[
+    (CardIndex::new(4985), &[1, 1]),
+    (CardIndex::new(25578), &[1, 0]),
+    (CardIndex::new(29314), &[1, 1]),
+];
+
 /// Verified physical facts of each reference printing, sorted by card id.
 pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferencePrintRules)] = &[
     (
@@ -14137,20 +14146,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(7260),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
-        },
-    ),
-    (
-        CardIndex::new(7261),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
-        },
-    ),
-    (
         CardIndex::new(7265),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("boros")],
@@ -20602,13 +20597,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(24679),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: true,
         },
     ),
     (

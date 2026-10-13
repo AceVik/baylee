@@ -75,18 +75,53 @@ pub(crate) enum ShellAsk {
     ChatPrivacy,
 }
 
+/// One of the header's nav pills.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum NavTab {
+    /// Play.
+    Play,
+    /// Decks.
+    Decks,
+    /// Replays (desktop only).
+    Replays,
+    /// Settings.
+    Settings,
+}
+
+/// The nav pills this build draws, in order: a desktop's four, the web's
+/// and a phone's three (no Replays tab, `replays::SHOWN`).
+pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
+    &[
+        NavTab::Play,
+        NavTab::Decks,
+        NavTab::Replays,
+        NavTab::Settings,
+    ]
+} else {
+    &[NavTab::Play, NavTab::Decks, NavTab::Settings]
+};
+
+/// The press of a nav pill.
+pub(super) fn nav_press(tab: NavTab) -> Press {
+    let at = NAV.iter().position(|t| *t == tab).unwrap_or(0);
+    Press::Header(HeaderPress::Nav(u8::try_from(at).unwrap_or(0)))
+}
+
 /// Which nav pill is the screen shown.
 fn active(state: &LobbyState) -> Option<usize> {
-    if state.settings.is_open() {
-        return Some(2);
-    }
-    match state.lobby.screen() {
-        Screen::Table => Some(match state.hub {
-            Hub::Play => 0,
-            Hub::Decks => 1,
-        }),
-        _ => None,
-    }
+    let tab = if state.settings.is_open() {
+        NavTab::Settings
+    } else {
+        match state.lobby.screen() {
+            Screen::Table => match state.hub {
+                Hub::Play => NavTab::Play,
+                Hub::Decks => NavTab::Decks,
+                Hub::Replays => NavTab::Replays,
+            },
+            _ => return None,
+        }
+    };
+    NAV.iter().position(|t| *t == tab)
 }
 
 /// The seated strip the lobby calls for, unless the room itself is shown.
@@ -206,11 +241,17 @@ fn bar(
             brand: Phrase::AppName.text(lang),
             // The short form (§2.1); the full one is in the gateway popover.
             build: baylee_build::VERSION,
-            nav: [
-                Phrase::ShellPlay.text(lang),
-                Phrase::ShellDecks.text(lang),
-                Phrase::Settings.text(lang),
-            ],
+            nav: &NAV
+                .iter()
+                .map(|tab| match tab {
+                    NavTab::Play => Phrase::ShellPlay.text(lang),
+                    NavTab::Decks => Phrase::ShellDecks.text(lang),
+                    NavTab::Replays => {
+                        baylee_client_core::replay::words::ReplayPhrase::Replays.text(lang)
+                    }
+                    NavTab::Settings => Phrase::Settings.text(lang),
+                })
+                .collect::<Vec<_>>(),
             active: active(state),
             reach,
             gateway: &gateway,
@@ -497,7 +538,7 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 HubPress::SignOut.handle(cx);
             }
-            HeaderPress::Nav(2) => {
+            HeaderPress::Nav(n) if NAV.get(usize::from(n)) == Some(&NavTab::Settings) => {
                 if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
                     cx.state.room_away = true;
                 }
@@ -516,7 +557,11 @@ impl HeaderPress {
                 if cx.state.library_open() {
                     cx.state.lobby.close_library();
                 }
-                let hub = if n == 0 { Hub::Play } else { Hub::Decks };
+                let hub = match NAV.get(usize::from(n)) {
+                    Some(NavTab::Decks) => Hub::Decks,
+                    Some(NavTab::Replays) => Hub::Replays,
+                    _ => Hub::Play,
+                };
                 HubPress::Tab(hub).handle(cx);
             }
             HeaderPress::Return => back_to_the_table(cx),

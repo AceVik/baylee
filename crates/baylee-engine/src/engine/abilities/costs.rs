@@ -639,7 +639,13 @@ impl<L: CardLookup> Engine<L> {
                 // saturating shrug: paying two counters out of a permanent
                 // holding one is not a discount.
                 CostPart::RemoveCounterSelf { kind, n } => {
-                    if crate::replacement::remove_counters(&mut self.state, source, *kind, *n) < *n
+                    if crate::replacement::remove_counters_by(
+                        &mut self.state,
+                        source,
+                        *kind,
+                        *n,
+                        Some(player),
+                    ) < *n
                     {
                         return Err(EngineError::IllegalAction(
                             "not enough counters to pay the cost",
@@ -681,8 +687,13 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::RemoveCounterSelfX { kind } => {
                     let want = u16::try_from(x).unwrap_or(u16::MAX);
-                    if crate::replacement::remove_counters(&mut self.state, source, *kind, want)
-                        < want
+                    if crate::replacement::remove_counters_by(
+                        &mut self.state,
+                        source,
+                        *kind,
+                        want,
+                        Some(player),
+                    ) < want
                     {
                         return Err(EngineError::IllegalAction(
                             "not enough counters to pay the cost",

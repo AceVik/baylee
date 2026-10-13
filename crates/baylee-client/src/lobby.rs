@@ -283,6 +283,11 @@ impl Plugin for LobbyPlugin {
                     decks::paste_or_drop,
                     play::ask_for_house,
                     play::follow_the_room,
+                    // The Replays tab reads its lists, and a replay asked
+                    // for is opened (after the mailbox, before the tree).
+                    (replays::visit, replays::open_replay)
+                        .after(poll)
+                        .before(ui),
                 )
                     .run_if(in_state(DuelPhase::Closed)),
             )
@@ -488,6 +493,8 @@ pub struct LobbyState {
     pub(crate) decks: decks::DecksUi,
     /// The Play screen's own choices and sheets (WP2).
     pub(crate) play: play::PlayUi,
+    /// The Replays tab, and a replay being opened.
+    pub(crate) replays: replays::ReplaysUi,
     /// The Undo the toast lane offers (S-10).
     pub(crate) undo: Option<decks::Undo>,
     /// The tours as they were before the bubble's box or Restart tours,
@@ -584,6 +591,8 @@ impl SettingsPane {
 pub(crate) enum Hub {
     Play,
     Decks,
+    /// Watching games again (desktop only, `replays::SHOWN`).
+    Replays,
 }
 
 impl LobbyState {
@@ -758,6 +767,7 @@ impl LobbyState {
             menu: None,
             decks: decks::DecksUi::default(),
             play: play::PlayUi::default(),
+            replays: replays::ReplaysUi::default(),
             undo: None,
             tours_before: None,
             room_away: false,
@@ -835,6 +845,8 @@ enum Reply {
     Terms(front::terms::TermsReply),
     /// `GET /auth/config`'s `clocks`: what the Create-table sheet offers.
     Clocks(Vec<client_core::lobby::play::ClockPreset>),
+    /// A page of `GET /replays`.
+    Replays(client_core::replay::library::ReplayPage),
 }
 
 /// What the shell should make of a successful response body.
@@ -913,6 +925,7 @@ pub(crate) mod offline;
 mod press;
 pub(crate) mod preview;
 mod print_catalog;
+pub(crate) mod replays;
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 mod resume;
 mod room;

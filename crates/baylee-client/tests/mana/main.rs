@@ -135,6 +135,7 @@ impl Table {
                 HostMessage::Failed(reason) => panic!("the engine refused: {reason}"),
                 HostMessage::Static(_)
                 | HostMessage::Curtain
+                | HostMessage::Jump
                 | HostMessage::Preparing { .. }
                 | HostMessage::AiLog(_)
                 | HostMessage::Spectators(_)

@@ -143,7 +143,7 @@ fn assimilate(state: &mut GameState, res: &Resolution, target: TargetSpec) {
 }
 
 /// The shared arrival door for ordinary and characteristic-changing returns.
-fn return_card(
+pub(super) fn return_card(
     state: &mut GameState,
     id: ObjectId,
     controller: PlayerId,

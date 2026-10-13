@@ -134,3 +134,86 @@ fn gaining_rasputins_counter_limit_removes_excess_and_overlapping_caps_do_not_ad
     e.apply(player, PlayerAction::PassPriority).unwrap();
     assert_eq!(counters_on(&e, source, counters::DREAM), 3);
 }
+
+/// `amount` noncombat damage from `source` to `victim`, dealt at once through
+/// the damage pipeline (prevention included) and without a state-based-action
+/// check, so a one-toughness Rasputin is still there to be read afterwards.
+/// Returns what was actually dealt.
+fn hit(e: &mut Engine<RegistryLookup>, source: ObjectId, victim: ObjectId, amount: u32) -> u32 {
+    let state = e.dev_state_mut(PlayerId::new(0)).unwrap();
+    let source_version = Some(state.object(source).unwrap().version);
+    let mut work = crate::damage::DamageWork::new(
+        state,
+        vec![crate::damage::Assignment {
+            source,
+            source_version,
+            recipient: crate::event::DamageTarget::Object(victim),
+            amount,
+            is_combat: false,
+        }],
+    );
+    assert!(work.advance(state).is_none(), "no question is asked");
+    work.dealt()
+}
+
+fn rasputin_against_a_bear() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::RASPUTIN_DREAMWEAVER])
+        .battlefield(1, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, PlayerId::new(0));
+    let rasputin = on_battlefield(&e, PlayerId::new(0), index::RASPUTIN_DREAMWEAVER).unwrap();
+    let bear = on_battlefield(&e, PlayerId::new(1), index::GRIZZLY_BEARS).unwrap();
+    (e, rasputin, bear)
+}
+
+#[test]
+fn rasputin_dream_shield_costs_a_counter_and_prevents_only_the_next_one_damage_to_itself() {
+    let p0 = PlayerId::new(0);
+    let (mut e, rasputin, bear) = rasputin_against_a_bear();
+    assert_eq!(counters_on(&e, rasputin, counters::DREAM), 7);
+    activate(&mut e, p0, index::RASPUTIN_DREAMWEAVER, 1);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        counters_on(&e, rasputin, counters::DREAM),
+        6,
+        "the cost removes one dream counter from Rasputin"
+    );
+    assert_eq!(
+        hit(&mut e, rasputin, bear, 3),
+        3,
+        "the shield names Rasputin: damage to another creature is not prevented"
+    );
+    assert_eq!(
+        hit(&mut e, bear, rasputin, 3),
+        2,
+        "prevent the next 1 damage: three damage to Rasputin becomes two"
+    );
+    assert_eq!(u32::from(e.state().object(rasputin).unwrap().damage), 2);
+    assert_eq!(
+        hit(&mut e, bear, rasputin, 3),
+        3,
+        "the shield was only 1 damage: a second hit is not reduced"
+    );
+    assert_eq!(u32::from(e.state().object(rasputin).unwrap().damage), 5);
+    assert_eq!(
+        counters_on(&e, rasputin, counters::DREAM),
+        6,
+        "the shield is paid once, not per hit"
+    );
+}
+
+#[test]
+fn rasputin_unused_dream_shield_ends_with_the_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut e, rasputin, bear) = rasputin_against_a_bear();
+    activate(&mut e, p0, index::RASPUTIN_DREAMWEAVER, 1);
+    pass_until(&mut e, stack_is_empty);
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(
+        hit(&mut e, bear, rasputin, 3),
+        3,
+        "this turn: the unused shield has ended with the turn it was made in"
+    );
+}

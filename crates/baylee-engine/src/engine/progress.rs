@@ -1083,6 +1083,11 @@ impl<L: CardLookup> Engine<L> {
                 reason: EndReason::Draw,
             });
         }
+        // An effect ended it: "you win the game" (CR 104.2b), "the game is
+        // a draw" (CR 104.4c). Immediately (CR 104.1), whoever is standing.
+        if let Some(result) = self.state.game_end {
+            return Some(result);
+        }
         // The game is decided by *sides*, not by heads: a seat with no team
         // is a side of one, so a game with no teams in it counts exactly the
         // players it counted before. A team wins the moment nobody from

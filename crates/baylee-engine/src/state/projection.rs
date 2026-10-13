@@ -84,6 +84,23 @@ impl GameState {
                 self.object(*id)
                     .is_some_and(|o| !matches!(o.zone, Zone::Battlefield | Zone::Stack))
             }));
+            // And the cards whose own statics function off the battlefield
+            // (CR 113.6b-c), which may be about the card itself: Grist, the
+            // Hunger Tide is a 1/1 Insect creature card in every other zone.
+            ids.extend(
+                self.offboard_static_candidates
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        !self.printed_pt_cda.iter().any(|(card, _)| card == id)
+                            && self.object(*id).is_some_and(|o| {
+                                !matches!(
+                                    o.zone,
+                                    Zone::Battlefield | Zone::Stack | Zone::OutsideGame
+                                )
+                            })
+                    }),
+            );
         }
         // Layer 2 decides the controller every later layer reads, of this
         // object and of every other one (CR 613.1b before 613.1c–f), and a

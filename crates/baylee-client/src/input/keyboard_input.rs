@@ -47,7 +47,7 @@ pub fn keyboard(
         typed.clear();
         return;
     }
-    let fired = Fired::of_layout(&keys, logical.as_deref(), prefs.keymap());
+    let fired = Fired::of_layout(&keys, logical.as_deref(), prefs.keymap()).for_table(&duel);
     // A frame with no key at all is a frame for none of the handlers below,
     // and they take the duel and the settings mutably: borrowed here, both
     // read as changed on every frame of a table at rest, and so did

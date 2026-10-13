@@ -590,6 +590,7 @@ fn applies(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                reference: None,
             },
         ),
     }
@@ -1207,6 +1208,7 @@ fn apply(
     let context = crate::text_changes::RuleContext {
         source: fx.source.unwrap_or(obj.id),
         text: state.effect_text(fx),
+        reference: None,
     };
     match &context.text.modifier(fx.modifier) {
         Modifier::AnimateNoncreatureArtifact
@@ -1424,6 +1426,7 @@ fn apply(
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)

@@ -588,8 +588,12 @@ pub enum MenuAction {
     /// Open the AI log, or shut it again.
     ToggleAiLog,
     /// Decline a payment window: pass it without paying. The pay button is
-    /// the prompt's confirm ([`crate::Duel::pay_owed`]).
+    /// the prompt's confirm ([`crate::Duel::confirm_payment`]).
     DeclinePayment,
+    /// Take back every tap staged in a payment window
+    /// ([`crate::Duel::unstage_all`]); nothing was sent, so nothing else
+    /// changes.
+    UnstagePayment,
     /// Take back the spell being cast (`Duel::cancel_cast`): the shelf's
     /// last answer while the view names one, and `Esc`'s last rung.
     CancelCast,
@@ -2318,6 +2322,7 @@ pub use ledge::players::{
     sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
+pub(crate) use ledge::replay_bar;
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,

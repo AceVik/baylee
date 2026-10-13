@@ -77,3 +77,51 @@ fn eiganjo_channel_hits_attackers_or_blockers_and_counts_only_your_legends() {
         assert_eq!(e.state.object(target).unwrap().zone, Zone::Graveyard);
     }
 }
+
+/// "4 damage to target attacking or blocking creature": with an attacker, a
+/// blocker and an uninvolved creature on each side, the target options are
+/// exactly the attacker and the blocker.
+#[test]
+fn eiganjo_channel_target_options_are_exactly_the_attacker_and_the_blocker() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut e = kit::game(
+        975,
+        &[llanowar_elves(), index::GRIZZLY_BEARS],
+        &[serra_angel(), index::PRODIGAL_SORCERER],
+        &[eiganjo_seat_of_the_empire()],
+        &[],
+    );
+    let attacker = kit::obj(&e, kit::P0, llanowar_elves());
+    let idle_mine = kit::obj(&e, kit::P0, index::GRIZZLY_BEARS);
+    let blocker = kit::obj(&e, kit::P1, serra_angel());
+    let idle_theirs = kit::obj(&e, kit::P1, index::PRODIGAL_SORCERER);
+    kit::attack(&mut e, &[attacker]);
+    kit::block(&mut e, &[(blocker, attacker)]);
+    // {2}{W} in full: no legendary creature of ours makes it cheaper.
+    kit::float(
+        &mut e,
+        kit::P0,
+        &[(ManaColor::White, 1), (ManaColor::Colorless, 2)],
+    );
+    let card = in_hand(&e, kit::P0, eiganjo_seat_of_the_empire()).unwrap();
+    e.apply(
+        kit::P0,
+        PlayerAction::ActivateAbility {
+            source: card,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    let Pending::ChooseTargets { mut options, .. } = e.pending().clone() else {
+        panic!("expected a target choice, got {:?}", e.pending());
+    };
+    options.sort();
+    let mut expected = vec![attacker, blocker];
+    expected.sort();
+    assert_eq!(
+        options, expected,
+        "\"attacking or blocking creature\": the attacker and the blocker, not the idle \
+         creatures {idle_mine:?} / {idle_theirs:?}"
+    );
+}

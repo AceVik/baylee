@@ -5,8 +5,9 @@
 //! Set: ZNR #166 — Zendikar Rising | Scryfall ID: a69541db-3f4e-412f-aa8e-dec1e74f74dc | Oracle ID: 81036c9f-fe0a-45a7-bcd5-0d344f31055a
 //! Face: Spikefield Hazard — {R} — Instant
 //! Face: Spikefield Cave —  — Land
-// IMPLEMENTED — front face: 1 damage to any target; back face: enters
-// tapped and taps for {R}. The front face's exile rider is not expressible.
+// IMPLEMENTED — front face: 1 damage to any target, and a permanent dealt
+// damage this way is exiled instead if it would die this turn; back face:
+// enters tapped and taps for {R}.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -33,20 +34,17 @@ card!(
             abilities = CAVE_MANA,
         ),
     ],
-    coverage = Coverage::Partial(
-        "the rider \"If a permanent dealt damage this way would die this turn, exile it instead\" — the DSL has no replacement effect that redirects a permanent that would die"
-    ),
-    abilities = &[
-        // NOT SUPPORTED: "If a permanent dealt damage this way would die
-        // this turn, exile it instead." No `Modifier` and no
-        // `ReplacementRule` changes where a permanent goes when it would
-        // die, so the damage is dealt and the permanent dies normally.
-        spell!(
-            &[Effect::DealDamage {
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[
+            Effect::DealDamage {
                 amount: Amount::Fixed(1),
                 target: TargetSpec::AnyTarget,
-            }],
-            targets = Some(TargetReq::one(TargetSpec::AnyTarget))
-        ),
-    ],
+            },
+            // "If a permanent dealt damage this way would die this turn,
+            // exile it instead."
+            Effect::ExileDamagedThisWayIfDies,
+        ],
+        targets = Some(TargetReq::one(TargetSpec::AnyTarget))
+    )],
 );

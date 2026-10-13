@@ -5192,10 +5192,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::furycalm_snarl::CARD,
     ),
     (
-        "6538fb05-7cc6-4bb9-9b57-11f4f07b5e59",
-        &crate::cards::urza_s_fun_house::CARD,
-    ),
-    (
         "65424bea-fd53-4f85-9757-0b91a6d40ba4",
         &crate::cards::cabaretti_courtyard::CARD,
     ),
@@ -9488,10 +9484,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::lush_oasis::CARD,
     ),
     (
-        "b6be7abe-cee3-418f-bf52-8b5405e3462f",
-        &crate::cards::r_d_s_secret_lair::CARD,
-    ),
-    (
         "b6c7c708-5212-4100-b954-b77855b27915",
         &crate::cards::lupinflower_village::CARD,
     ),
@@ -11722,10 +11714,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "e040a8e6-b90c-42d1-a1b1-771d954c61ab",
         &crate::cards::slagwoods_bridge::CARD,
-    ),
-    (
-        "e043a795-6936-4d7e-9a77-e0175a27c8f5",
-        &crate::cards::city_of_ass::CARD,
     ),
     (
         "e04fa58e-be7a-4c9c-98d0-48241742a41b",
@@ -20556,8 +20544,8 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    Some(&crate::cards::city_of_ass::CARD),
-    Some(&crate::cards::r_d_s_secret_lair::CARD),
+    None,
+    None,
     None,
     None,
     None,
@@ -37975,7 +37963,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    Some(&crate::cards::urza_s_fun_house::CARD),
+    None,
     None,
     None,
     None,
@@ -46993,7 +46981,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x932847f60dac64cc;
+pub const POOL_HASH: u64 = 0xc0251cb94357bdde;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

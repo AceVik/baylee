@@ -662,3 +662,127 @@ fn leaving_an_offline_table_says_so_and_sends_nothing() {
     assert!(state.lobby.depart().is_none(), "offline has no one to tell");
     assert_eq!(*state.lobby.screen(), Screen::Table);
 }
+
+/// The ways out of a finished game, in the order they stand in the row the
+/// end screen left for them.
+///
+/// Read off the row's children and not off [`presses`], which sorts what it
+/// finds: the order is the claim (the lead way first, the quiet one last).
+fn ways_out(app: &mut App) -> Vec<EndPress> {
+    let row = app.world_mut().spawn(crate::hud::FinishExits).id();
+    phase(app, DuelPhase::Finished);
+    let children: Vec<Entity> = app
+        .world()
+        .entity(row)
+        .get::<Children>()
+        .map(|children| children.iter().collect())
+        .unwrap_or_default();
+    children
+        .into_iter()
+        .filter_map(|child| match app.world().entity(child).get::<Press>() {
+            Some(Press::End(way)) => Some(*way),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Seats the lobby at a table of this handover, as the gateway's answer does.
+fn seated_at(app: &mut App, handover: SeatHandover) {
+    stocked(app);
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    state.lobby.host(GameMode::Ai);
+    state.lobby.apply(LobbyEvent::Seated(handover));
+    // Stand in for the dial that opened the game now ending.
+    state.connected = true;
+}
+
+/// A game played here, against the house, can be watched again from its
+/// end screen: between the play-again it cannot have and the way back.
+#[test]
+fn a_finished_game_against_the_house_offers_watch_replay_before_the_way_back() {
+    let mut app = headless();
+    seated_at(
+        &mut app,
+        SeatHandover {
+            game_id: "offline".to_string(),
+            seat: 0,
+            seat_token: String::new(),
+            local: true,
+        },
+    );
+    assert_eq!(
+        ways_out(&mut app),
+        [EndPress::Replay, EndPress::Leave],
+        "a local game: no play again, a replay, the way back"
+    );
+}
+
+/// A hosted game this player sat in: play again first (the lead answer),
+/// the replay, then the way back.
+#[test]
+fn a_finished_hosted_game_offers_play_again_then_watch_replay_then_the_way_back() {
+    let mut app = headless();
+    seated_at(
+        &mut app,
+        SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+            local: false,
+        },
+    );
+    assert_eq!(
+        ways_out(&mut app),
+        [EndPress::PlayAgain, EndPress::Replay, EndPress::Leave]
+    );
+}
+
+/// A game only watched has no replay to offer: the player has no seat in
+/// its record, and the gateway would refuse the tape.
+#[test]
+fn a_finished_game_only_watched_offers_no_replay() {
+    let mut app = headless();
+    seated_at(
+        &mut app,
+        SeatHandover {
+            game_id: "g1".to_string(),
+            seat: SeatHandover::WATCH,
+            seat_token: "session".to_string(),
+            local: false,
+        },
+    );
+    assert_eq!(ways_out(&mut app), [EndPress::Leave]);
+    let found = presses(&mut app);
+    assert!(
+        !found.contains(&Press::End(EndPress::Replay)),
+        "a watched game offered a replay: {found:?}"
+    );
+}
+
+/// The end of a replay has its own ways: from the start again, from the
+/// next perspective, and back (to the Replays tab).
+#[test]
+fn the_end_of_a_replay_offers_watch_again_watch_from_and_the_way_back() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .watch_replay(baylee_client_core::lobby::ReplayHandover {
+            source: baylee_client_core::lobby::ReplayRef::Memory,
+            perspective: baylee_client_core::replay::Perspective::Seat(PlayerId::new(0)),
+            verify: baylee_client_core::replay::Verify::Stop,
+            from_end_screen: true,
+        });
+    assert!(
+        matches!(
+            app.world().resource::<LobbyState>().lobby.screen(),
+            Screen::Replay(_)
+        ),
+        "the lobby is not on a replay"
+    );
+    assert_eq!(
+        ways_out(&mut app),
+        [EndPress::WatchAgain, EndPress::WatchFrom, EndPress::Leave]
+    );
+}

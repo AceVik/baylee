@@ -127,3 +127,61 @@ fn azcanta_checks_seven_after_surveilling_then_offers_transform_and_filtered_sea
         assert_eq!(e.state().object(bolt).unwrap().zone, Zone::Hand);
     }
 }
+
+/// Azcanta, the Sunken Ruin: "{T}: Add {U}." One blue, no more, and the tap
+/// is the cost.
+#[test]
+fn azcanta_the_sunken_ruin_taps_for_exactly_one_blue() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, azcanta) =
+        placed_face(search_for_azcanta(), 1, &[]).expect("Azcanta on the battlefield");
+    assert!(!is_tapped(&engine, azcanta));
+    activate(&mut engine, p0, search_for_azcanta(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1, "{{T}}: Add {{U}}");
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&engine, azcanta), "{{T}} is part of the cost");
+}
+
+/// "Then if you have seven or more cards in your graveyard": with six, and
+/// the surveilled card kept on top, there is no seventh card, so nothing is
+/// asked and the enchantment stays as it is.
+#[test]
+fn search_for_azcanta_offers_no_transform_with_only_six_cards_in_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(104, forest())
+        .battlefield(0, &[search_for_azcanta(), island()])
+        .start();
+    keep_mulligans(&mut e);
+    seed_graveyard(&mut e, p0, 6);
+    pass_until(&mut e, |e| {
+        matches!(
+            e.pending(),
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
+                ..
+            }
+        )
+    });
+    let Pending::Arrange { cards, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    e.apply(p0, look_answer(&cards, &[])).unwrap();
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        6,
+        "the surveilled card stayed on top, so the graveyard is still six"
+    );
+    assert!(
+        !matches!(e.pending(), Pending::YesNo { .. }),
+        "six cards are not seven: no \"you may transform\" is asked, got {:?}",
+        e.pending()
+    );
+    pass_until(&mut e, stack_is_empty);
+    let azcanta = on_battlefield(&e, p0, search_for_azcanta()).unwrap();
+    assert_eq!(
+        e.state().object(azcanta).unwrap().face_index,
+        0,
+        "still Search for Azcanta"
+    );
+}

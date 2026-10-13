@@ -329,6 +329,12 @@ pub struct RuleContext {
     pub source: ObjectId,
     /// The semantic text of the particular rules being evaluated.
     pub text: TextChangeMap,
+    /// The object a relational filter is relative to (`Filter::Reference`
+    /// and its family): a resolving spell's or ability's first target, else
+    /// the object its triggering event was about; while a second target is
+    /// chosen, the first target. `None` everywhere else, where those filters
+    /// match nothing.
+    pub reference: Option<ObjectId>,
 }
 
 /// Where a derived effect obtains its semantic text, independently of its

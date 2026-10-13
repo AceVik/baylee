@@ -1307,6 +1307,47 @@ Two older rules had to be right first, and each was wrong.
   requirement is now written on the object when the trigger is stacked, and
   `stack_target_req` reads it back.
 
+### "This way": what a resolution has done (CR 608.2c)
+
+`Amount::ThisWay` / `ThisWayBy` and `ThisWay::…` are read off the journal by
+`resolve::this_way`, as `resolve::reflexive` reads its event: the entries after
+this resolution's `StackObjectResolved` marker are its own, because
+resolutions never interleave and nothing happens while one waits for an
+answer. `Resolution::this_way_from` narrows the window to one pass of
+`Effect::RepeatWhile` (Grist): the op runs its pass spliced into the program
+and is itself spliced after it as the check, so a question inside the pass
+suspends and resumes like any other, and `this_way_from` being set is how the
+op tells its check from its first entry. A died or returned permanent is
+matched on `ltb_characteristics` (CR 608.2h); damage is the source's own,
+after prevention.
+
+Each-player instructions (`DealDamage` to players, `LoseLife`, `GainLifeFor`,
+`DrawCardsFor`) read their amount once per player through
+`resolve::amount_for_player`, every player's before anything happens, with
+`PlayerRel::Recipient` naming that player; everywhere else `Recipient` is
+nobody. `Condition::AmountAtLeast` inside `Effect::IfCondition` reads through
+`amount2`, so the resolution-only amounts work there.
+
+### Ending the game by effect (CR 104.1, 104.2b, 104.4c)
+
+`Effect::WinGame` / `DrawGame` write `GameState::game_end` (the first ending
+stands); `Engine::game_result` reads it before anything else, right after an
+agreed draw, so the game ends the next time the machine looks — immediately,
+in rules terms. A win names the controller's team when they play for one.
+`Trigger::LastCounterRemoved` reads `CounterChanged::by`, which every
+player-driven removal now records (effects: the resolving controller; costs:
+the payer; a counter move: the mover). Rules removals (stun, damage to a
+planeswalker, SBAs) record nobody.
+
+### The defending player of an attacking source (CR 508.5)
+
+`PlayerRel::DefendingPlayer` is `eval::defending_player_of(source)`: the player
+the source attacks, or the controller of the planeswalker it attacks (last
+known, CR 506.4c). A source no longer attacking names the one opponent of a
+two-player game during combat (CR 506.2) and nobody at a larger table.
+`Filter::ControlledByDefendingPlayer` is older and coarser (any opponent of
+the active player during combat) and is left as it is.
+
 ## Two instances of "target", and a board that moves mid-resolution
 
 CR 115.3 counts targets per **instance of the word**: Khalni Ambush's "target

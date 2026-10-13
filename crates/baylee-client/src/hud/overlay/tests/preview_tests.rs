@@ -614,3 +614,83 @@ fn the_cards_attached_to_a_host_are_drawn_wider_than_a_third_of_its_preview() {
         "the attached cards are drawn at one size: {widths:?}"
     );
 }
+
+/// The preview the duel overlay builds for `name` hovered on the table with
+/// its art arrived: the frame's reading, and whether it holds a back face.
+fn preview_of(name: &str) -> (crate::flip::Reading, bool) {
+    let (view, id) = hovering(name);
+    let mut duel = duel_with(false);
+    duel.view = Some(view);
+    duel.statics = Some(baylee_client_core::test_support::statics(8));
+    crate::rebuild_board(&mut duel);
+    duel.hovered = id;
+    let mut app = bar_of(duel);
+    // The scan of print 1, face 0 at the size the preview asks for: without
+    // it the preview draws a text face, which is upright by design.
+    app.world_mut().resource_mut::<CardTextures>().mark_arrived(
+        baylee_client_core::images::ImageKey::new(
+            baylee_core::ids::PrintRef::new(1),
+            0,
+            baylee_client_core::images::ArtSize::Normal,
+        ),
+    );
+    app.update();
+    let mut frames = app.world_mut().query::<(Entity, &crate::flip::Flip)>();
+    let found: Vec<(Entity, crate::flip::Reading)> = frames
+        .iter(app.world())
+        .map(|(frame, flip)| (frame, flip.reading))
+        .collect();
+    assert_eq!(found.len(), 1, "the hover drew one preview: {found:?}");
+    let (frame, reading) = found[0];
+    let has_back = app.world().get::<Children>(frame).is_some_and(|children| {
+        children.iter().any(|child| {
+            app.world().get::<crate::flip::Side>(child) == Some(&crate::flip::Side::Back)
+        })
+    });
+    (reading, has_back)
+}
+
+/// Fire // Ice is printed sideways: its preview lies across its box, shows
+/// both halves on the one scan, and has no back to turn to.
+#[test]
+fn a_split_card_previews_lying_across_with_no_back() {
+    let (reading, has_back) = preview_of("Fire // Ice");
+    assert!(reading.lies_across(), "{reading:?}");
+    assert!(!reading.over, "shift has no back to turn a split card to");
+    assert!(!has_back, "a split card shows no back");
+}
+
+/// An ordinary card previews upright and turns over to its printed back.
+#[test]
+fn an_ordinary_card_previews_upright_with_a_back() {
+    let (reading, has_back) = preview_of("Lightning Bolt");
+    assert_eq!(reading, crate::flip::Reading::UPRIGHT);
+    assert!(has_back, "an ordinary card turns over to the printed back");
+}
+
+/// The reading is the pool's, face by face: Fire // Ice lies across on both
+/// halves, a battle on its front only, and a card the pool does not know
+/// (or no card at all) is upright.
+#[test]
+fn the_hovered_card_names_its_reading() {
+    let identity = |name: &str, face: u8| {
+        let index = baylee_cards::decks::by_name(name).expect("in the pool");
+        baylee_view::CardIdentity {
+            index,
+            print: baylee_core::ids::PrintRef::new(1),
+            face,
+        }
+    };
+    for face in [0, 1] {
+        let read = crate::hud::overlay::preview::reading_of(Some(identity("Fire // Ice", face)));
+        assert!(read.lies_across() && !read.over, "face {face}: {read:?}");
+    }
+    let front = crate::hud::overlay::preview::reading_of(Some(identity("Invasion of Ikoria", 0)));
+    assert!(front.lies_across() && front.over, "{front:?}");
+    let back = crate::hud::overlay::preview::reading_of(Some(identity("Invasion of Ikoria", 1)));
+    assert!(!back.lies_across() && back.over, "{back:?}");
+    assert_eq!(
+        crate::hud::overlay::preview::reading_of(None),
+        crate::flip::Reading::UPRIGHT
+    );
+}

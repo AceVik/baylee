@@ -50,8 +50,13 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::EachOpponent
                     | PlayerRel::EachPlayer
                     | PlayerRel::ActivePlayer
+                    | PlayerRel::EachOtherPlayer
+                    | PlayerRel::MostLifeOrTied
                     | PlayerRel::MostLife => true,
                     PlayerRel::Chosen
+                    | PlayerRel::Recipient
+                    | PlayerRel::DefendingPlayer
+                    | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
@@ -180,6 +185,7 @@ fn a_division_fault_fires_on_each_bad_shape() {
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
+        resolves_if_targets_illegal: false,
     };
     assert_eq!(division_fault(&trigger(DIVIDE, targets(4))), None);
     assert_eq!(
@@ -547,6 +553,7 @@ fn a_reflexive_fault_fires_on_each_bad_shape() {
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
+        resolves_if_targets_illegal: false,
     };
     let faults: Vec<_> = resolving_lists(&granting)
         .into_iter()
@@ -632,6 +639,7 @@ fn a_reflexive_target_is_read_as_its_own_branch() {
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
+        resolves_if_targets_illegal: false,
     };
     assert_eq!(target_reuse(&ability), Some(&Filter::CREATURE));
 }

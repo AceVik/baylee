@@ -78,3 +78,44 @@ fn clinic_can_give_an_opposing_commander_lifelink_but_not_an_ordinary_creature()
     assert_eq!(e.state().object(commander).unwrap().controller, p1);
     assert!(keywords(&e, commander).contains(KeywordSet::LIFELINK));
 }
+
+/// "gains lifelink until end of turn": the opposing commander has lifelink
+/// once the ability has resolved, and has lost it again by the opponent's
+/// own main phase, after p0's turn has ended.
+#[test]
+fn clinic_lifelink_lasts_only_until_end_of_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .commander(1, &[index::SAVANNAH_LIONS])
+        .battlefield(0, &[index::WITCH_S_CLINIC])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let commander = e.state().commanders[1][0].object;
+    let state = e.dev_state_mut(p0).unwrap();
+    state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+    state
+        .move_object(
+            commander,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    state.players[0].mana_pool.add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    activate(&mut e, p0, index::WITCH_S_CLINIC, 1);
+    aim_at(&mut e, p0, commander);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        keywords(&e, commander).contains(KeywordSet::LIFELINK),
+        "control: the commander has lifelink this turn"
+    );
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(e.state().turn.active, p1);
+    assert!(
+        !keywords(&e, commander).contains(KeywordSet::LIFELINK),
+        "\"until end of turn\": gone when p0's turn is over"
+    );
+}

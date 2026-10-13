@@ -84,19 +84,14 @@ pub(super) fn spawn_shell(
 /// in logical pixels, for a card `img_w` wide: `[side, top]`, the first off
 /// its sides and its foot, the second over its top edge. Nothing for a card
 /// that wears none past its edge, as a wave does not. Their node reaches the
-/// same way round every look ([`crate::shellui::PREVIEW_QUAD`]), and over the
-/// top only a wall reaches further than a dome's foot does off the sides.
+/// same way round every look ([`crate::shellui::PREVIEW_QUAD`]), a border
+/// being the same all round.
 pub(in crate::hud) fn shell_reach(img_w: f32, shells: crate::shellmat::Shells) -> [f32; 2] {
     use crate::shellui::{PREVIEW_SIDE, PREVIEW_TOP};
     if !shells.reach_off_the_card() {
         return [0.0; 2];
     }
-    let top = if shells.wall {
-        PREVIEW_TOP
-    } else {
-        PREVIEW_SIDE
-    };
-    [PREVIEW_SIDE, top].map(|past| (past * img_w - PREVIEW_PAD).max(0.0))
+    [PREVIEW_SIDE, PREVIEW_TOP].map(|past| (past * img_w - PREVIEW_PAD).max(0.0))
 }
 
 /// Where the preview panel's top-left corner goes with everything that
@@ -285,13 +280,42 @@ pub(in crate::hud) fn preview_with_footer_size(want: Vec2, window: Vec2, slip: f
 /// `doc-comment-splice-beheads-the-next-item` is named for. It came back when
 /// `pick_hint` went to the drawer and left it standing over nothing.
 pub(super) fn has_back_image(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
-    hovered
-        .and_then(|id| {
-            view.hand
-                .iter()
-                .find(|card| card.id == id)
-                .map(|card| &card.card)
-                .or_else(|| view.object(id).and_then(|object| object.card.as_ref()))
-        })
-        .is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
+    hovered_card(view, hovered).is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
+}
+
+/// The card the hovered object is, where the seat may know it: a card in
+/// hand or a public object's.
+pub(super) fn hovered_card(
+    view: &PlayerView,
+    hovered: Option<ObjectId>,
+) -> Option<baylee_view::CardIdentity> {
+    let id = hovered?;
+    view.hand
+        .iter()
+        .find(|card| card.id == id)
+        .map(|card| card.card)
+        .or_else(|| view.object(id).and_then(|object| object.card))
+}
+
+/// How the preview turns `card`'s picture to be read
+/// ([`crate::flip::Reading::of`] over the pool's `sides::quarter_turns`):
+/// upright for anything it cannot name.
+pub(in crate::hud) fn reading_of(card: Option<baylee_view::CardIdentity>) -> crate::flip::Reading {
+    card.map_or(crate::flip::Reading::UPRIGHT, |card| {
+        crate::flip::Reading::of(
+            baylee_cards::sides::quarter_turns(card.index),
+            card.face,
+            baylee_cards::sides::has_back_image(card.index),
+        )
+    })
+}
+
+/// Lets a face of the preview draw past its upright box, for a card that is
+/// turned in the plane: Bevy clips a node's children to its box as laid out,
+/// unturned, so a card turned across it would lose both ends.
+pub(in crate::hud) fn unclip(commands: &mut Commands, face: Entity) {
+    commands
+        .entity(face)
+        .entry::<Node>()
+        .and_modify(|mut node| node.overflow = Overflow::visible());
 }

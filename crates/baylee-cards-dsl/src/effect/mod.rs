@@ -878,6 +878,14 @@ pub enum Effect {
     /// "You lose the game" (CR 104.3e; Lich's leave trigger). Not stopped by
     /// a life total above 0, only by an effect saying the player can't lose.
     LoseGame,
+    /// "You win the game" (CR 104.2b; Maze's End): the resolving ability's
+    /// controller wins, and the game ends at once (CR 104.1) — with every
+    /// teammate when the controller plays for a team. A player who has left
+    /// the game wins nothing.
+    WinGame,
+    /// "The game is a draw" (CR 104.4c; Divine Intervention): the game ends
+    /// at once with no winner (CR 104.1).
+    DrawGame,
     /// The named players receive poison counters; this is not damage.
     Poison {
         /// Recipients relative to the resolution.
@@ -2781,6 +2789,130 @@ pub enum Effect {
         /// Creature card to return under the resolving controller's control.
         target: TargetSpec,
     },
+    /// "Return a [filter] card from [whose] graveyard to the battlefield under
+    /// its owner's control" (Reincarnation's delayed trigger): the
+    /// controller chooses the card as this resolves, from the graveyard of the
+    /// player `whose` names. Nothing is targeted (CR 115.1); with a match
+    /// there, one must be chosen.
+    ReturnFromGraveyardOf {
+        /// Whose graveyard.
+        whose: PlayerRel,
+        /// What may be returned.
+        filter: &'static Filter,
+    },
+    /// "When this creature dies this turn, …" (Golden Guardian): a delayed
+    /// triggered ability (CR 603.7) watching this ability's source as the
+    /// object it is now, as [`Effect::WhenTargetDiesThisTurn`] watches a
+    /// target. Its event object is the card that died, so
+    /// [`Effect::ReturnSourceFromGraveyard`] in `effects` returns it.
+    WhenSourceDiesThisTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Choose a [filter] at random. Destroy that [permanent]" (Metzali,
+    /// Tower of Triumph: "a creature at random that attacked this turn"):
+    /// one permanent the filter matches, picked by the game's seeded
+    /// generator, is destroyed. Nothing is targeted; with none, nothing
+    /// happens.
+    DestroyRandom {
+        /// What may be picked.
+        filter: &'static Filter,
+    },
+    /// "Reveal that many cards from the top of your library. You may put a
+    /// creature card and/or a land card from among them onto the battlefield.
+    /// Put the rest on the bottom in a random order" (Ojer Kaslem, Deepest
+    /// Growth): the controller reveals `count` cards, may choose up to one
+    /// card for each filter in `picks` (each card for one filter only), puts
+    /// those onto the battlefield at once, and the rest on the bottom at
+    /// random.
+    RevealTopPutOntoBattlefield {
+        /// How many cards are revealed.
+        count: Amount,
+        /// One optional pick per filter, in this order.
+        picks: &'static [&'static Filter],
+    },
+    /// "Choose a player with the most life or tied for most life" (The Black
+    /// Gate): the controller chooses one of the players `among` names, asked
+    /// only when there is more than one, and the rest of the resolution
+    /// reads that player as [`PlayerRel::Chosen`]. Nothing is targeted
+    /// (CR 115.1); with nobody to choose, nobody is chosen.
+    ChoosePlayerFrom {
+        /// Who may be chosen.
+        among: PlayerRel,
+    },
+    /// "Target creature can't be blocked by creatures [that player] controls
+    /// this turn" (The Black Gate): each target becomes unblockable by
+    /// creatures the player `by` names controls, until end of turn — the
+    /// player as this resolves, not whoever later fits the words. A
+    /// restriction on the declaration of blockers (CR 509.1b).
+    CantBeBlockedByPlayerThisTurn {
+        /// Whose creatures can't block.
+        by: PlayerRel,
+    },
+    /// "Return all [filter] [player] owns to their hand" (Hurkyl's Recall:
+    /// "return all artifacts target player owns to their hand"): every
+    /// permanent matching the filter whose owner `owner` names, whoever
+    /// controls it, goes to its owner's hand. Nothing else is targeted.
+    ReturnAllOwnedToHand {
+        /// Which permanents.
+        filter: &'static Filter,
+        /// Whose.
+        owner: PlayerRel,
+    },
+    /// "Choose up to `keep` [filter], then destroy the rest" (Mount Doom):
+    /// the controller chooses up to `keep` permanents the filter matches,
+    /// any controller's and none targeted, and then every other one the
+    /// filter matches is destroyed at once.
+    DestroyAllExceptChosen {
+        /// What is chosen from and destroyed.
+        filter: &'static Filter,
+        /// How many may be kept.
+        keep: u8,
+    },
+    /// Each player in `who` discards `count` cards of their choice (CR
+    /// 701.9a): Recall's "Discard X cards". `count` is read as the effect
+    /// begins; a hand with fewer cards discards what it has.
+    DiscardCount {
+        /// Who discards.
+        who: PlayerRel,
+        /// How many cards each of them discards.
+        count: Amount,
+    },
+    /// "… If [condition], [do more] and repeat this process" (Grist, the
+    /// Hunger Tide's +1): do `effects`, and do them again for as long as
+    /// `condition` holds of what the pass just done did — an
+    /// [`Amount::ThisWay`] inside `condition`, or inside `effects`, counts
+    /// only the current pass. Grist writes the loyalty counter as an
+    /// `IfCondition` at the end of `effects` with the same condition.
+    RepeatWhile {
+        /// One pass.
+        effects: &'static [Effect],
+        /// Asked after each pass; the process repeats while it holds.
+        condition: crate::Condition,
+    },
+    /// Do `effects` `times` times, one after another, as if the list had
+    /// been printed that many times: Recall's "return a card from your
+    /// graveyard to your hand for each card discarded this way". `times` is
+    /// read once, as the effect begins (CR 608.2c reads an instruction when
+    /// it is followed); zero does nothing.
+    Repeat {
+        /// How many times.
+        times: Amount,
+        /// What is done each time.
+        effects: &'static [Effect],
+    },
+    /// "Put any number of cards from your hand on the bottom of your
+    /// library" (Valakut Awakening): the controller chooses any number of
+    /// the cards in their hand, none included, and they go to the bottom in
+    /// the order chosen (the owner orders cards put into a library together,
+    /// CR 401.4). [`Amount::ThisWay`]'s `PutIntoLibraryFromHand` counts them.
+    PutAnyFromHandOnBottom,
+    /// "If a permanent dealt damage this way would die this turn, exile it
+    /// instead" (Spikefield Hazard): [`Effect::ExileIfDiesThisTurn`] for
+    /// each permanent the resolving source has dealt damage to so far in
+    /// this resolution, and for nothing it only aimed at. A target whose
+    /// damage was prevented was not dealt damage (CR 615.1).
+    ExileDamagedThisWayIfDies,
 }
 
 #[cfg(test)]

@@ -46,6 +46,41 @@ pub enum Screen {
     Build,
     /// A seat was granted. The shell connects a host and leaves the lobby.
     Seated(SeatHandover),
+    /// Watching a game again (`docs/client.md` §"Replays"). The shell
+    /// installs a replay host and leaves the lobby; leaving the replay comes
+    /// back to the Replays tab. Never [`Screen::Seated`]: the seated strip,
+    /// reclaiming a chair and "Play again" would all misfire on a replay.
+    Replay(ReplayHandover),
+}
+
+/// Which game a replay plays, and how ([`Screen::Replay`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReplayHandover {
+    /// Where its tape comes from.
+    pub source: ReplayRef,
+    /// Whose table it draws.
+    pub perspective: crate::replay::Perspective,
+    /// What a failing check does (the entry's check chose it, §7.1).
+    pub verify: crate::replay::Verify,
+    /// Opened from a game's end screen (leaving it still goes to the
+    /// Replays tab).
+    pub from_end_screen: bool,
+}
+
+/// Where a replay's tape comes from.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ReplayRef {
+    /// A kept record of a game against the house, by its file name.
+    Record(String),
+    /// A hosted game the account sat in, by its id.
+    Hosted {
+        /// The gateway's game id.
+        game: String,
+    },
+    /// A record or tape file opened by hand (`BAYLEE_REPLAY`).
+    Path(std::path::PathBuf),
+    /// The record of the game just played here, held in memory by the shell.
+    Memory,
 }
 
 impl Default for Screen {
@@ -96,6 +131,9 @@ pub enum Field {
     /// What the Decks screen's shelf is being searched for (WP3): the
     /// decks' own box, apart from the tables'.
     DeckSearch,
+    /// What the Replays screen's list is being searched for: players and
+    /// commanders (`replay::library::Filters::query`).
+    ReplaySearch,
     /// The password again, asked before the account is deleted (#292). The
     /// confirmation's own box and never the sign-in form's, so a password
     /// half-typed on one is not sent from the other.
@@ -1079,6 +1117,8 @@ pub struct Lobby {
     hosted_listed: bool,
     search: TextBuffer,
     deck_search: TextBuffer,
+    /// The Replays screen's search ([`Field::ReplaySearch`]).
+    replay_search: TextBuffer,
     /// The settings screen's search ([`Field::SettingsSearch`]).
     settings_search: TextBuffer,
     /// The settings screen stands over whatever screen this is: its search
@@ -1247,6 +1287,22 @@ impl Lobby {
         &self.screen
     }
 
+    /// Watches a game again: the shell installs a replay host for it. Only
+    /// from the hub (a seat is given up first, as the end screen does).
+    pub fn watch_replay(&mut self, handover: ReplayHandover) {
+        if matches!(self.screen, Screen::Table | Screen::Replay(_)) {
+            self.screen = Screen::Replay(handover);
+        }
+    }
+
+    /// The replay was left: back to the hub (the shell shows its Replays
+    /// tab).
+    pub fn leave_replay(&mut self) {
+        if matches!(self.screen, Screen::Replay(_)) {
+            self.screen = Screen::Table;
+        }
+    }
+
     /// Which sign-in field has the caret.
     #[must_use]
     pub fn focus(&self) -> Field {
@@ -1310,6 +1366,7 @@ impl Lobby {
             | Field::InviteKey
             | Field::Search
             | Field::DeckSearch
+            | Field::ReplaySearch
             | Field::SettingsSearch
             | Field::RoomName
             | Field::RoomBoard(_)
@@ -1348,6 +1405,7 @@ impl Lobby {
             Field::RoomBoard(at) => &self.room_boards[usize::from(at).min(7)],
             Field::Search => &self.search,
             Field::DeckSearch => &self.deck_search,
+            Field::ReplaySearch => &self.replay_search,
             Field::SettingsSearch => &self.settings_search,
             Field::AccountPassword => &self.account_password,
         }
@@ -1920,6 +1978,7 @@ impl Lobby {
                 | Field::RoomCounter
                 | Field::Search
                 | Field::DeckSearch
+                | Field::ReplaySearch
                 | Field::SettingsSearch
                 | Field::AccountPassword => false,
             },
@@ -1933,10 +1992,10 @@ impl Lobby {
                     self.awaiting.is_none()
                         || (!self.offline() && self.room_edit.as_ref().is_some_and(|d| d.host))
                 }
-                Field::Search | Field::DeckSearch => self.awaiting.is_none(),
+                Field::Search | Field::DeckSearch | Field::ReplaySearch => self.awaiting.is_none(),
                 _ => false,
             },
-            Screen::Build | Screen::Seated(_) => false,
+            Screen::Build | Screen::Seated(_) | Screen::Replay(_) => false,
         }
     }
 
@@ -3510,6 +3569,7 @@ impl Lobby {
             Field::RoomBoard(at) => &mut self.room_boards[usize::from(at).min(7)],
             Field::Search => &mut self.search,
             Field::DeckSearch => &mut self.deck_search,
+            Field::ReplaySearch => &mut self.replay_search,
             Field::SettingsSearch => &mut self.settings_search,
             Field::AccountPassword => &mut self.account_password,
         }

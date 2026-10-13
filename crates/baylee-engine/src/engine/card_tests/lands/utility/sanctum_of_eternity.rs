@@ -84,3 +84,48 @@ fn sanctum_bounces_your_commander_during_combat_but_not_an_opponents_turn() {
         .is_err()
     );
 }
+
+/// "Return target commander you own from the battlefield to your hand." On
+/// the menu: my commander, and neither a creature that is no commander nor
+/// the opponent's commander that I control.
+#[test]
+fn sanctum_offers_only_commanders_its_controller_owns() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .commander(0, &[index::SAVANNAH_LIONS])
+        .commander(1, &[index::SERRA_ANGEL])
+        .battlefield(0, &[sanctum_of_eternity(), index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let (mine, theirs) = (
+        e.state().commanders[0][0].object,
+        e.state().commanders[1][0].object,
+    );
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    let state = e.dev_state_mut(p0).unwrap();
+    for commander in [mine, theirs] {
+        state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state
+            .move_object(
+                commander,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    state.object_mut(theirs).unwrap().set_controller(p0);
+    state.invalidate_projections();
+    state.players[0].mana_pool.add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    assert_eq!(e.state().object(theirs).unwrap().owner, p1, "owned by p1");
+    activate(&mut e, p0, sanctum_of_eternity(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("a target choice was expected, got {:?}", e.pending());
+    };
+    assert!(!options.contains(&bear), "a creature, but no commander");
+    assert!(!options.contains(&theirs), "a commander, but not mine");
+    assert_eq!(options, vec![mine]);
+}

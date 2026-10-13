@@ -83,3 +83,25 @@ fn urban_retreat_returns_only_a_tapped_friendly_creature_as_a_cost() {
     assert!(is_tapped(&e, retreat));
     assert_eq!(e.state().players[0].lands_played_this_turn, 0);
 }
+
+/// "{2}, Return a tapped creature you control to its owner's hand: Put this
+/// card from your hand onto the battlefield. Activate only as a sorcery."
+/// With a tapped creature of yours and the {2} floating, the ability is on
+/// offer from the hand in the own main phase and in neither the stack-holding
+/// window nor the opponent's turn.
+#[test]
+fn urban_retreat_hand_ability_is_sorcery_timing_only() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut e = kit::game(
+        954,
+        &[index::GRIZZLY_BEARS],
+        &[],
+        &[urban_retreat(), llanowar_elves()],
+        &[],
+    );
+    let bear = kit::obj(&e, kit::P0, index::GRIZZLY_BEARS);
+    e.dev_state_mut(kit::P0).unwrap().set_tapped(bear, true);
+    let retreat = in_hand(&e, kit::P0, urban_retreat()).expect("Urban Retreat in hand");
+    assert_sorcery_timing_only(&mut e, retreat, 1, &[(ManaColor::Colorless, 2)]);
+}

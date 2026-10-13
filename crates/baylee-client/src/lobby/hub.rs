@@ -186,6 +186,7 @@ pub(super) fn table(
     match state.hub {
         Hub::Play => super::play::draw(commands, root, state, metrics, kit, scrolled_to),
         Hub::Decks => super::decks::draw(commands, root, state, prefs, metrics, kit, scrolled_to),
+        Hub::Replays => super::replays::draw(commands, root, state, metrics, kit, scrolled_to),
     }
 }
 
@@ -240,6 +241,11 @@ impl HubPress {
                 if state.hub != hub {
                     state.hub = hub;
                     scrolled.set(List::Table, 0.0);
+                    // The list is read again on every visit: a game just
+                    // played, a record deleted elsewhere.
+                    if hub == Hub::Replays {
+                        state.replays.forget_visit();
+                    }
                 }
             }
             // A guest is asked first: signed out, it is gone (#269).

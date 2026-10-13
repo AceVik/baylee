@@ -188,3 +188,41 @@ fn a_disturbed_geist_has_the_hermits_mana_value() {
         "and on the battlefield"
     );
 }
+
+/// Malevolent Hermit // Benevolent Geist: the back face prints no mana cost
+/// and a blue color indicator ("an object is each color denoted by its color
+/// indicator", CR 202.2e). This pool writes the disturb cost {2}{U} on the
+/// back face, so the Geist is blue through that cost; the test pins the
+/// colour, and fails if that cost is ever kept apart without an indicator
+/// taking its place.
+#[test]
+fn benevolent_geist_is_blue_after_the_flip() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(8306, island())
+        .battlefield(0, &[malevolent_hermit()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let hermit =
+        on_battlefield(&e, p0, malevolent_hermit()).expect("the Hermit is on the battlefield");
+    let colors =
+        |e: &Engine<RegistryLookup>| e.state().object(hermit).unwrap().characteristics().colors;
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Blue),
+        "the Hermit is blue by its {{1}}{{U}} cost"
+    );
+
+    let def = baylee_cards::by_index(malevolent_hermit()).unwrap();
+    assert!(e.dev_state_mut(p0).unwrap().transform(hermit, def, 1));
+    assert_eq!(
+        e.state().object(hermit).unwrap().face_index,
+        1,
+        "Benevolent Geist is up"
+    );
+    assert_eq!(
+        colors(&e),
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Blue),
+        "Benevolent Geist is blue and only blue (CR 202.2e)"
+    );
+}
