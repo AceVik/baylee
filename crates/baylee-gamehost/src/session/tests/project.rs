@@ -742,6 +742,7 @@ fn a_seat_shown_without_its_own_cards_is_the_public_table_drawn_from_it() {
                 seat: drawn,
                 own: false,
                 hands: SeatSet::new(),
+                others: SeatSet::new(),
             },
         );
         assert_eq!(projection.stop, Stop::End);
@@ -907,6 +908,7 @@ fn shown_with_its_own_cards_is_the_seat_projection_and_all_hands() {
                 seat: drawn,
                 own: true,
                 hands: SeatSet::new(),
+                others: seats(&[other]),
             }),
             seat,
             "{drawn:?}: own, no hands is Seat"
@@ -917,6 +919,7 @@ fn shown_with_its_own_cards_is_the_seat_projection_and_all_hands() {
                 seat: drawn,
                 own: true,
                 hands: seats(&[drawn]),
+                others: seats(&[other]),
             }),
             seat,
             "{drawn:?}: its own hand among the hands"
@@ -928,6 +931,7 @@ fn shown_with_its_own_cards_is_the_seat_projection_and_all_hands() {
                 seat: drawn,
                 own: true,
                 hands: seats(&[other]),
+                others: seats(&[other]),
             }),
             all,
             "{drawn:?}: own and the other hand is AllHands"
@@ -953,6 +957,7 @@ fn a_hand_is_shown_beside_a_table_that_withholds_the_seats_own() {
                 seat: drawn,
                 own: false,
                 hands: seats(&[other]),
+                others: SeatSet::new(),
             },
             Verify::Stop,
             |moment| {
@@ -1640,4 +1645,112 @@ fn a_log_line_with_no_new_view_is_still_told_at_its_input() {
             "{perspective:?}: no moment wrote only a log line"
         );
     }
+}
+
+// ---- what a seat was shown of another seat's hidden cards
+
+/// A game in which seat 0 casts Thoughtseize at seat 1: the house plays
+/// seat 0's chair, so the choice among seat 1's hand is asked of seat 0, who
+/// is shown cards it does not own (`PlayerView::looking_at`). Returns the
+/// record, played to its end, and how many of seat 0's questions showed a
+/// card of seat 1's.
+fn thoughtseized(seed: u64) -> (Vec<u8>, usize) {
+    use baylee_cards::decks::{DevZone, deal_named};
+    let mut preset = table(seed);
+    for (spec, zone) in [
+        ("Swamp", DevZone::Battlefield),
+        ("Thoughtseize", DevZone::Hand),
+        (
+            "1:Sol Ring; 1:Llanowar Elves; 1:Lightning Bolt; 1:Forest",
+            DevZone::Hand,
+        ),
+    ] {
+        deal_named(&mut preset, spec, zone).expect("the cards are in the pool");
+    }
+    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    session.describe("g".into(), names());
+    session.tell_time(1_000);
+    session.pump();
+    let mut foreign = 0;
+    for asked in 0..2_000_u32 {
+        if matches!(session.pending(), Pending::GameOver(_)) {
+            return (session.take_record(), foreign);
+        }
+        session.tell_time(1_000 + u64::from(asked));
+        foreign += usize::from(
+            session
+                .seat_view(ME)
+                .looking_at
+                .iter()
+                .any(|object| object.owner == THEM),
+        );
+        let action = session.house_action(ME).expect("a question has an answer");
+        session.act(ME, action).expect("the answer stands");
+    }
+    panic!("the game did not end");
+}
+
+/// Seat 0 looks at seat 1's hand and chooses from it. Drawn from seat 0 with
+/// `others` leaving seat 1 out, that sight is taken out of every view and
+/// nothing else is; with seat 1 among `others` it is the seat projection.
+#[test]
+fn what_a_seat_was_shown_of_another_is_kept_only_for_the_seats_named() {
+    let (record, shown_live) = thoughtseized(3);
+    assert!(
+        shown_live > 0,
+        "the game never showed seat 0 a foreign card"
+    );
+    let frames = |perspective| whole(&record, perspective).1;
+    let seat = frames(Perspective::Seat(ME));
+    let shown = |others| {
+        frames(Perspective::Shown {
+            seat: ME,
+            own: true,
+            hands: SeatSet::new(),
+            others,
+        })
+    };
+
+    // Not vacuous: the seat projection holds the hand as seat 0 saw it.
+    let kept = seat
+        .iter()
+        .filter_map(seat_view)
+        .filter(|view| view.looking_at.iter().any(|o| o.owner == THEM))
+        .count();
+    assert!(kept > 0, "no moment of the seat projection looks at seat 1");
+
+    // Seat 1 among the seats named: the seat projection, frame for frame.
+    let named: Vec<_> = shown(seats(&[THEM]))
+        .into_iter()
+        .map(|m| (m.input, m.frames))
+        .collect();
+    let plain: Vec<_> = seat.iter().map(|m| (m.input, m.frames.clone())).collect();
+    assert_eq!(named, plain, "naming seat 1 changes nothing");
+
+    // No seat named: the same views less what seat 0 was shown of seat 1.
+    let without = shown(SeatSet::new());
+    assert_eq!(without.len(), seat.len());
+    let mut views = 0;
+    for (cut, whole) in without.iter().zip(&seat) {
+        assert_eq!(cut.input, whole.input);
+        let (Some(cut_view), Some(mut whole_view)) = (seat_view(cut), seat_view(whole)) else {
+            assert_eq!(seat_view(cut), seat_view(whole));
+            continue;
+        };
+        views += 1;
+        assert!(
+            cut_view.looking_at.iter().all(|o| o.owner == ME),
+            "a card of seat 1's survived at {:?}",
+            cut.input
+        );
+        assert!(cut_view.controlled_hands.is_empty());
+        whole_view.looking_at.retain(|o| o.owner == ME);
+        whole_view.controlled_hands.clear();
+        assert_eq!(
+            cut_view, whole_view,
+            "more than the sight changed at {:?}",
+            cut.input
+        );
+    }
+    assert!(views > 50, "{views} views compared");
 }

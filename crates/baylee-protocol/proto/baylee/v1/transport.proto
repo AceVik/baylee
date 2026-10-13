@@ -432,6 +432,10 @@ message ProjectRecord {
   bool own = 9;
   // The other seats whose hands may be shown beside `seat`'s.
   repeated uint32 hands = 10;
+  // With `own`: the other seats whose hidden cards `seat`'s own view may
+  // still show where it was shown them in the game (a card it looked at, a
+  // hand it saw while controlling that player). Empty: none.
+  repeated uint32 others = 11;
 }
 
 // Engine → gateway, engine link only: a piece of a tape (`baylee_protocol::

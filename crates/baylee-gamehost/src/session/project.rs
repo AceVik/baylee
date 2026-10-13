@@ -47,8 +47,9 @@ pub enum Perspective {
     /// no hand, nothing looked at, the spectators' log and print table), and
     /// beside it the hands of `hands` (`docs/protocol.md` §"Replays": the
     /// seats that consented, are AI, or are the asker's). `Seat(p)` is
-    /// `Shown { seat: p, own: true, hands: ∅ }`; the caller decides who
-    /// consented, this crate shows nothing more than it is told.
+    /// `Shown { seat: p, own: true, hands: ∅, others: every other seat }`;
+    /// the caller decides who consented, this crate shows nothing more than
+    /// it is told.
     Shown {
         /// The seat the table is drawn from.
         seat: PlayerId,
@@ -56,6 +57,12 @@ pub enum Perspective {
         own: bool,
         /// The other seats whose hands are shown beside it.
         hands: SeatSet,
+        /// With `own`: the other seats whose hidden cards the drawn seat's
+        /// own view may still show where it was shown them in the game (a
+        /// card of theirs it looked at, `looking_at`; a hand it saw while
+        /// controlling them, `controlled_hands`). Every other seat's such
+        /// entries are taken out.
+        others: SeatSet,
     },
 }
 
@@ -69,6 +76,7 @@ enum Lens {
         seat: PlayerId,
         own: bool,
         hands: SeatSet,
+        others: SeatSet,
     },
 }
 
@@ -92,13 +100,25 @@ impl Lens {
                 seat,
                 own: true,
                 hands: SeatSet::new(),
+                others: all(seat),
             },
             Perspective::AllHands(seat) => Self::Seat {
                 seat,
                 own: true,
                 hands: all(seat),
+                others: all(seat),
             },
-            Perspective::Shown { seat, own, hands } => Self::Seat { seat, own, hands },
+            Perspective::Shown {
+                seat,
+                own,
+                hands,
+                others,
+            } => Self::Seat {
+                seat,
+                own,
+                hands,
+                others,
+            },
         }
     }
 }
@@ -251,9 +271,20 @@ impl Teller {
         let session = &mut self.session;
         let over = matches!(session.engine.pending(), Pending::GameOver(_));
         match self.lens {
-            Lens::Seat { seat, own, hands } => {
+            Lens::Seat {
+                seat,
+                own,
+                hands,
+                others,
+            } => {
                 let mut view = if own {
-                    session.seat_view(seat)
+                    let mut view = session.seat_view(seat);
+                    // What the seat was shown of a seat whose hidden cards
+                    // this replay may not show.
+                    let may = |owner: PlayerId| owner == seat || others.contains(owner);
+                    view.looking_at.retain(|object| may(object.owner));
+                    view.controlled_hands.retain(|hand| may(hand.player));
+                    view
                 } else {
                     session.spectator_view().into_player_view(seat)
                 };

@@ -45,6 +45,7 @@ fn order(record: Vec<u8>) -> v1::ProjectRecord {
         recorded_by: String::new(),
         own: true,
         hands: Vec::new(),
+        others: vec![1],
     }
 }
 
@@ -527,6 +528,7 @@ fn an_order_that_withholds_the_seats_own_cards_sends_the_public_table_drawn_from
                     seat: PlayerId::new(seat as u8),
                     own: false,
                     hands: seats_of(&[]),
+                    others: seats_of(&[]),
                 }
             )
         );
