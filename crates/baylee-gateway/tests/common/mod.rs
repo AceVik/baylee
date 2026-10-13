@@ -511,7 +511,7 @@ pub async fn attach_agent_watching(
 ) {
     let (presets, seen) = tokio::sync::mpsc::unbounded_channel();
     (
-        attach_agent_inner(gateway, presets, EngineProbe::new().1, None).await,
+        attach_agent_inner(gateway, presets, EngineProbe::new().1, None, 0).await,
         seen,
     )
 }
@@ -521,7 +521,7 @@ pub async fn attach_agent_watching(
 /// plays one through and must not wait on a deal it has never seen.
 pub async fn attach_agent_seeded(gateway: &Gateway, seed: u64) -> tokio::task::JoinHandle<()> {
     let presets = tokio::sync::mpsc::unbounded_channel().0;
-    attach_agent_inner(gateway, presets, EngineProbe::new().1, Some(seed)).await
+    attach_agent_inner(gateway, presets, EngineProbe::new().1, Some(seed), 0).await
 }
 
 /// What a test can see of, and change about, the engines an agent runs:
@@ -590,14 +590,33 @@ pub async fn attach_agent_clocked(gateway: &Gateway) -> tokio::task::JoinHandle<
     let (_, mut end) = EngineProbe::new();
     end.clocked = true;
     let presets = tokio::sync::mpsc::unbounded_channel().0;
-    attach_agent_inner(gateway, presets, end, None).await
+    attach_agent_inner(gateway, presets, end, None, 0).await
 }
 
 /// The agent of [`attach_agent`], with a probe into its engines.
 pub async fn attach_agent_probed(gateway: &Gateway) -> (tokio::task::JoinHandle<()>, EngineProbe) {
     let (probe, end) = EngineProbe::new();
     let presets = tokio::sync::mpsc::unbounded_channel().0;
-    (attach_agent_inner(gateway, presets, end, None).await, probe)
+    (
+        attach_agent_inner(gateway, presets, end, None, 0).await,
+        probe,
+    )
+}
+
+/// An agent that takes at most `capacity` engines at once (a replay job is
+/// one), with a probe into them: the tests about a job counting against
+/// an agent's room.
+#[allow(dead_code)] // only the replay tests need a bounded agent
+pub async fn attach_agent_with_capacity(
+    gateway: &Gateway,
+    capacity: u32,
+) -> (tokio::task::JoinHandle<()>, EngineProbe) {
+    let (probe, end) = EngineProbe::new();
+    let presets = tokio::sync::mpsc::unbounded_channel().0;
+    (
+        attach_agent_inner(gateway, presets, end, None, capacity).await,
+        probe,
+    )
 }
 
 async fn attach_agent_inner(
@@ -605,6 +624,7 @@ async fn attach_agent_inner(
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
     probe: ProbeEnd,
     seed: Option<u64>,
+    capacity: u32,
 ) -> tokio::task::JoinHandle<()> {
     let url = format!("ws://127.0.0.1:{}/agent/ws", gateway.port);
     let mut ws = dial(&url).await.expect("agent socket");
@@ -614,7 +634,7 @@ async fn attach_agent_inner(
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
                 token: gateway.agent_token.clone(),
                 name: "test-agent".to_string(),
-                capacity: 0,
+                capacity,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
             })),
         },
@@ -978,4 +998,43 @@ pub fn http_headers(port: u16, method: &str, path: &str, extra: &[(&str, &str)])
         .expect("http status");
     let head = raw.split("\r\n\r\n").next().unwrap_or("").to_lowercase();
     (status, head)
+}
+
+/// A request whose answer is read whole: the status, the header block
+/// (lower-cased) and the body as bytes. For an answer that is neither text
+/// nor free of headers worth reading, such as a replay's tape, whose
+/// `Content-Type` is part of what it promises.
+#[allow(dead_code)] // only the replay tests read a binary answer's headers
+pub fn http_raw(
+    port: u16,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    body: &str,
+) -> (u16, String, Vec<u8>) {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect http");
+    let auth = token.map_or(String::new(), |t| format!("Authorization: Bearer {t}\r\n"));
+    let request = format!(
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream.write_all(request.as_bytes()).expect("write http");
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).expect("read http");
+    let split = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .expect("a header block");
+    let head = String::from_utf8_lossy(&raw[..split]).to_lowercase();
+    let status: u16 = head
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .expect("http status");
+    assert!(
+        !head.contains("transfer-encoding: chunked"),
+        "this reader does not de-chunk: {head}"
+    );
+    (status, head, raw[split + 4..].to_vec())
 }

@@ -76,6 +76,11 @@ impl Session {
     /// `apply_house_action` for the house), without recording it again.
     /// `false` when the engine refuses it.
     pub(super) fn replayed(&mut self, player: PlayerId, by: Source, action: PlayerAction) -> bool {
+        // A record naming a seat the table lacks is not this game: refused
+        // here, before the session indexes anything by it.
+        if usize::from(player.get()) >= self.seats.len() {
+            return false;
+        }
         let moves_the_game = !action.is_automation_setting();
         let deciding = self.deciding();
         let asked = self.answering(player, &action);

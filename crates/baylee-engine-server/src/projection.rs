@@ -206,7 +206,9 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
         None => Stop::bare(StopKind::Refused),
         Some(perspective) => {
             let names = order.names.clone();
+            let mut began = false;
             let projected = replay::project(&record, names, perspective, verify, |moment| {
+                began = true;
                 for line in lines_of(&moment) {
                     writer.line(&line);
                 }
@@ -220,10 +222,11 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
                 Ok(projection) => stop_of(&projection, writer.full),
                 // The record's end where the replayed game has none, or a
                 // line past the frames already sent that does not parse:
-                // the tape stands up to there.
+                // the tape stands up to there. Before any frame it is a
+                // record this build cannot begin: refused.
                 Err(
                     replay::ReplayError::NotOver { .. } | replay::ReplayError::Unreadable { .. },
-                ) => Stop::bare(StopKind::Cut),
+                ) if began => Stop::bare(StopKind::Cut),
                 Err(_) => Stop::bare(StopKind::Refused),
             }
         }
