@@ -555,7 +555,7 @@ fn a_received_whisper_names_its_sender_and_no_colon() {
     let l = line(&conv, "m1", AT, said("psst", false));
     assert_eq!(
         rows::plain_text(&social, &conv, &l),
-        format!("{} [Bob#0012 → you] psst", rows::clock(AT))
+        format!("{} From Bob: psst", rows::clock(AT))
     );
 }
 
@@ -566,7 +566,7 @@ fn a_sent_whisper_names_its_addressee() {
     let l = line(&conv, "m1", AT, said("psst", true));
     assert_eq!(
         rows::plain_text(&social, &conv, &l),
-        format!("{} [you → Bob#0012] psst", rows::clock(AT))
+        format!("{} To Bob: psst", rows::clock(AT))
     );
 }
 

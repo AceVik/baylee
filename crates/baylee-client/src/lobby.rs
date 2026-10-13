@@ -961,10 +961,12 @@ use widgets::*;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use end_screen::DuelExit;
 pub(crate) use field::caret_lit;
-/// The tree's root and its rebuild count, for `devctl`'s `shell_nodes` and
-/// `ui_rebuilds` rows, under the probe's own `cfg` for the reason above.
+/// The tree's root: the friends drawer moves its content aside.
+pub(crate) use shell::LobbyRoot;
+/// The rebuild count, for `devctl`'s `ui_rebuilds` row, under the probe's
+/// own `cfg` for the reason above.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-pub(crate) use shell::{LobbyRoot, UiRebuilds};
+pub(crate) use shell::UiRebuilds;
 
 #[cfg(test)]
 mod tests;

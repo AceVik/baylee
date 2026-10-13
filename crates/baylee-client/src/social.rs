@@ -483,6 +483,23 @@ pub enum HeaderCount {
     Friends,
 }
 
+/// The header counts as last written, so a header the lobby draws again
+/// starts with them rather than empty for a frame (the flicker of the
+/// chat and friends buttons whenever the lobby redrew its header).
+static HEADER_COUNTS: std::sync::RwLock<(String, String)> =
+    std::sync::RwLock::new((String::new(), String::new()));
+
+/// What a header count says now.
+pub(crate) fn header_count(count: HeaderCount) -> String {
+    let counts = HEADER_COUNTS
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    match count {
+        HeaderCount::Chat => counts.0.clone(),
+        HeaderCount::Friends => counts.1.clone(),
+    }
+}
+
 /// What a header button (or the settings row) asked of the chat.
 pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lobby::ShellAsk) {
     use crate::lobby::ShellAsk;
@@ -523,6 +540,11 @@ fn lobby_side(
     use baylee_client_core::shellkeys::ShellAction;
     let header = host.machine().map(|m| !m.me().guest);
     if lobby.chat_header != header {
+        // The friends list stands open from the start of a session (owner,
+        // 13.10.); a guest has none.
+        if lobby.chat_header.is_none() && header == Some(true) {
+            ui.drawer = true;
+        }
         lobby.chat_header = header;
     }
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
@@ -562,6 +584,14 @@ fn lobby_side(
     } else {
         online.to_string()
     };
+    {
+        let mut stored = HEADER_COUNTS
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if stored.0 != chat || stored.1 != friends {
+            *stored = (chat.clone(), friends.clone());
+        }
+    }
     for (count, mut text) in &mut counts {
         let want = match count {
             HeaderCount::Chat => &chat,

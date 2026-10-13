@@ -285,7 +285,7 @@ fn chat_tool(
     let n = commands
         .spawn((
             count,
-            Text::new(String::new()),
+            Text::new(crate::social::header_count(count)),
             crate::hud::tf_bold(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
             Pickable::IGNORE,

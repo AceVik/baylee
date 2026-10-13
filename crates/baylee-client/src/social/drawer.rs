@@ -70,12 +70,101 @@ pub(crate) enum DrawerPress {
 
 /// Installs the drawer.
 pub(crate) fn install(app: &mut App) {
-    app.add_systems(
+    app.init_resource::<DrawerSlide>().add_systems(
         Update,
-        (asks, presses, sync_door, sync_drawer)
+        (asks, presses, sync_door, sync_drawer, slide_the_drawer)
             .chain()
             .run_if(resource_exists::<UiFonts>),
     );
+}
+
+/// How far the drawer is in: 0 shut, 1 open (eased when drawn).
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
+pub(crate) struct DrawerSlide(pub f32);
+
+impl DrawerSlide {
+    /// The room it takes from the right edge now, in UI pixels at `zoom`.
+    pub(crate) fn room(self, zoom: f32) -> f32 {
+        let t = self.0.clamp(0.0, 1.0);
+        let eased = 1.0 - (1.0 - t).powi(3);
+        eased * WIDTH * zoom
+    }
+}
+
+/// How long the drawer takes to slide in or out.
+const SLIDE_SECS: f32 = 0.18;
+
+/// The drawer slides in from the right edge under the header and the
+/// lobby's content gives it the room, reflowing as it comes (owner,
+/// 13.10.); out again, the content takes the room back. At the table it
+/// slides over the table, which does not reflow. `reduce_motion` cuts it.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a Bevy system: the drawer and what makes room for it
+fn slide_the_drawer(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    ui: Res<ChatUi>,
+    host: Res<SocialHost>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    zoom: Res<super::zoom::Zoom>,
+    mut slide: ResMut<DrawerSlide>,
+    mut drawers: Query<(&mut Node, &mut Visibility), With<Drawer>>,
+    headers: Query<(&crate::shellkit::role::Role, &ComputedNode)>,
+    lobby_roots: Query<&Children, With<crate::lobby::LobbyRoot>>,
+    mut content: Query<(&mut Node, Option<&crate::shellkit::role::Role>), Without<Drawer>>,
+) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let open = ui.drawer && host.active();
+    let target = if open { 1.0 } else { 0.0 };
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let t = if still {
+        target
+    } else {
+        let step = time.delta_secs() / SLIDE_SECS;
+        if slide.0 < target {
+            (slide.0 + step).min(target)
+        } else {
+            (slide.0 - step).max(target)
+        }
+    };
+    if (slide.0 - t).abs() > f32::EPSILON {
+        slide.0 = t;
+    }
+    let room = slide.room(zoom.0);
+    let width = WIDTH * zoom.0;
+    let header = if at_table {
+        0.0
+    } else {
+        headers
+            .iter()
+            .find(|(role, _)| **role == crate::shellkit::role::Role::Header)
+            .map_or(0.0, |(_, node)| node.size().y * node.inverse_scale_factor())
+    };
+    for (mut node, mut seen) in &mut drawers {
+        let right = Val::Px(room - width);
+        if node.right != right {
+            node.right = right;
+        }
+        if node.top != Val::Px(header) {
+            node.top = Val::Px(header);
+        }
+        seen.set_if_neq(if slide.0 > 0.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        });
+    }
+    // The lobby's content under the header gives the drawer its room.
+    let margin = if at_table { 0.0 } else { room };
+    for kids in &lobby_roots {
+        for kid in kids {
+            if let Ok((mut node, role)) = content.get_mut(*kid)
+                && role != Some(&crate::shellkit::role::Role::Header)
+                && node.margin.right != Val::Px(margin)
+            {
+                node.margin.right = Val::Px(margin);
+            }
+        }
+    }
 }
 
 /// What the machine asked of the shell: open a conversation, the drawer,
@@ -641,7 +730,9 @@ fn sync_drawer(
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let mut roots = roots;
-    let Some(machine) = host.machine().filter(|_| ui.drawer) else {
+    // Drawn while the chat is up, open or not: it slides in and out
+    // (`slide_the_drawer`) with its rows standing.
+    let Some(machine) = host.machine() else {
         for (_, mut seen) in &mut roots {
             seen.set_if_neq(Visibility::Hidden);
         }
@@ -663,8 +754,7 @@ fn sync_drawer(
         ui.drawer_menu.clone(),
         format!("{:?}", ui.field),
     );
-    let root = if let Some((root, mut seen)) = roots.iter_mut().next() {
-        seen.set_if_neq(Visibility::Visible);
+    let root = if let Some((root, _)) = roots.iter_mut().next() {
         root
     } else {
         *drawn = None;
@@ -677,15 +767,17 @@ fn sync_drawer(
                     position_type: PositionType::Absolute,
                     top: zpx(0.0),
                     bottom: zpx(0.0),
-                    right: zpx(0.0),
+                    right: zpx(-WIDTH),
                     width: zpx(WIDTH),
                     flex_direction: FlexDirection::Column,
                     border: UiRect::left(zpx(1.0)),
                     ..default()
                 },
-                BackgroundColor(super::rows::LOBBY_GROUND),
+                // A hair translucent over the painting (owner, 13.10.).
+                BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.92)),
                 BorderColor::all(tokens::BORDER),
                 GlobalZIndex(G_PANEL + 10),
+                Visibility::Hidden,
             ))
             .id()
     };
@@ -945,6 +1037,21 @@ fn sync_drawer(
         for friend in friends {
             let tag = friend.person.tag.clone();
             let line = row(commands);
+            // The row lights under the pointer (its buttons are its own).
+            commands.entity(line).insert((
+                Button,
+                Feel::new(Color::NONE),
+                BackgroundColor(Color::NONE),
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: zpx(6.0),
+                    padding: UiRect::axes(zpx(6.0), zpx(4.0)),
+                    border_radius: BorderRadius::all(zpx(5.0)),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+            ));
             let presence = dot(commands, friend.presence.status);
             let name = machine.shown_name(&friend.person);
             let shown_name = if name == friend.person.handle {
@@ -1035,12 +1142,26 @@ fn sync_drawer(
             }
         }
     };
-    friend_rows(
-        &mut commands,
-        &mut kids,
-        &view.online,
-        ChatPhrase::SectionOnline,
-    );
+    // Online, by where they are (owner, 13.10.): playing, at a table,
+    // in the lobby (and anywhere else).
+    let place_of = |f: &&baylee_protocol::social::Friend| match f.presence.place {
+        Some(Place::Playing { .. } | Place::Watching { .. }) => 0,
+        Some(Place::Room { .. }) => 1,
+        _ => 2,
+    };
+    for (n, title) in [
+        (0, ChatPhrase::SectionPlaying),
+        (1, ChatPhrase::SectionAtTable),
+        (2, ChatPhrase::SectionInLobby),
+    ] {
+        let part: Vec<&baylee_protocol::social::Friend> = view
+            .online
+            .iter()
+            .copied()
+            .filter(|f| place_of(f) == n)
+            .collect();
+        friend_rows(&mut commands, &mut kids, &part, title);
+    }
     // Groups.
     if !me.guest && !view.groups.is_empty() {
         kids.push(heading(
@@ -1223,6 +1344,30 @@ fn sync_drawer(
         }
     }
     commands.entity(list).add_children(&kids);
+    // A visible scrollbar beside the list (owner, 13.10.).
+    let track = crate::hud::logpanel::scrollbar(
+        &mut commands,
+        list,
+        (
+            tokens::BORDER.with_alpha(0.35),
+            tokens::ACCENT.with_alpha(0.8),
+        ),
+        crate::hud::logpanel::at_rest,
+    );
+    let middle = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                min_height: zpx(0.0),
+                column_gap: zpx(4.0),
+                padding: UiRect::right(zpx(4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[list, track])
+        .id();
     // The foot.
     let status = match machine.status() {
         Status::Online => ChatPhrase::StatusOnline,
@@ -1268,7 +1413,7 @@ fn sync_drawer(
         DrawerPress::Privacy,
     );
     commands.entity(foot).add_children(&[status, privacy]);
-    commands.entity(root).add_children(&[head, list, foot]);
+    commands.entity(root).add_children(&[head, middle, foot]);
 }
 
 /// What the drawer was last drawn from: the machine's revision, the search

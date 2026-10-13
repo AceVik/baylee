@@ -239,9 +239,9 @@ messages! {
     /// The target chip.
     ToTarget { en: "To {0}", de: "An {0}" },
     /// The All tab's prefix for a whisper received.
-    WhisperFrom { en: "{0} → you", de: "{0} → dir" },
+    WhisperFrom { en: "From {0}:", de: "Von {0}:" },
     /// The All tab's prefix for a whisper sent.
-    WhisperTo { en: "you → {0}", de: "du → {0}" },
+    WhisperTo { en: "To {0}:", de: "An {0}:" },
 
     // The chat window, the drawer and the sheets (lane C).
     /// The Log tab.
@@ -444,6 +444,12 @@ messages! {
     StatusLabel { en: "Status: {0}", de: "Status: {0}" },
     /// A group invite in the drawer.
     GroupInviteFrom { en: "{0} · from {1}", de: "{0} · von {1}" },
+    /// Online friends at a running table.
+    SectionPlaying { en: "Playing", de: "Spielen" },
+    /// Online friends seated at a waiting table.
+    SectionAtTable { en: "At a table", de: "An einem Tisch" },
+    /// Online friends in the lobby or elsewhere.
+    SectionInLobby { en: "In the lobby", de: "In der Lobby" },
     /// The drawer's door to the settings.
     PrivacyButton { en: "Chat & privacy…", de: "Chat & Privatsphäre…" },
 }

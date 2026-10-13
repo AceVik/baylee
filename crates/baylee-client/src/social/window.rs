@@ -104,6 +104,7 @@ pub(crate) enum FilterKind {
 pub(crate) enum Part {
     Head,
     Sub,
+    Note,
     List,
     Composer,
 }
@@ -124,10 +125,12 @@ pub(crate) struct Drawn {
     root: Option<Entity>,
     head: Option<Entity>,
     sub: Option<Entity>,
+    note: Option<Entity>,
     list: Option<Entity>,
     composer: Option<Entity>,
     head_key: u64,
     sub_key: u64,
+    note_key: u64,
     list_key: u64,
     composer_key: u64,
     /// On the Log tab: how many of the book's lines are drawn, and where
@@ -181,6 +184,13 @@ pub(crate) fn install(app: &mut App) {
                 .before(crate::hud::follow_the_log),
             sync_lobby_window,
             follow_in_the_lobby.run_if(in_state(DuelPhase::Closed)),
+            wheel_in_the_lobby
+                .run_if(in_state(DuelPhase::Closed))
+                .run_if(
+                    resource_exists::<
+                        Messages<bevy::picking::events::Pointer<bevy::picking::events::Scroll>>,
+                    >,
+                ),
             hover_chat_links,
             peek,
             filter_dialog,
@@ -682,6 +692,7 @@ fn sync_table_window(
             .insert(RelativeCursorPosition::default());
         drawn.head = Some(ids.head);
         drawn.sub = Some(ids.sub);
+        drawn.note = Some(ids.note);
         drawn.list = Some(ids.list);
         drawn.composer = Some(ids.composer);
     }
@@ -701,7 +712,7 @@ fn sync_table_window(
 
 /// The lobby's window: docked bottom-right, against the friends drawer;
 /// minimised to its tab row, or hidden to the chat pill.
-#[allow(clippy::too_many_arguments)] // a Bevy system: each is what it draws from
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each is what it draws from
 fn sync_lobby_window(
     mut commands: Commands,
     host: Res<SocialHost>,
@@ -715,6 +726,7 @@ fn sync_lobby_window(
     mut roots: Query<(Entity, &mut Node, &mut Visibility), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
     mut shape: Local<Option<LobbyShape>>,
+    slide: Res<super::drawer::DrawerSlide>,
     zoom: Res<super::zoom::Zoom>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
@@ -756,8 +768,14 @@ fn sync_lobby_window(
             .id()
     };
     let (unread, urgent) = machine.unread_where(&machine.prefs().filter(ChatTab::All));
-    let right: f32 = if ui.drawer { 352.0 } else { 12.0 };
-    let now = (ui.open, ui.minimised, urgent, unread, u32::from(ui.drawer));
+    let right: f32 = slide.room(1.0) + 12.0;
+    // Only the pill shows the count: an open panel is not drawn again for
+    // a line arriving (its list is), nor for the drawer moving it aside.
+    let now = if ui.open {
+        (true, ui.minimised, false, 0, 0)
+    } else {
+        (false, false, urgent, unread, 0)
+    };
     if let Ok((_, mut node, mut seen)) = roots.get_mut(root) {
         seen.set_if_neq(Visibility::Visible);
         let full = ui.open && !ui.minimised;
@@ -769,8 +787,9 @@ fn sync_lobby_window(
         if node.width != want_w {
             node.width = want_w;
         }
-        if node.right != zpx(right) {
-            node.right = zpx(right);
+        let right = Val::Px(z(right));
+        if node.right != right {
+            node.right = right;
         }
     }
     let drawn = &mut windows.lobby;
@@ -787,7 +806,7 @@ fn sync_lobby_window(
         let ids = skeleton(&mut commands, &fonts, Frame::Lobby, lang);
         if ui.minimised {
             commands.entity(root).add_child(ids.head);
-            for id in [ids.sub, ids.list, ids.composer] {
+            for id in [ids.sub, ids.note, ids.body, ids.composer] {
                 commands.entity(id).despawn();
             }
             drawn.head = Some(ids.head);
@@ -795,6 +814,7 @@ fn sync_lobby_window(
             commands.entity(root).add_children(&ids.all());
             drawn.head = Some(ids.head);
             drawn.sub = Some(ids.sub);
+            drawn.note = Some(ids.note);
             drawn.list = Some(ids.list);
             drawn.composer = Some(ids.composer);
         }
@@ -883,17 +903,19 @@ fn chat_pill(
 struct Skeleton {
     head: Entity,
     sub: Entity,
+    note: Entity,
     list: Entity,
     composer: Entity,
     body: Entity,
 }
 
 impl Skeleton {
-    fn all(&self) -> [Entity; 4] {
-        [self.head, self.sub, self.body, self.composer]
+    fn all(&self) -> [Entity; 5] {
+        [self.head, self.sub, self.note, self.body, self.composer]
     }
 }
 
+#[allow(clippy::too_many_lines)] // one window's parts, top to bottom
 fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) -> Skeleton {
     let inks = frame.inks();
     let head = commands
@@ -929,6 +951,26 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.lit),
             BorderColor::all(inks.line),
+        ))
+        .id();
+    // The encryption's quiet line under the tabs (owner, 13.10.): a press
+    // opens the sheet with the safety numbers.
+    let note = commands
+        .spawn((
+            Part::Note,
+            Button,
+            ChatPress::Lock,
+            Node {
+                display: Display::None,
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: zpx(6.0),
+                padding: UiRect::axes(zpx(logpanel::LOG_PAD), zpx(3.0)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            Feel::new(Color::NONE),
         ))
         .id();
     let body = commands
@@ -989,6 +1031,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
     Skeleton {
         head,
         sub,
+        note,
         list,
         composer,
         body,
@@ -1088,6 +1131,68 @@ fn fill(
                 commands.entity(sub).add_children(&kids);
             } else {
                 commands.entity(sub).insert(Node {
+                    display: Display::None,
+                    ..default()
+                });
+            }
+        }
+    }
+    // The encryption's line.
+    if let Some(note) = drawn.note {
+        let conv = tab_conv(machine, ui, ui.tab);
+        let to = conv.as_ref().and_then(|c| machine.encrypted_to(c));
+        let verified = conv
+            .as_ref()
+            .and_then(|c| c.partner(&machine.me().tag))
+            .is_some_and(|t| machine.safety(t).is_some_and(|s| s.verified));
+        let key = key_of(&(
+            conv.as_ref().map(ToString::to_string),
+            to,
+            verified,
+            lang as u8,
+        ));
+        if key != drawn.note_key {
+            drawn.note_key = key;
+            commands.entity(note).despawn_children();
+            if conv.is_some() {
+                let words = match to {
+                    Some((people, devices)) if people > 0 => format!(
+                        "{} · {}",
+                        ChatPhrase::EncryptionTitle.text(lang),
+                        ChatPhrase::EncryptedTo
+                            .fill(lang, &[&people.to_string(), &devices.to_string()])
+                    ),
+                    _ => ChatPhrase::EncryptionTitle.text(lang).to_string(),
+                };
+                let ink = if verified { inks.accent } else { inks.soft };
+                let lock = commands
+                    .spawn((
+                        Text::new(glyph::LOCK.to_string()),
+                        icon_tf(fonts, z(8.5)),
+                        TextColor(ink),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                let text = commands
+                    .spawn((
+                        Text::new(words),
+                        tf(fonts, z(10.5)),
+                        TextColor(inks.soft),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(note).add_children(&[lock, text]);
+                commands.entity(note).insert(Node {
+                    display: Display::Flex,
+                    flex_shrink: 0.0,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: zpx(6.0),
+                    padding: UiRect::axes(zpx(logpanel::LOG_PAD), zpx(3.0)),
+                    ..default()
+                });
+            } else {
+                commands.entity(note).insert(Node {
                     display: Display::None,
                     ..default()
                 });
@@ -2293,4 +2398,33 @@ fn follow_in_the_lobby(
     pills: Query<&mut Node, With<logpanel::LogNewBelow>>,
 ) {
     crate::hud::follow_the_log(lists, pills);
+}
+
+/// The wheel over the chat's lists in the lobby (the table's `hud::scrolls`
+/// takes it there): the list under the pointer scrolls, by lines.
+fn wheel_in_the_lobby(
+    mut wheels: MessageReader<bevy::picking::events::Pointer<bevy::picking::events::Scroll>>,
+    parents: Query<&ChildOf>,
+    mut lists: Query<(&mut ScrollPosition, &ComputedNode), With<crate::hud::Scrolls>>,
+) {
+    for wheel in wheels.read() {
+        let travel = match wheel.unit {
+            bevy::input::mouse::MouseScrollUnit::Line => wheel.y * 24.0,
+            bevy::input::mouse::MouseScrollUnit::Pixel => wheel.y,
+        };
+        let mut current = Some(wheel.entity);
+        for _ in 0..10 {
+            let Some(entity) = current else { break };
+            if let Ok((mut at, node)) = lists.get_mut(entity) {
+                let scale = node.inverse_scale_factor();
+                let end = (node.content_size().y - node.size().y).max(0.0) * scale;
+                let y = (at.y - travel).clamp(0.0, end);
+                if (at.y - y).abs() > f32::EPSILON {
+                    at.y = y;
+                }
+                break;
+            }
+            current = parents.get(entity).ok().map(ChildOf::parent);
+        }
+    }
 }

@@ -144,15 +144,27 @@ pub(crate) fn prefix(
             .map(|g| format!("[{}]", g.name)),
         Conv::Dm { .. } => {
             let partner = conv.partner(&machine.me().tag)?;
-            let name = machine.shown_name(&machine.person(partner));
+            let name = short_name(&machine.shown_name(&machine.person(partner)));
             let mine = matches!(&line.kind, LineKind::Message { mine: true, .. });
             let phrase = if mine {
                 ChatPhrase::WhisperTo
             } else {
                 ChatPhrase::WhisperFrom
             };
-            Some(format!("[{}]", phrase.fill(lang, &[&name])))
+            // WoW's compact whisper labels (owner, 13.10.): "To Bob:",
+            // "From Bob:"; the handle's tag is on the name's hover.
+            Some(phrase.fill(lang, &[&name]))
         }
+    }
+}
+
+/// A handle without its tag (`Bob#0012` → `Bob`); a nickname as it is.
+pub(crate) fn short_name(name: &str) -> String {
+    match name.rsplit_once('#') {
+        Some((base, tag)) if !base.is_empty() && baylee_protocol::social::valid_tag(tag) => {
+            base.to_string()
+        }
+        _ => name.to_string(),
     }
 }
 
@@ -321,11 +333,24 @@ pub(crate) fn spawn_row(
             if (style.prefix || private)
                 && let Some(prefix) = prefix(machine, conv, line, lang)
             {
-                span(commands, format!("{prefix} "), tf(fonts, z(inks.pt)), ink);
+                // A whisper's label is its name (bold, a press answers it);
+                // a channel's prefix is quieter.
+                let font = if private {
+                    tf_bold(fonts, z(inks.pt))
+                } else {
+                    tf(fonts, z(inks.pt))
+                };
+                let id = span(commands, format!("{prefix} "), font, ink);
+                if private && let Some(partner) = conv.partner(&machine.me().tag) {
+                    let person = machine.person(partner);
+                    commands.entity(id).insert(ChatName {
+                        handle: person.handle,
+                        tag: person.tag,
+                    });
+                }
             }
             let name = machine.shown_name(from);
-            // Private's arrow form names the partner already; a whisper
-            // reads `[Bob → you] text` (§3.1).
+            // A whisper's label names the partner already: `From Bob: text`.
             if !private {
                 let label = if body.emote {
                     format!("* {name} ")
