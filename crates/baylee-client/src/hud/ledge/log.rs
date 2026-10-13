@@ -2199,6 +2199,94 @@ mod tests {
         (list, pill)
     }
 
+    /// The pill's two sentences, as the real pill carries them: new lines
+    /// below shown, back to the latest hidden.
+    fn pill_words(app: &mut App) -> (Entity, Entity) {
+        let word = |app: &mut App, unseen: bool| {
+            app.world_mut()
+                .spawn((
+                    LogPillWords { unseen },
+                    Node {
+                        display: if unseen { Display::Flex } else { Display::None },
+                        ..default()
+                    },
+                ))
+                .id()
+        };
+        (word(app, true), word(app, false))
+    }
+
+    /// A list scrolled more than half its height above its end offers the
+    /// way back to the latest line, in the words for that; lines that
+    /// arrived under it make the pill say so instead; at the end it is not
+    /// there. The half is exact: 100 of a 200 high list is not yet "away",
+    /// and 101 is.
+    #[test]
+    fn a_list_scrolled_well_up_offers_the_way_back_in_its_own_words() {
+        let mut app = App::new();
+        app.add_systems(Update, follow_the_log);
+        let (list, pill) = laid_out(&mut app, 1000.0);
+        let (new_lines, latest) = pill_words(&mut app);
+        let shown = |app: &App, e: Entity| {
+            app.world().get::<Node>(e).expect("a node").display != Display::None
+        };
+        let scroll = |app: &mut App, y: f32| {
+            app.world_mut()
+                .get_mut::<ScrollPosition>(list)
+                .expect("a list")
+                .y = y;
+            app.update();
+        };
+
+        // At its end: following, nothing to offer.
+        app.update();
+        assert!(!shown(&app, pill), "a list at its end has no pill");
+
+        // A little up, and exactly half a list up (end is 800, list is 200).
+        scroll(&mut app, 750.0);
+        assert!(!shown(&app, pill), "50 up is not away");
+        scroll(&mut app, 700.0);
+        assert!(!shown(&app, pill), "exactly half a list up is not yet away");
+
+        // Past half: the pill, saying "back to the latest" and not "new".
+        scroll(&mut app, 699.0);
+        assert!(shown(&app, pill), "more than half a list up shows the pill");
+        assert!(shown(&app, latest), "with the way back");
+        assert!(!shown(&app, new_lines), "and not the new-lines sentence");
+        scroll(&mut app, 300.0);
+        assert!(shown(&app, pill) && shown(&app, latest) && !shown(&app, new_lines));
+
+        // Lines arrive under it: the pill's other sentence.
+        app.world_mut()
+            .get_mut::<LogFollow>(list)
+            .expect("a list")
+            .unseen = true;
+        app.update();
+        assert!(shown(&app, pill), "new lines show the pill");
+        assert!(shown(&app, new_lines), "saying so");
+        assert!(!shown(&app, latest), "and not the other sentence");
+
+        // A little up with new lines under it: the pill, new-lines words.
+        scroll(&mut app, 750.0);
+        assert!(shown(&app, pill) && shown(&app, new_lines) && !shown(&app, latest));
+
+        // Pressed (stuck), the list goes to its end and the pill goes.
+        app.world_mut()
+            .get_mut::<LogFollow>(list)
+            .expect("a list")
+            .stuck = true;
+        app.update();
+        assert!(!shown(&app, pill), "at the end the pill is gone");
+        assert!(
+            !app.world().get::<LogFollow>(list).expect("a list").unseen,
+            "and the lines are seen"
+        );
+        assert!(
+            shown(&app, latest) && !shown(&app, new_lines),
+            "words follow `unseen`"
+        );
+    }
+
     /// The list keeps to its end while the player leaves it there, lets go
     /// when they scroll up, lights the pill when lines arrive under it, and
     /// goes back to the end when the pill is pressed.
