@@ -278,7 +278,10 @@ fn retarget_confirmation_rebuilds_when_only_the_original_version_changes() {
     app.update();
     let duel = app.world().resource::<Duel>();
     let text = shelf_headline(duel, Lang::De, &crate::cardtext::CardTexts::default()).unwrap();
-    assert_eq!(text, Phrase::RetargetKeepOrChange.fill(Lang::De, &["1", "1"]));
+    assert_eq!(
+        text,
+        Phrase::RetargetKeepOrChange.fill(Lang::De, &["1", "1"])
+    );
     let answers = answers_for(duel, Lang::De, false, false, false);
     let caps = keys_for(
         app.world().resource::<crate::prefs::Prefs>(),
@@ -408,6 +411,112 @@ fn payment_questions_draw_symbols_in_the_mana_font_and_keep_asides_quiet() {
         "X, black, tap and black are all font glyphs"
     );
     assert!(aside, "the parenthesized payment hint remains visible");
+}
+
+/// A copy's new-target question, `index` of `of`, asked of seat 0 on a view.
+fn retarget_duel(min: u32, index: u32, of: u32) -> Duel {
+    use baylee_core::ids::{DamageSourceRef, TargetRef};
+    use baylee_engine::choice::{Pending, TargetPrompt};
+    let view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            [baylee_client_core::test_support::token(9, 0, "Bear", 2, 2)],
+        )
+        .build();
+    let me = view.seat;
+    let pending = Pending::ChooseTargets {
+        player: me,
+        options: vec![ObjectId::new(9, 0)],
+        player_options: vec![],
+        min,
+        max: 1,
+        reason: TargetPrompt::Retarget {
+            current: TargetRef::Object(DamageSourceRef {
+                object: ObjectId::new(9, 0),
+                version: 1,
+            }),
+            index,
+            of,
+        },
+    };
+    Duel {
+        view: Some(view),
+        interaction: Some(baylee_client_core::Interaction::new(pending, me)),
+        ..Duel::default()
+    }
+}
+
+/// The shelf names which of how many targets is asked, and says whether it
+/// may be kept: "keep it, or choose a new one" where the engine's `min` is 0,
+/// "choose a new one" where it is above 0 (report 10). Red on the old fixed
+/// "Choose a new target" for both.
+#[test]
+fn a_copys_target_question_says_which_of_how_many_and_whether_it_may_be_kept() {
+    let texts = crate::cardtext::CardTexts::default();
+    for lang in [Lang::En, Lang::De] {
+        let may_keep = shelf_headline(&retarget_duel(0, 2, 10), lang, &texts).unwrap();
+        assert_eq!(
+            may_keep,
+            Phrase::RetargetKeepOrChange.fill(lang, &["3", "10"]),
+            "{lang:?}: a keepable target says 3 of 10 and offers keeping"
+        );
+        let must = shelf_headline(&retarget_duel(1, 2, 10), lang, &texts).unwrap();
+        assert_eq!(
+            must,
+            Phrase::RetargetMustChange.fill(lang, &["3", "10"]),
+            "{lang:?}: a target that may not be kept says only to choose a new one"
+        );
+        assert_ne!(
+            may_keep, must,
+            "{lang:?}: the two questions read differently"
+        );
+    }
+    assert_eq!(
+        shelf_headline(&retarget_duel(0, 2, 10), Lang::En, &texts).unwrap(),
+        "Target 3 of 10: keep it, or choose a new one"
+    );
+}
+
+/// "Keep all remaining (n)" stands beside the confirmation exactly where
+/// `KeepTargets::offered` says: a keepable question with more after it. It
+/// counts this one and the rest. Red on the old row, which never had it.
+#[test]
+fn keep_all_remaining_stands_beside_the_confirmation_only_where_more_follow() {
+    let keep = Says::Answer(PromptAction::KeepTargets);
+    let has = |duel: &Duel| {
+        confirmation_row(duel, Lang::En)
+            .into_iter()
+            .find(|(says, _)| *says == keep)
+    };
+    let duel = retarget_duel(0, 0, 3);
+    assert_eq!(
+        has(&duel),
+        Some((keep, "Keep all remaining (3)".to_string())),
+        "the first of three offers keeping all three"
+    );
+    assert_eq!(
+        has(&retarget_duel(0, 1, 3)).map(|(_, text)| text),
+        Some("Keep all remaining (2)".to_string()),
+        "the middle one counts itself and the last"
+    );
+    assert!(
+        has(&retarget_duel(0, 2, 3)).is_none(),
+        "the last target has nothing after it to keep"
+    );
+    assert!(
+        has(&retarget_duel(1, 0, 3)).is_none(),
+        "a question that must be changed offers no keeping"
+    );
+    let all = answers_for(&duel, Lang::En, false, false, false);
+    assert!(
+        all.iter()
+            .any(|(says, _)| *says == Says::Answer(PromptAction::Confirm)),
+        "the confirmation stays beside it"
+    );
+    assert!(
+        all.iter().any(|(says, _)| *says == keep),
+        "answers_for carries the button the confirmation row builds"
+    );
 }
 
 #[test]
