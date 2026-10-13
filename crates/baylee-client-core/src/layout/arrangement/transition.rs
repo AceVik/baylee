@@ -110,7 +110,7 @@ impl Phase {
     }
 }
 
-/// The tear's jagged line at `x` (`felt.wgsl`'s `tear_line`, the same
+/// The tear's jagged line at `x` (`felt.wesl`'s `tear_line`, the same
 /// arithmetic on the same value noise, `feltveins::vnoise`; the pieces are
 /// meshed along it on the CPU, the shader only reads the veins it cuts):
 /// four octaves of a fracture: long slow chunks, a middle swing, sharp
@@ -476,7 +476,7 @@ pub fn weld(t: f32) -> f32 {
 
 /// How hot the molten seam along the torn edge is at weld progress `p`, 0
 /// to 1: rising as the pieces meet, hottest at contact, cooling to nothing
-/// once the weld is done (`felt.wgsl` inks it orange, then dark red, then
+/// once the weld is done (`felt.wesl` inks it orange, then dark red, then
 /// not at all).
 #[must_use]
 pub fn seam(p: f32) -> f32 {

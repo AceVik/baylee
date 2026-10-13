@@ -87,7 +87,7 @@ dev-control = []
 # both off by default and neither ever in a shipped build.
 #
 # `dev-reload` is the one that pays. It watches the shader sources this crate
-# embeds, so an edit to `felt.wgsl` repaints the table in a *running* client
+# embeds, so an edit to `felt.wesl` repaints the table in a *running* client
 # with no rebuild and no restart — measured by pausing the picture through
 # `/pause`, turning `FELT_CLOTH` magenta and watching the felt change under a
 # client nobody had rebuilt; putting the colour back restored the frame byte
@@ -128,7 +128,7 @@ dev-reload = ["bevy/embedded_watcher"]
 # `BEVY_ASSET_ROOT` is the load-bearing half of `dev-reload`, and getting it
 # wrong fails *silently*. `embedded_asset!` remembers a shader by `file!()`,
 # which cargo writes relative to the workspace root
-# (`crates/baylee-client/src/shaders/felt.wgsl`), while bevy's watcher strips
+# (`crates/baylee-client/src/shaders/felt.wesl`), while bevy's watcher strips
 # its own base path off each changed file before looking it up — and that base
 # is `CARGO_MANIFEST_DIR` unless `BEVY_ASSET_ROOT` says otherwise, which is
 # this package, two directories too deep. Every lookup would miss and nothing

@@ -224,7 +224,7 @@ pub fn bearings(seats: &[(PlayerId, Vec2, Option<u8>)]) -> Vec<(PlayerId, Vec2)>
 }
 
 /// The least angle between two jewels' centres, in radians: a jewel's dark
-/// setting (0.078 on the 1.30 compass, `felt.wgsl`'s `JEWEL_R` and its rim)
+/// setting (0.078 on the 1.30 compass, `felt.wesl`'s `JEWEL_R` and its rim)
 /// either side, and a hair of felt between them.
 pub const JEWEL_GAP: f32 = 0.13;
 

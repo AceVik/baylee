@@ -60,7 +60,7 @@ pub enum Kind {
     /// deep and at least twelve units wide, plus a margin on every side.
     ///
     /// That quad no longer carries an *image* — it is drawn by
-    /// `baylee-client/src/shaders/mat.wgsl` from a distance field, because a
+    /// `baylee-client/src/shaders/mat.wesl` from a distance field, because a
     /// stretched picture at this camera was four texels to the pixel. Nothing
     /// therefore renders an uploaded playmat yet; the gateway stores and
     /// serves it, and the client will read it as the mat's ground once the

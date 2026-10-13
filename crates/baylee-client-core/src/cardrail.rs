@@ -2,7 +2,7 @@
 //!
 //! The marks are the Mana font's own ability glyphs, baked to distance fields
 //! by `baylee-client/src/markatlas.rs` — twelve procedural pictograms in
-//! `card_common.wgsl` until September 2026, replaced by the icon a player has
+//! `card_common.wesl` until September 2026, replaced by the icon a player has
 //! already learned somewhere else. *Where* they sit is arithmetic, and
 //! arithmetic belongs somewhere it can be tested without a GPU: these
 //! constants are the shaders', mirrored, and a test in `baylee-client` reads

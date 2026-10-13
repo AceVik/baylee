@@ -1,7 +1,7 @@
 //! Where the table cloth's veins bend: the jitter of every Voronoi cell,
 //! computed once when a table is cut instead of on every pixel of every frame.
 //!
-//! `felt.wgsl` draws its mineral veins as the seams of two cellular fields
+//! `felt.wesl` draws its mineral veins as the seams of two cellular fields
 //! (`vein_distance`, a trunk scale and a capillary scale). Each pixel visits
 //! nine cells per field, and each cell's point used to be two value-noise
 //! lookups (`vnoise(seed * 7.13)`, `vnoise(seed * 9.71 + 31.7)`): 36 noise
@@ -11,12 +11,12 @@
 //! cell the table can reach, into a small two-channel texture the shader
 //! reads with one `textureLoad` per cell.
 //!
-//! The numbers are the shader's own: [`hash_cell`] is `noise.wgsl`'s
-//! integer hash bit for bit and [`vnoise`] is `felt.wgsl`'s value noise, so
+//! The numbers are the shader's own: [`hash_cell`] is `noise.wesl`'s
+//! integer hash bit for bit and [`vnoise`] is `felt.wesl`'s value noise, so
 //! the veins keep exactly the shape they had. Eight bits per channel move a
 //! point by at most 1/510 of a cell, under a third of a pixel at a duel.
 
-/// `noise.wgsl`'s `hash_cell`: the same integer operations in the same
+/// `noise.wesl`'s `hash_cell`: the same integer operations in the same
 /// order, so the same bits on every GPU and here.
 #[must_use]
 pub fn hash_cell(x: i32, y: i32) -> f32 {
@@ -32,7 +32,7 @@ pub fn hash_cell(x: i32, y: i32) -> f32 {
     top * (1.0 / 16_777_216.0)
 }
 
-/// `felt.wgsl`'s `vnoise`: value noise with the cubic smoothstep.
+/// `felt.wesl`'s `vnoise`: value noise with the cubic smoothstep.
 #[must_use]
 pub fn vnoise(px: f32, py: f32) -> f32 {
     let (ix, iy) = (px.floor(), py.floor());
@@ -47,7 +47,7 @@ pub fn vnoise(px: f32, py: f32) -> f32 {
     mix(mix(a, b, ux), mix(c, d, ux), uy)
 }
 
-/// A cell's point inside it, as `felt.wgsl`'s `vein_distance` placed it.
+/// A cell's point inside it, as `felt.wesl`'s `vein_distance` placed it.
 #[must_use]
 pub fn cell_point(x: i32, y: i32) -> [f32; 2] {
     #[allow(clippy::cast_precision_loss)]
@@ -58,7 +58,7 @@ pub fn cell_point(x: i32, y: i32) -> [f32; 2] {
     ]
 }
 
-/// The two cellular fields `felt.wgsl` draws: scale and offset of the warped
+/// The two cellular fields `felt.wesl` draws: scale and offset of the warped
 /// table point, as `glass_at` passes them to `vein_distance`.
 pub const FIELDS: [(f32, f32); 2] = [(0.28, 0.0), (0.73, 8.3)];
 
@@ -158,7 +158,7 @@ fn quantise(value: f32) -> u8 {
 mod tests {
     use super::*;
 
-    /// The hash is `noise.wgsl`'s: these are values its integer arithmetic
+    /// The hash is `noise.wesl`'s: these are values its integer arithmetic
     /// gives, worked out by hand from the constants, and a lattice point of
     /// the general `hash2` (place zero) is the same function.
     #[test]

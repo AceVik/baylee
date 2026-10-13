@@ -340,7 +340,7 @@ const SIDE_SEAT_TILT: f32 = 0.08;
 /// mat's two edges on screen.
 ///
 /// The shader still takes it as a parameter and still draws the band either
-/// way ([`crate::tabletop::seat_mat`], and `mat.wgsl` beside it), because the
+/// way ([`crate::tabletop::seat_mat`], and `mat.wesl` beside it), because the
 /// band is a real thing whose end the model chooses; what has gone is the
 /// choosing. The only reader that has to agree with this constant is the one
 /// that draws the ink, and it agrees by reading
