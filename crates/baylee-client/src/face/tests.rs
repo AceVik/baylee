@@ -1502,3 +1502,71 @@ fn frames_follow_the_printed_convention() {
     assert_ne!(gold, colorless);
     assert_ne!(mono, colorless);
 }
+
+/// A card known only by who it is (a revealed card, a log link) is drawn
+/// from the registry: its name, mana cost, type line and stats are the
+/// printed card's, and its rules text is the card's English where no
+/// translation has arrived. Guards `of_identity` returning an empty or
+/// wrong face for a real card, which drew a revealed card as a blank.
+#[test]
+fn a_card_known_by_its_identity_is_drawn_from_the_registry() {
+    let elves = crate::cardtext::fixture::card("Llanowar Elves");
+    let texts = crate::cardtext::CardTexts::default();
+    let face = of_identity(elves, 0, &texts).expect("the registry knows the card");
+
+    assert_eq!(face.name, "Llanowar Elves");
+    assert!(
+        face.type_line.contains("Creature") && face.type_line.contains("Elf Druid"),
+        "the printed type line: {:?}",
+        face.type_line
+    );
+    assert_eq!(face.cost, vec![ManaSymbol::Green], "its printed {{G}}");
+    assert_eq!(
+        face.stats,
+        Some(Stats::PowerToughness {
+            power: 1,
+            toughness: 1,
+            damage: 0
+        }),
+        "a 1/1 with no damage"
+    );
+    assert!(
+        face.colors.contains(MagicColor::Green),
+        "the frame follows the cost's colour"
+    );
+    assert!(
+        face.body.iter().any(|b| b.text().contains("{T}")),
+        "the English rules text stands where none was served: {:?}",
+        face.body
+    );
+}
+
+/// Text the gateway served in the player's language wins over the English
+/// of the registry, as it does for every other face the client draws.
+#[test]
+fn a_card_known_by_its_identity_is_named_in_the_players_language() {
+    let texts = german("Llanowar Elves", "Llanowar-Elfen");
+    let elves = crate::cardtext::fixture::card("Llanowar Elves");
+    let face = of_identity(elves, 0, &texts).expect("the registry knows the card");
+    assert_eq!(face.name, "Llanowar-Elfen");
+    assert!(face.type_line.contains("Elf Druid"), "{:?}", face.type_line);
+}
+
+/// An index the registry does not know, and a face the card does not have,
+/// give no face: the caller then draws the art (or nothing) instead of a
+/// made-up card.
+#[test]
+fn an_unknown_identity_has_no_face() {
+    let texts = crate::cardtext::CardTexts::default();
+    let nobody = baylee_core::ids::CardIndex::new(u32::MAX - 1);
+    assert!(
+        baylee_cards::by_index(nobody).is_none(),
+        "the probe index must not be a pool card"
+    );
+    assert!(of_identity(nobody, 0, &texts).is_none());
+    let elves = crate::cardtext::fixture::card("Llanowar Elves");
+    assert!(
+        of_identity(elves, 1, &texts).is_none(),
+        "a one-faced card has no second face"
+    );
+}

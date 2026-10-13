@@ -2422,3 +2422,480 @@ mod pane {
         );
     }
 }
+
+// ── the chat's place in the stacking order ──────────────────────────────
+
+/// The docked chat stands between the lobby's page and the shell's popovers
+/// (RC: the account menu opened under the friends list, and the chat window
+/// hid "Open table"), and over the table's own bands at a table.
+mod stacking {
+    use super::*;
+    use crate::DuelPhase;
+    use crate::shellkit::tokens::z;
+    use crate::social::window::{G_PANEL, Stack, lobby_z, restack, stacked};
+    use bevy::state::app::StatesPlugin;
+    use bevy::state::state::NextState;
+
+    /// Every offset a chat surface is built with: the window (0), the
+    /// friends door (1), the drawer (10), the group bar (20), the
+    /// composer's suggestions (30), toasts (40), the filter dialog (45),
+    /// sheets (50) and the row menu (60).
+    const OFFSETS: [i32; 9] = [0, 1, 10, 20, 30, 40, 45, 50, 60];
+    /// The window, door, drawer and menus: those that must stay under the
+    /// shell's popovers.
+    const UNDER_POPOVERS: [i32; 7] = [0, 1, 10, 20, 30, 45, 60];
+
+    /// In the lobby the window, the door, the drawer and every menu stand over the
+    /// page and under the shell's popovers, so the account menu and the
+    /// modals above them are never covered by the chat. Guards the old
+    /// `G_PANEL + n` (900+), which stood over everything the shell draws.
+    #[test]
+    fn in_the_lobby_the_window_the_drawer_and_every_menu_stand_between_page_and_popovers() {
+        for offset in UNDER_POPOVERS {
+            let at = lobby_z(offset);
+            assert!(at > z::PAGE, "offset {offset} at {at} is not over the page");
+            assert!(
+                at < z::POPOVER,
+                "offset {offset} at {at} covers the shell's popovers ({})",
+                z::POPOVER
+            );
+        }
+    }
+
+    /// Among themselves the chat keeps its order: the window under the
+    /// door and the drawer, all under every menu, the menus in the order they were
+    /// offset (a menu opened from another stands over it).
+    #[test]
+    fn in_the_lobby_the_chat_keeps_its_own_order() {
+        let order = [0, 1, 10, 20, 30, 45, 60].map(lobby_z);
+        assert!(
+            order.windows(2).all(|pair| pair[0] < pair[1]),
+            "the window, drawer and menus lost their order: {order:?}"
+        );
+    }
+
+    /// Its sheets stand with the shell's sheets (not under them) and its
+    /// toasts with the shell's toasts, so a notice is read over a modal.
+    #[test]
+    fn in_the_lobby_sheets_and_toasts_stand_with_the_shells() {
+        assert!(lobby_z(50) >= z::SHEET, "a chat sheet under the shell's");
+        assert_eq!(lobby_z(40), z::TOAST, "a chat toast with the shell's");
+        for offset in [50, 40] {
+            assert!(
+                lobby_z(offset) > lobby_z(60),
+                "offset {offset} stands under a menu"
+            );
+        }
+    }
+
+    /// `stacked` is what a surface is built with: the table's index and the
+    /// offset `restack` works from.
+    #[test]
+    fn a_surface_is_built_at_the_tables_index_and_remembers_its_offset() {
+        for offset in OFFSETS {
+            let (index, stack) = stacked(offset);
+            assert_eq!(index, GlobalZIndex(G_PANEL + offset));
+            assert_eq!(stack, Stack(offset));
+        }
+    }
+
+    /// A bare app with `restack` and one surface of every offset.
+    fn surfaces() -> (App, Vec<(i32, Entity)>) {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, StatesPlugin))
+            .init_state::<DuelPhase>()
+            .add_systems(PostUpdate, restack);
+        let spawned = OFFSETS
+            .iter()
+            .map(|&offset| (offset, app.world_mut().spawn(stacked(offset)).id()))
+            .collect();
+        (app, spawned)
+    }
+
+    fn go(app: &mut App, phase: DuelPhase) {
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(phase);
+        app.update();
+    }
+
+    fn at(app: &App, entity: Entity) -> i32 {
+        app.world()
+            .get::<GlobalZIndex>(entity)
+            .expect("a global index")
+            .0
+    }
+
+    /// The system puts every surface in its band for where the player is,
+    /// and puts it back when the player moves: closed (the lobby) is
+    /// `lobby_z`, anything else (opening, playing, finished) is
+    /// `G_PANEL + offset`.
+    #[test]
+    fn restack_follows_the_player_between_the_lobby_and_a_table() {
+        let (mut app, spawned) = surfaces();
+        app.update();
+        for (offset, entity) in &spawned {
+            assert_eq!(
+                at(&app, *entity),
+                lobby_z(*offset),
+                "lobby, offset {offset}"
+            );
+        }
+        for phase in [DuelPhase::Opening, DuelPhase::Playing, DuelPhase::Finished] {
+            go(&mut app, phase);
+            for (offset, entity) in &spawned {
+                assert_eq!(
+                    at(&app, *entity),
+                    G_PANEL + offset,
+                    "{phase:?}, offset {offset}"
+                );
+            }
+        }
+        go(&mut app, DuelPhase::Closed);
+        for (offset, entity) in &spawned {
+            assert_eq!(
+                at(&app, *entity),
+                lobby_z(*offset),
+                "back in the lobby, offset {offset}"
+            );
+        }
+    }
+
+    /// A resting frame writes nothing: a changed `GlobalZIndex` restacks
+    /// the whole UI, so `restack` writes only where the index differs.
+    #[test]
+    fn restack_writes_nothing_where_the_index_already_stands() {
+        let (mut app, spawned) = surfaces();
+        app.update();
+        let marks = |app: &App| -> Vec<_> {
+            spawned
+                .iter()
+                .map(|(_, e)| {
+                    app.world()
+                        .entity(*e)
+                        .get_ref::<GlobalZIndex>()
+                        .expect("a global index")
+                        .last_changed()
+                })
+                .collect()
+        };
+        let before = marks(&app);
+        app.update();
+        app.update();
+        assert_eq!(marks(&app), before, "a resting frame wrote an index");
+    }
+
+    /// The drawer, built by its own code, is restacked as well: it carries
+    /// its offset and stands in the lobby's band, and at a table in the
+    /// table's.
+    #[test]
+    fn the_real_drawer_is_restacked_with_the_player() {
+        use crate::social::drawer::{self, Drawer};
+        let mut rig = pane::Rig::new(true);
+        drawer::install(&mut rig.app);
+        rig.frames(3);
+        let drawn = |rig: &mut pane::Rig| -> (Stack, i32) {
+            let world = rig.app.world_mut();
+            let (stack, index) = world
+                .query_filtered::<(&Stack, &GlobalZIndex), With<Drawer>>()
+                .single(world)
+                .expect("the drawer is drawn while a session stands");
+            (*stack, index.0)
+        };
+        assert_eq!(drawn(&mut rig), (Stack(10), lobby_z(10)));
+        rig.app
+            .world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(DuelPhase::Playing);
+        rig.frames(3);
+        assert_eq!(drawn(&mut rig), (Stack(10), G_PANEL + 10));
+    }
+
+    /// Every surface of the chat takes its index from `stacked`: a bare
+    /// `GlobalZIndex(G_PANEL + n)` anywhere would stand over the shell's
+    /// menus in the lobby, which `restack` could not move. The count has a
+    /// floor (the nine surfaces) and a ceiling, so a misread marker cannot
+    /// pass.
+    #[test]
+    fn no_chat_surface_takes_its_index_without_stacked() {
+        let files = [
+            ("drawer", include_str!("drawer.rs")),
+            ("menu", include_str!("menu.rs")),
+            ("sheet", include_str!("sheet.rs")),
+            ("toasts", include_str!("toasts.rs")),
+            ("window", include_str!("window.rs")),
+        ];
+        let mut calls = 0;
+        for (name, source) in files {
+            let bare = source.matches("GlobalZIndex(G_PANEL").count();
+            // `stacked` itself builds the one.
+            let allowed = usize::from(name == "window");
+            assert_eq!(bare, allowed, "{name}.rs builds a GlobalZIndex by hand");
+            calls += source
+                .lines()
+                .filter(|line| !line.trim_start().starts_with("//"))
+                .map(|line| {
+                    line.matches("stacked(")
+                        .count()
+                        .saturating_sub(usize::from(line.contains("fn stacked(")))
+                })
+                .sum::<usize>();
+        }
+        assert!(
+            (9..=14).contains(&calls),
+            "{calls} surfaces are stacked; nine were built when this was written"
+        );
+    }
+
+    /// A surface built by the real window code carries its offset, so the
+    /// lobby window is stacked in its band after a frame and moves to the
+    /// table's when a duel opens.
+    #[test]
+    fn the_real_lobby_window_is_restacked_with_the_player() {
+        let mut rig = pane::Rig::new(true);
+        rig.open(ChatTab::Private);
+        rig.frames(2);
+        let root = rig.root();
+        let index = |rig: &pane::Rig| rig.app.world().get::<GlobalZIndex>(root).expect("z").0;
+        assert_eq!(
+            rig.app.world().get::<Stack>(root),
+            Some(&Stack(0)),
+            "the window carries its offset"
+        );
+        assert_eq!(index(&rig), lobby_z(0));
+        assert!(index(&rig) < z::POPOVER);
+        rig.app
+            .world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(DuelPhase::Playing);
+        rig.frames(2);
+        assert_eq!(index(&rig), G_PANEL, "at a table it is the table's band");
+    }
+}
+
+// ── the shell's notice lane clears the chat ─────────────────────────────
+
+/// The shell's notices ("Bob sat down at your table") were clipped by the
+/// friends list and hidden behind the chat's pill (RC): `clear_the_lane`
+/// keeps the lane left of the drawer and above the pill or window while a
+/// session stands in the lobby, and leaves it where the shell put it
+/// otherwise.
+mod lane {
+    use super::pane::Rig;
+    use super::*;
+    use crate::DuelPhase;
+    use crate::lobby::ToastLane;
+    use crate::social::drawer::DrawerSlide;
+    use crate::social::zoom::Zoom;
+    use crate::social::{SocialHost, drawer};
+    use bevy::state::state::NextState;
+
+    /// Where the shell put the lane.
+    const RIGHT: f32 = 24.0;
+    const BOTTOM: f32 = 24.0;
+
+    /// The lobby with a chat session, the drawer's systems installed, and a
+    /// lane where the shell puts it.
+    fn rig() -> (Rig, Entity) {
+        let mut rig = Rig::new(true);
+        drawer::install(&mut rig.app);
+        let lane = lane_at(&mut rig, RIGHT, BOTTOM);
+        rig.frames(3);
+        (rig, lane)
+    }
+
+    fn lane_at(rig: &mut Rig, right: f32, bottom: f32) -> Entity {
+        rig.app
+            .world_mut()
+            .spawn((
+                ToastLane,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Px(right),
+                    bottom: Val::Px(bottom),
+                    ..default()
+                },
+            ))
+            .id()
+    }
+
+    fn where_is(rig: &Rig, lane: Entity) -> (Val, Val) {
+        let node = rig.app.world().get::<Node>(lane).expect("a node");
+        (node.right, node.bottom)
+    }
+
+    fn window_height(rig: &mut Rig) -> f32 {
+        rig.app
+            .world_mut()
+            .query::<&Window>()
+            .iter(rig.app.world())
+            .next()
+            .expect("a window")
+            .height()
+    }
+
+    fn pill(zoom: f32) -> f32 {
+        64.0 * zoom
+    }
+
+    /// With a session and the chat shut to its pill, the lane keeps its
+    /// right edge (the drawer is shut) and rises above the pill.
+    #[test]
+    fn with_a_session_the_lane_rises_above_the_pill() {
+        let (rig, lane) = rig();
+        assert_eq!(
+            where_is(&rig, lane),
+            (Val::Px(RIGHT), Val::Px(pill(1.0))),
+            "above the pill, the right edge unchanged"
+        );
+    }
+
+    /// A lane already higher than the chat needs is left there: the lane
+    /// rises to the chat, never down to it.
+    #[test]
+    fn a_lane_already_above_the_pill_is_not_lowered() {
+        let (mut rig, _) = rig();
+        let high = lane_at(&mut rig, RIGHT, 500.0);
+        rig.frames(3);
+        assert_eq!(where_is(&rig, high).1, Val::Px(500.0));
+    }
+
+    /// The pill's clearance follows the chat's zoom.
+    #[test]
+    fn the_pill_clearance_follows_the_zoom() {
+        let (mut rig, lane) = rig();
+        rig.app.world_mut().insert_resource(Zoom(1.5));
+        rig.frames(3);
+        assert_eq!(where_is(&rig, lane).1, Val::Px(pill(1.5)));
+    }
+
+    /// An open window stands higher than the pill: the lane clears it by
+    /// the lobby panel's height and a gap of sixteen. Shut to the pill
+    /// again (minimised) it is the pill's clearance.
+    #[test]
+    fn with_the_window_open_the_lane_clears_the_window() {
+        let (mut rig, lane) = rig();
+        rig.open(ChatTab::Private);
+        rig.frames(3);
+        let panel = window::lobby_panel_height(window_height(&mut rig)) + 16.0;
+        assert!(
+            panel > pill(1.0),
+            "the window must be the taller of the two"
+        );
+        assert_eq!(where_is(&rig, lane).1, Val::Px(panel));
+
+        rig.ui().minimised = true;
+        rig.frames(3);
+        assert_eq!(
+            where_is(&rig, lane).1,
+            Val::Px(pill(1.0)),
+            "a minimised window is the pill"
+        );
+    }
+
+    /// The open drawer takes its room from the right edge: the lane moves
+    /// left by exactly that, once, however many frames pass, and comes back
+    /// when the drawer shuts.
+    #[test]
+    fn the_open_drawer_moves_the_lane_left_by_its_room_and_no_more() {
+        let (mut rig, lane) = rig();
+        rig.ui().drawer = true;
+        rig.frames(5);
+        let slide = *rig.app.world().resource::<DrawerSlide>();
+        assert_eq!(slide, DrawerSlide(1.0), "the drawer is in");
+        let room = slide.room(1.0);
+        assert!(room > 0.0, "an open drawer takes room");
+        assert_eq!(
+            where_is(&rig, lane).0,
+            Val::Px(RIGHT + room),
+            "left of the drawer"
+        );
+        rig.frames(5);
+        assert_eq!(where_is(&rig, lane).0, Val::Px(RIGHT + room), "once");
+
+        rig.ui().drawer = false;
+        rig.frames(5);
+        assert_eq!(where_is(&rig, lane).0, Val::Px(RIGHT), "and back again");
+    }
+
+    /// A lane the lobby builds anew (its rebuild spawns a new one where the
+    /// shell puts it) is cleared from the shell's place, not from the old
+    /// lane's moved one.
+    #[test]
+    fn a_lane_built_anew_is_cleared_from_where_the_shell_put_it() {
+        let (mut rig, lane) = rig();
+        rig.ui().drawer = true;
+        rig.frames(3);
+        rig.app.world_mut().entity_mut(lane).despawn();
+        let fresh = lane_at(&mut rig, RIGHT, BOTTOM);
+        rig.frames(3);
+        let room = rig.app.world().resource::<DrawerSlide>().room(1.0);
+        assert_eq!(
+            where_is(&rig, fresh),
+            (Val::Px(RIGHT + room), Val::Px(pill(1.0)))
+        );
+    }
+
+    /// Without a session the lane stands where the shell put it, and a lane
+    /// the chat had moved goes back when the session ends.
+    #[test]
+    fn without_a_session_the_lane_stands_where_the_shell_put_it() {
+        let (mut rig, lane) = rig();
+        rig.ui().drawer = true;
+        rig.frames(3);
+        assert_ne!(where_is(&rig, lane), (Val::Px(RIGHT), Val::Px(BOTTOM)));
+
+        rig.app.world_mut().resource_mut::<SocialHost>().machine = None;
+        rig.frames(5);
+        assert_eq!(
+            where_is(&rig, lane),
+            (Val::Px(RIGHT), Val::Px(BOTTOM)),
+            "the session ended: back where it was spawned"
+        );
+
+        let other = lane_at(&mut rig, 40.0, 12.0);
+        rig.frames(3);
+        assert_eq!(where_is(&rig, other), (Val::Px(40.0), Val::Px(12.0)));
+    }
+
+    /// At a table the chat is over the table, not beside a lobby: the lane
+    /// stands where the shell put it, drawer open or not.
+    #[test]
+    fn at_a_table_the_lane_stands_where_the_shell_put_it() {
+        let (mut rig, lane) = rig();
+        rig.ui().drawer = true;
+        rig.frames(3);
+        assert_ne!(where_is(&rig, lane), (Val::Px(RIGHT), Val::Px(BOTTOM)));
+        rig.app
+            .world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(DuelPhase::Playing);
+        rig.frames(3);
+        assert_eq!(where_is(&rig, lane), (Val::Px(RIGHT), Val::Px(BOTTOM)));
+    }
+
+    /// A phone's lane hangs from the top with no bottom edge to raise; it
+    /// is left alone.
+    #[test]
+    fn a_lane_hanging_from_the_top_is_left_alone() {
+        let (mut rig, _) = rig();
+        let hanging = rig
+            .app
+            .world_mut()
+            .spawn((
+                ToastLane,
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(8.0),
+                    left: Val::Px(8.0),
+                    right: Val::Px(8.0),
+                    bottom: Val::Auto,
+                    ..default()
+                },
+            ))
+            .id();
+        rig.ui().drawer = true;
+        rig.frames(5);
+        assert_eq!(where_is(&rig, hanging), (Val::Px(8.0), Val::Auto));
+    }
+}
