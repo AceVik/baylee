@@ -23,14 +23,12 @@ fn float_for_exhaust(e: &mut Engine<RegistryLookup>, seat: PlayerId) {
     e.refresh_offer();
 }
 
-/// "Activate only as a sorcery": the same Liliana, graveyard and floating
-/// mana are on the offer in p0's main phase with an empty stack, and are not
-/// with a creature spell on the stack or on the opponent's turn. The exhaust
-/// is still unspent at the last moment, so it is the timing and not the
-/// "once only" that withholds it.
-#[test]
-fn liliana_exhaust_is_offered_only_as_a_sorcery() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+/// p0's main phase with Liliana out, a creature card in the graveyard and
+/// `{5}{B}` floating (plus a green for the Elves spell). Stops after the
+/// control: with an empty stack the exhaust is on the offer and still unspent,
+/// so a later refusal is the timing's and nothing else's.
+fn liliana_board() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
     let mut e = Duel::new(72, llanowar_elves())
         .battlefield(0, &[liliana_the_repentant()])
         .hand(0, &[llanowar_elves()])
@@ -51,21 +49,15 @@ fn liliana_exhaust_is_offered_only_as_a_sorcery() {
         exhaust_offered(&e, liliana),
         "control: main phase, empty stack, {{5}}{{B}} floating, a creature card to return"
     );
+    (e, liliana)
+}
 
-    cast_with_floating(&mut e, p0, llanowar_elves());
-    assert!(!stack_is_empty(&e), "the Elves spell is waiting to resolve");
-    assert!(
-        e.state().players[0].mana_pool.available(ManaColor::Black) >= 6,
-        "the {{5}}{{B}} is still floating, so mana is not what withholds the ability"
-    );
-    assert!(
-        !exhaust_offered(&e, liliana),
-        "\"only as a sorcery\": not while a spell is on the stack"
-    );
+/// The refusal is also a refusal to the engine, and changes nothing.
+fn exhaust_is_refused(e: &mut Engine<RegistryLookup>, liliana: ObjectId) {
     let hash = e.state().snapshot_hash();
     assert!(
         e.apply(
-            p0,
+            PlayerId::new(0),
             PlayerAction::ActivateAbility {
                 source: liliana,
                 ability_index: 1
@@ -78,8 +70,34 @@ fn liliana_exhaust_is_offered_only_as_a_sorcery() {
         hash,
         "the refusal changed nothing"
     );
-    pass_until(&mut e, stack_is_empty);
+}
 
+/// "Activate only as a sorcery", the stack half: a creature spell is waiting
+/// to resolve, the mana is floating and the exhaust is unspent.
+#[test]
+fn liliana_exhaust_is_not_offered_with_a_spell_on_the_stack() {
+    let p0 = PlayerId::new(0);
+    let (mut e, liliana) = liliana_board();
+    cast_with_floating(&mut e, p0, llanowar_elves());
+    assert!(!stack_is_empty(&e), "the Elves spell is waiting to resolve");
+    assert!(
+        e.state().players[0].mana_pool.available(ManaColor::Black) >= 6,
+        "the {{5}}{{B}} is still floating, so mana is not what withholds the ability"
+    );
+    assert!(
+        !exhaust_offered(&e, liliana),
+        "\"only as a sorcery\": not while a spell is on the stack"
+    );
+    exhaust_is_refused(&mut e, liliana);
+}
+
+/// "Activate only as a sorcery", the turn half: p1's turn, p0 holding
+/// priority with the mana floating, the creature card still in the graveyard
+/// and the exhaust still unspent.
+#[test]
+fn liliana_exhaust_is_not_offered_on_the_opponents_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut e, liliana) = liliana_board();
     pass_until(&mut e, |e| {
         e.state().turn.active == p1
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
@@ -93,22 +111,7 @@ fn liliana_exhaust_is_offered_only_as_a_sorcery() {
         !exhaust_offered(&e, liliana),
         "\"only as a sorcery\": not on the opponent's turn, though nothing has used the exhaust"
     );
-    let hash = e.state().snapshot_hash();
-    assert!(
-        e.apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: liliana,
-                ability_index: 1
-            }
-        )
-        .is_err()
-    );
-    assert_eq!(
-        e.state().snapshot_hash(),
-        hash,
-        "the refusal changed nothing"
-    );
+    exhaust_is_refused(&mut e, liliana);
 }
 
 /// "Return target creature or planeswalker card from **your** graveyard": a
