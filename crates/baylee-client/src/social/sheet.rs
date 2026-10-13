@@ -76,17 +76,14 @@ fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
 
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(&Interaction, &SheetPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &Interaction, &SheetPress), Changed<Interaction>>,
+    mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
     mut forget_armed: Local<bool>,
 ) {
-    let clicked: Vec<SheetPress> = pressed
-        .iter()
-        .filter(|(i, _)| **i == Interaction::Pressed)
-        .map(|(_, p)| p.clone())
-        .collect();
+    let clicked: Vec<SheetPress> = super::released(&pressed, &mut held);
     for press in clicked {
         let Some(machine) = host.machine() else {
             return;
@@ -431,7 +428,7 @@ fn sync(
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
+            BackgroundColor(super::rows::LOBBY_GROUND),
             BorderColor::all(tokens::BORDER),
             crate::hud::Scrolls,
             bevy::ui::ScrollPosition::default(),

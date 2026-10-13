@@ -129,16 +129,13 @@ fn asks(
 /// The drawer's presses.
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(&Interaction, &DrawerPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &Interaction, &DrawerPress), Changed<Interaction>>,
+    mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut more: Local<Option<String>>,
 ) {
-    let clicked: Vec<DrawerPress> = pressed
-        .iter()
-        .filter(|(i, _)| **i == Interaction::Pressed)
-        .map(|(_, p)| p.clone())
-        .collect();
+    let clicked: Vec<DrawerPress> = super::released(&pressed, &mut held);
     let ui = &mut *ui;
     for press in clicked {
         match press {
@@ -308,9 +305,11 @@ fn sync_door(
             baylee_client_core::lobby::Screen::SignIn { .. }
         )
     });
+    // The panel's head has the friends button while the panel stands.
+    let panel = ui.open && !ui.minimised;
     let machine = host
         .machine()
-        .filter(|m| shell && !at_table && !m.me().guest);
+        .filter(|m| shell && !at_table && !panel && !m.me().guest);
     let mut doors = doors;
     let Some(machine) = machine else {
         for (_, mut seen) in &mut doors {
@@ -345,9 +344,9 @@ fn sync_door(
                     border_radius: BorderRadius::all(px(18)),
                     ..default()
                 },
-                BackgroundColor(tokens::PANEL),
+                BackgroundColor(super::rows::LOBBY_GROUND),
                 BorderColor::all(tokens::BORDER),
-                Feel::new(tokens::PANEL),
+                Feel::new(super::rows::LOBBY_GROUND),
                 GlobalZIndex(G_PANEL + 1),
             ))
             .id()
@@ -675,7 +674,7 @@ fn sync_drawer(
                     border: UiRect::left(px(1)),
                     ..default()
                 },
-                BackgroundColor(tokens::PANEL),
+                BackgroundColor(super::rows::LOBBY_GROUND),
                 BorderColor::all(tokens::BORDER),
                 GlobalZIndex(G_PANEL + 10),
             ))

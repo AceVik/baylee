@@ -54,9 +54,14 @@ pub(crate) const TABLE_INKS: Inks = Inks {
     pt: crate::hud::logpanel::LOG_LINE_PT,
 };
 
+/// The lobby's chat surfaces: the kit's panel navy, opaque (the kit's own
+/// token is a hair translucent, and over the vista a list must not show
+/// the picture through it).
+pub(crate) const LOBBY_GROUND: Color = Color::srgb(0.035, 0.075, 0.105);
+
 /// The lobby's inks: the kit's panel.
 pub(crate) const LOBBY_INKS: Inks = Inks {
-    ground: crate::shellkit::tokens::PANEL,
+    ground: LOBBY_GROUND,
     lit: Color::srgba(0.07, 0.13, 0.17, 0.98),
     line: crate::shellkit::tokens::BORDER,
     ink: crate::shellkit::tokens::INK,
@@ -165,7 +170,9 @@ pub(crate) fn plain_text(machine: &Social, conv: &ConvId, line: &ChatLine) -> St
         LineKind::Message { from, body, .. } => {
             let name = machine.shown_name(from);
             let prefix = prefix(machine, conv, line, lang).unwrap_or_default();
-            if body.emote {
+            if matches!(conv, Conv::Dm { .. }) {
+                format!("{time} {prefix} {}", body.text)
+            } else if body.emote {
                 format!("{time} {prefix} * {name} {}", body.text)
             } else {
                 format!("{time} {prefix} {name}: {}", body.text)

@@ -39,6 +39,33 @@ pub(crate) mod window;
 
 use transport::{Arrived, LinkNews, Mailbox, Socket};
 
+/// The controls of type `T` released this frame over the control they were
+/// pressed on: a click. Acted on at the release, never the press, so a
+/// panel that closes on a click is still standing when the pointer comes up
+/// and the release cannot land on whatever stood under it.
+pub(crate) fn released<T: Component + Clone>(
+    changed: &Query<(Entity, &Interaction, &T), Changed<Interaction>>,
+    held: &mut std::collections::HashSet<Entity>,
+) -> Vec<T> {
+    let mut out = Vec::new();
+    for (entity, interaction, press) in changed {
+        match interaction {
+            Interaction::Pressed => {
+                held.insert(entity);
+            }
+            Interaction::Hovered => {
+                if held.remove(&entity) {
+                    out.push(press.clone());
+                }
+            }
+            Interaction::None => {
+                held.remove(&entity);
+            }
+        }
+    }
+    out
+}
+
 /// How long a changed state file waits before it is written (§11.1).
 const SAVE_DEBOUNCE: f32 = 2.0;
 
@@ -368,6 +395,8 @@ pub struct ChatUi {
     pub field: Field,
     /// The list's scroll is asked to follow its end.
     pub follow: bool,
+    /// A game is open (the table's frame, the Log tab).
+    pub at_table: bool,
     /// The selection in the history, for copy.
     pub selection: Option<social::Selection>,
     /// The All tab's arrival stamps: chat lines by key, log lines by the
@@ -399,6 +428,7 @@ impl Default for ChatUi {
             entry: None,
             field: Field::Composer,
             follow: true,
+            at_table: false,
             selection: None,
             arrivals: Arrivals::default(),
         }
@@ -750,7 +780,7 @@ pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
         return serde_json::json!({ "active": false, "info": format!("{:?}", host.info) });
     };
     let prefs = machine.prefs();
-    let tabs: Vec<serde_json::Value> = window::drawn_tabs(machine, true)
+    let tabs: Vec<serde_json::Value> = window::drawn_tabs(machine, ui.at_table)
         .into_iter()
         .map(|tab| {
             let (unread, urgent) = if tab.is_chat() {

@@ -178,7 +178,7 @@ pub(crate) fn install(app: &mut App) {
                 .after(crate::hud::sync_log)
                 .before(crate::hud::follow_the_log),
             sync_lobby_window,
-            crate::hud::follow_the_log.run_if(in_state(DuelPhase::Closed)),
+            follow_in_the_lobby.run_if(in_state(DuelPhase::Closed)),
             hover_chat_links,
             peek,
             filter_dialog,
@@ -371,6 +371,9 @@ fn keep_the_tab(
         return;
     };
     let playing = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
+    if ui.at_table != playing {
+        ui.at_table = playing;
+    }
     let tabs = drawn_tabs(machine, playing);
     if !tabs.contains(&ui.tab) {
         let next = if playing {
@@ -449,17 +452,14 @@ fn mark_read(mut host: ResMut<SocialHost>, ui: Res<ChatUi>, windows: Query<&Wind
 /// The window's presses.
 #[allow(clippy::too_many_lines)] // one arm per control, read top to bottom
 fn presses(
-    pressed: Query<(&Interaction, &ChatPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &Interaction, &ChatPress), Changed<Interaction>>,
+    mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut duel: Option<ResMut<Duel>>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
 ) {
-    let mut clicked: Vec<ChatPress> = pressed
-        .iter()
-        .filter(|(i, _)| **i == Interaction::Pressed)
-        .map(|(_, p)| p.clone())
-        .collect();
+    let mut clicked: Vec<ChatPress> = super::released(&pressed, &mut held);
     clicked.dedup();
     let ui = &mut *ui;
     for press in clicked {
@@ -720,8 +720,8 @@ fn sync_lobby_window(
         return;
     };
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let window_h = windows_q.iter().next().map_or(720.0, |w| w.height());
-    let height = (window_h * 0.38).clamp(320.0, 520.0);
+    let window_h = windows_q.iter().next().map_or(720.0, Window::height);
+    let height = lobby_panel_height(window_h);
     let root = if let Some((root, _, _)) = roots.iter().next() {
         root
     } else {
@@ -802,6 +802,12 @@ fn sync_lobby_window(
         drawn,
         &mut lists,
     );
+}
+
+/// The lobby panel's height in a window this tall (SOCIAL §11.4: 38 %,
+/// between 320 and 520).
+pub(crate) fn lobby_panel_height(window_h: f32) -> f32 {
+    (window_h * 0.38).clamp(320.0, 520.0)
 }
 
 /// The lobby's chat pill: `Chat · 3` in the bottom-right corner.
@@ -2227,4 +2233,15 @@ fn filter_dialog(
     );
     commands.entity(buttons).add_children(&[reset, done]);
     commands.entity(root).add_children(&[note, buttons]);
+}
+
+/// The lobby's list follows its end as the table's does: the log's own
+/// follower, under a name of its own (one system may stand in a schedule
+/// once, and the table's is ordered against).
+#[allow(clippy::type_complexity)] // the log follower's own queries
+fn follow_in_the_lobby(
+    lists: Query<(&mut ScrollPosition, &ComputedNode, &mut LogFollow), With<LogList>>,
+    pills: Query<&mut Node, With<logpanel::LogNewBelow>>,
+) {
+    crate::hud::follow_the_log(lists, pills);
 }

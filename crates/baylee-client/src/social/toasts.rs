@@ -86,15 +86,12 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
 }
 
 fn presses(
-    pressed: Query<(&Interaction, &ToastPress), Changed<Interaction>>,
+    pressed: Query<(Entity, &Interaction, &ToastPress), Changed<Interaction>>,
+    mut held: Local<std::collections::HashSet<Entity>>,
     mut host: ResMut<SocialHost>,
     mut toasts: ResMut<Toasts>,
 ) {
-    let clicked: Vec<ToastPress> = pressed
-        .iter()
-        .filter(|(i, _)| **i == Interaction::Pressed)
-        .map(|(_, p)| p.clone())
-        .collect();
+    let clicked: Vec<ToastPress> = super::released(&pressed, &mut held);
     for press in clicked {
         match press {
             ToastPress::Button(id, index) => {
@@ -145,6 +142,8 @@ fn sync(
     settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut columns: Query<(Entity, &mut Node), With<ToastColumn>>,
+    ui: Res<super::ChatUi>,
+    windows: Query<&Window>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let shown: Vec<u64> = toasts
@@ -155,10 +154,17 @@ fn sync(
         .map(|(n, _, _)| *n)
         .collect();
     let column = if let Some((column, mut node)) = columns.iter_mut().next() {
+        // In the lobby, above the chat panel while it stands.
+        let window_h = windows.iter().next().map_or(720.0, Window::height);
+        let lobby_bottom = if ui.open && !ui.minimised {
+            super::window::lobby_panel_height(window_h) + 16.0
+        } else {
+            64.0
+        };
         let (top, bottom) = if at_table {
             (px(60), Val::Auto)
         } else {
-            (Val::Auto, px(64))
+            (Val::Auto, px(lobby_bottom))
         };
         if node.top != top {
             node.top = top;
@@ -209,7 +215,7 @@ fn sync(
                     border_radius: BorderRadius::all(px(8)),
                     ..default()
                 },
-                BackgroundColor(tokens::PANEL),
+                BackgroundColor(super::rows::LOBBY_GROUND),
                 BorderColor::all(super::rows::WHISPER_INK.with_alpha(0.6)),
                 BoxShadow::default(),
             ))

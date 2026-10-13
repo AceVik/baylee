@@ -2566,7 +2566,12 @@ impl Lobby {
             .and_then(|at| self.decks.get(at))
             .map(|d| d.id.clone())
             .unwrap_or_default();
-        let password = self.room_password.text().to_string();
+        // An invite stands in for the password: the box is not sent with it.
+        let password = if invite.is_some() {
+            String::new()
+        } else {
+            self.room_password.text().to_string()
+        };
         self.room_password.clear();
         self.busy = true;
         // A table only starts once every chair is ready and the host says go,
