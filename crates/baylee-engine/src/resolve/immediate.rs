@@ -421,8 +421,32 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::DrawRevealDiscardUnless { keep } => {
-            let drawn = state.draw_cards(you, 1);
-            let &card = drawn.first()?;
+            let card = if let Some((drawn_before, replaced_before)) = res.draw_watch.take() {
+                // The draw waited for its replacements and is settled now.
+                // A card a replacement brought is not "it" (CR 614.11b).
+                if state.draws_replaced != replaced_before {
+                    return None;
+                }
+                state
+                    .per_turn
+                    .drawn
+                    .get(drawn_before)
+                    .map(|&(card, _)| card)
+                    .filter(|&card| {
+                        state
+                            .object(card)
+                            .is_some_and(|o| o.owner == you && o.zone == crate::zone::Zone::Hand)
+                    })?
+            } else {
+                let watch = (state.per_turn.drawn.len(), state.draws_replaced);
+                let drawn = state.draw_cards(you, 1);
+                if drawn.is_empty() && !state.draws_to_offer.is_empty() {
+                    // Run again, with the answer, once the draw is settled.
+                    res.draw_watch = Some(watch);
+                    return None;
+                }
+                *drawn.first()?
+            };
             state.journal.record(GameEvent::Revealed {
                 player: you,
                 cards: vec![card],
@@ -864,6 +888,25 @@ pub(super) fn exec_immediate(
                     Cause::Effect,
                 );
             }
+            None
+        }
+        Effect::NextDrawLooksAtTop { count } => {
+            // X is read as the ability resolves and kept with the effect,
+            // which waits for the controller's next draw this turn.
+            let count = amount2(&count, state, you, res);
+            let timestamp = state.next_timestamp();
+            let modifier = baylee_cards_dsl::Modifier::NextDrawFromTop { count };
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: subjects::source(state, res).map(|source| source.object),
+                controller: you,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+                modifier,
+            });
             None
         }
         Effect::NextSpellThisTurnHasImprovise => {

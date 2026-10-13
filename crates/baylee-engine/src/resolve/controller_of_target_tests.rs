@@ -28,6 +28,7 @@ fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
         event_mana: None,
         retarget_left: None,
         loot: None,
+        draw_watch: None,
         target_players: baylee_core::ids::SeatSet::new(),
         event_object: None,
         awaiting: None,

@@ -374,24 +374,9 @@ pub(super) fn reveal_until(
 
 /// "…on the bottom of your library in a random order": the table's
 /// generator orders the cards, and nobody is asked.
-pub(super) fn bottom_in_random_order(
-    state: &mut GameState,
-    you: PlayerId,
-    mut cards: Vec<ObjectId>,
-) {
-    state.rng.shuffle(&mut cards);
-    let library = ZoneLocation::Library(you);
-    for card in cards {
-        if state.zones.remove(card, library) {
-            // Reordering within a library is not a zone change (CR 400.7).
-            state
-                .zones
-                .insert(card, library, ZonePosition::Bottom, true);
-        } else {
-            // Cascade's uncast cards really do move here from exile.
-            let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
-        }
-    }
+pub(super) fn bottom_in_random_order(state: &mut GameState, you: PlayerId, cards: Vec<ObjectId>) {
+    // Cascade's uncast cards really do move there from exile.
+    state.put_on_bottom_in_random_order(you, cards);
 }
 
 /// The library half of `SearchLibraryOrGraveyard`: the search

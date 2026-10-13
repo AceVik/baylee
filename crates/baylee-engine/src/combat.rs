@@ -3135,6 +3135,7 @@ mod tests {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            draw_watch: None,
             this_way_from: None,
         };
         let _ = crate::resolve::run(state, &mut res);

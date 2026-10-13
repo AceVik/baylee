@@ -2231,6 +2231,17 @@ pub enum Effect {
     /// artifact was tapped, and lapses with the turn. Instances are
     /// redundant (CR 702.126c).
     NextSpellThisTurnHasImprovise,
+    /// "The next time you would draw a card this turn, instead look at the
+    /// top X cards of your library, put all but one of them on the bottom
+    /// of your library in a random order, then draw a card" (Aladdin's
+    /// Lamp). A replacement effect of the controller's next draw this turn
+    /// (CR 614.1a, 614.11); `count` is read as the effect resolves and
+    /// kept as `Modifier::NextDrawFromTop`. The draw it ends with is a new
+    /// draw other replacements may modify (the card's ruling).
+    NextDrawLooksAtTop {
+        /// How many cards are looked at (X).
+        count: crate::Amount,
+    },
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.

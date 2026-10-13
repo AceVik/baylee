@@ -977,6 +977,7 @@ impl Effect {
         | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
             | Effect::NextSpellThisTurnHasImprovise
+            | Effect::NextDrawLooksAtTop { .. }
             | Effect::UntapChosenPayingEach { .. }
             | Effect::ExileSourceAndSacrificed
             | Effect::CreateTokenForTargetController { .. }

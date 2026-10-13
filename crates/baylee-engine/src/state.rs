@@ -21,7 +21,7 @@ use rustc_hash::FxHashMap;
 mod discard;
 mod draw_offer;
 mod entry_history;
-pub use draw_offer::DrawReplacement;
+pub use draw_offer::{DrawReplacement, FrontDraw};
 mod draw_wish;
 mod hash;
 mod hidden_exile;
@@ -1055,6 +1055,15 @@ pub struct GameState {
     /// (`resolve::run`) or, outside one, the machine asks each draw on its
     /// own (CR 121.2, 614.11a). Empty whenever nobody is being asked.
     pub draws_to_offer: std::collections::VecDeque<(PlayerId, u32)>,
+    /// What the replacements have done so far to the draw at the front of
+    /// [`Self::draws_to_offer`]: the optional ones its player declined and
+    /// the Chains of Mephistopheles already applied to it (CR 614.5), and
+    /// the cards an Aladdin's Lamp is looking at. Default between draws.
+    pub draw_front: draw_offer::FrontDraw,
+    /// How many waiting draws a replacement has modified, ever: an
+    /// instruction that does something to "the card drawn" reads it to
+    /// tell a plain draw from a replaced one (CR 614.11b).
+    pub draws_replaced: u32,
     /// Library of Leng's answers for cards an effect is about to discard
     /// (`ReplacementRule::MayDiscardToLibraryTop`): `None` for the
     /// graveyard, `Some((rank, reveal))` for the library, rank 0 the top
@@ -1494,6 +1503,8 @@ impl GameState {
             damage_deaths,
             pending_miracle,
             draws_to_offer,
+            draw_front,
+            draws_replaced,
             discard_answers,
             discards_on_top,
             extra_turns,
@@ -1591,6 +1602,8 @@ impl GameState {
             ("state.damage_deaths", format!("{damage_deaths:?}")),
             ("state.pending_miracle", format!("{pending_miracle:?}")),
             ("state.draws_to_offer", format!("{draws_to_offer:?}")),
+            ("state.draw_front", format!("{draw_front:?}")),
+            ("state.draws_replaced", format!("{draws_replaced:?}")),
             ("state.discard_answers", format!("{discard_answers:?}")),
             ("state.discards_on_top", format!("{discards_on_top:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
