@@ -16,7 +16,7 @@ import { BUDGET_KEYS, fallbackChoices, otherSettings, readDefinition, type Defin
 vi.setConfig({ testTimeout: 20_000 });
 
 function profile(id: string, label: string, over: Partial<LlmProfile> = {}): LlmProfile {
-  const vendor = over.vendor ?? "Anthropic";
+  const vendor = over.vendor ?? "Example";
   return {
     id,
     label,
@@ -51,10 +51,10 @@ function withDefinition(p: LlmProfile, over: Partial<LlmDefinition>): LlmProfile
 }
 
 const cliProfile = (): LlmProfile =>
-  profile("cc", "Claude CLI", {
+  profile("cc", "Agent CLI", {
     kind: "cli",
     key: "none_needed",
-    definition: { label: "Claude CLI", vendor: "Anthropic", profile: { provider: "cli", model: "claude:opus" } },
+    definition: { label: "Agent CLI", vendor: "Example", profile: { provider: "cli", model: "claude:opus" } },
   });
 
 const seatHost = (name: string, profiles: LlmProfile[]): SeatHost => ({
@@ -67,15 +67,15 @@ const seatHost = (name: string, profiles: LlmProfile[]): SeatHost => ({
 });
 
 /**
- * Two seat agents. `alpha` holds the profile edited ("sonnet"), two more of its
+ * Two seat agents. `alpha` holds the profile edited ("primary"), two more of its
  * vendor whose labels are out of insertion order, one of another vendor, and an
  * agent CLI; `beta` holds one more API profile. Each exclusion of the fallback
  * select therefore has a concrete candidate it rules out.
  */
-function fleet(sonnet: LlmProfile = profile("sonnet", "Sonnet"), cc: LlmProfile = cliProfile()): SeatHost[] {
+function fleet(primary: LlmProfile = profile("primary", "Model A"), cc: LlmProfile = cliProfile()): SeatHost[] {
   return [
-    seatHost("alpha", [sonnet, profile("opus", "Opus"), profile("haiku", "Haiku"), profile("gpt", "Gpt", { vendor: "OpenAI" }), cc]),
-    seatHost("beta", [profile("gamma", "Gamma")]),
+    seatHost("alpha", [primary, profile("spare", "Model C"), profile("backup", "Model B"), profile("other", "Model D", { vendor: "Other" }), cc]),
+    seatHost("beta", [profile("remote", "Model E")]),
   ];
 }
 
@@ -99,7 +99,7 @@ function site(hosts: SeatHost[] = fleet()): { calls: Call[]; server: Server } {
 
 const changes = (calls: Call[]) => calls.filter((c) => c.method !== "GET");
 
-const PUT_SONNET = "/ui/api/admin/llm/seathosts/alpha/profiles/sonnet";
+const PUT_SONNET = "/ui/api/admin/llm/seathosts/alpha/profiles/primary";
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -248,35 +248,35 @@ describe("what the form reads", () => {
 describe("the fallbacks a profile may name", () => {
   test("only API profiles of that seat agent and vendor, never the profile itself, sorted by label", () => {
     const hosts = fleet();
-    expect(fallbackChoices(hosts, "alpha", "sonnet", "Anthropic").map((p) => p.id)).toEqual(["haiku", "opus"]);
+    expect(fallbackChoices(hosts, "alpha", "primary", "Example").map((p) => p.id)).toEqual(["backup", "spare"]);
     // Another seat agent's profile is not on this one.
-    expect(fallbackChoices(hosts, "beta", "sonnet", "Anthropic").map((p) => p.id)).toEqual(["gamma"]);
-    expect(fallbackChoices(hosts, "nowhere", "sonnet", "Anthropic")).toEqual([]);
+    expect(fallbackChoices(hosts, "beta", "primary", "Example").map((p) => p.id)).toEqual(["remote"]);
+    expect(fallbackChoices(hosts, "nowhere", "primary", "Example")).toEqual([]);
     // Never itself: a profile on its own id is left out, whichever one it is.
-    expect(fallbackChoices(hosts, "alpha", "haiku", "Anthropic").map((p) => p.id)).toEqual(["opus", "sonnet"]);
+    expect(fallbackChoices(hosts, "alpha", "backup", "Example").map((p) => p.id)).toEqual(["primary", "spare"]);
     // A new profile has no id yet: every API profile of the vendor is a candidate.
-    expect(fallbackChoices(hosts, "alpha", "", "Anthropic").map((p) => p.id)).toEqual(["haiku", "opus", "sonnet"]);
+    expect(fallbackChoices(hosts, "alpha", "", "Example").map((p) => p.id)).toEqual(["primary", "backup", "spare"]);
   });
 
   test("an agent CLI is never offered, though it is of the vendor", () => {
-    expect(fallbackChoices(fleet(), "alpha", "sonnet", "Anthropic").map((p) => p.id)).not.toContain("cc");
+    expect(fallbackChoices(fleet(), "alpha", "primary", "Example").map((p) => p.id)).not.toContain("cc");
   });
 
   test("a profile of another vendor on the same seat agent is not offered", () => {
     const hosts = fleet();
-    expect(fallbackChoices(hosts, "alpha", "sonnet", "Anthropic").map((p) => p.id)).not.toContain("gpt");
-    expect(fallbackChoices(hosts, "alpha", "sonnet", "OpenAI").map((p) => p.id)).toEqual(["gpt"]);
-    expect(fallbackChoices(hosts, "alpha", "sonnet", "")).toEqual([]);
+    expect(fallbackChoices(hosts, "alpha", "primary", "Example").map((p) => p.id)).not.toContain("other");
+    expect(fallbackChoices(hosts, "alpha", "primary", "Other").map((p) => p.id)).toEqual(["other"]);
+    expect(fallbackChoices(hosts, "alpha", "primary", "")).toEqual([]);
   });
 
   test("the vendor is compared without case and outer blanks", () => {
-    const hosts = [seatHost("alpha", [profile("a", "A", { vendor: " ANTHROPIC " }), profile("b", "B", { vendor: "anthropic" }), profile("c", "C", { vendor: "Anthropic Inc" })])];
-    expect(fallbackChoices(hosts, "alpha", "x", "  Anthropic").map((p) => p.id)).toEqual(["a", "b"]);
+    const hosts = [seatHost("alpha", [profile("a", "A", { vendor: " EXAMPLE " }), profile("b", "B", { vendor: "example" }), profile("c", "C", { vendor: "Example Inc" })])];
+    expect(fallbackChoices(hosts, "alpha", "x", "  Example").map((p) => p.id)).toEqual(["a", "b"]);
   });
 
   test("equal labels are told apart by id", () => {
     const hosts = [seatHost("alpha", [profile("b", "Same"), profile("a", "Same"), profile("c", "Before")])];
-    expect(fallbackChoices(hosts, "alpha", "x", "Anthropic").map((p) => p.id)).toEqual(["c", "a", "b"]);
+    expect(fallbackChoices(hosts, "alpha", "x", "Example").map((p) => p.id)).toEqual(["c", "a", "b"]);
   });
 });
 
@@ -285,7 +285,7 @@ describe("the profile editor", () => {
     site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     const group = (name: string) => within(editor).getByRole("group", { name });
 
     const profileGroup = group("Profile");
@@ -333,16 +333,16 @@ describe("the profile editor", () => {
     site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     const fallback = select(editor, "Fallback profile");
     expect(fallback.disabled).toBe(false);
-    // Haiku before Opus: by label, not as the seat agent listed them.
-    expect(optionsOf(fallback)).toEqual(["none", "Haiku · haiku", "Opus · opus"]);
-    expect(valuesOf(fallback)).toEqual(["", "haiku", "opus"]);
+    // Model B before Model C: by label, not as the seat agent listed them.
+    expect(optionsOf(fallback)).toEqual(["none", "Model B · backup", "Model C · spare"]);
+    expect(valuesOf(fallback)).toEqual(["", "backup", "spare"]);
     expect(fallback.value).toBe("");
-    // Not Gamma (beta's), not Gpt (OpenAI's), not the CLI, not Sonnet itself.
+    // Not Model E (beta's), not Model D (Other's), not the CLI, not Model A itself.
     const text = optionsOf(fallback).join("|");
-    for (const left of ["Sonnet", "Claude CLI", "Gamma", "Gpt"]) expect(text).not.toContain(left);
+    for (const left of ["Model A", "Agent CLI", "Model E", "Model D"]) expect(text).not.toContain(left);
     expect(describedBy(fallback)).toContain("same vendor");
     expect(describedBy(fallback)).toBe(t("en", "llm.hint.fallback"));
   });
@@ -351,11 +351,11 @@ describe("the profile editor", () => {
     site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     const vendor = input(editor, "Vendor (game data goes to)");
     await user.clear(vendor);
-    await user.type(vendor, "openai ");
-    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Gpt · gpt"]);
+    await user.type(vendor, "other ");
+    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Model D · other"]);
     await user.clear(vendor);
     await user.type(vendor, "Nobody");
     expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none"]);
@@ -369,16 +369,16 @@ describe("the profile editor", () => {
     const editor = screen.getByRole("dialog", { name: "Add profile" });
     // No vendor yet: nothing shares it.
     expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none"]);
-    await user.type(input(editor, "Vendor (game data goes to)"), "Anthropic");
-    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Haiku · haiku", "Opus · opus", "Sonnet · sonnet"]);
+    await user.type(input(editor, "Vendor (game data goes to)"), "Example");
+    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Model A · primary", "Model B · backup", "Model C · spare"]);
     // The id typed is the profile itself.
-    await user.type(input(editor, "Id"), "haiku");
-    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Opus · opus", "Sonnet · sonnet"]);
+    await user.type(input(editor, "Id"), "backup");
+    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Model A · primary", "Model C · spare"]);
     // Another seat agent holds other profiles.
     await user.selectOptions(select(editor, "Seat agent"), "beta");
-    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Gamma · gamma"]);
+    expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none", "Model E · remote"]);
     await user.clear(input(editor, "Id"));
-    await user.type(input(editor, "Id"), "gamma");
+    await user.type(input(editor, "Id"), "remote");
     expect(optionsOf(select(editor, "Fallback profile"))).toEqual(["none"]);
   });
 
@@ -386,8 +386,8 @@ describe("the profile editor", () => {
     const { calls } = site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
-    await user.selectOptions(select(editor, "Fallback profile"), "haiku");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
+    await user.selectOptions(select(editor, "Fallback profile"), "backup");
     await user.type(input(editor, "Per game (USD)"), "2");
     await user.type(input(editor, "Tokens per game"), "100000");
     await user.type(input(editor, "Calls per game"), "50");
@@ -397,15 +397,15 @@ describe("the profile editor", () => {
 
     // The question names what is saved and for whom; nothing is sent yet.
     await user.click(within(editor).getByRole("button", { name: "Save" }));
-    const question = screen.getByRole("alertdialog", { name: "Save sonnet @ alpha? Games already running keep what they started with." });
+    const question = screen.getByRole("alertdialog", { name: "Save primary @ alpha? Games already running keep what they started with." });
     expect(changes(calls)).toEqual([]);
 
     // No: the question closes, the editor and what was typed stay, nothing is sent.
     await user.click(within(question).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(screen.getByRole("dialog", { name: "Edit sonnet on alpha" })).toBe(editor);
+    expect(screen.getByRole("dialog", { name: "Edit primary on alpha" })).toBe(editor);
     expect(changes(calls)).toEqual([]);
-    expect(select(editor, "Fallback profile").value).toBe("haiku");
+    expect(select(editor, "Fallback profile").value).toBe("backup");
     expect(input(editor, "Tokens per game").value).toBe("100000");
     expect((within(editor).getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
 
@@ -419,15 +419,15 @@ describe("the profile editor", () => {
         method: "PUT",
         url: PUT_SONNET,
         body: {
-          label: "Sonnet",
-          vendor: "Anthropic",
+          label: "Model A",
+          vendor: "Example",
           enabled: true,
           max_games: 4,
           caps: { day_usd: 10, month_usd: 100, day_tokens: 1_000_000 },
-          fallback: "haiku",
+          fallback: "backup",
           profile: {
             provider: "anthropic",
-            model: "model-sonnet",
+            model: "model-primary",
             game_usd: 2,
             game_tokens: 100_000,
             game_calls: 50,
@@ -443,8 +443,8 @@ describe("the profile editor", () => {
     server.put = { status: 400, body: { error: "a profile cannot be its own fallback" } };
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
-    await user.selectOptions(select(editor, "Fallback profile"), "haiku");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
+    await user.selectOptions(select(editor, "Fallback profile"), "backup");
     await ask(user, editor);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
 
@@ -453,8 +453,8 @@ describe("the profile editor", () => {
     expect(within(editor).getByRole("alert")).toBe(refusal);
     // The question is gone, the editor is still the one open, with what was chosen.
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(screen.getByRole("dialog", { name: "Edit sonnet on alpha" })).toBe(editor);
-    expect(select(editor, "Fallback profile").value).toBe("haiku");
+    expect(screen.getByRole("dialog", { name: "Edit primary on alpha" })).toBe(editor);
+    expect(select(editor, "Fallback profile").value).toBe("backup");
     expect(changes(calls)).toHaveLength(1);
     // Nothing was said behind the dialog: no notice, no alert on the page.
     expect(screen.queryByText("Profile saved.")).toBeNull();
@@ -474,7 +474,7 @@ describe("the profile editor", () => {
   });
 
   test("an agent CLI's editor has the fallback select disabled, and a stale fallback is saved as none", async () => {
-    const { calls } = site(fleet(undefined, withDefinition(cliProfile(), { fallback: "haiku" })));
+    const { calls } = site(fleet(undefined, withDefinition(cliProfile(), { fallback: "backup" })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
     const editor = await openEdit(user, "Edit cc @ alpha", "Edit cc on alpha");
@@ -490,17 +490,17 @@ describe("the profile editor", () => {
     const [put, ...rest] = changes(calls);
     expect(rest).toEqual([]);
     expect(put?.url).toBe("/ui/api/admin/llm/seathosts/alpha/profiles/cc");
-    expect(put?.body).toEqual({ label: "Claude CLI", vendor: "Anthropic", enabled: true, profile: { provider: "cli", model: "claude:opus" } });
+    expect(put?.body).toEqual({ label: "Agent CLI", vendor: "Example", enabled: true, profile: { provider: "cli", model: "claude:opus" } });
     expect(put?.body).not.toHaveProperty("fallback");
   });
 
   test("turning a profile's JSON into a CLI disables the fallback, and it is saved as none", async () => {
-    const { calls } = site(fleet(withDefinition(profile("sonnet", "Sonnet"), { fallback: "haiku" })));
+    const { calls } = site(fleet(withDefinition(profile("primary", "Model A"), { fallback: "backup" })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     expect(select(editor, "Fallback profile").disabled).toBe(false);
-    expect(select(editor, "Fallback profile").value).toBe("haiku");
+    expect(select(editor, "Fallback profile").value).toBe("backup");
 
     fireEvent.change(within(editor).getByLabelText("Profile"), { target: { value: '{"provider":"cli","model":"claude:opus"}' } });
     const fallback = select(editor, "Fallback profile");
@@ -514,8 +514,8 @@ describe("the profile editor", () => {
     const [put] = changes(calls);
     expect(put?.url).toBe(PUT_SONNET);
     expect(put?.body).toEqual({
-      label: "Sonnet",
-      vendor: "Anthropic",
+      label: "Model A",
+      vendor: "Example",
       enabled: true,
       max_games: 4,
       caps: { day_usd: 10, month_usd: 100 },
@@ -528,7 +528,7 @@ describe("the profile editor", () => {
     const { calls } = site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     await user.type(input(editor, "Price in (USD / M tokens)"), "3");
     await user.click(within(editor).getByRole("button", { name: "Save" }));
     expect(within(editor).getByRole("alert").textContent).toBe("A price needs both: in and out.");
@@ -546,7 +546,7 @@ describe("the profile editor", () => {
     const { calls } = site();
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     fireEvent.change(within(editor).getByLabelText("Profile"), { target: { value: "[1]" } });
     await user.click(within(editor).getByRole("button", { name: "Save" }));
     expect(within(editor).getByRole("alert").textContent).toBe("The profile is not a JSON object.");
@@ -556,16 +556,16 @@ describe("the profile editor", () => {
 
   test("a profile with a budget shows it in its boxes, not in the JSON, and saves back what it was", async () => {
     const stored: LlmDefinition = {
-      label: "Sonnet",
-      vendor: "Anthropic",
+      label: "Model A",
+      vendor: "Example",
       enabled: true,
       max_games: 4,
       canary: true,
-      fallback: "haiku",
+      fallback: "backup",
       caps: { day_usd: 10, month_usd: 100, day_tokens: 5_000_000, month_tokens: 90_000_000 },
       profile: {
         provider: "anthropic",
-        model: "model-sonnet",
+        model: "model-primary",
         key_env: "ANTHROPIC_API_KEY",
         game_usd: 3,
         game_tokens: 2_000_000,
@@ -573,10 +573,10 @@ describe("the profile editor", () => {
         price: { input: 3, output: 15 },
       },
     };
-    const { calls } = site(fleet({ ...profile("sonnet", "Sonnet"), definition: stored }));
+    const { calls } = site(fleet({ ...profile("primary", "Model A"), definition: stored }));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
 
     expect(input(editor, "Per game (USD)").value).toBe("3");
     expect(input(editor, "Tokens per game").value).toBe("2000000");
@@ -588,12 +588,12 @@ describe("the profile editor", () => {
     expect(input(editor, "Cap per month (USD)").value).toBe("100");
     expect(input(editor, "Tokens per day").value).toBe("5000000");
     expect(input(editor, "Tokens per month").value).toBe("90000000");
-    expect(select(editor, "Fallback profile").value).toBe("haiku");
+    expect(select(editor, "Fallback profile").value).toBe("backup");
     expect(input(editor, "Canary").checked).toBe(true);
 
     // The JSON box holds the rest of the profile and none of the budget.
     const json = (within(editor).getByLabelText("Profile") as HTMLTextAreaElement).value;
-    expect(JSON.parse(json)).toStrictEqual({ provider: "anthropic", model: "model-sonnet", key_env: "ANTHROPIC_API_KEY" });
+    expect(JSON.parse(json)).toStrictEqual({ provider: "anthropic", model: "model-primary", key_env: "ANTHROPIC_API_KEY" });
     for (const key of ["game_usd", "game_tokens", "game_calls", "price"]) expect(json).not.toContain(key);
 
     // Saved untouched, it is written as it was stored.
@@ -606,30 +606,30 @@ describe("the profile editor", () => {
   });
 
   test("a fallback the seat agent does not hold is kept and named, not dropped", async () => {
-    const { calls } = site(fleet(withDefinition(profile("sonnet", "Sonnet"), { fallback: "gamma" })));
+    const { calls } = site(fleet(withDefinition(profile("primary", "Model A"), { fallback: "remote" })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     const fallback = select(editor, "Fallback profile");
-    // gamma is beta's: offered after the real choices, with the reason, and chosen.
-    expect(optionsOf(fallback)).toEqual(["none", "Haiku · haiku", "Opus · opus", "gamma (not on this seat agent)"]);
-    expect(fallback.value).toBe("gamma");
+    // remote is beta's: offered after the real choices, with the reason, and chosen.
+    expect(optionsOf(fallback)).toEqual(["none", "Model B · backup", "Model C · spare", "remote (not on this seat agent)"]);
+    expect(fallback.value).toBe("remote");
 
     await ask(user, editor);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
     await screen.findByText("Profile saved.");
     const [put] = changes(calls);
-    expect(put?.body).toHaveProperty("fallback", "gamma");
+    expect(put?.body).toHaveProperty("fallback", "remote");
   });
 
   test("a fallback of another vendor on this seat agent is kept too, for the server to refuse", async () => {
-    site(fleet(withDefinition(profile("sonnet", "Sonnet"), { fallback: "gpt" })));
+    site(fleet(withDefinition(profile("primary", "Model A"), { fallback: "other" })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
-    const editor = await openEdit(user, "Edit sonnet @ alpha", "Edit sonnet on alpha");
+    const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
     const fallback = select(editor, "Fallback profile");
-    expect(valuesOf(fallback)).toEqual(["", "haiku", "opus", "gpt"]);
-    expect(fallback.value).toBe("gpt");
+    expect(valuesOf(fallback)).toEqual(["", "backup", "spare", "other"]);
+    expect(fallback.value).toBe("other");
   });
 });
 
@@ -645,9 +645,9 @@ function row(label: string, host: string): HTMLElement {
 }
 
 function diverting(): SeatHost[] {
-  const sonnet = withDefinition(profile("sonnet", "Sonnet"), { fallback: "haiku" });
-  const opus = withDefinition(profile("opus", "Opus"), { fallback: "haiku" });
-  return [seatHost("alpha", [{ ...sonnet, diverts: "haiku" }, opus, profile("haiku", "Haiku")])];
+  const primary = withDefinition(profile("primary", "Model A"), { fallback: "backup" });
+  const spare = withDefinition(profile("spare", "Model C"), { fallback: "backup" });
+  return [seatHost("alpha", [{ ...primary, diverts: "backup" }, spare, profile("backup", "Model B")])];
 }
 
 describe("a host row", () => {
@@ -656,28 +656,28 @@ describe("a host row", () => {
     render(<Admin lang="en" section="models" />);
     await screen.findAllByTestId("llm-profile");
 
-    const sonnet = row("Sonnet", "alpha");
-    expect(within(sonnet).getByText("Fallback: haiku")).toBeTruthy();
-    expect(within(sonnet).getByText("new games on haiku")).toBeTruthy();
+    const primary = row("Model A", "alpha");
+    expect(within(primary).getByText("Fallback: backup")).toBeTruthy();
+    expect(within(primary).getByText("new games on backup")).toBeTruthy();
 
     // A fallback that is not in use names itself and no diversion.
-    const opus = row("Opus", "alpha");
-    expect(within(opus).getByText("Fallback: haiku")).toBeTruthy();
-    expect(within(opus).queryByText(/new games on/)).toBeNull();
+    const spare = row("Model C", "alpha");
+    expect(within(spare).getByText("Fallback: backup")).toBeTruthy();
+    expect(within(spare).queryByText(/new games on/)).toBeNull();
 
     // A profile without one says nothing of it.
-    const haiku = row("Haiku", "alpha");
-    expect(within(haiku).queryByText(/Fallback/)).toBeNull();
-    expect(within(haiku).queryByText(/new games on/)).toBeNull();
+    const backup = row("Model B", "alpha");
+    expect(within(backup).queryByText(/Fallback/)).toBeNull();
+    expect(within(backup).queryByText(/new games on/)).toBeNull();
   });
 
   test("says so in German", async () => {
     site(diverting());
     render(<Admin lang="de" section="models" />);
     await screen.findAllByTestId("llm-profile");
-    const sonnet = row("Sonnet", "alpha");
-    expect(within(sonnet).getByText("Ausweichprofil: haiku")).toBeTruthy();
-    expect(within(sonnet).getByText("neue Partien auf haiku")).toBeTruthy();
+    const primary = row("Model A", "alpha");
+    expect(within(primary).getByText("Ausweichprofil: backup")).toBeTruthy();
+    expect(within(primary).getByText("neue Partien auf backup")).toBeTruthy();
   });
 });
 
@@ -687,12 +687,12 @@ describe("the editor in German", () => {
     server.put = { status: 400, body: { error: "ein Profil kann nicht sein eigenes Ausweichprofil sein" } };
     const user = userEvent.setup();
     render(<Admin lang="de" section="models" />);
-    const editor = await openEdit(user, "Bearbeiten sonnet @ alpha", "sonnet auf alpha bearbeiten");
+    const editor = await openEdit(user, "Bearbeiten primary @ alpha", "primary auf alpha bearbeiten");
     for (const name of ["Profil", "Partien und Ausweichprofil", "Budget je Partie", "Obergrenzen seines Ausgabenbuchs", "Modell"]) {
       expect(within(editor).getByRole("group", { name })).toBeTruthy();
     }
     const fallback = select(editor, "Ausweichprofil");
-    expect(optionsOf(fallback)).toEqual(["keins", "Haiku · haiku", "Opus · opus"]);
+    expect(optionsOf(fallback)).toEqual(["keins", "Model B · backup", "Model C · spare"]);
 
     await user.type(input(editor, "Preis ein (USD / Mio. Tokens)"), "3");
     await user.click(within(editor).getByRole("button", { name: "Speichern" }));
@@ -700,12 +700,12 @@ describe("the editor in German", () => {
     expect(changes(calls)).toEqual([]);
 
     await user.type(input(editor, "Preis aus (USD / Mio. Tokens)"), "15");
-    await user.selectOptions(fallback, "haiku");
+    await user.selectOptions(fallback, "backup");
     await user.click(within(editor).getByRole("button", { name: "Speichern" }));
-    const question = screen.getByRole("alertdialog", { name: "sonnet @ alpha speichern? Laufende Partien behalten, womit sie begonnen haben." });
+    const question = screen.getByRole("alertdialog", { name: "primary @ alpha speichern? Laufende Partien behalten, womit sie begonnen haben." });
     await user.click(within(question).getByRole("button", { name: "Speichern" }));
     await within(editor).findByText("Nicht gespeichert: ein Profil kann nicht sein eigenes Ausweichprofil sein");
-    expect(screen.getByRole("dialog", { name: "sonnet auf alpha bearbeiten" })).toBe(editor);
+    expect(screen.getByRole("dialog", { name: "primary auf alpha bearbeiten" })).toBe(editor);
     expect(changes(calls)).toHaveLength(1);
   });
 });

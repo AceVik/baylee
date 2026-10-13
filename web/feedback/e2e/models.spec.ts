@@ -57,17 +57,17 @@ function profile(over: Partial<Profile>): Profile {
 /** The stand-in gateway: what it holds, and what it was asked. */
 async function standIn(page: Page) {
   const hosts = [
-    { name: "seat-eu-1", local: true, capacity: 4, games: 2, connected_secs: 7_200, profiles: [profile({ games: 2 }), profile({ id: "cc", label: "Claude CLI", kind: "cli", model: "claude:opus", key: "none_needed", state: "needs_login", games: 0, max_games: 2, caps: null })] },
+    { name: "agent-1", local: true, capacity: 4, games: 2, connected_secs: 7_200, profiles: [profile({ games: 2 }), profile({ id: "cc", label: "Claude CLI", kind: "cli", model: "claude:opus", key: "none_needed", state: "needs_login", games: 0, max_games: 2, caps: null })] },
     {
-      name: "seat-eu-2",
+      name: "agent-2",
       local: false,
       capacity: 0,
       games: 0,
       connected_secs: 300,
       profiles: [
         profile({ state: "exhausted", until_unix: Math.floor(Date.now() / 1000) + 3_600, games: 0, spent: { day_usd: 10, month_usd: 40, day_tokens: 0, month_tokens: 0 } }),
-        profile({ id: "deepseek", label: "DeepSeek", vendor: "DeepSeek", model: "deepseek-chat", key: "absent", state: "failing", last_error: "no key", games: 0, canary: true, caps: { day_usd: 2 } }),
-        profile({ id: "deepseek-api", label: "DeepSeek API", vendor: "DeepSeek", model: "deepseek-chat", games: 0, caps: { day_usd: 5, month_usd: 50 } }),
+        profile({ id: "primary", label: "Model A", vendor: "Example", model: "model-a", key: "absent", state: "failing", last_error: "no key", games: 0, canary: true, caps: { day_usd: 2 } }),
+        profile({ id: "backup", label: "Model B", vendor: "Example", model: "model-b", games: 0, caps: { day_usd: 5, month_usd: 50 } }),
       ],
     },
   ];
@@ -157,7 +157,7 @@ for (const size of SIZES) {
       }
 
       // A key: typed into a password field, sent, gone from the page.
-      await page.getByRole("button", { name: `${words.key} deepseek @ seat-eu-2` }).click();
+      await page.getByRole("button", { name: `${words.key} primary @ agent-2` }).click();
       const field = page.locator("input[type=password]");
       await field.fill("sk-e2e-not-a-real-key");
       await page.getByRole("button", { name: words.send }).click();
@@ -165,9 +165,9 @@ for (const size of SIZES) {
       expect(await page.content()).not.toContain("sk-e2e-not-a-real-key");
 
       // Switching off, then deleting after the question.
-      await page.getByRole("button", { name: `${words.on} cc @ seat-eu-1` }).click();
-      await expect(page.getByRole("button", { name: `${words.on} cc @ seat-eu-1` })).toHaveAttribute("aria-pressed", "false");
-      await page.getByRole("button", { name: `${words.del} cc @ seat-eu-1` }).click();
+      await page.getByRole("button", { name: `${words.on} cc @ agent-1` }).click();
+      await expect(page.getByRole("button", { name: `${words.on} cc @ agent-1` })).toHaveAttribute("aria-pressed", "false");
+      await page.getByRole("button", { name: `${words.del} cc @ agent-1` }).click();
       const dialog = page.getByRole("alertdialog");
       await expect(dialog).toBeVisible();
       if (dir) {
@@ -180,10 +180,10 @@ for (const size of SIZES) {
 
       // The editor: every value a box, the fallback chosen, nothing wider
       // than the screen, and a save that asks first.
-      await page.getByRole("button", { name: `${words.edit} deepseek @ seat-eu-2` }).click();
+      await page.getByRole("button", { name: `${words.edit} primary @ agent-2` }).click();
       const editor = page.getByRole("dialog");
       await expect(editor).toBeVisible();
-      await editor.getByLabel(words.fallback).selectOption("deepseek-api");
+      await editor.getByLabel(words.fallback).selectOption("backup");
       await editor.getByLabel(words.tokens).fill("3000000");
       const inside = await editor.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
       expect(inside.scroll).toBeLessThanOrEqual(inside.client);
@@ -204,13 +204,13 @@ for (const size of SIZES) {
       await expect(page.getByText(words.saved)).toBeVisible();
 
       expect(asked.map((a) => `${a.method} ${a.path}`)).toEqual([
-        "POST /ui/api/admin/llm/seathosts/seat-eu-2/profiles/deepseek/key",
-        "POST /ui/api/admin/llm/seathosts/seat-eu-1/profiles/cc/enabled",
-        "DELETE /ui/api/admin/llm/seathosts/seat-eu-1/profiles/cc",
-        "PUT /ui/api/admin/llm/seathosts/seat-eu-2/profiles/deepseek",
+        "POST /ui/api/admin/llm/seathosts/agent-2/profiles/primary/key",
+        "POST /ui/api/admin/llm/seathosts/agent-1/profiles/cc/enabled",
+        "DELETE /ui/api/admin/llm/seathosts/agent-1/profiles/cc",
+        "PUT /ui/api/admin/llm/seathosts/agent-2/profiles/primary",
       ]);
       const written = asked.at(-1)?.body as { fallback?: string; profile: Record<string, unknown> };
-      expect(written.fallback).toBe("deepseek-api");
+      expect(written.fallback).toBe("backup");
       expect(written.profile["game_tokens"]).toBe(3_000_000);
       expect(problems).toEqual([]);
     });

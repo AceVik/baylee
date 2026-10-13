@@ -2977,7 +2977,7 @@ the bridge as its first stdin line, never an argument, and logs it nowhere.
 ```json
 {"label": "Sonnet", "vendor": "Anthropic", "enabled": true,
  "max_games": 4, "caps": {"day_usd": 10, "month_usd": 100}, "canary": false,
- "fallback": "sonnet-api",
+ "fallback": "sonnet-backup",
  "profile": {"provider": "anthropic", "model": "claude-sonnet-5-5", "effort": "medium"}}
 ```
 

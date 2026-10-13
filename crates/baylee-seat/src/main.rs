@@ -1761,7 +1761,7 @@ fn report(played: &bridge::Played) {
 
 /// The line a game ends with: how it ended, who answered how often, and,
 /// where a fallback profile took over, how often it answered from which
-/// turn (`…; the fallback (deepseek-api) answered 12 from turn 3`). A seat
+/// turn (`…; the fallback (backup) answered 12 from turn 3`). A seat
 /// agent keeps it in its operator's log.
 fn summary_line(played: &bridge::Played) -> String {
     let stats = &played.stats;

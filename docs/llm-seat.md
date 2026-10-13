@@ -245,7 +245,7 @@ A flag beats the profile, and the profile beats the build.
 
 A model behind an API can hand a game to another profile when its
 provider says it is rate limited or busy, rather than to the house:
-`baylee-seat join … --profile deepseek --fallback-profile deepseek-api`
+`baylee-seat join … --profile primary --fallback-profile backup`
 (a hosted seat gets it from its profile's `fallback`,
 [below](#a-hosted-seat)). The house plays only where the fallback cannot.
 
@@ -279,14 +279,14 @@ provider says it is rate limited or busy, rather than to the house:
 - **Only an API.** The model and its fallback both play behind an API: a
   CLI takes no fallback and is none. A fallback's own fallback is never
   followed.
-- **Said.** At sit-down `the fallback deepseek-api stands by: …`; at the
-  limit `the fallback deepseek-api answers from turn 3: the primary is
+- **Said.** At sit-down `the fallback backup stands by: …`; at the
+  limit `the fallback backup answers from turn 3: the primary is
   rate limited (it lifts in 120 s)` (the words a seat agent reads); in the
   transcript `{"fallback": {"profile", "turn", "why"}}`; to the table a
   new declaration of the fallback's model before its first answer, so the
   game's record names the model that made each action ([below](#what-the-games-record-says-played));
   in the closing line, after everything it said before, `; the fallback
-  (deepseek-api) answered 12 from turn 3` (its answers are also among the
+  (backup) answered 12 from turn 3` (its answers are also among the
   mind's), and its tokens and money on a line of their own.
 
 ## Models and efforts
