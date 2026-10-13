@@ -45,6 +45,7 @@ mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;
 mod creatures;
+mod draw_kit;
 mod enchantments;
 mod entry_replacements;
 mod hidden_exile;

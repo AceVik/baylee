@@ -74,6 +74,7 @@ mod gilded_drake;
 mod goblin_engineer;
 mod goblin_masons;
 mod goblin_striker;
+mod golgari_thug;
 mod great_divide_guide;
 mod grimclaw_bats;
 mod grizzly_bears;

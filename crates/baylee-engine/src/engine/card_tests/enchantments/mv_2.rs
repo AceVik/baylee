@@ -7,6 +7,7 @@ mod angelic_shield;
 mod arguel_s_blood_fast;
 mod bad_moon;
 mod carnival_of_souls;
+mod chains_of_mephistopheles;
 mod circle_of_protection_black;
 mod circle_of_protection_blue;
 mod circle_of_protection_green;
