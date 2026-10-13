@@ -246,6 +246,13 @@ impl HubPress {
                     if hub == Hub::Replays {
                         state.replays.forget_visit();
                     }
+                    // So are the decks: one saved elsewhere (another
+                    // client, the API) shows without signing in again. The
+                    // refresh keeps the list standing while it is re-read.
+                    if hub == Hub::Decks {
+                        let request = state.lobby.refresh();
+                        dispatch(state, mailbox, request);
+                    }
                 }
             }
             // A guest is asked first: signed out, it is gone (#269).

@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
 use super::rows::{ChatName, ChatRow, LOBBY_INKS, TABLE_INKS};
-use super::window::{ChatSurface, G_PANEL};
+use super::window::ChatSurface;
 use super::{ChatUi, Field, SocialHost};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, tf};
@@ -425,7 +425,7 @@ fn sync(
             },
             BackgroundColor(inks.ground),
             BorderColor::all(inks.accent.with_alpha(0.6)),
-            GlobalZIndex(G_PANEL + 60),
+            super::window::stacked(60),
         ))
         .id();
     for (phrase, press) in items {

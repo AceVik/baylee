@@ -50,7 +50,7 @@ use crate::Duel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
 use crate::textures::CardTextures;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
-use baylee_client_core::images::ArtSize;
+use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_client_core::reveals::{Reveal, fit};
 use bevy::prelude::*;
 
@@ -109,6 +109,47 @@ pub struct RevealRevision {
     /// whole epoch, which moves whenever any picture anywhere lands or is
     /// evicted, and every move stood the sheet up again under the pointer.
     arrivals: usize,
+    /// What a text face is drawn from: the card texts' generation, the held
+    /// face key and the text-view setting.
+    faces: (u64, bool, bool),
+}
+
+/// What draws a revealed card's text face where its art is not there (the
+/// table's own fallback, `face::wants_face`): an art-less gateway, the text
+/// view, the held key, or art still in flight.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct RevealFaces<'w> {
+    texts: Option<Res<'w, crate::cardtext::CardTexts>>,
+    mode: Option<Res<'w, crate::face::FaceMode>>,
+}
+
+impl RevealFaces<'_> {
+    fn revision(&self, settings: &crate::settings::ClientSettings) -> (u64, bool, bool) {
+        (
+            self.texts
+                .as_deref()
+                .map_or(0, crate::cardtext::CardTexts::generation),
+            self.mode.as_deref().is_some_and(|m| m.held),
+            settings.prefer_text_view,
+        )
+    }
+
+    /// The face to draw for `link` instead of its art, or `None` for the art.
+    fn face(
+        &self,
+        link: &LogLink,
+        settings: &crate::settings::ClientSettings,
+        textures: &CardTextures,
+        key: ImageKey,
+    ) -> Option<baylee_client_core::card_face::CardFace> {
+        let held = crate::face::FaceMode::default();
+        let mode = self.mode.as_deref().unwrap_or(&held);
+        let card = link.card?;
+        let texts = self.texts.as_deref()?;
+        crate::face::wants_face(mode, settings, textures, Some(key))
+            .then(|| crate::face::of_identity(card.index, card.face, texts))
+            .flatten()
+    }
 }
 
 /// Draws the reveal standing, and takes the sheet away when none is.
@@ -128,6 +169,7 @@ pub fn sync(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
+    faces: RevealFaces,
 ) {
     // Nothing over the end screen: it shows the whole log, this line too.
     let yielding = super::ledge::drawer::sheet_asked(&duel);
@@ -146,6 +188,7 @@ pub fn sync(
         lang: Some(lang),
         window: (window.x as i32, window.y as i32),
         arrivals: shown.map_or(0, |r| arrived(r, &textures)),
+        faces: faces.revision(&settings),
     };
     if *revision == next && standing.is_empty() == shown.is_none() {
         return;
@@ -188,12 +231,13 @@ pub fn sync(
             let Some(key) = link.art(ArtSize::Normal) else {
                 return blank(commands, width, height);
             };
+            let built = faces.face(&link, &settings, &textures, key);
             let image = textures.get(key, statics, &assets);
             let card = spawn_card_art(
                 commands,
                 lang,
                 image,
-                None,
+                built.as_ref(),
                 width,
                 height,
                 crate::face::Detail::Full,
