@@ -353,47 +353,10 @@ async fn play(
         }
     }
     // Its lines: the last one said is the detail; "sits in chair" is the
-    // moment it took the chair. The summary of a game that ended well comes
-    // a line or two before the last (the spend book is settled after it).
-    let last = std::sync::Arc::new(std::sync::Mutex::new(
-        std::collections::VecDeque::<String>::with_capacity(CLOSING_LINES),
-    ));
+    // moment it took the chair.
     let mut started = Some(started);
-    let mut readers = Vec::new();
     let (sat_tx, mut sat_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-    for stream in [
-        child
-            .stdout
-            .take()
-            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Send + Unpin>),
-        child
-            .stderr
-            .take()
-            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Send + Unpin>),
-    ]
-    .into_iter()
-    .flatten()
-    {
-        let last = last.clone();
-        let sat = sat_tx.clone();
-        readers.push(tokio::spawn(async move {
-            let mut lines = BufReader::new(stream).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if line.contains("sits in chair") {
-                    let _ = sat.send(());
-                }
-                if !line.trim().is_empty() {
-                    let mut last = last
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    if last.len() == CLOSING_LINES {
-                        last.pop_front();
-                    }
-                    last.push_back(blank_key_shapes(&line).chars().take(300).collect());
-                }
-            }
-        }));
-    }
+    let (last, readers) = read_lines(&mut child, &sat_tx);
     drop(sat_tx);
     let status = loop {
         tokio::select! {
@@ -445,6 +408,57 @@ async fn play(
             e.kind()
         ))),
     }
+}
+
+/// A bridge's closing lines, oldest first, shared with their readers.
+type Closing = std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>;
+
+/// Reads what `child` says on both its streams: its last
+/// [`CLOSING_LINES`], blanked of key shapes, and a word on `sat` each time it
+/// says it sits in its chair. The summary of a game that ended well comes a
+/// line or two before the last (the spend book is settled after it).
+fn read_lines(
+    child: &mut tokio::process::Child,
+    sat: &tokio::sync::mpsc::UnboundedSender<()>,
+) -> (Closing, Vec<tokio::task::JoinHandle<()>>) {
+    let last: Closing = std::sync::Arc::new(std::sync::Mutex::new(
+        std::collections::VecDeque::with_capacity(CLOSING_LINES),
+    ));
+    let mut readers = Vec::new();
+    for stream in [
+        child
+            .stdout
+            .take()
+            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Send + Unpin>),
+        child
+            .stderr
+            .take()
+            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Send + Unpin>),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let last = last.clone();
+        let sat = sat.clone();
+        readers.push(tokio::spawn(async move {
+            let mut lines = BufReader::new(stream).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.contains("sits in chair") {
+                    let _ = sat.send(());
+                }
+                if !line.trim().is_empty() {
+                    let mut last = last
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    if last.len() == CLOSING_LINES {
+                        last.pop_front();
+                    }
+                    last.push_back(blank_key_shapes(&line).chars().take(300).collect());
+                }
+            }
+        }));
+    }
+    (last, readers)
 }
 
 #[cfg(test)]

@@ -538,23 +538,7 @@ impl Host {
         tokio::spawn(async move {
             let exit = run.await;
             announcer.abort();
-            let (kind, detail, outcome) = match exit {
-                Exit::Ended(said) => {
-                    // The bridge's own count of who answered, for the
-                    // operator's log only; the seat's status says nothing.
-                    tracing::info!(order, profile, said, "the bridge's last word");
-                    (SeatStatusKind::Exited, String::new(), Ok(()))
-                }
-                Exit::Failed(probe) => {
-                    let detail = match &probe {
-                        Probe::Ok => String::new(),
-                        Probe::SignedOut(why)
-                        | Probe::Failing(why)
-                        | Probe::Limited { why, .. } => why.clone(),
-                    };
-                    (SeatStatusKind::Failed, detail, Err(probe))
-                }
-            };
+            let (kind, detail, outcome) = told(exit, &order, &profile);
             tracing::info!(order, profile, ?kind, detail, "bridge ended");
             {
                 let mut inner = host.inner();
@@ -798,6 +782,29 @@ pub fn write_profiles(path: &Path, defs: &BTreeMap<String, Definition>) -> Resul
         .and_then(|mut file| std::io::Write::write_all(&mut file, text.as_bytes()))
         .and_then(|()| std::fs::rename(&temp, path))
         .map_err(|e| format!("the profiles file could not be written: {}", e.kind()))
+}
+
+/// What a bridge's `exit` tells the gateway (the seat's status, its detail)
+/// and the profile's runtime. A game that ended well tells the gateway
+/// nothing, and the operator's log the bridge's closing lines.
+fn told(exit: Exit, order: &str, profile: &str) -> (SeatStatusKind, String, Result<(), Probe>) {
+    match exit {
+        Exit::Ended(said) => {
+            // The bridge's own count of who answered, for the
+            // operator's log only; the seat's status says nothing.
+            tracing::info!(order, profile, said, "the bridge's last word");
+            (SeatStatusKind::Exited, String::new(), Ok(()))
+        }
+        Exit::Failed(probe) => {
+            let detail = match &probe {
+                Probe::Ok => String::new(),
+                Probe::SignedOut(why) | Probe::Failing(why) | Probe::Limited { why, .. } => {
+                    why.clone()
+                }
+            };
+            (SeatStatusKind::Failed, detail, Err(probe))
+        }
+    }
 }
 
 #[cfg(test)]
