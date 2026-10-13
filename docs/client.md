@@ -2657,8 +2657,8 @@ on objects of its own:
   `WAVE_INSET` (0.05) inside its edge, a real ripple on a sheet
   `WAVE_LIFT` (0.003) over the face whose crest rises `WAVE_CREST`
   (0.009) as its front passes (`shellmat::wave_mesh`, lifted in
-  `shell.wgsl`'s vertex stage). One wave takes `WAVE_TRAVEL` (3.6 s) and
-  the next follows `WAVE_PERIOD` (6 s) after it, each card at its own
+  `shell.wgsl`'s vertex stage). One wave takes `WAVE_TRAVEL` (2.8 s) and
+  the next follows `WAVE_PERIOD` (4.2 s) after it, each card at its own
   moment from where it lies, so a board of new creatures does not pulse
   as one; with motion off it holds still most of the way out, crest and
   all. It shades only its crest's slopes, with a glint of the key light
@@ -10307,6 +10307,19 @@ chosen").
   wears no shell, no sleep and no keyword marks (`table::placement`). The
   view always carried the status (`ObjectStatus::PHASED_OUT`); no
   `VIEW_VERSION` change.
+- **Summoning sickness reads at a glance (the owner, 13.10.2026: "deutlich
+  sichtbarer").** The wave alone was too quiet: a crest every six seconds,
+  at most 0.35 of moonlight, and not drawn at all where it would land on
+  another card's print (a fanned row). The card itself now wears
+  `veil::ASLEEP` while `CardGroup::summoning_sick` (CR 302.6; haste already
+  answers it): the print a shade cooler and moonlight breathing in from its
+  edge, `ASLEEP_REACH` (0.11 card widths) deep, between 0.22 and 0.52 once
+  every `ASLEEP_PERIOD` (3.6 s), held at its mean under `reduce_motion`. It
+  is the card's own surface, so it shows in a fanned row as far as the card
+  does and on every seat's board alike, and it fades out over
+  `veil::SLOW_FADE` as the creature wakes at its controller's turn. The wave
+  runs on top, quicker and brighter (`WAVE_TRAVEL` 2.8 s, `WAVE_PERIOD`
+  4.2 s, up to 0.6). The plate's moon-grey ink stays.
 - **The name and type choosers' box looks like a search box (report 16):**
   a magnifier, the words typed or "type to search…" in the quieter ink, a
   caret, at least 280 wide (`drawer::filter_field`).

@@ -49,8 +49,8 @@ const WALL_HEIGHT: f32 = 0.08;
 const WAVE_LIFT: f32 = 0.003;
 const WAVE_CREST: f32 = 0.009;
 const WAVE_INSET: f32 = 0.05;
-const WAVE_TRAVEL: f32 = 3.6;
-const WAVE_PERIOD: f32 = 6.0;
+const WAVE_TRAVEL: f32 = 2.8;
+const WAVE_PERIOD: f32 = 4.2;
 /// How wide the crest is, in shares of the way from the middle to the edge,
 /// and how far in from the sheet's edge it settles to it.
 const CREST_WIDTH: f32 = 0.07;
@@ -227,5 +227,5 @@ fn wave_glow(p: vec2<f32>, along: f32, v: vec3<f32>, key: vec3<f32>) -> f32 {
     let away = 1.0 - abs(dot(ln, v));
     let mirrored = max(dot(reflect(-v, ln), key), 0.0);
     let glint = smoothstep(0.97, 0.995, mirrored) * c;
-    return min(0.07 * c + length(lean) * (0.6 + 1.2 * away) + 0.4 * glint, 0.35);
+    return min(0.14 * c + length(lean) * (1.0 + 1.8 * away) + 0.6 * glint, 0.6);
 }

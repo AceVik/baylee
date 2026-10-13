@@ -243,9 +243,9 @@ pub const WAVE_TOP: f32 = WAVE_LIFT + WAVE_CREST;
 pub const WAVE_INSET: f32 = 0.05;
 /// How long one wave takes to run out to its sheet's edge, and how long from
 /// one wave to the next, in seconds: slow, and resting between.
-pub const WAVE_TRAVEL: f32 = 3.6;
+pub const WAVE_TRAVEL: f32 = 2.8;
 /// See [`WAVE_TRAVEL`].
-pub const WAVE_PERIOD: f32 = 6.0;
+pub const WAVE_PERIOD: f32 = 4.2;
 /// The wave's sheet's cells, across and down the card.
 pub const WAVE_CELLS: (u32, u32) = (18, 26);
 /// Where the wave sits in the transparent pass: over the rings, under the

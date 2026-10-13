@@ -613,8 +613,10 @@ pub(crate) fn choosable(duel: &Duel, members: &[ObjectId]) -> bool {
 }
 
 /// The passing states a permanent standing for `group` is drawn in
-/// ([`crate::cardmat::veil`]): phased out (CR 702.26b), or else dimmed while
-/// the question this seat is answering leaves every one of its members out
+/// ([`crate::cardmat::veil`]): phased out (CR 702.26b); or else asleep while
+/// it is summoning sick (CR 302.6, `CardGroup::summoning_sick`, which haste
+/// already answers), and dimmed while the question this seat is answering
+/// leaves every one of its members out
 /// ([`Interaction::leaves_out`](baylee_client_core::interaction::Interaction::leaves_out)).
 /// A phased-out card is no choice and already says so; dimming it as well
 /// would only darken it further.
@@ -626,7 +628,12 @@ pub(crate) fn veil_of(duel: &Duel, group: &baylee_client_core::board::CardGroup)
     let left_out = duel.interaction.as_ref().is_some_and(|i| {
         !group.members.is_empty() && group.members.iter().all(|id| i.leaves_out(*id))
     });
-    if left_out { veil::DIM } else { 0 }
+    let asleep = if group.summoning_sick {
+        veil::ASLEEP
+    } else {
+        0
+    };
+    asleep | if left_out { veil::DIM } else { 0 }
 }
 
 /// The offer drawn on a card lying in a pile, or lifted out of one by a
