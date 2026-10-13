@@ -172,10 +172,11 @@ fn paint_selection(
     )>,
     mut commands: Commands,
     mut painted: Local<Option<Painted>>,
-    added: Query<(), Added<Copyable>>,
 ) {
     let now = (selected.list, selected.span);
-    if *painted == Some(now) && added.is_empty() {
+    // Rows drawn since (a rebuilt list) are painted too.
+    let fresh = rows.iter_mut().any(|(_, row, _, _)| row.is_added());
+    if *painted == Some(now) && !fresh {
         return;
     }
     *painted = Some(now);
