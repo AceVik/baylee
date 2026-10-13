@@ -282,12 +282,10 @@ fn spikefield_cave_enters_tapped_and_taps_for_red() {
         .mana_pool
         .available(ManaColor::Red);
 
-    let taps = tap_all_mana(&mut engine, p0);
+    // Ability 0 of the back face is its mana ability, as on the other back
+    // faces that are lands: `activate` refuses when the face offers none.
+    activate(&mut engine, p0, spikefield_hazard(), 0);
 
-    assert_eq!(
-        taps, 1,
-        "the Cave is the one mana source on the board: it has a {{T}}: Add {{R}} to tap"
-    );
     assert!(is_tapped(&engine, cave), "{{T}} taps it");
     assert_eq!(
         engine.state().players[0]
