@@ -276,6 +276,13 @@ pub struct Definition {
     /// A paid canary call with each probe.
     #[serde(default)]
     pub canary: bool,
+    /// Another profile of the same seat agent that takes a game over when
+    /// this one's model is rate limited or busy, and that a new game
+    /// starts on while this one is at `max_games` or limited: both models
+    /// behind an API. `None` = none. The fallback's own fallback is not
+    /// followed (`docs/protocol.md` §"A fallback profile").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
     /// One profile of the settings file, in its own format.
     pub profile: serde_json::Value,
 }
@@ -389,6 +396,13 @@ pub struct Reported {
     /// The last success (Unix seconds).
     #[serde(default)]
     pub last_ok_unix: Option<i64>,
+    /// The fallback a new game of this profile starts on now, because the
+    /// profile is at `max_games` or limited and its fallback is available:
+    /// the profile is then reported `available`, with its own games and
+    /// bound (`docs/protocol.md` §"A fallback profile"). `None` = a new
+    /// game plays the profile itself, or not at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diverts: Option<String>,
     /// What an admin wrote.
     pub definition: Definition,
 }

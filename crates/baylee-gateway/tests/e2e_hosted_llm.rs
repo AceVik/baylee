@@ -164,6 +164,7 @@ fn definition(label: &str, max_games: u32, caps: Option<Value>) -> Definition {
         max_games: Some(max_games),
         caps,
         canary: false,
+        fallback: None,
         profile: json!({"provider": "anthropic", "model": "claude-sonnet-5-5"}),
     }
 }

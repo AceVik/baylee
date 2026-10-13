@@ -23,8 +23,12 @@ pub struct SeatJob {
     pub game_id: String,
     /// The chair.
     pub seat: u32,
-    /// The profile's id.
+    /// The profile's id, as ordered.
     pub profile: String,
+    /// The profile that plays the game: [`Self::profile`], or its fallback
+    /// from the start (`crate::Host::place`). The settings file and the
+    /// spend book are its.
+    pub plays: String,
     /// The chair's name after `LLM-` ([`baylee_protocol::seathost::chair_name`]).
     pub name: String,
     /// The chair ticket, for the bridge's stdin only.
@@ -33,10 +37,55 @@ pub struct SeatJob {
     pub gateway_url: String,
     /// A deck for `--deck`, or none for the bridge's own.
     pub deck_text: Option<String>,
-    /// A settings file holding this profile alone, its caps as the file's.
+    /// A settings file holding the profile that plays alone, its caps as
+    /// the file's.
     pub settings: String,
-    /// The profile's own spend book.
+    /// That profile's own spend book.
     pub ledger: PathBuf,
+    /// The fallback that stands by in the game, where one does.
+    pub fallback: Option<FallbackJob>,
+    /// Where what the bridge says of its model goes ([`Heard`]), where
+    /// anybody listens.
+    pub heard: Option<tokio::sync::mpsc::UnboundedSender<Heard>>,
+}
+
+/// A fallback profile a game takes along: `--fallback-profile`, with its
+/// own settings file and spend book, so its caps are its own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FallbackJob {
+    /// Its id.
+    pub profile: String,
+    /// A settings file holding it alone, its caps as the file's.
+    pub settings: String,
+    /// Its own spend book.
+    pub ledger: PathBuf,
+}
+
+/// What a bridge says of its model while it plays.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Heard {
+    /// The model is rate limited, and the fallback was asked to take
+    /// over: until the provider's time, where it named one.
+    Limited {
+        /// Seconds until it lifts, where said.
+        lifts_secs: Option<i64>,
+    },
+}
+
+/// The words a bridge says when its model is rate limited and a fallback
+/// stood by (`baylee-seat`'s own `LIMITED`), then `(it lifts in N s)` where
+/// the provider said.
+pub const LIMITED: &str = "the primary is rate limited";
+
+/// What `line` says of the model, if it is the bridge's [`LIMITED`].
+#[must_use]
+pub fn heard_in(line: &str) -> Option<Heard> {
+    let (_, after) = line.split_once(LIMITED)?;
+    let lifts_secs = after
+        .split_once("(it lifts in ")
+        .and_then(|(_, rest)| rest.split_once(" s)"))
+        .and_then(|(secs, _)| secs.trim().parse::<i64>().ok());
+    Some(Heard::Limited { lifts_secs })
 }
 
 impl std::fmt::Debug for SeatJob {
@@ -44,9 +93,16 @@ impl std::fmt::Debug for SeatJob {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "SeatJob({}, {}#{}, {})",
+            "SeatJob({}, {}#{}, {}",
             self.order, self.game_id, self.seat, self.profile
-        )
+        )?;
+        if self.plays != self.profile {
+            write!(f, " plays {}", self.plays)?;
+        }
+        if let Some(fallback) = &self.fallback {
+            write!(f, ", fallback {}", fallback.profile)?;
+        }
+        f.write_str(")")
     }
 }
 
@@ -200,6 +256,77 @@ impl ProcessLauncher {
             .kill_on_drop(true);
         command
     }
+
+    /// `baylee-seat join` for `job`, its files at `files`: the settings
+    /// file of the profile that plays, its book, the chair's name and deck,
+    /// and the fallback's file and book where one stands by. Nothing else:
+    /// the environment is [`Self::env`] alone, and no key is in either.
+    #[must_use]
+    pub fn join_command(&self, job: &SeatJob, files: &JobFiles) -> tokio::process::Command {
+        let mut command = self.command();
+        command
+            .arg("join")
+            .arg(&job.game_id)
+            .args(["--chair", &job.seat.to_string()])
+            .args(["--chair-ticket", "--tethered"])
+            .args(["--gateway", &job.gateway_url])
+            .arg("--config")
+            .arg(&files.settings)
+            .args(["--profile", &job.plays])
+            .arg("--ledger")
+            .arg(&job.ledger)
+            .args(["--name", &job.name]);
+        if let Some(deck) = &files.deck {
+            command.arg("--deck").arg(deck);
+        }
+        if let (Some(fallback), Some(settings)) = (&job.fallback, &files.fallback) {
+            command
+                .args(["--fallback-profile", &fallback.profile])
+                .arg("--fallback-config")
+                .arg(settings)
+                .arg("--fallback-ledger")
+                .arg(&fallback.ledger);
+        }
+        command
+    }
+
+    /// Writes `job`'s files into `dir` (`0600` each).
+    fn write_job(dir: &std::path::Path, job: &SeatJob) -> std::io::Result<JobFiles> {
+        let settings = dir.join("llm-seat.json");
+        write_private(&settings, &job.settings)?;
+        let deck = match &job.deck_text {
+            Some(text) => {
+                let path = dir.join("deck.txt");
+                write_private(&path, text)?;
+                Some(path)
+            }
+            None => None,
+        };
+        let fallback = match &job.fallback {
+            Some(fallback) => {
+                let path = dir.join("llm-seat-fallback.json");
+                write_private(&path, &fallback.settings)?;
+                Some(path)
+            }
+            None => None,
+        };
+        Ok(JobFiles {
+            settings,
+            deck,
+            fallback,
+        })
+    }
+}
+
+/// Where a job's files were written.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JobFiles {
+    /// The settings file of the profile that plays.
+    pub settings: PathBuf,
+    /// The deck, where the order brought one.
+    pub deck: Option<PathBuf>,
+    /// The fallback's settings file, where one stands by.
+    pub fallback: Option<PathBuf>,
 }
 
 /// Writes `text` to `path`, `0600`.
@@ -220,22 +347,10 @@ impl Launcher for ProcessLauncher {
     ) -> Running<Exit> {
         let prepared = self
             .scratch(&format!("seat-{}", job.order))
-            .and_then(|dir| {
-                let settings = dir.join("llm-seat.json");
-                write_private(&settings, &job.settings)?;
-                let deck = match &job.deck_text {
-                    Some(text) => {
-                        let path = dir.join("deck.txt");
-                        write_private(&path, text)?;
-                        Some(path)
-                    }
-                    None => None,
-                };
-                Ok((dir, settings, deck))
-            });
-        let mut command = self.command();
+            .and_then(|dir| Ok((Self::write_job(&dir, &job)?, dir)))
+            .map(|(files, dir)| (self.join_command(&job, &files), dir));
         Box::pin(async move {
-            let (dir, settings, deck) = match prepared {
+            let (command, dir) = match prepared {
                 Ok(prepared) => prepared,
                 Err(e) => {
                     return Exit::Failed(Probe::Failing(format!(
@@ -244,21 +359,6 @@ impl Launcher for ProcessLauncher {
                     )));
                 }
             };
-            command
-                .arg("join")
-                .arg(&job.game_id)
-                .args(["--chair", &job.seat.to_string()])
-                .args(["--chair-ticket", "--tethered"])
-                .args(["--gateway", &job.gateway_url])
-                .arg("--config")
-                .arg(&settings)
-                .args(["--profile", &job.profile])
-                .arg("--ledger")
-                .arg(&job.ledger)
-                .args(["--name", &job.name]);
-            if let Some(deck) = &deck {
-                command.arg("--deck").arg(deck);
-            }
             let exit = play(command, &job, started, stop).await;
             let _ = std::fs::remove_dir_all(&dir);
             exit
@@ -357,7 +457,7 @@ async fn play(
     // moment it took the chair.
     let mut started = Some(started);
     let (sat_tx, mut sat_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-    let (last, readers) = read_lines(&mut child, &sat_tx);
+    let (last, readers) = read_lines(&mut child, &sat_tx, job.heard.as_ref());
     drop(sat_tx);
     let status = loop {
         tokio::select! {
@@ -421,6 +521,7 @@ type Closing = std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String
 fn read_lines(
     child: &mut tokio::process::Child,
     sat: &tokio::sync::mpsc::UnboundedSender<()>,
+    heard: Option<&tokio::sync::mpsc::UnboundedSender<Heard>>,
 ) -> (Closing, Vec<tokio::task::JoinHandle<()>>) {
     let last: Closing = std::sync::Arc::new(std::sync::Mutex::new(
         std::collections::VecDeque::with_capacity(CLOSING_LINES),
@@ -441,11 +542,15 @@ fn read_lines(
     {
         let last = last.clone();
         let sat = sat.clone();
+        let heard = heard.cloned();
         readers.push(tokio::spawn(async move {
             let mut lines = BufReader::new(stream).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.contains("sits in chair") {
                     let _ = sat.send(());
+                }
+                if let (Some(heard), Some(said)) = (&heard, heard_in(&line)) {
+                    let _ = heard.send(said);
                 }
                 if !line.trim().is_empty() {
                     let mut last = last
@@ -496,12 +601,15 @@ mod tests {
             game_id: "game".into(),
             seat: 1,
             profile: "deepseek".into(),
+            plays: "deepseek".into(),
             name: "DeepSeek".into(),
             chair_ticket: "ticket".into(),
             gateway_url: "http://127.0.0.1:1".into(),
             deck_text: None,
             settings: String::new(),
             ledger: PathBuf::from("ledger.json"),
+            fallback: None,
+            heard: None,
         };
         let mut command = tokio::process::Command::new("sh");
         command.args([

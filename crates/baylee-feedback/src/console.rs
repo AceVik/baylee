@@ -762,6 +762,10 @@ struct LlmDefinition {
     caps: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     canary: Option<bool>,
+    /// Another profile of the same seat agent, by id (`llm_name`): the seat
+    /// agent says whether it may be one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fallback: Option<String>,
     profile: serde_json::Value,
 }
 
@@ -786,6 +790,12 @@ async fn llm_write(
     let path = llm_path(&host, &id)?;
     let definition: LlmDefinition = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
+    if definition.fallback.as_deref().is_some_and(|f| !llm_name(f)) {
+        return Err(refuse(
+            StatusCode::BAD_REQUEST,
+            "a fallback is a profile's id: 1-64 of A-Z a-z 0-9 . - _",
+        ));
+    }
     let body = serde_json::to_vec(&definition)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
     let done = ask(&gateway, "PUT", path, &admin, Some(body)).await?;

@@ -72,6 +72,7 @@ fn sonnet(max_games: Option<u32>, caps: Option<serde_json::Value>) -> Definition
         max_games,
         caps,
         canary: true,
+        fallback: None,
         profile: json!({"provider": "anthropic", "model": "claude-sonnet-5-5"}),
     }
 }

@@ -178,8 +178,10 @@ impl Registry {
 
     /// The seat agent that should take an order for `profile`: of those
     /// that report it available, below its bound counting orders still
-    /// starting, and within their capacity, the least busy (its games of
-    /// the profile, then its bridges in all, then by name).
+    /// starting (or reporting that new games start on its fallback,
+    /// `diverts`, whose bound the seat agent holds), and within their
+    /// capacity, the least busy (its games of the profile, then its bridges
+    /// in all, then by name).
     pub(crate) fn pick(&self, profile: &str) -> Option<String> {
         self.hosts
             .iter()
@@ -187,7 +189,7 @@ impl Registry {
                 let p = host.profiles.iter().find(|p| p.id == profile)?;
                 let games = p.games + host.starting_of(profile);
                 let fits = p.state == ProfileState::Available
-                    && p.max_games.is_none_or(|max| games < max)
+                    && (p.diverts.is_some() || p.max_games.is_none_or(|max| games < max))
                     && (host.capacity == 0 || host.live() < host.capacity);
                 fits.then_some((games, host.live(), name))
             })
@@ -920,6 +922,8 @@ pub(crate) fn profiles_json(state: &crate::AppState) -> serde_json::Value {
                         "key": p.key,
                         "last_error": p.last_error,
                         "last_ok_unix": p.last_ok_unix,
+                        "fallback": p.definition.fallback,
+                        "diverts": p.diverts,
                     })
                 })
                 .collect();
@@ -1039,6 +1043,7 @@ mod tests {
             key: KeyKept::Kept,
             last_error: None,
             last_ok_unix: None,
+            diverts: None,
             definition: Definition {
                 label: id.into(),
                 vendor: "V".into(),
@@ -1046,6 +1051,7 @@ mod tests {
                 max_games: max,
                 caps: None,
                 canary: false,
+                fallback: None,
                 profile: serde_json::json!({}),
             },
         }

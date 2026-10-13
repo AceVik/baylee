@@ -85,6 +85,7 @@ fn definition(label: &str) -> Definition {
         max_games: Some(8),
         caps: None,
         canary: false,
+        fallback: None,
         profile: json!({"provider": "anthropic", "model": "claude-sonnet-5-5"}),
     }
 }
