@@ -69,3 +69,47 @@ fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
         "Vault of Catlacan produced five blue mana for the five artifacts controlled"
     );
 }
+
+/// Vault of Catlacan: "{T}: Add one mana of any color." Exactly one mana of
+/// the colour named, however many artifacts are out; the second ability is
+/// the one that counts them.
+#[test]
+fn vault_of_catlacan_first_ability_makes_one_mana_of_any_color_whatever_the_artifact_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(110, island())
+        .battlefield(
+            0,
+            &[
+                storm_the_vault(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+            ],
+        )
+        .start();
+    let storm = on_battlefield(&engine, p0, storm_the_vault()).unwrap();
+    let def = baylee_cards::by_index(storm_the_vault()).unwrap();
+    assert!(engine.dev_state_mut(p0).unwrap().transform(storm, def, 1));
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, storm));
+    activate(&mut engine, p0, storm_the_vault(), 0);
+    assert!(
+        matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "\"any color\" asks which, got {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "one mana of the chosen colour, not one per artifact"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&engine, storm), "{{T}} is part of the cost");
+}
