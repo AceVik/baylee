@@ -213,3 +213,84 @@ fn copied_god_returns_a_double_faced_card_but_not_an_ordinary_card() {
         }
     }
 }
+
+#[test]
+fn ojer_taq_temple_back_face_taps_for_white() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[ojer_taq_deepest_foundation()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let god = on_battlefield(&e, p0, ojer_taq_deepest_foundation()).unwrap();
+    kill(&mut e, god);
+    assert_eq!(e.state().object(god).unwrap().face_index, 1);
+    assert!(types(&e, god).contains(TypeSet::LAND));
+    assert_eq!(
+        e.state().players[0].mana_pool.available(ManaColor::White),
+        0,
+        "nothing is floating before the land is tapped"
+    );
+    e.dev_state_mut(p0).unwrap().set_tapped(god, false);
+    e.refresh_offer();
+    activate(&mut e, p0, ojer_taq_deepest_foundation(), 0);
+    assert!(is_tapped(&e, god), "{{T}}: the land taps for its mana");
+    assert_eq!(
+        e.state().players[0].mana_pool.available(ManaColor::White),
+        1,
+        "{{T}}: Add {{W}}"
+    );
+    assert_eq!(
+        e.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0,
+        "and no other mana"
+    );
+}
+
+#[test]
+fn ojer_taq_triples_creature_tokens_only_not_a_treasure() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[index::LIGHTNING_BOLT])
+        .battlefield(
+            0,
+            &[ojer_taq_deepest_foundation(), index::STORM_KILN_ARTIST],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 1);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, index::LIGHTNING_BOLT);
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let treasures = e
+        .state()
+        .battlefield_view()
+        .iter()
+        .filter(|id| {
+            e.state().object(**id).is_some_and(|o| {
+                o.controller == p0
+                    && o.characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::artifact::TREASURE)
+            })
+        })
+        .count();
+    assert_eq!(
+        treasures, 1,
+        "Storm-Kiln Artist made one Treasure: it is not a creature token, so Ojer Taq does not triple it"
+    );
+}
