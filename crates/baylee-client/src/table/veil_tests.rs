@@ -101,6 +101,27 @@ fn dimming_a_sleeping_card_takes_the_short_fade() {
     assert_eq!(track.from, veil::ASLEEP);
 }
 
+/// A sleeping card whose dimming lifts (the question was answered) stays
+/// asleep and starts no fade: the part that did not move is not re-faded.
+#[test]
+fn a_sleeping_card_losing_its_dimming_starts_no_fade() {
+    let both = VeilTrack::new(veil::ASLEEP | veil::DIM);
+    assert_eq!(
+        both.toward(veil::ASLEEP, 3.0, true),
+        VeilTrack::new(veil::ASLEEP)
+    );
+}
+
+/// A sleeping, dimmed card that wakes fades only the sleep out over the slow
+/// fade; the dimming it leaves goes at once and is not faded beside it.
+#[test]
+fn waking_a_dimmed_sleeping_card_fades_only_the_sleep() {
+    let track = VeilTrack::new(veil::ASLEEP | veil::DIM).toward(0, 1.0, true);
+    assert_eq!(track.from, veil::ASLEEP);
+    assert_eq!(track.to, 0);
+    assert!(close(track.rate, 1.0 / veil::SLOW_FADE));
+}
+
 /// With motion off every change is made at once.
 #[test]
 fn without_motion_every_change_is_settled() {
@@ -283,4 +304,92 @@ fn another_seats_question_dims_nothing() {
     let mut duel = table();
     ask(&mut duel, 1, vec![id(3)]);
     assert_eq!(super::veil_of(&duel, &group_of(&duel, id(1))), 0);
+}
+
+// ------------------------------------------------- summoning sickness
+
+/// Four creatures on this seat's side (distinct names, so none piles): Alpha
+/// and Gamma summoning sick, Phased summoning sick and phased out, Delta
+/// awake.
+fn sleepy_table() -> Duel {
+    let sick = |slot, name: &str| {
+        let mut t = token(slot, 0, name, 1, 1);
+        t.summoning_sick = true;
+        t
+    };
+    let mut phased = sick(2, "Phased");
+    phased.status = ObjectStatus::PHASED_OUT;
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            [
+                sick(1, "Alpha"),
+                phased,
+                sick(3, "Gamma"),
+                token(4, 0, "Delta", 1, 1),
+            ],
+        )
+        .build();
+    let mut duel = Duel::default();
+    duel.receive_view(view);
+    rebuild_board(&mut duel);
+    duel
+}
+
+/// With no question open a summoning-sick creature is asleep, and one that
+/// is not is in no state.
+#[test]
+fn a_summoning_sick_creature_with_no_question_is_asleep() {
+    let duel = sleepy_table();
+    assert!(duel.interaction.is_none());
+    let alpha = group_of(&duel, id(1));
+    assert!(alpha.summoning_sick, "the view's flag reaches the group");
+    assert_eq!(super::veil_of(&duel, &alpha), veil::ASLEEP);
+    assert_eq!(super::veil_of(&duel, &group_of(&duel, id(4))), 0);
+}
+
+/// A sleeping creature the question leaves out is asleep and dimmed: the two
+/// states are laid together.
+#[test]
+fn a_summoning_sick_creature_left_out_by_the_question_is_asleep_and_dimmed() {
+    let mut duel = sleepy_table();
+    ask(&mut duel, 0, vec![id(4)]);
+    assert_eq!(
+        super::veil_of(&duel, &group_of(&duel, id(1))),
+        veil::ASLEEP | veil::DIM
+    );
+}
+
+/// A sleeping creature the question offers is asleep only: being a choice
+/// lifts the dimming, not the sleep.
+#[test]
+fn a_summoning_sick_creature_on_offer_is_asleep_only() {
+    let mut duel = sleepy_table();
+    ask(&mut duel, 0, vec![id(3)]);
+    assert_eq!(super::veil_of(&duel, &group_of(&duel, id(3))), veil::ASLEEP);
+}
+
+/// A creature both summoning sick and phased out is phased and nothing else,
+/// with no question and with one that leaves it out.
+#[test]
+fn a_summoning_sick_phased_out_creature_is_phased_only() {
+    let mut duel = sleepy_table();
+    let phased = group_of(&duel, id(2));
+    assert!(phased.summoning_sick);
+    assert_eq!(super::veil_of(&duel, &phased), veil::PHASED);
+    ask(&mut duel, 0, vec![id(4)]);
+    assert_eq!(super::veil_of(&duel, &group_of(&duel, id(2))), veil::PHASED);
+}
+
+// ---------------------------------------------------------- the shader
+
+/// The shader's veil bits are the Rust ones: they travel in one packed
+/// `u32` and a mismatch would draw one state as another, silently.
+#[test]
+fn the_shaders_veil_bits_are_the_rust_ones() {
+    let src = include_str!("../shaders/card_common.wgsl");
+    let read = |name| cardmat::tests::wgsl_const(src, name) as u32;
+    assert_eq!(read("VEIL_DIM"), veil::DIM);
+    assert_eq!(read("VEIL_PHASED"), veil::PHASED);
+    assert_eq!(read("VEIL_ASLEEP"), veil::ASLEEP);
 }
