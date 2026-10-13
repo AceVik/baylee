@@ -736,6 +736,25 @@ pub(super) fn resume_tax_choice_inner(
             res.pc += 1;
             return run(state, res);
         }
+        ManaPaymentOutcome::Untap { chosen } => {
+            if actually_paid {
+                for (id, version) in chosen {
+                    if state.object(id).is_some_and(|o| {
+                        o.version == version && o.zone == crate::zone::Zone::Battlefield
+                    }) {
+                        state.set_tapped(id, false);
+                        state
+                            .journal
+                            .record(crate::event::GameEvent::ObjectUntapped {
+                                object: id,
+                                cause: crate::event::Cause::Effect,
+                            });
+                    }
+                }
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
         ManaPaymentOutcome::Upgrade { card, player } => {
             let since = state.journal.last_seq();
             upgrade::place(state, res, card, player, actually_paid);

@@ -1,4 +1,4 @@
-//! The shells a protected permanent wears.
+//! The shells a protected or summoning-sick permanent wears.
 
 #[allow(clippy::wildcard_imports)] // the table's shared vocabulary
 use super::*;
@@ -6,61 +6,38 @@ use super::*;
 /// Which part of a permanent's shell an entity is ([`shellmat`]).
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShellPart {
-    /// The rim standing round the card.
-    Rim,
-    /// The ring on the felt the rim lies down to where it has no room.
+    /// Its keywords' border standing round the card.
+    Border,
+    /// The ring on the felt the border lies down to where it has no room.
     Ring,
-    /// A dome standing over the card.
-    Dome,
-    /// The ring on the felt a dome lies down to.
-    DomeRing,
-    /// Defender's wall, on the felt past the card's top edge.
-    Wall,
-    /// A standing dome's shadow on the felt, or the wall's.
-    Shade,
     /// Summoning sickness's wave, over the card's face.
     Wave,
 }
 
-/// One shell round a card: what stands, the ring it lies down to, and how
-/// it stands as [`fit_the_shells`] last found: its step of
-/// [`shellmat::DOME_STEPS`] (a rim has only the first), or `None` lying.
-/// A dome's shadow on the felt is a child of what stands.
+/// A card's border: what stands, the ring it lies down to, which keywords
+/// it says, and whether it stood when [`fit_the_shells`] last looked.
 #[derive(Clone, Copy, Debug)]
 struct Layer {
+    ward: shellmat::Ward,
     stand: Entity,
     lie: Entity,
-    step: Option<usize>,
-    shade: Option<Entity>,
+    standing: bool,
 }
 
-/// The shells round one card, inside out: see [`SceneIndex::shells`].
+/// The shells round one card: see [`SceneIndex::shells`].
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct Shell {
-    /// Indestructible's steel.
-    steel: Option<Layer>,
-    /// Hexproof's or shroud's dome, and which.
-    dome: Option<(shellmat::Dome, Layer)>,
-    /// Defender's wall, which always stands.
-    wall: Option<Entity>,
+    /// Its keywords' border.
+    border: Option<Layer>,
     /// Summoning sickness's wave, and whether it was drawn last frame.
     wave: Option<(Entity, bool)>,
 }
 
 impl Shell {
-    fn layers(self) -> impl Iterator<Item = Layer> {
-        self.steel
-            .into_iter()
-            .chain(self.dome.map(|(_, layer)| layer))
-    }
-
     pub(super) fn despawn(self, commands: &mut Commands) {
-        for layer in self.layers() {
+        if let Some(layer) = self.border {
             commands.entity(layer.stand).despawn();
             commands.entity(layer.lie).despawn();
-        }
-        if let Some(wall) = self.wall {
-            commands.entity(wall).despawn();
         }
         if let Some((wave, _)) = self.wave {
             commands.entity(wave).despawn();
@@ -68,7 +45,7 @@ impl Shell {
     }
 
     fn is_empty(self) -> bool {
-        self.layers().next().is_none() && self.wall.is_none() && self.wave.is_none()
+        self.border.is_none() && self.wave.is_none()
     }
 }
 
@@ -86,72 +63,8 @@ fn shell_material(
         .clone()
 }
 
-/// Spawns one shell round `card`, hidden: what stands, at `stand_at` in the
-/// card's space, and the ring it lies down to.
-fn spawn_layer(
-    commands: &mut Commands,
-    card: Entity,
-    stand: (ShellPart, Handle<Mesh>, Handle<ShellMaterial>),
-    lie: (ShellPart, Handle<Mesh>, Handle<ShellMaterial>),
-    step: Option<usize>,
-) -> Layer {
-    let [stand, lie] = [(stand, true), (lie, false)].map(|((part, mesh, material), up)| {
-        commands
-            .spawn((
-                part,
-                Mesh3d(mesh),
-                MeshMaterial3d(material),
-                // What stands has its origin on the card's face, which is the
-                // plane its mask measures the print on; a ring is laid on
-                // the felt by `fit_the_shells`.
-                if up {
-                    Transform::from_xyz(0.0, 0.0, CARD_THICKNESS)
-                } else {
-                    Transform::default()
-                },
-                Visibility::Hidden,
-                Pickable::IGNORE,
-            ))
-            .id()
-    });
-    commands.entity(card).add_children(&[stand, lie]);
-    Layer {
-        stand,
-        lie,
-        step,
-        shade: None,
-    }
-}
-
-/// Spawns a shadow on the felt under `parent`, hidden or not as `shown`:
-/// it lies in `parent`'s own space.
-fn spawn_shade(
-    commands: &mut Commands,
-    index: &mut SceneIndex,
-    materials: &mut Assets<ShellMaterial>,
-    parent: Entity,
-    mesh: Handle<Mesh>,
-    motion: f32,
-    shown: Visibility,
-) -> Entity {
-    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Shade), motion);
-    let shade = commands
-        .spawn((
-            ShellPart::Shade,
-            Mesh3d(mesh),
-            MeshMaterial3d(material),
-            Transform::default(),
-            shown,
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(parent).add_child(shade);
-    shade
-}
-
-/// Puts a permanent's shells round it, or takes them away: indestructible's
-/// steel, hexproof's or shroud's dome, defender's wall and summoning
-/// sickness's wave.
+/// Puts a permanent's shells round it, or takes them away: its keywords'
+/// border and summoning sickness's wave.
 ///
 /// Each is spawned hidden, as children of the card, and [`fit_the_shells`]
 /// shows it standing or lying on the same frame: which depends on where
@@ -166,66 +79,27 @@ pub(super) fn sync_shell(
     motion: f32,
 ) {
     let on_table = placement.fan.is_none();
-    let steel = placement.indestructible && on_table;
-    let dome = placement.dome.filter(|_| on_table);
-    let wall = placement.defender && on_table;
+    let ward = if on_table {
+        placement.ward
+    } else {
+        shellmat::Ward::NONE
+    };
     let wave = placement.sick && on_table;
     let mut shell = index
         .shells
         .get(&placement.object)
         .copied()
         .unwrap_or_default();
-    if shell.steel.is_some() == steel
-        && shell.dome.map(|(d, _)| d) == dome
-        && shell.wall.is_some() == wall
-        && shell.wave.is_some() == wave
+    if shell.border.map_or(shellmat::Ward::NONE, |l| l.ward) == ward && shell.wave.is_some() == wave
     {
         return;
     }
-    let (Some(rim_mesh), Some(ring_mesh)) = (
-        index.rim_mesh.clone(),
-        index.ring_meshes.get(&Band::Whole).cloned(),
-    ) else {
-        return;
-    };
-    if shell.steel.is_some() != steel {
-        if let Some(layer) = shell.steel.take() {
-            Shell {
-                steel: Some(layer),
-                ..Shell::default()
-            }
-            .despawn(commands);
-        } else {
-            let rim = shell_material(index, materials, ShellLook::steel(ShellKind::Rim), motion);
-            let ring = shell_material(index, materials, ShellLook::steel(ShellKind::Ring), motion);
-            // The half of the band it takes under a dome's ring, ready for
-            // the frame both lie down.
-            let mut inner = ShellLook::steel(ShellKind::Ring);
-            inner.band = Band::Inner;
-            shell_material(index, materials, inner, motion);
-            shell.steel = Some(spawn_layer(
-                commands,
-                card,
-                (ShellPart::Rim, rim_mesh, rim),
-                (ShellPart::Ring, ring_mesh.clone(), ring),
-                None,
-            ));
+    if shell.border.map_or(shellmat::Ward::NONE, |l| l.ward) != ward {
+        if let Some(gone) = shell.border.take() {
+            commands.entity(gone.stand).despawn();
+            commands.entity(gone.lie).despawn();
         }
-    }
-    if shell.dome.map(|(d, _)| d) != dome {
-        if let Some(gone) = shell.dome.take() {
-            Shell {
-                dome: Some(gone),
-                ..Shell::default()
-            }
-            .despawn(commands);
-        }
-        shell.dome = dome.and_then(|which| {
-            spawn_dome(commands, index, materials, card, which, ring_mesh, motion)
-        });
-    }
-    if shell.wall.is_some() != wall {
-        shell.wall = sync_wall(commands, index, materials, card, shell.wall, motion);
+        shell.border = spawn_border(commands, index, materials, card, ward, motion);
     }
     if shell.wave.is_some() != wave {
         shell.wave = sync_wave(commands, index, materials, card, shell.wave, motion);
@@ -237,95 +111,53 @@ pub(super) fn sync_shell(
     }
 }
 
-/// Builds hexproof's or shroud's dome round `card`, hidden: what stands,
-/// the ring it lies down to, the materials of both bands that ring may lie
-/// in, and its shadow on the felt. [`fit_the_shells`] shows them.
-fn spawn_dome(
+/// Builds the border of `ward` round `card`, hidden: what stands, on the
+/// card's face, which is the plane its mask measures the print on, and the
+/// ring it lies down to, which [`fit_the_shells`] lays on the felt. `None`
+/// for no keyword.
+fn spawn_border(
     commands: &mut Commands,
     index: &mut SceneIndex,
     materials: &mut Assets<ShellMaterial>,
     card: Entity,
-    which: shellmat::Dome,
-    ring_mesh: Handle<Mesh>,
+    ward: shellmat::Ward,
     motion: f32,
-) -> Option<(shellmat::Dome, Layer)> {
-    let look = |kind, band| ShellLook {
-        kind,
-        dome: Some(which),
-        band,
-    };
-    let standing = shell_material(index, materials, look(ShellKind::Dome, Band::Whole), motion);
-    let lying = shell_material(
-        index,
-        materials,
-        look(ShellKind::DomeRing, Band::Whole),
-        motion,
-    );
-    shell_material(
-        index,
-        materials,
-        look(ShellKind::DomeRing, Band::Outer),
-        motion,
-    );
-    let mesh = index.dome_meshes.get(&(which, 0)).cloned()?;
-    let shade = index.dome_shades.get(&(which, 0)).cloned()?;
-    let mut layer = spawn_layer(
-        commands,
-        card,
-        (ShellPart::Dome, mesh, standing),
-        (ShellPart::DomeRing, ring_mesh, lying),
-        None,
-    );
-    layer.shade = Some(spawn_shade(
-        commands,
-        index,
-        materials,
-        layer.stand,
-        shade,
-        motion,
-        Visibility::Hidden,
-    ));
-    Some((which, layer))
-}
-
-/// Takes defender's wall away if `had` one, or builds one, hidden, as a
-/// child of `card`: [`fit_the_shells`] stands it on the felt.
-fn sync_wall(
-    commands: &mut Commands,
-    index: &mut SceneIndex,
-    materials: &mut Assets<ShellMaterial>,
-    card: Entity,
-    had: Option<Entity>,
-    motion: f32,
-) -> Option<Entity> {
-    if let Some(gone) = had {
-        commands.entity(gone).despawn();
+) -> Option<Layer> {
+    if ward.is_empty() {
         return None;
     }
-    let mesh = index.wall_mesh.clone()?;
-    let shade = index.wall_shade.clone()?;
-    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Wall), motion);
-    let wall = commands
-        .spawn((
-            ShellPart::Wall,
-            Mesh3d(mesh),
-            MeshMaterial3d(material),
-            Transform::default(),
-            Visibility::Hidden,
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(card).add_child(wall);
-    spawn_shade(
-        commands,
-        index,
-        materials,
-        wall,
-        shade,
-        motion,
-        Visibility::Inherited,
-    );
-    Some(wall)
+    let layers = ward.layers();
+    let stand_mesh = index.border_meshes.get(&layers).cloned()?;
+    let lie_mesh = index.ring_meshes.get(&layers).cloned()?;
+    let stand_material = shell_material(index, materials, ShellLook::border(ward), motion);
+    let lie_material = shell_material(index, materials, ShellLook::ring(ward), motion);
+    let [stand, lie] = [
+        (ShellPart::Border, stand_mesh, stand_material, true),
+        (ShellPart::Ring, lie_mesh, lie_material, false),
+    ]
+    .map(|(part, mesh, material, up)| {
+        commands
+            .spawn((
+                part,
+                Mesh3d(mesh),
+                MeshMaterial3d(material),
+                if up {
+                    Transform::from_xyz(0.0, 0.0, CARD_THICKNESS)
+                } else {
+                    Transform::default()
+                },
+                Visibility::Hidden,
+                Pickable::IGNORE,
+            ))
+            .id()
+    });
+    commands.entity(card).add_children(&[stand, lie]);
+    Some(Layer {
+        ward,
+        stand,
+        lie,
+        standing: false,
+    })
 }
 
 /// Takes summoning sickness's wave away if `had` one, or lays one, hidden,
@@ -344,7 +176,7 @@ fn sync_wave(
         return None;
     }
     let mesh = index.wave_mesh.clone()?;
-    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Wave), motion);
+    let material = shell_material(index, materials, ShellLook::wave(), motion);
     let wave = commands
         .spawn((
             ShellPart::Wave,
@@ -381,39 +213,17 @@ pub(super) fn on_the_felt(at: &Transform) -> Transform {
     }
 }
 
-/// Where defender's wall stands for the card at `at`, in the card's own
-/// space: on the felt under the card's middle, turned as the card is and
-/// unbanked, at the height a resting card's face has, which is the plane
-/// its mesh and its mask are drawn from ([`shellmat::wall_mesh`]). Never
-/// lifted or grown with the card, which would carry it over its
-/// neighbours' faces.
-pub fn wall_pose(at: &Transform) -> Transform {
-    let mut pose = on_the_felt(at);
-    let foot = Vec3::new(
-        at.translation.x,
-        TABLE_Y + shellmat::RIM_DROP,
-        at.translation.z,
-    );
-    pose.translation = at.to_matrix().inverse().transform_point3(foot);
-    pose.scale = Vec3::ONE / at.scale;
-    pose
-}
-
-/// Stands each protected permanent's shells, or lays them on the felt as
-/// rings, and keeps the rings flat on the felt under their card.
+/// Stands each permanent's border, or lays it on the felt as a ring, and
+/// keeps the rings flat on the felt under their card; and draws each wave
+/// that lands on no other print.
 ///
 /// After the glide, because the question is about where every card *is* this
 /// frame: a card gliding in, a hover lifting one, a flier on its bob. It asks
-/// [`shellmat::rim_stands`] for the steel and [`shellmat::dome_step`] for the
-/// dome, against every card on the table, departing ones included, from
-/// where the camera is. A dome stands at the tallest step that fits. Where
-/// the steel and the dome both lie, the steel takes the band's inner half
-/// and the dome its outer, nested as they stand. Defender's wall always
-/// stands, on the felt ([`wall_pose`]). Summoning sickness's wave is drawn
-/// where [`shellmat::wave_stands`] finds it lands on no other print, and
-/// comes back only with a flier's bob of headroom, as a ring stands up.
-#[allow(clippy::type_complexity)] // four disjoint views of one table
-#[allow(clippy::too_many_lines)] // four shells fitted in one pass over the table
+/// [`shellmat::border_stands`] for the border and
+/// [`shellmat::wave_stands`] for the wave, against every card on the table,
+/// departing ones included, from where the camera is. Either comes back
+/// only with a flier's bob of headroom ([`shellmat::STAND_AGAIN`]).
+#[allow(clippy::type_complexity)] // three disjoint views of one table
 pub fn fit_the_shells(
     mut index: ResMut<SceneIndex>,
     cards: Query<
@@ -421,15 +231,7 @@ pub fn fit_the_shells(
         (Or<(With<CardVisual>, With<Departing>)>, Without<ShellPart>),
     >,
     camera: Query<&Transform, (With<TableCamera>, Without<ShellPart>)>,
-    mut parts: Query<
-        (
-            &mut Visibility,
-            &mut Transform,
-            &mut Mesh3d,
-            &mut MeshMaterial3d<ShellMaterial>,
-        ),
-        (With<ShellPart>, Without<TableCamera>),
-    >,
+    mut parts: Query<(&mut Visibility, &mut Transform), (With<ShellPart>, Without<TableCamera>)>,
 ) {
     if index.shells.is_empty() {
         return;
@@ -448,12 +250,15 @@ pub fn fit_the_shells(
     let SceneIndex {
         shells,
         cards: drawn,
-        ring_meshes,
-        dome_meshes,
-        dome_shades,
-        shell_materials,
         ..
     } = &mut *index;
+    let shown = |up: bool| {
+        if up {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        }
+    };
     for (object, shell) in shells.iter_mut() {
         let Some(&card) = drawn.get(object) else {
             continue;
@@ -461,113 +266,34 @@ pub fn fit_the_shells(
         let Ok((_, at, _)) = cards.get(card) else {
             continue;
         };
-        if let Some(wall) = shell.wall
-            && let Ok((mut shown, mut transform, _, _)) = parts.get_mut(wall)
-        {
-            shown.set_if_neq(Visibility::Inherited);
-            transform.set_if_neq(wall_pose(at));
-        }
         let me = shellmat::Footprint::of(at);
         let others = faces
             .iter()
             .filter(move |(entity, _)| *entity != card)
             .map(|(_, face)| *face);
-        if let Some((wave, standing)) = &mut shell.wave {
-            let headroom = if *standing {
-                0.0
-            } else {
-                shellmat::STAND_AGAIN
-            };
-            *standing = shellmat::wave_stands(&me, others.clone(), eye, headroom);
-            if let Ok((mut shown, _, _, _)) = parts.get_mut(*wave) {
-                shown.set_if_neq(if *standing {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                });
-            }
-        }
-        if let Some(steel) = &mut shell.steel {
-            let headroom = if steel.step.is_some() {
-                0.0
-            } else {
-                shellmat::STAND_AGAIN
-            };
-            steel.step = shellmat::rim_stands(&me, others.clone(), eye, headroom).then_some(0);
-        }
-        if let Some((dome, layer)) = &mut shell.dome {
-            layer.step = shellmat::dome_step(dome.row(), layer.step, &me, others, eye);
-        }
-        let both_lie =
-            shell.layers().all(|layer| layer.step.is_none()) && shell.layers().count() == 2;
-        let lying = on_the_felt(at);
-        let mut show = |layer: Layer, stand_mesh: Option<Handle<Mesh>>, ring: ShellLook| {
-            if let Ok((mut shown, _, mut mesh, _)) = parts.get_mut(layer.stand) {
-                shown.set_if_neq(if layer.step.is_some() {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                });
-                if let Some(wanted) = stand_mesh
-                    && mesh.0 != wanted
-                {
-                    mesh.0 = wanted;
-                }
-            }
-            if let Ok((mut shown, mut transform, mut mesh, mut material)) = parts.get_mut(layer.lie)
-            {
-                shown.set_if_neq(if layer.step.is_some() {
-                    Visibility::Hidden
-                } else {
-                    Visibility::Inherited
-                });
-                transform.set_if_neq(lying);
-                if let Some(wanted) = ring_meshes.get(&ring.band)
-                    && mesh.0 != *wanted
-                {
-                    mesh.0 = wanted.clone();
-                }
-                if let Some(wanted) = shell_materials.get(&ring)
-                    && material.0 != *wanted
-                {
-                    material.0 = wanted.clone();
-                }
-            }
+        let headroom = |standing: bool| {
+            if standing { 0.0 } else { shellmat::STAND_AGAIN }
         };
-        if let Some(steel) = shell.steel {
-            let mut ring = ShellLook::steel(ShellKind::Ring);
-            if both_lie {
-                ring.band = Band::Inner;
+        if let Some((wave, standing)) = &mut shell.wave {
+            *standing = shellmat::wave_stands(&me, others.clone(), eye, headroom(*standing));
+            if let Ok((mut seen, _)) = parts.get_mut(*wave) {
+                seen.set_if_neq(shown(*standing));
             }
-            show(steel, None, ring);
         }
-        if let Some((dome, layer)) = shell.dome {
-            let ring = ShellLook {
-                kind: ShellKind::DomeRing,
-                dome: Some(dome),
-                band: if both_lie { Band::Outer } else { Band::Whole },
-            };
-            let mesh = layer
-                .step
-                .and_then(|step| dome_meshes.get(&(dome, step)).cloned());
-            show(layer, mesh, ring);
-            // Its shadow, at the steps it stands on the felt at.
-            let shade = layer
-                .step
-                .and_then(|step| dome_shades.get(&(dome, step)).cloned());
-            if let Some(entity) = layer.shade
-                && let Ok((mut shown, _, mut mesh, _)) = parts.get_mut(entity)
-            {
-                shown.set_if_neq(if shade.is_some() {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                });
-                if let Some(wanted) = shade
-                    && mesh.0 != wanted
-                {
-                    mesh.0 = wanted;
-                }
+        if let Some(layer) = &mut shell.border {
+            layer.standing = shellmat::border_stands(
+                layer.ward.layers(),
+                &me,
+                others,
+                eye,
+                headroom(layer.standing),
+            );
+            if let Ok((mut seen, _)) = parts.get_mut(layer.stand) {
+                seen.set_if_neq(shown(layer.standing));
+            }
+            if let Ok((mut seen, mut transform)) = parts.get_mut(layer.lie) {
+                seen.set_if_neq(shown(!layer.standing));
+                transform.set_if_neq(on_the_felt(at));
             }
         }
     }

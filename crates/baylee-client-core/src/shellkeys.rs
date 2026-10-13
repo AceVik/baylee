@@ -43,6 +43,8 @@ pub enum Context {
     Builder,
     /// Settings.
     Settings,
+    /// Replays (desktop).
+    Replays,
 }
 
 /// One thing a shell key does.
@@ -90,13 +92,17 @@ pub enum ShellAction {
     ImportDeck,
     /// Export (`Ctrl/Cmd+E`, in the builder).
     ExportDeck,
+    /// Go to Replays (`4`, desktop). Last in the enum, so nothing stored
+    /// moves; second-to-last in the overlay's order, beside its siblings.
+    GoReplays,
 }
 
 impl ShellAction {
     /// Every action, in the overlay's order.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 22] = [
         Self::GoPlay,
         Self::GoDecks,
+        Self::GoReplays,
         Self::GoSettings,
         Self::Back,
         Self::Search,
@@ -124,6 +130,7 @@ impl ShellAction {
         match self {
             Self::GoPlay => "go-play",
             Self::GoDecks => "go-decks",
+            Self::GoReplays => "go-replays",
             Self::GoSettings => "go-settings",
             Self::Back => "back",
             Self::Search => "search",
@@ -170,6 +177,7 @@ impl ShellAction {
         match self {
             Self::GoPlay => Phrase::ShellPlay,
             Self::GoDecks => Phrase::ShellDecks,
+            Self::GoReplays => Phrase::GroupReplay,
             Self::GoSettings | Self::OpenSettings => Phrase::Settings,
             Self::Back => Phrase::Back,
             Self::Search => Phrase::ShellKeySearch,
@@ -219,6 +227,7 @@ impl ShellAction {
         match self {
             Self::GoPlay => vec![C::code("Digit1")],
             Self::GoDecks => vec![C::code("Digit2")],
+            Self::GoReplays => vec![C::code("Digit4")],
             Self::GoSettings => vec![C::code("Digit3")],
             Self::Back => vec![C::code("ArrowLeft").alt(), C::code("BracketLeft").mac_cmd()],
             Self::Search => vec![C::ch("/"), C::ch("f").cmd()],

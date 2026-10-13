@@ -401,6 +401,12 @@ impl<L: CardLookup> Engine<L> {
                 object,
                 version,
             } => {
+                // The trigger is about the object as it was (CR 603.7c): one
+                // that has left its zone since is named with the identity it
+                // had, so "that creature" affects nothing (the identity is no
+                // longer current) while what the effect reads about it, such
+                // as the creatures a Wall blocked, is its last information
+                // (CR 608.2h).
                 let still = self
                     .state
                     .object(object)
@@ -409,16 +415,19 @@ impl<L: CardLookup> Engine<L> {
                     controller,
                     source,
                     effects,
-                    still.then_some(object),
+                    Some(object),
                     Some(source_version),
                     text,
                 );
-                if still && let Some(trigger) = self.trigger_queue.back_mut() {
-                    let power = self
-                        .state
-                        .object(object)
-                        .and_then(|o| o.characteristics().power)
-                        .unwrap_or(0);
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    let power = if still {
+                        self.state
+                            .object(object)
+                            .and_then(|o| o.characteristics().power)
+                            .unwrap_or(0)
+                    } else {
+                        0
+                    };
                     trigger.event_object_identity = Some((version, power));
                 }
                 false

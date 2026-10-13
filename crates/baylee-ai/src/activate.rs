@@ -278,6 +278,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::Discard(_)
                     | CostPart::DiscardRandom
                     | CostPart::DiscardHand
+                    | CostPart::DiscardLastDrawnThisTurn
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
             | CostPart::DiscardSelf

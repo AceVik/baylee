@@ -1,22 +1,25 @@
 // What the shells round a permanent share between the table (`shell.wgsl`)
-// and the preview (`shell_ui.wgsl`): the card they stand round, and how
-// darksteel, glass and brick are lit. `shellmat.rs` says what each shell is
-// and why it may stand where it stands; the two shaders say where it is seen
-// from, the table's through its real camera and the preview's from straight
-// over the card.
+// and the preview (`shell_ui.wgsl`): the card they stand round, a keyword's
+// border and summoning sickness's wave. `shellmat.rs` says what each shell
+// is and why it may stand where it stands; the two shaders say where it is
+// seen from, the table's through its real camera and the preview's from
+// straight over the card.
 //
 // Everything here is in a shell's own space, the card's: its middle at the
 // origin, `y` up the card, `z` up off its face, in card widths. Where a term
 // needs a direction in the world it says so.
 
 /// Which shell a material draws. `shellmat::ShellKind`.
-const SHELL_RIM: u32 = 1u;
+const SHELL_BORDER: u32 = 1u;
 const SHELL_RING: u32 = 2u;
-const SHELL_DOME: u32 = 3u;
-const SHELL_DOME_RING: u32 = 4u;
-const SHELL_WALL: u32 = 5u;
-const SHELL_SHADE: u32 = 6u;
-const SHELL_WAVE: u32 = 7u;
+const SHELL_WAVE: u32 = 3u;
+
+/// The keywords a border says, as bits (`shellmat::Ward`), and the order
+/// its layers are laid in, inside out.
+const WARD_INDESTRUCTIBLE: u32 = 1u;
+const WARD_DEFENDER: u32 = 2u;
+const WARD_HEXPROOF: u32 = 4u;
+const WARD_SHROUD: u32 = 8u;
 
 /// The card, in its own space: half its width and height, and its corner.
 /// `shellmat` holds these to `CARD_WIDTH`, `CARD_HEIGHT` and `CARD_CORNER`.
@@ -25,32 +28,17 @@ const CARD_HALF_H: f32 = 0.6985;
 const CARD_ROUND: f32 = 0.0476;
 /// How far off the print the mask takes to open: outward only.
 const MASK_FEATHER: f32 = 0.012;
-/// The rim's top edge over the face, and its foot under it.
+/// A standing border's top edge over the face, and its foot under it.
 const RIM_RISE: f32 = 0.01;
 const RIM_DROP: f32 = 0.083;
-/// The share of the rim's slope that is its flat lip, along its crest.
-const RIM_LIP: f32 = 0.25;
-/// How steeply a dome's glass deepens from its crown to its foot.
-const DOME_RAMP: f32 = 3.0;
-/// Where the moon's arc lies on a dome, from its crown (0) to its foot (1),
-/// how far it reaches either side of that, and how bright it is.
-const ARC_AT: f32 = 0.9;
-const ARC_HALF: f32 = 0.06;
-const ARC_GLOW: f32 = 0.85;
-/// One course of the wall's brick, one brick along it, the mortar between
-/// them, and the wall's height over the felt, its merlons' tops.
-const WALL_COURSE: f32 = 0.028;
-const WALL_BRICK: f32 = 0.07;
-const WALL_MORTAR: f32 = 0.01;
-const WALL_HEIGHT: f32 = 0.08;
 /// Summoning sickness's wave (`shellmat::WAVE_*`): how far over the face its
 /// sheet lies, how high its crest rises over that, where the sheet stops
 /// inside the card's edge, and its timing in seconds.
 const WAVE_LIFT: f32 = 0.003;
 const WAVE_CREST: f32 = 0.009;
 const WAVE_INSET: f32 = 0.05;
-const WAVE_TRAVEL: f32 = 3.6;
-const WAVE_PERIOD: f32 = 6.0;
+const WAVE_TRAVEL: f32 = 2.8;
+const WAVE_PERIOD: f32 = 4.2;
 /// How wide the crest is, in shares of the way from the middle to the edge,
 /// and how far in from the sheet's edge it settles to it.
 const CREST_WIDTH: f32 = 0.07;
@@ -59,23 +47,41 @@ const EDGE_SETTLE: f32 = 0.06;
 const WAVE_STILL: f32 = 0.55;
 /// The wave's moonlight, linear.
 const MOONLIGHT: vec3<f32> = vec3<f32>(0.55, 0.63, 0.92);
-
-/// Darksteel, linear: the metal, and the light it gives back, a cool
-/// silver.
-const STEEL: vec3<f32> = vec3<f32>(0.006, 0.0065, 0.0078);
-const SHEEN: vec3<f32> = vec3<f32>(0.58, 0.60, 0.64);
-/// What the steel mirrors of the felt under the horizon: dim, not black.
-const FELT_MIRROR: f32 = 0.03;
 /// The light every shell catches, from over the player's shoulder, in the
-/// world; and its colour on glass, the moon's.
+/// world.
 const KEY: vec3<f32> = vec3<f32>(-0.293, 0.838, 0.461);
-const MOON: vec3<f32> = vec3<f32>(0.80, 0.86, 1.0);
-/// Brick, pale mortar, the stone coping its merlons, linear, and the blue
-/// hour in the wall's shade.
-const BRICK: vec3<f32> = vec3<f32>(0.30, 0.075, 0.04);
-const MORTAR: vec3<f32> = vec3<f32>(0.30, 0.30, 0.32);
-const COPING: vec3<f32> = vec3<f32>(0.42, 0.38, 0.33);
-const DUSK: vec3<f32> = vec3<f32>(0.006, 0.01, 0.025);
+
+/// The border's colours, linear, in the blue hour's key: indestructible's
+/// gold, deep and lit; defender's slate grey stone, unlike the offer's gold
+/// light on the felt and the joints between its blocks;
+/// hexproof's blue and the light flowing along it; shroud's violet mist and
+/// its pale.
+const GOLD_DEEP: vec3<f32> = vec3<f32>(0.42, 0.27, 0.08);
+const GOLD: vec3<f32> = vec3<f32>(1.0, 0.74, 0.32);
+const GOLD_GLINT: vec3<f32> = vec3<f32>(1.0, 0.92, 0.72);
+const STONE: vec3<f32> = vec3<f32>(0.34, 0.33, 0.34);
+const JOINT: vec3<f32> = vec3<f32>(0.035, 0.03, 0.03);
+const HEX_BLUE: vec3<f32> = vec3<f32>(0.20, 0.50, 1.0);
+const HEX_LIGHT: vec3<f32> = vec3<f32>(0.70, 0.88, 1.0);
+const MIST: vec3<f32> = vec3<f32>(0.50, 0.30, 0.95);
+const MIST_PALE: vec3<f32> = vec3<f32>(0.80, 0.72, 1.0);
+/// How long a block of defender's wall is along the card's edge, in card
+/// widths, and the share of it its joint takes: a whole number of blocks
+/// round the card, so no block is cut where the outline closes.
+const BLOCK: f32 = 0.11875;
+const BLOCK_JOINT: f32 = 0.09;
+/// How far round the card the border's light goes in a second: the gold's
+/// one glint a lap every twelve seconds, hexproof's three streaks quicker,
+/// shroud's mist slowest of all.
+const GLINT_LAP: f32 = 0.083;
+const FLOW_LAP: f32 = 0.16;
+const MIST_DRIFT: f32 = 0.25;
+/// How many cells of mist go round the card.
+const MIST_CELLS: f32 = 43.0;
+/// The card's outline, in card widths, which the border's patterns are
+/// measured along; the mist's cells (43 round it) and the blocks (40) are
+/// whole numbers of it, so neither breaks where the outline closes.
+const OUTLINE: f32 = 4.75;
 
 /// Signed distance to the card's rounded rectangle, in its own space.
 fn card_sdf(p: vec2<f32>) -> f32 {
@@ -90,97 +96,97 @@ fn card_out(p: vec2<f32>) -> vec2<f32> {
     return sign(p) * normalize(max(q, vec2<f32>(1e-5)));
 }
 
-/// Darksteel: the metal, nearly black, and what it mirrors of the room round
-/// the table, the dim blue hour over the horizon and the dark felt under it,
-/// with the crisp line between them that tells metal from paint; a glint of
-/// [`KEY`]; and a silver band of light going round the card (`band`, at its
-/// mean when still). `n` is the surface's shape, not its mesh's: a rounded
-/// bevel the mesh is too coarse to carry. `v` is towards the eye and `key`
-/// is [`KEY`], both in the shell's own space.
-fn steel(n: vec3<f32>, v: vec3<f32>, key: vec3<f32>, band: f32) -> vec3<f32> {
-    let r = reflect(-v, n);
-    let sky = mix(FELT_MIRROR, 0.1 + 0.25 * max(r.z, 0.0), smoothstep(-0.02, 0.02, r.z));
-    let glint = pow(max(dot(r, key), 0.0), 12.0);
-    return STEEL + SHEEN * (sky + 0.6 * glint + 0.45 * band);
+
+/// Value noise for shroud's mist, smooth across a cell, repeating every
+/// `period` cells along `x` so it closes round the card without a seam.
+fn mist_noise(p: vec2<f32>, period: f32) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let x0 = i.x - period * floor(i.x / period);
+    let x1 = x0 + 1.0 - period * floor((x0 + 1.0) / period);
+    let k = vec2<f32>(127.1, 311.7);
+    let h = fract(sin(vec4<f32>(
+        dot(vec2<f32>(x0, i.y), k),
+        dot(vec2<f32>(x1, i.y), k),
+        dot(vec2<f32>(x0, i.y + 1.0), k),
+        dot(vec2<f32>(x1, i.y + 1.0), k),
+    )) * 43758.5453);
+    return mix(mix(h.x, h.y, u.x), mix(h.z, h.w, u.x), u.y);
 }
 
-/// A surface tipped `tilt` (radians) from facing straight up towards `out`.
-fn tipped(out: vec2<f32>, tilt: f32) -> vec3<f32> {
-    return vec3<f32>(out * sin(tilt), cos(tilt));
-}
-
-/// The rim `down` its slope (0 at its top edge, 1 at its foot), facing
-/// `out` from the card: a flat lip along its crest, facing up, mirroring the
-/// sky and the brightest of it; then rounded to its foot, facing out, as a
-/// quarter round is, so it mirrors the felt; darker towards its foot, where
-/// it meets the felt.
-fn rim_steel(out: vec2<f32>, down: f32, v: vec3<f32>, key: vec3<f32>, band: f32) -> vec3<f32> {
-    let bevel = max(down - RIM_LIP, 0.0) / (1.0 - RIM_LIP);
-    return steel(tipped(out, acos(1.0 - bevel)), v, key, band) * (1.0 - 0.3 * down);
-}
-
-/// A dome's glass and how much of it there is: its colour and its alpha.
-///
-/// Seen from nearly over it as a duel sees it: the more of it a ray crosses,
-/// the deeper its colour, which from above is how far out from its crown
-/// towards its foot the point lies (`reach`, 0 at the crown, 1 at the foot).
-/// So nearly clear at the crown, deepening smoothly to its foot with no edge
-/// on the way, a little brighter on the side turned to the light. And the
-/// moon mirrored in it: one arc on its shoulder, round the side that faces
-/// halfway between the light and the eye, as far round as it faces them.
-/// `n` is its surface's normal, `v` towards the eye and `key` [`KEY`], all
-/// in the shell's own space; `breath` its light's slow swell.
-fn dome_glass(
-    reach: f32,
-    n: vec3<f32>,
-    v: vec3<f32>,
-    key: vec3<f32>,
-    tint: vec3<f32>,
-    breath: f32,
-) -> vec4<f32> {
-    let deep = pow(reach, DOME_RAMP);
-    let slope = n.xy / max(length(n.xy), 1e-4);
-    let toward = dot(n.xy, key.xy / max(length(key.xy), 1e-4));
-    let lit = 0.55 + 0.45 * toward;
-    let body = (0.03 + 0.55 * deep * lit) * breath;
-    let half = normalize(v + key);
-    let round = smoothstep(0.35, 0.9, dot(slope, half.xy / max(length(half.xy), 1e-4)));
-    let across = 1.0 - smoothstep(0.0, ARC_HALF, abs(reach - ARC_AT));
-    let arc = ARC_GLOW * round * across * across;
-    let glass = min(body + arc, 0.92);
-    let pale = mix(tint, MOON, 0.3 * max(toward, 0.0) * deep);
-    return vec4<f32>(mix(pale, MOON, arc / max(body + arc, 1e-4)), glass);
-}
-
-/// Defender's wall in running bond: `along` is the distance along its arc,
-/// `h` the height off the felt, `aa` how far either moves across a pixel.
-/// `n` is the surface's normal in the world, `y` up. Lit by [`KEY`], the
-/// blue hour where it turns away; its courses in pale mortar, which a duel's
-/// camera reads on the face leaning back towards it. A top shows only the
-/// joints across it: pale stone coping on the merlons, brick in their shade
-/// between them.
-fn brick(along: f32, h: f32, n: vec3<f32>, aa: f32) -> vec3<f32> {
-    let row = floor(h / WALL_COURSE);
-    let x = along / WALL_BRICK + 0.5 * (row % 2.0);
-    let cell = floor(x);
-    let fy = fract(h / WALL_COURSE);
-    var joint = min(fract(x), 1.0 - fract(x)) * WALL_BRICK;
-    let top = n.y > 0.95;
-    if !top {
-        joint = min(joint, min(fy, 1.0 - fy) * WALL_COURSE);
+/// Which keyword lies in layer `k` of a border saying `ward`, inside out:
+/// indestructible, defender, then hexproof or shroud.
+fn ward_style(ward: u32, k: u32) -> u32 {
+    var seen = 0u;
+    for (var bit = 0u; bit < 4u; bit = bit + 1u) {
+        let style = 1u << bit;
+        if (ward & style) != 0u {
+            if seen == k {
+                return style;
+            }
+            seen = seen + 1u;
+        }
     }
-    // Where a pixel is nearly as wide as a course, the joints blur into the
-    // share of the face they take, about a third, rather than into grey.
-    let sharp = 1.0 - smoothstep(0.5 * WALL_MORTAR - aa, 0.5 * WALL_MORTAR + aa, joint);
-    let mortar = mix(0.3, sharp, 1.0 - smoothstep(0.35 * WALL_COURSE, WALL_COURSE, aa));
-    // Every brick a shade of its own, from where it lies.
-    let shade = 0.85 + 0.3 * fract(sin(dot(vec2<f32>(cell, row), vec2<f32>(12.9898, 78.233))) * 43758.5453);
-    let coping = top && h > WALL_HEIGHT - 0.002;
-    let stone = select(BRICK * shade, COPING * (0.9 + 0.2 * shade), coping);
-    let crenel = select(1.0, 0.55, top && !coping);
-    let up = max(n.y, 0.0);
-    let lit = 0.3 + 0.8 * max(dot(n, KEY), 0.0);
-    return mix(stone, MORTAR, mortar) * lit * crenel + DUSK * (1.0 - up);
+    return 0u;
+}
+
+/// One layer of a keyword's border: its colour and how much of it there is,
+/// `f` across the layer (0 on the card's side, 1 on the far one), `s` round
+/// the card (0..1, `card_common::perimeter`), `t` the clock (stopped for
+/// reduce-motion, where every pattern holds where it stands), `aa` how far
+/// `f` moves across a pixel and `aa_s` how far `s` does, taken where every
+/// pixel still runs. Each keyword is its pattern and its motion as
+/// much as its colour, so one that cannot tell the hues apart still can.
+fn ward_layer(style: u32, f: f32, s: f32, t: f32, aa: f32, aa_s: f32) -> vec4<f32> {
+    // Every layer but the mist is cut off from the next by a dark hairline.
+    let edge = smoothstep(0.0, 0.14 + aa, f) * smoothstep(0.0, 0.14 + aa, 1.0 - f);
+    let ridge = 1.0 - abs(2.0 * f - 1.0);
+    if style == WARD_INDESTRUCTIBLE {
+        // A steady golden rim, rounded across, one glint going round it.
+        let lap = 1.0 - 2.0 * abs(fract(s - GLINT_LAP * t) - 0.5);
+        let glint = pow(lap, 28.0) * ridge;
+        let colour = mix(GOLD_DEEP, GOLD, sqrt(ridge)) + GOLD_GLINT * 0.9 * glint;
+        return vec4<f32>(colour, 0.95 * edge);
+    }
+    if style == WARD_DEFENDER {
+        // A wall of stone blocks round the card, each a shade of its own,
+        // their joints dark; still, as a wall is.
+        let x = s * OUTLINE / BLOCK;
+        let cell = floor(x);
+        let joint = min(fract(x), 1.0 - fract(x));
+        let aa_x = aa_s * OUTLINE / BLOCK;
+        let block = smoothstep(BLOCK_JOINT * 0.5 - aa_x, BLOCK_JOINT * 0.5 + aa_x, joint);
+        let shade = 0.8 + 0.4 * fract(sin(cell * 12.9898) * 43758.5453);
+        let lit = 0.7 + 0.45 * (1.0 - f);
+        let colour = mix(JOINT, STONE * shade * lit, block);
+        return vec4<f32>(colour, 0.95 * edge);
+    }
+    if style == WARD_HEXPROOF {
+        // A thin line of blue light, three streaks flowing round it.
+        let core = exp(-pow((f - 0.5) / 0.2, 2.0));
+        let flow = pow(fract(s * 3.0 - FLOW_LAP * t), 6.0);
+        let colour = HEX_BLUE * (0.45 + 0.55 * core) + HEX_LIGHT * flow * core;
+        return vec4<f32>(colour, (0.3 + 0.65 * core) * edge);
+    }
+    if style == WARD_SHROUD {
+        // A soft violet mist with no edge, drifting.
+        let body = smoothstep(0.0, 0.5, f) * smoothstep(0.0, 0.5, 1.0 - f);
+        let fog = mist_noise(vec2<f32>(s * MIST_CELLS - MIST_DRIFT * t, f * 2.0 + 0.3 * MIST_DRIFT * t), MIST_CELLS);
+        let colour = mix(MIST, MIST_PALE, fog * fog);
+        return vec4<f32>(colour, body * (0.55 + 0.45 * fog));
+    }
+    return vec4<f32>(0.0);
+}
+
+/// A keyword's border at `across` (0 at the card's side of the whole band, 1
+/// at its far side), `s` round the card: the layer that lies there, of
+/// `layers`, in the order [`ward_style`] lays them.
+fn ward_border(ward: u32, layers: u32, across: f32, s: f32, t: f32, aa: f32, aa_s: f32) -> vec4<f32> {
+    let n = f32(max(layers, 1u));
+    let x = clamp(across, 0.0, 0.9999) * n;
+    let k = u32(floor(x));
+    return ward_layer(ward_style(ward, k), fract(x), s, t, aa * n, aa_s);
 }
 
 /// A wave's crest at `p`, its front `along` its way out: 1 on the front,
@@ -227,5 +233,5 @@ fn wave_glow(p: vec2<f32>, along: f32, v: vec3<f32>, key: vec3<f32>) -> f32 {
     let away = 1.0 - abs(dot(ln, v));
     let mirrored = max(dot(reflect(-v, ln), key), 0.0);
     let glint = smoothstep(0.97, 0.995, mirrored) * c;
-    return min(0.07 * c + length(lean) * (0.6 + 1.2 * away) + 0.4 * glint, 0.35);
+    return min(0.14 * c + length(lean) * (1.0 + 1.8 * away) + 0.6 * glint, 0.6);
 }

@@ -1651,6 +1651,7 @@ impl HeuristicAgent {
     ///
     /// Exhaustive with no wildcard, as [`crate::activate`]'s `consumes` is:
     /// a new cost part is a compile error here, not a free price.
+    #[allow(clippy::too_many_lines)] // One arm per cost part.
     pub(crate) fn cost_worth(
         &self,
         view: &PlayerView,
@@ -1724,7 +1725,10 @@ impl HeuristicAgent {
                     .map(|h| card_value(&h.id).max(0) + 50)
                     .min()?,
                 CostPart::PayEnergy(n) => i64::from(*n) * 25,
-                CostPart::DiscardRandom => Self::random_discard_cost(view, origin.id)?,
+                // The last card drawn is, to the AI, one card from the hand.
+                CostPart::DiscardRandom | CostPart::DiscardLastDrawnThisTurn => {
+                    Self::random_discard_cost(view, origin.id)?
+                }
                 CostPart::DiscardHand => Self::discard_hand_cost(view),
                 CostPart::DiscardSelf => card_value(&origin.id).max(0),
                 CostPart::ExileSelf => origin

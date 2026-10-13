@@ -24,6 +24,8 @@ pub(super) mod log;
 pub(super) mod menu;
 pub(super) mod players;
 pub(super) mod pool;
+// The transport bar a replay stands in the shelf's middle.
+pub(crate) mod replay_bar;
 // Not `hud::tray`, which is the zone dialog. These are the two doors in the
 // bar the dialog is put away into; the collision and why it stands are in
 // the module's own doc.
@@ -127,6 +129,11 @@ pub struct LedgeRevision {
     /// What is armed and waiting for its second press. It never leaves the
     /// client, so nothing else here moves when it changes.
     pub(super) armed: Option<crate::Armed>,
+    /// The taps staged in this seat's payment window, which decide whether
+    /// the confirm is "Pay now" or Go and whether "Untap all" stands. Like
+    /// `armed`, they never leave the client before Go, so nothing else here
+    /// moves when one is staged.
+    pub(super) staged: baylee_client_core::paystage::Staging,
     /// Whether the client's own cast chooser is standing, which takes the
     /// answers away: the engine's window behind it is an ordinary priority,
     /// and "Pass priority" under "Choose how it is cast" is two primary

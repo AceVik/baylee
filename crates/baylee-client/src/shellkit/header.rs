@@ -57,8 +57,9 @@ pub struct HeaderLook<'a> {
     /// The build's short form (`0.1.0-beta.5`), beside the brand on Wide and
     /// Vast only.
     pub build: &'a str,
-    /// Play · Decks · Settings, and which is the screen shown.
-    pub nav: [&'a str; 3],
+    /// Play · Decks · (Replays, on a desktop) · Settings, and which is the
+    /// screen shown.
+    pub nav: &'a [&'a str],
     /// The nav pill that is active, if any.
     pub active: Option<usize>,
     /// The gateway's dot, its name, and its counts (Wide and Vast).

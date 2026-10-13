@@ -831,6 +831,41 @@ pub(super) fn exec_immediate(
             super::reveal_put::start(state, res, n, picks)
         }
         // A delayed trigger (CR 603.7) on the first target as it is now.
+        // Sword of the Ages: "then exile this artifact and those creature
+        // cards", each from where its cost put it and only while it is still
+        // that card there (CR 400.7).
+        Effect::ExileSourceAndSacrificed => {
+            let paid = state.object(res.on_stack).and_then(|o| o.paid.clone());
+            let mut cards: Vec<(ObjectId, u32)> = paid
+                .as_ref()
+                .and_then(|p| p.source_after_cost)
+                .map(|r| (r.object, r.version))
+                .into_iter()
+                .collect();
+            if let Some(paid) = &paid {
+                cards.extend(
+                    paid.sacrificed_many
+                        .iter()
+                        .map(|(id, version, _)| (*id, *version)),
+                );
+            }
+            for (id, version) in cards {
+                let Some(owner) = state
+                    .object(id)
+                    .filter(|o| o.version == version && o.zone == crate::zone::Zone::Graveyard)
+                    .map(|o| o.owner)
+                else {
+                    continue;
+                };
+                let _ = state.move_object(
+                    id,
+                    ZoneLocation::Exile(owner),
+                    crate::zone::ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::NextSpellThisTurnHasImprovise => {
             if let Some(flag) = state
                 .per_turn
@@ -2348,6 +2383,8 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
+        | Effect::PlayerMayPayManaEachThenElse { .. }
+        | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }

@@ -351,6 +351,7 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
             | CostPart::DiscardHand
+            | CostPart::DiscardLastDrawnThisTurn
     )
 }
 

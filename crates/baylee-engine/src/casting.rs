@@ -1487,6 +1487,7 @@ fn alternative_parts_payable(
                     .count()
         }
         CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
+        CostPart::DiscardLastDrawnThisTurn => state.last_drawn_in_hand(player).is_some(),
         CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
         // The same question `can_afford` asks of an activation, asked of the
         // card about to be cast. It answers `false` for every card in hand,

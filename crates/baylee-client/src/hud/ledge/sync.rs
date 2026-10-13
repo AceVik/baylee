@@ -42,7 +42,9 @@ pub fn sync_ledge(
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
     // Under a decision sheet the question is the sheet's head, and the shelf
     // under it is the sheet's foot: its answers, without the sentence again.
-    let prompt = if super::drawer::sheet_up(&duel) {
+    // A replay asks nothing, and the transport bar stands in the middle
+    // (`replay_bar`): no sentence under it.
+    let prompt = if super::drawer::sheet_up(&duel) || duel.replay.is_some() {
         None
     } else {
         shelf_headline(&duel, lang, &texts)
@@ -82,6 +84,7 @@ pub fn sync_ledge(
             .as_ref()
             .map_or(0, baylee_client_core::Interaction::declared),
         armed: duel.armed.clone(),
+        staged: duel.pay_staged.clone(),
         cast_menu: duel.cast_menu.is_some() && !over,
         holdable: duel.can_hold_for_stack(),
         can_offer_draw: duel.can_offer_draw(),
