@@ -518,6 +518,10 @@ mod framing_tests;
 
 #[cfg(test)]
 mod badge_tests;
+/// The keyword border's arithmetic: wards, layers, margins and the shader's
+/// layer order ([`shellmat`]).
+#[cfg(test)]
+mod border_tests;
 #[cfg(test)]
 mod face_tests;
 /// What flying does to a card on the table, and to the shadow under it.
