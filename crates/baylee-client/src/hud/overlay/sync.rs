@@ -871,7 +871,8 @@ pub fn sync_overlay(
                 );
                 commands.entity(tooltip).add_child(sheet);
             }
-            let legend = super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x);
+            let legend =
+                super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x, reading);
             commands.entity(tooltip).add_child(legend);
             commands.entity(root).add_child(tooltip);
             // Over the end screen once it stands: its log's links open this
