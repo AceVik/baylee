@@ -458,6 +458,11 @@ mod arrangement_tests;
 #[cfg(test)]
 mod exit_tests;
 
+/// The passing states that lie on a card while they last: dimmed by a question
+/// that leaves it out, phased out, asleep.
+#[cfg(test)]
+mod veil_tests;
+
 /// Combat, as the table draws it.
 ///
 /// The board here is built by hand rather than through a view: what is under
