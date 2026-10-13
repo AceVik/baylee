@@ -807,7 +807,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
   transform: rotate(-45deg); transition: transform 300ms var(--ease-spring), border-color 200ms ease;
 }
 .set-sum:hover .set-title::before { border-color: var(--gold); }
-.set[open] .set-title::before { transform: rotate(45deg); border-color: var(--gold); }
+.set[open] > .set-sum .set-title::before { transform: rotate(45deg); border-color: var(--gold); }
 .set-name { font-weight: 700; color: var(--title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .set-meta { font-size: 0.85rem; color: var(--ink-faint); font-feature-settings: "lnum", "tnum"; }
 .set-progress { display: flex; align-items: center; gap: 0.6em; min-width: 0; }
@@ -830,7 +830,7 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
   .set-progress { padding-left: 1.3em; }
 }
 .set-body { padding: 0.2rem 1rem 1rem; }
-.set[open] .set-body { animation: body-in 420ms var(--ease); }
+.set[open] > .set-body { animation: body-in 420ms var(--ease); }
 @keyframes body-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .set-foot { margin: 0.8rem 0 0; }
 .set-foot a { display: inline-block; padding: 0.4em 0; }
