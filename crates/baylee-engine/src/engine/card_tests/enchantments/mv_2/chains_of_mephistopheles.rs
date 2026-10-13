@@ -228,11 +228,11 @@ fn the_opponents_draws_are_replaced_too_and_they_choose_the_discard() {
     let mut engine = kit::duel(
         4505,
         &[kit::chains(), island()],
-        &[kit::recall()],
+        &[kit::recall(), forest()],
         &[],
         &[swamp(), plains()],
     );
-    let my_hand = kit::hand(&engine, kit::P0);
+    let kept = in_hand(&engine, kit::P0, forest()).expect("the Forest");
     let library_before = kit::library(&engine, kit::P1).len();
     kit::recall_at(&mut engine, kit::P1);
     for round in 1..=3 {
@@ -264,8 +264,8 @@ fn the_opponents_draws_are_replaced_too_and_they_choose_the_discard() {
     );
     assert_eq!(
         kit::hand(&engine, kit::P0),
-        my_hand,
-        "the controller's hand is untouched"
+        vec![kept],
+        "the controller's hand is untouched: nothing of theirs was discarded"
     );
 }
 

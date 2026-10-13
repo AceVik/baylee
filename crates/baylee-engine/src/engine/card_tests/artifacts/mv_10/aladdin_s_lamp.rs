@@ -31,21 +31,23 @@ fn lamp_and_tome(forests: usize) -> Vec<CardIndex> {
 /// activated at all: the cheapest X is one.
 #[test]
 fn x_is_announced_from_one_up_to_what_the_mana_pays_and_never_nought() {
-    let mut engine = kit::duel(4601, &[kit::lamp(), forest(), forest()], &[], &[], &[]);
-    let lamp = on_battlefield(&engine, kit::P0, kit::lamp()).expect("the Lamp is out");
+    // Alone on the table, with nothing to pay X with: the cheapest X is one.
+    let mut bare = kit::duel(4601, &[kit::lamp()], &[], &[], &[]);
+    let lamp = on_battlefield(&bare, kit::P0, kit::lamp()).expect("the Lamp is out");
     assert!(
-        engine
-            .apply(
-                kit::P0,
-                PlayerAction::ActivateAbility {
-                    source: lamp,
-                    ability_index: 0
-                }
-            )
-            .is_err(),
+        bare.apply(
+            kit::P0,
+            PlayerAction::ActivateAbility {
+                source: lamp,
+                ability_index: 0
+            }
+        )
+        .is_err(),
         "no mana, no X of one: the Lamp cannot be activated"
     );
 
+    // With two Forests behind it, the same activation announces X.
+    let mut engine = kit::duel(4601, &[kit::lamp(), forest(), forest()], &[], &[], &[]);
     tap_all_mana(&mut engine, kit::P0);
     activate(&mut engine, kit::P0, kit::lamp(), 0);
     let Pending::ChooseNumber {
