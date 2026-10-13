@@ -12,7 +12,7 @@ use crate::view::SPECTATOR;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{LogTail, SpectatorView};
+use baylee_view::{LogTail, PlayerView, SpectatorView};
 
 /// What the host has told the spectators of one game, together.
 #[derive(Debug, Default)]
@@ -58,10 +58,17 @@ impl Session {
     /// the seat the table is drawn from, seat 0; a spectator holds none.
     #[must_use]
     pub fn spectator_game_static(&self) -> Envelope {
-        let mut statics = self.game_static(PlayerId::new(0));
+        self.public_game_static(PlayerId::new(0))
+    }
+
+    /// [`Session::spectator_game_static`] drawn from `seat`: the roster and
+    /// the printings earned in public, never a deck. A replay's view of a
+    /// seat whose hidden cards it may not show (`project.rs`).
+    pub(super) fn public_game_static(&self, seat: PlayerId) -> Envelope {
+        let mut statics = self.game_static(seat);
         statics.prints = crate::view::game_static(
             String::new(),
-            PlayerId::new(0),
+            seat,
             Vec::new(),
             &self.prints,
             &self.gallery.revealed,
@@ -116,6 +123,43 @@ impl Session {
         if matches!(pending, Pending::GameOver(_)) {
             out.push(choice_envelope(self.seq, pending));
         }
+        out
+    }
+
+    /// The public table drawn from `seat` as a `PlayerView`, with the
+    /// spectators' log: a replay's view of a seat whose hidden cards it may
+    /// not show (`project.rs`), `view` built from [`Session::spectator_view`]
+    /// (`SpectatorView::into_player_view`) plus the hands it may show. Shares
+    /// the spectators' cursor and print table, so a projection uses one or
+    /// the other stream, never both.
+    pub(super) fn public_envelopes_for(
+        &mut self,
+        seat: PlayerId,
+        view: &PlayerView,
+    ) -> Vec<Envelope> {
+        let lines = self.log.len();
+        let from = self.gallery.told.min(lines);
+        self.gallery.told = lines;
+        self.log.seal(lines);
+        let tail = LogTail {
+            from: u32::try_from(from).unwrap_or(u32::MAX),
+            entries: self.log.told(SPECTATOR, from, lines),
+        };
+        let prints: Vec<_> = view.prints().chain(tail.prints()).collect();
+        let mut grew = false;
+        for print in prints {
+            if let Some(slot) = self.gallery.revealed.get_mut(print.get() as usize)
+                && !*slot
+            {
+                *slot = true;
+                grew = true;
+            }
+        }
+        let mut out = Vec::new();
+        if grew {
+            out.push(self.public_game_static(seat));
+        }
+        out.extend(super::state_frames(self.seq, view, tail));
         out
     }
 

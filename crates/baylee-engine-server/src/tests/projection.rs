@@ -43,6 +43,8 @@ fn order(record: Vec<u8>) -> v1::ProjectRecord {
         verify: v1::project_record::Verify::Stop as i32,
         game_id: "g".into(),
         recorded_by: String::new(),
+        own: true,
+        hands: Vec::new(),
     }
 }
 

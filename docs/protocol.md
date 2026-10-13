@@ -1931,8 +1931,8 @@ game_id`), `limit` at most 50 (default 20):
 - `public`: whether the account may ask the public perspective; every
   seated account may in v1.
 - `shared`: the seat's consent to show its hidden cards in this game's
-  replays (§"Sharing a seat's hidden cards"); always `true` for `house` and
-  `model`. `mine`: the asking account played this seat.
+  replays (§"Sharing a seat's hidden cards"); `true` unless its player
+  unticked it, always `true` for `house` and `model`. `mine`: the asking account played this seat.
 
 ### `DELETE /replays/{game}`
 
@@ -1951,8 +1951,10 @@ deck as the print table earns it) in that game's replays. The seat is the
 one `game_record_seat` names for the account, never the request's. `200
 {"seat": n, "shared": bool}`; `403` the account sat at no seat of that game;
 `404` no such game. Any time, also while the game is played (the end-of-game
-dialog asks it). Default **not shared**; an AI seat (the house, a host's
-seat bridge, a hosted model) is always shared. Stored per game and seat
+dialog shows it ticked). Default **shared** (the box is ticked; a player
+unticks it): a seat that never said, in any record, old ones too, is
+shared. An AI seat (the house, a host's seat bridge, a hosted model) is
+always shared. Stored per game and seat
 (`game_record_share`); a consent stays when the account is deleted.
 
 ### `POST /replays/{game}/tape`
@@ -1967,7 +1969,8 @@ far it is the recorded game).
 
 **Whose hidden cards a tape holds** is decided by the gateway and enforced
 by the projection: a seat's hidden cards appear only where that seat is the
-asker's own, an AI seat, or `shared`. With **S** that set of seats:
+asker's own, an AI seat, or `shared` (the default; a player who unticked it
+is not). With **S** that set of seats:
 
 - `seat`, the drawn seat in **S**: exactly what a socket at that seat was
   sent (its hand, what it looked at, its face-down cards, its log).

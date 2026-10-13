@@ -123,6 +123,25 @@ pub struct Header {
     pub game: String,
     /// The build that played and recorded the game (the record header's).
     pub recorded_by: String,
+    /// Whether the drawn seat's own hidden cards are in the views (its hand,
+    /// what it looked at, its face-down cards). `false`: the public table
+    /// drawn from that seat, because it did not share them
+    /// (`docs/protocol.md` §"Replays"). Absent reads `true`.
+    #[serde(default = "shown", skip_serializing_if = "is_shown")]
+    pub own: bool,
+    /// The other seats whose hands are shown beside the drawn seat's (as
+    /// `shared_hands`). Absent reads none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hands: Vec<u8>,
+}
+
+const fn shown() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde's skip_serializing_if hands a reference
+const fn is_shown(own: &bool) -> bool {
+    *own
 }
 
 /// A `view` line: one `StateDelta` as the perspective was sent it.
@@ -336,6 +355,8 @@ mod tests {
                 seat: 1,
                 game: "0199c8".into(),
                 recorded_by: "0.8.0+build.198 (77b01e2a90)".into(),
+                own: false,
+                hands: vec![0, 2],
             }),
             Line::Static {
                 at: 40,

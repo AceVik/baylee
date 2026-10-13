@@ -143,6 +143,8 @@ fn header() -> Header {
         seat: 0,
         game: "g".into(),
         recorded_by: "b".into(),
+        own: true,
+        hands: Vec::new(),
     }
 }
 

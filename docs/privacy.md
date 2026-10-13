@@ -620,8 +620,10 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 
 | What | Where | Kept | Removed by |
 | --- | --- | --- | --- |
-| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely (the owner's decision) | nothing yet |
+| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely, for training the house AI and balancing decks (the owner's decision, 13.10.2026: never deleted) | nothing: a player's "delete" hides it from their list, an account's deletion anonymises it |
 | Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
+| A seat's choice to show its hidden cards in that game's replays (`shared`; no row = shared, the default) | gateway Postgres `game_record_share` (game, seat, yes/no, when) | with the record, also after the account is deleted (the seat is anonymous then) | nothing; the player changes it (`PUT /replays/{game}/share`) |
+| A game an account hid from its replay list ("delete") | gateway Postgres `replay_hidden` (account id, game id, when) | until the account is deleted | the account's deletion |
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
@@ -644,7 +646,9 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   at that game (`docs/protocol.md` §"The game record"), and a replay job,
   which hands it only to an engine (below: a replay is a projection, never
   the record). The other is the operator's export below, which no route
-  reaches.
+  reaches. The operator has full access to every record (the database, the
+  export); a player's sharing choice limits what other players are shown in
+  a replay, never what the operator or the training reads.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
@@ -697,15 +701,25 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   device, and the job's log names no account. `GET /replays` shows a seated
   account the current handles of the people it sat with, as the table
   showed them, and a former player's seat as "Former player" once that
-  account is gone. Beside the record the gateway keeps what the list shows
+  account is gone. Which seats' hidden cards a tape holds is each seat's
+  own choice, made per game in the end-of-game dialog or the Replays list
+  (`game_record_share`; **shared by default**: the box is ticked and a
+  player unticks it; an AI seat is always shared): a tape drawn from a seat
+  that unticked it, or all hands, holds only the public table for that
+  seat, enforced on the gateway's side. A player's own seat is always shown
+  to that player. "Delete" in the Replays list hides a game from that
+  player's list (`replay_hidden`); the record is never deleted. Beside the record the gateway keeps what the list shows
   (`game_record.build`, `checked`, `allow_spectators`, `winners`, `turn`,
   `end_reason`; per seat `seated`, the deck's `colours` and `commander`):
   game and card data, not personal, kept with the record. A deleted
   account's games are gone from its list and its tapes, because the seat
   link that authorises them is the one deletion cuts. Asks are counted per
   account in memory for a minute.
-- **Open:** records have no deletion path yet, not even for a player who
-  deletes their account; their account link is cut, the game stays.
+- **Records are never deleted** (owner, 13.10.2026): they train the house
+  AI and balance decks. A player who deletes their account is anonymised in
+  every record (their seat link is cut); the game stays, with the seat's
+  sharing choice. The terms of use say so (draft for the owner:
+  `.claude/b8/TERMS-REPLAYS-DRAFT.md`).
 
 ## Reports and crash reports (#309, #310, #314)
 
@@ -858,6 +872,8 @@ to weigh, not conclusions.
    (migrations `m20260927_000009`, `m20261006_000013`; held by
    `baylee-db/tests/schema.rs`): an account's deletion cuts its link to
    every record, and the game, between numbered seats, stays. Training and
-   balancing read only the anonymised export (above).
+   balancing read only the anonymised export (above). Records are never
+   deleted (owner, 13.10.2026); the terms must say so before the gateway is
+   public.
 6. **Reports:** a screenshot can show other players' names, and the text
    the player writes can contain anything; neither is filtered.
