@@ -57,6 +57,7 @@ pub(crate) fn ended(game_id: &str, reason: &str) -> Envelope {
             game_id: game_id.to_string(),
             winners: Vec::new(),
             reason: reason.to_string(),
+            turn: 0,
         })),
     }
 }

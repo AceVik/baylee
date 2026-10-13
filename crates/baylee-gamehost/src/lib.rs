@@ -16,5 +16,6 @@ pub mod session;
 pub mod view;
 
 pub use baylee_view::{GameStatic, PlayerView, SeatIdentity};
+pub use session::project as replay;
 pub use session::{RegistryLookup, SeatKind, Session};
 pub use view::{SeatContext, game_static, owed_payment, player_view};
