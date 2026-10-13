@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang: ein mondbeschienener Wintergarten mit der Gateway-Liste" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang: Anmeldung an einem Gateway, in einem mondbeschienenen Garten" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -152,26 +152,25 @@ Die Bilder zeigen Baylees **Textansicht**, die jede Karte aus ihrem
 Regeltext zeichnet statt aus dem gedruckten Kartenbild (warum, steht unter
 [Lizenz und Rechtliches](#lizenz-und-rechtliches)). Im Spiel kommen die
 Kartenbilder von Scryfall, und <kbd>T</kbd> schaltet zwischen beiden
-Ansichten um. Die Bilder entstanden an einem lokalen Testserver mit
-ausgedachten Spielern; das Bild ganz oben zeigt das echte Gateway Baylee
-Sanctuary.
+Ansichten um. Sie entstanden mit 0.1.0-beta.7 an einem lokalen Testserver
+mit ausgedachten Spielern (die Oberfläche ist hier englisch; sie spricht
+auch Deutsch).
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Anmeldung am Gateway der geschlossenen Beta"><br><sub><b>Anmelden.</b> Das Gateway der geschlossenen Beta fragt neue Spieler nach einem Schlüssel; wer schon ein Konto hat, meldet sich mit Benutzername und Passwort an.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby mit einem Deck und offenen Tischen"><br><sub><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Gegen das Haus</i> für ein schnelles Spiel gegen die KI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Die Lobby mit einem offenen Tisch, einer Einladung, der Freundesleiste und einem privaten Chat"><br><sub><b>Die Lobby, mit Freunden und Chat.</b> Eine Freundin lädt dich an ihren Tisch ein, die Freundesleiste zeigt, wer online ist und wo, und der private Chat ist Ende-zu-Ende-verschlüsselt.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="Ein laufendes Duell mit offenem Chatfenster auf dem Reiter Alle"><br><sub><b>Am Tisch.</b> Das Chatfenster hat das Spielprotokoll als Reiter; <i>Alle</i> mischt Protokoll und Tischchat, und jeder Kartenname ist ein Link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Raum wird eingerichtet: Plätze, KI-Stufen, Startleben"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber legt Plätze, Startleben und Mulligans fest und gibt jedem KI-Platz eine Stufe von Anfänger bis Experte.</sub></td>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deckbauer mit Statistik und Kartensuche"><br><sub><b>Der Deckbauer.</b> Kommandeur, Hauptdeck und Sideboard, Manakurve und Länderstatistik und eine Suche über den ganzen Pool.</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Raum wird eingerichtet: ein Platz besetzt, ein freier Platz bietet KI und Sprachmodell an"><br><sub><b>Einen Tisch einrichten.</b> Regeln, Teams und Plätze; einen freien Platz nimmt ein anderer Spieler, die Haus-KI oder ein Sprachmodell.</sub></td>
+    <td width="50%"><img src="docs/images/readme/payment.webp" alt="Das Bezahlfenster: eine Steuer ist fällig, ein Land ist vorgemerkt"><br><sub><b>Das Bezahlfenster.</b> Eine Steuer ist fällig: Angeklickte Länder werden vorgemerkt, getappt wird erst mit <i>Pay</i>, und <i>Untap all</i> nimmt alles zurück.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="Ein laufendes Duell, Kartenvorschau in der Textansicht"><br><sub><b>Ein Duell</b> gegen die Haus-KI. Mit der Maus über einer Karte siehst du sie groß.</sub></td>
-    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="Das Spielprotokoll neben dem Tisch"><br><sub><b>Das Spielprotokoll</b> liest sich wie ein Chat; jeder Kartenname ist ein Link zu ihrer Vorschau.</sub></td>
+    <td width="50%"><img src="docs/images/readme/replay.webp" alt="Eine Wiederholung mit Zeitleiste, Bedienelementen und dem Menü Watch from"><br><sub><b>Wiederholungen.</b> Ein Feld pro Zug, Abspielen und Anhalten, Schritte und Geschwindigkeiten, und <i>Watch from…</i>: dein Platz, der eines anderen Spielers, der Tisch oder alle Hände.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Der Deckbauer mit einer Suche nach Mauern und einem 60-Karten-Deck nach Typ gruppiert"><br><sub><b>Der Deckbauer.</b> Eine Suche über den ganzen Pool (hier: spielbare Mauern), das Deck nach Typ gruppiert, dazu Import, Export und Verlauf.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen"><br><sub><b>Vier Plätze.</b> Größere Runden sitzen im Kreis um den Tisch.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit einem Häkchen pro Anhang"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ihr eigenes Häkchen.</sub></td>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Fünf Kreaturen auf dem Spielfeld, jede mit eigenem Rand oder Schimmer"><br><sub><b>Auf einen Blick.</b> Von links: shroud (violetter Nebel), indestructible (goldener Rand), Einsatzverzögerung (eine blasse Welle aus Mondlicht), defender und hexproof zusammen (eine Steinmauer in einer dünnen blauen Linie) und noch einmal Einsatzverzögerung.</sub></td>
   </tr>
 </table>
 

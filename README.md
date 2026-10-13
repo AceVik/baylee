@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: a moonlit conservatory garden with the gateway list" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: signing in at a gateway, in a moonlit garden" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -139,26 +139,24 @@ where they stand).
 The screenshots show Baylee's **text view**, which draws each card from its
 rules text instead of the printed card image ([License and legal](#license-and-legal)
 explains why). In the game, the card images come from Scryfall, and <kbd>T</kbd>
-switches between the two views. The screenshots were taken against a local
-test server with made-up players; the picture at the top shows the real
-Baylee Sanctuary gateway.
+switches between the two views. They were taken with 0.1.0-beta.7 on a local
+test server, with made-up players.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Sign-in panel of the closed-beta gateway"><br><sub><b>Signing in.</b> The closed-beta gateway asks new players for a key; returning players sign in with username and password.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby with a deck and open tables"><br><sub><b>The lobby.</b> Your decks, the open tables, and <i>Play the house</i> for a quick game against the AI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="The lobby with an open table, a table invite, the friends drawer and a private chat"><br><sub><b>The lobby, with friends and chat.</b> A friend invites you to her table, the friends drawer shows who is online and where, and the private chat is end-to-end encrypted.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel in progress with the chat window open on its All tab"><br><sub><b>At the table.</b> The chat window holds the game log as a tab; <i>All</i> mixes log lines and table chat, and every card name is a link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: seats, AI levels, starting life"><br><sub><b>Arranging a table.</b> The host sets chairs, starting life and mulligans, and gives each AI chair a level from novice to expert.</sub></td>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deck builder with statistics and card search"><br><sub><b>The deck builder.</b> Commander, main deck and sideboard, mana curve and land statistics, and a search over the whole pool.</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: one seat taken, an empty seat offering AI and Language model"><br><sub><b>Arranging a table.</b> Rules, teams and seats; an empty chair takes another player, the house AI or a language model.</sub></td>
+    <td width="50%"><img src="docs/images/readme/payment.webp" alt="The payment window: a tax is owed and one land is staged"><br><sub><b>The payment window.</b> A tax is owed: the lands you click are staged, nothing taps until you press <i>Pay</i>, and <i>Untap all</i> takes them back.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="A duel in progress, card preview in text view"><br><sub><b>A duel</b> against the house AI. Hovering a card shows it large.</sub></td>
-    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="The game log beside the table"><br><sub><b>The game log</b> reads like a chat, with each card name a link to its preview.</sub></td>
+    <td width="50%"><img src="docs/images/readme/replay.webp" alt="A replay with its timeline, transport controls and the Watch from menu"><br><sub><b>Replays.</b> One cell per turn, play and pause, steps and speeds, and <i>Watch from…</i>: your seat, another player's, the table or all hands.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder with a search for walls and a 60-card deck grouped by type"><br><sub><b>The deck builder.</b> A search over the whole pool (here: playable walls), the deck grouped by type, and Import, Export and History.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="A four-seat table"><br><sub><b>Four seats.</b> Larger tables sit in a ring around the felt.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Report form with a checkbox for each attachment"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox.</sub></td>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Five creatures on the battlefield, each with its own border or shimmer"><br><sub><b>Read at a glance.</b> From the left: shroud (violet mist), indestructible (golden rim), summoning sickness (a pale wave of moonlight), defender and hexproof together (a stone wall inside a thin blue line), and summoning sickness again.</sub></td>
   </tr>
 </table>
 
