@@ -311,6 +311,10 @@ impl ReplayHost {
             Ok(mut view) => {
                 self.seq += 1;
                 view.seq = self.seq;
+                // A replay runs no clock (§7.3): a hosted game's view still
+                // says how long its question had left when it was made.
+                view.decision_remaining_ms = None;
+                view.clocks.clear();
                 self.out.push(HostMessage::View(Box::new(view), log));
             }
             Err(why) => self.out.push(HostMessage::Failed(why)),
