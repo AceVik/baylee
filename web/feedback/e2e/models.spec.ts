@@ -67,6 +67,7 @@ async function standIn(page: Page) {
       profiles: [
         profile({ state: "exhausted", until_unix: Math.floor(Date.now() / 1000) + 3_600, games: 0, spent: { day_usd: 10, month_usd: 40, day_tokens: 0, month_tokens: 0 } }),
         profile({ id: "deepseek", label: "DeepSeek", vendor: "DeepSeek", model: "deepseek-chat", key: "absent", state: "failing", last_error: "no key", games: 0, canary: true, caps: { day_usd: 2 } }),
+        profile({ id: "deepseek-api", label: "DeepSeek API", vendor: "DeepSeek", model: "deepseek-chat", games: 0, caps: { day_usd: 5, month_usd: 50 } }),
       ],
     },
   ];
@@ -105,8 +106,8 @@ const SIZES = [
 ] as const;
 
 const WORDS = {
-  "de-DE": { section: "Modelle", title: "Sprachmodelle", key: "Schlüssel…", send: "Schlüssel senden", del: "Löschen", sent: "Schlüssel gesendet.", removed: "Profil entfernt.", on: "Eingeschaltet" },
-  "en-GB": { section: "Models", title: "Language models", key: "Key…", send: "Send key", del: "Delete", sent: "Key sent.", removed: "Profile removed.", on: "Enabled" },
+  "de-DE": { section: "Modelle", title: "Sprachmodelle", key: "Schlüssel…", send: "Schlüssel senden", del: "Löschen", sent: "Schlüssel gesendet.", removed: "Profil entfernt.", on: "Eingeschaltet", edit: "Bearbeiten", fallback: "Ausweichprofil", tokens: "Tokens je Partie", save: "Speichern", saved: "Profil gespeichert." },
+  "en-GB": { section: "Models", title: "Language models", key: "Key…", send: "Send key", del: "Delete", sent: "Key sent.", removed: "Profile removed.", on: "Enabled", edit: "Edit", fallback: "Fallback profile", tokens: "Tokens per game", save: "Save", saved: "Profile saved." },
 } as const;
 
 async function noSideways(page: Page) {
@@ -143,7 +144,7 @@ for (const size of SIZES) {
       await page.getByRole("link", { name: words.section }).click();
       await expect(page.getByRole("heading", { name: words.title })).toBeVisible();
       await expect(page.getByTestId("llm-host")).toHaveCount(2);
-      await expect(page.getByTestId("llm-profile")).toHaveCount(3);
+      await expect(page.getByTestId("llm-profile")).toHaveCount(4);
       await noSideways(page);
       const dir = process.env["SCREENSHOTS_DIR"];
       if (dir) {
@@ -174,13 +175,42 @@ for (const size of SIZES) {
       }
       await dialog.getByRole("button", { name: words.del }).click();
       await expect(page.getByText(words.removed)).toBeVisible();
-      await expect(page.getByTestId("llm-profile")).toHaveCount(2);
+      await expect(page.getByTestId("llm-profile")).toHaveCount(3);
+
+      // The editor: every value a box, the fallback chosen, nothing wider
+      // than the screen, and a save that asks first.
+      await page.getByRole("button", { name: `${words.edit} deepseek @ seat-eu-2` }).click();
+      const editor = page.getByRole("dialog");
+      await expect(editor).toBeVisible();
+      await editor.getByLabel(words.fallback).selectOption("deepseek-api");
+      await editor.getByLabel(words.tokens).fill("3000000");
+      const inside = await editor.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+      expect(inside.scroll).toBeLessThanOrEqual(inside.client);
+      await noSideways(page);
+      if (dir) {
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${dir}/models-${size.name}-editor.png` });
+        await editor.screenshot({ path: `${dir}/models-${size.name}-editor-whole.png` });
+      }
+      await editor.getByRole("button", { name: words.save }).click();
+      const ask = page.getByRole("alertdialog");
+      await expect(ask).toBeVisible();
+      if (dir) {
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${dir}/models-${size.name}-editor-confirm.png` });
+      }
+      await ask.getByRole("button", { name: words.save }).click();
+      await expect(page.getByText(words.saved)).toBeVisible();
 
       expect(asked.map((a) => `${a.method} ${a.path}`)).toEqual([
         "POST /ui/api/admin/llm/seathosts/seat-eu-2/profiles/deepseek/key",
         "POST /ui/api/admin/llm/seathosts/seat-eu-1/profiles/cc/enabled",
         "DELETE /ui/api/admin/llm/seathosts/seat-eu-1/profiles/cc",
+        "PUT /ui/api/admin/llm/seathosts/seat-eu-2/profiles/deepseek",
       ]);
+      const written = asked.at(-1)?.body as { fallback?: string; profile: Record<string, unknown> };
+      expect(written.fallback).toBe("deepseek-api");
+      expect(written.profile["game_tokens"]).toBe(3_000_000);
       expect(problems).toEqual([]);
     });
   });

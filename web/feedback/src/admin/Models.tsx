@@ -382,8 +382,20 @@ function Editor({
     </div>
   );
 
-  /** A number box; `whole` for a count, else cents; `named` labels a box that has no label of its own. */
-  const numberBox = (fid: string, value: string, set: (v: string) => void, whole: boolean, hint?: Key, named?: Key) => (
+  /**
+   * A number box; `whole` for a count, else cents. `hint` says it is described by the hint of its
+   * own field (`<fid>-hint`), or by the paragraph `described` names; `named` labels a box that has
+   * no label of its own.
+   */
+  const numberBox = (
+    fid: string,
+    value: string,
+    set: (v: string) => void,
+    whole: boolean,
+    hint?: Key,
+    named?: Key,
+    described?: string,
+  ) => (
     <input
       id={fid}
       type="number"
@@ -392,7 +404,7 @@ function Editor({
       step={whole ? 1 : "0.01"}
       placeholder={t(lang, "llm.noBound")}
       aria-label={named === undefined ? undefined : t(lang, named)}
-      aria-describedby={hint === undefined ? undefined : `${fid}-hint`}
+      aria-describedby={described ?? (hint === undefined ? undefined : `${fid}-hint`)}
       value={value}
       onChange={(e) => {
         set(e.target.value);
@@ -541,10 +553,10 @@ function Editor({
             <fieldset className="field llm-pair-field">
               <legend className="llm-label">{t(lang, "llm.price")}</legend>
               <div className="llm-pair">
-                {numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price", "llm.priceIn")}
-                {numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price", "llm.priceOut")}
+                {numberBox("llm-price-in", priceIn, setPriceIn, false, "llm.hint.price", "llm.priceIn", "llm-price-hint")}
+                {numberBox("llm-price-out", priceOut, setPriceOut, false, "llm.hint.price", "llm.priceOut", "llm-price-hint")}
               </div>
-              <p id="llm-price-in-hint" className="hint muted llm-hint">
+              <p id="llm-price-hint" className="hint muted llm-hint">
                 {t(lang, "llm.hint.price")}
               </p>
             </fieldset>
