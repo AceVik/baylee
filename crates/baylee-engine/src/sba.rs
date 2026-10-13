@@ -98,7 +98,7 @@ fn legend_choice(state: &GameState) -> Option<(PlayerId, Vec<baylee_core::ids::O
 }
 
 /// Runs one SBA pass over the state (CR 704.3 list, S2 subset):
-/// player losses, lethal damage, loyalty, legend rule, counter
+/// player losses, lethal damage, loyalty, legend rule, world rule, counter
 /// annihilation, token cleanup.
 pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> SbaOutcome {
     run_with_sagas(state, lookup, &[])
@@ -191,6 +191,8 @@ pub(crate) fn run_with_sagas(
     // dies in this pass only makes its formerly legal Aura fall off in the
     // next pass; those two arrivals are not simultaneous (CR 704.3).
     let attachments = attachment_sbas(state, lookup);
+    // Read against the same starting board as the rest of the pass.
+    let worlds = world_rule(state);
     let departures: Vec<_> = if state.per_turn.permanent_damage.is_empty() {
         Vec::new()
     } else {
@@ -295,6 +297,16 @@ pub(crate) fn run_with_sagas(
                 obj.counters.set(CounterKind::M1M1, minus - cancel);
             }
             state.invalidate_projections();
+            outcome.changed = true;
+        }
+    }
+
+    for id in worlds {
+        if state
+            .object(id)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        {
+            put_into_graveyard_with_departure(state, id, departure(id));
             outcome.changed = true;
         }
     }
@@ -800,6 +812,44 @@ pub(crate) fn destroy_all(
     for (id, departure) in departures {
         destroy_with(state, id, !no_regen, departure);
     }
+}
+
+/// The world rule (CR 704.5k): "If two or more permanents have the
+/// supertype world, all except the one that has had the world supertype for
+/// the shortest amount of time are put into their owners' graveyards. In the
+/// event of a tie for the shortest amount of time, all are put into their
+/// owners' graveyards." Whoever controls them, and not destruction, so
+/// indestructible saves none. A phased-out permanent is treated as though it
+/// does not exist (CR 702.26b) and takes no part.
+///
+/// The time a permanent has had the supertype is read as its timestamp
+/// (CR 613.7d), taken as it entered the battlefield: every world card in the
+/// pool prints the supertype, and nothing grants it. Permanents that enter
+/// at once get timestamps in APNAP order (CR 613.7m) here, so the tie of
+/// the rule's second sentence is two equal timestamps.
+fn world_rule(state: &GameState) -> Vec<baylee_core::ids::ObjectId> {
+    let worlds: Vec<(baylee_core::ids::ObjectId, u64)> = state
+        .battlefield_seen()
+        .filter_map(|id| {
+            let obj = state.object(id)?;
+            (obj.kind == ObjectKind::Permanent
+                && obj
+                    .characteristics()
+                    .supertypes
+                    .contains(SupertypeSet::WORLD))
+            .then_some((id, obj.timestamp))
+        })
+        .collect();
+    if worlds.len() < 2 {
+        return Vec::new();
+    }
+    let newest = worlds.iter().map(|&(_, at)| at).max().unwrap_or(0);
+    let tied = worlds.iter().filter(|&&(_, at)| at == newest).count() > 1;
+    worlds
+        .into_iter()
+        .filter(|&(_, at)| tied || at != newest)
+        .map(|(id, _)| id)
+        .collect()
 }
 
 /// Moves a permanent to its owner's graveyard without destroying it.
@@ -1819,6 +1869,85 @@ mod tests {
         assert!(run(&mut state, &RegistryLookup).changed);
         assert!(!on_battlefield(&state, creature));
         assert!(!on_battlefield(&state, walker));
+    }
+
+    /// A world enchantment of `seat`'s, entered at `at`.
+    fn world(state: &mut GameState, seat: u8, at: u64) -> baylee_core::ids::ObjectId {
+        let name = state.names.intern("Test World");
+        let id = state.create_bare(
+            PlayerId::new(seat),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(id).expect("just created");
+        obj.timestamp = at;
+        let base = obj.base_mut();
+        base.types = TypeSet::ENCHANTMENT;
+        base.supertypes = SupertypeSet::WORLD;
+        state.invalidate_projections();
+        id
+    }
+
+    /// CR 704.5k: of two world permanents, whoever controls them, the one
+    /// that has had the supertype longer goes to its owner's graveyard; a
+    /// lone world permanent stays; a tie for the newest sends all.
+    #[test]
+    fn the_world_rule_keeps_only_the_newest_world_permanent() {
+        let mut state = GameState::from_preset(&empty_boards_preset(29), &RegistryLookup).unwrap();
+        let older = world(&mut state, 0, 10);
+        assert!(!run(&mut state, &RegistryLookup).changed, "one world stays");
+        let newer = world(&mut state, 1, 20);
+        assert!(run(&mut state, &RegistryLookup).changed);
+        // A bare test object has no card behind it, so in the graveyard it
+        // ceases to exist like a token (CR 704.5d): where it goes is
+        // `put_into_graveyard`'s, shared with the legend rule.
+        assert!(!on_battlefield(&state, older), "the older world goes");
+        assert!(on_battlefield(&state, newer), "the newest stays");
+
+        let mut state = GameState::from_preset(&empty_boards_preset(29), &RegistryLookup).unwrap();
+        let first = world(&mut state, 0, 30);
+        let second = world(&mut state, 1, 30);
+        let oldest = world(&mut state, 0, 5);
+        run(&mut state, &RegistryLookup);
+        for id in [first, second, oldest] {
+            assert!(
+                !on_battlefield(&state, id),
+                "a tie for the newest sends all"
+            );
+        }
+    }
+
+    /// Indestructible is no shield: the world rule destroys nothing; and a
+    /// phased-out world permanent is not there to be counted (CR 702.26b).
+    #[test]
+    fn the_world_rule_ignores_indestructible_and_phased_out_worlds() {
+        let mut state = GameState::from_preset(&empty_boards_preset(31), &RegistryLookup).unwrap();
+        let older = world(&mut state, 0, 10);
+        state.object_mut(older).unwrap().base_mut().keywords =
+            baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE;
+        let newer = world(&mut state, 0, 20);
+        state
+            .object_mut(newer)
+            .unwrap()
+            .status
+            .insert(crate::object::Status::PHASED_OUT);
+        state.invalidate_projections();
+        assert!(
+            !run(&mut state, &RegistryLookup).changed,
+            "the newer one is away"
+        );
+        state
+            .object_mut(newer)
+            .unwrap()
+            .status
+            .remove(crate::object::Status::PHASED_OUT);
+        run(&mut state, &RegistryLookup);
+        assert!(
+            !on_battlefield(&state, older),
+            "indestructible is no shield"
+        );
+        assert!(on_battlefield(&state, newer));
     }
 
     #[test]
