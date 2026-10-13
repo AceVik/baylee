@@ -71,6 +71,7 @@ fn execute(
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     };
     assert!(matches!(
         crate::resolve::run(&mut e.state, &mut res),

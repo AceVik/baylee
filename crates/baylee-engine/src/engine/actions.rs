@@ -602,6 +602,25 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                // "Choose a player with the most life or tied" (The Black Gate).
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(r.awaiting, Some(resolve::AwaitingOp::ChoosePlayerFrom))
+                }) {
+                    let mut res = self.resolution.take().expect("player choice suspended");
+                    match resolve::resume_chosen_player(&mut self.state, &mut res, chosen) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // The opponent who chooses a split search's graveyard cards,
                 // or who separates Fact or Fiction's piles.
                 if self.resolution.as_ref().is_some_and(|r| {
@@ -917,6 +936,7 @@ impl<L: CardLookup> Engine<L> {
                                     |trigger| crate::text_changes::RuleContext {
                                         source,
                                         text: trigger.text,
+                                        reference: None,
                                     },
                                 );
                                 match self.ask_next_opponent_with_context(
@@ -1062,6 +1082,7 @@ impl<L: CardLookup> Engine<L> {
                                     crate::text_changes::RuleContext {
                                         source: trigger.source,
                                         text: trigger.text,
+                                        reference: None,
                                     },
                                     self.trigger_wall_only(&trigger),
                                     *asking,

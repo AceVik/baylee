@@ -277,15 +277,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::ReturnAllToHand {
-            filter,
-            opponents_only,
-        } => {
+        Effect::ReturnAllToHand { filter, .. } | Effect::ReturnAllOwnedToHand { filter, .. } => {
+            let (opponents_only, owners) = match op {
+                Effect::ReturnAllToHand { opponents_only, .. } => (opponents_only, None),
+                Effect::ReturnAllOwnedToHand { owner, .. } => {
+                    (false, Some(players_of(owner, state, you, res)))
+                }
+                _ => unreachable!("the return-all family"),
+            };
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         (!opponents_only || state.is_opponent(o.controller, you))
+                            && owners
+                                .as_ref()
+                                .is_none_or(|owners| owners.contains(&o.owner))
                             && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
@@ -1569,6 +1576,7 @@ mod arrival_control_tests {
             targeted: true,
             mana_ability: false,
             countered_source: None,
+            this_way_from: None,
         };
         assert!(matches!(run(state, &mut res), Flow::Complete));
         state.refresh_characteristics();

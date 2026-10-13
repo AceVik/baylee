@@ -1205,6 +1205,10 @@ pub struct GameState {
     pub commanders: Vec<Vec<Commander>>,
     /// The monarch designation (CR 724), if any.
     pub monarch: Option<PlayerId>,
+    /// The game as an effect ended it: "you win the game" (CR 104.2b) or
+    /// "the game is a draw" (CR 104.4c). The game ends at once (CR 104.1):
+    /// the engine reads this before anything else when it next looks.
+    pub game_end: Option<crate::win::GameResult>,
     /// The day/night designation (CR 731), if the game has one yet.
     pub day_night: Option<DayNight>,
     /// What the previous turn was, for CR 502.2's check at the untap step.
@@ -1390,6 +1394,7 @@ impl GameState {
             synthetic_copies,
             commanders,
             monarch,
+            game_end,
             day_night,
             previous_turn,
             starting_player,
@@ -1500,6 +1505,7 @@ impl GameState {
             ("state.synthetic_copies", format!("{synthetic_copies:?}")),
             ("state.commanders", format!("{commanders:?}")),
             ("state.monarch", format!("{monarch:?}")),
+            ("state.game_end", format!("{game_end:?}")),
             ("state.day_night", format!("{day_night:?}")),
             ("state.previous_turn", format!("{previous_turn:?}")),
             ("state.starting_player", format!("{starting_player:?}")),

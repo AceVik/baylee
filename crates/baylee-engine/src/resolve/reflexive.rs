@@ -109,13 +109,50 @@ fn occurrences(state: &GameState, res: &Resolution, when: ReflexiveEvent) -> usi
     }
     entries[start + 1..]
         .iter()
-        .filter(|e| happened(state, when, res, &e.event))
+        .filter(|e| happened(state, when, res, e))
         .count()
 }
 
 /// Whether one journal entry is the event a reflexive ability waits for.
-fn happened(state: &GameState, when: ReflexiveEvent, res: &Resolution, event: &GameEvent) -> bool {
+fn happened(
+    state: &GameState,
+    when: ReflexiveEvent,
+    res: &Resolution,
+    entry: &crate::event::JournalEntry,
+) -> bool {
+    let event = &entry.event;
     match when {
+        // A sacrifice by effect of a permanent the filter matched as it
+        // left (CR 608.2h): the departure says it was a sacrifice, and its
+        // controller then was this resolution's.
+        ReflexiveEvent::Sacrificed(filter) => {
+            let GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                cause: Cause::Effect,
+                ..
+            } = *event
+            else {
+                return false;
+            };
+            entry
+                .departure
+                .as_ref()
+                .is_some_and(|d| d.sacrificed && d.controller == res.controller)
+                && state.object_or_departed(object).is_some_and(|card| {
+                    let chars = state
+                        .last_known_characteristics(object)
+                        .unwrap_or_else(|| card.characteristics());
+                    crate::eval::matches_projected_with_context(
+                        filter,
+                        state,
+                        card,
+                        chars,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                })
+        }
         // A departure of the source by *effect*. A cost records
         // `Cause::Cost`, so a sacrifice paid in a payment window opened
         // during this resolution is not the one "you do" names. A
@@ -206,6 +243,7 @@ mod tests {
             event_mana: None,
             retarget_left: None,
             loot: None,
+            this_way_from: None,
         }
     }
 

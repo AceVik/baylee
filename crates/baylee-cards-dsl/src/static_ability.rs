@@ -344,6 +344,11 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
+    /// The affected creature can't be blocked by creatures `player`
+    /// controls. Written only by the engine, from
+    /// `Effect::CantBeBlockedByPlayerThisTurn` (The Black Gate), with the
+    /// player that effect named as it resolved; a card never spells it.
+    CantBeBlockedByPlayer(baylee_core::ids::PlayerId),
     /// This permanent can't block creatures matching the filter.
     CantBlock(&'static crate::Filter),
     /// Extra effective power only while saddling Mounts or crewing Vehicles.
@@ -986,6 +991,7 @@ impl Modifier {
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
+            | Self::CantBeBlockedByPlayer(_)
             | Self::CantAttack
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
@@ -1418,6 +1424,7 @@ mod tests {
     /// and a new modifier landing here by accident is the fault this test
     /// exists to make visible.
     #[test]
+    #[allow(clippy::too_many_lines)] // one row per rules-modifying modifier
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
         for modifier in [
             Modifier::GraveyardInstantSorceryOnce,
@@ -1483,6 +1490,7 @@ mod tests {
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },

@@ -242,6 +242,17 @@ pub(super) fn reflexive_fault_in(
                 return Some("waits for a sacrifice that is not the op directly before it");
             }
         }
+        ReflexiveEvent::Sacrificed(_) => {
+            if !matches!(
+                action,
+                Effect::SacrificeFilter { .. }
+                    | Effect::MayDo {
+                        effects: [Effect::SacrificeFilter { .. }]
+                    }
+            ) {
+                return Some("waits for a sacrifice that is not the op directly before it");
+            }
+        }
         ReflexiveEvent::Exiled(_) => {
             if !matches!(action, Effect::ExileTargetsWithSource) {
                 return Some("waits for an exile that is not the op directly before it");

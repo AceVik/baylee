@@ -78,6 +78,7 @@ static WAKING_ABILITIES: &[AbilityDef] = &[
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: Some(Condition::SourceMatches(&UNTAPPED_F)),
+        resolves_if_targets_illegal: false,
     },
     TAP_FOR_MANA,
 ];
@@ -91,6 +92,7 @@ static BANKING_ABILITIES: &[AbilityDef] = &[
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: Some(Condition::SourceMatches(&TAPPED_F)),
+        resolves_if_targets_illegal: false,
     },
     TAP_FOR_MANA,
 ];
@@ -104,6 +106,7 @@ static COUNTING_ABILITIES: &[AbilityDef] = &[
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: Some(Condition::ControlCount(&LAND_F, 2)),
+        resolves_if_targets_illegal: false,
     },
     TAP_FOR_MANA,
 ];
@@ -121,6 +124,7 @@ static STATION_ABILITIES: &[AbilityDef] = &[
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: Some(Condition::Station(1)),
+        resolves_if_targets_illegal: false,
     },
     baylee_cards_dsl::static_ability!(
         Filter::This,

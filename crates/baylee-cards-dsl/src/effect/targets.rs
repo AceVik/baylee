@@ -42,6 +42,17 @@ pub enum PlayerRel {
     EachPlayer,
     /// Each opponent.
     EachOpponent,
+    /// The player an instruction applying to each player of a relation is
+    /// applying to now — Typhoon's "deals damage to each opponent equal to
+    /// the number of Islands **that player** controls", Winds of Change's
+    /// "each player … draws **that many** cards". Read inside the amount of
+    /// such an instruction (`DealDamage` to players, `LoseLife`,
+    /// `GainLifeFor`, `DrawCardsFor`); anywhere else it names nobody.
+    Recipient,
+    /// Each player other than you: Syphon Soul's "each other player". Not
+    /// [`Self::EachOpponent`] at a table with teams, where a teammate is
+    /// another player and no opponent (CR 102.3).
+    EachOtherPlayer,
     /// The controller of the first target.
     ControllerOfTarget,
     /// The player who controlled the object the triggering event was about,
@@ -101,6 +112,23 @@ pub enum PlayerRel {
     /// has more life than each other player still in the game, and nobody
     /// on a tie. Read as the effect resolves; nothing is targeted.
     MostLife,
+    /// The owner of the object the triggering event was about — Reincarnation's
+    /// delayed "when that creature dies this turn, return a creature card
+    /// from **its owner's** graveyard". A card has its owner wherever it is
+    /// (CR 108.3), so this is not last-known information.
+    OwnerOfEvent,
+    /// Every player with the most life or tied for the most life, still in
+    /// the game (The Black Gate's "a player with the most life or tied for
+    /// most life"). Read as the effect resolves; nothing is targeted.
+    MostLifeOrTied,
+    /// "Defending player" as an ability of an attacking creature means it
+    /// (CR 508.5): the player that creature is attacking, the controller of
+    /// the planeswalker it is attacking, or the protector of the battle it
+    /// is attacking — at a table of several, that one player and not every
+    /// opponent (CR 508.5a). Read off the source's own attack. A source that
+    /// is not attacking names the one opponent of a two-player game during
+    /// combat (CR 506.2) and nobody at a larger table.
+    DefendingPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

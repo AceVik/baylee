@@ -61,6 +61,7 @@ static LOOPING_CARD: CardDef = CardDef {
             zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
+            resolves_if_targets_illegal: false,
         },
         // Sustains it: the creature that comes back enters, and asks to be
         // blinked again.
@@ -72,6 +73,7 @@ static LOOPING_CARD: CardDef = CardDef {
             zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
+            resolves_if_targets_illegal: false,
         },
     ],
     ..CardDef::DEFAULT

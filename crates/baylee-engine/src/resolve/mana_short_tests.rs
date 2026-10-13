@@ -55,6 +55,7 @@ fn the_chosen_player_is_tapped_out_and_loses_their_mana_and_nobody_else() {
         event_mana: None,
         retarget_left: None,
         loot: None,
+        this_way_from: None,
     };
     assert!(matches!(run(&mut state, &mut res), Flow::Complete));
     let tapped = |id| {
