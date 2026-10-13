@@ -463,6 +463,38 @@ pub(super) fn arm_ability(
         duel.stage(step);
         return true;
     }
+    // A written mana row whose tap asks a colour (a painland's "{W} or
+    // {U}", 1 damage) steps into that tap's own bubble, whose pips carry
+    // the colour and so stage: sent from here it would tap the land, and
+    // deal its damage, before the player had said Go.
+    if duel.paying()
+        && duel.mana_run.is_none()
+        && duel.ability_tap.is_none()
+        && option.mana
+        && let PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } = option.action
+        && source == object
+        && let Some(view) = duel.view.as_ref()
+        && let Some(interaction) = duel.interaction.as_ref()
+        && crate::abilities::options_for(
+            baylee_client_core::Lang::En,
+            view,
+            interaction,
+            object,
+            Some(ability_index),
+        )
+        .iter()
+        .any(|o| o.pour.is_some())
+    {
+        duel.armed = None;
+        duel.ability_menu = Some(object);
+        duel.ability_tap = Some(ability_index);
+        duel.ability_pick = 0;
+        duel.ability_page = 0;
+        return false;
+    }
     // A pip of a mana bubble, and this is the press the owner asked for. The
     // permanent has not been touched yet: the colour was chosen on a bubble
     // that cost nothing to open, and the two go out together as a one-step
