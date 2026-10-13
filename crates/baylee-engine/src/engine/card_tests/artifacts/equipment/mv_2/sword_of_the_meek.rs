@@ -247,6 +247,60 @@ fn sword_observes_entries_while_its_own_incarnation_was_in_the_graveyard() {
     }
 }
 
+/// "Whenever a 1/1 creature **you control** enters": the same entry under the
+/// opponent's control puts nothing on the stack and the Sword stays buried.
+/// The p0 pass is the control: it is the one the Sword answers.
+#[test]
+fn sword_ignores_a_one_one_that_enters_under_an_opponents_control() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for entering_under in [p0, p1] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[index::SWORD_OF_THE_MEEK])
+            .hand(0, &[index::LLANOWAR_ELVES])
+            .hand(1, &[index::LLANOWAR_ELVES])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let sword = on_battlefield(&e, p0, index::SWORD_OF_THE_MEEK).unwrap();
+        let elf = in_hand(&e, entering_under, index::LLANOWAR_ELVES).unwrap();
+        bury(&mut e, &[sword]);
+        e.refresh_offer();
+        let state = e.dev_state_mut(p0).unwrap();
+        state.object_mut(elf).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state
+            .move_object(
+                elf,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        assert_eq!(
+            e.state().object(elf).unwrap().controller,
+            entering_under,
+            "the 1/1 entered under {entering_under:?}"
+        );
+        assert_eq!(pt(&e, elf), (1, 1), "and it is a 1/1");
+        e.apply(p0, PlayerAction::PassPriority).unwrap();
+        assert_eq!(
+            e.state().zones.list(ZoneLocation::Stack).len(),
+            usize::from(entering_under == p0),
+            "the Sword's trigger is put on the stack for a 1/1 of its controller's, and for no other"
+        );
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().object(sword).unwrap().zone,
+            if entering_under == p0 {
+                Zone::Battlefield
+            } else {
+                Zone::Graveyard
+            },
+            "the Sword returns only for its own controller's 1/1"
+        );
+    }
+}
+
 fn leave_and_return(e: &mut Engine<RegistryLookup>, id: ObjectId, destination: ZoneLocation) {
     let p0 = PlayerId::new(0);
     let state = e.dev_state_mut(p0).unwrap();
