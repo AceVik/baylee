@@ -3562,6 +3562,56 @@ the environment, or `?game=…&token=…` in the page URL in a browser. A ticket
 that will not connect is a hard stop, not a quiet fall back to solo play —
 somebody is waiting at that table.
 
+A third host plays a replay: `ReplayHost` (`src/replay/host.rs`), see
+§"Replays".
+
+## Replays
+
+`.claude/b8/REPLAY-DESIGN.md` is the design. A replay is a spectator's table
+driven by a tape instead of a socket.
+
+- **`ReplayHost`** (`src/replay/host.rs`) is a `DuelHost` with `watching()`
+  true, a `submit` that sends nothing and a `ready()` answered by the duel's
+  one `Curtain`. Its tape is made off the frame: a kept record is projected on
+  a worker (`baylee_gamehost::replay::project`, `src/replay/local.rs`), a
+  hosted tape is `POST {gateway}/replays/{game}/tape` with the session (the
+  last three kept in memory for the session, nothing on disk; a `502` asked
+  once more), a tape or record file opened with `BAYLEE_REPLAY`. Its `seq`
+  is its own ever-increasing count.
+- **The transport** is client-core's (`replay::{Tape, Timeline, Transport}`):
+  one step on is `Out::Show`, shown as a live table shows a frame (glides,
+  cues at 0.5–2×); every other move is `Out::Jump`, sent as
+  **`HostMessage::Jump`** and then the static, the view and the whole log to
+  that step from line 0. `poll_host` answers a jump with `Duel::rewind`
+  (`src/replay/rewind.rs`: every field of `Duel` named, forgotten if the frames
+  told it, kept if the player chose it), takes a finished table back to
+  `Playing`, places the next board without a glide (`table::Placing`) and
+  drops the cues. `Duel::replay` is the host's `ReplayStatus`, written only
+  when it differs.
+- **The bar** (`hud/ledge/replay_bar.rs`) stands in the shelf's middle on its
+  own root and revision: a timeline with a cell per turn (own ivory, others
+  slate), `seen` steps underlined, `unverified` ones banded, a red mark where
+  a tape stops early, the playhead and the step's words written in place per
+  frame; start, a turn back, a moment back, play/pause, a moment on, a turn
+  on, the end; the speed; the perspective. A sheet over it says *Rebuilding
+  the game…*, a refusal, or why the tape stops (*Play on anyway* for a
+  divergence). The shelf says no sentence while a replay plays. The clock is
+  `Time` (virtual), so `/pause` and `/step` hold a replay.
+- **The Replays tab** (`Hub::Replays`, `src/lobby/replays.rs`, desktop only)
+  lists this computer's kept records and the account's hosted games
+  (`GET /replays`, a page of 20, *Older online games*), grouped by day, newest
+  first, filtered by source, result and a query over players and commanders;
+  a row's `⋯` watches from a perspective, *Delete…* a local record. A replay
+  opens as `Screen::Replay`, never `Screen::Seated`; leaving it comes back to
+  the tab. *Watch replay* stands on a finished game's end sheet (a local game,
+  a hosted one the player sat in); a replay's end sheet offers *Watch again*,
+  *Watch from…* and *Back to replays*.
+- dev-control: `/state.replay` (step, steps, turns, playing, speed,
+  perspective, check, stop, loading, problem, verify) and `POST /replay
+  {"command":"seek","step":42}` (`toggle`, `step` with `by`, `turn`,
+  `next_phase`, `start`, `end`, `faster`, `slower`, `perspective` with `to`,
+  `play_on`, `cancel`).
+
 ### When the socket goes away
 
 `NetworkHost::redial` re-dials and queues a `ResumeGame` naming the last

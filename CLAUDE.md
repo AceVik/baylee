@@ -72,6 +72,7 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 
 ```bash
 cargo run -p baylee-client
+BAYLEE_REPLAY=<record or tape file> cargo run -p baylee-client   # a replay, every perspective (report records: never commit them)
 BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
 BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD cargo run -p baylee-client --features dev-control,dev-reload
 trunk serve index.html --release          # in crates/baylee-client/

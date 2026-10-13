@@ -504,6 +504,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::ZoneWatch>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
+            .init_resource::<table::Placing>()
             .init_resource::<table::CameraPose>()
             .init_resource::<dial::DialReport>()
             .init_resource::<Reconnect>()
@@ -586,6 +587,24 @@ impl Plugin for DuelPlugin {
                     cardtext::poll_scryfall,
                 )
                     .chain()
+                    .in_set(DuelSet::Sync),
+            )
+            // A replay (`docs/client.md` §"Replays"): its keys and the bar's
+            // presses go to the host with the clock's tick, after the host is
+            // drained; the bar follows the status the next drain writes.
+            .init_resource::<hud::replay_bar::ReplayAsks>()
+            .init_resource::<hud::replay_bar::ScrubDrag>()
+            .init_resource::<hud::replay_bar::ReplayBarRevision>()
+            .add_systems(
+                Update,
+                (
+                    hud::replay_bar::replay_keys,
+                    hud::replay_bar::drive,
+                    hud::replay_bar::sync_replay_bar,
+                    hud::replay_bar::place_playhead,
+                )
+                    .chain()
+                    .after(poll_host)
                     .in_set(DuelSet::Sync),
             )
             .add_systems(

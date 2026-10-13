@@ -4973,6 +4973,13 @@ messages! {
         en: "At the top you switch between Play, Decks and Settings, or press 1, 2 or 3. On the right you see your gateway with how many tables and players are on it, the bell with what you missed, and your account. Press ? on any screen to see every key that works right now.",
         de: "Oben wechselst du zwischen Spielen, Decks und Einstellungen, auch mit den Tasten 1, 2 und 3. Rechts siehst du dein Gateway mit der Zahl der Tische und Spieler, die Glocke mit dem, was du verpasst hast, und dein Konto. Mit ? siehst du auf jedem Bildschirm alle Tasten, die gerade gelten.",
     },
+    /// Tour step L4's title on a desktop, which has a fourth place: Replays.
+    TourL4TitleDesktop { en: "Four places", de: "Vier Bereiche" },
+    /// Tour step L4's words on a desktop (Replays is `4`, Settings stays `3`).
+    TourL4BodyDesktop {
+        en: "At the top you switch between Play, Decks, Replays and Settings, or press 1, 2, 4 or 3. On the right you see your gateway with how many tables and players are on it, the bell with what you missed, and your account. Press ? on any screen to see every key that works right now.",
+        de: "Oben wechselst du zwischen Spielen, Decks, Wiederholungen und Einstellungen, auch mit den Tasten 1, 2, 4 und 3. Rechts siehst du dein Gateway mit der Zahl der Tische und Spieler, die Glocke mit dem, was du verpasst hast, und dein Konto. Mit ? siehst du auf jedem Bildschirm alle Tasten, die gerade gelten.",
+    },
     /// Tour step L5's title (TOURS.md §2).
     TourL5Title { en: "Your next game", de: "Dein nächstes Spiel" },
     /// Tour step L5's words (TOURS.md §2).
@@ -6474,6 +6481,23 @@ messages! {
     NoAbilityAnswers { en: "None kept yet", de: "Noch keine" },
     /// A volume at nothing.
     SliderOff { en: "off", de: "aus" },
+    /// Replays: the keymap's group (the rest of a replay's words are
+    /// `replay::words::ReplayPhrase`).
+    GroupReplay { en: "Replays", de: "Wiederholungen" },
+    /// Replays: a turn back.
+    ActReplayTurnBack { en: "Replay: a turn back", de: "Wiederholung: einen Zug zur\u{fc}ck" },
+    /// Replays: a turn on.
+    ActReplayTurnForward { en: "Replay: a turn on", de: "Wiederholung: einen Zug weiter" },
+    /// Replays: to the start.
+    ActReplayStart { en: "Replay: to the start", de: "Wiederholung: zum Anfang" },
+    /// Replays: to the end.
+    ActReplayEnd { en: "Replay: to the end", de: "Wiederholung: zum Ende" },
+    /// Replays: slower.
+    ActReplaySlower { en: "Replay: slower", de: "Wiederholung: langsamer" },
+    /// Replays: faster.
+    ActReplayFaster { en: "Replay: faster", de: "Wiederholung: schneller" },
+    /// Replays: the next perspective.
+    ActReplayPerspective { en: "Replay: switch perspective", de: "Wiederholung: Perspektive wechseln" },
 }
 
 #[cfg(test)]

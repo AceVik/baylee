@@ -24,6 +24,8 @@ pub(super) mod log;
 pub(super) mod menu;
 pub(super) mod players;
 pub(super) mod pool;
+// The transport bar a replay stands in the shelf's middle.
+pub(crate) mod replay_bar;
 // Not `hud::tray`, which is the zone dialog. These are the two doors in the
 // bar the dialog is put away into; the collision and why it stands are in
 // the module's own doc.

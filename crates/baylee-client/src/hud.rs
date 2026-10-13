@@ -2303,6 +2303,7 @@ pub use ledge::players::{
     sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
+pub(crate) use ledge::replay_bar;
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,
