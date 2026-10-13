@@ -11,6 +11,14 @@
 //! spell is judged when the ability resolves, it can be aimed at any spell,
 //! and what only deals damage, or only destroys someone else's land, is let
 //! through.
+//!
+//! **Not played here:** the ruling of 2008-10-01 ("will not counter a spell
+//! which would destroy a land only if a choice is made") is not covered. No
+//! spell in the current pool destroys a land only after a choice made on
+//! resolution, so there is nothing to cast. The rulings of 2004-10-04 about a
+//! spell that destroys a land indirectly, one that sacrifices a land as it
+//! enters or as a cost, and one with a random chance of destroying a land are
+//! not covered either.
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;

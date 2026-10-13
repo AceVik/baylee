@@ -210,6 +210,79 @@ fn dalkovan_encampment_warriors_are_sacrificed_at_the_beginning_of_the_next_end_
     );
 }
 
+/// Arms the Encampment and lets `attacker` attack with a Gray Ogre, then
+/// returns how many Warrior tokens player 0 has. With player 0 attacking the
+/// ability is activated in player 0's first main phase; with player 1
+/// attacking it is activated in player 1's first main phase, at instant speed,
+/// before their combat.
+#[track_caller]
+fn warriors_after_an_attack_by(attacker: PlayerId) -> usize {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                dalkovan_encampment(),
+                plains(),
+                swamp(),
+                mountain(),
+                gray_ogre(),
+            ],
+        )
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    let encampment =
+        on_battlefield(&engine, kit::P0, dalkovan_encampment()).expect("the Encampment");
+    let ogre = if attacker == kit::P0 {
+        reach_main_phase(&mut engine, kit::P0);
+        tap_mana_except(&mut engine, kit::P0, encampment);
+        arm(&mut engine, encampment);
+        let ogre = on_battlefield(&engine, kit::P0, gray_ogre()).expect("my Ogre");
+        kit::declare_attack(&mut engine, &[ogre], kit::P1);
+        ogre
+    } else {
+        reach_their_main_phase(&mut engine, kit::P1);
+        // The active player passes first; then player 0 holds priority in
+        // player 1's main phase with an empty stack.
+        kit::let_the_engine_step(&mut engine);
+        assert!(
+            matches!(engine.pending(), Pending::Priority { player, .. } if *player == kit::P0),
+            "player 0 holds priority in player 1's turn: {:?}",
+            engine.pending()
+        );
+        tap_mana_except(&mut engine, kit::P0, encampment);
+        arm(&mut engine, encampment);
+        let ogre = on_battlefield(&engine, kit::P1, gray_ogre()).expect("their Ogre");
+        kit::attack_on_their_turn(&mut engine, kit::P1, &[ogre], kit::P0);
+        ogre
+    };
+    kit::resolve_the_stack(&mut engine, |_, _| None);
+    assert!(
+        engine.state().combat.is_attacking(ogre),
+        "the attack really was declared"
+    );
+    warriors(&engine).len()
+}
+
+/// "Whenever **you** attack this turn": the watch hears its controller's
+/// attack and nobody else's. Armed in one's own turn, the Ogre's attack makes
+/// two Warriors (the control). Armed in player 1's turn, at instant speed,
+/// player 1's attack on player 0 makes none: a delayed trigger that fired on
+/// any player's attack would give player 0 two Warriors here.
+#[test]
+fn dalkovan_encampment_hears_only_its_controllers_attacks() {
+    assert_eq!(
+        warriors_after_an_attack_by(kit::P0),
+        2,
+        "control: player 0 armed it and attacked"
+    );
+    assert_eq!(
+        warriors_after_an_attack_by(kit::P1),
+        0,
+        "player 0 armed it, but it was player 1 who attacked"
+    );
+}
+
 /// Ruling (2025-04-04): the delayed trigger "won't trigger if you don't declare
 /// any creatures as attackers." Armed and then not attacking, player 0 makes
 /// no Warrior. (The test above is the twin: the same board and the same

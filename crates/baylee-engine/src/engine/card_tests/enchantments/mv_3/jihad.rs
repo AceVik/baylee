@@ -224,6 +224,49 @@ fn jihad_is_sacrificed_when_the_chosen_player_has_nothing_of_the_colour() {
     assert_eq!(pt(&engine, cleric), plain, "and its bonus is gone");
 }
 
+/// "White creatures get +2/+1 **as long as** the chosen player controls a
+/// nontoken permanent of the chosen color" is a condition of its own, apart
+/// from the sacrifice. When the Bolt kills player 1's only red permanent, the
+/// "when the chosen player controls no ..." trigger waits on the stack (CR
+/// 603.8: a state trigger goes on the stack at the next opportunity) and Jihad
+/// is still on the battlefield, but the bonus is already off: the Cleric is at
+/// its base size. Only then does the trigger resolve and Jihad is sacrificed.
+/// A Jihad whose pump had no condition would keep the Cleric big until here.
+#[test]
+fn jihad_pump_ends_with_the_colour_while_the_sacrifice_still_waits_on_the_stack() {
+    let (mut engine, cleric) = the_duel(&[gray_ogre()], &[]);
+    let ogre = on_battlefield(&engine, kit::P1, gray_ogre()).expect("the Ogre");
+    let plain = pt(&engine, cleric);
+    cast_jihad(&mut engine, ManaColor::Red, kit::P1);
+    assert_eq!(grown(plain, pt(&engine, cleric)), (2, 1), "the bonus is on");
+
+    cast_from_hand(&mut engine, kit::P0, lightning_bolt());
+    aim_at(&mut engine, kit::P0, ogre);
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, kit::P1, gray_ogre()).is_some()
+    });
+
+    assert!(
+        !stack_is_empty(&engine),
+        "the state trigger is on the stack, waiting to resolve"
+    );
+    assert!(
+        on_battlefield(&engine, kit::P0, jihad()).is_some(),
+        "Jihad has not been sacrificed yet"
+    );
+    assert_eq!(
+        pt(&engine, cleric),
+        plain,
+        "and the bonus is already gone: the chosen player has no red permanent"
+    );
+
+    kit::resolve_the_stack(&mut engine, |_, _| None);
+    assert!(
+        in_graveyard(&engine, kit::P0, jihad()).is_some(),
+        "then the trigger resolves and Jihad is sacrificed"
+    );
+}
+
 /// "…controls a **nontoken** permanent of the chosen color": a token of the
 /// colour does not keep Jihad. Green is chosen, player 1 controls a Llanowar
 /// Elves and (made on their turn by a Sprout) a green Saproling token. Jihad
