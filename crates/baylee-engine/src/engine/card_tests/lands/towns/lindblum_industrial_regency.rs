@@ -121,3 +121,68 @@ fn a_stolen_adventure_grants_its_controller_the_land_play_in_its_owners_exile() 
     assert_eq!(e.state().object(card).unwrap().controller, p1);
     assert_eq!(e.state().object(card).unwrap().owner, p0);
 }
+
+/// The Wizard token's "Whenever you cast a noncreature spell, this token
+/// deals 1 damage to each opponent": the opponent casting a noncreature spell
+/// puts nothing on the stack above their spell and costs them no life from
+/// it, while the Wizard's own controller casting one still pings.
+#[test]
+fn mage_siege_wizard_ignores_the_opponents_noncreature_spells() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[lindblum_industrial_regency(), lightning_bolt()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    begin_town_adventure(&mut e, p0, lindblum_industrial_regency(), ManaColor::Red, 3);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(tokens_of(&e, p0).len(), 1, "the Wizard token is in play");
+    let before = e.state().players[1].life;
+
+    e.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+        "the opponent holds priority in our main phase: {:?}",
+        e.pending()
+    );
+    fund_adventure(&mut e, p1, ManaColor::Red, 1);
+    cast_with_floating(&mut e, p1, lightning_bolt());
+    e.apply(
+        p1,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p0],
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "the opponent's Lightning Bolt alone: the Wizard did not trigger on it"
+    );
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().players[1].life,
+        before,
+        "\"Whenever you cast\": the opponent's noncreature spell did not ping them"
+    );
+
+    // The same Wizard still answers its own controller's noncreature spell.
+    fund_adventure(&mut e, p0, ManaColor::Red, 1);
+    cast_with_floating(&mut e, p0, lightning_bolt());
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().players[1].life,
+        before - 4,
+        "1 from the Wizard, 3 from the Bolt"
+    );
+}
