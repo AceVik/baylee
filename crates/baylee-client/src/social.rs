@@ -31,6 +31,7 @@ use crate::lobby::LobbyState;
 
 pub(crate) mod drawer;
 pub(crate) mod keys;
+pub(crate) mod menu;
 pub(crate) mod rows;
 pub(crate) mod sheet;
 pub(crate) mod toasts;
@@ -536,6 +537,7 @@ pub(crate) fn install(app: &mut App) {
         );
     window::install(app);
     keys::install(app);
+    menu::install(app);
     drawer::install(app);
     toasts::install(app);
     sheet::install(app);
@@ -811,6 +813,8 @@ pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
             "target": format!("{:?}", composer.target()),
             "text": composer.text(),
             "suggesting": composer.suggestions().map(|s| s.items.len()),
+            "cards": composer.candidates().cards.len(),
+            "players": composer.candidates().players.len(),
         },
         "peek": ui.peek.iter().map(|(t, _)| t.clone()).collect::<Vec<_>>(),
         "friends": friends.online.iter().chain(friends.offline.iter()).map(|f| serde_json::json!({

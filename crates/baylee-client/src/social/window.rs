@@ -1773,7 +1773,7 @@ fn composer_parts(
             _ => {
                 spans.push((before.to_string(), inks.ink));
                 if focused {
-                    spans.push(("\u{258f}".to_string(), inks.accent));
+                    spans.push(("|".to_string(), inks.accent));
                 }
                 spans.push((after.to_string(), inks.ink));
             }
@@ -1967,68 +1967,60 @@ fn peek(
     mut ui: ResMut<ChatUi>,
     duel: Option<Res<Duel>>,
     fonts: Res<UiFonts>,
-    settings: Option<Res<crate::settings::ClientSettings>>,
     roots: Query<(Entity, Option<&Children>), With<PeekRoot>>,
     mut texts: Query<&mut TextColor>,
-    mut last: Local<Option<(u64, usize)>>,
+    mut seen: Local<Option<(u64, u64)>>,
     mut drawn: Local<usize>,
 ) {
-    let Some(machine) = host.machine() else {
+    let (Some(machine), Some(duel)) = (host.machine(), duel) else {
+        *seen = None;
         return;
     };
-    let Some(duel) = duel else {
-        return;
-    };
-    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    // Which chat lines are new since the last look (never log lines).
-    let chat_filter = TabFilter {
-        log: false,
-        ..TabFilter::standard(ChatTab::All)
-    };
-    if *last != Some((machine.revision(), 0)) {
-        let lines = machine.lines_where(&chat_filter, 8);
-        let newest: Vec<(String, u64)> = lines
-            .iter()
+    // The newest chat line (never a log line) seen so far, by arrival: a
+    // line that arrives past it while the panel is shut peeks.
+    if seen.is_none_or(|(revision, _)| revision != machine.revision()) {
+        let filter = TabFilter {
+            log: false,
+            ..TabFilter::standard(ChatTab::All)
+        };
+        let fresh: Vec<(u64, String)> = machine
+            .lines_where(&filter, 8)
+            .into_iter()
             .filter(|(c, l)| {
-                !matches!(
+                matches!(
                     &l.kind,
-                    baylee_client_core::social::LineKind::Message { mine: true, .. }
-                ) && matches!(l.kind, baylee_client_core::social::LineKind::Message { .. })
-                    && !l.hidden
+                    baylee_client_core::social::LineKind::Message { mine: false, .. }
+                ) && !l.hidden
                     && !machine.conversation(c).is_some_and(|c| c.muted)
             })
             .map(|(c, l)| {
                 let stamp = ui.arrivals.chat.get(&l.key).copied().unwrap_or(0);
-                (
-                    rows::plain_text(machine, c, l)
-                        .split_once(' ')
-                        .map_or(String::new(), |(_, rest)| rest.trim().to_string()),
-                    stamp,
-                )
+                let text = rows::plain_text(machine, c, l);
+                // Without its time: the peek is now.
+                let text = text
+                    .split_once(' ')
+                    .map_or(text.clone(), |(_, t)| t.trim().to_string());
+                (stamp, text)
             })
             .collect();
-        let seen_up_to = last.map_or(u64::MAX, |(_, s)| s as u64);
-        let top = newest.iter().map(|(_, s)| *s).max().unwrap_or(0);
-        if !duel.log_open && last.is_some() {
-            for (text, stamp) in &newest {
-                if *stamp > seen_up_to {
-                    ui.peek.push((text.clone(), 0.0));
-                }
+        let top = fresh.iter().map(|(s, _)| *s).max().unwrap_or(0);
+        if let Some((_, before)) = *seen
+            && !duel.log_open
+        {
+            for (stamp, text) in fresh.iter().filter(|(s, _)| *s > before) {
+                let _ = stamp;
+                ui.peek.push((text.clone(), 0.0));
             }
             while ui.peek.len() > 4 {
                 ui.peek.remove(0);
             }
         }
-        let _ = lang;
-        *last = Some((machine.revision(), 0));
-        if let Some((_, s)) = last.as_mut() {
-            *s = usize::try_from(top).unwrap_or(0);
-        }
+        let before = seen.map_or(0, |(_, b)| b);
+        *seen = Some((machine.revision(), top.max(before)));
     }
     if duel.log_open && !ui.peek.is_empty() {
         ui.peek.clear();
     }
-    // Age the lines; drop the faded.
     if !ui.peek.is_empty() {
         let dt = time.delta_secs();
         for (_, age) in &mut ui.peek {
@@ -2046,9 +2038,10 @@ fn peek(
                     position_type: PositionType::Absolute,
                     right: px(crate::hud::EDGE),
                     bottom: logpanel::root_node().bottom,
-                    max_width: px(logpanel::LOG_W),
+                    max_width: px(logpanel::LOG_W_MAX),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::FlexEnd,
+                    row_gap: px(2),
                     ..default()
                 },
                 ZIndex(crate::hud::Z_LOG),
@@ -2072,7 +2065,7 @@ fn peek(
             commands.entity(root).add_child(line);
         }
     }
-    // Fade the last 0.6 s.
+    // The last 0.6 s fade; nothing writes at rest.
     if let Ok((_, Some(kids))) = roots.single() {
         for (kid, (_, age)) in kids.iter().zip(ui.peek.iter()) {
             if *age > 10.0

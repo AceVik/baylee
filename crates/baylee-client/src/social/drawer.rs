@@ -594,7 +594,7 @@ pub(crate) fn text_box(
     } else if focused {
         vec![
             (before.to_string(), tokens::INK, false),
-            ("\u{258f}".to_string(), tokens::ACCENT, false),
+            ("|".to_string(), tokens::ACCENT, false),
             (after.to_string(), tokens::INK, false),
         ]
     } else {
