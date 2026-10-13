@@ -7,6 +7,7 @@ mod bribery;
 mod brilliant_plan;
 mod dosan_s_oldest_chant;
 mod essence_drain;
+mod hellfire;
 mod implode;
 mod lava_flow;
 mod makindi_stampede;
