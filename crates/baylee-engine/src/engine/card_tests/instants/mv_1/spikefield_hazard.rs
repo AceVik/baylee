@@ -74,7 +74,7 @@ fn shield_creature(engine: &mut Engine<RegistryLookup>, p0: PlayerId, target: Ob
 #[test]
 fn spikefield_hazard_deals_one_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(415, mountain())
+    let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain()])
         .hand(0, &[spikefield_hazard()])
         .battlefield(1, &[llanowar_elves()])
