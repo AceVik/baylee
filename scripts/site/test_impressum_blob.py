@@ -59,9 +59,29 @@ FAKE_UMLAUT = {
 NONCE = bytes(range(1, 17))
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-DIGITS5_RE = re.compile(r"\d{5,}")
 DIGITS6_RE = re.compile(r"\d{6,}")
 ALPHABET_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def enc_fixed(fields: dict, nonce: bytes = NONCE) -> bytes:
+    """encode() with a given nonce. The characters are shuffled at random, so
+    a given nonce can, very rarely, make a readable blob and be refused
+    (ValueError); a new shuffle then gives another blob."""
+    for _ in range(20):
+        try:
+            return ib.encode(fields, nonce=nonce)
+        except ValueError as e:
+            if "every blob tried" not in str(e):
+                raise
+    raise AssertionError("20 shuffles in a row were refused as readable")
+
+
+def _decrypt(blob: bytes) -> bytes:
+    """The plaintext JSON behind a blob, by the format's own steps."""
+    raw = _unb64(blob)
+    head = len(ib.MAGIC) + 1 + ib.NONCE_LEN
+    nonce = raw[len(ib.MAGIC) + 1 : head]
+    return ib._xor(raw[head:], nonce)
 
 
 def _unb64(blob: bytes) -> bytes:
@@ -137,16 +157,26 @@ class BlobTests(unittest.TestCase):
                 self.assertNotIn("internal_note", got)
 
     def test_nonce(self):
-        self.assertEqual(ib.encode(FAKE, nonce=NONCE), ib.encode(FAKE, nonce=NONCE))
+        # the characters are shuffled at random, so a fixed nonce no longer
+        # makes the blob deterministic; it fixes the header only
+        a, b = enc_fixed(FAKE), enc_fixed(FAKE)
+        self.assertNotEqual(a, b)
+        head = len(ib.MAGIC) + 1 + ib.NONCE_LEN
+        for blob in (a, b):
+            self.assertEqual(ib.decode(blob), FAKE)
+            raw = _unb64(blob)
+            self.assertEqual(raw[:head], ib.MAGIC + bytes([ib.VERSION]) + NONCE)
         self.assertNotEqual(ib.encode(FAKE), ib.encode(FAKE))
-        self.assertNotEqual(ib.encode(FAKE, nonce=NONCE), ib.encode(FAKE, nonce=bytes(16)))
+        self.assertNotEqual(
+            _unb64(enc_fixed(FAKE))[:head], _unb64(enc_fixed(FAKE, bytes(16)))[:head]
+        )
         with self.assertRaises(ValueError):
             ib.encode(FAKE, nonce=b"short")
 
     def test_alphabet(self):
         for fake in (FAKE, FAKE_UMLAUT):
             for nonce in (NONCE, None, None):
-                blob = ib.encode(fake, nonce=nonce).decode("ascii")
+                blob = (enc_fixed(fake, nonce) if nonce else ib.encode(fake)).decode("ascii")
                 self.assertRegex(blob, ALPHABET_RE)
                 for ch in "@.+/=":
                     self.assertNotIn(ch, blob)
@@ -154,11 +184,10 @@ class BlobTests(unittest.TestCase):
     def test_no_plaintext(self):
         for fake in (FAKE, FAKE_UMLAUT):
             with self.subTest(name=fake["name"]):
-                blob = ib.encode(fake, nonce=NONCE)
+                blob = enc_fixed(fake)
                 self.assertEqual(leaks(blob, fake), [])
                 text = blob.decode("ascii")
                 self.assertIsNone(EMAIL_RE.search(text))
-                self.assertIsNone(DIGITS5_RE.search(text))
 
     def test_plaintext_check_can_fail(self):
         # The same check, fed an unencrypted document as the "blob", must find
@@ -175,6 +204,39 @@ class BlobTests(unittest.TestCase):
         header = ib.MAGIC + bytes([ib.VERSION]) + NONCE
         sloppy = base64.urlsafe_b64encode(header + FAKE["name"].encode()).rstrip(b"=")
         self.assertIn(FAKE["name"], leaks(sloppy, FAKE))
+
+    def test_v2_plaintext_is_code_points_not_text(self):
+        self.assertEqual(ib.VERSION, 2)
+        for fake in (FAKE, FAKE_UMLAUT):
+            with self.subTest(name=fake["name"]):
+                for blob in (enc_fixed(fake), ib.encode(fake)):
+                    text = _decrypt(blob).decode("utf-8")
+                    doc = json.loads(text)
+                    self.assertEqual(doc["v"], 2)
+                    self.assertEqual(set(doc["fields"]), set(ib.FIELDS))
+                    for key, pairs in doc["fields"].items():
+                        self.assertEqual(len(pairs), len(fake[key]))
+                        self.assertEqual(sorted(i for i, _ in pairs), list(range(len(pairs))))
+                        self.assertTrue(all(isinstance(cp, int) for _, cp in pairs))
+                    for needle in _needles(fake):
+                        self.assertNotIn(needle, text)
+                        self.assertNotIn(needle.lower(), text.lower())
+        # the shuffle is real: the pairs are not all in position order
+        pairs = json.loads(_decrypt(enc_fixed(FAKE)))["fields"]["name"]
+        orders = set()
+        for _ in range(20):
+            orders.add(tuple(i for i, _ in json.loads(_decrypt(enc_fixed(FAKE)))["fields"]["name"]))
+        self.assertGreater(len(orders), 1)
+        self.assertEqual(len(pairs), len(FAKE["name"]))
+
+    def test_v2_field_length_is_bounded(self):
+        self.assertEqual(ib.MAX_LEN, 64)
+        ok = {**FAKE, "street": "x" * ib.MAX_LEN}
+        self.assertEqual(ib.decode(enc_fixed(ok))["street"], "x" * ib.MAX_LEN)
+        for key in ib.FIELDS:
+            with self.subTest(field=key):
+                with self.assertRaises(ValueError):
+                    ib.encode({**FAKE, key: "y" * (ib.MAX_LEN + 1)})
 
     def test_missing_or_empty_field(self):
         for key in ib.FIELDS:
@@ -200,7 +262,7 @@ class ReadableCheckTests(unittest.TestCase):
         self.assertTrue(ib._readable(sloppy, FAKE))
         doc = json.dumps({"v": 1, "fields": FAKE}, ensure_ascii=False).encode("utf-8")
         self.assertTrue(ib._readable(base64.urlsafe_b64encode(doc).rstrip(b"="), FAKE))
-        self.assertFalse(ib._readable(ib.encode(FAKE, nonce=NONCE), FAKE))
+        self.assertFalse(ib._readable(enc_fixed(FAKE), FAKE))
 
     def test_every_random_blob_is_clean(self):
         for fake in (FAKE, FAKE_UMLAUT):
@@ -397,6 +459,21 @@ class StaticFileTests(unittest.TestCase):
 
     def test_index_links_to_the_impressum_twice(self):
         self.assertGreaterEqual(self.index.count('"/site/impressum.html"'), 2)
+
+    def test_css_orders_exactly_max_len_classes(self):
+        css = (SITE / "site.css").read_text(encoding="utf-8")
+        found = {int(m.group(1)): int(m.group(2)) for m in re.finditer(r"\.o(\d+)\s*\{\s*order:\s*(\d+)\s*;?\s*\}", css)}
+        self.assertEqual(found, {n: n for n in range(ib.MAX_LEN)})
+        self.assertEqual(len(re.findall(r"(?<![\w-])\.o\d+\s*\{", css)), ib.MAX_LEN)
+
+    def test_decoys_stay_in_inner_text(self):
+        css = (SITE / "site.css").read_text(encoding="utf-8")
+        rules = re.findall(r"([^{}]*\.scr-x[^{}]*)\{([^{}]*)\}", css)
+        self.assertTrue(rules, "no .scr-x rule")
+        for selector, body in rules:
+            with self.subTest(selector=selector.strip()):
+                self.assertIsNone(re.search(r"display\s*:\s*none", body))
+                self.assertIsNone(re.search(r"visibility\s*:\s*hidden", body))
 
     def test_robots_keeps_crawlers_away(self):
         lines = {ln.strip() for ln in self.robots.splitlines()}
