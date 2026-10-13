@@ -846,12 +846,17 @@ from the feedback service for a solved proof of work
 | Addresses that asked the honeypot (a link no person sees) | the feedback service's memory | 24 hours; a restart forgets them | the mark's own expiry; never written down or logged |
 | Challenges already answered (random numbers, no address) | the feedback service's memory | until the challenge expires (5 minutes) | the service |
 | How often the honeypot was asked since the start (a number) | the feedback service's log | as the log is kept | log rotation |
-| Only if the operator installs it (`scripts/server/impressum-honeypot.caddy`): Caddy's access line for each request to the honeypot, with the client's address and user agent | `/var/log/caddy/baylee-impressum-honeypot.log` on the server | rolled at 1 MiB, two old files | Caddy's roll; fail2ban bans such an address for an hour |
 
 What the page sends along with a challenge is three yes/no answers about
 its own browser (`navigator.webdriver`, whether it names languages,
 whether WebGL draws in software), used for that one challenge's
-difficulty and not kept. No cookie, no third party, no fingerprint.
+difficulty and not kept. No cookie, no third party, no fingerprint. Nothing
+bans an address (owner, 13.10.2026: no fail2ban), and no access log is
+written for the site (`scripts/server/site.caddy`).
+
+The website's own privacy notice for visitors is `web/site/datenschutz.html`
+(Art. 13 GDPR, both languages); it is drawn from this inventory and must
+change with it.
 
 ## Open points
 

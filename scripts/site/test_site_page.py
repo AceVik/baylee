@@ -28,7 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "web" / "site"
-PAGES = ("index.html", "impressum.html")
+PAGES = ("index.html", "impressum.html", "datenschutz.html")
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 
 
@@ -173,6 +173,51 @@ class PageTests(unittest.TestCase):
         js = (SITE / "site.js").read_text(encoding="utf-8")
         self.assertIn("object-fit: contain", css.split(".ctile-pic img", 1)[1].split("}", 1)[0])
         self.assertNotRegex(js, r"\.style\.(filter|opacity)\s*=.*(ctile|cp-pic)")
+
+
+class PrivacyNoticeTests(unittest.TestCase):
+    """web/site/datenschutz.html says what the site does; these hold it to the code."""
+
+    def test_every_page_links_the_privacy_notice_and_the_legal_notice(self):
+        """Each page's footer names both legal pages."""
+        for name in PAGES:
+            tree = parse(name)
+            foot = [n for n in tree.root.walk() if n.tag == "footer"]
+            self.assertEqual(len(foot), 1, name)
+            hrefs = {n.attrs.get("href") for n in foot[0].walk() if n.tag == "a"}
+            self.assertIn("/site/datenschutz.html", hrefs, name)
+            self.assertIn("/site/impressum.html", hrefs, name)
+
+    def test_every_foreign_host_the_page_may_reach_is_named_in_the_notice(self):
+        """A host in the CSP that is not ours is one the visitor's browser talks to."""
+        caddy = (ROOT / "scripts" / "server" / "site.caddy").read_text(encoding="utf-8")
+        csp = re.search(r'Content-Security-Policy "([^"]+)"', caddy).group(1)
+        hosts = set(re.findall(r"https://([a-z0-9.-]+)", csp))
+        notice = (SITE / "datenschutz.html").read_text(encoding="utf-8")
+        for host in sorted(hosts):
+            if host.endswith("baylee.acevik.de"):
+                continue  # our own services, on the same server
+            self.assertTrue(host in notice, f"{host} is in the CSP and not in datenschutz.html")
+
+    def test_no_script_sets_a_cookie(self):
+        """The notice says the site sets no cookie."""
+        for js in SITE.glob("*.js"):
+            self.assertNotIn("document.cookie", js.read_text(encoding="utf-8"), js.name)
+
+    def test_the_site_keeps_no_access_log(self):
+        """The notice says no access log is written; the snippet must agree."""
+        caddy = (ROOT / "scripts" / "server" / "site.caddy").read_text(encoding="utf-8")
+        directives = [l.strip() for l in caddy.splitlines() if l.strip() and not l.strip().startswith("#")]
+        self.assertFalse([l for l in directives if re.match(r"(log|log_skip|skip_log)\b", l)], "site.caddy writes a log")
+
+    def test_the_notice_names_the_controller_only_through_the_impressum(self):
+        """No address, mail or phone on the page: the Impressum names the controller."""
+        tree = parse("datenschutz.html")
+        section = next(n for n in tree.root.walk() if n.attrs.get("id") == "verantwortlich")
+        self.assertIn("/site/impressum.html", {n.attrs.get("href") for n in section.walk() if n.tag == "a"})
+        text = text_of(tree.root)
+        self.assertNotRegex(text, r"[\w.+-]+@[\w-]+\.[\w.]+", "an e-mail address on the privacy page")
+        self.assertNotRegex(text, r"\+\d[\d ]{6,}", "a telephone number on the privacy page")
 
 
 if __name__ == "__main__":

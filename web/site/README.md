@@ -206,6 +206,17 @@ configured must be exactly the address the page is opened at (`localhost`
 and `127.0.0.1` are two origins); any other is refused, and the page then
 says the details could not be loaded.
 
+## The privacy notice
+
+`datenschutz.html` is the website's own privacy notice (Art. 13 GDPR), in
+both languages, linked from every page's footer and beside the contact
+form. It is drawn from `docs/privacy.md` and the code, names the controller
+only by pointing to the Impressum, and must change with the site: a new
+foreign host in the CSP, a cookie, an access log or a new form means a new
+sentence there (`scripts/site/test_site_page.py` holds the hosts and the
+cookies to it). `legal.js` is its language switch. A draft for the owner's
+lawyer (`docs/legal.md` §4).
+
 ## Trying it locally
 
 The page references its files as `/site/…`, so serve the parent folder:

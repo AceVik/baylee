@@ -291,6 +291,25 @@ Urheber- und Medienrecht.
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking.
 
+   **The website's privacy notice** (13.10.2026, after a legal review):
+   `web/site/datenschutz.html`, in German and English, linked from every
+   page's footer and beside the contact form. It names the controller only
+   by pointing to the Impressum; says that the server is rented from netcup
+   in Germany and that the site writes no access log
+   (`scripts/server/site.caddy`); that there are no cookies and no
+   tracking, only the language choice in `localStorage` and GitHub's
+   answers in `sessionStorage` (§ 25(2) no. 2 TDDDG); that the visitor's
+   browser itself asks GitHub's API and, for an opened set or a card shown
+   large, Scryfall's image server, both in the USA; what the contact form
+   and the Impressum's protection keep and for how long (as
+   `docs/privacy.md`); the legal bases (Art. 6(1)(f), the contact form also
+   (b)); the data subject's rights, the complaint to a supervisory
+   authority (the LDI NRW for the owner); and that no automated decision
+   is made. **A draft for the owner's lawyer**: in particular whether a
+   processing agreement with netcup is needed and in place, how long the
+   server's system journal keeps what it keeps, and the transfers to the
+   USA (GitHub, Scryfall) are for them to confirm.
+
    **Impressum (owner decision, 13.10.2026).** The landing page carries one
    (`web/site/impressum.html`, linked from the footer and the contact
    section): "Angaben gemäß § 5 DDG" for a private, non-commercial project
@@ -320,9 +339,9 @@ Urheber- und Medienrecht.
    looks like a robot gets a harder puzzle (at most 16 times the work),
    and only a robot beyond doubt, or an address that followed the
    honeypot's invisible link, gets invented details; the contact form and
-   the no-JavaScript sentence stay as the other way. The one hard block,
-   a fail2ban ban of honeypot addresses, is opt-in for the operator and
-   says why (`scripts/server/impressum-honeypot.caddy`).
+   the no-JavaScript sentence stay as the other way. There is no hard
+   block: the owner decided against fail2ban (13.10.2026), and the files
+   for it were removed.
    **Trade-off, accepted by the owner:** the
    drawn block is `aria-hidden`, so a screen reader cannot read the address
    either; a sentence only screen readers hear says so and points to the

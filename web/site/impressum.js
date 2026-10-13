@@ -264,8 +264,8 @@
     ]);
     var boxStatus = el("p", { class: "imp-status", role: "status", "aria-live": "polite" });
     box.appendChild(el("p", { class: "vh" }, [t(
-      "The address is drawn so that address harvesters cannot read it, and a screen reader cannot either. The button below copies it to the clipboard; or write to us with the contact form on the start page.",
-      "Die Anschrift ist so gezeichnet, dass Adresssammler sie nicht lesen können, und deshalb auch kein Screenreader. Der Knopf darunter kopiert sie in die Zwischenablage; oder schreib uns über das Kontaktformular auf der Startseite."
+      "The address is drawn so that address harvesters cannot read it, and a screen reader cannot either. The button below copies it to the clipboard; or write to me with the contact form on the start page.",
+      "Die Anschrift ist so gezeichnet, dass Adresssammler sie nicht lesen können, und deshalb auch kein Screenreader. Der Knopf darunter kopiert sie in die Zwischenablage; oder schreib mir über das Kontaktformular auf der Startseite."
     )]));
     box.appendChild(address);
     box.appendChild(el("div", { class: "imp-actions" }, [

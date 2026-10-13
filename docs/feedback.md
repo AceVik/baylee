@@ -372,10 +372,9 @@ form); the preflight is the contact form's. Memory only, never written down
 or logged: challenges per address for an hour (an IPv6 address by its /64),
 the honeypot's marks for 24 hours, answered challenges until they expire. The
 log says that the honeypot was asked and how often since the start, never
-by whom. An operator may also ban honeypot addresses at the firewall
-(`scripts/server/impressum-honeypot.caddy`, `scripts/server/fail2ban/`):
-opt-in, and a hard block of a possibly shared address, so the owner's
-decision.
+by whom. Nothing bans an address at the firewall: the owner decided
+against fail2ban (13.10.2026), because a ban is a hard block of a possibly
+shared address, and the site keeps no access log for one to read.
 
 ### References in the text
 
