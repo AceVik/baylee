@@ -63,9 +63,23 @@ fn smugglers_copter_crews_and_loots_on_attack_or_block() {
     }
 }
 
+/// Library, hand and graveyard sizes of seat 0.
+type Sizes = (usize, usize, usize);
+
+fn sizes(e: &Engine<RegistryLookup>) -> Sizes {
+    let seat = PlayerId::new(0);
+    (
+        library_size(e, seat),
+        e.state().zones.list(ZoneLocation::Hand(seat)).len(),
+        e.state().zones.list(ZoneLocation::Graveyard(seat)).len(),
+    )
+}
+
 /// A game stopped at the Copter's "you may draw a card" question: crewed by
-/// the Elves, attacking (or blocking the Angel on p1's turn).
-fn copter_at_its_loot_question(blocking: bool) -> Engine<RegistryLookup> {
+/// the Elves, attacking (or blocking the Angel on p1's turn). The sizes are
+/// read **before** the attack or block is declared, so a draw that happened on
+/// the way to the question is a change like any other.
+fn copter_at_its_loot_question(blocking: bool) -> (Engine<RegistryLookup>, Sizes) {
     use crate::engine::card_tests::legends_kit as kit;
     let mut e = kit::game(
         980,
@@ -86,6 +100,7 @@ fn copter_at_its_loot_question(blocking: bool) -> Engine<RegistryLookup> {
     e.apply(kit::P0, PlayerAction::ChooseObjects { objects: vec![elf] })
         .unwrap();
     pass_until(&mut e, stack_is_empty);
+    let before = sizes(&e);
     if blocking {
         let angel = kit::obj(&e, kit::P1, serra_angel());
         kit::attack(&mut e, &[angel]);
@@ -102,27 +117,17 @@ fn copter_at_its_loot_question(blocking: bool) -> Engine<RegistryLookup> {
     }
     // Not `pass_until` past the question: it answers "you may" with yes.
     pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
-    e
-}
-
-fn hand_and_graveyard(e: &Engine<RegistryLookup>) -> (usize, usize) {
-    let seat = PlayerId::new(0);
-    (
-        e.state().zones.list(ZoneLocation::Hand(seat)).len(),
-        e.state().zones.list(ZoneLocation::Graveyard(seat)).len(),
-    )
+    (e, before)
 }
 
 /// "you **may** draw a card. If you do, discard a card." Declined, on the
 /// attack and on the block: nothing is drawn, no discard is asked and the
-/// hand and graveyard are as they were.
+/// library, hand and graveyard are as they were before the combat.
 #[test]
 fn smugglers_copter_declined_loots_nothing() {
     let p0 = PlayerId::new(0);
     for blocking in [false, true] {
-        let mut e = copter_at_its_loot_question(blocking);
-        let library = library_size(&e, p0);
-        let (hand, graveyard) = hand_and_graveyard(&e);
+        let (mut e, before) = copter_at_its_loot_question(blocking);
         e.apply(p0, PlayerAction::YesNo(false)).unwrap();
         assert!(
             !matches!(e.pending(), Pending::ChooseCards { .. }),
@@ -131,14 +136,9 @@ fn smugglers_copter_declined_loots_nothing() {
         );
         pass_until(&mut e, stack_is_empty);
         assert_eq!(
-            library_size(&e, p0),
-            library,
-            "no card was drawn (blocking = {blocking})"
-        );
-        assert_eq!(
-            hand_and_graveyard(&e),
-            (hand, graveyard),
-            "and nothing was discarded (blocking = {blocking})"
+            sizes(&e),
+            before,
+            "no card drawn and none discarded (blocking = {blocking})"
         );
     }
 }
@@ -150,15 +150,8 @@ fn smugglers_copter_declined_loots_nothing() {
 fn smugglers_copter_accepted_draws_then_discards_one() {
     let p0 = PlayerId::new(0);
     for blocking in [false, true] {
-        let mut e = copter_at_its_loot_question(blocking);
-        let library = library_size(&e, p0);
-        let (hand, graveyard) = hand_and_graveyard(&e);
+        let (mut e, (library, hand, graveyard)) = copter_at_its_loot_question(blocking);
         e.apply(p0, PlayerAction::YesNo(true)).unwrap();
-        assert_eq!(
-            library_size(&e, p0),
-            library - 1,
-            "one card drawn (blocking = {blocking})"
-        );
         let Pending::ChooseCards { options, .. } = e.pending().clone() else {
             panic!(
                 "the discard is asked right after the draw: {:?}",
@@ -180,10 +173,10 @@ fn smugglers_copter_accepted_draws_then_discards_one() {
         .unwrap();
         pass_until(&mut e, stack_is_empty);
         assert_eq!(
-            hand_and_graveyard(&e),
-            (hand, graveyard + 1),
-            "drew one and discarded one: the hand is unchanged, the graveyard a card longer \
-             (blocking = {blocking})"
+            sizes(&e),
+            (library - 1, hand, graveyard + 1),
+            "drew one and discarded one: the library a card shorter, the hand unchanged, the \
+             graveyard a card longer (blocking = {blocking})"
         );
         assert_eq!(
             e.state().object(discarded).unwrap().zone,
