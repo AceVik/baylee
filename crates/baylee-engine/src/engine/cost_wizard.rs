@@ -697,6 +697,7 @@ mod tests {
         let context = RuleContext {
             source,
             text: state.text_changes.get(identity),
+            reference: None,
         };
         state.text_changes.replace(
             identity,

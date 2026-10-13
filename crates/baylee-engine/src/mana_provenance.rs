@@ -172,6 +172,7 @@ impl
             context: RuleContext {
                 source,
                 text: crate::text_changes::TextChangeMap::IDENTITY,
+                reference: None,
             },
             source_version: None,
             controller: PlayerId::new(0),

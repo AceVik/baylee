@@ -27,6 +27,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
                     version: object.version,
                 })
             }),
+        reference: None,
     }
 }
 
@@ -1542,6 +1543,7 @@ fn protected_from_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    reference: None,
                 },
             )
     })
@@ -1589,6 +1591,7 @@ fn untargetable_by_source_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    reference: None,
                 },
             )
     })
@@ -2212,6 +2215,7 @@ pub fn stack_target_options(
     let context = RuleContext {
         source: this,
         text: live_context(state, obj.id).text,
+        reference: None,
     };
     let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));

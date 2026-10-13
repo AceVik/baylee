@@ -840,6 +840,7 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                reference: None,
             },
         ),
     }
@@ -1497,7 +1498,9 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (45, 85));
+        // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
+        // modifier registered on the one object it names.
+        assert_eq!((locking, all.len() - locking), (45, 86));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

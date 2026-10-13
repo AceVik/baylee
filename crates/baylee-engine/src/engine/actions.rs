@@ -936,6 +936,7 @@ impl<L: CardLookup> Engine<L> {
                                     |trigger| crate::text_changes::RuleContext {
                                         source,
                                         text: trigger.text,
+                                        reference: None,
                                     },
                                 );
                                 match self.ask_next_opponent_with_context(
@@ -1081,6 +1082,7 @@ impl<L: CardLookup> Engine<L> {
                                     crate::text_changes::RuleContext {
                                         source: trigger.source,
                                         text: trigger.text,
+                                        reference: None,
                                     },
                                     self.trigger_wall_only(&trigger),
                                     *asking,
