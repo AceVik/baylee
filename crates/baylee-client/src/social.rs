@@ -837,3 +837,6 @@ pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
         "key_home_file": matches!(machine.encryption_note().home, social::KeyHome::File),
     })
 }
+
+#[cfg(test)]
+mod tests;

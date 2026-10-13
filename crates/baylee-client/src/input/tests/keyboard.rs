@@ -330,3 +330,109 @@ fn a_frame_without_a_key_changes_nothing() {
     app.update();
     assert!(app.world().resource::<Moved>().0, "a key reached the duel");
 }
+
+/// The primary key at the real `keyboard` system with a land to play under
+/// the cursor, and `chat` inserted as the chat window's state when given.
+/// The land is what a key that got through would play, so an empty outbox
+/// with the chat inserted is the chat's claim and nothing else.
+fn pressing_with_the_chat(
+    chat: Option<crate::social::ChatUi>,
+    key: bevy::prelude::KeyCode,
+) -> Vec<PlayerAction> {
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+
+    let duel = crate::Duel {
+        interaction: Some(baylee_client_core::interaction::Interaction::new(
+            Pending::Priority {
+                player: PlayerId::new(0),
+                legal: Box::new(LegalActions {
+                    unpaid_abilities: vec![],
+                    payable: vec![],
+                    spell_increases: vec![],
+                    activation_increases: vec![],
+                    can_pass: true,
+                    lands: vec![obj(3)],
+                    castable: vec![],
+                    mana_abilities: vec![],
+                    abilities: vec![],
+                    suspendable: vec![],
+                    granted_actions: vec![],
+                }),
+            },
+            PlayerId::new(0),
+        )),
+        hovered: Some(obj(3)),
+        ..Default::default()
+    };
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .insert_resource(duel)
+        .add_systems(Update, keyboard);
+    if let Some(chat) = chat {
+        app.insert_resource(chat);
+    }
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(key);
+    app.update();
+    app.world().resource::<crate::Duel>().outbox().to_vec()
+}
+
+/// Without a chat window the table's keys are the table's (the control for
+/// the three tests below: the same press plays the land).
+#[test]
+fn a_table_key_plays_the_land_when_no_chat_is_up() {
+    assert_eq!(
+        pressing_with_the_chat(None, bevy::prelude::KeyCode::Enter),
+        [PlayerAction::PlayLand { card: obj(3) }]
+    );
+}
+
+/// A chat window that is open but whose boxes have no caret does not take
+/// the keys: the player plays on with the log beside them.
+#[test]
+fn an_idle_chat_leaves_the_tables_keys_alone() {
+    let chat = crate::social::ChatUi {
+        open: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        pressing_with_the_chat(Some(chat), bevy::prelude::KeyCode::Enter),
+        [PlayerAction::PlayLand { card: obj(3) }]
+    );
+}
+
+/// While the composer has the caret every key is the chat's: Enter sends
+/// the line, it does not also play the land under the cursor.
+#[test]
+fn typing_in_the_chat_keeps_the_tables_keys_from_firing() {
+    let chat = crate::social::ChatUi {
+        typing: true,
+        ..Default::default()
+    };
+    assert!(chat.holds_keyboard());
+    assert_eq!(
+        pressing_with_the_chat(Some(chat), bevy::prelude::KeyCode::Enter),
+        []
+    );
+}
+
+/// The frame the composer let go of the keys is swallowed too: the Enter
+/// that sent the line is not an Enter for the table.
+#[test]
+fn the_frame_the_chat_let_go_of_the_keys_is_swallowed() {
+    let chat = crate::social::ChatUi {
+        swallow: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        pressing_with_the_chat(Some(chat), bevy::prelude::KeyCode::Enter),
+        []
+    );
+}
