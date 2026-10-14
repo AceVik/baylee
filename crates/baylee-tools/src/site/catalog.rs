@@ -13,8 +13,14 @@ pub(super) const LEDGER: &str = "crates/baylee-cards-index/src/generated.rs";
 const CORE_INDEX: &str = "crates/baylee-core/src/generated/index";
 const CARDS: &str = "crates/baylee-cards/src/cards";
 const UNPLAYABLE: &str = "data/unplayable.tsv";
-pub(super) const STATUSES: [&str; 5] =
-    ["implemented", "partial", "unimplemented", "absent", "never"];
+pub(super) const STATUSES: [&str; 6] = [
+    "implemented",
+    "generated",
+    "partial",
+    "unimplemented",
+    "absent",
+    "never",
+];
 
 #[derive(Clone, Debug)]
 pub(super) struct Row {
@@ -176,10 +182,8 @@ pub(super) fn read_card(path: &str, text: &str) -> Result<Card> {
     ensure!(covs.len() <= 1, "{path}: {} coverage fields", covs.len());
     let (status, note) = if let Some(cov) = covs.first() {
         match &cov[1] {
-            // The landing page keeps its four states until it is reworked
-            // (owner: web not before beta.8): a fully read, untested card
-            // is playable there.
-            "Implemented" | "Generated" => ("implemented", None),
+            "Implemented" => ("implemented", None),
+            "Generated" => ("generated", None),
             "Partial" => (
                 "partial",
                 partial_reason(&text[cov.get(0).unwrap().end()..])?,

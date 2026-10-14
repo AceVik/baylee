@@ -9,7 +9,13 @@ use std::time::Duration;
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 
-pub(super) const PICTURED: [&str; 4] = ["implemented", "partial", "unimplemented", "never"];
+pub(super) const PICTURED: [&str; 5] = [
+    "implemented",
+    "generated",
+    "partial",
+    "unimplemented",
+    "never",
+];
 pub(super) const UB_SETS: [&str; 17] = [
     "ltr", "ltc", "who", "pip", "acr", "fin", "fic", "40k", "bot", "rex", "msh", "msc", "spe",
     "tla", "tle", "ptla", "clu",

@@ -61,7 +61,13 @@ mod picturedtests {
     fn test_every_status_in_the_pictured_list_keeps_its_picture() {
         assert_eq!(
             PICTURED,
-            ["implemented", "partial", "unimplemented", "never"]
+            [
+                "implemented",
+                "generated",
+                "partial",
+                "unimplemented",
+                "never"
+            ]
         );
         for status in PICTURED {
             assert_eq!(
@@ -856,6 +862,10 @@ fn card_parser_requires_oracle_and_explicit_or_stub_coverage() {
     assert!(catalog::read_card("a.rs", &base).is_err());
     let c = catalog::read_card("a.rs", &format!("{base} // GENERATED STUB")).unwrap();
     assert_eq!(c.status, "unimplemented");
+    for (cov, status) in [("Implemented", "implemented"), ("Generated", "generated")] {
+        let c = catalog::read_card("a.rs", &format!("{base} coverage = Coverage::{cov}")).unwrap();
+        assert_eq!(c.status, status);
+    }
     assert!(
         catalog::read_card(
             "a.rs",

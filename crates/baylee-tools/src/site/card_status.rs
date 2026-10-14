@@ -96,7 +96,9 @@ pub(super) fn cards(
     let in_pool = sets
         .values()
         .flatten()
-        .filter(|c| ["implemented", "partial", "unimplemented"].contains(&c.status.as_str()))
+        .filter(|c| {
+            ["implemented", "generated", "partial", "unimplemented"].contains(&c.status.as_str())
+        })
         .count();
     ensure!(
         in_pool == catalog.pool.len(),

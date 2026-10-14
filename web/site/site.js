@@ -849,6 +849,7 @@
   var SCRYFALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   var STATUS = {
     implemented: { group: "implemented", en: "Full", de: "Voll" },
+    generated: { group: "generated", en: "Untested", de: "Ungetestet" },
     partial: { group: "partial", en: "Partial", de: "Teilweise" },
     unimplemented: { group: "none", en: "Not yet", de: "Noch nicht" },
     absent: { group: "none", en: "Not yet", de: "Noch nicht" },
@@ -869,6 +870,7 @@
   function why(c) {
     switch (c.status) {
       case "implemented": return [tt("Plays as printed.", "Spielt wie gedruckt.")];
+      case "generated": return [tt("Playable: every sentence is read by the rules engine, but no test plays it yet.", "Spielbar: jeder Satz wird von der Regel-Engine gelesen, aber noch kein Test spielt sie.")];
       case "partial": return [tt("Partly implemented. Missing: ", "Teilweise umgesetzt. Es fehlt (Notiz auf Englisch): ") + (c.note || "")];
       case "unimplemented": return [tt("In the card pool, but its abilities are not written yet: not playable.", "Im Kartenpool, aber ihre Fähigkeiten sind noch nicht geschrieben: nicht spielbar.")];
       case "absent": return [tt("Not in the card pool yet.", "Noch nicht im Kartenpool.")];
@@ -882,10 +884,11 @@
   function bar(s) {
     var of = s.total - s.never;
     var b = el("div", { class: "pbar", "aria-hidden": "true" }, [
-      el("span", { class: "pbar-full" }), el("span", { class: "pbar-partial" })
+      el("span", { class: "pbar-full" }), el("span", { class: "pbar-generated" }), el("span", { class: "pbar-partial" })
     ]);
     // CSSOM, not a style attribute: the page's CSP allows no inline style.
     b.firstChild.style.width = (of ? s.implemented * 100 / of : 100) + "%";
+    b.children[1].style.width = (of ? (s.generated || 0) * 100 / of : 0) + "%";
     b.lastChild.style.width = (of ? s.partial * 100 / of : 0) + "%";
     return b;
   }
@@ -893,6 +896,7 @@
     var none = s.unimplemented + s.absent;
     var parts = [
       el("span", { class: "c c-implemented" }, [numT(s.implemented), " ", t("full", "voll")]),
+      el("span", { class: "c c-generated" }, [numT(s.generated || 0), " ", t("untested", "ungetestet")]),
       el("span", { class: "c c-partial" }, [numT(s.partial), " ", t("partial", "teilweise")]),
       el("span", { class: "c c-none" }, [numT(none), " ", t("not yet", "noch nicht")])
     ];
@@ -932,7 +936,7 @@
   // A picture only for a card in the pool, and only where the data names
   // one: card_status.py writes none for a card outside the pool or a
   // Universes Beyond printing (docs/legal.md §3), and this holds it here too.
-  var POOL = { implemented: 1, partial: 1, unimplemented: 1, never: 1 };
+  var POOL = { implemented: 1, generated: 1, partial: 1, unimplemented: 1, never: 1 };
   function imgOf(c, size) {
     return POOL[c.status] && c.img && SCRYFALL_ID.test(c.img) ? IMG_HOST + "/" + size + "/front/" + c.img[0] + "/" + c.img[1] + "/" + c.img + ".jpg" : null;
   }
@@ -1110,6 +1114,7 @@
     var groups = [
       ["all", "All", "Alle", s.total],
       ["implemented", "Full", "Voll", s.implemented],
+      ["generated", "Untested", "Ungetestet", s.generated || 0],
       ["partial", "Partial", "Teilweise", s.partial],
       ["none", "Not yet", "Noch nicht", s.unimplemented + s.absent],
       ["never", "Never", "Nie", s.never]
@@ -1192,11 +1197,11 @@
   var setsDoc = null, setsLoading = null, built = false;
   function yearOf(s) { return parseInt((s.released || "").slice(0, 4), 10) || FIRST_YEAR; }
   function eraOf(s) { return FIRST_YEAR + Math.floor((yearOf(s) - FIRST_YEAR) / ERA) * ERA; }
-  function begun(s) { return s.implemented + s.partial > 0; }
+  function begun(s) { return s.implemented + (s.generated || 0) + s.partial > 0; }
   function finished(s) { var of = s.total - s.never; return of > 0 && s.implemented === of; }
   function sum(list) {
-    var a = { total: 0, implemented: 0, partial: 0, unimplemented: 0, absent: 0, never: 0 };
-    list.forEach(function (s) { for (var k in a) a[k] += s[k]; });
+    var a = { total: 0, implemented: 0, generated: 0, partial: 0, unimplemented: 0, absent: 0, never: 0 };
+    list.forEach(function (s) { for (var k in a) a[k] += s[k] || 0; });
     return a;
   }
   var ui = {
@@ -1230,10 +1235,10 @@
     var p = pct(tot.implemented, all);
     var overall = el("div", { class: "sets-overall glass" }, [
       el("p", { class: "sets-total" }, [t(
-        doc.sets.length + " sets, " + Number(doc.corpus).toLocaleString("en-GB") + " cards: " + Number(tot.implemented).toLocaleString("en-GB") + " full (" + p + " %), " + tot.partial + " partial, " + Number(tot.unimplemented + tot.absent).toLocaleString("en-GB") + " not yet, " + tot.never + " never. Measured at commit " + String(doc.rev).slice(0, 9) + ".",
-        doc.sets.length + " Sets, " + Number(doc.corpus).toLocaleString("de-DE") + " Karten: " + Number(tot.implemented).toLocaleString("de-DE") + " voll (" + p + " %), " + tot.partial + " teilweise, " + Number(tot.unimplemented + tot.absent).toLocaleString("de-DE") + " noch nicht, " + tot.never + " nie. Gemessen an Commit " + String(doc.rev).slice(0, 9) + "."
+        doc.sets.length + " sets, " + Number(doc.corpus).toLocaleString("en-GB") + " cards: " + Number(tot.implemented).toLocaleString("en-GB") + " full (" + p + " %), " + (tot.generated || 0) + " untested, " + tot.partial + " partial, " + Number(tot.unimplemented + tot.absent).toLocaleString("en-GB") + " not yet, " + tot.never + " never. Measured at commit " + String(doc.rev).slice(0, 9) + ".",
+        doc.sets.length + " Sets, " + Number(doc.corpus).toLocaleString("de-DE") + " Karten: " + Number(tot.implemented).toLocaleString("de-DE") + " voll (" + p + " %), " + (tot.generated || 0) + " ungetestet, " + tot.partial + " teilweise, " + Number(tot.unimplemented + tot.absent).toLocaleString("de-DE") + " noch nicht, " + tot.never + " nie. Gemessen an Commit " + String(doc.rev).slice(0, 9) + "."
       )]),
-      bar({ total: doc.corpus, never: tot.never, implemented: tot.implemented, partial: tot.partial })
+      bar({ total: doc.corpus, never: tot.never, implemented: tot.implemented, generated: tot.generated || 0, partial: tot.partial })
     ]);
     motion.grow(overall);
     box.appendChild(overall);

@@ -45,6 +45,7 @@
   --focus: #ffe8a8;
   --ok: #7fd3a1;
   --warn: #f0c076;
+  --untested: #86c9c4;
   --bad: #f09a8f;
   --veil-top: rgba(8, 14, 28, 0.30);
   --veil-mid: rgba(11, 19, 34, 0.55);
@@ -85,6 +86,7 @@
     --focus: #1f2a44;
     --ok: #1e7a4a;
     --warn: #8a5a05;
+    --untested: #1f6f6a;
     --bad: #a1332a;
     --veil-top: rgba(222, 231, 244, 0.40);
     --veil-mid: rgba(232, 238, 247, 0.72);
@@ -125,6 +127,7 @@
   --focus: #1f2a44;
   --ok: #1e7a4a;
   --warn: #8a5a05;
+  --untested: #1f6f6a;
   --bad: #a1332a;
   --veil-top: rgba(222, 231, 244, 0.40);
   --veil-mid: rgba(232, 238, 247, 0.72);
@@ -768,6 +771,7 @@ html[data-js] .reveal.in.glass { transition: opacity 760ms var(--ease), transfor
 .legend li { display: inline-flex; align-items: center; gap: 0.45em; }
 .swatch { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 3px; flex: none; }
 .s-implemented, .b-implemented, .pbar-full { background: var(--ok); }
+.s-generated, .b-generated, .pbar-generated { background: var(--untested); }
 .s-partial, .b-partial, .pbar-partial { background: var(--warn); }
 .s-none, .b-none { background: var(--ink-faint); }
 .s-never, .b-never { background: var(--bad); }
@@ -821,6 +825,7 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
 .set-counts .c { white-space: nowrap; }
 .set-counts .c::before { content: ""; display: inline-block; width: 0.55em; height: 0.55em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.05em; }
 .c-implemented::before { background: var(--ok); }
+.c-generated::before { background: var(--untested); }
 .c-partial::before { background: var(--warn); }
 .c-none::before { background: var(--ink-faint); }
 .c-never::before { background: var(--bad); }
@@ -847,6 +852,7 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
 .cgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.2rem, 1fr)); gap: 0.9rem 0.7rem; }
 @media (max-width: 420px) { .cgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cgrid[data-filter="implemented"] .ctile:not([data-group="implemented"]),
+.cgrid[data-filter="generated"] .ctile:not([data-group="generated"]),
 .cgrid[data-filter="partial"] .ctile:not([data-group="partial"]),
 .cgrid[data-filter="none"] .ctile:not([data-group="none"]),
 .cgrid[data-filter="never"] .ctile:not([data-group="never"]) { display: none; }

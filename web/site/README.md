@@ -51,12 +51,16 @@ cargo run --profile tools -p baylee-tools -- site card-status --rev origin/main 
 It reads the CardIndex ledger (every card, the set it first appeared in, in
 release order), every card file's `coverage` and `scryfall_id`, and
 `data/unplayable.tsv`; it checks each set's count against the core index's
-per-set file and prints the totals. Set names come from one request to
+per-set file and prints the totals. A card's status is `implemented`, `generated`
+(`Coverage::Generated`: fully read by codegen and playable, but no card test
+yet; the page says "Untested"), `partial`, `unimplemented`, `absent` or
+`never`; data written before `generated` existed lacks the field, and
+`site.js` counts it as 0. Set names come from one request to
 Scryfall's set list, cached under `target/site-cache/` (`--no-fetch` reuses
 the names of the previous output).
 
 **Which card has a picture** (legal review, 13.10.2026; `docs/legal.md` §3):
-only a card in the pool (implemented, partial, unimplemented) or on the
+only a card in the pool (implemented, generated, partial, unimplemented) or on the
 never-built list, and never a Universes Beyond printing: Scryfall's
 `security_stamp` "triangle", or a set in `UB_SETS` (the newer Marvel and
 Avatar sets carry no triangle, so the stamp alone is not enough). Every other
