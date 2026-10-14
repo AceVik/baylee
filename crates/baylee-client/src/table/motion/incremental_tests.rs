@@ -646,7 +646,167 @@ fn age_removes_recoil_before_glide_on_reduce_motion_and_the_old_pulse_never_resu
     }
 }
 
-fn benchmark_leg(reference: bool, count: usize, changed: usize) -> Duration {
+#[derive(Resource, Default)]
+struct ModeProbe {
+    dense_before: bool,
+    active_before: usize,
+}
+
+fn traced_glide(
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    cards: GlideCards,
+    report: Option<ResMut<GlideReport>>,
+    placing: Option<ResMut<Placing>>,
+    mut probe: ResMut<ModeProbe>,
+) {
+    probe.dense_before = *cards.dense;
+    probe.active_before = cards.active.len();
+    assert!(
+        cards.candidates.is_empty(),
+        "candidate storage is reused, not retained as work"
+    );
+    if *cards.dense {
+        assert!(
+            cards.active.is_empty(),
+            "dense frames must not populate the hash set"
+        );
+    }
+    glide(time, prefs, cards, report, placing);
+}
+
+fn modes_match_original(scenario: impl Fn(&mut App) -> Vec<Frame>) {
+    let mut candidate = App::new();
+    candidate
+        .init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<GlideReport>()
+        .init_resource::<Placing>()
+        .init_resource::<ModeProbe>()
+        .add_systems(Update, traced_glide);
+    assert_eq!(scenario(&mut candidate), scenario(&mut app(true)));
+}
+
+fn expect_mode(app: &App, dense: bool, active: usize) {
+    if let Some(probe) = app.world().get_resource::<ModeProbe>() {
+        assert_eq!(probe.dense_before, dense);
+        assert_eq!(probe.active_before, active);
+    }
+}
+
+#[test]
+fn dense_returns_to_one_flier_and_reenters_for_external_targets_and_component_changes() {
+    modes_match_original(|app| {
+        let ids: Vec<_> = (0..16)
+            .map(|_| card(app, Transform::from_xyz(8.0, 0.0, 0.0), Transform::IDENTITY))
+            .collect();
+        let mut frames = vec![step(app, &ids, 0.016), step(app, &ids, 0.016)];
+        expect_mode(app, true, 0);
+        assert_eq!(frames.last().unwrap().report.moving, 16);
+        retarget(app, ids[0], Transform::from_xyz(-8.0, 0.0, 0.0));
+        *app.world_mut().get_mut::<Transform>(ids[1]).unwrap() = Transform::IDENTITY;
+        app.world_mut()
+            .entity_mut(ids[2])
+            .insert(Visibility::Hidden);
+        app.world_mut().entity_mut(ids[3]).remove::<Motion>();
+        app.world_mut().entity_mut(ids[4]).remove::<Transform>();
+        app.world_mut().entity_mut(ids[5]).despawn();
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, true, 0);
+        app.world_mut().entity_mut(ids[3]).insert(Motion {
+            target: Transform::IDENTITY,
+        });
+        app.world_mut()
+            .entity_mut(ids[4])
+            .insert(Transform::IDENTITY);
+        // One continuously changing flying target must not pin all cards to
+        // the dense path after the others finish their entry animations.
+        for n in 0..90_usize {
+            let x = if n.is_multiple_of(2) { 9.0 } else { -9.0 };
+            retarget(app, ids[0], Transform::from_xyz(x, 0.0, 0.0));
+            frames.push(step(app, &ids, 0.016));
+        }
+        expect_mode(app, false, 1);
+        assert_eq!(frames.last().unwrap().report.moving, 1);
+        // Wake more than a quarter while sparse, including an external pose
+        // change. The next frame must use a dense scan without target writes.
+        for &e in &ids[6..10] {
+            retarget(app, e, Transform::from_xyz(-8.0, 0.0, 0.0));
+        }
+        *app.world_mut().get_mut::<Transform>(ids[10]).unwrap() = Transform::IDENTITY;
+        app.world_mut().entity_mut(ids[2]).remove::<Visibility>();
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, false, 1);
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, true, 0);
+        app.world_mut().resource_mut::<Placing>().arm();
+        frames.push(step(app, &ids, 0.016));
+        assert_eq!(frames.last().unwrap().report.moving, 0);
+        for _ in 0..3 {
+            frames.push(step(app, &ids, 0.016));
+            expect_mode(app, false, 0);
+        }
+        assert_eq!(app.world().resource::<Placing>().frames, 0);
+        frames
+    });
+}
+
+#[test]
+fn dense_carries_delayed_recoil_into_sparse_and_settles_after_removal_in_dense() {
+    modes_match_original(|app| {
+        let recoil = recoil_cards(app);
+        let mut ids = recoil.to_vec();
+        ids.extend(
+            (0..14).map(|_| card(app, Transform::from_xyz(8.0, 0.0, 0.0), Transform::IDENTITY)),
+        );
+        let mut frames = vec![step(app, &ids, 0.016), step(app, &ids, 0.016)];
+        expect_mode(app, true, 0);
+        strike(app, true);
+        for &e in &ids[2..] {
+            app.world_mut().entity_mut(e).insert(Visibility::Hidden);
+        }
+        frames.push(step(app, &ids, 0.10));
+        expect_mode(app, true, 0);
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, false, 2);
+        assert_eq!(
+            at(app, recoil[0]),
+            Transform::IDENTITY,
+            "delayed recoil is retained at zero offset"
+        );
+        for &e in &ids[2..7] {
+            app.world_mut().entity_mut(e).remove::<Visibility>();
+            retarget(app, e, Transform::from_xyz(-8.0, 0.0, 0.0));
+        }
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, false, 2);
+        frames.push(step(app, &ids, 0.25));
+        expect_mode(app, true, 0);
+        assert!(at(app, recoil[0]).translation.x > 0.0);
+        assert!(at(app, recoil[1]).translation.x < 4.0);
+        for &e in &recoil {
+            app.world_mut()
+                .entity_mut(e)
+                .remove::<crate::combatfx::Recoil>();
+        }
+        for &e in &ids[2..] {
+            app.world_mut().entity_mut(e).insert(Visibility::Hidden);
+        }
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, true, 0);
+        frames.push(step(app, &ids, 0.016));
+        expect_mode(app, false, 2);
+        for _ in 0..90 {
+            frames.push(step(app, &ids, 0.016));
+        }
+        expect_mode(app, false, 0);
+        assert_eq!(at(app, recoil[0]), Transform::IDENTITY);
+        assert_eq!(at(app, recoil[1]), Transform::from_xyz(4.0, 0.0, 0.0));
+        frames
+    });
+}
+
+fn benchmark_leg(reference: bool, count: usize, changed: usize, target_period: usize) -> Duration {
     let mut world = World::new();
     world.init_resource::<Time>();
     world.init_resource::<crate::prefs::Prefs>();
@@ -669,12 +829,18 @@ fn benchmark_leg(reference: bool, count: usize, changed: usize) -> Duration {
     system.initialize(&mut world);
     let mut frame = |n: usize| {
         // Include writer cost, especially Motion's additional summary tick.
-        for &e in &ids[..changed] {
-            let y = if n.is_multiple_of(2) { 1.0 } else { -1.0 };
-            if reference {
-                world.get_mut::<PlainMotion>(e).unwrap().0.translation.y = y;
+        if n.is_multiple_of(target_period) {
+            let y = if (n / target_period).is_multiple_of(2) {
+                1.0
             } else {
-                world.get_mut::<Motion>(e).unwrap().target.translation.y = y;
+                -1.0
+            };
+            for &e in &ids[..changed] {
+                if reference {
+                    world.get_mut::<PlainMotion>(e).unwrap().0.translation.y = y;
+                } else {
+                    world.get_mut::<Motion>(e).unwrap().target.translation.y = y;
+                }
             }
         }
         world
@@ -690,12 +856,16 @@ fn benchmark_leg(reference: bool, count: usize, changed: usize) -> Duration {
     for n in 0..6_000 {
         frame(n);
     }
-    start.elapsed()
+    let elapsed = start.elapsed();
+    // Also prove that the periodically retargeted case has not become an idle
+    // benchmark. Sixteen frames leave ample distance above SETTLED.
+    assert_eq!(world.resource::<GlideReport>().moving, changed);
+    elapsed
 }
 
 /// Run only in release under the global Cargo lock, without another client or
-/// measurement. Two table sizes, idle/one/all rewritten goals, 6,000 frames per
-/// leg, three A/B/A cycles. Baseline's component has no summary-tick writer tax.
+/// measurement. Two table sizes, idle/one/eighth/quarter/half/all rewritten goals,
+/// 6,000 frames per leg, three A/B/A cycles. Baseline has no summary-tick writer tax.
 /// Repeat the same build without `Motion`'s `summary_tick` annotation for the third
 /// variant; the candidate algorithm and its fallback stay unchanged.
 /// This measures only these systems plus target writes, not whole-frame/GPU cost.
@@ -704,13 +874,33 @@ fn benchmark_leg(reference: bool, count: usize, changed: usize) -> Duration {
 fn benchmark_glide_scan_vs_active() {
     let summary_tick = Motion::HAS_SUMMARY_TICK;
     for count in [40, 400] {
-        for changed in [0, 1, count] {
+        for changed in [0, 1, count / 8, count / 4, count / 2, count] {
             for cycle in 0..3 {
-                let a1 = benchmark_leg(true, count, changed);
-                let b = benchmark_leg(false, count, changed);
-                let a2 = benchmark_leg(true, count, changed);
+                let a1 = benchmark_leg(true, count, changed, 1);
+                let b = benchmark_leg(false, count, changed, 1);
+                let a2 = benchmark_leg(true, count, changed, 1);
                 eprintln!(
                     "glide summary_tick={summary_tick} cards={count} changed={changed} cycle={cycle} A1={a1:?} B={b:?} A2={a2:?}"
+                );
+            }
+        }
+    }
+}
+
+/// Same isolated A/B/A, but each target is held for sixteen animation frames.
+/// This separates sustained motion from writing every target on every frame.
+#[test]
+#[ignore = "bounded release CPU measurement; parent owns the global Cargo lock"]
+fn benchmark_glide_in_flight_without_continuous_target_writes() {
+    let summary_tick = Motion::HAS_SUMMARY_TICK;
+    for count in [40, 400] {
+        for changed in [1, count] {
+            for cycle in 0..3 {
+                let a1 = benchmark_leg(true, count, changed, 16);
+                let b = benchmark_leg(false, count, changed, 16);
+                let a2 = benchmark_leg(true, count, changed, 16);
+                eprintln!(
+                    "glide summary_tick={summary_tick} cards={count} changed={changed} target_period=16 cycle={cycle} A1={a1:?} B={b:?} A2={a2:?}"
                 );
             }
         }

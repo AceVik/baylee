@@ -129,6 +129,7 @@ type CardPoses<'w, 's> = Query<
     'w,
     's,
     (
+        Entity,
         &'static Motion,
         &'static mut Transform,
         Option<&'static crate::combatfx::Recoil>,
@@ -145,12 +146,16 @@ type RecoilingCards<'w, 's> =
 /// ticks still need a row scan: either can be changed independently of Motion.
 /// The active set holds full entity generations, including departing cards that
 /// have lost `CardVisual`; a missing `Motion`/`Transform` drops an entry on lookup.
+/// Above one quarter active, a linear scan avoids per-card hash lookups. It
+/// retains only a bounded candidate list until the sparse path pays again.
 #[derive(SystemParam)]
 pub struct GlideCards<'w, 's> {
     targets: MotionTargets<'w, 's>,
     poses: ParamSet<'w, 's, (ChangedPoses<'w, 's>, CardPoses<'w, 's>)>,
     recoils: RecoilingCards<'w, 's>,
     active: Local<'s, EntityHashSet>,
+    dense: Local<'s, bool>,
+    candidates: Local<'s, Vec<Entity>>,
 }
 
 /// Returns the number of per-entity target ticks inspected, so the bulk-skip
@@ -179,6 +184,10 @@ fn wake_targets(targets: &MotionTargets, active: &mut EntityHashSet) -> usize {
 
 impl GlideCards<'_, '_> {
     fn advance(&mut self, still: bool, t: f32, now: f32) -> usize {
+        if *self.dense {
+            let threshold = self.targets.iter().len() / 4;
+            return self.advance_dense(still, t, now, threshold);
+        }
         wake_targets(&self.targets, &mut self.active);
         self.active.extend(self.poses.p0().iter());
         // Even a zero offset can be a delayed strike. Recoil keeps its card
@@ -188,10 +197,17 @@ impl GlideCards<'_, '_> {
         if self.active.is_empty() {
             return 0;
         }
+        // This archetypal query's exact length sums table lengths, not rows.
+        let threshold = self.targets.iter().len() / 4;
+        if self.active.len() > threshold {
+            self.active.clear();
+            *self.dense = true;
+            return self.advance_dense(still, t, now, threshold);
+        }
         let mut moving = 0;
         let mut poses = self.poses.p1();
         self.active.retain(|entity| {
-            let Ok((motion, mut transform, recoil, seen)) = poses.get_mut(*entity) else {
+            let Ok((_, motion, mut transform, recoil, seen)) = poses.get_mut(*entity) else {
                 return false;
             };
             let mut target = motion.target;
@@ -202,6 +218,35 @@ impl GlideCards<'_, '_> {
             moving += usize::from(moved);
             moved || recoil.is_some()
         });
+        moving
+    }
+
+    fn advance_dense(&mut self, still: bool, t: f32, now: f32, threshold: usize) -> usize {
+        let mut moving = 0;
+        let mut needed = 0;
+        self.candidates.clear();
+        for (entity, motion, mut transform, recoil, seen) in &mut self.poses.p1() {
+            let mut target = motion.target;
+            if !still && let Some(recoil) = recoil {
+                target.translation += recoil.offset(now);
+            }
+            let moved = advance_card(&mut transform, target, seen, still, t);
+            moving += usize::from(moved);
+            if moved || recoil.is_some() {
+                needed += 1;
+                // One extra entry proves this frame remains dense. No hashing
+                // or unbounded candidate collection in the all-moving case.
+                if self.candidates.len() <= threshold {
+                    self.candidates.push(entity);
+                }
+            }
+        }
+        if needed <= threshold {
+            self.active.extend(self.candidates.drain(..));
+            *self.dense = false;
+        } else {
+            self.candidates.clear();
+        }
         moving
     }
 }
