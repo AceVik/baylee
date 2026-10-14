@@ -172,7 +172,7 @@ flate2 = "1"
 # `onnx`, trainer-only). Pinned exactly: 2.0 is still a release candidate.
 # Nothing builds it by default, so CI never downloads the runtime.
 ort = { version = "=2.0.0-rc.13", default-features = false }
-base64 = "0.22"
+base64 = "0.23"
 # The client's updater (`baylee-update`, #326). `semver` orders release tags,
 # pre-releases included, and was already in the tree. `ed25519-dalek` checks
 # the signature over every release archive: the dalek project's crate,

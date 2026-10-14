@@ -1150,7 +1150,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "baylee-build",
  "flate2",
  "getrandom 0.4.3",
@@ -1192,7 +1192,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "baylee-build",
  "baylee-cards",
  "baylee-cards-index",
@@ -1366,7 +1366,7 @@ dependencies = [
 name = "baylee-update"
 version = "0.1.0-beta.7b"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "ed25519-dalek",
  "flate2",
  "getrandom 0.4.3",
