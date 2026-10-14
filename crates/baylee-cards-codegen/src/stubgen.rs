@@ -784,7 +784,7 @@ fn transcode_card(
 /// # Errors
 /// [`CodegenError::Mana`] when a mana cost fails validation.
 // One card written out end to end, with the reason for each field beside it.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub fn render_stub(
     card: &ScryfallCard,
     row: &LedgerEntry,

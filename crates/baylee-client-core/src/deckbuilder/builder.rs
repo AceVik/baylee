@@ -1971,9 +1971,9 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
 fn pool_flags(card: &PoolCard) -> Vec<Flag> {
     let mut flags = Vec::with_capacity(4);
     flags.push(match card.coverage {
-        Coverage::Implemented => Flag::Playable,
-        // Playable, so `is:playable` finds it; `is:generated` apart below.
-        Coverage::Generated => Flag::Playable,
+        // Generated is playable too, so `is:playable` finds it;
+        // `is:generated` apart below.
+        Coverage::Implemented | Coverage::Generated => Flag::Playable,
         Coverage::Partial => Flag::Partial,
         Coverage::Unimplemented => Flag::Stub,
     });

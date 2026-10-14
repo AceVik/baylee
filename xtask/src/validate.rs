@@ -168,6 +168,7 @@ pub(crate) const PRINTING_FLOOR: PrintingTally = PrintingTally {
 /// in this command rather than in the pool, and would otherwise be silent.
 pub(crate) const HEADER_TYPE_FLOOR: usize = 1360;
 
+#[allow(clippy::too_many_lines)] // one sweep over every card file, in order
 pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
@@ -204,8 +205,7 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
     // owned card is a reader's output and is corrected by fixing the reader,
     // a hand-owned one is somebody's and codegen never touches it.
     let mut machine = 0usize;
-    // Of the machine-owned, those no card test plays yet
-    // (`Coverage::Generated`); codegen promotes each once its test lands.
+    // Of those, the ones no card test plays yet (`Coverage::Generated`).
     let mut generated = 0usize;
     // `validate` reads every card's header off disk, so it has to find the
     // files the taxonomy filed rather than the ones a flat directory used to
@@ -247,8 +247,7 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_search_tapped_matches_text(&slug, &content, &mut problems);
         let def = by_name.get(name.split(" // ").next().unwrap_or(name));
-        generated +=
-            usize::from(def.is_some_and(|d| d.coverage == baylee_cards::dsl::Coverage::Generated));
+        generated += usize::from(def.is_some_and(|d| d.is_fully_read() && !d.is_implemented()));
         check_header_matches_code(
             &slug,
             &content,
