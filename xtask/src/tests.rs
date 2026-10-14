@@ -862,6 +862,61 @@ fn an_unrelated_unless_clause_states_no_arrival_bound() {
     assert_eq!(printed_enters_tapped_bound("{T}: Add {G}."), None);
 }
 
+/// Modern and legacy arrival phrases keep all three counted-bound forms.
+#[test]
+fn enters_tapped_phrases_preserve_counted_arrival_bounds() {
+    for arrival in ["enters tapped", "enters the battlefield tapped"] {
+        for (text, expected) in [
+            (
+                format!("This land {arrival} unless you control two or more other lands."),
+                PrintedBound::AtLeast(2),
+            ),
+            (
+                format!("This land {arrival} unless you control two or fewer other lands."),
+                PrintedBound::AtMost(2),
+            ),
+            (
+                format!("If you control two or more other lands, this land {arrival}."),
+                PrintedBound::AtMost(1),
+            ),
+        ] {
+            assert_eq!(printed_enters_tapped_bound(&text), Some(expected), "{text}");
+        }
+    }
+}
+
+/// A counted ETB condition and a tapped target do not describe entering tapped.
+#[test]
+fn enters_tapped_bound_ignores_conditional_etb_tapped_targets() {
+    for arrival in ["enters", "enters the battlefield"] {
+        let text = format!(
+            "When this creature {arrival}, if you control two or more Forests, \
+             you may gain 3 life.\n\
+             When this creature {arrival}, if you control two or more Islands, \
+             you may return target tapped creature to its owner's hand."
+        );
+        assert_eq!(printed_enters_tapped_bound(&text), None, "{text}");
+    }
+}
+
+/// Ignoring an ETB trigger must still leave a real arrival bound on the face.
+#[test]
+fn enters_tapped_bound_is_still_checked_beside_a_conditional_etb() {
+    let trigger = "When this land enters, if you control two or more Islands, \
+                   you may return target tapped creature to its owner's hand.";
+    let arrival = "If you control three or more other lands, this land enters tapped.";
+    for text in [
+        format!("{trigger}\n{arrival}"),
+        format!("{arrival}\n{trigger}"),
+    ] {
+        assert_eq!(
+            printed_enters_tapped_bound(&text),
+            Some(PrintedBound::AtMost(2)),
+            "{text}"
+        );
+    }
+}
+
 /// Formatting many sources at once gives each what formatting it alone
 /// gives it, in order, across more than one rustfmt process, and a source
 /// rustfmt cannot parse is kept as it was.

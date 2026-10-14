@@ -471,6 +471,9 @@ pub(crate) fn number_word(word: &str) -> Option<u32> {
 /// "unless you control" is a common clause: a card that sacrifices itself
 /// unless you control two Swamps and separately enters tapped would
 /// otherwise have the two halves read as one sentence they are not.
+/// Only the contiguous phrases "enters tapped" and "enters the battlefield
+/// tapped" describe that arrival: an ETB trigger can instead count Islands
+/// and return a target tapped creature in the same sentence.
 ///
 /// The three forms the pool prints are two sentences, because the third is
 /// the second turned round. "If you control two or more other lands, this
@@ -481,7 +484,9 @@ pub(crate) fn number_word(word: &str) -> Option<u32> {
 pub(crate) fn printed_enters_tapped_bound(text: &str) -> Option<PrintedBound> {
     let lower = text.to_lowercase();
     for sentence in lower.split('.') {
-        if !(sentence.contains("enters") && sentence.contains("tapped")) {
+        if !(mentions_word(sentence, "enters tapped")
+            || mentions_word(sentence, "enters the battlefield tapped"))
+        {
             continue;
         }
         for (lead, inverted) in [("unless you control ", false), ("if you control ", true)] {
