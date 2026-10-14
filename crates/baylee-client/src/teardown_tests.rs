@@ -132,6 +132,8 @@ fn leaving_a_table_despawns_every_card_once() {
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     assert!(catching(), "the test's logger is the process's logger");
     let mut app = a_table();
+    let survivor = app.world_mut().spawn_empty().id();
+    let survivor_child = app.world_mut().spawn(ChildOf(survivor)).id();
     let mut ours = Vec::new();
     for n in 0..5 {
         ours.extend(a_card(&mut app, n));
@@ -158,6 +160,8 @@ fn leaving_a_table_despawns_every_card_once() {
 
     close(&mut app);
 
+    assert!(app.world().get_entity(survivor).is_ok());
+    assert!(app.world().get_entity(survivor_child).is_ok());
     let gone = ours
         .iter()
         .filter(|e| app.world().get_entity(**e).is_err())
