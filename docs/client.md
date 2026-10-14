@@ -7420,7 +7420,7 @@ Render the **same renderer used by the client**, for review or regression:
 
 ```sh
 cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-music 180
-python3 art/music/originality.py
+cargo run --profile tools -p baylee-tools -- art originality
 # Append `new` or `dorian` after the seconds argument to render only that group.
 ```
 
@@ -8421,7 +8421,7 @@ or entered with `Enter` takes the keys itself and walks with `Tab`
 Updates (desktop builds) is the updater's own face (`update::controls`):
 both switches, Check now, why it does not install, and Move to
 Applications where macOS runs a translocated copy — each a stop of the
-screen, so `Enter` and `Space` press them. `scripts/shell/settings.py`
+screen, so `Enter` and `Space` press them. `baylee-tools shell settings`
 walks every section at the seven sizes in English and German with the
 kit's checks.
 
@@ -9647,12 +9647,16 @@ pass yet.
 
 `crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
 keys, moves and clicks the pointer, dumps what the client believes, and saves a
-screenshot — all while the window sits behind everything else on the desktop.
+screenshot — with input injected independently of OS focus. Agent runs use a passive,
+unfocused window; on macOS it stays above other windows so the renderer can
+obtain a drawable surface.
 It exists because the alternative is bringing a window to the front, pressing a
 key by hand and looking at it, which is neither repeatable nor available to
 anything automated.
 
 ```bash
+XDG_CONFIG_HOME=/tmp/baylee-qa/config XDG_CACHE_HOME=/tmp/baylee-qa/cache \
+XDG_DATA_HOME=/tmp/baylee-qa/data BAYLEE_DEV_PASSIVE=1 \
 BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
 curl -s localhost:28770/health        # {"ok":true,"frame":1183,"width":1728,"height":1052,"scale":2}
 curl -s localhost:28770/state         # the view, the pending choice, the interaction
@@ -9670,6 +9674,12 @@ curl -s -XPOST localhost:28770/hide      -d '{"what":"felt"}'  # {"hidden":false
 curl -s -XPOST localhost:28770/msaa      -d '{"samples":1}'
 curl -s -XPOST localhost:28770/executor  -d '{"single":true}'
 ```
+
+Use a fresh isolated configuration for each test client; never point agent
+runs at production gateways, crash reporting or feedback. Dev-control runs
+are silent unless `BAYLEE_DEV_SOUND=1` explicitly opts in. The native Rust
+helpers (`cargo run --profile tools -p baylee-tools -- shell …` and `recording …`) replace
+the Python drivers; see `docs/dev-tools.md` for the command mapping.
 
 The last four are for measuring, and `docs/perf-client.md` says how: `/perf`
 reports frame time, main-schedule time, entities, systems and allocations per
@@ -10010,25 +10020,30 @@ screenshots and a pixel diff, which is what it took the once.
 ### Recording real render frames
 
 A native `dev-control` client can sample its rendered window through Bevy's
-`Screenshot` observer. Start it normally, then use the local helper (Python
-3.9+ and Pillow; `uv run scripts/devctl/recording.py …` can supply Pillow):
+`Screenshot` observer. Start it normally, then use the native Rust helper. GIF and
+lossless animated WebP encoding run locally through `image`; neither Python
+nor an external encoder is required:
 
 ```bash
-python3 scripts/devctl/recording.py record --duration-ms 3000 --fps 15 --format both --diff
+cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format both --diff
 # Or start, perform a /pointer or /key action, then poll separately:
 curl -s -XPOST http://127.0.0.1:28770/recording/start \
   -H 'Content-Type: application/json' -d '{"duration_ms":3000,"fps":15}'
 curl -s http://127.0.0.1:28770/recording/status
 curl -s -XPOST http://127.0.0.1:28770/recording/stop -d '{}'
-# Cancel discards frames still waiting; already-written PNGs remain:
-curl -s -XPOST http://127.0.0.1:28770/recording/stop -d '{"cancel":true}'
-python3 scripts/devctl/recording.py encode /tmp/baylee-recording-UUID --format both
+# The helper also exposes status and stop/cancel:
+cargo run --profile tools -p baylee-tools -- recording status
+cargo run --profile tools -p baylee-tools -- recording stop --cancel
+cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format both
 ```
 
 Use the returned `recording.directory` (the platform's temporary directory,
 not necessarily `/tmp`). Start answers `starting`, then status shows
 `capturing`, `draining`, and finally `complete`, `cancelled`, or `failed`.
 Stop answers immediately; poll until draining finishes before encoding.
+`record` polls for completion and encodes automatically; Ctrl-C cancels capture
+and preserves already saved frames. `--port` selects another loopback port.
+A 30-second drain grace period bounds the wait after the requested duration.
 `reason` distinguishes duration, manual stop, cancellation, size budget,
 resize and failure. As with the other routes, inspect JSON `error` even on
 HTTP 200. These three routes require the indicated verb, one loopback Host,
@@ -10097,21 +10112,26 @@ and `contact-sheet.png`, with labels below each sampled tile. Its default
 times and `virtual` uses game time, refusing a paused/non-increasing timeline.
 GIF delays are rounded to 10 ms, WebP to 1 ms; cumulative rounding limits
 drift. `preview-CADENCE.json` records the chosen delays and contact-sheet
-slots. Previews can merge identical frames. Use the original PNGs and ledger
-for exact flicker/pixel analysis; preview scaling and GIF palettes can change
+slots. Agents inspect individual frames and the contact sheet; opening an
+animation does not guarantee real-time playback or observation of every frame.
+Use the original PNGs and ledger for exact flicker/pixel analysis; preview scaling and GIF palettes can change
 pixels. Optional `--diff` writes `differences.csv`: consecutive full-resolution
 RGB peak/mean channel deltas, changed-pixel fraction, and real/virtual time gaps.
 This is a heuristic for finding frames to inspect, not automatic flicker or
 bug proof; legitimate motion also changes pixels. It reads two raw frames at
 a time. `--width` (default 640) controls preview size; conversion refuses more
 than 64 million preview pixels in memory rather than silently dropping frames.
+`--sheet-frames` selects 1–48 evenly spaced tiles (default 12). Metadata and
+ledger reads are capped at 1 and 2 MiB; each input PNG is capped at 128 MiB
+and 8 million pixels, with a bounded decoder. Filenames, dimensions, slots,
+timestamps and paths are validated. Preview outputs are replaced atomically;
+a failed individual output leaves its previous complete version intact.
 
 Isolated helper checks (no running client):
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/devctl -p 'test_*.py' -v
-ruff check --no-cache scripts/devctl
-# After the shared Cargo owner releases its lock:
+# Coordinate with the shared Cargo owner before running checks:
+cargo test -p baylee-tools recording::tests
 cargo test -p baylee-client --features dev-control devctl::recording::tests
 ```
 

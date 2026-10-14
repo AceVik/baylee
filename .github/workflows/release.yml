@@ -58,6 +58,9 @@ jobs:
       ci-run: ${{ steps.v.outputs.ci-run }}
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
       - id: v
         shell: bash
         env:
@@ -76,7 +79,7 @@ jobs:
             fi
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
-            run=$(python3 scripts/release/ci_artifacts.py resolve)
+            run=$(scripts/baylee-tools release resolve)
             echo "ci-run=$run" >> "$GITHUB_OUTPUT"
           else
             version="$version-dev.${GITHUB_SHA::10}"
@@ -141,6 +144,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -157,7 +163,7 @@ jobs:
           done
           # The installers are not signed for the updater (it never fetches
           # them); the notes list their SHA-256, and this fails if any is missing.
-          sums=$(python3 scripts/release/ci_artifacts.py installer-sums out "$VERSION")
+          sums=$(scripts/baylee-tools release installer-sums out "$VERSION")
           cat > notes.md <<EOF
           Unofficial fan content, not affiliated with Wizards of the Coast.
 

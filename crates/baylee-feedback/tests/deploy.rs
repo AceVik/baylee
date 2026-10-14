@@ -7,6 +7,9 @@
 
 #![cfg(unix)]
 
+#[path = "support/server_json.rs"]
+mod server_json;
+
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
@@ -244,6 +247,8 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     } else {
         stubs.join("trunk")
     };
+    stub(&stubs, "server-json", server_json::BODY);
+
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
     let mut command = std::process::Command::new("bash");
     let no_etc = scratch.join("no-etc");
@@ -253,6 +258,7 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         .arg(&script)
         .args(["stage", "0123456789abcdef0123"])
         .env("BAYLEE_DEPLOY_ROOT", &root)
+        .env("BAYLEE_SERVER_JSON", stubs.join("server-json"))
         .env("CARGO", stubs.join("cargo"))
         .env("NPM", &npm_path)
         .env("TRUNK", &trunk_path)
@@ -268,15 +274,19 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         )
         .output()
         .expect("bash runs");
+    assert_stage_success(&out);
+    let ran = std::fs::read_to_string(&calls).unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&scratch);
+    (root, ran, String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+fn assert_stage_success(out: &std::process::Output) {
     assert!(
         out.status.success(),
         "stage failed: {}\n{}",
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    let ran = std::fs::read_to_string(&calls).unwrap_or_default();
-    let _ = std::fs::remove_dir_all(&scratch);
-    (root, ran, String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 /// The lines of `ran` that install the browser client into `play`.

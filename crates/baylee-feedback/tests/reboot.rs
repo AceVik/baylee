@@ -6,6 +6,9 @@
 
 #![cfg(unix)]
 
+#[path = "support/server_json.rs"]
+mod server_json;
+
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
@@ -126,11 +129,14 @@ fn run(server: Server) -> Run {
         if server.deploying { "exit 1" } else { "exit 0" },
     );
 
+    stub(&stubs, "server-json", server_json::BODY);
+
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-reboot");
     let path = format!("{}:{}", stubs.display(), std::env::var("PATH").unwrap());
     let output = std::process::Command::new("bash")
         .arg(&script)
         .env("PATH", path)
+        .env("BAYLEE_SERVER_JSON", stubs.join("server-json"))
         .env("REBOOT_CALLS", &calls)
         .env("BAYLEE_REBOOT_RUN", &runtime)
         .env("BAYLEE_REBOOT_ETC", &etc)

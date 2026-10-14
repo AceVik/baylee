@@ -70,9 +70,9 @@ handle @baylee_site {
 	# the Impressum is named both ways to hold if that order ever changes.)
 	@page path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html
 	header @page Cache-Control "no-cache"
-	# The card status (data/*.json, scripts/site/card_status.py) is
+	# The card status (data/*.json, crates/baylee-tools/src/site/card_status.rs) is
 	# regenerated with the cards, so it is treated like the code.
-	# A file the page names with ?v=<its hash> (scripts/site/stamp.py) never
+	# A file the page names with ?v=<its hash> (crates/baylee-tools/src/site/stamp.rs) never
 	# changes under that name: a year, immutable. Unstamped, as before.
 	@stamped {
 		path *.css *.js *.woff2 *.webp *.avif *.png *.jpg *.ico

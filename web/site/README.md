@@ -41,11 +41,11 @@ about a screen of the viewport, or when the address names a set:
 from naming a reserved Windows file; name, oracle id, status, the reason
 for a partial or never-built card, and for a pictured card a Scryfall
 printing id), are fetched when the set is opened and rendered in slices of
-about 8 ms. `scripts/site/card_status.py` writes both from one git revision
+about 8 ms. `crates/baylee-tools/src/site/card_status.rs` writes both from one git revision
 of the repository, never from the working tree:
 
 ```sh
-python3 scripts/site/card_status.py --rev origin/main --card-cache <main checkout>/data/scryfall-cache
+cargo run --profile tools -p baylee-tools -- site card-status --rev origin/main --card-cache <main checkout>/data/scryfall-cache
 ```
 
 It reads the CardIndex ledger (every card, the set it first appeared in, in
@@ -65,7 +65,7 @@ stamp comes from the printing's own payload: codegen's per-card cache
 (`--card-cache`, default `data/scryfall-cache`, gitignored, so name the main
 checkout's from a worktree) or a bulk file (`--bulk`, `--fetch-bulk`). Where
 that payload has them, a pictured card also gets `uri` (its page on
-scryfall.com) and `artist`. `scripts/site/test_card_status.py` holds the
+scryfall.com) and `artist`. `baylee-tools site tests` holds the
 rule, the committed data included. Regenerate and redeploy the page when
 cards land.
 
@@ -83,7 +83,7 @@ extend when the legal review asks for more.
 The pictures are loaded by the visitor's browser straight from
 `cards.scryfall.io`, lazily, only for a set that is opened or a card shown
 large, whole (`object-fit: contain`), never filtered, faded or tinted (the
-status is only the badge under a picture; `scripts/site/test_site_page.py`
+status is only the badge under a picture; `baylee-tools site checks`
 holds the CSS to that), and credited. The page never calls Scryfall's API
 and nothing is re-hosted.
 
@@ -98,11 +98,11 @@ and nothing is re-hosted.
   everything below the fold is `loading="lazy"`, every picture has its
   `width` and `height`. The fonts the first screen uses are preloaded and
   `font-display: swap`.
-- **Caching:** `scripts/site/stamp.py` names every file of the page by its
+- **Caching:** `crates/baylee-tools/src/site/stamp.rs` names every file of the page by its
   content (`?v=` and the first 10 hex digits of its SHA-256) in `index.html`
   and in `site.css`, and Caddy keeps a stamped file a year, immutable
   (`scripts/server/site.caddy`). Run it after changing any file of the page;
-  `scripts/site/test_site_page.py` fails while a stamp is stale. The data and
+  `baylee-tools site checks` fails while a stamp is stale. The data and
   the Impressum are not stamped and keep their hour.
 - The parallax measures the hero once (and on a resize), writes only
   transforms from one `requestAnimationFrame`, and listens passively; the
@@ -154,8 +154,7 @@ reads as text holds them:
 
 - the data is a private JSON on the owner's machine (`name`, `street`,
   `postcode`, `city`, `country_de`, `country_en`, `email`, `phone`);
-- `scripts/site/impressum_blob.py <private.json> [<out>]` (standard library
-  only) writes from it a blob: base64url of the JSON XORed with a SHA-256
+- `cargo run --profile tools -p baylee-tools -- site impressum-blob <private.json> [<out>]` (native Rust) writes from it a blob: base64url of the JSON XORed with a SHA-256
   keystream, its key split between `SCRIPT_KEY` in the script and in
   `impressum.js` and a random nonce in the blob. That is obfuscation, not
   security: there is no `@` and no `.` in it and none of the data as text, so a
@@ -163,7 +162,7 @@ reads as text holds them:
   page reads it, which is what an Impressum is for. The output defaults to
   `~/.local/share/baylee/impressum.bin` and a path inside the repository is
   refused; `.gitignore` keeps `*.bin` and `private/` out of `web/`, and
-  `scripts/site/test_impressum_blob.py` fails if a blob or the data appears
+  `baylee-tools site tests` fails if a blob or the data appears
   under `web/`;
 - the server keeps the blob in `/etc/baylee/site-private/impressum.bin`
   (outside `/opt/baylee/web`, which a page update replaces), and the
@@ -213,7 +212,7 @@ both languages, linked from every page's footer and beside the contact
 form. It is drawn from `docs/privacy.md` and the code, names the controller
 only by pointing to the Impressum, and must change with the site: a new
 foreign host in the CSP, a cookie, an access log or a new form means a new
-sentence there (`scripts/site/test_site_page.py` holds the hosts and the
+sentence there (`baylee-tools site checks` holds the hosts and the
 cookies to it). `legal.js` is its language switch. A draft for the owner's
 lawyer (`docs/legal.md` §4).
 
@@ -222,7 +221,7 @@ lawyer (`docs/legal.md` §4).
 The page references its files as `/site/…`, so serve the parent folder:
 
 ```sh
-cd web && python3 -m http.server 8000
+cargo run --profile tools -p baylee-tools -- site serve --port 8000
 ```
 
 and open <http://localhost:8000/site/>. The GitHub data loads from there; the

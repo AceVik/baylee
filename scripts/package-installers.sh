@@ -19,7 +19,7 @@
 # §"Installers").
 #
 # Tools, each found on PATH or named by a variable:
-#   macOS    dmgbuild (DMGBUILD; scripts/installers/macos/requirements.txt)
+#   macOS    hdiutil/ditto/tiffutil/xattr plus scripts/baylee-tools (Rust)
 #   Windows  Inno Setup's ISCC.exe (ISCC)
 #   Linux    appimagetool (APPIMAGETOOL) with the AppImage runtime it embeds
 #            (APPIMAGE_RUNTIME, optional: without it appimagetool downloads
@@ -45,15 +45,9 @@ esac
 
 dmg() {
     local file="$out/Baylee-$version-$arch.dmg"
-    local tool=${DMGBUILD:-dmgbuild}
-    rm -f "$file"
-    # Word splitting on purpose: DMGBUILD may be a command with arguments.
-    # shellcheck disable=SC2086
-    $tool -s "$art/macos/dmg-settings.py" \
-        -D app="$stage/Baylee.app" \
-        -D background="$art/macos/background.png" \
-        -D icon="$stage/Baylee.app/Contents/Resources/Baylee.icns" \
-        Baylee "$file" >&2
+    scripts/baylee-tools installers dmg \
+        "$stage/Baylee.app" "$art/macos/background.png" \
+        "$stage/Baylee.app/Contents/Resources/Baylee.icns" "$file" >&2
     echo "$file"
 }
 
@@ -138,7 +132,7 @@ deb() {
     ln -s ../../opt/baylee/baylee-client "$root/usr/bin/baylee"
     cp "$art/linux/baylee.desktop" "$root/usr/share/applications/baylee.desktop"
     # 16 to 512 px: a panel, a menu and a dock each take the size they draw
-    # rather than scaling the one 256 px picture (make-art.py's LINUX_SIZES).
+    # rather than scaling the one 256 px picture (baylee-tools installers art's LINUX_SIZES).
     cp -R "$art/linux/hicolor" "$root/usr/share/icons/"
     cp LICENSE NOTICE "$root/usr/share/doc/baylee/"
     # Debian sorts `~` before anything, so 0.1.0~beta.5 comes before 0.1.0;

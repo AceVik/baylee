@@ -17,6 +17,7 @@
 set -euo pipefail
 
 gateway=http://127.0.0.1:28766
+server_json=${BAYLEE_SERVER_JSON:-/opt/baylee/bin/baylee-server-json}
 window=${BAYLEE_REBOOT_WINDOW:-3-7}
 drain_days=${BAYLEE_REBOOT_DRAIN_DAYS:-3}
 # Overridden only by its test (crates/baylee-feedback/tests/reboot.rs).
@@ -35,7 +36,7 @@ undrain() {
     fi
 }
 
-[ -e $run/reboot-required ] || { undrain; exit 0; }
+[ -e "$run/reboot-required" ] || { undrain; exit 0; }
 
 hour=$((10#$(date +%H)))
 if [ "$hour" -lt "${window%-*}" ] || [ "$hour" -gt "${window#*-}" ]; then
@@ -50,21 +51,21 @@ if [ -e "$deploy_lock" ]; then
 fi
 
 field=running
-if grep -qs '^BAYLEE_UNIX_SOCKET=.' $etc/gateway.env; then
+if grep -qs '^BAYLEE_UNIX_SOCKET=.' "$etc/gateway.env"; then
     field=local_running
 fi
 read -r running waiting < <(curl -fsS -m 5 "$gateway/health" \
-    | FIELD=$field python3 -c 'import os,sys,json; g=json.load(sys.stdin)["games"]; print(g.get(os.environ["FIELD"], g["running"]), g["waiting"])' \
+    | "$server_json" open-games "$field" \
     2>/dev/null || echo "? ?")
 
 if [ "$running" = 0 ] && { [ "$waiting" = 0 ] || [ -e "$drained" ]; }; then
-    log "rebooting for $(tr '\n' ' ' <$run/reboot-required.pkgs 2>/dev/null || echo updates)"
+    log "rebooting for $(tr '\n' ' ' <"$run/reboot-required.pkgs" 2>/dev/null || echo updates)"
     rm -f "$drained"
     systemctl reboot
     exit 0
 fi
 
-age_days=$(( ( $(date +%s) - $(stat -c %Y $run/reboot-required) ) / 86400 ))
+age_days=$(( ( $(date +%s) - $(stat -c %Y "$run/reboot-required") ) / 86400 ))
 if [ "$age_days" -ge "$drain_days" ] && [ ! -e "$drained" ] && [ "$running" != "?" ]; then
     systemctl stop baylee-agent
     touch "$drained"

@@ -66,7 +66,7 @@ for dir in "$PKGS"/*(/); do
       > "$verdict" 2> "$LOG/$slug.err" )
   rc=$?
 
-  verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
+  verdict_status=$("$ROOT/scripts/baylee-tools" cardbatch "$verdict" status 2>/dev/null)
   if [ $rc -ne 0 ]; then
     echo "  agy failed (rc=$rc) — see $LOG/$slug.err"
     verdict_status=refused
@@ -106,7 +106,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   if [ "$verdict_status" = "refused" ]; then
     git -C "$ROOT" checkout -- . 2>/dev/null
     git -C "$ROOT" clean -fd -q 2>/dev/null
-    python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" >> "$REFUSALS"
+    "$ROOT/scripts/baylee-tools" cardbatch "$verdict" row "$slug" "$name" >> "$REFUSALS"
     echo "  refused — recorded"
   fi
 done

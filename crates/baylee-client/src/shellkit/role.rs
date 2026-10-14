@@ -124,17 +124,44 @@ impl Role {
 mod tests {
     use super::*;
 
-    /// A segmented control's words are held to a chip's budget (window B):
-    /// the report's kinds and the history's compare bar were linted by
-    /// nothing before, and `scripts/shell/check.py` reads the same number.
+    // Compile the native tool's actual contract, without a dependency on its
+    // HTTP/CLI modules or any public test-only hook in the client.
+    mod native_contract {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../baylee-tools/src/shell/role_contract.rs"
+        ));
+    }
+
+    /// Every budget checked by the native tool agrees with the rendering kit;
+    /// the frozen values also catch accidentally loosening both sides together.
     #[test]
-    fn a_segment_has_the_chip_s_budget() {
-        assert_eq!(Role::Segment.budget(), Some(CHIP_BUDGET));
-        let script = include_str!("../../../../scripts/shell/check.py");
-        assert!(
-            script.contains("\"segment\": (14, 14)"),
-            "check.py budgets segments as the kit does"
+    fn native_shell_role_budgets_match_the_kit_and_frozen_contract() {
+        use native_contract::ROLE_BUDGETS;
+        assert_eq!(
+            ROLE_BUDGETS,
+            &[
+                ("button", 18, 20),
+                ("chip", 14, 14),
+                ("segment", 14, 14),
+                ("tab", 16, 16),
+                ("nav", 12, 13),
+            ]
         );
+        let roles = [
+            Role::Button,
+            Role::Chip,
+            Role::Segment,
+            Role::Tab,
+            Role::Nav,
+        ];
+        assert_eq!(roles.len(), ROLE_BUDGETS.len());
+        for (role, &(name, en, de)) in roles.into_iter().zip(ROLE_BUDGETS) {
+            assert_eq!(role.name(), name);
+            let budget = role.budget().expect("budgeted role");
+            assert_eq!((budget.en, budget.de), (en, de), "{name}");
+        }
+        assert_eq!(Role::Segment.budget(), Some(CHIP_BUDGET));
         assert_eq!((CHIP_BUDGET.en, CHIP_BUDGET.de), (14, 14));
     }
 }

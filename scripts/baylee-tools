@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Build/run optimised native helpers. A prebuilt binary may be shared across
+# worktrees: always pass this launcher's root, not the binary's build location.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+if [[ -n ${BAYLEE_TOOLS_BIN:-} ]]; then
+    exec "$BAYLEE_TOOLS_BIN" --root "$root" "$@"
+fi
+exec cargo run --quiet --profile tools --manifest-path "$root/Cargo.toml" -p baylee-tools -- --root "$root" "$@"

@@ -838,7 +838,7 @@
   })();
 
   // ------------------------------------------------------------ sets and card status
-  // data/sets.json (scripts/site/card_status.py) lists every set in release
+  // data/sets.json (crates/baylee-tools/src/site/card_status.rs) lists every set in release
   // order with its counts; a set's cards are in data/sets/set-<code>.json and
   // are fetched only when that set is opened. Card pictures come straight
   // from Scryfall's image host (docs/legal.md §3), unaltered, lazily, and

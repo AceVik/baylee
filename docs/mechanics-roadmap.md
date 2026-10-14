@@ -534,7 +534,7 @@ and two of them scale for nothing:
   scales with the pool but is *quiet*: oracle text, type lines and costs are
   still whatever the local cache holds, and only CI reads them live.
 - **One played engine test per card**, which
-  `.claude/hooks/require-card-tests.py` asks for.
+  `baylee-tools hooks require-card-tests` asks for.
 
 The third does not scale, and pretending otherwise is how 33 694 cards
 would arrive untested. It does not have to: the ownership split already

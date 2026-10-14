@@ -87,6 +87,13 @@ heck = "0.5"
 # through the derive macros.
 syn = { version = "2", features = ["full", "visit"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
+# Native maintenance/asset tools, independent of the renderer.
+regex = "1"
+ctrlc = "3"
+tempfile = "3"
+ab_glyph = "0.2.32"
+ds_parser = "0.4.0"
+dmg_layout = { package = "alias_record", version = "0.3.0" }
 # The facade bevy's command errors are logged through (`bevy_ecs::error::warn`);
 # a client test installs its own logger to count them (#321).
 log = "0.4"
@@ -317,3 +324,11 @@ debug = "line-tables-only"
 [profile.dev.package.xxhash-rust]
 opt-level = 3
 debug-assertions = false
+
+# CLI image/audio kernels need optimisation even during development. Keep the
+# game profiles unchanged; unwind lets the native DMG guard detach on failure.
+[profile.tools]
+inherits = "release"
+lto = "off"
+codegen-units = 16
+panic = "unwind"

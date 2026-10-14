@@ -313,7 +313,7 @@ pub(super) fn art_with_credit(
         .id();
     // The credit stands on its own dark ground: a docked panel's leather and
     // a light identity band are both too bright for muted ink (4.5 : 1,
-    // measured by `scripts/shell/screens.py`).
+    // measured by `baylee-tools shell screens`).
     let ground = commands
         .spawn((
             Node {

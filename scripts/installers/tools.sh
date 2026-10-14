@@ -5,7 +5,7 @@
 #
 #   scripts/installers/tools.sh <dir> <target-triple>
 #
-#   macOS    dmgbuild in a virtual environment (macos/requirements.txt, hashes)
+#   macOS    system hdiutil, ditto, tiffutil and xattr; Rust writes Finder metadata
 #   Windows  Inno Setup 7.1.0, installed for this user only
 #   Linux    appimagetool 1.9.1 (extracted, so it needs no FUSE) and the
 #            type2 AppImage runtime it embeds; dpkg-deb is the system's
@@ -34,10 +34,11 @@ fetch() {
 
 case "$target" in
 *-apple-darwin)
-    python3 -m venv "$dir/dmgbuild"
-    "$dir/dmgbuild/bin/python" -m pip install --quiet --require-hashes \
-        -r scripts/installers/macos/requirements.txt >&2
-    echo "DMGBUILD=$dir/dmgbuild/bin/dmgbuild"
+    # Native system tools; baylee-tools supplies the headless Finder layout.
+    # No download, Python runtime or Finder/AppleScript automation is needed.
+    for tool in hdiutil ditto tiffutil xattr; do
+        [ -x "/usr/bin/$tool" ] || { echo "::error::missing /usr/bin/$tool" >&2; exit 1; }
+    done
     ;;
 *-pc-windows-msvc)
     # One compiler for both targets: the x64 edition runs emulated on

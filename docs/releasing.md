@@ -47,7 +47,7 @@ While the version is `0.x`:
 2. Wait for `ci` to go green on that commit, including `packages`. The workflow
    refuses a tag without a successful **push to this repository's main** CI run
    at that exact SHA in which every job of `REQUIRED_JOBS`
-   (`scripts/release/ci_artifacts.py`) ran and passed, and a tag that differs
+   (`baylee-tools release`) ran and passed, and a tag that differs
    from the workspace version. A green PR run is insufficient, and so is the
    run of a docs-only push, which skips the release jobs (§"CI"); the version
    bump touches `Cargo.toml`, so its own run is always a full one.
@@ -122,7 +122,7 @@ Cold and warm timings still need comparison on GitHub; no fixed speedup is promi
 Local checks for pipeline changes:
 
 ```sh
-python3 -m unittest discover -s scripts/release/tests -v
+cargo test -p baylee-tools release
 cargo test --locked -p baylee-update --test sign_script
 actionlint
 shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
@@ -185,18 +185,18 @@ ever downloads `baylee-client-<version>-<target>.{zip,tar.gz}`, checks its
 recovery"), and an installed client updates itself from there. So the
 installers get no `.sig`; each has a `.sha256` beside it, and the publish
 job writes a table of them into the release notes
-(`ci_artifacts.py installer-sums`, which also refuses a release missing one).
+(`baylee-tools release installer-sums`, which also refuses a release missing one).
 
 | Target | Installer | Built with |
 | --- | --- | --- |
-| aarch64 / x86_64 macOS | `Baylee-<version>-{aarch64,x86_64}.dmg` | dmgbuild 1.6.7 (pip, hash-pinned) |
+| aarch64 / x86_64 macOS | `Baylee-<version>-{aarch64,x86_64}.dmg` | native `hdiutil` + Rust Finder metadata |
 | x86_64 / aarch64 Windows | `Baylee-Setup-<version>-{x64,arm64}.exe` | Inno Setup 7.1.0 |
 | x86_64 / aarch64 Linux | `Baylee-<version>-{x86_64,aarch64}.AppImage` | appimagetool 1.9.1, type2 runtime 20251108 |
 | x86_64 / aarch64 Linux | `baylee_<version>_{amd64,arm64}.deb` | the runner's `dpkg-deb` |
 
 In `client-packages.yml`, after `package-client.sh`,
-`scripts/installers/tools.sh` fetches the tools (each pinned by version and
-SHA-256), `scripts/package-installers.sh` wraps the staged tree, and
+`scripts/installers/tools.sh` checks the macOS system tools or fetches the
+Windows/Linux tools (each download pinned by version and SHA-256), `scripts/package-installers.sh` wraps the staged tree, and
 `scripts/release/check-installers.sh --install` installs each one on the
 throwaway runner, checks it and removes it again: the dmg's app is copied to
 `/Applications` and started from there until it logs `assets from
@@ -204,7 +204,7 @@ throwaway runner, checks it and removes it again: the dmg's app is copied to
 uninstalls; the `.deb` goes in with `apt`, which proves its dependencies
 resolve. Without `--install` the script only mounts, extracts and lists,
 which also works on a Mac. The pictures (dmg background, `.ico`, Linux icon)
-are our own, drawn by `scripts/installers/make-art.py` from the brand icon
+are our own, drawn by `baylee-tools installers art` from the brand icon
 and Alegreya Sans, and committed.
 
 The app icon is one rounded square (quarter-superellipse corners,
@@ -227,7 +227,7 @@ Where each platform finds it:
   `CREATE_NO_WINDOW`, so no console window opens beside it. The setup, its
   uninstaller, the shortcuts and Settings → Apps use the `.ico` file.
   `check-installers.sh` reads both executables' resource tables
-  (`scripts/release/pe_icon.py`) before it installs anything.
+  (`baylee-tools release pe-icon`) before it installs anything.
 - **Linux**: `baylee.desktop` (`Icon=baylee`, `StartupWMClass=baylee`) and
   the hicolor sizes in the `.deb` and inside the AppImage (plus its
   `.DirIcon`). The window's Wayland `app_id` and X11 `WM_CLASS` are

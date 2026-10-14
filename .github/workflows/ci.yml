@@ -6,7 +6,7 @@ name: ci
 #
 # - **main push**: everything that protects a release. `release.yml` promotes
 #   only the packages of a *successful push run at the tagged commit*, and
-#   `scripts/release/ci_artifacts.py` also requires each job named in its
+#   `baylee-tools release` also requires each job named in its
 #   REQUIRED_JOBS to have run and passed in that run, so nothing here can be
 #   skipped on a commit that is then released.
 # - **pull request**: the quick half (fmt, clippy, the debug suite in two
@@ -133,9 +133,8 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
-      - run: python3 -m unittest discover -s scripts/release/tests -v
-      # the Impressum blob, and that no blob or private data sits under web/
-      - run: python3 -m unittest discover -s scripts/site -p 'test_*.py' -v
+      # Release provenance, website and Impressum checks now live in
+      # baylee-tools and run in the workspace test jobs below.
 
   # Caches. The repository has 10 GB of Actions cache and each Rust cache is
   # 1.0–1.7 GB; on 08.10.2026 eight entries filled it, all from that day, and

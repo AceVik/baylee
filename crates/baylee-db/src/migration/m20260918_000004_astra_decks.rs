@@ -20,7 +20,7 @@
 //! copying it, so the deck is still a hundred cards.
 //! The lists live in `data/decks/{kenrith,breya,kess,tayam}.txt`, with the
 //! report's own form beside them in `data/decks/raw/astra-*.txt`;
-//! `scripts/forge/resolve_printings.py` is what turned one into the other and
+//! `baylee-tools forge resolve-printings` is what turned one into the other and
 //! `cargo run -p xtask -- deck-check` is what says a row still parses and
 //! still names a card this pool has.
 //!

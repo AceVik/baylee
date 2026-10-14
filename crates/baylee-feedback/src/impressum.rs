@@ -7,7 +7,7 @@
 //!   carries what the page saw of its own browser ([`client_bits`]).
 //! - `POST /site/impressum` `{nonce, parts, difficulty, expires, sig,
 //!   counters}`: the solved puzzle, once, before it expires; the answer is
-//!   the blob `scripts/site/impressum_blob.py` wrote
+//!   the blob `crates/baylee-tools/src/site/impressum.rs` wrote
 //!   (`FEEDBACK_IMPRESSUM_BLOB`), read on each request, or for a request
 //!   that looks like a robot beyond doubt a blob of the same shape holding
 //!   invented details ([`decoy`]).
@@ -78,7 +78,7 @@ pub const DECOY_POINTS: u32 = 6;
 pub const WINDOW: Duration = Duration::HOUR;
 
 /// The script's half of the blob's key (`SCRIPT_KEY` in
-/// `scripts/site/impressum_blob.py` and `web/site/impressum.js`; a test
+/// `crates/baylee-tools/src/site/impressum.rs` and `web/site/impressum.js`; a test
 /// holds the three equal).
 pub const SCRIPT_KEY: &str = "6b1f0c9e52d84a37b0e1f6a2c9d35e48";
 
@@ -133,7 +133,7 @@ impl Settings {
         if !looks_like_blob(&text) {
             anyhow::bail!(
                 "FEEDBACK_IMPRESSUM_BLOB {}: not an Impressum blob of version {VERSION} \
-                 (scripts/site/impressum_blob.py writes one)",
+                 (crates/baylee-tools/src/site/impressum.rs writes one)",
                 blob.display()
             );
         }

@@ -855,3 +855,9 @@ independently established, and no GPU trace was collected. POWER is macOS
 limitations are retained in
 [`perf-data/beta8-incremental-client.json`](perf-data/beta8-incremental-client.json).
 No card images or captured footage are committed.
+
+The Python recording checks named in the incremental-client measurement above
+belong to that historical commit. Their current equivalents are native Rust
+regressions in `baylee-tools`; run `cargo test -p baylee-tools recording`.
+Current capture/encoding commands and their evidence limits are in
+`docs/dev-tools.md` and the client's recording section.

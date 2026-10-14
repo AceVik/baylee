@@ -9,6 +9,9 @@
 
 #![allow(dead_code)] // each test binary uses its own part
 
+#[path = "../support/server_json.rs"]
+mod server_json;
+
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
@@ -177,6 +180,8 @@ exit 0"#,
             ),
         );
         stub(stubs, "cargo", "echo built");
+        stub(stubs, "server-json", server_json::BODY);
+
         stub(
             stubs,
             "sudo",
@@ -298,6 +303,7 @@ exit "$(next "code-$1" 0)""#
             .arg(&script)
             .args(args)
             .env("BAYLEE_DEPLOY_ROOT", &self.root)
+            .env("BAYLEE_SERVER_JSON", self.stubs.join("server-json"))
             .env("BAYLEE_DEPLOY_ETC", &self.etc)
             .env(
                 "BAYLEE_DEPLOY_HOOKS_BIN",

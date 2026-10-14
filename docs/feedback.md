@@ -334,7 +334,7 @@ nothing a crawler reads as text (`web/site/README.md` §"The Impressum",
 (`scripts/server/site.caddy`), so the page asks its own origin. Off (`503`)
 until `FEEDBACK_IMPRESSUM_KEY` (at least 32 characters, none of the
 service's tokens) and `FEEDBACK_IMPRESSUM_BLOB` (the file
-`scripts/site/impressum_blob.py` wrote, on the server only, read on each
+`crates/baylee-tools/src/site/impressum.rs` wrote, on the server only, read on each
 request) are set, both or neither; a file that is not such a blob refuses
 startup.
 

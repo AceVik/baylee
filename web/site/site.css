@@ -854,7 +854,7 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
    blurred, dimmed, faded, desaturated or tinted, whatever its status, which
    only the badge under it says (docs/legal.md §3; Scryfall's guidelines).
    No filter, opacity or blend on .ctile-pic, .cp-pic or their images:
-   scripts/site/test_site_page.py holds this. */
+   baylee-tools site checks holds this. */
 .ctile { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; border-radius: 8px; animation: tile-in 480ms var(--ease) backwards; }
 @keyframes tile-in { from { transform: translateY(8px); } }
 .ctile-link { display: flex; flex-direction: column; gap: 0.35rem; color: inherit; text-decoration: none; border-radius: 8px; }

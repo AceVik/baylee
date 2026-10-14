@@ -13,7 +13,7 @@
 //      anything that reads the DOM as text ("the page", below); copying and
 //      the mailto:/tel: links happen only on a click.
 //
-// The blob is written by scripts/site/impressum_blob.py, which says how it is
+// The blob is written by crates/baylee-tools/src/site/impressum.rs, which says how it is
 // built; the key is split between SCRIPT_KEY here and a nonce in the blob.
 // All of it keeps away harvesters that grep for addresses, read the DOM or
 // walk many pages, and nobody who renders the page and reads the pixels; it
@@ -28,7 +28,7 @@
   var MAGIC = "BYIM";
   var VERSION = 2;
   var NONCE_LEN = 16;
-  // the script's half of the key; scripts/site/impressum_blob.py carries the
+  // the script's half of the key; crates/baylee-tools/src/site/impressum.rs carries the
   // same 32 hex digits (a test holds the two equal)
   var SCRIPT_KEY = "6b1f0c9e52d84a37b0e1f6a2c9d35e48";
 

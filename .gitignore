@@ -46,14 +46,14 @@ deck-images/
 # is the input that produced it.
 /data/card-corpus.tsv
 
-# Python bytecode from the card lanes in scripts/llm/.
+# Python bytecode from the deliberately retained PyTorch trainer.
 __pycache__/
 *.pyc
 
 # The Impressum's private data and the blob built from it
-# (scripts/site/impressum_blob.py, web/site/README.md §"The Impressum"):
+# (crates/baylee-tools/src/site/impressum.rs, web/site/README.md §"The Impressum"):
 # the owner's address never enters the repository, in any form.
-# `scripts/site/test_impressum_blob.py` fails if either appears under web/.
+# `baylee-tools site tests` fails if either appears under web/.
 impressum-data*.json
 impressum*.bin
 /web/**/*.bin

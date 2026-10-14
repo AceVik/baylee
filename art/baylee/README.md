@@ -14,8 +14,8 @@ as a mascot was given on 26 September 2026.
 | `brand/baylee-icon.png` | 1254 × 1254 icon master; generated using the logo as identity reference |
 | `brand/favicon-32.png` | Mechanical downsample for browser tabs |
 | `brand/apple-touch-icon.png` | 180 × 180 browser home-screen icon |
-| `brand/baylee.icns` | Native macOS sizes, the master cut to a rounded square on Apple's grid by `scripts/installers/make-art.py` (through `iconutil`); release packaging installs it |
-| `brand/baylee-window.png` | 128 × 128 rounded window icon for Linux X11, from the same script |
+| `brand/baylee.icns` | Native macOS sizes, the master cut to a rounded square on Apple's grid by `baylee-tools installers art` (through `iconutil`); release packaging installs it |
+| `brand/baylee-window.png` | 128 × 128 rounded window icon for Linux X11, from the same native tool |
 | `scenes/sanctuary-world.png` | Distant landscape with near architecture removed for independent parallax |
 | `scenes/sanctuary-frame.png` | Transparent near arch, lamps, ivy and steps |
 | `scenes/baylee-guardian.png` | Transparent 1086 × 1448 hand-painted petite Baylee, fitted crimson body and slender tapered tail |
@@ -38,12 +38,43 @@ and inward-pointing teeth are completely replaced.
 
 [wayfinder-lantern.blend](wayfinder-lantern.blend) contains the dedicated
 `Baylee • sanctuary lantern` scene, materials, lights and portrait camera.
-[lantern.py](lantern.py) constructs it in Blender 5.2.2 LTS.
+[lantern.json](lantern.json) is the declarative scene source; the native Rust
+command below constructs its portable geometry without a Python runtime.
 [wayfinder-lantern.glb](wayfinder-lantern.glb) exports only the active lantern
 scene's selected meshes, with applied scale and glTF Y-up conversion. It is
 an editing/interchange asset; the runtime uses the transparent render, avoiding
 50 mesh draws for a small foreground prop. The unrelated original Blender
-scene was preserved. The script creates a new scene each run.
+scene was preserved. The committed `.blend`, GLB and transparent PNG are retained
+unchanged by the Rust tooling migration.
+
+Generate a candidate without overwriting any authored asset:
+
+```sh
+cargo run --profile tools -p baylee-tools -- art lantern --output /tmp/baylee-lantern.glb
+```
+
+Use `--source` for another scene JSON and `--overwrite` to replace an existing
+candidate. The default output is `/tmp/baylee-lantern.glb`. Scene JSON contains
+the original 50 objects, four PBR materials, three disk-light specifications,
+world colour, portrait camera, transparent 600 × 800 render settings, and Cycles/
+AgX settings. Coordinates start Z-up and are converted exactly once to glTF
+Y-up. Names, dimensions, path control points, material factors and emission are
+retained. The camera exports as an orthographic glTF camera.
+
+**Format boundary:** glTF has no disk area lights, Blender world shader, Cycles
+renderer or AgX setting. Their exact authoring specifications are retained in
+`extras.baylee`; each light also has a named transform node with
+`extras.baylee_area_light`. They do not become functioning glTF lights.
+Analytic Rust bevels and transported tube frames approximate Blender's bevel
+modifier, weighted normals and POLY-curve tessellation; the GLB is not promised
+to be vertex-identical or pixel-identical to the Blender render. Closed diamond
+paths share their seam instead of duplicating the coincident endpoint.
+
+The Rust command neither embeds Python nor launches Blender. To edit or render
+the candidate in Blender, import the GLB into a separate scene, use the retained
+`.blend` and JSON as the lighting/render reference, and save a new authoring
+file explicitly. Rebuilding a new `.blend` or a matching Cycles PNG is a
+separate authoring step; this command does not claim to regenerate them.
 
 ## Runtime art direction
 

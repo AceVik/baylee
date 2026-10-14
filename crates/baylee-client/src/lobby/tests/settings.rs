@@ -1056,7 +1056,7 @@ fn a_settings_row_keeps_its_height_in_the_scrolling_column() {
 
 /// A segmented choice wider than its row wraps its segments instead of
 /// leaving the window: the camera row's four German choices ran 20 px past
-/// a 640 × 360 window (beta.6 QA, `scripts/shell/settings.py`, D12's
+/// a 640 × 360 window (beta.6 QA, `baylee-tools shell settings`, D12's
 /// remaining window fault). Headless tests lay nothing out, so this holds
 /// the rule.
 #[test]
@@ -1083,7 +1083,7 @@ fn a_segmented_choice_wraps_inside_its_row() {
 /// On a phone an Audio volume stands beside its row's words, not on a line
 /// of its own: with the rows at their real height (D6), a slider under
 /// every label left two whole rows in view at 844 × 390, where M4-6 wants
-/// three (beta.6 QA, `scripts/shell/settings.py`). Wider, it keeps its line.
+/// three (beta.6 QA, `baylee-tools shell settings`). Wider, it keeps its line.
 #[test]
 fn on_a_phone_a_volume_stands_beside_its_words() {
     use baylee_client_core::settings_map::Section;

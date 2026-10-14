@@ -161,7 +161,7 @@ Urheber- und Medienrecht.
    `no-referrer`, and nothing lies on a picture: it is shown whole
    (`object-fit: contain`), never filtered, faded or tinted whatever the
    card's status, which only the badge under it says
-   (`scripts/site/test_site_page.py` holds the CSS to that). Each card is a
+   (`baylee-tools site checks` holds the CSS to that). Each card is a
    link to its page on Scryfall, where its artist and printing are. Each
    opened set says "Images: Scryfall · © Wizards of the Coast", the set
    list says the images are © Wizards of the Coast and shown unaltered from
@@ -173,7 +173,7 @@ Urheber- und Medienrecht.
    and link a picture (`oracle_id`, a printing id) and Scryfall's set
    names; no card text, price or other Scryfall field. Pictures are shown
    only for cards in the pool and never for Universes Beyond cards, whose
-   properties are not Wizards' to permit: `scripts/site/card_status.py`
+   properties are not Wizards' to permit: `crates/baylee-tools/src/site/card_status.rs`
    writes a printing id only for a card in the pool (or on the never-built
    list) whose printing has no triangle security stamp and is not of a
    crossover set (`UB_SETS`; the newer Marvel and Avatar sets carry no
@@ -321,7 +321,7 @@ Urheber- und Medienrecht.
    journalistic-editorial offer. No ODR or consumer-arbitration block (no
    contracts with consumers); one neutral sentence says so. The owner's
    details are in no file of the repository: they live in a private JSON
-   on the owner's machine, `scripts/site/impressum_blob.py` turns them into
+   on the owner's machine, `crates/baylee-tools/src/site/impressum.rs` turns them into
    an obfuscated blob that only the server holds, and the page's script
    renders them at runtime; robots.txt, `X-Robots-Tag` and a same-origin
    check keep crawlers off (`web/site/README.md` §"The Impressum").
@@ -428,7 +428,7 @@ Urheber- und Medienrecht.
 
    `art/music/samples.json` records for every recording its source, path,
    pinned revision, SHA-256 of the original, the prepared PCM's SHA-256 and
-   its pitch and loop facts; `art/music/prepare.py` rebuilds the bank
+   its pitch and loop facts; `baylee-tools art prepare` rebuilds the bank
    reproducibly (mono 44,100 Hz PCM16, sustains looped). Shipped beside the
    bank in `crates/baylee-client-core/assets/orchestra/`: `LICENSE-CC0.txt`
    (VSCO 2 CE's), `LICENSE-CC0-VCSL.txt`, `LICENSE-CC0-FreePats.txt` (each
@@ -862,7 +862,7 @@ asset is added. The recorded owner exception for the Mana font in §2a applies.
 ## Desktop installers (2026-10-06)
 
 The installers (`docs/releasing.md` §"Installers") add three pictures, drawn
-by `scripts/installers/make-art.py` and committed: the dmg window's
+by `baylee-tools installers art` and committed: the dmg window's
 background (a gradient, eight dots, an arrow and two lines of text set in the
 bundled Alegreya Sans), and the Windows `.ico` and Linux icon, both resized
 from the existing Baylee brand icon. No third-party art, logo or symbol is
@@ -883,7 +883,7 @@ The owner asked for a rounder, less square icon on 08.10.2026, and reported
 it missing on Windows. Every app icon
 (`baylee.icns`, the Windows `.ico`, the Linux hicolor PNGs and the window
 icon) is now the same Baylee brand painting, the owner's cat, cut by
-`scripts/installers/make-art.py` to a rounded square whose corners are a
+`baylee-tools installers art` to a rounded square whose corners are a
 plain superellipse, with transparent corners and, on macOS, a soft shadow.
 The mask and the shadow are geometry computed by the script; Apple's 824 of
 1024 grid is a proportion, not an Apple asset. No third-party art, logo,

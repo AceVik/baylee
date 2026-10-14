@@ -5,7 +5,7 @@
 //! taskbar button all show *its* icon. An executable without an icon
 //! resource shows Windows' generic one, which is what 0.1.0-beta.3 did
 //! (owner, 08.10.2026). The client's own `build.rs` does the same for the
-//! runtime it starts; the icon is `scripts/installers/make-art.py`'s.
+//! runtime it starts; the icon is `baylee-tools installers art`'s.
 //!
 //! `winresource` is a build-dependency only on a Windows *host* (Cargo
 //! evaluates a build-dependency's `cfg` for the machine the build script runs

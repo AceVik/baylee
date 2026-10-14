@@ -1,144 +1,138 @@
-# The two card lanes, and why neither writes its own tests
+# Native model lanes and independent card tests
 
 > **Retired for cards (owner, 29.09.2026):** the cheap lanes made too many
 > errors. Cards are written by Opus, their tests by another model, and Fable
-> reviews (`CLAUDE.md` §Cards). What follows is kept as the record of how the
-> lanes worked; the cross rule below still holds for every model.
+> reviews (`CLAUDE.md` §Cards). These commands retain the historical workflow;
+> their existence does not change that authoring policy.
 
-A *lane* is one cheap model doing one job. Two models, two jobs, four
-scripts:
+The drivers live in `crates/baylee-tools/src/llm/`. They execute in Rust,
+use in-process HTTPS for DeepSeek, and invoke `agy` for the agent lane.
+`prompts/` still holds the four authoring contracts. No Python runtime is
+used. Build and test commands belong to the coordinator.
 
-|  | writes cards | writes the engine tests |
-|---|---|---|
-| **DeepSeek V4.1 Flash** (`deepseek-flash[1m]`, HTTP API) | `cards_deepseek.py` | `tests_deepseek.py` |
-| **Gemini 3.8 Flash high** (`agy` CLI, agentic) | `cards_gemini.py` | `tests_gemini.py` |
+| Previous script | Native command | Optional second argument |
+| --- | --- | --- |
+| `cards_deepseek.py` | `baylee-tools llm cards-deepseek BATCH.json` | workers, default 5 |
+| `tests_deepseek.py` | `baylee-tools llm tests-deepseek WORKLIST.txt` | workers, default 5 |
+| `cards_gemini.py` | `baylee-tools llm cards-gemini BATCH.json` | minutes, default 60 |
+| `tests_gemini.py` | `baylee-tools llm tests-gemini WORKLIST.txt` | minutes, default 45 |
+| `lane.py` | Shared native policy, packing, transports and telemetry | see `llm lane --help` |
 
-`lane.py` is the half they share; `prompts/` holds the four contracts, one
-per script, and those files are the actual product of this directory — the
-Python around them only moves bytes.
+Use `cargo run --profile tools -p baylee-tools -- llm ...` when the binary is not on PATH.
+Underscore aliases, such as `cards_deepseek`, also work.
 
 ## The cross rule
 
 **Whoever wrote the card does not write its test.** DeepSeek's cards go to
-`tests_gemini.py` and Gemini's go to `tests_deepseek.py`.
+`tests-gemini`; Gemini's go to `tests-deepseek`. A model can repeat its own
+misreading in a test and produce an internally consistent, incorrect pair.
+The coordinator assembles the resulting fragments, reviews them, formats,
+compiles and runs the tests before treating them as evidence.
 
-That is not tidiness. A card and its test written by the same model share
-that model's misreading, and it has been measured: Mikaeus was written with
-two keyword bits no engine rule reads, and the same model's test asserted
-that they worked. The pair was internally consistent and wrong, and a green
-test said so. Cross-written, a red test is evidence about one of the two
-readings instead of about neither.
+## Inputs and outputs
 
-The first cross round paid for itself on a refusal rather than on a test.
-Asked for Teferi's Protection's test, Gemini returned `SKIP` and named the
-reason: `finalize_spell` put the resolving instant into the graveyard after
-`Effect::ExileSource` had already exiled it, so the card's one expressible
-clause was undone one step later. That was true, and it had been sitting
-under Spirit Water Revival — a `Coverage::Implemented` card with a test
-module of its own — the whole time.
+A card batch is a JSON array of `{"name": "...", "path": "..."}` objects.
+A test worklist has one repository-relative card path per line; blank lines
+are ignored. Only existing `.rs` card files under
+`crates/baylee-cards/src/cards/` are admitted. Absolute paths, traversal,
+symlinks, duplicate inputs and colliding test filenames are rejected.
+A batch contains 1–1000 cards.
 
-## What each lane costs, which is not the same question twice
+Put the worklist **outside the repository**. Outputs land beside it:
 
-**DeepSeek** browses nothing. Everything it would have read is packed into
-one cacheable prefix (about 240 KB: the authoring contract, the whole DSL
-vocabulary, the pool's shared filters and tokens, four finished cards), so a
-batch of thirty pays for it once — on the order of 0.1–0.4M input tokens for
-the batch. It is billed per token, and the bill is small. It is also
-parallel: `workers` is the second argument.
+- Card reports: `<stem>-report.md`.
+- Agent card prompts and answers: `<stem>-sent.md`, `<stem>-answer.md`.
+- Test reports: `<stem>-tests-report.md`.
+- Agent test prompts and answers: `<stem>-tests-sent.md`,
+  `<stem>-tests-answer.md`.
+- DeepSeek test fragments: `<stem>-tests/<door>/<slug>.rs`.
+- Agent test fragments: `<stem>-tests/<slug>.rs`.
 
-**Gemini** runs as one agentic session that reads the repository for itself
-and is handed the growing transcript on every step, which is a prefix sum:
-roughly 110–190M input tokens for the same thirty cards. Under the owner's
-subscription **that costs no money** — what it spends is a **time quota that
-refreshes**. So the planning unit on that lane is *minutes*, and the token
-figure is worth reading only as the reason a session is slow. Both numbers
-are measured rather than estimated (`lane.transcript` reads the session's own
-sqlite transcript), because an earlier unmeasured fan-out of 412 sessions
-spent an estimated 2.2 billion input tokens before anybody noticed.
-
-**Batch size is the only Gemini knob that matters.** Five tests in one
-session cost 46 steps each; the same work as a single-card session cost 88.
-Almost all of that is orientation the session pays for once, which is why
-this lane is one session per batch and why a fan-out of one session per card
-is the thing never to build again.
-
-The standing division of labour is in `docs/llm-learnings.md`: DeepSeek is
-the volume lane, Gemini the reading lane — its refusals are precise engine
-tickets and are worth reading in full, while spot-checks thin out on
-DeepSeek's volume first.
-
-## Running one
+A successful card result updates its listed repository file. A test result
+only writes a fragment in scratch. Files are replaced atomically, read back,
+and compared with the intended content. Generated card documentation,
+identity and face-field lines must survive; tests must parse as a card handle
+and one `#[test]` function. Multiple or truncated Rust fences are refused.
+A `STUB:` or `SKIP:` response leaves the card unchanged. Provider, policy or
+verification failures make the command fail after the per-item report is
+written. Agent items with no verified output also make the command fail.
+A refusal is not proof that a card or test is implemented.
 
 ```bash
-W=/tmp/round4                       # anywhere outside the repo
-mkdir -p $W
-
-# Cards. The JSON is a list of {"name": …, "path": …}, path repo-relative.
-python3 scripts/llm/cards_deepseek.py $W/deepseek.json 5
-python3 scripts/llm/cards_gemini.py   $W/gemini.json   50
-
-# Tests, crossed over. The worklist is one repo-relative card path per line.
-python3 scripts/llm/tests_gemini.py   $W/for-deepseek.txt 30
-python3 scripts/llm/tests_deepseek.py $W/for-gemini.txt    3
+mkdir -p /tmp/card-round
+cargo run --profile tools -p baylee-tools -- llm cards-deepseek /tmp/card-round/deepseek.json 5
+cargo run --profile tools -p baylee-tools -- llm cards-gemini /tmp/card-round/gemini.json 50
+cargo run --profile tools -p baylee-tools -- llm tests-gemini /tmp/card-round/for-deepseek.txt 30
+cargo run --profile tools -p baylee-tools -- llm tests-deepseek /tmp/card-round/for-gemini.txt 3
 ```
 
-Everything a run produces lands **beside its worklist**, named after it:
-`<stem>-report.md`, `<stem>-sent.md`, `<stem>-answer.md`,
-`<stem>-tests/<door>/<slug>.rs`. Put the worklist somewhere scratch and the
-whole run goes there with it. The one exception is `cards_gemini.py`, which
-cannot write elsewhere: `agy` edits the tree itself.
+## Credentials, isolation and limits
 
-The DeepSeek key comes from `DEEPSEEK_API_KEY`, or from
-`~/.local/share/opencode/auth.json` under `deepseek.key`. It is read into a
-variable and never printed.
+DeepSeek reads `DEEPSEEK_API_KEY`, or the `deepseek.key` field in
+`~/.local/share/opencode/auth.json`. The key is only placed in an in-process
+HTTPS header. Redirects are disabled. API error bodies, auth-file content
+and subprocess stderr are suppressed in diagnostics. Known credentials and
+recognizable token strings are removed from saved agent answers.
 
-## What these scripts are allowed to do
+Gemini requires **macOS `sandbox-exec`**, `agy`, `sqlite3` and an existing
+`~/.gemini/antigravity-cli/conversations` directory. It copies tracked Rust,
+Markdown and TOML source into a disposable scratch tree. No corpus, Git
+metadata, untracked files, build outputs or binary assets are copied.
+The subprocess can write only its scratch tree, scratch runtime directory,
+and agy's conversation directory. The original checkout is inaccessible.
+Every changed, deleted or added scratch file is checked against the worklist
+before import. Unrelated changes reject the import. Invalid card identity
+lines are restored from the pre-run card only if the repaired card verifies.
 
-Worth reading once, because two of the four are not ordinary scripts.
+The agent lane fails closed when isolation or attributable telemetry is
+unavailable. Additional CLI cache writes may require configuring `agy` to
+use its scratch `TMPDIR`; the driver never grants broad home-directory
+writes to work around them. Linux and Windows agent execution is currently
+unsupported. The HTTPS lanes and import parsers have no macOS dependency.
 
-**`cards_gemini.py` and `tests_gemini.py` run an agent with its permission
-prompts turned off**, in the repository root, unattended
-(`--dangerously-skip-permissions`). That is deliberate — a session whose job
-is thirty card files over ten minutes cannot stop at the first write — and
-it means nothing inside the run bounds what the agent touches. What bounds
-it is the caller: start from a clean tree, and read the `N von M Dateien
-angefasst` line the lane prints, which asks *git* rather than the model.
-`BAYLEE_LLM_AGY_PERMISSIONS=ask` drops the flag when you want to watch a new
-contract on two cards.
+`BAYLEE_LLM_AGY_MODEL` selects the agent model (default
+`gemini-3.8-flash-high`). `BAYLEE_LLM_AGY_PERMISSIONS=ask` omits the historical
+`--dangerously-skip-permissions` switch; the default, or `skip`, includes it
+inside the filesystem sandbox. Both modes require sandbox isolation.
 
-The prompt is assembled here, from a contract in `prompts/` and a worklist
-of repo-relative paths — so write the worklist by hand. The session then
-reads card files, whose oracle text came from Scryfall; that is ordinary,
-but it is the reason a batch is not a place to point at arbitrary content.
+| Setting | Default | Allowed range |
+| --- | --- | --- |
+| workers positional argument | 5 | 1–32 |
+| agent minutes positional argument | 60 cards / 45 tests | 1–240 |
+| `DS_MAX_TOKENS` per answer | 64000 | 1–131072 |
+| `BAYLEE_LLM_REQUEST_SECONDS` | 900 | 1–3600 |
+| `BAYLEE_LLM_BATCH_SECONDS` | 3600 | 1–14400 |
+| `BAYLEE_LLM_BATCH_MAX_TOKENS` HTTP admission budget | 32000000 | 1–1000000000 |
+| `BAYLEE_LLM_MAX_INPUT_TOKENS` | 1000000 HTTP / 250000000 agent | 1–1000000000 |
 
-**The DeepSeek lanes send one HTTPS request per card and write files.** The
-key goes in a header through `urllib`, never into a process argument, which
-is what a `curl` call would have done — arguments are world-readable on this
-machine for as long as the request lasts.
+The HTTP lane uses prompt bytes as a conservative token admission bound and
+checks reported input/output token usage. Each HTTP item reserves its prompt-byte\nbound plus its maximum output tokens from the shared batch budget before\nsending; failed requests keep their reservation. Agent input tokens are estimated
+from the transcript prefix sum divided by four, as in the historical driver;
+this is an estimate, not a billing guarantee. Telemetry is checked during
+execution and on completion. Quota refusals, missing transcripts and multiple
+new sessions are errors. Deadline termination kills the subprocess group.
+Inputs are bounded to 4 MiB, subprocess/API output to 16 MiB, scratch source
+trees to 512 MiB, and packed requests to 4 MiB.
 
-## Four rules the coordinator keeps
+A repository lock `.baylee-llm.lock` prevents overlapping native lanes; a
+scratch lock `.<stem>-llm.lock` protects each output batch. The lock records
+the owner PID. A stale lock is never removed automatically. Other editors
+and codegen do not participate in these locks, so the coordinator must still
+keep codegen and unrelated card writes out of a running batch. Card content
+is compared with its pre-run snapshot before each import.
 
-1. **No lane runs cargo.** The build belongs to the coordinator; a model
-   that cannot run it must not be the last reader of what it wrote. Two
-   lanes fighting over the `target/` lock also costs whole card slots.
-2. **No `xtask codegen` while a card batch is in flight.** Codegen rewrites
-   every file carrying the stub marker and would clobber the session's work.
-3. **The tests are assembled by hand.** Each answer is one card handle plus
-   one `#[test]`; the handle goes into `card_tests/mod.rs` (a sibling module
-   reaches nothing, so every non-test item lives there) and the test into the
-   door its card sits behind. Then it compiles, then it runs, and only then
-   is it evidence.
-4. **`cargo fmt --all` before `cargo check`, every time.** A lane writes
-   Rust that compiles and that rustfmt disagrees with — a `Coverage::Partial`
-   reason too long for its line is the usual one — and `cargo check` says
-   nothing about it. Round E committed seven such files and the formatting
-   step of the gate was what found them, one rewritten history later. Format
-   first and the question never reaches the gate.
+Offline inspection commands:
 
-## Feeding a prompt back
+```bash
+cargo run --profile tools -p baylee-tools -- llm lane door crates/baylee-cards/src/cards/lands/basic/forest.rs
+cargo run --profile tools -p baylee-tools -- llm lane check-header /tmp/stub.rs /tmp/proposed.rs
+cargo run --profile tools -p baylee-tools -- llm lane transcript /path/to/session.db
+```
 
-Every batch that goes wrong in a new way earns a numbered rule in the
-contract that prevents it, and a line in `docs/llm-learnings.md` saying
-which error class it came from. The contracts are German because the models
-answer these two in German better than in English; the cards and tests they
-write are not.
+## Coordinator checks
+
+Never run codegen while a card batch is in flight. Assemble test handles in
+`card_tests/mod.rs` and tests in the module matching their card's door.
+Run formatting before compiling, then review and execute the tests.
+Every new contract failure earns a prompt rule and a note in
+`docs/llm-learnings.md`. No card batch is run by the migration itself.

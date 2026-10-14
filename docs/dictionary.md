@@ -306,7 +306,7 @@ are English. These are the pairs that are not a dictionary lookup.
 ## The two cheap lanes
 
 Two models below this team's own tier are available to **every** session, not
-only to the card lane. The ids are read from `scripts/llm/lane.py:46-47` and
+only to the card lane. The ids are read from `crates/baylee-tools/src/llm/deepseek.rs` and `llm/gemini.rs` and
 never from memory:
 
 - **Gemini 3.8 Flash (high)** — `gemini-3.8-flash-high`, reached as

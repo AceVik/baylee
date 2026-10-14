@@ -23,7 +23,7 @@ cd "$(dirname "$0")/../.."
 out=target/package
 
 fail() { echo "::error::$*" >&2; exit 1; }
-# make-art.py's LINUX_SIZES: the hicolor icons both Linux installers carry.
+# baylee-tools installers art's LINUX_SIZES: the hicolor icons both Linux installers carry.
 linux_icon_sizes="16 24 32 48 64 128 256 512"
 need() { [ -e "$1" ] || [ -L "$1" ] || fail "missing: $1"; }
 
@@ -84,6 +84,7 @@ mac() {
             fail "$f is $(lipo -archs "$mnt/Baylee.app/Contents/MacOS/$f"), not $slice"
     done
     codesign --verify --deep --strict "$mnt/Baylee.app"
+    scripts/baylee-tools installers check-dmg-layout "$mnt"
     echo "dmg: layout and seal ok"
     $install || return 0
     local app=/Applications/Baylee.app
@@ -105,10 +106,7 @@ windows() {
     # and baylee-update; owner, 08.10.2026). Read off the archive's tree, the
     # files the setup installs.
     local stage="$out/baylee-client-$version-$target"
-    # `python` on a Windows runner, as client-packages.yml calls it there.
-    local python=python
-    command -v python >/dev/null || python=python3
-    "$python" scripts/release/pe_icon.py "$stage/baylee-client.exe" "$stage/baylee-runtime.exe" ||
+    scripts/baylee-tools release pe-icon "$stage/baylee-client.exe" "$stage/baylee-runtime.exe" ||
         fail "an executable lacks the icon resource"
     $install || return 0
     local dir

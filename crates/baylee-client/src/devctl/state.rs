@@ -660,7 +660,7 @@ fn desk_controls_json(believed: &Believed) -> String {
 ///
 /// A node the shell's kit made also says what it is (`"k"`, a
 /// `shellkit::Role`), which is what the shell's checks read
-/// (`scripts/shell/check.py`): a button's label against its budget, a hit
+/// (`baylee-tools shell check`): a button's label against its budget, a hit
 /// wrapper against 44 × 44, a panel's rect as the ground for contrast.
 fn shell_nodes_json(believed: &Believed) -> String {
     fn walk(

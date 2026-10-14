@@ -1,5 +1,6 @@
 # The sole desktop packaging recipe. CI builds; a tag copies verified CI
-# artifacts without checking out a compiler or restoring executable caches.
+# artifacts without rebuilding the client or restoring executable caches.
+# The native verifier is built from the checked-out release source.
 name: client-packages
 on:
   workflow_call:
@@ -59,6 +60,10 @@ jobs:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
     steps:
       - uses: actions/checkout@v4
+      - if: inputs.source-run != ''
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
       - id: version
         shell: bash
         env:
@@ -75,7 +80,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ inputs.source-run }}
-        run: python3 scripts/release/ci_artifacts.py verify-run "$SOURCE_RUN"
+        run: scripts/baylee-tools release verify-run "$SOURCE_RUN"
       - if: inputs.source-run != ''
         uses: actions/download-artifact@v4
         with:
@@ -89,7 +94,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
           SOURCE_RUN: ${{ inputs.source-run }}
-        run: python3 scripts/release/ci_artifacts.py verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
+        run: scripts/baylee-tools release verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
       - if: inputs.source-run == ''
         uses: ./.github/actions/linux-deps
       - if: inputs.source-run == ''
@@ -148,10 +153,6 @@ jobs:
             sudo softwareupdate --install-rosetta --agree-to-license
           fi
           /usr/bin/arch -x86_64 /usr/bin/true
-      - if: inputs.source-run == '' && runner.os == 'macOS'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - if: inputs.source-run == ''
         shell: bash
         env:
@@ -166,9 +167,7 @@ jobs:
           scripts/package-installers.sh "$PACKAGE_TARGET" "$PACKAGE_VERSION" | while read -r installer; do
             cp "$installer" out/
           done
-          python_cmd=python3
-          if [ "$RUNNER_OS" = Windows ]; then python_cmd=python; fi
-          "$python_cmd" scripts/release/ci_artifacts.py write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+          scripts/baylee-tools release write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
       # What a player gets: on this throwaway runner each installer is
       # installed (the dmg's app copied to /Applications and started from
       # there), checked and removed again.

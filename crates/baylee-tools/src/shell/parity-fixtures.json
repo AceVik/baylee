@@ -1,0 +1,703 @@
+{
+  "source": "scripts/shell/check.py",
+  "source_sha256": "17eeb2fa86a229c4b3883ae3e58a30b89ea730d2edf6efc3b2e87ca7ec0feb77",
+  "fixtures": [
+    {
+      "name": "legacy-01",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "button",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 2,
+          "t": "üüüüüüüüüüüüüüüüüüü",
+          "x": 110,
+          "y": 90,
+          "w": 104,
+          "h": 20,
+          "tw": 109,
+          "th": 22,
+          "ln": 2
+        }
+      ],
+      "counts": {
+        "overflow": 1,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 1,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 1,
+        "lines": 1,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "üüüüüüüüüüüüüüüüüüü",
+        "üüüüüüüüüüüüüüüüüüü",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-02",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "segment",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 2,
+          "t": "German has 15!!",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 20
+        },
+        {
+          "d": 2,
+          "k": "keycap",
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 10
+        },
+        {
+          "d": 3,
+          "t": "Should not count",
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 10
+        },
+        {
+          "d": 2,
+          "k": "count",
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 10
+        },
+        {
+          "d": 3,
+          "t": "99999",
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 10
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 1,
+        "budget_de": 1,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 1,
+        "centred": 0
+      },
+      "labels": [
+        "German has 15!!",
+        "German has 15!!",
+        "",
+        "Should not count",
+        "",
+        "99999",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-03",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "scroll",
+          "x": 100,
+          "y": 80,
+          "w": 100,
+          "h": 40
+        },
+        {
+          "d": 2,
+          "t": "scrolled out",
+          "x": 100,
+          "y": 140,
+          "w": 100,
+          "h": 20
+        },
+        {
+          "d": 3,
+          "t": "escaped parent",
+          "x": 100,
+          "y": 170,
+          "w": 100,
+          "h": 20
+        }
+      ],
+      "counts": {
+        "overflow": 1,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "scrolled out escaped parent",
+        "scrolled out escaped parent",
+        "escaped parent",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-04",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "scroll",
+          "x": 100,
+          "y": 80,
+          "w": 100,
+          "h": 40
+        },
+        {
+          "d": 2,
+          "t": "part visible",
+          "x": 100,
+          "y": 110,
+          "w": 100,
+          "h": 20
+        },
+        {
+          "d": 1,
+          "t": "page under it",
+          "x": 100,
+          "y": 125,
+          "w": 100,
+          "h": 20
+        },
+        {
+          "d": 1,
+          "k": "opaque",
+          "x": 100,
+          "y": 80,
+          "w": 100,
+          "h": 80
+        },
+        {
+          "d": 2,
+          "t": "different layer",
+          "x": 100,
+          "y": 110,
+          "w": 100,
+          "h": 20
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "page under it different layer part visible",
+        "part visible",
+        "",
+        "",
+        "different layer",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-05",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "row",
+          "x": 100,
+          "y": 100,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 1,
+          "k": "row",
+          "x": 199.98,
+          "y": 100,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 1,
+          "k": "row",
+          "x": 199,
+          "y": 100,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 1,
+          "k": "hit",
+          "x": -1.1,
+          "y": 20,
+          "w": 43.4,
+          "h": 44
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 1,
+        "siblings": 2,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 1,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-06",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "field",
+          "x": 110,
+          "y": 100,
+          "w": 100,
+          "h": 30
+        },
+        {
+          "d": 2,
+          "t": "long typed input",
+          "x": 110,
+          "y": 100,
+          "w": 100,
+          "h": 30,
+          "tw": 300,
+          "th": 80,
+          "ln": 3
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "long typed input",
+        "long typed input",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-07",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "button",
+          "x": 110,
+          "y": 100,
+          "w": 100,
+          "h": 44,
+          "hid": true
+        },
+        {
+          "d": 2,
+          "t": "hidden label",
+          "x": 110,
+          "y": 100,
+          "w": 100,
+          "h": 30,
+          "tw": 300,
+          "th": 80,
+          "ln": 3
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "hidden label",
+        "hidden label",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-08",
+      "width": 2560,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "header",
+          "x": 0,
+          "y": 0,
+          "w": 2560,
+          "h": 80
+        },
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 50,
+          "y": 100,
+          "w": 700,
+          "h": 500
+        },
+        {
+          "d": 1,
+          "k": "tile",
+          "x": 60,
+          "y": 120,
+          "w": 200,
+          "h": 200
+        },
+        {
+          "d": 1,
+          "k": "tile",
+          "x": 270,
+          "y": 120,
+          "w": 200,
+          "h": 200
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 3
+      },
+      "labels": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-09",
+      "width": 2560,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "header",
+          "x": 0,
+          "y": 0,
+          "w": 2560,
+          "h": 80
+        },
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 640,
+          "y": 100,
+          "w": 1280,
+          "h": 600
+        },
+        {
+          "d": 1,
+          "k": "tile",
+          "x": 870,
+          "y": 120,
+          "w": 400,
+          "h": 300
+        },
+        {
+          "d": 1,
+          "k": "tile",
+          "x": 1290,
+          "y": 120,
+          "w": 400,
+          "h": 300
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-10",
+      "width": 2560,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "header",
+          "x": 0,
+          "y": 0,
+          "w": 2560,
+          "h": 80
+        },
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 10,
+          "y": 100,
+          "w": 2540,
+          "h": 600
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 1
+      },
+      "labels": [
+        "",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-11",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "nav",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 2,
+          "t": "abcdefghijklm",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 20,
+          "tw": 104,
+          "th": 21.5,
+          "ln": 1
+        },
+        {
+          "d": 1,
+          "k": "hit",
+          "x": 1557.5,
+          "y": 90,
+          "w": 43.5,
+          "h": 43.5
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 1,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 0,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "abcdefghijklm",
+        "abcdefghijklm",
+        "",
+        ""
+      ]
+    },
+    {
+      "name": "legacy-12",
+      "width": 1600,
+      "nodes": [
+        {
+          "d": 0,
+          "k": "panel",
+          "x": 100,
+          "y": 80,
+          "w": 1400,
+          "h": 700,
+          "r": "lobby"
+        },
+        {
+          "d": 1,
+          "k": "button",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 44
+        },
+        {
+          "d": 2,
+          "t": "wrapped paragraph",
+          "x": 110,
+          "y": 90,
+          "w": 100,
+          "h": 20,
+          "tw": 110,
+          "th": 21.5,
+          "ln": 2
+        }
+      ],
+      "counts": {
+        "overflow": 0,
+        "window": 0,
+        "siblings": 0,
+        "budget_en": 0,
+        "budget_de": 0,
+        "hit": 0,
+        "fit": 0,
+        "lines": 1,
+        "overlap": 0,
+        "centred": 0
+      },
+      "labels": [
+        "wrapped paragraph",
+        "wrapped paragraph",
+        ""
+      ]
+    }
+  ]
+}

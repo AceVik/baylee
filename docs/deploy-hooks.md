@@ -254,3 +254,12 @@ minute (`last-release` moves on); once the keys are right, `baylee-deploy
 stage <tag>` deploys it. With neither file, every tag is taken as before and
 the log says it was not verified. A commit id given to `stage` by hand is the
 operator's own choice and is not checked.
+
+The deployment/reboot scripts read gateway JSON through the native
+`baylee-server-json` binary (package `baylee-tools`), not a Python runtime.
+During stage, preflight uses the freshly built binary without installing it;
+installation follows successful preparation with the agent/engine binaries.
+Future timer and reboot invocations use `/opt/baylee/bin/baylee-server-json`
+(or `BAYLEE_SERVER_JSON` for a custom installation). Install this binary before
+updating a stand-alone reboot script. Malformed or missing counts are errors
+and continue to block switching/rebooting. See `docs/dev-tools.md`.

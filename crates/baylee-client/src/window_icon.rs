@@ -176,7 +176,7 @@ mod tests {
 
     /// The icon files the installers ship, read the way the systems read
     /// them: by their headers, so no image library is needed to hold every
-    /// size present (`scripts/installers/make-art.py` writes them all).
+    /// size present (`baylee-tools installers art` writes them all).
     #[cfg(not(target_arch = "wasm32"))]
     mod shipped {
         use super::{APP_ID, WINDOWS_APP_USER_MODEL_ID};
