@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "date": "2026-10-14",
+  "implementation_commit": "4ae0f29ac",
+  "source_note": "Real-client capture preceded the commit and two equivalent Clippy simplifications (is_ok_and and checked_sub in a test).",
+  "machine": "Apple M1 Max, 64 GB RAM",
+  "viewport": [
+    1600,
+    1000
+  ],
+  "mode": "release + dev-control, silent, isolated offline fixture, loopback-only network",
+  "options": {
+    "duration_ms": 5000,
+    "fps": 20
+  },
+  "capture_end_us": 5017993,
+  "requested": 99,
+  "written": 99,
+  "dropped": 1,
+  "gaps": [
+    {
+      "count": 1,
+      "first_slot": 36,
+      "reason": "target_busy"
+    }
+  ],
+  "outstanding_at_end": 0,
+  "phase": "complete",
+  "checks": {
+    "concurrent_screenshots": 3,
+    "pause_resume": true,
+    "cancel_restart": true,
+    "paused_raw_pairs": 12,
+    "paused_pixel_identical_pairs": 12,
+    "exact_pid_reaped": true,
+    "worker_or_capture_error": null
+  },
+  "previews": {
+    "preview-real.gif": {
+      "bytes": 10770379,
+      "sha256": "d0bea9a84c0c4e997a966f8188ce11d590abc839a3200633519aa618cde0e438"
+    },
+    "preview-real.webp": {
+      "bytes": 8762078,
+      "sha256": "d5891ed76a4fba03e70223b193ec18d7832a687f2135908e1e28e93557406d04"
+    },
+    "contact-sheet.png": {
+      "bytes": 818258,
+      "sha256": "cb37beb25af4a789ed23b40643cd5dbf425f4391535dc7d83ec59ddc8f77bdd6"
+    },
+    "frames.jsonl": {
+      "bytes": 26732,
+      "sha256": "27bb3df378efce442ada7f41c069e08e77a189e7ecc4c25b296435ec01fb2b66"
+    }
+  },
+  "limits": "Functional capture evidence only. No performance measurement; request/delivery timestamps are not presentation timestamps. Saved rendered images remain local and are not committed."
+}

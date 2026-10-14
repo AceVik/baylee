@@ -10610,3 +10610,12 @@ chosen").
   window, and the lobby says "You left the table". Offline the game this
   client hosts ends with it, which its armed words say. A spectator's way
   out stays *Stop watching*; a finished game's stays the end screen's.
+
+The October 14 real-client check recorded five seconds at 20 samples/s,
+with hover-preview opening/closing, three concurrent one-shot screenshots,
+pause/resume, cancellation and restart. It saved 99 frames and reported
+one `target_busy` gap; all permits drained. Twelve paused raw frame pairs
+were pixel-identical. GIF/WebP conversion, contact-sheet generation and
+raw difference reporting succeeded. This is functional evidence, not a
+performance measurement; see
+[`perf-data/beta8-recording-qa.json`](perf-data/beta8-recording-qa.json).
