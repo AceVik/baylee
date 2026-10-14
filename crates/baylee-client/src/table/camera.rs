@@ -1012,7 +1012,7 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
         .with_drawer(duel.hand_drawn_open)
         .with_replay_hand(duel.replay.is_some(), duel.hand_drawn_open)
         .aspect();
-    let frame = baylee_client_core::tableview::TableFrame::of(window.width(), window.height());
+    let frame = baylee_client_core::tableview::TableFrame::of(space.x, space.y);
     // A resize is a rebuild of the whole layout, so the comparison has to be
     // loose enough that a window nudged by a pixel does not do one per frame.
     if duel

@@ -10647,3 +10647,18 @@ were pixel-identical. GIF/WebP conversion, contact-sheet generation and
 raw difference reporting succeeded. This is functional evidence, not a
 performance measurement; see
 [`perf-data/beta8-recording-qa.json`](perf-data/beta8-recording-qa.json).
+
+### Minimum desktop layout canvas
+
+Desktop UI layout uses at least **1280 × 720 logical pixels**. Below either
+edge the complete UI shrinks uniformly by the smaller window-to-canvas ratio;
+the other axis keeps its available space. Layout remains responsive above
+that floor. Text-size preferences still apply within the canvas. This is a
+layout floor, not a hard OS window-size restriction.
+
+The fit is applied centrally through Bevy's `UiScale`; OS DPI, screenshot
+resolution and dev-control input coordinates remain unchanged. Shell layout
+uses `hud::scale::desktop_space`, table HUD placement uses `space`, and
+pointer coordinates are converted at placement/drag boundaries. Dev-control
+continues to report and accept logical **window** pixels, including below
+the floor and on Retina displays. Native mobile and web layouts are unchanged.

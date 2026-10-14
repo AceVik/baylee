@@ -69,6 +69,11 @@ refusal with HTTP 200. Recording routes also enforce method, request size,
 loopback Host, and reject browser Origin/fetch headers. Do not send browser
 credentials or expose this socket remotely.
 
+Below the desktop layout floor (1280 × 720), the UI shrinks uniformly.
+`/state.presentation.ui_scale` reports that fit (and the table’s large-screen
+scale). Control rectangles are already converted to window coordinates: do
+not apply the UI scale to `/pointer` coordinates a second time.
+
 Coordinates are **logical**; PNG dimensions are physical. Read `/health.scale`
 and divide measured image coordinates accordingly. Use `/window`, then wait
 for the reported size (the window manager can round by a pixel); resizing

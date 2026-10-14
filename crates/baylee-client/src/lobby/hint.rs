@@ -90,6 +90,7 @@ pub(super) fn hint_panel(
     existing: Query<(Entity, &HintPanel)>,
     windows: Query<&Window>,
     fonts: Res<UiFonts>,
+    ui: Option<Res<UiScale>>,
 ) {
     if existing
         .iter()
@@ -104,20 +105,21 @@ pub(super) fn hint_panel(
         return;
     };
     let canvas = windows.iter().next().map_or(Vec2::new(1280.0, 800.0), |w| {
-        Vec2::new(w.width(), w.height())
+        crate::hud::scale::space(w, ui.as_deref())
     });
+    let at = hinted.at / ui.as_deref().map_or(1.0, |scale| scale.0);
     let metrics = Metrics::of(canvas.x);
     let width = HINT_WIDTH.min(canvas.x - 16.0).max(80.0);
     // Below and right of the pointer, pulled back inside the window. Above
     // it near the bottom edge, where below would be off screen: three lines
     // of small text is a safe guess at the height, since a panel cannot be
     // measured before it is laid out.
-    let left = (hinted.at.x + 12.0).min(canvas.x - width - 8.0).max(8.0);
+    let left = (at.x + 12.0).min(canvas.x - width - 8.0).max(8.0);
     let tall = metrics.small * 4.5 + metrics.pad;
-    let top = if hinted.at.y + 20.0 + tall < canvas.y {
-        hinted.at.y + 20.0
+    let top = if at.y + 20.0 + tall < canvas.y {
+        at.y + 20.0
     } else {
-        (hinted.at.y - tall - 12.0).max(8.0)
+        (at.y - tall - 12.0).max(8.0)
     };
     let panel = commands
         .spawn((

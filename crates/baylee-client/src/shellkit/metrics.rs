@@ -95,7 +95,7 @@ impl ShellMetrics {
     /// The metrics for a window at a text step.
     #[must_use]
     pub fn of(view: Viewport, step: TextSize) -> Self {
-        Self::under(view, step, 1.0)
+        Self::measured(view, step, 1.0)
     }
 
     /// The metrics for a window whose UI is already drawn `ui` times larger
@@ -105,6 +105,19 @@ impl ShellMetrics {
     /// the window itself, in logical pixels.
     #[must_use]
     pub fn under(view: Viewport, step: TextSize, ui: f32) -> Self {
+        let fit = ui.clamp(f32::EPSILON, 1.0);
+        Self::measured(
+            Viewport {
+                width: view.width / fit,
+                height: view.height / fit,
+                ..view
+            },
+            step,
+            ui / fit,
+        )
+    }
+
+    fn measured(view: Viewport, step: TextSize, ui: f32) -> Self {
         let frame = Frame::classify(view, step);
         let scale = screen_scale(view, step) / ui.max(f32::EPSILON);
         let f = step.factor() * scale;
@@ -194,6 +207,15 @@ impl ShellMetrics {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overlays_keep_the_same_metrics_under_a_shrunk_desktop_canvas() {
+        for step in TextSize::ALL {
+            let normal = ShellMetrics::under(Viewport::desktop(1280.0, 720.0), step, 1.0);
+            let small = ShellMetrics::under(Viewport::desktop(960.0, 540.0), step, 0.75);
+            assert_eq!(normal, small);
+        }
+    }
 
     fn at(w: f32, h: f32, step: TextSize, input: InputClass) -> ShellMetrics {
         ShellMetrics::of(

@@ -1034,16 +1034,26 @@ fn slide_to(
 
 fn slide_on_press(
     press: On<PointerPress>,
+    ui: Option<Res<UiScale>>,
     mut sliders: Query<(&mut Slider, &ComputedNode, &UiGlobalTransform)>,
 ) {
-    slide_to(press.entity, press.pointer.position.x, &mut sliders);
+    slide_to(
+        press.entity,
+        press.pointer.position.x / ui.as_deref().map_or(1.0, |ui| ui.0),
+        &mut sliders,
+    );
 }
 
 fn slide_on_drag(
     drag: On<PointerDrag>,
+    ui: Option<Res<UiScale>>,
     mut sliders: Query<(&mut Slider, &ComputedNode, &UiGlobalTransform)>,
 ) {
-    slide_to(drag.entity, drag.pointer.position.x, &mut sliders);
+    slide_to(
+        drag.entity,
+        drag.pointer.position.x / ui.as_deref().map_or(1.0, |ui| ui.0),
+        &mut sliders,
+    );
 }
 
 /// Draws a slider's value where it changed: the fill, the knob, the readout.
@@ -1154,6 +1164,59 @@ mod tests {
         assert_eq!(slider_value_at(-50.0, 100.0, 200.0), 0);
         assert_eq!(slider_value_at(999.0, 100.0, 200.0), 100);
         assert_eq!(slider_value_at(5.0, 0.0, 0.0), 0);
+    }
+
+    #[test]
+    fn slider_press_keeps_the_same_value_under_ui_scale_and_os_dpi() {
+        use bevy::camera::{ManualTextureViewHandle, NormalizedRenderTarget};
+        use bevy::picking::{
+            backend::HitData,
+            events::Pointer,
+            pointer::{Location, PointerId},
+        };
+        for ui in [0.5, 0.75, 1.0, 1.75] {
+            for dpi in [1.0, 2.0] {
+                let mut app = App::new();
+                app.insert_resource(UiScale(ui));
+                let scale = ui * dpi;
+                let entity = app
+                    .world_mut()
+                    .spawn((
+                        Slider {
+                            value: 0,
+                            fill: Entity::PLACEHOLDER,
+                            knob: Entity::PLACEHOLDER,
+                            readout: Entity::PLACEHOLDER,
+                        },
+                        ComputedNode {
+                            size: Vec2::new(200.0, 40.0) * scale,
+                            inverse_scale_factor: 1.0 / scale,
+                            ..default()
+                        },
+                        UiGlobalTransform::from_xy(200.0 * scale, 100.0 * scale),
+                    ))
+                    .observe(slide_on_press)
+                    .id();
+                app.world_mut().trigger(PointerPress {
+                    entity,
+                    pointer: Pointer::new(
+                        PointerId::Mouse,
+                        Location {
+                            target: NormalizedRenderTarget::TextureView(ManualTextureViewHandle(1)),
+                            position: Vec2::new(250.0, 100.0) * ui,
+                        },
+                    ),
+                    button: PointerButton::Primary,
+                    hit: HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                    count: 1,
+                });
+                assert_eq!(
+                    app.world().get::<Slider>(entity).unwrap().value,
+                    75,
+                    "UI {ui}, DPI {dpi}"
+                );
+            }
+        }
     }
 
     fn fonts() -> UiFonts {

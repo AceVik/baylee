@@ -685,7 +685,10 @@ pub(crate) fn install(app: &mut App) {
 fn follow_the_zoom(
     mut commands: Commands,
     mut zoom: ResMut<zoom::Zoom>,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    (windows, ui): (
+        Query<&Window, With<bevy::window::PrimaryWindow>>,
+        Option<Res<UiScale>>,
+    ),
     settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     roots: Query<
@@ -708,7 +711,10 @@ fn follow_the_zoom(
         let step = settings.as_ref().map(|s| s.text_size).unwrap_or_default();
         windows.single().map_or(1.0, |w| {
             crate::shellkit::metrics::screen_scale(
-                crate::shellkit::Viewport::desktop(w.width(), w.height()),
+                crate::shellkit::Viewport::desktop(
+                    crate::hud::scale::desktop_space(w, ui.as_deref()).x,
+                    crate::hud::scale::desktop_space(w, ui.as_deref()).y,
+                ),
                 step,
             ) * step.factor()
         })

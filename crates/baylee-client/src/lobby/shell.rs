@@ -242,7 +242,7 @@ pub(super) fn ui(
     state: Res<LobbyState>,
     scrolled_to: Res<Scrolled>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     root: Query<Entity, With<LobbyRoot>>,
     // Only the printing picker draws a remote image, and a headless test has
     // no asset server {2014} nor should it reach the CDN to build a tree.
@@ -264,7 +264,7 @@ pub(super) fn ui(
     mut rebuilds: ResMut<UiRebuilds>,
 ) {
     let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
-        (w.resolution.width(), w.resolution.height())
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
     });
     let metrics = Metrics::of(width);
     let step = kit_inputs

@@ -217,7 +217,7 @@ fn draw(
     settings: Option<Res<ClientSettings>>,
     input: Res<InputClass>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    (windows, ui): (Query<&Window, With<PrimaryWindow>>, Option<Res<UiScale>>),
     roots: Query<Entity, With<OverlayRoot>>,
     alive: Query<()>,
     mut focus: ResMut<InputFocus>,
@@ -240,9 +240,9 @@ fn draw(
     let Some(fonts) = fonts else {
         return;
     };
-    let (width, height) = windows
-        .single()
-        .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    let (width, height) = windows.single().map_or((1280.0, 800.0), |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
+    });
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let step = settings
         .as_deref()
@@ -344,7 +344,7 @@ fn draw_rows(
     learnt: Res<LearntKeys>,
     input: Res<InputClass>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    (windows, ui): (Query<&Window, With<PrimaryWindow>>, Option<Res<UiScale>>),
     lists: Query<(Entity, Option<&Children>), With<OverlayList>>,
     added: Query<(), Added<OverlayList>>,
 ) {
@@ -367,9 +367,9 @@ fn draw_rows(
             commands.entity(child).despawn();
         }
     }
-    let (width, height) = windows
-        .single()
-        .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    let (width, height) = windows.single().map_or((1280.0, 800.0), |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
+    });
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let step = settings
         .as_deref()

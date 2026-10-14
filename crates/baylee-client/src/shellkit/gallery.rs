@@ -164,7 +164,7 @@ fn draw(
     learnt: Res<super::keys::LearntKeys>,
     input: Res<InputClass>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    (windows, ui): (Query<&Window, With<PrimaryWindow>>, Option<Res<UiScale>>),
     roots: Query<Entity, With<GalleryRoot>>,
     mut drawn: Local<Option<Drawn>>,
 ) {
@@ -178,9 +178,9 @@ fn draw(
     let Some(fonts) = fonts else {
         return;
     };
-    let (width, height) = windows
-        .single()
-        .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    let (width, height) = windows.single().map_or((1280.0, 800.0), |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
+    });
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let standard = baylee_client_core::shellkeys::ShellKeymap::standard();
     let keymap = prefs.as_deref().map_or(&standard, |p| &p.all().shell_keys);

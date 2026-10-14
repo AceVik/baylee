@@ -62,7 +62,7 @@ pub(super) fn tours(
     mut desk: ResMut<TourDesk>,
     mut settings: ResMut<crate::settings::ClientSettings>,
     input: Option<Res<crate::shellkit::InputClass>>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut report: Option<ResMut<crate::report::ReportDesk>>,
     anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
     (mut clicks, buttons, parents): (
@@ -76,7 +76,10 @@ pub(super) fn tours(
         return;
     };
     let house = local(host.as_deref());
-    let phone = windows.iter().next().is_some_and(|w| w.height() < 500.0);
+    let phone = windows
+        .iter()
+        .next()
+        .is_some_and(|w| crate::hud::scale::desktop_space(w, ui.as_deref()).y < 500.0);
     let touch = input
         .as_deref()
         .is_some_and(|i| *i == crate::shellkit::InputClass::Touch);

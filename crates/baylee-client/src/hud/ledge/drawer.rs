@@ -271,6 +271,7 @@ pub fn sync_drawer(
     mut cloth: Option<ResMut<crate::frontal::Cloth>>,
     mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
     (pills, windows): (Query<(), With<SheetPill>>, Query<&Window>),
+    ui: Option<Res<UiScale>>,
 ) {
     let Ok((root, standing)) = root.single() else {
         return;
@@ -278,8 +279,10 @@ pub fn sync_drawer(
     let lang = Lang::of(&settings.lang);
     let mut next = reading(&duel, lang, &texts, &layout);
     next.phone = windows.single().is_ok_and(|w| {
-        baylee_client_core::tableview::TableFrame::of(w.width(), w.height())
-            == baylee_client_core::tableview::TableFrame::Phone
+        baylee_client_core::tableview::TableFrame::of(
+            crate::hud::scale::desktop_space(w, ui.as_deref()).x,
+            crate::hud::scale::desktop_space(w, ui.as_deref()).y,
+        ) == baylee_client_core::tableview::TableFrame::Phone
     });
     next.fold_cap = prefs
         .keymap()

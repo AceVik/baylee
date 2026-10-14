@@ -121,17 +121,18 @@ pub(super) fn scrolls(
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
     mut memory: ResMut<Scrolled>,
     entrance: Res<super::entrance::Entrance>,
-    journey: Option<Res<crate::arrival::Journey>>,
+    (journey, ui): (Option<Res<crate::arrival::Journey>>, Option<Res<UiScale>>),
 ) {
     if journey.as_ref().is_some_and(|j| j.active()) || entrance.active() {
         wheels.clear();
         drags.clear();
         return;
     }
+    let ui = ui.as_deref().map_or(1.0, |ui| ui.0);
     for wheel in wheels.read() {
         let travel = match wheel.unit {
             MouseScrollUnit::Line => wheel.y * WHEEL_LINE,
-            MouseScrollUnit::Pixel => wheel.y,
+            MouseScrollUnit::Pixel => wheel.y / ui,
         };
         // A wheel pushed away from the reader moves the content up, which is
         // an *increase* in the scroll offset.
@@ -141,7 +142,7 @@ pub(super) fn scrolls(
         // A finger drags the content itself, so it goes the other way again.
         scroll_lineage(
             drag.entity,
-            -drag.delta.y,
+            -drag.delta.y / ui,
             &parents,
             &mut lists,
             &mut memory,
@@ -183,6 +184,75 @@ fn scroll_lineage(
 #[cfg(test)]
 mod scrolling_tests {
     use super::*;
+
+    #[test]
+    fn drag_and_pixel_scroll_follow_the_pointer_under_ui_scale_and_dpi() {
+        use bevy::camera::{ManualTextureViewHandle, NormalizedRenderTarget};
+        use bevy::picking::{
+            events::Pointer,
+            pointer::{Location, PointerId},
+        };
+        for ui in [0.5, 0.75, 1.0, 1.75] {
+            for dpi in [1.0, 2.0] {
+                let mut app = App::new();
+                app.insert_resource(UiScale(ui))
+                    .init_resource::<Scrolled>()
+                    .init_resource::<crate::lobby::entrance::Entrance>()
+                    .add_message::<PointerScroll>()
+                    .add_message::<PointerDrag>()
+                    .add_systems(Update, scrolls);
+                let scale = ui * dpi;
+                let entity = app
+                    .world_mut()
+                    .spawn((
+                        ScrollPosition::default(),
+                        Scrollable(List::Table),
+                        ComputedNode {
+                            size: Vec2::new(300.0, 100.0) * scale,
+                            content_size: Vec2::new(300.0, 2000.0) * scale,
+                            inverse_scale_factor: 1.0 / scale,
+                            ..default()
+                        },
+                    ))
+                    .id();
+                let pointer = Pointer::new(
+                    PointerId::Mouse,
+                    Location {
+                        target: NormalizedRenderTarget::TextureView(ManualTextureViewHandle(1)),
+                        position: Vec2::ZERO,
+                    },
+                );
+                app.world_mut().write_message(PointerDrag {
+                    entity,
+                    pointer: pointer.clone(),
+                    button: PointerButton::Primary,
+                    distance: Vec2::new(0.0, -150.0),
+                    delta: Vec2::new(0.0, -150.0),
+                });
+                app.update();
+                let scroll = |app: &App| app.world().get::<ScrollPosition>(entity).unwrap().y * ui;
+                assert!(
+                    (scroll(&app) - 150.0).abs() < 1e-3,
+                    "drag: UI {ui}, DPI {dpi}"
+                );
+                app.world_mut().write_message(PointerScroll {
+                    entity,
+                    pointer,
+                    unit: MouseScrollUnit::Pixel,
+                    x: 0.0,
+                    y: -90.0,
+                    hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                    phase: bevy::input::touch::TouchPhase::Moved,
+                });
+                app.update();
+                assert!(
+                    (scroll(&app) - 240.0).abs() < 1e-3,
+                    "wheel: UI {ui}, DPI {dpi}"
+                );
+            }
+        }
+    }
+
     #[test]
     #[allow(clippy::type_complexity)] // explicit Bevy SystemState for exercising the actual scroll ancestry
     fn a_full_or_exhausted_inner_list_passes_scroll_to_the_form() {

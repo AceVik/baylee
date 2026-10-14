@@ -166,12 +166,14 @@ fn clear_the_lane(
     ui: Res<ChatUi>,
     slide: Res<DrawerSlide>,
     zoom: Res<super::zoom::Zoom>,
-    windows: Query<&Window>,
+    (windows, scale): (Query<&Window>, Option<Res<UiScale>>),
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut lanes: Query<(Entity, &mut Node, Option<&LaneBase>), With<crate::lobby::ToastLane>>,
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
-    let window_h = windows.iter().next().map_or(720.0, Window::height);
+    let window_h = windows.iter().next().map_or(720.0, |w| {
+        crate::hud::scale::desktop_space(w, scale.as_deref()).y
+    });
     for (lane, mut node, base) in &mut lanes {
         let base = base.copied().unwrap_or_else(|| {
             let base = LaneBase {

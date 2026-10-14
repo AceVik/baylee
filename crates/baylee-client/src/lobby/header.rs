@@ -816,7 +816,7 @@ pub(super) fn toast_lane(
     state: Res<LobbyState>,
     mut toasts: ResMut<Toasts>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     input: Res<crate::shellkit::InputClass>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     lanes: Query<Entity, With<ToastLane>>,
@@ -863,10 +863,9 @@ pub(super) fn toast_lane(
     if now.is_empty() {
         return;
     }
-    let (width, height) = windows
-        .iter()
-        .next()
-        .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
+    });
     let step = settings
         .as_deref()
         .map_or_else(Default::default, |s| s.text_size);

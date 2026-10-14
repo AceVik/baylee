@@ -240,3 +240,52 @@ fn issue_186_the_house_tab_offers_copies_and_never_an_edit_on_every_frame() {
         super::decks::DecksTab::Mine
     );
 }
+
+/// Small desktop windows retain the supported layout and scale its UI,
+/// rather than hiding controls behind the old phone-only pane switches.
+#[test]
+fn the_desktop_canvas_floor_preserves_the_tree_and_its_controls() {
+    let mut app = headless();
+    app.init_resource::<UiScale>()
+        .add_systems(PreUpdate, crate::hud::scale::follow_the_window);
+    sized(&mut app, 1280.0);
+    {
+        let mut query = app.world_mut().query::<&mut Window>();
+        query
+            .single_mut(app.world_mut())
+            .unwrap()
+            .resolution
+            .set(1280.0, 720.0);
+    }
+    app.update();
+    app.update();
+    let full_roots = roots(&mut app);
+    let full_controls = presses(&mut app);
+    for (width, height, factor) in [
+        (960.0, 540.0, 0.75),
+        (640.0, 360.0, 0.5),
+        (1280.0, 720.0, 1.0),
+    ] {
+        {
+            let mut query = app.world_mut().query::<&mut Window>();
+            query
+                .single_mut(app.world_mut())
+                .unwrap()
+                .resolution
+                .set(width, height);
+        }
+        app.update();
+        app.update();
+        assert!((app.world().resource::<UiScale>().0 - factor).abs() < 1e-6);
+        assert_eq!(
+            roots(&mut app),
+            full_roots,
+            "same layout, no tree churn at {width}"
+        );
+        assert_eq!(
+            presses(&mut app),
+            full_controls,
+            "all controls remain at {width}"
+        );
+    }
+}

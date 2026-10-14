@@ -121,7 +121,7 @@ pub(super) fn tours(
     mut state: ResMut<LobbyState>,
     mut desk: ResMut<TourDesk>,
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     input: Option<Res<crate::shellkit::InputClass>>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
@@ -175,10 +175,9 @@ pub(super) fn tours(
         }
         _ => {}
     }
-    let (width, height) = windows
-        .iter()
-        .next()
-        .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref())
+    });
     let m = super::header::kit_metrics(
         width,
         height,

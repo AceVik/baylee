@@ -147,7 +147,7 @@ fn sync(
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut columns: Query<(Entity, &mut Node), With<ToastColumn>>,
     ui: Res<super::ChatUi>,
-    windows: Query<&Window>,
+    (windows, scale): (Query<&Window>, Option<Res<UiScale>>),
     zoom: Res<super::zoom::Zoom>,
     slide: Res<super::drawer::DrawerSlide>,
 ) {
@@ -162,7 +162,9 @@ fn sync(
         .collect();
     let column = if let Some((column, mut node)) = columns.iter_mut().next() {
         // In the lobby, above the chat panel while it stands.
-        let window_h = windows.iter().next().map_or(720.0, Window::height);
+        let window_h = windows.iter().next().map_or(720.0, |w| {
+            crate::hud::scale::desktop_space(w, scale.as_deref()).y
+        });
         let lobby_bottom = if ui.open && !ui.minimised {
             super::window::lobby_panel_height(window_h) + 16.0
         } else {

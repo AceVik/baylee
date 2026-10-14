@@ -39,10 +39,13 @@ pub struct HandTabRevision {
 }
 
 /// Whether the window is a phone's: the one frame with a drawer.
-fn on_a_phone(windows: &Query<&Window>) -> bool {
-    windows
-        .single()
-        .is_ok_and(|w| TableFrame::of(w.width(), w.height()) == TableFrame::Phone)
+fn on_a_phone(windows: &Query<&Window>, ui: Option<&UiScale>) -> bool {
+    windows.single().is_ok_and(|w| {
+        TableFrame::of(
+            crate::hud::scale::desktop_space(w, ui).x,
+            crate::hud::scale::desktop_space(w, ui).y,
+        ) == TableFrame::Phone
+    })
 }
 
 /// How far down the zone and the bar stand when the drawer is drawn
@@ -104,13 +107,13 @@ pub fn slide_the_hand(
     mut duel: ResMut<Duel>,
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut nodes: Query<Rider>,
     huds: Query<(), With<crate::hud::HudRoot>>,
     phase: Option<Res<State<DuelPhase>>>,
     bar: Option<Res<crate::hud::replay_bar::BarUi>>,
 ) {
-    let phone = on_a_phone(&windows);
+    let phone = on_a_phone(&windows, ui.as_deref());
     // Open while the table is still being prepared under its cover: the
     // entrance shows the whole screen as it will first be played.
     let playing =
@@ -156,12 +159,12 @@ pub fn sync_hand_tab(
     phase: Option<Res<State<DuelPhase>>>,
     fonts: Option<Res<UiFonts>>,
     duel: Res<Duel>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut revision: ResMut<HandTabRevision>,
     standing: Query<Entity, With<HandTab>>,
 ) {
     let up = phase.is_some_and(|p| !matches!(p.get(), DuelPhase::Closed));
-    let next = if up && on_a_phone(&windows) {
+    let next = if up && on_a_phone(&windows, ui.as_deref()) {
         let cards = duel.view.as_ref().map_or(0, |v| v.hand.len());
         HandTabRevision {
             shown: true,

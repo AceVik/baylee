@@ -847,7 +847,7 @@ fn sync_lobby_window(
     settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<DuelPhase>>>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
-    windows_q: Query<&Window>,
+    (windows_q, scale): (Query<&Window>, Option<Res<UiScale>>),
     mut windows: ResMut<Windows>,
     mut roots: Query<(Entity, &mut Node, &mut Visibility, &mut Pop), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
@@ -870,7 +870,9 @@ fn sync_lobby_window(
         return;
     };
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let window_h = windows_q.iter().next().map_or(720.0, Window::height);
+    let window_h = windows_q.iter().next().map_or(720.0, |w| {
+        crate::hud::scale::desktop_space(w, scale.as_deref()).y
+    });
     let height = lobby_panel_height(window_h);
     let root = if let Some((root, ..)) = roots.iter().next() {
         root

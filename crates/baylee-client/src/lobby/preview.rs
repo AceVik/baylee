@@ -104,6 +104,7 @@ pub(super) fn hovers(
     windows: Query<&Window>,
     mut hovered: ResMut<Hovered>,
     state: Res<LobbyState>,
+    ui: Option<Res<UiScale>>,
 ) {
     if state.confirmation.is_some()
         || state.lobby.builder().picker().is_some()
@@ -152,7 +153,10 @@ pub(super) fn hovers(
     let reach = previews
         .iter()
         .find(|p| p.takes_pointer && p.epoch == hovered.epoch && hovered.card.is_some())
-        .map(|p| p.rect);
+        .map(|p| {
+            let scale = ui.as_deref().map_or(1.0, |ui| ui.0);
+            Rect::from_corners(p.rect.min * scale, p.rect.max * scale)
+        });
     let (mut next, mut source, mut at) = (hovered.card.clone(), hovered.source, hovered.at);
     if source.is_some_and(|entity| cards.get(entity).is_err()) {
         next = None;
@@ -345,12 +349,13 @@ pub(super) fn preview(
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     reading: Reading,
     spot: Option<Res<crate::tour::Spotlight>>,
+    ui: Option<Res<UiScale>>,
 ) {
     let canvas = windows
         .iter()
         .next()
         .map_or(Vec2::new(1280.0, 800.0), |win| {
-            Vec2::new(win.width(), win.height())
+            crate::hud::scale::space(win, ui.as_deref())
         });
     let current = existing.iter().next().map(|(_, p)| (p.epoch, p.canvas));
     if current == Some((hovered.epoch, canvas)) {
@@ -375,8 +380,9 @@ pub(super) fn preview(
     };
 
     let bubble = spot.as_deref().and_then(|s| s.bubble);
-    let rect = place_clear(hovered.at, canvas, bubble);
-    let (turning, rect, card_box) = standing(card, text.is_none(), rect, hovered.at, canvas);
+    let at = hovered.at / ui.as_deref().map_or(1.0, |scale| scale.0);
+    let rect = place_clear(at, canvas, bubble);
+    let (turning, rect, card_box) = standing(card, text.is_none(), rect, at, canvas);
     let (left, top, width, height) = (
         card_box.min.x,
         card_box.min.y,

@@ -92,7 +92,7 @@ pub(super) fn draw<'a>(
 /// when it would leave the window, and shows it.
 pub(super) fn place(
     mut commands: Commands,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut menus: Query<
         (
             Entity,
@@ -108,7 +108,7 @@ pub(super) fn place(
     let Some(window) = windows.iter().next() else {
         return;
     };
-    let (width, height) = (window.width(), window.height());
+    let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
     for (entity, anchor, computed, mut node, mut shown) in &mut menus {
         let Ok((at, place)) = anchors.get(anchor.0) else {
             // The opener is gone: nothing to hang from.

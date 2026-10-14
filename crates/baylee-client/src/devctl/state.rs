@@ -958,7 +958,7 @@ fn presentation_json(believed: &Believed) -> serde_json::Value {
         .filter(|(text, _, _)| hints.contains(&text.0.as_str()))
         .map(|(text, node, place)| serde_json::json!({"text":text.0,"bounds":bounds(node,place)}))
         .collect();
-    serde_json::json!({"legal":legal,"music_controls":music,"preview_hints":preview_hints,
+    serde_json::json!({"ui_scale":believed.ui(),"legal":legal,"music_controls":music,"preview_hints":preview_hints,
         "volume":believed.settings.as_ref().map(|s|s.music.volume()),
         "muted":believed.settings.as_ref().map(|s|s.music.muted()),
         "score":believed.score.as_ref().map(|heard| score_json(heard.0))})

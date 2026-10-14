@@ -411,8 +411,8 @@ fn sync(
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
-                left: zpx(at.0.x / scale),
-                top: zpx(at.0.y / scale),
+                left: Val::Px(at.0.x / scale),
+                top: Val::Px(at.0.y / scale),
                 min_width: zpx(160.0),
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(zpx(4.0)),

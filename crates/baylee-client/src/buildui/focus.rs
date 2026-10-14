@@ -256,12 +256,12 @@ pub(crate) fn scroll_to_the_cursor(
 pub(crate) fn place_menus(
     mut menus: Query<(&PlacedMenu, &mut Node, &mut Visibility, &ComputedNode)>,
     openers: Query<(&MenuOpener, &ComputedNode, &UiGlobalTransform)>,
-    windows: Query<&Window>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
 ) {
     let Some(window) = windows.iter().next() else {
         return;
     };
-    let (width, height) = (window.width(), window.height());
+    let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
     for (menu, mut node, mut shown, laid) in &mut menus {
         if *shown != Visibility::Hidden {
             continue;
