@@ -2,17 +2,33 @@
 use super::{
     check,
     common::{self, Report},
-    devctl::{Devctl, sleep},
+    devctl::{Devctl, read_stable, sleep},
     tree::Tree,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::path::Path;
 const FACES: &[&str] = &["gateway", "signin", "create", "guest", "about"];
-/// A wheel aim only when the complete control lies outside the window or
-/// one of its actual scroll ancestors. The fixed footer is outside that
-/// ancestor, so a centre still inside /health.height is not enough.
-fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(f64, f64, f64)>> {
+/// All geometry that determines visibility, including moving clip ancestors.
+struct ScrollGeometry {
+    control: [f64; 4],
+    // The window first, then the actual scroll ancestors in tree order.
+    clips: Vec<[f64; 4]>,
+}
+
+impl ScrollGeometry {
+    fn agrees(&self, other: &Self) -> bool {
+        self.clips.len() == other.clips.len()
+            && self
+                .control
+                .iter()
+                .chain(self.clips.iter().flatten())
+                .zip(other.control.iter().chain(other.clips.iter().flatten()))
+                .all(|(a, b)| (a - b).abs() <= 0.5)
+    }
+}
+
+fn scroll_geometry(state: &Value, size: (f64, f64), name: &str) -> Result<ScrollGeometry> {
     let control = state["lobby_controls"]
         .as_array()
         .context("missing controls")?
@@ -40,17 +56,31 @@ fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(
                 && (n.h - h).abs() <= 1.0
         })
         .with_context(|| format!("missing control node: {name}"))?;
-    let scrolls: Vec<_> = tree
-        .ancestors(hit.index, None)
-        .into_iter()
-        .filter(|n| n.kind() == "scroll")
-        .collect();
+    let mut clips = vec![[0.0, 0.0, size.0, size.1]];
+    clips.extend(
+        tree.ancestors(hit.index, None)
+            .into_iter()
+            .filter(|n| n.kind() == "scroll")
+            .map(|n| [n.x, n.y, n.w, n.h]),
+    );
+    Ok(ScrollGeometry {
+        control: [x, y, w, h],
+        clips,
+    })
+}
+
+/// A wheel aim only when the complete control lies outside the window or
+/// one of its actual scroll ancestors. The fixed footer is outside that
+/// ancestor, so a centre still inside /health.height is not enough.
+fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(f64, f64, f64)>> {
+    let geometry = scroll_geometry(state, size, name)?;
+    let [x, y, w, h] = geometry.control;
     let (mut left, mut top, mut right, mut bottom) = (0.0_f64, 0.0_f64, size.0, size.1);
-    for scroll in &scrolls {
-        left = left.max(scroll.x);
-        top = top.max(scroll.y);
-        right = right.min(scroll.right());
-        bottom = bottom.min(scroll.bottom());
+    for &[x, y, w, h] in &geometry.clips {
+        left = left.max(x);
+        top = top.max(y);
+        right = right.min(x + w);
+        bottom = bottom.min(y + h);
     }
     ensure!(
         w > 0.0 && h > 0.0 && h <= bottom - top + 1.0,
@@ -64,7 +94,7 @@ fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(
         return Ok(None);
     }
     ensure!(
-        !scrolls.is_empty(),
+        geometry.clips.len() > 1,
         "offscreen control has no scroll ancestor: {name}"
     );
     let down = y + h / 2.0 > bottom;
@@ -79,22 +109,31 @@ fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(
 pub(super) fn into_view(d: &Devctl, name: &str) -> Result<()> {
     let mut before = None;
     for attempt in 0..=12 {
-        let size = d.size()?;
-        let state = d.state()?;
-        let screen = json!([
-            state["shell"]["screen"],
-            state["shell"]["table"],
-            state["shell"]["modal_by"],
-            state["shell"]["overlay"]
-        ]);
-        if let Some(before) = &before {
-            ensure!(
-                *before == screen,
-                "screen changed while scrolling to {name}"
-            );
-        } else {
-            before = Some(screen);
-        }
+        let (state, size, _) = read_stable(
+            8.0,
+            || {
+                let size = d.size()?;
+                let state = d.state()?;
+                let screen = json!([
+                    state["shell"]["screen"],
+                    state["shell"]["table"],
+                    state["shell"]["modal_by"],
+                    state["shell"]["overlay"]
+                ]);
+                if let Some(before) = &before {
+                    ensure!(
+                        *before == screen,
+                        "screen changed while scrolling to {name}"
+                    );
+                } else {
+                    before = Some(screen);
+                }
+                let geometry = scroll_geometry(&state, size, name)?;
+                Ok((state, size, geometry))
+            },
+            |a, b| a.2.agrees(&b.2),
+        )
+        .with_context(|| format!("waiting for scroll geometry: {name}"))?;
         let Some((x, y, by)) = scroll_target(&state, size, name)? else {
             return Ok(());
         };
@@ -282,72 +321,91 @@ mod tests {
         );
     }
 
-    #[test]
-    fn visibility_uses_a_fresh_state_after_wheeling_for_front_and_settings_cleanup() {
-        for name in ["Front(GuestFace)", "Settings(Seat(Revert))"] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let port = listener.local_addr().unwrap().port();
-            listener.set_nonblocking(true).unwrap();
-            let replies = [
-                ("GET /health", json!({"width":960,"height":700})),
-                ("GET /state", state(name, 648.0)),
-                ("POST /pointer", json!({"ok":true})),
-                ("POST /scroll", json!({"ok":true})),
-                ("GET /health", json!({"width":960,"height":700})),
-                ("GET /state", state(name, 450.0)),
-            ];
-            let worker = thread::spawn(move || {
-                let mut bodies = Vec::new();
-                for (route, reply) in replies {
-                    let until = std::time::Instant::now() + Duration::from_secs(5);
-                    let mut stream = loop {
-                        match listener.accept() {
-                            Ok((stream, _)) => break stream,
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                                assert!(std::time::Instant::now() < until, "missing {route}");
-                                thread::sleep(Duration::from_millis(5));
-                            }
-                            Err(e) => panic!("{e}"),
+    /// A scripted loopback fixture; unexpected writes or stale reads fail.
+    fn serve(replies: Vec<(&'static str, Value)>) -> (Devctl, thread::JoinHandle<Vec<Value>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        listener.set_nonblocking(true).unwrap();
+        let worker = thread::spawn(move || {
+            let mut bodies = Vec::new();
+            for (route, reply) in replies {
+                let until = std::time::Instant::now() + Duration::from_secs(5);
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(std::time::Instant::now() < until, "missing {route}");
+                            thread::sleep(Duration::from_millis(5));
                         }
-                    };
-                    stream
-                        .set_read_timeout(Some(Duration::from_secs(2)))
-                        .unwrap();
-                    let mut reader = BufReader::new(&mut stream);
-                    let mut line = String::new();
+                        Err(e) => panic!("{e}"),
+                    }
+                };
+                // Accepted sockets can inherit the listener's nonblocking mode.
+                // Poll accept above, but read each request with the timeout below.
+                stream.set_nonblocking(false).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut reader = BufReader::new(&mut stream);
+                let mut line = String::new();
+                assert!(
+                    reader.read_line(&mut line).unwrap() > 0,
+                    "unexpected request EOF"
+                );
+                assert!(line.starts_with(route), "unexpected request: {line}");
+                let mut length = 0;
+                loop {
+                    line.clear();
                     assert!(
                         reader.read_line(&mut line).unwrap() > 0,
                         "unexpected request EOF"
                     );
-                    assert!(line.starts_with(route), "unexpected request: {line}");
-                    let mut length = 0;
-                    loop {
-                        line.clear();
-                        assert!(
-                            reader.read_line(&mut line).unwrap() > 0,
-                            "unexpected request EOF"
-                        );
-                        if line == "\r\n" {
-                            break;
-                        }
-                        if let Some((key, value)) = line.split_once(':')
-                            && key.eq_ignore_ascii_case("content-length")
-                        {
-                            length = value.trim().parse::<usize>().unwrap();
-                        }
+                    if line == "\r\n" {
+                        break;
                     }
-                    let mut body = vec![0; length];
-                    reader.read_exact(&mut body).unwrap();
-                    if !body.is_empty() {
-                        bodies.push(serde_json::from_slice::<Value>(&body).unwrap());
+                    if let Some((key, value)) = line.split_once(':')
+                        && key.eq_ignore_ascii_case("content-length")
+                    {
+                        length = value.trim().parse::<usize>().unwrap();
                     }
-                    drop(reader);
-                    let body = reply.to_string();
-                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
                 }
-                bodies
-            });
-            into_view(&Devctl::new(port).unwrap(), name).unwrap();
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                if !body.is_empty() {
+                    bodies.push(serde_json::from_slice::<Value>(&body).unwrap());
+                }
+                drop(reader);
+                let body = reply.to_string();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            }
+            bodies
+        });
+        (Devctl::new(port).unwrap(), worker)
+    }
+
+    fn samples(states: impl IntoIterator<Item = Value>) -> Vec<(&'static str, Value)> {
+        states
+            .into_iter()
+            .flat_map(|state| {
+                [
+                    ("GET /health", json!({"width":960,"height":700})),
+                    ("GET /state", state),
+                ]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn visibility_uses_a_fresh_state_after_wheeling_for_front_and_settings_cleanup() {
+        for name in ["Front(GuestFace)", "Settings(Seat(Revert))"] {
+            let mut replies = samples(vec![state(name, 648.0); 3]);
+            replies.extend([
+                ("POST /pointer", json!({"ok":true})),
+                ("POST /scroll", json!({"ok":true})),
+            ]);
+            replies.extend(samples(vec![state(name, 450.0); 3]));
+            let (d, worker) = serve(replies);
+            into_view(&d, name).unwrap();
             let bodies = worker.join().unwrap();
             assert_eq!(
                 bodies.len(),
@@ -358,5 +416,73 @@ mod tests {
             assert_eq!(bodies[0]["x"], 480.0);
             assert_eq!(bodies[0]["y"], 632.0);
         }
+    }
+
+    fn at_x(name: &str, x: f64) -> Value {
+        let mut s = state(name, 450.0);
+        s["lobby_controls"][0]["at_x"] = json!(x);
+        s["shell_nodes"][2]["x"] = json!(x - 100.0);
+        s
+    }
+
+    #[test]
+    fn visibility_waits_for_animation_but_still_rejects_settled_overflow() {
+        let name = "Front(LeaveGateway)";
+        for (positions, expected_error) in [
+            (vec![-100.0, 300.0, 480.0, 480.0, 480.0], false),
+            (vec![-100.0; 3], true),
+        ] {
+            let (d, worker) = serve(samples(positions.into_iter().map(|x| at_x(name, x))));
+            let result = into_view(&d, name);
+            let bodies = worker.join().unwrap();
+            assert!(bodies.is_empty(), "settling must neither scroll nor click");
+            if expected_error {
+                assert_eq!(
+                    result.unwrap_err().to_string(),
+                    "control leaves its horizontal viewport: Front(LeaveGateway)"
+                );
+            } else {
+                result.unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn visibility_waits_for_scroll_ancestors_even_when_the_control_stands_still() {
+        let name = "Front(LeaveGateway)";
+        let states = [600.0, 300.0, 0.0, 0.0, 0.0].map(|x| {
+            let mut s = state(name, 450.0);
+            s["shell_nodes"][1]["x"] = json!(x);
+            s
+        });
+        let (d, worker) = serve(samples(states));
+        into_view(&d, name).unwrap();
+        assert!(worker.join().unwrap().is_empty());
+    }
+
+    #[test]
+    fn visibility_refuses_screen_changes_during_stabilization() {
+        let name = "Front(LeaveGateway)";
+        let first = state(name, 450.0);
+        let mut changed = first.clone();
+        changed["shell"]["table"] = json!("another-face");
+        let (d, worker) = serve(samples([first, changed]));
+        let error = into_view(&d, name).unwrap_err();
+        assert!(worker.join().unwrap().is_empty());
+        assert!(format!("{error:#}").contains("screen changed while scrolling"));
+    }
+
+    #[test]
+    fn stabilization_is_bounded_and_does_not_accept_slow_drift() {
+        let mut position = 0.0_f64;
+        let result = read_stable(
+            0.5,
+            || {
+                position += 0.4;
+                Ok(position)
+            },
+            |a, b| (a - b).abs() <= 0.5,
+        );
+        assert!(result.unwrap_err().to_string().contains("did not settle"));
     }
 }

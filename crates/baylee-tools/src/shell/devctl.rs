@@ -345,6 +345,40 @@ impl Devctl {
         bail!("lobby tree did not settle within {seconds}s")
     }
 }
+/// Read-only geometry gate: three samples spanning 400 ms must agree with
+/// the same anchor. Comparing only adjacent frames would accept slow drift.
+/// The caller decides which geometry matters; malformed reads still fail.
+pub(super) fn read_stable<T>(
+    seconds: f64,
+    mut read: impl FnMut() -> Result<T>,
+    agrees: impl Fn(&T, &T) -> bool,
+) -> Result<T> {
+    let end = Instant::now() + Duration::from_secs_f64(seconds);
+    let mut anchor = read()?;
+    let mut quiet = 0;
+    loop {
+        ensure!(
+            Instant::now() < end,
+            "geometry did not settle within {seconds}s"
+        );
+        sleep(0.2);
+        let now = read()?;
+        ensure!(
+            Instant::now() < end,
+            "geometry did not settle within {seconds}s"
+        );
+        if agrees(&anchor, &now) {
+            quiet += 1;
+            if quiet >= 2 {
+                return Ok(now);
+            }
+        } else {
+            anchor = now;
+            quiet = 0;
+        }
+    }
+}
+
 pub(super) fn stable(a: &Control, b: &Control) -> bool {
     a.press == b.press && (a.at_x - b.at_x).abs() <= 0.5 && (a.at_y - b.at_y).abs() <= 0.5
 }
