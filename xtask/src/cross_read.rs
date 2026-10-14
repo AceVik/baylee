@@ -284,6 +284,33 @@ pub(crate) fn keyword_bit(const_name: &str) -> Option<baylee_cards::dsl::Keyword
         .map(|(bit, _)| *bit)
 }
 
+// Independently checked ownership census minus exclusions, with fixed slack.
+const READ_EXPECTED: usize = 1_310 - 56;
+const READ_SLACK: usize = 20;
+const READ_FLOOR: usize = READ_EXPECTED - READ_SLACK;
+const READ_CEILING: usize = READ_EXPECTED + READ_SLACK;
+
+fn population_in_range(compared: usize) -> bool {
+    (READ_FLOOR..=READ_CEILING).contains(&compared)
+}
+
+#[cfg(test)]
+mod population_tests {
+    use super::*;
+
+    #[test]
+    fn missing_and_misclassified_cards_trip_opposite_bounds() {
+        assert!(population_in_range(READ_EXPECTED));
+        assert!(population_in_range(READ_FLOOR));
+        assert!(population_in_range(READ_CEILING));
+        // Inject lost cards and incorrectly included machine-owned cards.
+        assert!(!population_in_range(READ_EXPECTED - READ_SLACK - 1));
+        assert!(!population_in_range(READ_EXPECTED + READ_SLACK + 1));
+        assert!(!population_in_range(0));
+        assert!(!population_in_range(READ_EXPECTED + 1_960));
+    }
+}
+
 /// Reads every hand-written card a second way and prints the disagreements.
 #[allow(clippy::too_many_lines)] // one paragraph per skip bucket; splitting hides the census
 pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result<()> {
@@ -299,19 +326,12 @@ pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> any
     // Floors alone would have caught neither: the marker bug made the
     // hand-written population *larger* (336 rather than 207), so a minimum
     // passed it while the report filled with a rule disagreeing with itself.
-    // These are the reach measured on 2026-09-17 — 245 cards read, 181 of
-    // them counted, 26 transcoded in full — with room either way for
-    // ordinary movement in the pool and none for a whole population
-    // appearing or vanishing.
-    //
-    // The window is re-centred rather than widened, and it is worth saying
-    // why it had to move at all: the previous one was measured at 204 cards
-    // on 2026-09-11 and the hand-written pool has since grown past its
-    // ceiling by ordinary work. That is the bound doing its job — it asked a
-    // person to look — and the answer is a new measurement, never a ceiling
-    // raised far enough not to ask again.
-    const READ_FLOOR: usize = 225;
-    const READ_CEILING: usize = 295;
+    // Census on 2026-10-14: 1,310 hand-owned files, of which 56 are
+    // incomplete or have no readable reference: 1,254 comparisons. A fixed
+    // allowance of 20 cards on either side permits small batches, not a
+    // missing category or the 1,960 machine-owned files leaking into this
+    // report. Keep this independent of the reader being checked: deriving
+    // the bound from its own result would bless an ownership-parser fault.
     const COUNTED_FLOOR: usize = 165;
     const IN_FULL_FLOOR: usize = 22;
 
@@ -540,10 +560,7 @@ pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> any
          `oracle_id`, {unregistered} the registry does not carry"
     );
 
-    if !(READ_FLOOR..=READ_CEILING).contains(&compared)
-        || shapes < COUNTED_FLOOR
-        || in_full < IN_FULL_FLOOR
-    {
+    if !population_in_range(compared) || shapes < COUNTED_FLOOR || in_full < IN_FULL_FLOOR {
         anyhow::bail!(
             "cross-read read a different pool than it can: {compared} cards read \
              (expected {READ_FLOOR}..={READ_CEILING}), {shapes} counted (floor \
