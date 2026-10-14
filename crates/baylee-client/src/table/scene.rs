@@ -3,6 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the table's shared vocabulary
 use super::*;
 
+mod cache;
+use cache::{CardInput, DecorationReady, SceneWork};
+
 /// Whether the card under the pointer on the felt has an offer on it (the
 /// light the table draws round a card this client can act on): the pointer
 /// is a hand over it. Written only when it changes.
@@ -44,6 +47,7 @@ pub fn sync_scene(
     // The fonts, and what has arrived of them: a face is measured in one.
     (fonts, font_assets): (Option<Res<crate::hud::UiFonts>>, Option<Res<Assets<Font>>>),
     mut cards: Query<DrawnCard>,
+    mut work: Local<SceneWork>,
 ) {
     let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
         return;
@@ -96,9 +100,9 @@ pub fn sync_scene(
     }
 
     // Reduce-motion reaches the cards through their material, so a change to
-    // it has to reach every material already made. Compared rather than
-    // watched: `Prefs` is written every frame by its own debounce, so change
-    // detection on the resource would fire this continuously.
+    // it has to reach every material already made. Compare this setting:
+    // unrelated preferences do not change a card's material. The save timer
+    // itself already bypasses preference change detection.
     //
     // Rewritten in place rather than thrown away, which is the difference
     // between the switch taking effect and the switch taking effect *later*:
@@ -138,17 +142,21 @@ pub fn sync_scene(
         }
     }
 
-    let wanted = placements(&duel);
-    let mut live: HashSet<ObjectId> = HashSet::new();
-    let hidden: HashSet<_> = wanted
-        .iter()
-        .filter(|p| !p.shown)
-        .map(|p| p.object)
-        .collect();
+    let SceneWork {
+        wanted,
+        live,
+        hidden,
+        fanned,
+        stamps,
+    } = &mut *work;
+    placements_into(&duel, wanted);
+    live.clear();
+    hidden.clear();
+    hidden.extend(wanted.iter().filter(|p| !p.shown).map(|p| p.object));
     // What is standing in a fan this frame, and which pile it came out of.
     // Rebuilt every frame rather than kept, because a fan is open for exactly
     // as long as the pointer is on it and the answer is never carried over.
-    let mut fanned: HashMap<ObjectId, Place> = HashMap::new();
+    fanned.clear();
 
     // The keyboard/mouse cursor. What is *chosen* rides on the placement,
     // because that is where a group's members are.
@@ -174,6 +182,9 @@ pub fn sync_scene(
         .view
         .as_ref()
         .map(baylee_client_core::board::Lookup::new);
+    let fonts_changed = fonts.as_ref().is_some_and(DetectChanges::is_changed)
+        || font_assets.as_ref().is_some_and(DetectChanges::is_changed);
+    let decorations = DecorationReady::of(&index);
     let mut hovered_offer = false;
     // The lane model keeps every object for targeting and keyboard navigation.
     // The scene owns entities only for its visible scroll window.
@@ -201,20 +212,6 @@ pub fn sync_scene(
             hovered_offer = glow & crate::cardmat::glow::OFFERS != 0;
         }
 
-        // The face is fitted before the material is chosen: its name's lines
-        // are the name bar's depth, which the material draws (#259), so the
-        // two come out of one fitting. A face fitted before the font arrived
-        // is fitted again when it does — the average's widths are a
-        // stand-in, and the font's may put the same name on the other number
-        // of lines.
-        let face_now = if show_face {
-            face_now(index.faces.get(&placement.object), seq, &widths, || {
-                object.map(|object| face::of_object(object, None, &texts))
-            })
-        } else {
-            FaceNow::Unbuilt
-        };
-
         // The card's passing states: dimmed while this seat's question leaves
         // it out, phased out. Followed per card, so a change fades in rather
         // than jumps; the clock is the one `globals.time` is written from.
@@ -235,6 +232,61 @@ pub fn sync_scene(
         } else {
             index.veils.insert(placement.object, track);
         }
+
+        if let Some((_, kind)) = placement.fan
+            && let Some(place) = place_of(kind, placement.slot.player)
+        {
+            fanned.insert(placement.object, place);
+        }
+        let input = CardInput {
+            decorations,
+            placement: *placement,
+            eye,
+            still,
+            finish,
+            glow,
+            veil,
+            sweep: sheen.of(placement.object, crate::sheen::Surface::Table),
+            show_face,
+            texture_epoch: textures.epoch(),
+            text_epoch: texts.generation(),
+            seq: if show_face { seq } else { 0 },
+        };
+        let before = stamps.get(&placement.object);
+        let refit = before.is_some_and(|old| old.face_changed(&input, object));
+        if !fonts_changed
+            && let Some(&entity) = index.cards.get(&placement.object)
+            && before.is_some_and(|old| old.matches(entity, &input, object))
+            && let Ok((mut target, _, _, _, mut rest, _)) = cards.get_mut(entity)
+        {
+            // Flying continues through the regular Motion target even while
+            // its picture, text and decorations remain unchanged.
+            let (transform, resting) = pose_of(placement, hovered, still, now);
+            if target.target != transform {
+                target.target = transform;
+            }
+            if rest.0 != resting {
+                rest.0 = resting;
+            }
+            continue;
+        }
+
+        // The face is fitted before the material is chosen: its name's lines
+        // are the name bar's depth, which the material draws (#259), so the
+        // two come out of one fitting. A face fitted before the font arrived
+        // is fitted again when it does — the average's widths are a
+        // stand-in, and the font's may put the same name on the other number
+        // of lines.
+        let face_now = if show_face {
+            face_now(
+                index.faces.get(&placement.object).filter(|_| !refit),
+                seq,
+                &widths,
+                || object.map(|object| face::of_object(object, None, &texts)),
+            )
+        } else {
+            FaceNow::Unbuilt
+        };
 
         let material = if show_face {
             // One material per colour identity and name depth, so a
@@ -270,68 +322,7 @@ pub fn sync_scene(
             }
         };
 
-        // A pile stands on the cards under it. The top card is drawn at the
-        // deck's own height and the rest of the deck hangs below it as
-        // children, so what a player sees is one block of cardboard with a
-        // face on top rather than a card with a fan of cards behind it.
-        let deck = stack_rise(placement.count.saturating_sub(1));
-        // A creature with flying stands off the felt. It goes in *here*, with
-        // the row's rise and the deck under it, so it reaches the card
-        // through `Motion` and `glide` like every other reason a card is
-        // where it is — an offset added to the transform after the glide
-        // would be fought by the glide on the next frame and compound.
-        //
-        let float = float_of(
-            placement,
-            placement.selected
-                || placement.offer.armed
-                || hovered == Some(placement.object)
-                || still,
-            time.elapsed_secs_wrapped(),
-        );
-        let mut transform = card_transform(
-            &placement.slot,
-            placement.position,
-            placement.tapped,
-            placement.lift + deck + float,
-        );
-        if placement.flying
-            && !still
-            && !placement.selected
-            && !placement.offer.armed
-            && hovered != Some(placement.object)
-        {
-            let phase = airborne::phase(placement.object) * std::f32::consts::TAU;
-            let t = time.elapsed_secs_wrapped();
-            // Subtle bank and pitch, through the regular glide.
-            transform.rotation *= Quat::from_rotation_x((t * 1.15 + phase).sin() * 0.012)
-                * Quat::from_rotation_y((t * 0.83 + phase).cos() * 0.016);
-        }
-        // A card in a fan is tipped up and turned; everything else about it —
-        // where it stands, the deck under it, the hover lift below — is the
-        // same arithmetic every other card gets.
-        if let Some((pose, kind)) = placement.fan {
-            transform.rotation = fan_rotation(&placement.slot, pose);
-            if let Some(place) = place_of(kind, placement.slot.player) {
-                fanned.insert(placement.object, place);
-            }
-        }
-        // Hover (cursor) lifts the card a touch; a chosen card stays raised
-        // until the choice is answered, and so does an armed one — a deed
-        // waiting on a second tap is a commitment the player has already
-        // made, which is the same claim being selected makes and belongs at
-        // the same height. Selected wins over both; the pointer moving away
-        // must not put an armed card back down.
-        // Where the card stands with nothing touching it, kept before the two
-        // branches below add what is. See [`CardRest`].
-        let resting = transform;
-        if placement.selected || placement.offer.armed {
-            transform.translation.y += SELECTED_LIFT;
-            transform.scale *= SELECTED_SCALE;
-        } else if hovered == Some(placement.object) {
-            transform.translation.y += HOVER_LIFT;
-            transform.scale *= HOVER_SCALE;
-        }
+        let (transform, resting) = pose_of(placement, hovered, still, now);
 
         let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
@@ -482,6 +473,11 @@ pub fn sync_scene(
             motion,
         );
 
+        stamps
+            .entry(placement.object)
+            .and_modify(|stamp| stamp.update(entity, &input, object))
+            .or_insert_with(|| cache::CardStamp::new(entity, &input, object));
+
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
         // an anthem, a counter or a clone all change what the face should say.
@@ -521,6 +517,8 @@ pub fn sync_scene(
     if let Some(offered) = offered.as_mut() {
         offered.set_if_neq(crate::table::HoveredOffer(hovered_offer));
     }
+
+    stamps.retain(|id, _| live.contains(id));
 
     // Anything no longer on the board leaves the scene.
 
@@ -610,7 +608,7 @@ pub fn sync_scene(
 
     // After the stale pass and not before it: what this frame fanned is next
     // frame's answer to "was that card in the air".
-    index.fanned = fanned;
+    std::mem::swap(&mut index.fanned, fanned);
 
     // Tell the cache what is on screen so the next fetch evicts something
     // else. The placements are the table's own cards; `required_images` is
@@ -629,3 +627,73 @@ pub fn sync_scene(
     }
     textures.touch_visible(&visible);
 }
+
+/// Keeps animated poses independent of changes to the card's drawn content.
+fn pose_of(
+    placement: &Placement,
+    hovered: Option<ObjectId>,
+    still: bool,
+    now: f32,
+) -> (Transform, Transform) {
+    // A pile stands on the cards under it. The top card is drawn at the
+    // deck's own height and the rest of the deck hangs below it as
+    // children, so what a player sees is one block of cardboard with a
+    // face on top rather than a card with a fan of cards behind it.
+    let deck = stack_rise(placement.count.saturating_sub(1));
+    // A creature with flying stands off the felt. It goes in *here*, with
+    // the row's rise and the deck under it, so it reaches the card
+    // through `Motion` and `glide` like every other reason a card is
+    // where it is — an offset added to the transform after the glide
+    // would be fought by the glide on the next frame and compound.
+    //
+    let float = float_of(
+        placement,
+        placement.selected || placement.offer.armed || hovered == Some(placement.object) || still,
+        now,
+    );
+    let mut transform = card_transform(
+        &placement.slot,
+        placement.position,
+        placement.tapped,
+        placement.lift + deck + float,
+    );
+    if placement.flying
+        && !still
+        && !placement.selected
+        && !placement.offer.armed
+        && hovered != Some(placement.object)
+    {
+        let phase = airborne::phase(placement.object) * std::f32::consts::TAU;
+        let t = now;
+        // Subtle bank and pitch, through the regular glide.
+        transform.rotation *= Quat::from_rotation_x((t * 1.15 + phase).sin() * 0.012)
+            * Quat::from_rotation_y((t * 0.83 + phase).cos() * 0.016);
+    }
+    // A card in a fan is tipped up and turned; everything else about it —
+    // where it stands, the deck under it, the hover lift below — is the
+    // same arithmetic every other card gets.
+    if let Some((pose, _)) = placement.fan {
+        transform.rotation = fan_rotation(&placement.slot, pose);
+    }
+    // Hover (cursor) lifts the card a touch; a chosen card stays raised
+    // until the choice is answered, and so does an armed one — a deed
+    // waiting on a second tap is a commitment the player has already
+    // made, which is the same claim being selected makes and belongs at
+    // the same height. Selected wins over both; the pointer moving away
+    // must not put an armed card back down.
+    // Where the card stands with nothing touching it, kept before the two
+    // branches below add what is. See [`CardRest`].
+    let resting = transform;
+    if placement.selected || placement.offer.armed {
+        transform.translation.y += SELECTED_LIFT;
+        transform.scale *= SELECTED_SCALE;
+    } else if hovered == Some(placement.object) {
+        transform.translation.y += HOVER_LIFT;
+        transform.scale *= HOVER_SCALE;
+    }
+
+    (transform, resting)
+}
+
+#[cfg(test)]
+mod tests;

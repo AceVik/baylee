@@ -78,6 +78,7 @@ pub(super) fn fan_rotation(slot: &SeatSlot, pose: baylee_client_core::FanPose) -
 
 /// Where every group in the current board model belongs.
 #[allow(clippy::struct_excessive_bools)] // five facts about one card, each read on its own
+#[derive(Clone, Copy, PartialEq)]
 pub(super) struct Placement {
     pub(super) object: ObjectId,
     pub(super) slot: SeatSlot,
@@ -311,10 +312,19 @@ fn tuck(
 /// Pure geometry over the board model, so the ordering is the model's ordering
 /// and therefore stable frame to frame — which is what makes the diff below
 /// cheap and stops cards from swapping places when nothing happened.
-#[allow(clippy::too_many_lines)] // one walk of the model, in the model's order
+#[cfg(test)]
 pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
+    let mut out = Vec::new();
+    placements_into(duel, &mut out);
+    out
+}
+
+/// Reuses the scene's placement storage while reading the current board.
+#[allow(clippy::too_many_lines)] // one placement pass over rows and piles
+pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
+    out.clear();
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
-        return Vec::new();
+        return;
     };
     // Which pile, if any, the pointer has spread open. Read once for the
     // whole table: at most one pile is ever open, because the pointer is over
@@ -328,7 +338,6 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
         .view
         .as_ref()
         .map(|view| Combat::read(view, duel.interaction.as_ref()));
-    let mut out = Vec::new();
     for pod in &board.pods {
         let Some(slot) = layout.slot(pod.player) else {
             continue;
@@ -445,7 +454,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                 });
                 let host = out.len() - 1;
                 if tuck(
-                    &mut out, duel, slot, lane.kind, group, position, lift, turned, shown,
+                    out, duel, slot, lane.kind, group, position, lift, turned, shown,
                 ) {
                     out[host].badge = cardplate::attached_word(group.attached.len());
                 }
@@ -561,7 +570,7 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
     // A parked seat's cards (DESIGN-v8 §0) stand where its slot is and are
     // not drawn: hidden where they wait, as a scrolled row's are, so a seat
     // brought back onto the felt glides in rather than being spawned.
-    for placement in &mut out {
+    for placement in out.iter_mut() {
         if placement.slot.parked
             && !duel
                 .tear
@@ -575,7 +584,6 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
             placement.lift += tear.lift(placement.slot.player);
         }
     }
-    out
 }
 
 /// Whether the question this seat is answering will take one of `members`
