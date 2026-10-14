@@ -156,7 +156,7 @@ is the expensive one.
   `baylee-catalog corpus`. A superset of the pool.
 - **the reference** — the external, GPL-licensed card-script corpus. Read as an
   automated lookup, **never copied into this repo**. Not vendored, found three
-  ways (`--scripts`, `BAYLEE_CARD_SCRIPTS`, a `cardsfolder` near the parent).
+  ways (`--scripts`, `BAYLEE_CARD_SCRIPTS`, a `cardsfolder` near the parent, an upstream Card-Forge/forge checkout first).
 
 A fourth, separate thing: **the catalog** — PostgreSQL card *text* for the
 client, optional, unrelated to all three.

@@ -243,7 +243,7 @@ fn rules_file(root: &Path, given: &Path) -> Option<PathBuf> {
 
 /// The first file named `MagicCompRules*.txt` within `depth` levels of `at`.
 ///
-/// Bounded and breadth-first for the reason `find_cardsfolder` is: an
+/// Bounded and breadth-first for the reason `pick_cardsfolder` is: an
 /// unbounded walk from the parent of a repository is a walk of somebody's
 /// whole home directory.
 fn find_rules(at: &Path, depth: usize) -> Option<PathBuf> {
