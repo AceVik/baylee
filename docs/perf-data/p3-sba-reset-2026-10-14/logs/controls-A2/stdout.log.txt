@@ -1,0 +1,45 @@
+state/clone             time:   [1.5876 µs 1.5904 µs 1.5940 µs]
+Found 4 outliers among 30 measurements (13.33%)
+  1 (3.33%) low mild
+  2 (6.67%) high mild
+  1 (3.33%) high severe
+
+state/clone_from        time:   [1.5779 µs 1.5917 µs 1.6147 µs]
+Found 4 outliers among 30 measurements (13.33%)
+  1 (3.33%) low mild
+  1 (3.33%) high mild
+  2 (6.67%) high severe
+
+state/zones_clone       time:   [201.50 ns 201.97 ns 202.50 ns]
+Found 5 outliers among 30 measurements (16.67%)
+  5 (16.67%) high mild
+
+state/snapshot_hash     time:   [7.1572 µs 7.1823 µs 7.2143 µs]
+Found 4 outliers among 30 measurements (13.33%)
+  1 (3.33%) low mild
+  2 (6.67%) high mild
+  1 (3.33%) high severe
+
+state/snapshot_hash_3k_tokens
+                        time:   [104.86 µs 105.72 µs 106.43 µs]
+Found 1 outliers among 30 measurements (3.33%)
+  1 (3.33%) low mild
+
+engine/priority_pass_x4 time:   [13.734 µs 14.107 µs 14.615 µs]
+Found 1 outliers among 30 measurements (3.33%)
+  1 (3.33%) high mild
+
+layers/refresh_over_20k_stack
+                        time:   [14.421 ns 14.512 ns 14.638 ns]
+Found 4 outliers among 30 measurements (13.33%)
+  4 (13.33%) high severe
+
+rally/refresh/1000      time:   [503.83 µs 504.88 µs 505.97 µs]
+Found 1 outliers among 30 measurements (3.33%)
+  1 (3.33%) high severe
+
+rally/refresh/3000      time:   [1.5099 ms 1.5145 ms 1.5201 ms]
+Found 2 outliers among 30 measurements (6.67%)
+  1 (3.33%) high mild
+  1 (3.33%) high severe
+

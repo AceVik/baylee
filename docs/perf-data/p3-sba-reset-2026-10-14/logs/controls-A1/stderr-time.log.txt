@@ -1,0 +1,55 @@
+Gnuplot not found, using plotters backend
+Benchmarking state/clone
+Benchmarking state/clone: Warming up for 1.0000 s
+Benchmarking state/clone: Collecting 30 samples in estimated 3.0004 s (1.9M iterations)
+Benchmarking state/clone: Analyzing
+Benchmarking state/clone_from
+Benchmarking state/clone_from: Warming up for 1.0000 s
+Benchmarking state/clone_from: Collecting 30 samples in estimated 3.0005 s (1.9M iterations)
+Benchmarking state/clone_from: Analyzing
+Benchmarking state/zones_clone
+Benchmarking state/zones_clone: Warming up for 1.0000 s
+Benchmarking state/zones_clone: Collecting 30 samples in estimated 3.0000 s (15M iterations)
+Benchmarking state/zones_clone: Analyzing
+Benchmarking state/snapshot_hash
+Benchmarking state/snapshot_hash: Warming up for 1.0000 s
+Benchmarking state/snapshot_hash: Collecting 30 samples in estimated 3.0025 s (423k iterations)
+Benchmarking state/snapshot_hash: Analyzing
+Benchmarking state/snapshot_hash_3k_tokens
+Benchmarking state/snapshot_hash_3k_tokens: Warming up for 1.0000 s
+Benchmarking state/snapshot_hash_3k_tokens: Collecting 30 samples in estimated 3.0243 s (29k iterations)
+Benchmarking state/snapshot_hash_3k_tokens: Analyzing
+Benchmarking engine/priority_pass_x4
+Benchmarking engine/priority_pass_x4: Warming up for 1.0000 s
+Benchmarking engine/priority_pass_x4: Collecting 30 samples in estimated 3.0031 s (46k iterations)
+Benchmarking engine/priority_pass_x4: Analyzing
+Benchmarking layers/refresh_over_20k_stack
+Benchmarking layers/refresh_over_20k_stack: Warming up for 1.0000 s
+Benchmarking layers/refresh_over_20k_stack: Collecting 30 samples in estimated 3.0000 s (208M iterations)
+Benchmarking layers/refresh_over_20k_stack: Analyzing
+Benchmarking rally/refresh/1000
+Benchmarking rally/refresh/1000: Warming up for 1.0000 s
+Benchmarking rally/refresh/1000: Collecting 30 samples in estimated 3.0462 s (6045 iterations)
+Benchmarking rally/refresh/1000: Analyzing
+Benchmarking rally/refresh/3000
+Benchmarking rally/refresh/3000: Warming up for 1.0000 s
+Benchmarking rally/refresh/3000: Collecting 30 samples in estimated 3.5207 s (2325 iterations)
+Benchmarking rally/refresh/3000: Analyzing
+       41.84 real        42.62 user         0.22 sys
+           144064512  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               10391  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+               11505  involuntary context switches
+        583625882286  instructions retired
+        137061922197  cycles elapsed
+            82805216  peak memory footprint

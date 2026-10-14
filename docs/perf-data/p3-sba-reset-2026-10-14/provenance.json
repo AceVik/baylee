@@ -1,0 +1,46 @@
+{
+  "artifact_root": "/tmp/baylee-sba-benchmark",
+  "method": "Sealed A/B executables; independent A/B/A runs; no pooled samples or confidence intervals.",
+  "profile": {
+    "cargo_profile": "bench",
+    "debug": "line-tables-only",
+    "lto": "thin",
+    "codegen_units": 1,
+    "incremental": 0,
+    "split_debuginfo": "packed"
+  },
+  "lock_session": "engine-sba-reset",
+  "identity_checks": "Only SBA differs in engine sources; compiler/profile/bench inputs match; no mutable Baylee dylibs; A/B/original pool byte-identical.",
+  "pool_format": "Pretty Rust Debug, not JSON",
+  "variants": {
+    "A": {
+      "rustc.txt": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+      "cargo.txt": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+      "source-sha": "354e2d7ae7f5787a14037b9bcf1a0505ca0344e6\n",
+      "inputs.sha256": "53d02fdac2f53354b3278d8fd344ec7e3fed68272c1a94e79864e74ce43f9c8c  Cargo.toml\n7d81ed1edaf734acfc5cfc5b9faa5f54cf625dca0459c0cbb566603c55e504ff  Cargo.lock\n55759668bdf041ef55e0d5e05aa459ad3b9aeeb391e9bb48db1c7d26dc121a63  rust-toolchain.toml\nf3da4cf4530bf72f3cbabf1cb1891a76d87b14bc805116bcd7f447351e302367  .cargo/config.toml\n64cc594edc0ef8b7bce7607503cac878e59902f1635c8429eabf4560e7897b92  crates/baylee-engine/Cargo.toml\naa1a54c3b95a882cf9418272762d406999d09c37a928f298bd4d4e39e5c93195  crates/baylee-engine/benches/basics.rs\n764bf69a21138a59c16608a2da489624f3e851cd28fbb0738cbfa73c3ed40c43  crates/baylee-engine/benches/basics/rally.rs\n",
+      "pool.log": "pool dump: 3318 cards -> /tmp/baylee-sba-benchmark/A/pool.txt\n",
+      "basics.libs.txt": "/tmp/baylee-sba-benchmark/A/basics:\n\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n",
+      "basics_sha256": "a18b9b1287fc979426716b1f550084d37d8345ebbbfbb79d11e3f80472d53bac",
+      "xtask_sha256": "a25f73b93a194d297bdedc01f75dba887833793dd57eb752c6ca17ba8afdea64",
+      "pool_sha256": "dcd164559a4e1b32f68d9a40b1b0d930e1792dc5d7772d67acc844ce2cce9cb3",
+      "pool_bytes": 9879151,
+      "cow_test_sha256": "adfc6d37fab925f84730972be27839ecd57b29ac5a6382ba0cff7d69d4b2cfc3",
+      "dSYM_present": true
+    },
+    "B": {
+      "rustc.txt": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+      "cargo.txt": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+      "source-sha": "354e2d7ae7f5787a14037b9bcf1a0505ca0344e6\n",
+      "inputs.sha256": "53d02fdac2f53354b3278d8fd344ec7e3fed68272c1a94e79864e74ce43f9c8c  Cargo.toml\n7d81ed1edaf734acfc5cfc5b9faa5f54cf625dca0459c0cbb566603c55e504ff  Cargo.lock\n55759668bdf041ef55e0d5e05aa459ad3b9aeeb391e9bb48db1c7d26dc121a63  rust-toolchain.toml\nf3da4cf4530bf72f3cbabf1cb1891a76d87b14bc805116bcd7f447351e302367  .cargo/config.toml\n64cc594edc0ef8b7bce7607503cac878e59902f1635c8429eabf4560e7897b92  crates/baylee-engine/Cargo.toml\naa1a54c3b95a882cf9418272762d406999d09c37a928f298bd4d4e39e5c93195  crates/baylee-engine/benches/basics.rs\n764bf69a21138a59c16608a2da489624f3e851cd28fbb0738cbfa73c3ed40c43  crates/baylee-engine/benches/basics/rally.rs\n",
+      "pool.log": "pool dump: 3318 cards -> /tmp/baylee-sba-benchmark/B/pool.txt\n",
+      "basics.libs.txt": "/tmp/baylee-sba-benchmark/B/basics:\n\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n",
+      "basics_sha256": "5443073497d25d5e86db1a4a07919ff869f36c3b1bf00f63e1f775f371de58da",
+      "xtask_sha256": "a25f73b93a194d297bdedc01f75dba887833793dd57eb752c6ca17ba8afdea64",
+      "pool_sha256": "dcd164559a4e1b32f68d9a40b1b0d930e1792dc5d7772d67acc844ce2cce9cb3",
+      "pool_bytes": 9879151,
+      "cow_test_sha256": "adfc6d37fab925f84730972be27839ecd57b29ac5a6382ba0cff7d69d4b2cfc3",
+      "dSYM_present": true
+    }
+  },
+  "public_export": "Sanitized archival export; see REDACTION.md. Executable/pool hashes are original; file manifest hashes are post-redaction."
+}

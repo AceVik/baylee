@@ -1,0 +1,14 @@
+    Checking uuid v1.27.0
+    Checking zerocopy v0.8.62
+    Checking baylee-cardtext v0.1.0-beta.7 (/Users/benchmark-user/.codex/worktrees/b8-perf-cleanup/baylee/crates/baylee-cardtext)
+    Checking baylee-core v0.1.0-beta.7 (/Users/benchmark-user/.codex/worktrees/b8-perf-cleanup/baylee/crates/baylee-core)
+    Checking half v2.7.1
+    Checking ppv-lite86 v0.2.21
+    Checking rand_chacha v0.10.0
+    Checking ciborium-ll v0.2.2
+    Checking ciborium v0.2.2
+    Checking criterion v0.8.2
+    Checking baylee-cards-dsl v0.1.0-beta.7 (/Users/benchmark-user/.codex/worktrees/b8-perf-cleanup/baylee/crates/baylee-cards-dsl)
+    Checking baylee-cards v0.1.0-beta.7 (/Users/benchmark-user/.codex/worktrees/b8-perf-cleanup/baylee/crates/baylee-cards)
+    Checking baylee-engine v0.1.0-beta.7 (/Users/benchmark-user/.codex/worktrees/b8-perf-cleanup/baylee/crates/baylee-engine)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.09s

@@ -1,5 +1,6 @@
-//! Baseline performance benchmarks (CI regression budgets derive from
-//! these). Run: `cargo bench -p baylee-engine`.
+//! Baseline performance benchmarks, also exercised by CI without timing
+//! budgets. Run: `cargo bench -p baylee-engine --bench basics` and compare
+//! under controlled conditions as described in `docs/perf-baseline.md`.
 #![allow(missing_docs)] // bench target: criterion's generated fns are self-describing
 
 use baylee_core::ids::{CardIndex, PrintRef};
@@ -512,7 +513,7 @@ fn bench_wide_attack(c: &mut Criterion) {
     }
 }
 
-// The baseline benchmark group (CI regression budgets derive from these).
+// The baseline benchmark group, also exercised by CI without timing budgets.
 criterion_group!(
     basics,
     bench_setup,

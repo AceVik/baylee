@@ -1,0 +1,27 @@
+Gnuplot not found, using plotters backend
+Benchmarking combat/attack_to_blocks_100
+Benchmarking combat/attack_to_blocks_100: Warming up for 1.0000 s
+Benchmarking combat/attack_to_blocks_100: Collecting 30 samples in estimated 3.0838 s (7440 iterations)
+Benchmarking combat/attack_to_blocks_100: Analyzing
+Benchmarking combat/attack_to_blocks_900
+Benchmarking combat/attack_to_blocks_900: Warming up for 1.0000 s
+Benchmarking combat/attack_to_blocks_900: Collecting 30 samples in estimated 3.5339 s (930 iterations)
+Benchmarking combat/attack_to_blocks_900: Analyzing
+       10.29 real        10.48 user         0.05 sys
+            39796736  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                3071  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   2  voluntary context switches
+                2645  involuntary context switches
+        161831643570  instructions retired
+         33715481474  cycles elapsed
+            35946880  peak memory footprint

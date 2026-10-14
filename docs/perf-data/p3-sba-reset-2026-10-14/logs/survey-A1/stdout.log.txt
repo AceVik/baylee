@@ -1,0 +1,83 @@
+setup/from_preset       time:   [35.983 µs 36.078 µs 36.152 µs]
+
+state/clone             time:   [1.5897 µs 1.6037 µs 1.6213 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+state/clone_from        time:   [1.5965 µs 1.6071 µs 1.6169 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+state/names_clone       time:   [9.5116 ns 9.5366 ns 9.5675 ns]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+state/zones_clone       time:   [201.12 ns 201.30 ns 201.52 ns]
+
+state/snapshot_hash     time:   [7.1315 µs 7.1732 µs 7.2391 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+state/snapshot_hash_3k_tokens
+                        time:   [97.495 µs 108.22 µs 113.20 µs]
+
+engine/priority_pass_x4 time:   [13.849 µs 14.378 µs 14.798 µs]
+
+layers/refresh_x1       time:   [9.5535 µs 9.6216 µs 9.6848 µs]
+
+layers/refresh_x8       time:   [14.302 µs 14.459 µs 14.563 µs]
+
+layers/refresh_x32      time:   [31.088 µs 31.365 µs 31.711 µs]
+
+layers/refresh_x8_counting
+                        time:   [37.479 µs 37.633 µs 37.890 µs]
+
+layers/refresh_over_20k_stack
+                        time:   [14.335 ns 14.384 ns 14.444 ns]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+
+state/clone_3k_tokens   time:   [7.4506 µs 7.4902 µs 7.5423 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+
+layers/refresh_3k_tokens
+                        time:   [580.45 µs 585.06 µs 587.48 µs]
+
+zones/wrath_60_exile_0  time:   [43.408 µs 43.970 µs 44.624 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+
+zones/wrath_60_exile_800
+                        time:   [248.12 µs 249.55 µs 251.96 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+zones/drain_stack_100   time:   [234.78 ns 235.52 ns 235.90 ns]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+
+zones/drain_stack_20000 time:   [43.814 µs 43.874 µs 43.940 µs]
+
+combat/attack_to_blocks_100
+                        time:   [109.64 µs 110.46 µs 111.07 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+combat/attack_to_blocks_900
+                        time:   [1.2152 ms 1.2200 ms 1.2248 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+rally/refresh/100       time:   [30.682 µs 31.136 µs 31.550 µs]
+
+rally/refresh/1000      time:   [503.49 µs 505.36 µs 507.68 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+rally/refresh/3000      time:   [1.5084 ms 1.5117 ms 1.5173 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+

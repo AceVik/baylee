@@ -304,7 +304,9 @@ pub(crate) fn run_with_context(
     // phasing: for a phased-out one too, which was not judged and must not
     // be when it phases in.
     for id in state.zones.list(ZoneLocation::Battlefield).clone() {
-        if let Some(obj) = state.object_mut(id) {
+        if state.object(id).is_some_and(|obj| obj.deathtouched)
+            && let Some(obj) = state.object_mut(id)
+        {
             obj.deathtouched = false;
         }
     }
@@ -1589,6 +1591,8 @@ mod tests {
     fn creature(state: &mut GameState) -> baylee_core::ids::ObjectId {
         bare(state, "Test Creature", TypeSet::CREATURE, &[])
     }
+
+    mod cow_reset;
 
     fn attach(
         state: &mut GameState,

@@ -1,0 +1,14 @@
+{
+  "reason": "Repeat every survey median slower than both bracketing As; retain even sub-percent deviations without assuming noise.",
+  "benchmarks": [
+    "engine/priority_pass_x4",
+    "layers/refresh_over_20k_stack",
+    "rally/refresh/1000",
+    "rally/refresh/3000",
+    "state/clone",
+    "state/clone_from",
+    "state/snapshot_hash",
+    "state/snapshot_hash_3k_tokens",
+    "state/zones_clone"
+  ]
+}

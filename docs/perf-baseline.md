@@ -975,3 +975,183 @@ Measured on aarch64 macOS with the footprint integration test: `Characteristics`
 unit tests and both footprint tests passed after the storage change. The new
 minimum-power creature choice uses one scan over the battlefield, including
 negative power and tied or indestructible creatures. No unsafe code is involved.
+
+
+## SBA: bereits gelöschte Deathtouch-Marken erhalten die COW-Chunks (2026-10-14)
+
+Der Reset liest jetzt zuerst `object.deathtouched` und ruft `object_mut`
+nur für gesetzte Marken auf. Die bisherige Schleife kopierte dabei auch
+unveränderte Arena-Chunks, solange ein Checkpoint oder Hash-Memo sie hielt.
+Die Reihenfolge, das Zurücksetzen ausgephaster Überlebender und alle
+Regel-/API-/Wire-Daten bleiben unverändert. Es wurde nur dieser Guard geändert;
+der Benchmark-Code erhielt ausschließlich die Korrektur seiner alten Aussage
+über angebliche CI-Zeitbudgets.
+
+Die beiden fokussierten A/B/A-Runden zeigen **12,17–12,40 % kürzere Zeiten
+bei 100 Angreifern** und **9,21–9,46 % bei 900**. Die größte A-Rückkehrabweichung
+ist 0,52 %. Das ist kein allgemeiner Gewinn für jeden Pfad: Die gezielte
+Kontrollwiederholung zeigt weiterhin **+1,72 %** bei
+`state/snapshot_hash_3k_tokens` und **+0,93 %** bei `rally/refresh/1000`,
+jeweils mit getrennten 95-%-Medianintervallen gegenüber beiden As. Die Ursache
+dieser kleinen Nachteile ist nicht isoliert; sie wird nicht als Rauschen
+weginterpretiert und in diesem Paket nicht durch weitere Optimierungen verfolgt.
+
+### Aufbau und Identität
+
+MacBook M1 Max, 64 GB, macOS 26.6.2; Rust 1.99.0
+(`b940084d7eb6a299eb4bfeb8e34901bc051e7ac4`, LLVM 23.1.1),
+`aarch64-apple-darwin`. Ausgangs-HEAD für beide Builds:
+`354e2d7ae7f5787a14037b9bcf1a0505ca0344e6`.
+A enthält die neue Test-Fixture, aber die unveränderte Produktionsschleife;
+B unterscheidet sich im Engine-Quellstand ausschließlich durch den Guard.
+Die Benchmark-Quellen, Manifeste, Lockdatei, Toolchain und Cargo-Konfiguration
+wurden zwischen A und B per Prüfsumme verglichen.
+
+Beide Programme wurden vor dem jeweils nächsten Build in getrennte,
+schreibgeschützte Verzeichnisse kopiert, inklusive dSYM. Bench-Profil:
+`lto=thin`, `codegen-units=1`, `debug=line-tables-only`,
+`split-debuginfo=packed`, `CARGO_INCREMENTAL=0`. Kein veränderliches
+Baylee-Dylib hängt an den versiegelten Programmen; `otool -L` nennt nur
+Systembibliotheken. SHA-256:
+
+| Artefakt | SHA-256 |
+|---|---|
+| A `basics` | `a18b9b1287fc979426716b1f550084d37d8345ebbbfbb79d11e3f80472d53bac` |
+| B `basics` | `5443073497d25d5e86db1a4a07919ff869f36c3b1bf00f63e1f775f371de58da` |
+| Pool vor dem Refactor, A und B | `dcd164559a4e1b32f68d9a40b1b0d930e1792dc5d7772d67acc844ce2cce9cb3` |
+
+Alle drei Pool-Dumps sind per `cmp` bytegleich: **3.318 Karten,
+9.879.151 Bytes**. Der aufbewahrte Dateiname endet zwar auf `.json`, der
+Inhalt ist formatiertes Rust-`Debug`. Pool-Identität belegt unveränderte
+Kartendefinitionen, nicht allein vollständige Engine-/Replay-Äquivalenz.
+
+Rotnachweis, Builds, Guard, gezielte Tests, Messungen und Profiling liefen
+seriell unter einem äußeren Cargo-Lock (`engine-sba-reset`).
+Alle zwölf Messläufe starteten bei Load <4 (2,14–3,48); ab 10 verweigert der
+Driver die Messung. Kein Client, Server oder Modell wurde dafür gestartet.
+Jeder Lauf besitzt ein eigenes Criterion-Verzeichnis; die Programme wurden
+vor und nach jedem Lauf auf unveränderte SHA-256 geprüft.
+
+### Fokussierte A/B/A-Runden
+
+Unveränderte `combat/attack_to_blocks_100` und `_900`: Angriffserklärung
+und Prioritätspässe bis zur Blockerfrage, mit bestehenden Verhaltensassertions.
+Der Fixture-Aufbau und die abschließende Engine-Zerstörung liegen außerhalb
+der gemessenen Routine; Checkpoints innerhalb von `Engine::apply` gehören dazu.
+Je Lauf 30 Samples, 1 s Aufwärmen, 3 s Zielmessdauer. Alle Zellen sind
+Median **µs/op [95-%-KI]**; Δ ist B gegenüber dem arithmetischen Mittelpunkt
+der beiden A-Mediane. Samples und Intervalle verschiedener Läufe werden
+weder gepoolt noch gemittelt.
+
+| Runde / Angreifer | A1 | B | A2 | B / A-Mitte | B / A1 | B / A2 | A2 / A1 |
+|---|---|---|---|---|---|---|---|
+| 1 / 100 | 109.572 [109.389–109.981] | 96.288 [96.163–96.569] | 109.681 [109.626–110.364] | -12.17 % | -12.12 % | -12.21 % | +0.10 % |
+| 1 / 900 | 1211.916 [1205.822–1217.697] | 1102.227 [1100.418–1109.250] | 1216.054 [1211.032–1220.987] | -9.21 % | -9.05 % | -9.36 % | +0.34 % |
+| 2 / 100 | 110.001 [109.739–110.689] | 96.615 [96.512–96.749] | 110.577 [110.463–111.002] | -12.40 % | -12.17 % | -12.63 % | +0.52 % |
+| 2 / 900 | 1212.094 [1209.451–1220.005] | 1100.117 [1096.676–1104.737] | 1217.930 [1212.053–1220.870] | -9.46 % | -9.24 % | -9.67 % | +0.48 % |
+
+### Kurzer Survey und gezielte Kontrollwiederholung
+
+Der Survey umfasst alle 24 `basics`-Einträge: je 10 Samples, 0,5 s Aufwärmen,
+1 s Zielmessdauer. Rohmediane in **ns/op**; vollständige Einzelintervalle und
+Samples stehen in den verlinkten Messdaten. Diese kurzen Läufe sind eine
+Kontrolle und keine eigenständige Behauptung hoher Messgenauigkeit.
+
+| Benchmark | A1 | B | A2 | B / A-Mitte | A2 / A1 |
+|---|---|---|---|---|---|
+| `combat/attack_to_blocks_100` | 109771.885 | 96545.794 | 109703.118 | -12.02 % | -0.06 % |
+| `combat/attack_to_blocks_900` | 1216133.889 | 1117343.061 | 1206813.675 | -7.77 % | -0.77 % |
+| `engine/priority_pass_x4` | 13783.870 | 13880.032 | 13501.445 | +1.74 % | -2.05 % |
+| `layers/refresh_3k_tokens` | 580732.632 | 569135.188 | 582685.334 | -2.16 % | +0.34 % |
+| `layers/refresh_over_20k_stack` | 14.338 | 14.351 | 14.336 | +0.09 % | -0.01 % |
+| `layers/refresh_x1` | 9571.595 | 9473.422 | 9559.837 | -0.96 % | -0.12 % |
+| `layers/refresh_x32` | 31050.585 | 30695.532 | 31394.311 | -1.69 % | +1.11 % |
+| `layers/refresh_x8` | 14333.213 | 14063.681 | 14481.820 | -2.39 % | +1.04 % |
+| `layers/refresh_x8_counting` | 37771.424 | 37265.846 | 37459.466 | -0.93 % | -0.83 % |
+| `rally/refresh/100` | 30876.215 | 30871.291 | 29982.850 | +1.45 % | -2.89 % |
+| `rally/refresh/1000` | 504195.266 | 511401.042 | 504092.504 | +1.44 % | -0.02 % |
+| `rally/refresh/3000` | 1508417.813 | 1522782.292 | 1510189.887 | +0.89 % | +0.12 % |
+| `setup/from_preset` | 35983.638 | 35983.934 | 35990.545 | -0.01 % | +0.02 % |
+| `state/clone` | 1590.935 | 1639.497 | 1605.944 | +2.57 % | +0.94 % |
+| `state/clone_3k_tokens` | 7506.657 | 7446.099 | 7548.033 | -1.08 % | +0.55 % |
+| `state/clone_from` | 1610.314 | 1630.484 | 1592.305 | +1.82 % | -1.12 % |
+| `state/names_clone` | 9.516 | 9.512 | 9.535 | -0.14 % | +0.20 % |
+| `state/snapshot_hash` | 7147.093 | 7200.938 | 7111.951 | +1.00 % | -0.49 % |
+| `state/snapshot_hash_3k_tokens` | 97483.177 | 102744.504 | 98536.350 | +4.83 % | +1.08 % |
+| `state/zones_clone` | 201.152 | 201.402 | 201.203 | +0.11 % | +0.02 % |
+| `zones/drain_stack_100` | 234.871 | 234.851 | 234.343 | +0.10 % | -0.22 % |
+| `zones/drain_stack_20000` | 43874.087 | 43812.736 | 43897.447 | -0.17 % | +0.05 % |
+| `zones/wrath_60_exile_0` | 43432.334 | 42371.784 | 42728.908 | -1.65 % | -1.62 % |
+| `zones/wrath_60_exile_800` | 248042.278 | 247883.250 | 247920.447 | -0.04 % | -0.05 % |
+
+Jeder Survey-Pfad, dessen B-Median über beiden As lag, wurde nochmals mit
+30 Samples / 1 s / 3 s in einer eigenen A/B/A-Runde gemessen, auch bei
+Abweichungen unter einem Prozent. Keine Quellen oder Programme wurden dafür
+geändert. Mediane **ns/op [95-%-KI]**:
+
+| Benchmark | A1 | B | A2 | B / A-Mitte | A2 / A1 |
+|---|---|---|---|---|---|
+| `engine/priority_pass_x4` | 13397.372 [12907.803–13697.139] | 13473.388 [13117.199–13962.604] | 13528.586 [13070.526–13934.975] | +0.08 % | +0.98 % |
+| `layers/refresh_over_20k_stack` | 14.383 [14.338–14.414] | 14.429 [14.395–14.446] | 14.366 [14.335–14.410] | +0.38 % | -0.12 % |
+| `rally/refresh/1000` | 504839.246 [504319.318–505396.146] | 509411.791 [508443.729–510470.047] | 504589.782 [503407.861–505940.708] | +0.93 % | -0.05 % |
+| `rally/refresh/3000` | 1510693.887 [1508587.508–1513244.725] | 1512776.825 [1512219.456–1514343.719] | 1509632.644 [1507746.586–1514953.829] | +0.17 % | -0.07 % |
+| `state/clone` | 1613.714 [1610.309–1619.036] | 1583.431 [1581.980–1584.597] | 1587.023 [1585.652–1590.117] | -1.06 % | -1.65 % |
+| `state/clone_from` | 1579.256 [1576.482–1580.986] | 1573.773 [1570.913–1575.462] | 1576.288 [1573.441–1579.589] | -0.25 % | -0.19 % |
+| `state/snapshot_hash` | 7071.376 [7056.236–7081.652] | 7167.462 [7153.291–7185.070] | 7159.545 [7148.090–7170.094] | +0.73 % | +1.25 % |
+| `state/snapshot_hash_3k_tokens` | 104344.304 [103968.931–105019.085] | 105896.164 [105579.263–106214.286] | 103874.357 [103321.672–104991.631] | +1.72 % | -0.45 % |
+| `state/zones_clone` | 201.339 [201.141–201.667] | 201.286 [201.238–201.401] | 201.673 [201.280–202.974] | -0.11 % | +0.17 % |
+
+`priority_pass_x4` liegt danach innerhalb der A-Spanne, die ursprünglichen
+Clone-Nachteile bestätigen sich nicht. Beim großen Snapshot-Hash sinkt der
+Nachteil von +4,83 % im Survey auf die oben genannten +1,72 %; er verschwindet
+also nicht. Rohe Prozess-Instruktionen, CPU-Zeit und RSS aus `time -l` sind
+nur Diagnostik: Criterion passt Iterationszahlen an, und der Prozess enthält
+auch ungemessenen Aufbau. Daraus werden keine Allokationen pro Antwort oder
+arbeitsspezifischen Instruktionsersparnisse berechnet.
+
+### Separates Profiling und Verhaltensnachweis
+
+Nach 30 s Abkühlung und erneutem Quiet-Check (Load 2,21) liefen A und B
+nacheinander mit `--profile-time 30 --exact combat/attack_to_blocks_900`.
+`sample` beobachtete jeweils die genaue PID für 10 s mit 1-ms-Intervall.
+Die Line-Tables lösen den SBA-Aufrufer `run_machine` an `progress.rs:534`
+(`run_state_based_actions`) sowie `Arc<[Slot<GameObject>]>::make_mut` und
+`GameObject::clone` auf. Innere SBA-Funktionen sind teilweise inlined.
+
+Die Auswertung trennt Criterion-Aufbau (`bencher.rs:247/262`) und gemessene
+Routine (`:250/266`) und zählt verschachtelte inklusive Arc-Samples nicht
+doppelt. Innerhalb der gemessenen Routine erscheinen bei A **136 inklusive
+Stack-Samples** unter SBA → Arena-`make_mut`, bei B **keines**. Insgesamt
+wurden dort 2.127 bzw. 2.144 Samples zugeordnet; zusätzliche 5.115 bzw. 5.094
+entfallen auf Aufbau. Das stützt die COW-Zuordnung auch außerhalb des Aufbaus.
+Es sind statistische Stack-Samples, keine Allokationszählung und kein Nachweis,
+dass B insgesamt nicht mehr allokiert. Andere echte Arena-Schreibzugriffe
+bleiben sichtbar. [Profile und Auswertungsmethode](perf-data/p3-sba-reset-2026-10-14/profile-summary.json).
+
+Der neue Sharing-Test scheitert auf A tatsächlich an
+`untouched arena chunk 60 was copied`, während der Survivor-Test bereits dort
+besteht. Auf B bestehen beide. Der Sharing-Test hält einen Checkpoint und
+prüft über zwei unveränderte SBA-Pässe Chunk-Identität, Fingerprint und
+Snapshot-Hash. Der Survivor-Test schützt Schaden, Indestructible, Phasing,
+Checkpoint-Isolation und die Wiederholung nach dem Löschen gesetzter Marken.
+Ein anfänglicher Fixture-Compilefehler (`KeywordSet::insert` existiert nicht)
+wurde vor diesem Rotnachweis durch die tatsächliche Zuweisungs-API behoben.
+Ein hart codierter Chunkindex im Logprüfer wurde durch die Prüfung der
+konkreten Kopier-Assertion mit numerischem Index ersetzt; die Rust-Assertions
+wurden dafür nicht abgeschwächt.
+
+Gezielte Tests auf B: `sba::tests` **25**, `deathtouch` **13**, `phas` **65**,
+`state::tests` **38** (einschließlich Hash-Memo-Referenz), `arena::tests` **10**,
+alle grün; diese Filter überlappen. Formatcheck der drei Rust-Dateien und
+`cargo clippy --locked --offline -p baylee-engine --lib --tests --bench basics
+-- -D warnings` sind grün. Vollständige P3-Gates folgen in der Parent-Lane.
+
+Rohdaten und Belege: [111 Einzelmessungen](perf-data/p3-sba-reset-2026-10-14/measurements.json),
+[A/B/A-Auswertung](perf-data/p3-sba-reset-2026-10-14/summary.json), [Build-/Pool-Provenienz](perf-data/p3-sba-reset-2026-10-14/provenance.json),
+[Validierungslogs](perf-data/p3-sba-reset-2026-10-14/validation/), [aufgezeichnete Driver-Skripte](perf-data/p3-sba-reset-2026-10-14/scripts/),
+[SHA-256-Dateiliste](perf-data/p3-sba-reset-2026-10-14/files.sha256.json). Die öffentlichen Exporte sind [redigierte Archivbelege](perf-data/p3-sba-reset-2026-10-14/REDACTION.md):
+Home-Pfade, temporäre Pfade, Sessionname und Image-UUIDs wurden neutralisiert.
+Die Skripte sind keine unmittelbar ausführbare Anleitung. Originale,
+versiegelte Programme, dSYMs und Dumps bleiben im privaten temporären Speicher.
+Binary-/Pool-Hashes und sämtliche Messwerte sind unverändert; die Dateiliste
+enthält die nach der Redaktion neu berechneten SHA-256-Werte.

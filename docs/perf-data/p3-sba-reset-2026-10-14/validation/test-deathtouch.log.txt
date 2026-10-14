@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (/Users/benchmark-user/Projects/baylee/target/debug/deps/baylee_engine-6c13608f7a6c412b)
+
+running 13 tests
+test combat::tests::trample_over_deathtouch_only_owes_one_per_blocker ... ok
+test combat::tests::deathtouch_does_not_linger_past_the_sba_that_judged_it ... ok
+test combat::tests::a_point_of_deathtouch_damage_is_lethal ... ok
+test resolve::life::tests::deathtouch_is_read_off_the_source_and_owes_nothing_to_combat ... ok
+test sba::tests::phasing_does_not_extend_the_deathtouch_damage_window ... ok
+test engine::card_tests::creatures::mv_5::veteran_bodyguard::an_unblocked_deathtouchers_redirected_damage_still_destroys_the_untapped_bodyguard ... ok
+test engine::redirection_tests::deathtouch_on_the_redirected_damage_destroys_the_guard ... ok
+test engine::card_tests::creatures::mv_6::ramirez_de_pietro::ramirez_de_pietro_kills_a_deathtouch_blocker_in_the_first_strike_step ... ok
+test engine::card_tests::lands::utility::vault_of_the_archangel::vault_of_the_archangel_grants_deathtouch_and_lifelink_to_creatures ... ok
+test engine::fight_tests::a_deathtouch_creature_kills_what_it_fights ... ok
+test engine::card_tests::artifacts::equipment::mv_1::basilisk_collar::basilisk_collar_grants_deathtouch_and_lifelink_to_the_creature_it_holds ... ok
+test engine::card_tests::lands::manlands::restless_reef::restless_reef_enters_tapped_taps_for_blue_or_black_and_attacks_as_a_deathtouch_shark ... ok
+test engine::card_tests::alpha_completion_review::damage_order_review::healing_salve_simultaneous_sources_allow_deathtouch_or_lifelink_to_be_prevented ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 6977 filtered out; finished in 0.04s
+

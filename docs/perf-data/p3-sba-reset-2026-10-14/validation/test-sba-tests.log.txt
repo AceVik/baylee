@@ -1,0 +1,32 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests src/lib.rs (/Users/benchmark-user/Projects/baylee/target/debug/deps/baylee_engine-6c13608f7a6c412b)
+
+running 25 tests
+test sba::tests::a_creature_or_battle_attached_to_anything_comes_off ... ok
+test sba::tests::a_token_that_leaves_the_battlefield_ceases_to_exist ... ok
+test sba::tests::an_attachment_that_is_a_creature_stays_without_one ... ok
+test sba::tests::a_seat_that_loses_keeps_why ... ok
+test sba::tests::an_indestructible_planeswalker_creature_still_needs_loyalty ... ok
+test sba::tests::a_second_elimination_does_not_rewrite_the_first ... ok
+test sba::tests::graveyard_an_already_illegal_aura_and_dying_host_can_be_ordered_together ... ok
+test sba::tests::an_illegal_host_kills_an_aura_and_only_unequips_an_equipment ... ok
+test sba::tests::nothing_may_be_attached_to_itself ... ok
+test sba::tests::graveyard_aura_follows_a_dying_host_in_a_later_sba_pass ... ok
+test sba::tests::an_aura_with_nothing_to_enchant_is_put_into_the_graveyard ... ok
+test sba::tests::phased_out_attachments_and_counters_wait_for_phasing_in ... ok
+test sba::tests::graveyard_order_combines_all_legend_choices_lethal_and_finished_sagas ... ok
+test sba::tests::phased_out_legend_does_not_conflict_until_it_returns ... ok
+test sba::tests::phased_out_permanents_ignore_lethal_damage_and_zero_loyalty ... ok
+test sba::tests::phasing_does_not_extend_the_deathtouch_damage_window ... ok
+test sba::tests::legend_choice_is_deterministic_with_two_pairs ... ok
+test sba::tests::the_world_rule_ignores_indestructible_and_phased_out_worlds ... ok
+test sba::tests::the_cleanup_queue_is_empty_once_the_pass_has_run ... ok
+test sba::tests::cow_reset::an_unmarked_board_keeps_every_chunk_shared_with_the_checkpoint ... ok
+test sba::tests::the_world_rule_keeps_only_the_newest_world_permanent ... ok
+test sba::tests::the_snapshot_hash_tells_two_losses_apart ... ok
+test sba::tests::players_who_lose_together_pass_the_crown_over_each_other ... ok
+test sba::tests::cow_reset::marked_survivors_reset_without_changing_other_state_or_the_checkpoint ... ok
+test sba::tests::the_crown_passes_as_the_monarch_leaves_the_game ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 6965 filtered out; finished in 0.01s
+
