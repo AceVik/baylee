@@ -48,6 +48,7 @@ mod rows;
 mod schema;
 pub mod scryfall;
 mod sql;
+pub mod upgrade;
 
 use anyhow::{Context, Result};
 #[cfg(test)]

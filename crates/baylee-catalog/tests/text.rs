@@ -10,7 +10,7 @@
 //! reasons its header gives; the sandbox here is that one cut to what text
 //! needs. Without `DATABASE_URL` they fail rather than skip.
 
-use baylee_catalog::{CardTextEntry, Catalog, ingest, scryfall};
+use baylee_catalog::{CardTextEntry, Catalog, ingest, scryfall, upgrade};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -367,5 +367,302 @@ async fn an_ingest_moves_the_stamp_before_and_after() {
     .await;
     assert!(failed.is_err());
     assert_eq!(catalog.data_version().await.expect("the stamp"), 3);
+    sandbox.close().await;
+}
+
+fn authoritative_stones() -> Vec<scryfall::Card> {
+    let mut cards = stones();
+    for card in &mut cards {
+        card.border_color = Some("black".to_owned());
+    }
+    cards[0].watermark = Some("azorius".to_owned());
+    cards[1].security_stamp = Some("acorn".to_owned());
+    cards
+}
+
+fn feed_of(cards: &[scryfall::Card]) -> std::io::Cursor<String> {
+    std::io::Cursor::new(
+        cards
+            .iter()
+            .map(|card| serde_json::to_string(card).expect("serializing") + "\n")
+            .collect(),
+    )
+}
+
+fn no_upgrade_download() -> anyhow::Result<std::io::Cursor<String>> {
+    panic!("a current or empty catalog must not download a feed")
+}
+
+#[tokio::test]
+async fn catalog_upgrade_repairs_old_facts_once_despite_current_search() {
+    let sandbox = Sandbox::open("upgrade_old", &stones()).await;
+    let catalog = &sandbox.catalog;
+    // Reproduces production: all rows predate rules_metadata, but migration
+    // has already declared the search projection current.
+    catalog.migrate().await.expect("migrating");
+    let ready = catalog.readiness().await.expect("readiness");
+    assert!(ready.cards && ready.projection);
+    let cards = authoritative_stones();
+    let ids: Vec<_> = cards.iter().map(|card| card.id.clone()).collect();
+    assert!(catalog.rules_of(&ids).await.expect("rules").is_empty());
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(catalog, move || Ok(feed))
+            .await
+            .expect("upgrading"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    let facts = catalog.rules_of(&ids).await.expect("rules");
+    assert_eq!(facts.len(), cards.len());
+    assert_eq!(facts[0].watermarks, vec![Some("azorius".to_owned())]);
+    assert!(facts[1].is_un);
+    assert_eq!(facts[2].watermarks, vec![None]);
+    assert!(!facts[2].is_un);
+    assert_eq!(catalog.data_version().await.expect("stamp"), 2);
+    catalog.migrate().await.expect("migrating again");
+    assert_eq!(
+        upgrade::from_feed(catalog, no_upgrade_download)
+            .await
+            .expect("already current"),
+        upgrade::Outcome::Current
+    );
+    assert_eq!(catalog.data_version().await.expect("stamp"), 2);
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_leaves_empty_installs_opt_in() {
+    let sandbox = Sandbox::open("upgrade_empty", &[]).await;
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, no_upgrade_download)
+            .await
+            .expect("empty"),
+        upgrade::Outcome::Empty
+    );
+    assert_eq!(sandbox.catalog.data_version().await.expect("stamp"), 0);
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_partial_feed_does_not_invent_foreign_print_facts() {
+    let sandbox = Sandbox::open("upgrade_partial", &stones()).await;
+    let cards = authoritative_stones();
+    let feed = feed_of(&cards[..2]); // English only; old German rows stay NULL.
+    let result = upgrade::from_feed(&sandbox.catalog, move || Ok(feed)).await;
+    assert!(
+        result
+            .expect_err("incomplete")
+            .to_string()
+            .contains("missing rules metadata")
+    );
+    let ids: Vec<_> = cards[2..].iter().map(|card| card.id.clone()).collect();
+    assert!(
+        sandbox
+            .catalog
+            .rules_of(&ids)
+            .await
+            .expect("rules")
+            .is_empty()
+    );
+    sandbox
+        .catalog
+        .migrate()
+        .await
+        .expect("DDL cannot repair facts");
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, move || Ok(feed))
+            .await
+            .expect("retrying"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_failed_or_empty_feed_can_be_retried() {
+    let sandbox = Sandbox::open("upgrade_failed", &stones()).await;
+    let catalog = &sandbox.catalog;
+    let failed = upgrade::from_feed(catalog, || -> anyhow::Result<std::io::Cursor<String>> {
+        anyhow::bail!("download interrupted")
+    })
+    .await;
+    assert!(failed.is_err());
+    assert!(
+        upgrade::from_feed(catalog, || Ok(std::io::Cursor::new("")))
+            .await
+            .is_err()
+    );
+    let cards = authoritative_stones();
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(catalog, move || Ok(feed))
+            .await
+            .expect("retrying"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    // A normal ingest also participates in completion versioning. Failure
+    // must invalidate the previous success even when all facts are non-NULL.
+    assert!(
+        ingest::from_feed(catalog, || -> anyhow::Result<std::io::Cursor<String>> {
+            anyhow::bail!("later ingest failed")
+        })
+        .await
+        .is_err()
+    );
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(catalog, move || Ok(feed))
+            .await
+            .expect("retrying later ingest"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_manual_ingest_stamps_but_new_versions_refresh() {
+    let sandbox = Sandbox::open("upgrade_version", &stones()).await;
+    let cards = authoritative_stones();
+    let feed = feed_of(&cards);
+    ingest::from_feed(&sandbox.catalog, move || Ok(feed))
+        .await
+        .expect("manual ingest");
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, no_upgrade_download)
+            .await
+            .expect("current"),
+        upgrade::Outcome::Current
+    );
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "UPDATE \"{}\".catalog_meta SET value = '0' WHERE key = 'authoritative_ingest'",
+            sandbox.schema
+        ))
+        .await
+        .expect("simulating a preceding ingest version");
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, move || Ok(feed))
+            .await
+            .expect("new version"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_refuses_a_competing_download_and_releases_its_lock() {
+    use sea_orm::TransactionTrait as _;
+    let sandbox = Sandbox::open("upgrade_lock", &stones()).await;
+    let lock = sandbox.admin.begin().await.expect("lock transaction");
+    lock.execute_unprepared(&format!(
+        "SELECT pg_advisory_xact_lock(hashtextextended('{}:baylee-catalog-upgrade', 0))",
+        sandbox.schema
+    ))
+    .await
+    .expect("another deploy holds the lock");
+    let err = upgrade::from_feed(&sandbox.catalog, no_upgrade_download)
+        .await
+        .expect_err("busy");
+    assert!(err.to_string().contains("already running"));
+    lock.rollback().await.expect("releasing competing lock");
+    let cards = authoritative_stones();
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, move || Ok(feed))
+            .await
+            .expect("retrying"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_interrupted_after_a_committed_batch_is_not_current() {
+    struct BrokenTail;
+    impl std::io::Read for BrokenTail {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("download cut off"))
+        }
+    }
+
+    // One complete ingestion batch, then an I/O error: every existing row
+    // gains facts, but that alone must not certify a completed download.
+    let mut cards: Vec<_> = (1000..1400)
+        .map(|n| stone(n, "en", "2026-01-01", "7", None))
+        .collect();
+    let sandbox = Sandbox::open("upgrade_interrupted", &cards).await;
+    for card in &mut cards {
+        card.border_color = Some("black".to_owned());
+    }
+    let feed = std::io::Read::chain(feed_of(&cards), BrokenTail);
+    assert!(
+        upgrade::from_feed(&sandbox.catalog, move || Ok(std::io::BufReader::new(feed)))
+            .await
+            .is_err()
+    );
+    let ids: Vec<_> = cards.iter().map(|card| card.id.clone()).collect();
+    assert_eq!(
+        sandbox
+            .catalog
+            .rules_of(&ids)
+            .await
+            .expect("committed batch")
+            .len(),
+        cards.len()
+    );
+    assert_eq!(
+        sandbox.catalog.data_version().await.expect("start stamp"),
+        1
+    );
+    let feed = feed_of(&cards);
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, move || Ok(feed))
+            .await
+            .expect("retrying incomplete feed"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    assert_eq!(
+        upgrade::from_feed(&sandbox.catalog, no_upgrade_download)
+            .await
+            .expect("completed"),
+        upgrade::Outcome::Current
+    );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn catalog_upgrade_works_with_a_single_connection_ingestion_pool() {
+    let sandbox = Sandbox::open("upgrade_pool_one", &stones()).await;
+    let url = std::env::var("DATABASE_URL").expect("local PostgreSQL URL");
+    let sep = if url.contains('?') { '&' } else { '?' };
+    let mut options = sea_orm::ConnectOptions::new(format!(
+        "{url}{sep}options=-c%20search_path%3D{},public",
+        sandbox.schema
+    ));
+    options.max_connections(1).min_connections(1);
+    let db = Database::connect(options).await.expect("one-slot pool");
+    let catalog = Catalog::from_connection(db.clone());
+    let cards = authoritative_stones();
+    let feed = feed_of(&cards);
+    assert_eq!(
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            upgrade::from_feed(&catalog, move || Ok(feed))
+        )
+        .await
+        .expect("upgrade must not deadlock its own pool")
+        .expect("upgrading with one ingest connection"),
+        upgrade::Outcome::Refreshed(cards.len())
+    );
+    assert_eq!(
+        upgrade::from_feed(&catalog, no_upgrade_download)
+            .await
+            .expect("current"),
+        upgrade::Outcome::Current
+    );
+    db.close().await.expect("closing one-slot pool");
     sandbox.close().await;
 }

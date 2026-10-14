@@ -151,6 +151,35 @@ open_games() {
         2>/dev/null || echo "? ?"
 }
 
+# Prepare authoritative catalog facts before stopping anything. As with
+# baylee-invite, root reads secrets.env first and gateway.env second; neither
+# settings nor importer diagnostics (which may contain a URL) reach the log.
+# The importer itself skips empty/current catalogs and serialises upgrades.
+# A hard failure is deliberate: never switch to rules that need absent facts.
+catalog_prepare() {
+    local importer=$1 code=0
+    log "checking the catalog upgrade"
+    sudo -n /bin/bash -s -- "$etc" "$importer" >/dev/null 2>&1 <<'CATALOG_PREPARE' || code=$?
+set -euo pipefail
+unset DATABASE_URL
+set -a
+for settings in "$1/secrets.env" "$1/gateway.env"; do
+    if [ -r "$settings" ]; then
+        # shellcheck disable=SC1090
+        . "$settings"
+    fi
+done
+set +a
+[ -n "${DATABASE_URL:-}" ] || exit 1
+exec timeout --kill-after=5s 15m "$2" upgrade
+CATALOG_PREPARE
+    if [ "$code" != 0 ]; then
+        log "catalog upgrade failed (status $code); deployment stopped"
+        return "$code"
+    fi
+    log "catalog upgrade ready"
+}
+
 stage() {
     local rev=$1 force=${2:-}
     cd "$src"
@@ -188,6 +217,7 @@ stage() {
         return
     fi
 
+    catalog_prepare "$src/target/release/baylee-catalog" || return $?
     rm -rf "$state/staged"
     mkdir -p "$state/staged"
     stage_files "$rev"
@@ -364,6 +394,8 @@ stage_with_hooks() {
         75) return 0 ;;
         *) txn_fail prepare "the deploy of ${rev:0:10} stopped before it changed anything" ;;
     esac
+    catalog_prepare "$src/target/release/baylee-catalog" \
+        || txn_fail prepare "the deploy of ${rev:0:10} stopped at catalog preparation"
     t_phase=prepared
     txn_save
 
@@ -427,6 +459,8 @@ finish_with_hooks() {
             75) return 0 ;;
             *) txn_fail prepare "the deploy of ${rev:0:10} stopped at prepare" ;;
         esac
+        catalog_prepare "$state/staged/baylee-catalog" \
+            || txn_fail prepare "the deploy of ${rev:0:10} stopped at catalog preparation"
         t_failed=''
         t_phase=staged
         txn_save

@@ -472,3 +472,87 @@ fn the_deployer_reports_phases_and_statuses_only() {
     );
     assert!(!ran.said.contains("10-example"), "{}", ran.said);
 }
+
+/// Both deployment modes prepare the newly built catalog before stopping
+/// the agent. The helper sees the root settings, never a secret in argv/logs.
+#[test]
+fn catalog_upgrade_is_prepared_before_stopping_or_switching_in_both_modes() {
+    for server in [Server::bare(), Server::with_hooks()] {
+        let ran = server.run(&["stage", A]);
+        assert!(ran.ok, "{}", ran.said);
+        let catalog = ran.at("baylee-catalog upgrade");
+        let stop = ran.at("sudo systemctl stop baylee-agent");
+        let switch = ran.at("sudo systemctl restart baylee-gateway");
+        assert!(catalog < stop && stop < switch, "{}", ran.calls);
+        if !ran.phases().is_empty() {
+            assert!(ran.at(&format!("hooks prepare {A} (open, unstaged)")) < catalog);
+            assert!(catalog < ran.at(&format!("hooks before-switch {A} (held, staged)")));
+        }
+        assert!(
+            !ran.said.contains("catalog-secret"),
+            "secret in deploy output"
+        );
+        assert!(
+            !ran.calls.contains("catalog-secret"),
+            "secret in command arguments"
+        );
+    }
+}
+
+/// Importer failure must not stop the old agent, install binaries or switch
+/// the gateway, even with --force. A failed hooks deploy is not retried by watch.
+#[test]
+fn failed_catalog_upgrade_prevents_every_switch_with_or_without_hooks() {
+    for hooks in [false, true] {
+        let server = if hooks {
+            Server::with_hooks()
+        } else {
+            Server::bare()
+        };
+        server.set("catalog-code", "1");
+        let ran = server.run(&["stage", A, "--force"]);
+        assert!(!ran.ok, "{}", ran.said);
+        ran.at("baylee-catalog upgrade");
+        changed_nothing(&ran, &server);
+        assert!(server.deployed().is_none());
+        assert!(ran.said.contains("catalog upgrade failed"));
+        assert!(
+            !ran.said.contains("catalog-secret"),
+            "secret in importer failure"
+        );
+        if hooks {
+            assert_eq!(ran.phases(), ["prepare"]);
+            assert_eq!(server.txn("failed").as_deref(), Some("prepare"));
+            let retry = server.run(&["watch"]);
+            assert!(retry.ok, "{}", retry.said);
+            assert!(!retry.has("baylee-catalog upgrade"));
+            changed_nothing(&retry, &server);
+        }
+        server.set("catalog-code", "0");
+        let retry = server.run(&["stage", A]);
+        assert!(retry.ok, "{}", retry.said);
+        assert_eq!(server.deployed().as_deref(), Some(A));
+    }
+}
+
+#[test]
+fn catalog_upgrade_uses_gateway_settings_after_secrets_and_fails_without_a_url() {
+    let server = Server::bare();
+    std::fs::write(
+        server.etc.join("gateway.env"),
+        "DATABASE_URL='postgres://gateway-secret@localhost/test'\n",
+    )
+    .unwrap();
+    server.set("catalog-url", "postgres://gateway-secret@localhost/test");
+    let ran = server.run(&["stage", A]);
+    assert!(ran.ok, "{}", ran.said);
+    assert!(!ran.said.contains("gateway-secret"));
+    assert!(!ran.calls.contains("gateway-secret"));
+
+    let server = Server::bare();
+    std::fs::remove_file(server.etc.join("secrets.env")).unwrap();
+    let ran = server.run(&["stage", A]);
+    assert!(!ran.ok, "{}", ran.said);
+    assert!(!ran.has("baylee-catalog upgrade"));
+    changed_nothing(&ran, &server);
+}

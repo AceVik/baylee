@@ -3,6 +3,7 @@
 //! ```text
 //! baylee-catalog migrate                 # create the schema
 //! baylee-catalog ingest                  # every card, every language
+//! baylee-catalog upgrade                 # refresh an older populated catalog once
 //! baylee-catalog ingest --english-only   # every card, English only
 //! baylee-catalog search --query "bolt"   # check an install
 //! ```
@@ -11,7 +12,7 @@
 //! always agree on which catalog they are talking to.
 
 use anyhow::{Context, Result};
-use baylee_catalog::{Catalog, ingest};
+use baylee_catalog::{Catalog, ingest, upgrade};
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
@@ -31,6 +32,8 @@ struct Cli {
 enum Cmd {
     /// Create the schema (idempotent).
     Migrate,
+    /// Refresh a populated catalog when this build needs new authoritative facts.
+    Upgrade,
     /// Rebuild the search projection from what is already stored.
     Project,
     /// Download a Scryfall bulk feed and store every card in it.
@@ -92,6 +95,14 @@ async fn main() -> Result<()> {
         Cmd::Migrate => {
             catalog.migrate().await?;
             println!("schema is up to date");
+        }
+        Cmd::Upgrade => {
+            catalog.migrate().await?;
+            match upgrade::bulk(&catalog).await? {
+                upgrade::Outcome::Empty => println!("catalog is empty; run ingest to populate it"),
+                upgrade::Outcome::Current => println!("catalog ingest is current"),
+                upgrade::Outcome::Refreshed(stored) => println!("refreshed {stored} printings"),
+            }
         }
         Cmd::Project => {
             catalog.migrate().await?;

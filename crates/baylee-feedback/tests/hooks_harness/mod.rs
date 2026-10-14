@@ -142,6 +142,11 @@ impl Server {
             format!("BAYLEE_ADMISSION_HOLD={}\n", hold.display()),
         )
         .unwrap();
+        std::fs::write(
+            etc.join("secrets.env"),
+            "DATABASE_URL='postgres://catalog-secret@localhost/test'\n",
+        )
+        .unwrap();
         let ctl = scratch.join("ctl");
         std::fs::create_dir_all(&ctl).unwrap();
         let stubs = scratch.join("stubs");
@@ -178,6 +183,27 @@ esac
 exit 0"#,
                 real_git = real_git.display()
             ),
+        );
+        // Executes the real preparation wrapper without contacting a database.
+        // Deliberately echo the secret to both streams: deploy must redact both.
+        stub(
+            &self.root.join("src/target/release"),
+            "baylee-catalog",
+            &format!(
+                r#"{NEXT}
+[ "$1" = upgrade ] || exit 2
+[ "$DATABASE_URL" = "$(next catalog-url 'postgres://catalog-secret@localhost/test')" ] || exit 3
+echo "$DATABASE_URL"
+echo "$DATABASE_URL" >&2
+exit "$(next catalog-code 0)""#
+            ),
+        );
+        stub(
+            stubs,
+            "timeout",
+            r#"[ "$1 $2" = '--kill-after=5s 15m' ] || exit 2
+shift 2
+exec "$@""#,
         );
         stub(stubs, "cargo", "echo built");
         stub(stubs, "server-json", server_json::BODY);

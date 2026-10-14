@@ -95,6 +95,7 @@ pub async fn from_feed<R: BufRead>(
     // A gateway caches card text until this moves (`Catalog::data_version`).
     // Moved before the first write as well as after the last, so an ingest
     // that dies halfway leaves no cache holding the text from before it.
+    crate::upgrade::invalidate(catalog).await?;
     catalog.bump_data_version().await?;
 
     // The download is blocking (ureq) and the database is async, so the two
@@ -149,6 +150,9 @@ pub async fn from_feed<R: BufRead>(
     // cannot say which rows it changed without reading the rest back anyway.
     catalog.project().await?;
     catalog.bump_data_version().await?;
+    if stored > 0 {
+        crate::upgrade::stamp_if_complete(catalog).await?;
+    }
     tracing::info!(stored, "ingest complete");
     Ok(stored)
 }
