@@ -41,6 +41,9 @@
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
 //! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is; "x" turns it sideways)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
+//! POST /recording/start {"duration_ms":3000,"fps":15}
+//! GET  /recording/status
+//! POST /recording/stop {"cancel":false}       (poll until drained)
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
 //! POST /step     {"frames":6}   (replies once they have run)
@@ -73,6 +76,7 @@
 mod changed;
 mod music;
 mod perf;
+mod recording;
 mod reveal;
 mod state;
 
@@ -90,7 +94,7 @@ use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
 use bevy::window::{CursorMoved, PrimaryWindow, WindowEvent};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -384,6 +388,7 @@ impl Plugin for DevControlPlugin {
                 .after(bevy::input::InputSystems),
         );
         perf::install(app);
+        recording::install(app);
         app.init_resource::<changed::Tally>()
             .add_systems(Last, changed::watch);
     }
@@ -531,40 +536,57 @@ fn serve(port: u16) -> Option<Receiver<Job>> {
 
 /// Reads one request, hands it to the app, writes the answer back.
 fn handle(stream: &TcpStream, tx: &Sender<Job>) -> Result<(), String> {
-    let mut reader = BufReader::new(stream.try_clone().map_err(|e| e.to_string())?);
-    let mut request_line = String::new();
-    reader
-        .read_line(&mut request_line)
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
         .map_err(|e| e.to_string())?;
-    let path = request_line
-        .split_whitespace()
-        .nth(1)
-        .unwrap_or("/")
-        .to_string();
-    // Headers, only for the one field that changes how much is read.
-    let mut length = 0usize;
+    stream
+        .set_write_timeout(Some(REPLY_TIMEOUT))
+        .map_err(|e| e.to_string())?;
+    let mut reader = BufReader::new(stream.try_clone().map_err(|e| e.to_string())?);
+    let mut head_remaining = 8192;
+    let request_line = recording::header_line(&mut reader, &mut head_remaining)?;
+    let mut words = request_line.split_whitespace();
+    let method = words.next().unwrap_or("");
+    let path = words.next().unwrap_or("/").to_string();
+    let mut headers = Vec::new();
+    let mut length = None;
     loop {
-        let mut line = String::new();
-        if reader.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
-            break;
-        }
+        let line = recording::header_line(&mut reader, &mut head_remaining)?;
         let line = line.trim_end();
         if line.is_empty() {
             break;
         }
-        if let Some(value) = line
-            .to_ascii_lowercase()
-            .strip_prefix("content-length:")
-            .map(str::trim)
-            .and_then(|v| v.parse::<usize>().ok())
-        {
-            length = value;
+        let Some((key, value)) = line.split_once(':') else {
+            return respond(stream, r#"{"error":"malformed HTTP header"}"#);
+        };
+        let key = key.to_ascii_lowercase();
+        let value = value.trim().to_string();
+        if key == "transfer-encoding" {
+            return respond(stream, r#"{"error":"chunked bodies are unsupported"}"#);
         }
+        if key == "content-length" {
+            let Ok(size) = value.parse::<usize>() else {
+                return respond(stream, r#"{"error":"invalid Content-Length"}"#);
+            };
+            if length.is_some() || size > 16_384 {
+                return respond(
+                    stream,
+                    r#"{"error":"duplicate length or body exceeds 16 KiB"}"#,
+                );
+            }
+            length = Some(size);
+        }
+        headers.push((key, value));
+    }
+    if let Err(error) = recording::validate_http(method, &path, &headers) {
+        return respond(stream, &serde_json::json!({"error": error}).to_string());
+    }
+    let length = length.unwrap_or(0);
+    if path.starts_with("/recording/") && length > 1024 {
+        return respond(stream, r#"{"error":"recording body exceeds 1 KiB"}"#);
     }
     let mut body = vec![0u8; length];
-    if length > 0 {
-        reader.read_exact(&mut body).map_err(|e| e.to_string())?;
-    }
+    reader.read_exact(&mut body).map_err(|e| e.to_string())?;
     let (reply_tx, reply_rx) = channel();
     tx.send(Job {
         path: path.clone(),
@@ -957,17 +979,12 @@ fn pump(
                 Some(entity) => turn_the_wheel(&job.body, entity, &mut wheels, &mut window_events),
                 None => "{\"error\":\"no primary window\"}".to_string(),
             },
+            "/recording/start" | "/recording/status" | "/recording/stop" => {
+                recording::enqueue(&mut commands, job);
+                continue;
+            }
             "/screenshot" => {
-                let Some(path) = field(&job.body, "path").map(str::to_string) else {
-                    let _ = job.reply.send("{\"error\":\"no path\"}".to_string());
-                    continue;
-                };
-                // The answer waits for the render world, so the sender goes
-                // with the observer rather than being used here: replying now
-                // would tell the caller a file exists that does not yet.
-                commands
-                    .spawn(Screenshot::primary_window())
-                    .observe(write_screenshot(path, job.reply));
+                queue_screenshot(&mut commands, job);
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
@@ -1437,6 +1454,19 @@ fn advance_clicks(
             }
         }
     }
+}
+
+/// Hand one screenshot request to the render-world observer.
+fn queue_screenshot(commands: &mut Commands, job: Job) {
+    let Some(path) = field(&job.body, "path").map(str::to_string) else {
+        let _ = job.reply.send("{\"error\":\"no path\"}".to_string());
+        return;
+    };
+    // The answer waits for the render world, so the sender travels with the
+    // observer: replying now would claim that a file already exists.
+    commands
+        .spawn(Screenshot::primary_window())
+        .observe(write_screenshot(path, job.reply));
 }
 
 /// Saves the captured frame and only then answers the waiting request.

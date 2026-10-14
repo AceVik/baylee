@@ -10007,6 +10007,114 @@ aimed at is a defender or an attacker, and `Pick` drops that. Without `aim`,
 proving that a key moved the focus inside the zone browser takes two
 screenshots and a pixel diff, which is what it took the once.
 
+### Recording real render frames
+
+A native `dev-control` client can sample its rendered window through Bevy's
+`Screenshot` observer. Start it normally, then use the local helper (Python
+3.9+ and Pillow; `uv run scripts/devctl/recording.py …` can supply Pillow):
+
+```bash
+python3 scripts/devctl/recording.py record --duration-ms 3000 --fps 15 --format both --diff
+# Or start, perform a /pointer or /key action, then poll separately:
+curl -s -XPOST http://127.0.0.1:28770/recording/start \
+  -H 'Content-Type: application/json' -d '{"duration_ms":3000,"fps":15}'
+curl -s http://127.0.0.1:28770/recording/status
+curl -s -XPOST http://127.0.0.1:28770/recording/stop -d '{}'
+# Cancel discards frames still waiting; already-written PNGs remain:
+curl -s -XPOST http://127.0.0.1:28770/recording/stop -d '{"cancel":true}'
+python3 scripts/devctl/recording.py encode /tmp/baylee-recording-UUID --format both
+```
+
+Use the returned `recording.directory` (the platform's temporary directory,
+not necessarily `/tmp`). Start answers `starting`, then status shows
+`capturing`, `draining`, and finally `complete`, `cancelled`, or `failed`.
+Stop answers immediately; poll until draining finishes before encoding.
+`reason` distinguishes duration, manual stop, cancellation, size budget,
+resize and failure. As with the other routes, inspect JSON `error` even on
+HTTP 200. These three routes require the indicated verb, one loopback Host,
+no Origin or Sec-Fetch headers, and at most 1 KiB of strict JSON; unknown
+start/stop fields are rejected. The whole harness bounds HTTP heads to 8 KiB,
+bodies to 16 KiB, and socket reads/writes have timeouts.
+
+Only one recording runs at once. `duration_ms` is 1–30000, `fps` is 1–60,
+and their product may request at most 900 nominal samples. There are two
+outstanding permits total, covering renderer readback, the bounded writer
+queue, and the PNG currently being written. A frame may contain at most
+32 MiB of RGBA8 pixels (4K fits); a run reserves at most 2 GiB of raw pixels
+across requests and ends early at that budget. This is a raw-pixel budget,
+not an exact PNG disk-size limit. A window resized during readback ends the
+capture instead of bypassing the limit. Slow rendering or writing drops
+nominal slots with `cadence_missed` or `backpressure` in `gaps`; it never
+issues a burst to catch up. Recorder scheduling runs after `Last` and its
+deferred commands: an existing screenshot for the primary window (including
+an explicit window target from feedback or `/screenshot`) takes priority,
+with the recorder's slot counted as `target_busy`. Submission and delivery
+markers are tracked separately. A rejected request that was never submitted,
+or a delivered readback whose callback was lost, releases its permit and
+records `callback_lost`. Each callback checks both the recording UUID and
+request entity so a late old callback cannot write into a restarted run.
+After a 10-second stall, scheduling stops and status reports the error.
+Actually submitted readbacks without confirmed delivery and outstanding
+writes keep their permits; if the renderer never responds, restart the client rather
+than stacking more readbacks. No PNG encoding, filesystem writes or joins
+block the app thread. Readback and background encoding still add GPU, CPU and
+I/O overhead and can change observed cadence: record for animation QA, then
+measure performance again with recording off. Synthetic helper fixtures prove
+conversion and timing bookkeeping only, not gameplay or performance. A stop
+or cancel before worker initialization completes produces a zero-frame run
+with no capture clock (`started_unix_ms: 0`, `capture_end_us: 0`).
+
+The directory is fresh, UUID-v7 named and owner-only on Unix. It contains
+lossless, full-resolution `frame-NNNNNN.png` files, an append-only
+`frames.jsonl` ledger of successfully saved samples, and `recording.json`
+with final counts, limits, gaps and stop reason. PNGs are renamed into place
+before their ledger rows are appended. Cancellation never deletes existing
+captures. An interrupted client can leave the initial manifest and a partial
+ledger. A write error permanently stops frame writes on that worker, including
+frames already queued, so nothing is appended behind a damaged row.
+`encode --allow-incomplete` recovers only the valid, newline-terminated prefix
+up to the first malformed, partial or invalid-UTF-8 row; it never resumes at
+later rows or edits the original ledger. `ledger_recovery` in the preview
+report states the recovered row count and ignored bytes. Strict encoding
+rejects that corruption and requires the explicit recovery option.
+Treat these as sensitive local captures, including any account or card state
+visible in the window. Nothing uploads them or sends them to feedback; no
+audio or desktop screenshot is recorded. Keep them outside the repository.
+
+**Cadence is real monotonic request time.** `nominal_us` names the requested
+FPS slot, `requested_us` the actual screenshot request relative to the run,
+`request_frame` the main-world frame, and `virtual_us` the absolute game
+clock at that request, with its speed and pause state. `received_us` and
+`received_frame` name async readback delivery, **not presentation time**;
+`started_unix_ms` supplies the wall-clock anchor. The image is a real rendered
+frame, but async capture cannot promise every displayed frame or identify its
+exact display timestamp. Pausing or slowing the virtual clock does not slow
+the recorder. Use `/timescale` to make a short animation easier to sample.
+
+The helper produces animated WebP (lossless after preview scaling), GIF,
+and `contact-sheet.png`, with labels below each sampled tile. Its default
+`--cadence real` preserves gaps between actual requests; `nominal` uses slot
+times and `virtual` uses game time, refusing a paused/non-increasing timeline.
+GIF delays are rounded to 10 ms, WebP to 1 ms; cumulative rounding limits
+drift. `preview-CADENCE.json` records the chosen delays and contact-sheet
+slots. Previews can merge identical frames. Use the original PNGs and ledger
+for exact flicker/pixel analysis; preview scaling and GIF palettes can change
+pixels. Optional `--diff` writes `differences.csv`: consecutive full-resolution
+RGB peak/mean channel deltas, changed-pixel fraction, and real/virtual time gaps.
+This is a heuristic for finding frames to inspect, not automatic flicker or
+bug proof; legitimate motion also changes pixels. It reads two raw frames at
+a time. `--width` (default 640) controls preview size; conversion refuses more
+than 64 million preview pixels in memory rather than silently dropping frames.
+
+Isolated helper checks (no running client):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/devctl -p 'test_*.py' -v
+ruff check --no-cache scripts/devctl
+# After the shared Cargo owner releases its lock:
+cargo test -p baylee-client --features dev-control devctl::recording::tests
+```
+
 ## Editing a shader without stopping the game
 
 `--features dev-reload` puts bevy's embedded-asset watcher behind every shader
