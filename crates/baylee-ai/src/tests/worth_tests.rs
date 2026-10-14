@@ -738,6 +738,7 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         object: None,
     };
     let (mut read, mut of) = (0usize, 0usize);
+    let (mut generated_read, mut generated_of) = (0usize, 0usize);
     for def in baylee_cards::all() {
         for face in 0..def.faces.len() {
             for ability in def.abilities_for_face(face) {
@@ -756,11 +757,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
                     _ => continue,
                 };
                 of += 1;
+                let generated = def.coverage == baylee_cards::dsl::Coverage::Generated;
+                generated_of += usize::from(generated);
                 if agent()
                     .effects_worth(&v, origin, effects, Aim::Source, 0)
                     .is_some()
                 {
                     read += 1;
+                    generated_read += usize::from(generated);
                 }
             }
         }
@@ -789,7 +793,19 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Wave 3 of the partials lane (pairs E and F, 2026-10-13) adds four
     // activations and two read rows on top. Wave 4's Aladdin's Lamp adds one
     // activation whose worth (a better next draw) the table does not read.
-    assert_eq!((read, of), (1034, 1311), "activated/loyalty reader census");
+    assert_eq!(
+        (read - generated_read, of - generated_of),
+        (1034, 1311),
+        "existing activated/loyalty reader census"
+    );
+    // Corpus stage 1: 500 Generated cards add 205 activations, 169 readable.
+    // Keep the original population independently pinned: new cards cannot
+    // compensate for a lost reader row among the existing cards.
+    assert_eq!(
+        (generated_read, generated_of),
+        (169, 205),
+        "generated activated/loyalty reader census"
+    );
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

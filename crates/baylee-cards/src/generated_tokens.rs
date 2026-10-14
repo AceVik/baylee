@@ -853,6 +853,86 @@ pub static STANGG_TWIN_LEGENDARY_3_4_RED_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Thrull.
+pub static THRULL_0_1_BLACK: TokenDef = TokenDef {
+    name: "Thrull",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::THRULL],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Spike.
+pub static SPIKE_1_1_GREEN: TokenDef = TokenDef {
+    name: "Spike",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIKE],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Goblin Scout with mountainwalk.
+pub static GOBLIN_SCOUT_1_1_RED_MOUNTAINWALK: TokenDef = TokenDef {
+    name: "Goblin Scout",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::SCOUT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::MOUNTAINWALK,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 white Caribou.
+pub static CARIBOU_0_1_WHITE: TokenDef = TokenDef {
+    name: "Caribou",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CARIBOU],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Knight with banding.
+pub static KNIGHT_1_1_WHITE_BANDING: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::BANDING,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Reflection.
+pub static REFLECTION_2_2_WHITE: TokenDef = TokenDef {
+    name: "Reflection",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::REFLECTION],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 green Wood with defender.
+pub static WOOD_0_1_GREEN_DEFENDER: TokenDef = TokenDef {
+    name: "Wood",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(1),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -956,6 +1036,13 @@ pub static ALL: &[&TokenDef] = &[
     &tokens::HUMAN_SOLDIER_1_1_WHITE,
     &tokens::JACE_PLANESWALKER_BLUE,
     &tokens::GNOME_SOLDIER_WHITE_DYNAMIC,
+    &THRULL_0_1_BLACK,
+    &SPIKE_1_1_GREEN,
+    &GOBLIN_SCOUT_1_1_RED_MOUNTAINWALK,
+    &CARIBOU_0_1_WHITE,
+    &KNIGHT_1_1_WHITE_BANDING,
+    &REFLECTION_2_2_WHITE,
+    &WOOD_0_1_GREEN_DEFENDER,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -1032,4 +1119,11 @@ pub static GENERATED: &[&TokenDef] = &[
     &BIRD_4_4_RED_FLYING,
     &SAND_WARRIOR_1_1_WHITE_RED_GREEN,
     &STANGG_TWIN_LEGENDARY_3_4_RED_GREEN,
+    &THRULL_0_1_BLACK,
+    &SPIKE_1_1_GREEN,
+    &GOBLIN_SCOUT_1_1_RED_MOUNTAINWALK,
+    &CARIBOU_0_1_WHITE,
+    &KNIGHT_1_1_WHITE_BANDING,
+    &REFLECTION_2_2_WHITE,
+    &WOOD_0_1_GREEN_DEFENDER,
 ];

@@ -691,15 +691,25 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
 /// reading, for that name, the two questions asked above — does anything
 /// target it, and what does the arm answer.
 ///
+/// Time Bomb joined on 14.10.2026. Its upkeep puts a time counter on
+/// itself without targeting, and its sacrifice damages each creature and
+/// player without targeting. It prints no `Suspend`, so `clock_score` would
+/// answer 0 for it as well. `time_bomb_counts_its_own_upkeeps_and_uses_sacrificed_source_counters_for_damage`
+/// plays both abilities, including the departed source's counter count.
+/// `the_ai_declines_time_bombs_unread_sweep_even_with_mana_and_enemy_creatures`
+/// pins the actual AI limitation: the offered counter-dependent sweep is
+/// unread, even with mana floating. This arrival does not close #166 or
+/// make a targeted clock effect reachable.
+///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the
 /// pool is full of +1/+1 — and `seen` is the population it read, so a walker
 /// blinded by a refactor fails here instead of reporting a quiet nought.
 #[test]
 fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
-    // Named by the card that puts them, so a second arrival is a name in a
+    // Named by the card that puts them, so another arrival is a name in a
     // failure message and not a number to bump.
-    const REACHABLE_CLOCKS: &[&str] = &["Trenzalore Clocktower"];
+    const REACHABLE_CLOCKS: &[&str] = &["Time Bomb", "Trenzalore Clocktower"];
     let mut seen = 0;
     let mut kinds = Vec::new();
     for def in baylee_cards::all() {
@@ -744,9 +754,9 @@ fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     assert_eq!(
         clocks, REACHABLE_CLOCKS,
         "the set of pool cards that put a lore or time counter on something \
-         has changed. `tactics::clock_score` is reachable in a real game \
-         through each of them and #166 owes that game as a test — so a new \
-         name here is a game to write, not a list to extend."
+         has changed. Check whether its counter effect targets and whether \
+         `tactics::clock_score` reads it as a clock, then write its real \
+         AI/game regression before extending this list (#166)."
     );
 }
 

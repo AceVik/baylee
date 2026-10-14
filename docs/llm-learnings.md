@@ -6,6 +6,28 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-14 — Corpus expansion: establish equivalence before adding cards
+
+Changing the reference checkout exposed syntax drift rather than card-rule
+changes. Normalize the split object-definition/validity spelling to the existing
+filter order, test both spellings, and compare the complete pool dump before
+expanding. This recovered 75 existing generated definitions without rewriting
+any of them. Refresh the script index from the same checkout; stale fork-only
+paths must not reach a batch.
+
+The first 500-card stage produced 500 Generated cards and no new stubs. Its
+drift guard initially mistook the generated `cards/mod.rs` registry for a card.
+Exempt only modifications of that exact registry, with tests that still reject
+card changes, nested module changes, deletions and renames. A clean codegen
+check and byte-identical old card records remain separate checks; neither is a
+substitute for the other. Generated remains distinct from tested coverage.
+When a new card trips a named AI gameplay obligation, do not silently extend
+its allowlist. The owner authorized GPT-6.1 to add isolated missing tests:
+Time Bomb now has real upkeep, sacrificed-source counter/damage and AI-decision
+checks. Removing either ability through the mutation hook makes the tests
+fail. Its rules work, but the AI still cannot value the sweep; record that
+limitation rather than promoting coverage or claiming improved play.
+
 ## 2026-10-05 — Legends: 189 stubs, three waves, and where the pace breaks
 
 Legends is the first set where the pipeline's cost is visible: 253 names
