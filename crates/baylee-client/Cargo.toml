@@ -196,10 +196,10 @@ bevy = { workspace = true, features = ["system_clipboard"] }
 winit.workspace = true
 
 # Win32 calls: the process's AppUserModelID (`window_icon.rs`) and the
-# console a release build opens on `--console` (`console.rs`). The version
-# winit already builds, so nothing new is compiled but those modules.
+# console a release build opens on `--console` (`console.rs`). This release
+# line already occurs in the workspace's platform dependencies.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.52", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Console",
     "Win32_UI_Shell",

@@ -66,7 +66,7 @@ fn attach() {
     ] {
         // SAFETY: as above.
         let held = unsafe { GetStdHandle(which) };
-        if held != 0 && held != INVALID_HANDLE_VALUE {
+        if !held.is_null() && held != INVALID_HANDLE_VALUE {
             continue;
         }
         let Ok(file) = std::fs::OpenOptions::new()
@@ -78,7 +78,7 @@ fn attach() {
         };
         // The handle is the process's from here on, as a standard handle is:
         // never closed.
-        let handle = file.into_raw_handle() as isize;
+        let handle = file.into_raw_handle();
         // SAFETY: `handle` is an open console handle this process owns.
         unsafe {
             SetStdHandle(which, handle);

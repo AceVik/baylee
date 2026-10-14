@@ -1013,7 +1013,7 @@ dependencies = [
  "web-time",
  "webbrowser",
  "webpki-roots 1.0.9",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
  "winit",
  "winresource",
 ]
