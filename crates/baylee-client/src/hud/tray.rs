@@ -1617,7 +1617,7 @@ pub(super) fn spawn_tray(
                 commands,
                 fonts,
                 Some(zone),
-                zone_label(lang, zone, view, statics),
+                zone_label(lang, zone, view, statics, browser, interaction),
                 browser.is_ticked(zone) || pinned == Some(zone),
                 live,
             ));
@@ -1974,6 +1974,8 @@ pub(super) fn spawn_tray(
         commands.entity(list).add_child(empty);
     }
     let grid = GridCtx {
+        browser,
+        interaction,
         view,
         statics,
         fonts,
@@ -2662,6 +2664,8 @@ fn spawn_row(
 /// list.
 #[derive(Clone, Copy)]
 struct GridCtx<'a> {
+    browser: &'a Browser,
+    interaction: Option<&'a baylee_client_core::Interaction>,
     view: &'a PlayerView,
     statics: &'a GameStatic,
     fonts: &'a UiFonts,
@@ -2712,8 +2716,7 @@ fn spawn_grid(
             Some((zone, node)) if zone == row.zone => node,
             _ => {
                 if ctx.headed {
-                    let head =
-                        spawn_run_head(commands, lang, ctx.fonts, row.zone, ctx.view, ctx.statics);
+                    let head = spawn_run_head(commands, lang, row.zone, &ctx);
                     commands.entity(list).add_child(head);
                 }
                 let node = commands
@@ -2749,10 +2752,8 @@ fn spawn_grid(
 fn spawn_run_head(
     commands: &mut Commands,
     lang: Lang,
-    fonts: &UiFonts,
     zone: BrowseZone,
-    view: &PlayerView,
-    statics: &GameStatic,
+    ctx: &GridCtx<'_>,
 ) -> Entity {
     let head = commands
         .spawn((
@@ -2769,8 +2770,15 @@ fn spawn_run_head(
         .id();
     let words = dialog_label(
         commands,
-        fonts,
-        &zone_label(lang, zone, view, statics),
+        ctx.fonts,
+        &zone_label(
+            lang,
+            zone,
+            ctx.view,
+            ctx.statics,
+            ctx.browser,
+            ctx.interaction,
+        ),
         10.5,
         palette::DIALOG_SOFT,
     );
@@ -3118,7 +3126,14 @@ fn spawn_big_row(
 /// dialog's typography already means something by a bracket: [`dialog_text`]
 /// hands a bracketed run to [`palette::DIALOG_SOFT`], so "Graveyard (12)" is
 /// drawn as a name with a grey aside beside it and reads as one.
-fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameStatic) -> String {
+fn zone_label(
+    lang: Lang,
+    zone: BrowseZone,
+    view: &PlayerView,
+    statics: &GameStatic,
+    browser: &Browser,
+    interaction: Option<&baylee_client_core::Interaction>,
+) -> String {
     let name = zone.label().text(lang).to_string();
     let named = match zone.seat() {
         None => name,
@@ -3128,7 +3143,8 @@ fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameSta
             Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
         }
     };
-    Phrase::BrowseTabCount.fill(lang, &[&named, &zone.count_in(view).to_string()])
+    let count = browser.tab_count(zone, view, interaction);
+    Phrase::BrowseTabCount.fill(lang, &[&named, &count.to_string()])
 }
 
 /// The row itself: the thing a click lands on, before anything is written in

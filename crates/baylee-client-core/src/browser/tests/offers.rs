@@ -408,6 +408,7 @@ fn a_filtered_private_inspection_displays_ineligible_cards_without_selecting_the
     browser.follow(&view, Some(&it));
     let rows = browser.rows(&view, Some(&it), Names::projected());
     assert_eq!(rows.len(), 6);
+    assert_eq!(browser.tab_count(BrowseZone::Looking, &view, Some(&it)), 6);
     let selectable: Vec<_> = rows
         .iter()
         .filter(|r| r.standing.selectable)
@@ -588,4 +589,43 @@ fn tutor_rows_follow_changed_offers_and_keep_unrestricted_searches_complete() {
     assert_eq!(inspection.rows(&view, None, Names::projected()).len(), 7);
     inspection.open_at(BrowseZone::Looking);
     assert_eq!(inspection.rows(&view, None, Names::projected()).len(), 7);
+}
+
+#[test]
+fn tutor_tab_counts_only_eligible_inspected_cards_and_keeps_other_counts() {
+    let mut view = tutor_library();
+    view.graveyards[0] = vec![printed(20, 0, "Graveyard card", 1)];
+    for offered in [vec![12, 11, 10], vec![15], vec![]] {
+        let it = tutor_question(&offered, 0);
+        let mut browser = Browser::new();
+        browser.follow(&view, Some(&it));
+        assert_eq!(
+            browser.tab_count(BrowseZone::Looking, &view, Some(&it)),
+            offered.len()
+        );
+        assert_eq!(
+            browser.tab_count(BrowseZone::Graveyard(me()), &view, Some(&it)),
+            1
+        );
+        assert_eq!(BrowseZone::Looking.count_in(&view), 7);
+        // Like other tabs, the eligible total is independent of text filtering.
+        browser.set_filter("no matching name");
+        assert_eq!(
+            browser.tab_count(BrowseZone::Looking, &view, Some(&it)),
+            offered.len()
+        );
+        assert!(
+            browser
+                .rows(&view, Some(&it), Names::projected())
+                .is_empty()
+        );
+        assert!(browser.answers_here(Some(&it)));
+        assert!(it.can_confirm());
+    }
+    let mut manual = Browser::new();
+    manual.open_at(BrowseZone::Looking);
+    assert_eq!(manual.tab_count(BrowseZone::Looking, &view, None), 7);
+    // A pending search alone must not turn manual browsing into a chooser.
+    let it = tutor_question(&[15], 0);
+    assert_eq!(manual.tab_count(BrowseZone::Looking, &view, Some(&it)), 7);
 }

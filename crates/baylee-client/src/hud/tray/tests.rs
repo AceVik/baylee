@@ -290,6 +290,8 @@ fn a_zone_tab_carries_its_count_as_an_aside() {
         BrowseZone::Graveyard(PlayerId::new(0)),
         &view,
         &statics(),
+        &Browser::new(),
+        None,
     );
     assert_eq!(mine, "Graveyard (1)", "my own pile does not say whose");
 
@@ -305,6 +307,8 @@ fn a_zone_tab_carries_its_count_as_an_aside() {
         BrowseZone::Graveyard(PlayerId::new(1)),
         &view,
         &statics(),
+        &Browser::new(),
+        None,
     );
     assert_eq!(
         theirs, "Graveyard · House AI (1)",
@@ -778,4 +782,63 @@ fn a_retarget_footers_confirm_carries_the_questions_own_identity() {
         action: PromptAction::Confirm,
     };
     assert!(!stale.matches_decision_id(it.decision_id()));
+}
+
+/// Tabs and grid group headings share this label, including its choice count.
+#[test]
+fn search_zone_labels_count_eligible_cards_but_manual_labels_count_the_inspection() {
+    use baylee_engine::choice::{ChoicePrompt, Pending};
+
+    let view = ViewBuilder::new(2)
+        .with_looking_at(
+            (10..17)
+                .map(|id| printed(id, 0, "Inspected card", 1))
+                .collect(),
+        )
+        .build();
+    let statics = statics();
+    for count in [3, 1, 0] {
+        let it = baylee_client_core::Interaction::new(
+            Pending::ChooseCards {
+                player: view.seat,
+                options: view
+                    .looking_at
+                    .iter()
+                    .take(count)
+                    .map(|card| card.id)
+                    .collect(),
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+                total: None,
+            },
+            view.seat,
+        );
+        let mut browser = Browser::new();
+        browser.follow(&view, Some(&it));
+        assert_eq!(
+            zone_label(
+                Lang::En,
+                BrowseZone::Looking,
+                &view,
+                &statics,
+                &browser,
+                Some(&it)
+            ),
+            format!("Shown ({count})")
+        );
+        let mut manual = Browser::new();
+        manual.open_at(BrowseZone::Looking);
+        assert_eq!(
+            zone_label(
+                Lang::En,
+                BrowseZone::Looking,
+                &view,
+                &statics,
+                &manual,
+                Some(&it)
+            ),
+            "Shown (7)"
+        );
+    }
 }

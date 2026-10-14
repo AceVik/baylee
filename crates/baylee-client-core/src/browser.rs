@@ -1740,6 +1740,30 @@ impl Browser {
         out
     }
 
+    /// The zone tab's count, before the text filter. During a library search,
+    /// the shown-card tab counts eligible inspected cards, just as its rows do.
+    /// Other zones retain their full pile counts, including during choices.
+    #[must_use]
+    pub fn tab_count(
+        &self,
+        zone: BrowseZone,
+        view: &PlayerView,
+        interaction: Option<&Interaction>,
+    ) -> usize {
+        if zone != BrowseZone::Looking || self.open != Opening::ForChoice {
+            return zone.count_in(view);
+        }
+        let mine = interaction.filter(|it| it.is_mine());
+        // If even an ineligible row is shown, this inspection needs no scan.
+        if self.shows_choice_row(zone, mine, false) {
+            return zone.count_in(view);
+        }
+        view.looking_at
+            .iter()
+            .filter(|object| mine.is_some_and(|it| it.selectable().contains(&object.id)))
+            .count()
+    }
+
     /// Whether a row belongs in this choice's presentation. Ordinary browsing
     /// keeps everything. A search lists only the engine's eligible ids, while
     /// other private inspections and positional pile choices need all shown
