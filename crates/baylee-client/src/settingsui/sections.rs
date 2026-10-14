@@ -590,11 +590,12 @@ pub(crate) fn network(out: &mut Out, view: &View) {
         Some((_, host)) => {
             let link = out.button(
                 "impressum",
-                &Phrase::ImpressumLink.fill(lang, &[&host]),
+                Phrase::ImpressumAction.text(lang),
                 Weight::Ghost,
                 Press::Settings(SettingsPress::OpenImpressum),
             );
-            out.wrap(&[shown, link])
+            let destination = out.words(&host, true);
+            out.wrap(&[shown, link, destination])
         }
         None => shown,
     };
@@ -740,6 +741,7 @@ mod tests {
         use crate::shellkit::tokens::{BUTTON_BUDGET, CHIP_BUDGET};
         for lang in Lang::ALL {
             let german = lang == Lang::De;
+            assert!(Phrase::ImpressumAction.text(lang).chars().count() <= BUTTON_BUDGET.of(german));
             let music = music_theme_names(lang);
             assert_eq!(
                 music.len(),

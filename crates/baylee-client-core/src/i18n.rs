@@ -333,8 +333,10 @@ messages! {
     /// Under the Fan Content notice: where the source is, the AGPL's §13
     /// offer (#270). `{0}` is the address, drawn as it came.
     SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
+    /// Compact settings action; its destination host is shown alongside.
+    ImpressumAction { en: "Legal notice", de: "Impressum" },
     /// The gateway's legal notice (`/info` `impressum`) as a link, on the
-    /// front door's About, the terms sheet and Settings → Network. `{0}` is
+    /// front door's About and the terms sheet. `{0}` is
     /// the host it opens, so the player sees where it goes.
     ImpressumLink { en: "Legal notice (Impressum) \u{b7} {0}", de: "Impressum \u{b7} {0}" },
     /// The front door's source tile (Wide and Vast): its label, over the

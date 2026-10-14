@@ -449,9 +449,10 @@ fn section_panel(
             Pickable::IGNORE,
         ))
         .id();
-    // A phone's height is the scarce axis: the line scrolls with the rows
-    // there, after the last, so three rows stand in the 390 px (§12, M4-6).
-    if kit.m.frame == Frame::Phone {
+    // Stacked navigation also spends vertical space: at XL with the
+    // friends drawer open the wrapped save line must scroll with the rows,
+    // rather than squeeze them out and overflow the panel's bottom.
+    if kit.m.frame == Frame::Phone || !sidebar(kit.m.frame) {
         commands.entity(rows).add_child(save);
         commands.entity(panel).add_children(&[head, rows]);
     } else {
