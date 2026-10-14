@@ -164,7 +164,7 @@ pub fn verify(root: &Path, inputs: &Args) -> anyhow::Result<()> {
 
     // A card's level, and the evidence it stops at.
     let level_of = |def: &baylee_cards::dsl::CardDef| -> (Level, String) {
-        if !def.is_implemented() {
+        if !def.is_fully_read() {
             return (0, "not implemented".into());
         }
         if demoted.contains(&def.index) {

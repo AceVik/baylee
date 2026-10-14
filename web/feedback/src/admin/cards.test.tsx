@@ -70,7 +70,7 @@ const SHOCK_HIT: CardHit = {
   name: "Shock",
   type_line: "Instant",
   mana_cost: "{R}",
-  coverage: "implemented",
+  coverage: "generated",
   scryfall_id: "",
   blocked: null,
 };

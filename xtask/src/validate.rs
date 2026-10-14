@@ -204,6 +204,9 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
     // owned card is a reader's output and is corrected by fixing the reader,
     // a hand-owned one is somebody's and codegen never touches it.
     let mut machine = 0usize;
+    // Of the machine-owned, those no card test plays yet
+    // (`Coverage::Generated`); codegen promotes each once its test lands.
+    let mut generated = 0usize;
     // `validate` reads every card's header off disk, so it has to find the
     // files the taxonomy filed rather than the ones a flat directory used to
     // hold. A walk that found nothing would report a clean pool.
@@ -244,6 +247,8 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_search_tapped_matches_text(&slug, &content, &mut problems);
         let def = by_name.get(name.split(" // ").next().unwrap_or(name));
+        generated +=
+            usize::from(def.is_some_and(|d| d.coverage == baylee_cards::dsl::Coverage::Generated));
         check_header_matches_code(
             &slug,
             &content,
@@ -296,7 +301,7 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
     }
     println!(
         "validate: {} cards conform ({} finished \u{2014} {} hand-owned, {machine} \
-         machine-owned \u{2014} and {stubs} stubs)",
+         machine-owned, {generated} of them untested \u{2014} and {stubs} stubs)",
         names.len(),
         names.len() - stubs,
         names.len() - stubs - machine
@@ -493,6 +498,7 @@ pub(crate) fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Res
     let mut rows = 0usize;
     let mut bad_round_trip = Vec::new();
     let mut unknown = Vec::new();
+    let mut generated = Vec::new();
     let mut partial = Vec::new();
     let mut stubs = Vec::new();
     let mut names: Vec<String> = Vec::new();
@@ -562,6 +568,9 @@ pub(crate) fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Res
                         }
                     }
                 }
+                // Fully read but not played by a card test yet: listed on its
+                // own, never counted as tested.
+                Coverage::Generated => generated.push(name.clone()),
                 Coverage::Partial(why) => partial.push(format!("{name} — {why}")),
                 Coverage::Unimplemented => stubs.push(name.clone()),
             },
@@ -574,9 +583,10 @@ pub(crate) fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Res
     }
     println!(
         "  {rows} rows, {} not round-tripping, {} unknown to the pool, \
-{} partial, {} stubs",
+{} generated, {} partial, {} stubs",
         bad_round_trip.len(),
         unknown.len(),
+        generated.len(),
         partial.len(),
         stubs.len()
     );
@@ -589,6 +599,9 @@ pub(crate) fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Res
     if verbose {
         for line in &tested_by {
             println!("  TESTED      {line}");
+        }
+        for name in &generated {
+            println!("  GENERATED   {name}");
         }
         for name in &partial {
             println!("  PARTIAL     {name}");

@@ -205,9 +205,7 @@ pub(crate) fn table_deck(root: &Path, name: &str) -> anyhow::Result<TableDeck> {
             missing.push(parsed.name);
             continue;
         };
-        if baylee_cards::by_index(index)
-            .is_some_and(|def| !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented))
-        {
+        if baylee_cards::by_index(index).is_some_and(|def| !def.is_fully_read()) {
             unfinished.push(parsed.name.clone());
         }
         match row.zone {

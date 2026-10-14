@@ -100,10 +100,20 @@ impl CardDef {
         self.faces.first().map_or("<unnamed>", |f| f.name)
     }
 
-    /// Whether the card is rules-complete.
+    /// Whether the card is rules-complete and tested
+    /// ([`Coverage::Implemented`] only).
     #[must_use]
     pub const fn is_implemented(&self) -> bool {
         matches!(self.coverage, Coverage::Implemented)
+    }
+
+    /// Whether the card claims every printed sentence:
+    /// [`Coverage::Implemented`] or [`Coverage::Generated`]. This is what
+    /// makes a card playable, and what every pool-wide check of a complete
+    /// card's claims asks; [`Self::is_implemented`] adds "and tested".
+    #[must_use]
+    pub const fn is_fully_read(&self) -> bool {
+        matches!(self.coverage, Coverage::Implemented | Coverage::Generated)
     }
 
     /// Abilities of a face. Face 0 uses the face's own list when
@@ -843,8 +853,15 @@ pub enum PartnerKind {
 /// Implementation coverage of a card (shown in the deckbuilder).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Coverage {
-    /// Rules-complete, tested.
+    /// Rules-complete, tested: every printed sentence is said and the card
+    /// is played in its own card test.
     Implemented,
+    /// Every printed sentence was read in full by codegen (`landgen` or
+    /// `scriptgen`), but no card test plays it yet. Playable, and as
+    /// complete a claim as [`Coverage::Implemented`]; codegen promotes it to
+    /// that once `card_tests/<type>/<dir>/<slug>.rs` exists
+    /// (`docs/card-dsl.md` §"Coverage").
+    Generated,
     /// Partially implemented; note describes the gap.
     Partial(&'static str),
     /// Stub only.
@@ -1035,5 +1052,11 @@ mod tests {
             .is_implemented(),
             "partial is not implemented — the deckbuilder reads this"
         );
+        let generated = CardDef {
+            coverage: Coverage::Generated,
+            ..CardDef::DEFAULT
+        };
+        assert!(generated.is_fully_read() && !generated.is_implemented());
+        assert!(!CardDef::DEFAULT.is_fully_read());
     }
 }

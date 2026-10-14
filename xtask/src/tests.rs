@@ -911,3 +911,36 @@ fn the_attack_without_tapping_verb_carries_controller_scope() {
         assert_eq!(problems, expected, "{name}");
     }
 }
+
+/// A `Coverage::Generated` card is untested by definition: once its card
+/// test exists at the card's own path, codegen writes it `Implemented`, so a
+/// tree holding both is one codegen run behind (`stubgen::read_coverage`).
+#[test]
+fn no_generated_card_already_has_its_card_test() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("xtask lives in <workspace>/xtask");
+    let cards = root.join("crates/baylee-cards/src/cards");
+    let tests = root.join("crates/baylee-engine/src/engine/card_tests");
+    let files = super::card_files(&cards).unwrap();
+    assert!(
+        files.len() > 1000,
+        "the walk found {} card files",
+        files.len()
+    );
+    let behind: Vec<String> = files
+        .values()
+        .filter(|path| {
+            let rel = path.strip_prefix(&cards).expect("under cards/");
+            tests.join(rel).is_file()
+                && std::fs::read_to_string(path)
+                    .is_ok_and(|text| text.contains("coverage = Coverage::Generated"))
+        })
+        .map(|path| path.display().to_string())
+        .collect();
+    assert!(
+        behind.is_empty(),
+        "these cards are tested but still say Coverage::Generated; rerun \
+         `cargo run -p xtask -- codegen` to promote them: {behind:?}"
+    );
+}

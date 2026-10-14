@@ -292,7 +292,7 @@ pub(crate) fn check_flashback_matches_the_printing(
     payload: &serde_json::Value,
     problems: &mut usize,
 ) {
-    if !def.is_implemented() {
+    if !def.is_fully_read() {
         return;
     }
     let printed: Vec<String> = printed_text(payload)
@@ -577,7 +577,7 @@ pub(crate) fn check_enters_tapped_bound_matches_the_printing(
                     *problems += 1;
                 }
             }
-            None if def.coverage == baylee_cards::dsl::Coverage::Implemented => {
+            None if def.is_fully_read() => {
                 println!(
                     "{where_}: the printing states an enters-tapped bound of {want:?} and the \
                      code counts nothing"

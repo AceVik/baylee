@@ -60,11 +60,11 @@ const SETS: SetsOverview = {
   at: "2026-10-10T12:00:00Z",
   version: "0.1.0-beta.7 (abc)",
   corpus: 1000,
-  pool: { cards: 400, implemented: 300, partial: 50, unimplemented: 50, absent: 600 },
+  pool: { cards: 420, implemented: 300, generated: 20, partial: 50, unimplemented: 50, absent: 580 },
   sets: [
-    { code: "lea", position: 0, total: 295, implemented: 290, partial: 3, unimplemented: 2, absent: 0 },
-    { code: "leb", position: 1, total: 7, implemented: 7, partial: 0, unimplemented: 0, absent: 0 },
-    { code: "arn", position: 2, total: 78, implemented: 3, partial: 0, unimplemented: 0, absent: 75 },
+    { code: "lea", position: 0, total: 295, implemented: 290, generated: 0, partial: 3, unimplemented: 2, absent: 0 },
+    { code: "leb", position: 1, total: 7, implemented: 7, generated: 0, partial: 0, unimplemented: 0, absent: 0 },
+    { code: "arn", position: 2, total: 78, implemented: 3, generated: 5, partial: 0, unimplemented: 0, absent: 70 },
   ],
 };
 
@@ -73,6 +73,7 @@ const ALPHA: SetDetail = {
   position: 0,
   total: 295,
   implemented: 290,
+  generated: 0,
   partial: 3,
   unimplemented: 2,
   absent: 0,
@@ -193,6 +194,34 @@ describe("the pool's progress", () => {
     await userEvent.type(screen.getByRole("searchbox", { name: "Set code" }), "le");
     expect(screen.getAllByTestId("set").map((r) => within(r).getByRole("link").textContent)).toEqual(["LEA"]);
     expect(screen.getByText(/counts the cards first printed in it/)).toBeTruthy();
+  });
+
+  test("counts generated cards apart from implemented ones", async () => {
+    serve((call) => (call.url === "/ui/api/admin/sets" ? { body: SETS } : undefined));
+    render(<Admin lang="en" section="sets" />);
+    const rows = await screen.findAllByTestId("set");
+    expect(screen.getByRole("columnheader", { name: "Generated (untested)" })).toBeTruthy();
+    const arn = rows.find((r) => within(r).getByRole("link").textContent === "ARN") as HTMLElement;
+    const cells = within(arn).getAllByRole("cell").map((c) => c.textContent);
+    // #, set, cards, implemented, generated, partial, stub, absent.
+    expect(cells.slice(2, 8)).toEqual(["78", "3", "5", "0", "0", "70"]);
+  });
+
+  test("a gateway without the generated count reads as zero", async () => {
+    const old = {
+      ...SETS,
+      pool: { cards: 400, implemented: 300, partial: 50, unimplemented: 50, absent: 600 },
+      sets: SETS.sets.map((s) => {
+        const rest: Partial<typeof s> = { ...s };
+        delete rest.generated;
+        return rest;
+      }),
+    };
+    serve((call) => (call.url === "/ui/api/admin/sets" ? { body: old } : undefined));
+    render(<Admin lang="en" section="sets" />);
+    const rows = await screen.findAllByTestId("set");
+    const lea = within(rows[0] as HTMLElement).getAllByRole("cell").map((c) => c.textContent);
+    expect(lea[4]).toBe("0");
   });
 
   test("one set lists its cards as chips with how far each is", async () => {

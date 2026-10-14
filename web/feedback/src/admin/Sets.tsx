@@ -33,6 +33,7 @@ import {
 
 const LABEL: Record<Coverage, Key> = {
   implemented: "sets.implemented",
+  generated: "sets.generated",
   partial: "sets.partial",
   unimplemented: "sets.unimplemented",
   absent: "sets.absent",
@@ -40,6 +41,7 @@ const LABEL: Record<Coverage, Key> = {
 
 const TONE: Record<Coverage, Tone> = {
   implemented: "ok",
+  generated: "accent",
   partial: "warn",
   unimplemented: "info",
   absent: "muted",
@@ -327,6 +329,9 @@ export function Sets({ lang }: { lang: Lang }) {
                     {t(lang, "sets.implemented")}
                   </th>
                   <th scope="col" className="num">
+                    {t(lang, "sets.generated")}
+                  </th>
+                  <th scope="col" className="num">
                     {t(lang, "sets.partial")}
                   </th>
                   <th scope="col" className="num">
@@ -356,6 +361,9 @@ export function Sets({ lang }: { lang: Lang }) {
                     </td>
                     <td className="num" data-label={t(lang, "sets.implemented")}>
                       {n(s.implemented)}
+                    </td>
+                    <td className="num" data-label={t(lang, "sets.generated")}>
+                      {n(s.generated)}
                     </td>
                     <td className="num" data-label={t(lang, "sets.partial")}>
                       {n(s.partial)}

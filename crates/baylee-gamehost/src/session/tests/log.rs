@@ -553,7 +553,7 @@ fn the_log_measured_over_self_play() {
     }
 
     let cards: Vec<&'static baylee_cards_dsl::CardDef> =
-        baylee_cards::all().filter(|d| d.is_implemented()).collect();
+        baylee_cards::all().filter(|d| d.is_fully_read()).collect();
     let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
     let chunk = cards.len().div_ceil(threads).max(1);
     let pool = std::thread::scope(|scope| {

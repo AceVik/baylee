@@ -1318,7 +1318,7 @@ fn probe_caught(def: &'static CardDef, route: Route) -> Line {
 /// Every card the probe is for: implemented, a permanent on its front face.
 fn pool() -> Vec<&'static CardDef> {
     baylee_cards::all()
-        .filter(|def| def.is_implemented() && is_permanent(def))
+        .filter(|def| def.is_fully_read() && is_permanent(def))
         .collect()
 }
 
@@ -1461,7 +1461,7 @@ fn representative_cards_leave_cleanly_by_every_route() {
             let def = baylee_cards::by_index(card_index(oracle)).expect("in the pool");
             assert_eq!(def.name(), *name, "{oracle} is not {name}");
             assert!(
-                def.is_implemented() && is_permanent(def),
+                def.is_fully_read() && is_permanent(def),
                 "{name} is one the sweep probes"
             );
             def

@@ -671,7 +671,7 @@ fn strays(def: &'static CardDef) -> (Vec<String>, Tally) {
 
 /// The sweep, cut into one chunk per core the way the other pool sweeps are.
 fn sweep() -> (Vec<String>, Tally) {
-    let cards: Vec<&'static CardDef> = baylee_cards::all().filter(|d| d.is_implemented()).collect();
+    let cards: Vec<&'static CardDef> = baylee_cards::all().filter(|d| d.is_fully_read()).collect();
     let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
     let chunk = cards.len().div_ceil(threads).max(1);
     let mut offenders = Vec::new();

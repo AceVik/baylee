@@ -80,6 +80,7 @@ impl Surface {
         ],
         flags: &[
             Flag::Playable,
+            Flag::Generated,
             Flag::Partial,
             Flag::Stub,
             Flag::Commander,

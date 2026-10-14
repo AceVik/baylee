@@ -162,8 +162,10 @@ pub(super) fn read_card(path: &str, text: &str) -> Result<Card> {
         [
             Regex::new(r#"\boracle_id\s*=\s*"([0-9a-f-]{36})""#).expect("static oracle regex"),
             Regex::new(r#"\bscryfall_id\s*=\s*"([0-9a-f-]{36})""#).expect("static printing regex"),
-            Regex::new(r"\bcoverage\s*=\s*Coverage::(Implemented|Unimplemented|Partial)\b")
-                .expect("static coverage regex"),
+            Regex::new(
+                r"\bcoverage\s*=\s*Coverage::(Implemented|Generated|Unimplemented|Partial)\b",
+            )
+            .expect("static coverage regex"),
         ]
     });
     let oracle = oracle_re
@@ -174,7 +176,10 @@ pub(super) fn read_card(path: &str, text: &str) -> Result<Card> {
     ensure!(covs.len() <= 1, "{path}: {} coverage fields", covs.len());
     let (status, note) = if let Some(cov) = covs.first() {
         match &cov[1] {
-            "Implemented" => ("implemented", None),
+            // The landing page keeps its four states until it is reworked
+            // (owner: web not before beta.8): a fully read, untested card
+            // is playable there.
+            "Implemented" | "Generated" => ("implemented", None),
             "Partial" => (
                 "partial",
                 partial_reason(&text[cov.get(0).unwrap().end()..])?,

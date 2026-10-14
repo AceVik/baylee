@@ -1306,7 +1306,7 @@ mod tests {
             .name()
             .to_string();
         let stub = baylee_cards::all()
-            .find(|d| !d.is_implemented())
+            .find(|d| !d.is_fully_read())
             .expect("the pool has a stub")
             .name()
             .to_string();
@@ -1347,7 +1347,7 @@ mod tests {
     fn the_status_check_fails_when_a_deck_changes_under_it() {
         let working = working();
         let stub = baylee_cards::all()
-            .find(|d| !d.is_implemented())
+            .find(|d| !d.is_fully_read())
             .expect("the pool has a stub")
             .name()
             .to_string();

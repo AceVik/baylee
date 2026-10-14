@@ -20,7 +20,7 @@
 //! `SubAbility$` chain, and every parameter key** was consumed. An unknown
 //! API, an unknown parameter, a computed `SVar` — any one of them and the
 //! card is refused and stays a stub. That rule is what makes a generated
-//! `Coverage::Implemented` mean the same thing a hand-written one does: an
+//! `Coverage::Generated` claim as much as a hand-written `Implemented`: an
 //! ability quietly dropped because its `NoRegen$ True` was ignored would be
 //! worse than no card at all, because the deckbuilder would offer it.
 //!

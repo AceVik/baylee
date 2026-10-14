@@ -1859,6 +1859,8 @@ messages! {
         en: "{0} in the deck, {1} in the sideboard",
         de: "{0} im Deck, {1} im Sideboard",
     },
+    /// untested
+    CoverageGenerated { en: "untested", de: "ungetestet" },
     /// partial
     CoveragePartial { en: "partial", de: "teilweise" },
     /// stub

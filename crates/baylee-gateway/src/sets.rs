@@ -7,7 +7,7 @@
 //! first printed in) and the compiled pool (`baylee_cards::pool::rows()`,
 //! the cards this build plays and how far each one is). A ledger row with no
 //! pool row is a card nothing has been written for ("absent"); for the rest
-//! the pool says `implemented`, `partial` or `unimplemented` (a stub). Sets
+//! the pool says `implemented`, `generated`, `partial` or `unimplemented` (a stub). Sets
 //! come in the ledger's order, which is release order by first printing, the
 //! order the owner implements them in (CLAUDE.md §"Cards"), with promo sets
 //! where their first card falls. Nothing is written or committed to say
@@ -32,8 +32,11 @@ pub struct SetProgress {
     pub position: usize,
     /// Cards first printed in this set.
     pub total: usize,
-    /// Pool cards the deckbuilder offers as playable.
+    /// Pool cards rules-complete and played by a card test.
     pub implemented: usize,
+    /// Pool cards codegen read in full that no card test plays yet
+    /// (`Coverage::Generated`); playable, counted apart from `implemented`.
+    pub generated: usize,
     /// Pool cards with a `Coverage::Partial` note.
     pub partial: usize,
     /// Pool cards that compile as stubs.
@@ -49,6 +52,7 @@ impl SetProgress {
             position,
             total: 0,
             implemented: 0,
+            generated: 0,
             partial: 0,
             unimplemented: 0,
             absent: 0,
@@ -59,6 +63,7 @@ impl SetProgress {
         self.total += 1;
         match coverage {
             "implemented" => self.implemented += 1,
+            "generated" => self.generated += 1,
             "partial" => self.partial += 1,
             "unimplemented" => self.unimplemented += 1,
             _ => self.absent += 1,
@@ -73,7 +78,7 @@ pub struct SetCard {
     pub index: u32,
     /// The English name, as the ledger has it.
     pub name: &'static str,
-    /// `implemented`, `partial`, `unimplemented`, or `absent` for a card
+    /// `implemented`, `generated`, `partial`, `unimplemented`, or `absent` for a card
     /// with no pool row.
     pub coverage: &'static str,
     /// Why a partial card is only partly there, in its author's words.
@@ -160,6 +165,7 @@ pub fn pool_totals() -> SetProgress {
     for set in all() {
         whole.total += set.total;
         whole.implemented += set.implemented;
+        whole.generated += set.generated;
         whole.partial += set.partial;
         whole.unimplemented += set.unimplemented;
         whole.absent += set.absent;
@@ -179,12 +185,16 @@ mod tests {
         let whole = pool_totals();
         assert_eq!(whole.total, ROWS.len());
         assert_eq!(
-            whole.implemented + whole.partial + whole.unimplemented + whole.absent,
+            whole.implemented
+                + whole.generated
+                + whole.partial
+                + whole.unimplemented
+                + whole.absent,
             ROWS.len()
         );
         let pool = baylee_cards::pool::rows();
         assert_eq!(
-            whole.implemented + whole.partial + whole.unimplemented,
+            whole.implemented + whole.generated + whole.partial + whole.unimplemented,
             pool.len(),
             "a pool card without a ledger row, or counted twice"
         );
@@ -213,6 +223,7 @@ mod tests {
         assert_eq!(list.len(), alpha.total);
         let bucket = |coverage: &str| list.iter().filter(|c| c.coverage == coverage).count();
         assert_eq!(bucket("implemented"), alpha.implemented);
+        assert_eq!(bucket("generated"), alpha.generated);
         assert_eq!(bucket("partial"), alpha.partial);
         assert_eq!(bucket("unimplemented"), alpha.unimplemented);
         assert_eq!(bucket("absent"), alpha.absent);

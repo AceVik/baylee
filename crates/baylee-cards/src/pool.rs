@@ -187,6 +187,7 @@ pub fn row(def: &'static CardDef) -> PoolCard {
     let name = def.name().to_string();
     let (coverage, note) = match def.coverage {
         Coverage::Implemented => ("implemented", None),
+        Coverage::Generated => ("generated", None),
         Coverage::Partial(why) => ("partial", Some(why)),
         Coverage::Unimplemented => ("unimplemented", None),
     };

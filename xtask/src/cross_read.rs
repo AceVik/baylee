@@ -379,7 +379,7 @@ pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> any
             unregistered += 1;
             continue;
         };
-        if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
+        if !def.is_fully_read() {
             not_implemented += 1;
             continue;
         }

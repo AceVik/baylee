@@ -902,6 +902,7 @@ fn flag_name(flag: Flag, lang: Lang) -> &'static str {
     match flag {
         Flag::Playable => Phrase::FlagPlayable.text(lang),
         Flag::Partial => Phrase::CoveragePartial.text(lang),
+        Flag::Generated => Phrase::CoverageGenerated.text(lang),
         Flag::Stub => Phrase::CoverageStub.text(lang),
         Flag::Commander => Phrase::FlagCommander.text(lang),
         Flag::Basic => Phrase::FlagBasic.text(lang),

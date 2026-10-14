@@ -77,6 +77,9 @@ pub const CURVE_BUCKETS: usize = 8;
 pub enum Coverage {
     /// Rules-complete and tested.
     Implemented,
+    /// Every printed sentence read in full by codegen, but no card test
+    /// plays it yet. Playable, and marked apart from `Implemented`.
+    Generated,
     /// Playable, with a gap its author described.
     Partial,
     /// A stub. It exists in the registry, so a deck holding it saves, but the
@@ -87,6 +90,9 @@ pub enum Coverage {
 
 impl Coverage {
     /// Whether a deck holding this card plays as printed.
+    ///
+    /// `Generated` is not: it claims every sentence, but no test has played
+    /// it, so a deck holding one is still told it may not play as printed.
     #[must_use]
     pub fn trustworthy(self) -> bool {
         self == Self::Implemented

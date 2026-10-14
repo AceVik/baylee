@@ -815,6 +815,8 @@ pub(crate) fn treatment(finish: Finish) -> FinishTreatment {
 pub(crate) fn coverage_mark(coverage: Coverage) -> Option<(Phrase, Color)> {
     match coverage {
         Coverage::Implemented => None,
+        // Playable, but no test has played it yet: a quiet mark of its own.
+        Coverage::Generated => Some((Phrase::CoverageGenerated, tokens::ACCENT)),
         Coverage::Partial => Some((Phrase::CoveragePartial, tokens::GOLD)),
         Coverage::Unimplemented => Some((Phrase::CoverageStub, tokens::DANGER)),
     }

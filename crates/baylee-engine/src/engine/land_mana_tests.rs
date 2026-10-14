@@ -75,7 +75,7 @@ use super::testkit::{
     play_land_face_facing, walk_to_own_main,
 };
 use super::*;
-use baylee_cards_dsl::{AbilityDef, CardDef, CostPart, Coverage, FaceDef, SimpleMana};
+use baylee_cards_dsl::{AbilityDef, CardDef, CostPart, FaceDef, SimpleMana};
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::{CardIndex, ObjectId};
 use baylee_core::mana::ManaColor;
@@ -919,7 +919,7 @@ fn judge_printed(
 ) -> usize {
     let face = &def.faces[index];
     let name = face.name;
-    if def.coverage != Coverage::Implemented {
+    if !def.is_fully_read() {
         if !printed.promises.is_empty() || !printed.opponents_lands.is_empty() {
             tally.not_implemented += 1;
         }
@@ -978,7 +978,7 @@ fn judge_opponents_lands(
     offenders: &mut Vec<String>,
     tally: &mut Tally,
 ) -> usize {
-    if def.coverage != Coverage::Implemented {
+    if !def.is_fully_read() {
         return 0;
     }
     let name = def.faces[index].name;
@@ -1027,7 +1027,7 @@ fn stand(
         // A card that is not implemented may not survive its own board:
         // Faeburrow Elder is a 0/0 without the static that counts colours.
         // Counted with the busy ones, not charged to the engine.
-        Err(_) if def.coverage != Coverage::Implemented => {
+        Err(_) if !def.is_fully_read() => {
             tally.busy += 1;
             return None;
         }

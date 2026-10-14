@@ -4,7 +4,8 @@
 //! printed text and [`scriptgen`](crate::scriptgen) from a card-script reference
 //! script — and [`stubgen`](crate::stubgen) renders it. Both obey the same
 //! rule: a body is produced only when the whole card was understood, so a
-//! generated `Coverage::Implemented` never means "most of it".
+//! generated `Coverage::Generated` (or `Implemented`, once tested) never
+//! means "most of it".
 
 use std::fmt::Write as _;
 

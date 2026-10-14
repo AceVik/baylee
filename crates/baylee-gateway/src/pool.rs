@@ -359,7 +359,10 @@ mod tests {
     fn coverage_says_whether_a_card_can_be_played() {
         for card in registry_rows() {
             assert!(
-                matches!(card.coverage, "implemented" | "partial" | "unimplemented"),
+                matches!(
+                    card.coverage,
+                    "implemented" | "generated" | "partial" | "unimplemented"
+                ),
                 "{} has an unknown coverage",
                 card.english_name
             );

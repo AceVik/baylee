@@ -613,12 +613,29 @@ fn render_face(
     Ok(out)
 }
 
+/// The coverage line of a card a reader read in full.
+///
+/// `Implemented` only when the card's own test file exists
+/// (`card_tests/<type>/<dir>/<slug>.rs`, the card's path under `cards/`);
+/// otherwise `Generated`: every sentence read, nothing played yet. The next
+/// run after the test lands promotes the card, and `codegen --check` asks
+/// the same question, so the two agree.
+#[must_use]
+pub fn read_coverage(tested: bool) -> &'static str {
+    if tested {
+        "coverage = Coverage::Implemented"
+    } else {
+        "coverage = Coverage::Generated"
+    }
+}
+
 /// Renders the `pub static CARD: CardDef = …` literal.
 ///
-/// `coverage` is emitted only for a card [`landgen::recognize`] read in full;
-/// otherwise it is left out entirely, because `CardDef::DEFAULT` is
-/// [`baylee_cards_dsl::Coverage::Unimplemented`] and a stub must not pass for
-/// playable until somebody writes the line by hand.
+/// `coverage` is emitted only for a card [`landgen::recognize`] read in full
+/// ([`read_coverage`]); otherwise it is left out entirely, because
+/// `CardDef::DEFAULT` is [`baylee_cards_dsl::Coverage::Unimplemented`] and a
+/// stub must not pass for playable until somebody writes the line by hand.
+#[allow(clippy::too_many_arguments)]
 fn render_card_literal(
     card: &ScryfallCard,
     constant: &str,
@@ -627,6 +644,7 @@ fn render_card_literal(
     face_defs: &str,
     land: Option<&CardBody>,
     ledger: &IndexLedger,
+    tested: bool,
 ) -> Result<String, CodegenError> {
     let mut fields = vec![
         format!("index = index::{constant}"),
@@ -656,7 +674,7 @@ fn render_card_literal(
         if !land.keywords.is_empty() {
             fields.push(format!("keywords = {}", join_union_owned(&land.keywords)));
         }
-        fields.push("coverage = Coverage::Implemented".to_string());
+        fields.push(read_coverage(tested).to_string());
     }
 
     let mut out = String::from("card!(\n");
@@ -759,6 +777,10 @@ fn transcode_card(
 
 /// Renders one stub file, and says where under `cards/` it belongs.
 ///
+/// `tested` answers whether a card test exists at a path relative to
+/// `cards/` (the same relative path under `card_tests/`); it decides
+/// between `Implemented` and `Generated` for a card read in full.
+///
 /// # Errors
 /// [`CodegenError::Mana`] when a mana cost fails validation.
 // One card written out end to end, with the reason for each field beside it.
@@ -771,6 +793,7 @@ pub fn render_stub(
     scripts: Option<&crate::scriptgen::ScriptLookup>,
     tokens: Option<&crate::tokengen::TokenLookup>,
     cycles: &crate::layout::LandCycles,
+    tested: &dyn Fn(&str) -> bool,
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
     // → "brightclimb_pathway").
@@ -788,6 +811,7 @@ pub fn render_stub(
         })
         .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
+    let path = crate::layout::path_for(card, &slug, cycles);
     let mut out = String::with_capacity(4096);
     // Human-verifiable header (docs/card-dsl.md).
     out.push_str(&format!("//! {} \u{2014} ", card.name));
@@ -885,6 +909,7 @@ pub fn render_stub(
         &face_defs,
         land.as_ref(),
         ledger,
+        land.is_some() && tested(&path),
     )?;
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
     // Only when something names one: an unused import is a warning now that
@@ -919,7 +944,7 @@ pub fn render_stub(
 
     Ok((
         StubInfo {
-            path: crate::layout::path_for(card, &slug, cycles),
+            path,
             slug,
             oracle_id,
             index: row.index,
@@ -1330,6 +1355,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         // The tail is the macro's job now; what matters is unchanged — a
@@ -1397,6 +1423,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(text.contains("castable_from_hand = false"), "{text}");
@@ -1418,6 +1445,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
@@ -1436,6 +1464,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
@@ -1454,6 +1483,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(text.contains("castable_from_hand = false"), "{text}");
@@ -1478,6 +1508,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(!text.contains("coverage:"));
@@ -1501,6 +1532,7 @@ mod tests {
             None,
             None,
             &LandCycles::default(),
+            &|_| false,
         )
         .unwrap();
         assert!(text.contains("mana_cost = mana!(\"{1}{W}\"),"));
@@ -1532,6 +1564,7 @@ mod tests {
                 None,
                 None,
                 &LandCycles::default(),
+                &|_| false,
             )
             .unwrap()
             .1
@@ -1649,5 +1682,51 @@ mod tests {
         // the pool lint is what says so rather than this function guessing.
         assert_eq!(pt_expr(Some("?")), "None");
         assert_eq!(pt_expr(None), "None");
+    }
+
+    /// A card read in full is `Generated` until its card test exists, and
+    /// `Implemented` from the run after: the path asked is the card's own.
+    #[test]
+    fn a_read_card_is_generated_until_its_test_exists() {
+        let cats = SubtypeCatalogs::default();
+        let mut card = bare_card("Plain Gate", "Land");
+        card.oracle_text = Some("{T}: Add {C}.".to_string());
+        let render = |tested: &dyn Fn(&str) -> bool| {
+            render_stub(
+                &card,
+                &row(3, "PLAIN_GATE"),
+                &IndexLedger::default(),
+                &cats,
+                None,
+                None,
+                &LandCycles::default(),
+                tested,
+            )
+            .unwrap()
+        };
+        let (info, untested) = render(&|_| false);
+        assert!(untested.contains(OWNED_MARKER), "{untested}");
+        assert!(untested.contains("Coverage::Generated"), "{untested}");
+        assert!(!untested.contains("Coverage::Implemented"), "{untested}");
+        let asked = info.path.clone();
+        let (_, tested) = render(&|rel| rel == asked);
+        assert!(
+            tested.contains("coverage = Coverage::Implemented"),
+            "{tested}"
+        );
+        assert!(!tested.contains("Coverage::Generated"), "{tested}");
+        // A stub never claims either, tested or not.
+        let (_, stub) = render_stub(
+            &bare_card("Nothing Read", "Creature"),
+            &row(4, "NOTHING_READ"),
+            &IndexLedger::default(),
+            &cats,
+            None,
+            None,
+            &LandCycles::default(),
+            &|_| true,
+        )
+        .unwrap();
+        assert!(!stub.contains("coverage ="), "{stub}");
     }
 }

@@ -220,8 +220,9 @@ pub(crate) fn check_code_matches_the_printing(
                 || content.contains("Modifier::SetPTToCount")
                 || (content.contains("EnterModifier::ChooseShape")
                     && content.contains("CopyMod::SetPT"));
-            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
-                && !defines_pt
+            if knob(content, "coverage").is_some_and(|v| {
+                v.starts_with("Coverage::Implemented") || v.starts_with("Coverage::Generated")
+            }) && !defines_pt
             {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
@@ -418,7 +419,7 @@ pub(crate) fn check_activation_cost_matches_the_printing(
 ) {
     use baylee_cards::dsl::AbilityDef;
 
-    if !def.is_implemented() {
+    if !def.is_fully_read() {
         return;
     }
 

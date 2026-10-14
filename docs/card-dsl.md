@@ -227,6 +227,30 @@ both are load-bearing:
   a line went missing. An implemented card writes
   `coverage = Coverage::Implemented` by hand.
 
+### Coverage
+
+Four tiers, from most to least (`baylee_cards_dsl::Coverage`):
+
+- `Implemented`: every printed sentence is said, and the card is played in
+  its own card test (`card_tests/<type>/<dir>/<slug>.rs`, the card's path
+  under `cards/`).
+- `Generated`: every printed sentence was read in full by codegen
+  (`landgen` or `scriptgen`), but no card test plays it yet. Playable (the
+  deckbuilder offers it, marked "untested"; `is:playable` finds it,
+  `is:generated` finds only these), and every pool-wide check of a complete
+  card's claims asks it too (`CardDef::is_fully_read`). It is not
+  `trustworthy()`: a deck holding one is still told it may not play as
+  printed. Only codegen writes it: a card read in full is written
+  `Implemented` when its test file exists and `Generated` otherwise, so the
+  next codegen run after its test lands promotes it, and `codegen --check`
+  asks the same question. A hand-owned card never says `Generated`.
+- `Partial("reason")`: playable with a gap its author described.
+- `Unimplemented`: a stub (the default).
+
+A `Generated` card owes no card test (the `require-card-tests` hook exempts
+it), but one whose test already exists is one codegen run behind: the hook
+and `xtask`'s `no_generated_card_already_has_its_card_test` name it.
+
 `FaceDef::DEFAULT.castable_from_hand` is `true`; disturb backs, adventure
 backs and the back face of a **transforming** double-faced card opt out. The
 last of those is the one that bites, because nothing in a `CardDef` says
@@ -308,8 +332,9 @@ matters when you open one:
 
 Both write the *same* file standard as this document describes: the macros,
 one `use baylee_cards_dsl::prelude::*;`, the `//!` header `xtask validate`
-checks, and `Coverage::Implemented` only when the reader consumed **every**
-clause of the card. An unknown effect, a parameter no rule claimed, a
+checks, and `Coverage::Generated` (`Implemented` once its card test
+exists, §"Coverage") only when the reader consumed **every** clause of the
+card. An unknown effect, a parameter no rule claimed, a
 computed amount, a keyword that is data rather than a bit — any one and the
 whole card is refused and generated as an ordinary stub instead. There is
 deliberately no partial path: a card that claims `Implemented` while quietly

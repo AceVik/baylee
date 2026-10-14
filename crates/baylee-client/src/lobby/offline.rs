@@ -816,6 +816,7 @@ pub(super) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deck
         oracle_text: String::new(),
         coverage: match card.coverage {
             "implemented" => Coverage::Implemented,
+            "generated" => Coverage::Generated,
             "partial" => Coverage::Partial,
             _ => Coverage::Unimplemented,
         },

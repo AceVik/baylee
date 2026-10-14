@@ -416,7 +416,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MayPlayLinkedExile",
         "ExileAndCastCopies",
     ];
-    if !def.is_implemented() {
+    if !def.is_fully_read() {
         return;
     }
     let printed = printed_text(payload).to_lowercase();
@@ -763,7 +763,7 @@ pub(crate) fn check_scope_matches_the_text(
     payload: &serde_json::Value,
     problems: &mut usize,
 ) {
-    if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
+    if !def.is_fully_read() {
         return;
     }
     if SCOPE_EXCEPTIONS.iter().any(|(card, _)| *card == name) {

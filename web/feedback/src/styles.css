@@ -2083,6 +2083,11 @@ table.accounts .num {
   background: var(--ok);
 }
 
+.progress-generated,
+.swatch.progress-generated {
+  background: var(--c1);
+}
+
 .progress-partial,
 .swatch.progress-partial {
   background: var(--c2);

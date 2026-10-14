@@ -1086,7 +1086,7 @@ pub fn analyse(root: &Path, coverage: &Path) -> anyhow::Result<Analysis> {
     let mut mechanics: BTreeMap<Mechanic, Evidence> = BTreeMap::new();
     let mut uses = BTreeMap::new();
     let mut unmapped: BTreeMap<String, (String, usize)> = BTreeMap::new();
-    for def in baylee_cards::all().filter(|d| d.is_implemented()) {
+    for def in baylee_cards::all().filter(|d| d.is_fully_read()) {
         let mut card: BTreeMap<Mechanic, Status> = BTreeMap::new();
         for key in baylee_train::cardwalk::mechanics(def) {
             let options = match dsl.resolve(&key) {
@@ -1638,7 +1638,7 @@ mod tests {
     fn every_key_of_an_implemented_card_is_read() {
         let dsl = read_dsl(workspace()).unwrap();
         let unread: BTreeSet<String> = baylee_cards::all()
-            .filter(|d| d.is_implemented())
+            .filter(|d| d.is_fully_read())
             .flat_map(baylee_train::cardwalk::mechanics)
             .filter(|k| matches!(dsl.resolve(k), Resolved::Unmapped(_)))
             .collect();

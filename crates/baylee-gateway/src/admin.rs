@@ -656,8 +656,9 @@ async fn sets() -> Json<serde_json::Value> {
         "version": baylee_build::short(),
         "corpus": whole.total,
         "pool": {
-            "cards": whole.implemented + whole.partial + whole.unimplemented,
+            "cards": whole.implemented + whole.generated + whole.partial + whole.unimplemented,
             "implemented": whole.implemented,
+            "generated": whole.generated,
             "partial": whole.partial,
             "unimplemented": whole.unimplemented,
             "absent": whole.absent,

@@ -406,10 +406,16 @@ fn metrics_and_set_progress_have_the_shapes_the_console_reads() {
     let sets = json(&body);
     let pool = &sets["pool"];
     let corpus = sets["corpus"].as_u64().expect("the corpus size");
-    let sum = ["implemented", "partial", "unimplemented", "absent"]
-        .iter()
-        .map(|k| pool[k].as_u64().unwrap_or_else(|| panic!("{k}: {pool}")))
-        .sum::<u64>();
+    let sum = [
+        "implemented",
+        "generated",
+        "partial",
+        "unimplemented",
+        "absent",
+    ]
+    .iter()
+    .map(|k| pool[k].as_u64().unwrap_or_else(|| panic!("{k}: {pool}")))
+    .sum::<u64>();
     assert_eq!(sum, corpus, "{pool}");
     assert_eq!(
         pool["cards"].as_u64().unwrap() + pool["absent"].as_u64().unwrap(),

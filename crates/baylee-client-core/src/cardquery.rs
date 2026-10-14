@@ -224,6 +224,9 @@ pub enum Flag {
     Playable,
     /// The engine plays part of it, and says which part it does not.
     Partial,
+    /// Read in full by codegen and playable, but no card test plays it yet
+    /// (such a card is also `Playable`).
+    Generated,
     /// A generated stub: the engine does not play it at all.
     Stub,
     /// It may lead a commander deck.
@@ -243,6 +246,7 @@ impl Flag {
         match self {
             Self::Playable => "playable",
             Self::Partial => "partial",
+            Self::Generated => "generated",
             Self::Stub => "stub",
             Self::Commander => "commander",
             Self::Basic => "basic",
@@ -252,8 +256,9 @@ impl Flag {
     }
 
     /// Every flag there is, which is what a filter dialog offers from.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Playable,
+        Self::Generated,
         Self::Partial,
         Self::Stub,
         Self::Commander,

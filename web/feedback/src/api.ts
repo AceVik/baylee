@@ -300,7 +300,11 @@ export interface Metrics {
   games: { game_id: string; pid: number; cpu: (number | null)[]; rss: (number | null)[] }[];
 }
 
-export const COVERAGES = ["implemented", "partial", "unimplemented", "absent"] as const;
+/**
+ * `generated`: read in full by codegen, playable, but no card test plays it
+ * yet. Counted apart from `implemented`.
+ */
+export const COVERAGES = ["implemented", "generated", "partial", "unimplemented", "absent"] as const;
 export type Coverage = (typeof COVERAGES)[number];
 
 /** One set's progress: the cards first printed in it, by how far each is. */
@@ -309,6 +313,7 @@ export interface SetProgress {
   position: number;
   total: number;
   implemented: number;
+  generated: number;
   partial: number;
   unimplemented: number;
   absent: number;
@@ -319,7 +324,7 @@ export interface SetsOverview {
   at: string;
   version: string;
   corpus: number;
-  pool: { cards: number; implemented: number; partial: number; unimplemented: number; absent: number };
+  pool: { cards: number; implemented: number; generated: number; partial: number; unimplemented: number; absent: number };
   sets: SetProgress[];
 }
 
@@ -332,6 +337,14 @@ export interface SetCard {
   type_line: string;
   scryfall_id: string | null;
   oracle_id: string;
+}
+
+/**
+ * A gateway older than the `generated` tier sends no such count; the
+ * service is deployed before the gateway, so it reads as zero.
+ */
+export function withGenerated<T extends { generated?: number }>(counts: T): T & { generated: number } {
+  return { ...counts, generated: counts.generated ?? 0 };
 }
 
 /** `GET /ui/api/admin/sets/{code}`. */
@@ -860,8 +873,16 @@ export const api = {
     live: () => json<Live>("GET", "/ui/api/admin/live"),
     offline: () => json<Offline>("GET", "/ui/api/admin/offline"),
     metrics: () => json<Metrics>("GET", "/ui/api/admin/metrics"),
-    sets: () => json<SetsOverview>("GET", "/ui/api/admin/sets"),
-    set: (code: string) => json<SetDetail>("GET", `/ui/api/admin/sets/${encodeURIComponent(code)}`),
+    sets: async () => {
+      const overview = await json<SetsOverview>("GET", "/ui/api/admin/sets");
+      return {
+        ...overview,
+        pool: withGenerated(overview.pool),
+        sets: overview.sets.map(withGenerated),
+      };
+    },
+    set: async (code: string) =>
+      withGenerated(await json<SetDetail>("GET", `/ui/api/admin/sets/${encodeURIComponent(code)}`)),
     accounts: (filter: AccountFilter) => {
       const query = accountQuery(filter);
       return json<AccountPage>(

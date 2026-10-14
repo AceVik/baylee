@@ -769,7 +769,7 @@ mod tests {
     /// instead of stopping at the first.
     fn play_every_implemented_card(cap: usize) -> Vec<String> {
         let cards: Vec<&'static baylee_cards_dsl::CardDef> =
-            baylee_cards::all().filter(|d| d.is_implemented()).collect();
+            baylee_cards::all().filter(|d| d.is_fully_read()).collect();
         // The games share nothing — the registry is a static, the engine
         // keeps no process-global mutable state (the one `OnceLock` in it
         // holds an empty default), and every seed is the probe preset's own,

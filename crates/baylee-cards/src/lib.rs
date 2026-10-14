@@ -298,7 +298,7 @@ mod tests {
         let mut offenders = Vec::new();
         for (_, def) in generated::ALL {
             match def.coverage {
-                Coverage::Implemented => {}
+                Coverage::Implemented | Coverage::Generated => {}
                 Coverage::Partial(reason) => assert!(
                     !reason.is_empty(),
                     "{} is Partial without saying what is missing",
@@ -353,7 +353,7 @@ mod tests {
         for (_, def) in generated::ALL {
             // A stub taps for nothing on purpose and is never offered as
             // playable; the bug this guards against is a *finished* land.
-            if !def.is_implemented() {
+            if !def.is_fully_read() {
                 continue;
             }
             for (i, face) in def.faces.iter().enumerate() {
@@ -594,7 +594,10 @@ mod tests {
     fn a_card_that_names_a_missing_mechanic_does_not_also_claim_full_coverage() {
         let mut offenders = Vec::new();
         for (name, text) in every_card_file() {
-            if text.contains("NOT SUPPORTED") && text.contains("coverage = Coverage::Implemented") {
+            if text.contains("NOT SUPPORTED")
+                && (text.contains("coverage = Coverage::Implemented")
+                    || text.contains("coverage = Coverage::Generated"))
+            {
                 offenders.push(name);
             }
         }

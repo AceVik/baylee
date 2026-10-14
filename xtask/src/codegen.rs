@@ -60,6 +60,9 @@ pub(crate) fn cards(
         &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
     );
     let mut found = card_files(&cards_dir)?;
+    // A card read in full is `Implemented` once its own test exists at the
+    // same path under `card_tests/`, else `Generated` (`stubgen::read_coverage`).
+    let card_tests = root.join("crates/baylee-engine/src/engine/card_tests");
 
     // Refuse an orphan *before* the first rename, not after the last one. The
     // slug a card claims is known without fetching anything, and a bail in
@@ -105,8 +108,16 @@ pub(crate) fn cards(
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
         };
-        let (info, content) =
-            stubgen::render_stub(&card, row, &ledger, cats, scripts, tokens, &cycles)?;
+        let (info, content) = stubgen::render_stub(
+            &card,
+            row,
+            &ledger,
+            cats,
+            scripts,
+            tokens,
+            &cycles,
+            &|rel| card_tests.join(rel).is_file(),
+        )?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
         // rewritten at the new path and left behind at the old one — an
