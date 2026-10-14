@@ -60,9 +60,13 @@ pub(crate) fn cards(
         &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
     );
     let mut found = card_files(&cards_dir)?;
-    // A card read in full is `Implemented` once its own test exists at the
-    // same path under `card_tests/`, else `Generated` (`stubgen::read_coverage`).
+    // A card read in full is `Implemented` once a test plays it, else
+    // `Generated` (`stubgen::read_coverage`). A test is its own file at the
+    // same path under `card_tests/`, or any engine test naming its oracle id:
+    // the older cards are played in shared modules (`card_tests/creatures.rs`,
+    // `*_tests.rs`), and a path-only check demoted 257 of them.
     let card_tests = root.join("crates/baylee-engine/src/engine/card_tests");
+    let named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
 
     // Refuse an orphan *before* the first rename, not after the last one. The
     // slug a card claims is known without fetching anything, and a bail in
@@ -116,7 +120,7 @@ pub(crate) fn cards(
             scripts,
             tokens,
             &cycles,
-            &|rel| card_tests.join(rel).is_file(),
+            &|rel| card_tests.join(rel).is_file() || named_in_tests.contains(&oracle_id),
         )?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
@@ -543,4 +547,48 @@ pub(crate) fn refuse_stale_cycles(
 
 pub(crate) fn front_face_slug(name: &str) -> String {
     baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name))
+}
+
+/// Every oracle id an engine source file under `dir` names, as a quoted
+/// 36-character id (`card_index("…")` and the tables some tests keep).
+fn oracle_ids_in(dir: &Path) -> anyhow::Result<BTreeSet<String>> {
+    let mut ids = BTreeSet::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let text = fs::read_to_string(&path)?;
+                ids.extend(quoted_ids(&text));
+            }
+        }
+    }
+    Ok(ids)
+}
+
+/// The quoted 36-character ids (`"8-4-4-4-12"` lowercase hex) in `text`.
+fn quoted_ids(text: &str) -> impl Iterator<Item = String> + '_ {
+    text.split('"').skip(1).step_by(2).filter_map(|s| {
+        let groups: Vec<&str> = s.split('-').collect();
+        let shaped = groups.iter().map(|g| g.len()).eq([8, 4, 4, 4, 12])
+            && groups.iter().all(|g| {
+                g.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            });
+        shaped.then(|| s.to_string())
+    })
+}
+
+#[cfg(test)]
+mod tested_tests {
+    use super::quoted_ids;
+
+    #[test]
+    fn quoted_ids_finds_only_id_shaped_strings() {
+        let text = r#"card_index("c97361b5-af16-4a7b-af85-a429dbaf4ad2") "x" "C97361B5-af16-4a7b-af85-a429dbaf4ad2" "c97361b5-af16-4a7b-af85-a429dbaf4ad""#;
+        let ids: Vec<String> = quoted_ids(text).collect();
+        assert_eq!(ids, ["c97361b5-af16-4a7b-af85-a429dbaf4ad2"]);
+    }
 }
