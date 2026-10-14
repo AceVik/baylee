@@ -978,10 +978,10 @@ use widgets::*;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use end_screen::DuelExit;
 pub(crate) use field::caret_lit;
-/// The tree's root and its rebuild count, for `devctl`'s `shell_nodes` and
-/// `ui_rebuilds` rows, under the probe's own `cfg` for the reason above.
+// The update notice measures the lobby root in ordinary client builds too.
+pub(crate) use shell::LobbyRoot;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-pub(crate) use shell::{LobbyRoot, UiRebuilds};
+pub(crate) use shell::UiRebuilds;
 
 #[cfg(test)]
 mod tests;

@@ -184,27 +184,7 @@ exit 0"#,
                 real_git = real_git.display()
             ),
         );
-        // Executes the real preparation wrapper without contacting a database.
-        // Deliberately echo the secret to both streams: deploy must redact both.
-        stub(
-            &self.root.join("src/target/release"),
-            "baylee-catalog",
-            &format!(
-                r#"{NEXT}
-[ "$1" = upgrade ] || exit 2
-[ "$DATABASE_URL" = "$(next catalog-url 'postgres://catalog-secret@localhost/test')" ] || exit 3
-echo "$DATABASE_URL"
-echo "$DATABASE_URL" >&2
-exit "$(next catalog-code 0)""#
-            ),
-        );
-        stub(
-            stubs,
-            "timeout",
-            r#"[ "$1 $2" = '--kill-after=5s 15m' ] || exit 2
-shift 2
-exec "$@""#,
-        );
+        self.write_catalog_stubs();
         stub(stubs, "cargo", "echo built");
         stub(stubs, "server-json", server_json::BODY);
 
@@ -273,6 +253,30 @@ echo "hooks $1 $2 ($held, $staged)" >> "$DEPLOY_CALLS"
 echo "run-deploy-hooks: $1: neutral"
 exit "$(next "code-$1" 0)""#
             ),
+        );
+    }
+
+    fn write_catalog_stubs(&self) {
+        // Executes the real preparation wrapper without contacting a database.
+        // Deliberately echo the secret to both streams: deploy must redact both.
+        stub(
+            &self.root.join("src/target/release"),
+            "baylee-catalog",
+            &format!(
+                r#"{NEXT}
+[ "$1" = upgrade ] || exit 2
+[ "$DATABASE_URL" = "$(next catalog-url 'postgres://catalog-secret@localhost/test')" ] || exit 3
+echo "$DATABASE_URL"
+echo "$DATABASE_URL" >&2
+exit "$(next catalog-code 0)""#
+            ),
+        );
+        stub(
+            &self.stubs,
+            "timeout",
+            r#"[ "$1 $2" = '--kill-after=5s 15m' ] || exit 2
+shift 2
+exec "$@""#,
         );
     }
 
