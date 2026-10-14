@@ -415,3 +415,177 @@ fn a_filtered_private_inspection_displays_ineligible_cards_without_selecting_the
         .collect();
     assert_eq!(selectable, vec![obj(12)]);
 }
+
+/// One inspected library with fetchable lands, another land, an artifact,
+/// an Ally and a non-Ally creature. The pending offer supplies legality.
+fn tutor_library() -> PlayerView {
+    use baylee_core::generated::subtypes::{creature, land};
+    use baylee_core::types::SubtypeSet;
+
+    let card = |slot, name, types, subtypes: &[baylee_core::ids::SubtypeId]| {
+        let mut card = printed(slot, 0, name, 1);
+        card.types = types;
+        card.subtypes = SubtypeSet::from_slice(subtypes);
+        if types != TypeSet::CREATURE {
+            card.power = None;
+            card.toughness = None;
+        }
+        card
+    };
+    ViewBuilder::new(2)
+        .with_looking_at(vec![
+            card(10, "Forest", TypeSet::LAND, &[land::FOREST]),
+            card(11, "Plains", TypeSet::LAND, &[land::PLAINS]),
+            card(12, "Savannah", TypeSet::LAND, &[land::FOREST, land::PLAINS]),
+            card(13, "Island", TypeSet::LAND, &[land::ISLAND]),
+            card(14, "Sol Ring", TypeSet::ARTIFACT, &[]),
+            card(15, "Hada Freeblade", TypeSet::CREATURE, &[creature::ALLY]),
+            card(16, "Grizzly Bears", TypeSet::CREATURE, &[creature::BEAR]),
+        ])
+        .build()
+}
+
+/// The engine's eligible ids and bounds; the browser must not infer either
+/// from names, type text or how many inspected cards are in the view.
+fn tutor_question(options: &[u32], min: u8) -> Interaction {
+    Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: options.iter().copied().map(obj).collect(),
+            min,
+            max: u8::from(!options.is_empty()),
+            prompt: ChoicePrompt::SearchLibrary,
+            total: None,
+        },
+        me(),
+    )
+}
+
+#[test]
+fn fetch_and_tazri_search_rows_only_show_the_engine_offer() {
+    use crate::interaction::SelectionOutcome;
+    use baylee_engine::choice::PlayerAction;
+
+    let view = tutor_library();
+    // A Forest-or-Plains fetch includes the dual, but not Island. General
+    // Tazri's offer contains the Ally, not just any creature in the library.
+    for (offered, rejected) in [
+        (vec![12, 11, 10], vec![13, 14, 15, 16]),
+        (vec![15], vec![10, 11, 12, 13, 14, 16]),
+    ] {
+        let mut it = tutor_question(&offered, 0);
+        let mut browser = Browser::new();
+        browser.saw_reveal(&view);
+        browser.follow(&view, Some(&it));
+        assert!(browser.answers_here(Some(&it)));
+        let rows = browser.rows(&view, Some(&it), Names::projected());
+        let mut expected: Vec<_> = offered.iter().copied().map(obj).collect();
+        expected.sort_unstable();
+        assert_eq!(rows.iter().map(|row| row.id).collect::<Vec<_>>(), expected);
+        assert_eq!(
+            it.selectable(),
+            offered.iter().copied().map(obj).collect::<Vec<_>>()
+        );
+        assert!(rows.iter().all(|row| row.standing.selectable));
+        assert_eq!(view.looking_at.len(), 7, "inspection data is not rewritten");
+        for id in rejected {
+            assert_eq!(it.toggle(obj(id)), SelectionOutcome::Rejected);
+        }
+        // The rendered row carries its object id, not its filtered/sorted
+        // index. Click those rows: every wire answer must retain that id.
+        for row in rows {
+            assert_eq!(it.toggle(row.id), SelectionOutcome::Added);
+            assert_eq!(
+                it.confirm(),
+                Some(PlayerAction::ChooseObjects {
+                    objects: vec![row.id]
+                })
+            );
+            assert_eq!(it.toggle(row.id), SelectionOutcome::Removed);
+        }
+        // Typing an ineligible card's name must not bring it back into the
+        // chooser: the text filter only narrows the engine's legal offer.
+        browser.set_filter("Sol Ring");
+        assert!(
+            browser
+                .rows(&view, Some(&it), Names::projected())
+                .is_empty()
+        );
+    }
+}
+
+#[test]
+fn tutor_rows_preserve_fail_to_find_and_mandatory_search_bounds() {
+    use baylee_engine::choice::PlayerAction;
+
+    let view = tutor_library();
+    for offered in [vec![10, 11, 12], vec![15], vec![]] {
+        let it = tutor_question(&offered, 0);
+        let mut browser = Browser::new();
+        browser.follow(&view, Some(&it));
+        assert!(browser.is_open());
+        assert!(browser.answers_here(Some(&it)));
+        assert_eq!(
+            browser.rows(&view, Some(&it), Names::projected()).len(),
+            offered.len()
+        );
+        assert!(it.can_confirm());
+        assert_eq!(
+            it.confirm(),
+            Some(PlayerAction::ChooseObjects { objects: vec![] })
+        );
+    }
+    // No client-side relaxation of the engine's minimum, even when a text
+    // filter leaves the dialog with no visible cards.
+    let mut required = tutor_question(&[15], 1);
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&required));
+    browser.set_filter("no matching name");
+    assert!(
+        browser
+            .rows(&view, Some(&required), Names::projected())
+            .is_empty()
+    );
+    assert!(!required.can_confirm());
+    assert_eq!(required.confirm(), None);
+    browser.clear_filter();
+    required.toggle(obj(15));
+    assert_eq!(
+        required.confirm(),
+        Some(PlayerAction::ChooseObjects {
+            objects: vec![obj(15)]
+        })
+    );
+}
+
+#[test]
+fn tutor_rows_follow_changed_offers_and_keep_unrestricted_searches_complete() {
+    let view = tutor_library();
+    let mut browser = Browser::new();
+    let any_card = tutor_question(&(10..17).collect::<Vec<_>>(), 1);
+    browser.follow(&view, Some(&any_card));
+    assert_eq!(
+        browser
+            .rows(&view, Some(&any_card), Names::projected())
+            .len(),
+        7
+    );
+
+    // Even another Forest is hidden when its id is absent from a new offer.
+    // The browser follows legality, rather than rebuilding a type predicate.
+    let narrowed = tutor_question(&[12], 0);
+    browser.follow(&view, Some(&narrowed));
+    let rows = browser.rows(&view, Some(&narrowed), Names::projected());
+    assert_eq!(
+        rows.iter().map(|row| row.id).collect::<Vec<_>>(),
+        vec![obj(12)]
+    );
+    assert_eq!(narrowed.selectable(), &[obj(12)]);
+
+    // A reveal/inspection without a search still presents every shown card.
+    let mut inspection = Browser::new();
+    inspection.saw_reveal(&view);
+    assert_eq!(inspection.rows(&view, None, Names::projected()).len(), 7);
+    inspection.open_at(BrowseZone::Looking);
+    assert_eq!(inspection.rows(&view, None, Names::projected()).len(), 7);
+}

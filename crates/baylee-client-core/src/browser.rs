@@ -1636,34 +1636,17 @@ impl Browser {
                 view, zone, mine, &query, self.open, names,
             ));
             for object in objects_in(view, zone) {
+                // The engine's explicit offer remains the selection authority.
+                let selectable = mine.is_some_and(|it| it.selectable().contains(&object.id));
+                if !self.shows_choice_row(zone, mine, selectable) {
+                    continue;
+                }
                 let shown = (names.shown)(object).unwrap_or_else(|| object.name.clone());
                 // Both names are in the facts, because they are two ways of
                 // naming the same card and a player knows the one they
                 // learned it under. The projection is also the only name a
                 // *token* has.
                 if !query.is_anything() && !shows(&query, object, &shown) {
-                    continue;
-                }
-                // Membership of the offered list, not `is_selectable`: a
-                // choice whose options the engine leaves implicit (a
-                // discard) accepts anything, and asking that question here
-                // would light up every graveyard card in the game as a
-                // legal discard.
-                let selectable = mine.is_some_and(|it| it.selectable().contains(&object.id));
-                // A chooser lists answers, not the entire graveyard. Manual
-                // browsing still shows every public card, even while another
-                // player has a question or this seat holds normal priority.
-                //
-                // What the seat is being shown is never filtered: every card
-                // in `looking_at` is one the question is about. A pile choice
-                // (Fact or Fiction) is answered by position, so none of its
-                // cards is selectable, and they are the whole of what the
-                // player chooses between.
-                if self.open == Opening::ForChoice
-                    && mine.is_some()
-                    && !selectable
-                    && zone != BrowseZone::Looking
-                {
                     continue;
                 }
                 out.push(BrowseRow {
@@ -1755,6 +1738,32 @@ impl Browser {
         }
         self.arrange(&mut out);
         out
+    }
+
+    /// Whether a row belongs in this choice's presentation. Ordinary browsing
+    /// keeps everything. A search lists only the engine's eligible ids, while
+    /// other private inspections and positional pile choices need all shown
+    /// cards, including those that cannot be selected individually.
+    fn shows_choice_row(
+        &self,
+        zone: BrowseZone,
+        interaction: Option<&Interaction>,
+        selectable: bool,
+    ) -> bool {
+        if self.open != Opening::ForChoice || selectable {
+            return true;
+        }
+        let Some(interaction) = interaction else {
+            return true;
+        };
+        zone == BrowseZone::Looking
+            && !matches!(
+                interaction.pending(),
+                baylee_engine::choice::Pending::ChooseCards {
+                    prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+                    ..
+                }
+            )
     }
 
     /// Puts the rows in the order the sort control asks for.
