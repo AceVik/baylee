@@ -444,6 +444,106 @@ fn a_command_chord_does_not_activate_the_focused_stop() {
     );
 }
 
+fn native_button_app() -> (App, Entity) {
+    use crate::ui_button::{UiButton, testing::Activations as WidgetActivations};
+    use bevy::ui_widgets::Activate;
+
+    let mut app = app();
+    crate::ui_button::testing::input_plugins(&mut app);
+    app.init_resource::<WidgetActivations>()
+        .init_resource::<Activations>()
+        .add_observer(|event: On<Activate>, mut log: ResMut<WidgetActivations>| {
+            log.0.push(event.entity);
+        })
+        .add_systems(Update, count_activations.after(focus::FocusSystems));
+    app.update();
+    focus_on(&mut app, GALLERY_ORDER.name, "create");
+    let focused = app
+        .world()
+        .resource::<InputFocus>()
+        .get()
+        .expect("focused stop");
+    app.world_mut().entity_mut(focused).insert(UiButton);
+    (app, focused)
+}
+
+/// Bevy's widget handles the same raw keys before the shell's Update path.
+/// Its unfiltered Activate events must not become a second domain path.
+#[test]
+fn native_button_observers_do_not_bypass_modifiers_or_double_keyboard_activation() {
+    use crate::ui_button::testing::Activations as WidgetActivations;
+    let (mut app, focused) = native_button_app();
+    for modifier in [command(), KeyCode::AltLeft, KeyCode::ShiftLeft] {
+        key(&mut app, KeyCode::Enter, Key::Enter, &[modifier]);
+        assert_eq!(app.world().resource::<Activations>().0, 0);
+    }
+    assert_eq!(
+        app.world().resource::<WidgetActivations>().0.len(),
+        3,
+        "the real widget observer does emit Activate for these chords"
+    );
+    key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    key(&mut app, KeyCode::Space, Key::Space, &[]);
+    assert_eq!(
+        app.world().resource::<Activations>().0,
+        2,
+        "one domain action per plain key"
+    );
+    assert_eq!(app.world().resource::<WidgetActivations>().0.len(), 5);
+    assert!(
+        app.world().get::<bevy::ui::Pressed>(focused).is_none(),
+        "keyboard Activate does not leave a held pointer state"
+    );
+}
+
+#[test]
+fn native_button_keyboard_ignores_repeat_and_disabled_but_keeps_focus() {
+    use crate::ui_button::testing::Activations as WidgetActivations;
+    let (mut app, focused) = native_button_app();
+    app.world_mut().write_message(KeyboardInput {
+        key_code: KeyCode::Enter,
+        logical_key: Key::Enter,
+        state: ButtonState::Pressed,
+        text: None,
+        repeat: true,
+        window: Entity::PLACEHOLDER,
+    });
+    app.update();
+    app.update();
+    assert_eq!(app.world().resource::<Activations>().0, 0);
+    assert!(app.world().resource::<WidgetActivations>().0.is_empty());
+    app.world_mut()
+        .entity_mut(focused)
+        .insert(super::controls::Disabled);
+    key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert_eq!(app.world().resource::<Activations>().0, 0);
+    assert!(app.world().resource::<WidgetActivations>().0.is_empty());
+    assert_eq!(app.world().resource::<InputFocus>().get(), Some(focused));
+    app.world_mut()
+        .entity_mut(focused)
+        .remove::<super::controls::Disabled>();
+    key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert_eq!(app.world().resource::<Activations>().0, 1);
+    assert_eq!(app.world().resource::<WidgetActivations>().0, [focused]);
+}
+
+#[test]
+fn native_button_activation_cannot_bypass_the_chats_keyboard_ownership() {
+    use crate::ui_button::testing::Activations as WidgetActivations;
+    let (mut app, focused) = native_button_app();
+    app.insert_resource(crate::social::ChatUi {
+        typing: true,
+        ..default()
+    });
+    key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert_eq!(app.world().resource::<Activations>().0, 0);
+    assert_eq!(
+        app.world().resource::<WidgetActivations>().0,
+        [focused],
+        "a native Activate must not bypass the chat's hold"
+    );
+}
+
 #[derive(Resource, Default)]
 struct Activations(usize);
 

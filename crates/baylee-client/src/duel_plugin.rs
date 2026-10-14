@@ -433,6 +433,7 @@ pub(super) fn add_input_systems(app: &mut App) {
 impl Plugin for DuelPlugin {
     #[allow(clippy::too_many_lines)] // the client plugins are registered together
     fn build(&self, app: &mut App) {
+        crate::ui_button::install(app);
         add_present_systems(app);
         app.init_resource::<UiScale>()
             .add_systems(PreUpdate, hud::scale::follow_the_window);

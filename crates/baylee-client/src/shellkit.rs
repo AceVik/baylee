@@ -70,6 +70,7 @@ pub struct ShellKitPlugin;
 
 impl Plugin for ShellKitPlugin {
     fn build(&self, app: &mut App) {
+        crate::ui_button::install(app);
         app.add_message::<bevy::input::touch::TouchInput>()
             .add_message::<bevy::input::mouse::MouseMotion>()
             .add_message::<KeyboardInput>()

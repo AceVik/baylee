@@ -84,9 +84,9 @@ pub enum Live<'a> {
 }
 
 /// A control that is drawn but off: it takes focus and shows its reason,
-/// and nothing acts on it.
-#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Disabled;
+/// and nothing acts on it. This is Bevy's state itself, so inserting or
+/// removing it updates the native widgets too, with no second sticky marker.
+pub use bevy::ui::InteractionDisabled as Disabled;
 
 /// The hover text of a disabled control under a pointer.
 #[derive(Component)]

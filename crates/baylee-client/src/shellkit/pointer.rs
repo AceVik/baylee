@@ -16,6 +16,7 @@
 //! still pointer writes nothing (`rest_tests`).
 
 use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
@@ -59,7 +60,8 @@ pub(crate) struct Marks {
     feel: Has<Feel>,
     clickable: Has<Clickable>,
     slider: Has<Slider>,
-    button: Has<LegacyButton>,
+    button: Has<UiButton>,
+    legacy_button: Has<LegacyButton>,
 }
 
 /// The table's own buttons, which answer through their own components.
@@ -102,7 +104,8 @@ impl MarksItem<'_, '_> {
             || self.clickable
             || self.slider
             || matches!(self.role, Some(Role::Slider))
-            || self.button;
+            || self.button
+            || self.legacy_button;
         acts.then_some(Shape::Hand)
     }
 }
@@ -250,6 +253,18 @@ mod tests {
             "a control that is off"
         );
         assert_eq!(shape_of(&mut app, words), Shape::Arrow, "words");
+    }
+
+    #[test]
+    fn a_native_button_label_shows_the_hand_unless_disabled() {
+        let mut app = App::new();
+        let button = app.world_mut().spawn(UiButton).id();
+        let label = app.world_mut().spawn(ChildOf(button)).id();
+        assert_eq!(shape_of(&mut app, label), Shape::Hand);
+        app.world_mut()
+            .entity_mut(button)
+            .insert(bevy::ui::InteractionDisabled);
+        assert_eq!(shape_of(&mut app, label), Shape::Arrow);
     }
 
     /// The window's pointer is written when the shape changes and not again

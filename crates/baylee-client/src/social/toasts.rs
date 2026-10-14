@@ -7,7 +7,7 @@
 //! interface's cue path.
 
 use super::zoom::{z, zpx};
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatCue, ChatToast, ToastButton};
 use bevy::prelude::*;
@@ -24,6 +24,9 @@ const STANDS: f32 = 6.0;
 
 /// How many stand at once.
 const AT_ONCE: usize = 3;
+
+#[cfg(test)]
+mod tests;
 
 /// The toasts' column.
 #[derive(Component)]
@@ -50,6 +53,7 @@ pub(crate) struct Toasts {
 
 /// Installs the toasts.
 pub(crate) fn install(app: &mut App) {
+    crate::ui_button::install(app);
     app.init_resource::<Toasts>().add_systems(
         Update,
         (take, presses, sync, sounds)
@@ -88,13 +92,11 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
 }
 
 fn presses(
-    pressed: Query<(Entity, &LegacyInteraction, &ToastPress), Changed<LegacyInteraction>>,
-    mut held: Local<std::collections::HashSet<Entity>>,
+    mut clicks: Clicks<ToastPress>,
     mut host: ResMut<SocialHost>,
     mut toasts: ResMut<Toasts>,
 ) {
-    let clicked: Vec<ToastPress> = super::released(&pressed, &mut held);
-    for press in clicked {
+    for press in clicks.read() {
         match press {
             ToastPress::Button(id, index) => {
                 let intent = toasts
@@ -245,7 +247,7 @@ fn sync(
             .id();
         let text = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 ToastPress::Open(id),
                 Node {
                     flex_grow: 1.0,
@@ -263,7 +265,7 @@ fn sync(
             .id();
         let close = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 ToastPress::Close(id),
                 Node {
                     width: zpx(20.0),
@@ -295,7 +297,7 @@ fn sync(
             for (index, (button, _)) in toast.actions.iter().enumerate() {
                 let b = commands
                     .spawn((
-                        LegacyButton,
+                        UiButton,
                         ToastPress::Button(id, index),
                         Node {
                             padding: UiRect::axes(zpx(12.0), zpx(4.0)),

@@ -117,6 +117,7 @@ pub mod tokenart;
 pub mod touch;
 pub mod tour;
 pub(crate) mod transport;
+pub(crate) mod ui_button;
 pub mod unlit;
 pub mod update;
 pub mod vista;
