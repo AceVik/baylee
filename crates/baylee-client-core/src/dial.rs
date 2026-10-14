@@ -762,9 +762,15 @@ mod tests {
 
     /// Every arrangement at two to eight seats on five canvases, for every
     /// roster ([`rosters`]), at home and with each seat of interest.
-    fn every_table(mut check: impl FnMut(&str, crate::layout::Arrangement, &TableLayout)) {
-        use crate::layout::Arrangement;
-        for arrangement in Arrangement::ALL {
+    fn every_table(check: impl FnMut(&str, crate::layout::Arrangement, &TableLayout)) {
+        tables_for(&crate::layout::Arrangement::ALL, check);
+    }
+
+    fn tables_for(
+        arrangements: &[crate::layout::Arrangement],
+        mut check: impl FnMut(&str, crate::layout::Arrangement, &TableLayout),
+    ) {
+        for &arrangement in arrangements {
             for n in 2..=8_u8 {
                 let players: Vec<PlayerId> = (0..n).map(PlayerId::new).collect();
                 for (teams, roster) in rosters(n) {
@@ -969,16 +975,27 @@ mod tests {
     #[test]
     fn a_tearing_table_keeps_the_dial_at_today_s_size() {
         use crate::layout::Arrangement;
-        every_table(|what, arrangement, layout| {
-            let tears = matches!(arrangement, Arrangement::Spotlight | Arrangement::FocusRing);
-            if tears && layout.slots.iter().any(|s| s.parked) {
-                assert!(
-                    (scale_for(layout) - MIN_SCALE).abs() < 1e-6,
-                    "{what}: {}",
-                    scale_for(layout)
-                );
-            }
-        });
+        // Other arrangements never reached the assertion below. Keep every
+        // roster, aspect and interest for the two arrangements it does test.
+        let mut checked = [0; 2];
+        tables_for(
+            &[Arrangement::Spotlight, Arrangement::FocusRing],
+            |what, arrangement, layout| {
+                if layout.slots.iter().any(|s| s.parked) {
+                    checked[usize::from(arrangement == Arrangement::FocusRing)] += 1;
+                    assert!(
+                        (scale_for(layout) - MIN_SCALE).abs() < 1e-6,
+                        "{what}: {}",
+                        scale_for(layout)
+                    );
+                }
+            },
+        );
+        assert!(
+            checked.iter().all(|count| *count > 0),
+            "both tearing arrangements must reach the assertion: {checked:?}"
+        );
+        eprintln!("tearing layouts checked: {checked:?}");
     }
 
     /// A six-seat ring's dial is grown to the cap; the face eases there and
