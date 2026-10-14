@@ -247,7 +247,7 @@ fn bar(
                     NavTab::Play => Phrase::ShellPlay.text(lang),
                     NavTab::Decks => Phrase::ShellDecks.text(lang),
                     NavTab::Replays => {
-                        baylee_client_core::replay::words::ReplayPhrase::Replays.text(lang)
+                        baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
                     }
                     NavTab::Settings => Phrase::Settings.text(lang),
                 })

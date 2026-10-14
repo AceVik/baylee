@@ -1447,6 +1447,8 @@ messages! {
     },
     /// The upright ring (arrangement 2)
     ArrUprightRing { en: "Upright ring", de: "Aufrechter Ring" },
+    /// Compact arrangement segment; the letter is added by the control.
+    ArrUprightRingShort { en: "Upright ring", de: "Aufrecht" },
     /// What it does
     ArrUprightRingBlurb {
         en: "The ring with every board upright to you; a visit zooms in.",
@@ -6320,24 +6322,44 @@ messages! {
     MusicThemeTide { en: "Mist Harbour", de: "Nebelhafen" },
     /// Additional suite: Velvet Night · Piano.
     MusicThemeVelvet { en: "Velvet Night · Piano", de: "Samtnacht · Klavier" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeVelvetShort { en: "Velvet Night", de: "Samtnacht" },
     /// Additional suite: Copperwork · Baroque.
     MusicThemeCopper { en: "Copperwork · Baroque", de: "Kupferwerk · Barock" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeCopperShort { en: "Copperwork", de: "Kupferwerk" },
     /// Additional suite: Juniper · Folk.
     MusicThemeJuniper { en: "Juniper · Folk", de: "Wacholder · Folk" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeJuniperShort { en: "Juniper", de: "Wacholder" },
     /// Additional suite: Lagoon Light · Bossa.
     MusicThemeLagoon { en: "Lagoon Light · Bossa", de: "Lagunenlicht · Bossa" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeLagoonShort { en: "Lagoon Light", de: "Lagunenlicht" },
     /// Additional suite: Lanterns · Jazz waltz.
     MusicThemeLantern { en: "Lanterns · Jazz waltz", de: "Laternen · Jazzwalzer" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeLanternShort { en: "Lanterns", de: "Laternen" },
     /// Additional suite: Neon Path · Synthwave.
     MusicThemeNeon { en: "Neon Path · Synthwave", de: "Neonpfad · Synthwave" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeNeonShort { en: "Neon Path", de: "Neonpfad" },
     /// Additional suite: Pixelstorm · Chiptune.
     MusicThemeCircuit { en: "Pixelstorm · Chiptune", de: "Pixelsturm · Chiptune" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeCircuitShort { en: "Pixelstorm", de: "Pixelsturm" },
     /// Additional suite: Mosaic · Marimba.
     MusicThemeMosaic { en: "Mosaic · Marimba", de: "Mosaik · Marimba" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeMosaicShort { en: "Mosaic", de: "Mosaik" },
     /// Additional suite: Orbit · Ambient.
     MusicThemeOrbit { en: "Orbit · Ambient", de: "Umlaufbahn · Ambient" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeOrbitShort { en: "Orbit", de: "Umlaufbahn" },
     /// Additional suite: Iron Pulse · Breakbeat.
     MusicThemeIron { en: "Iron Pulse · Breakbeat", de: "Eisenpuls · Breakbeat" },
+    /// Compact suite button; the full name and genre remain in the selection hint.
+    MusicThemeIronShort { en: "Iron Pulse", de: "Eisenpuls" },
     /// Audio: suite five.
     MusicThemeStar { en: "Starfall", de: "Sternfall" },
     /// Audio: a different suite each game.
@@ -6346,9 +6368,9 @@ messages! {
     /// Source and playback rates of the banks.
     HelpMusicSamples { en: "Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank. Our synthesizers always run at 48 kHz", de: "Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank. Eigene Synthesizer laufen immer mit 48 kHz" },
     /// Prepared 48-kHz sound.
-    MusicSamplesStudio { en: "Studio · 48 kHz", de: "Studio · 48 kHz" },
+    MusicSamplesStudio { en: "Studio", de: "Studio" },
     /// Original 44.1-kHz recordings.
-    MusicSamplesOriginal { en: "Original · 44.1 kHz", de: "Original · 44,1 kHz" },
+    MusicSamplesOriginal { en: "Original", de: "Original" },
     /// Change suite between games.
     MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.

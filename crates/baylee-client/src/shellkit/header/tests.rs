@@ -130,9 +130,15 @@ fn draw(
     let nav = [
         Phrase::ShellPlay.text(lang),
         Phrase::ShellDecks.text(lang),
-        ReplayPhrase::Replays.text(lang),
+        ReplayPhrase::NavReplays.text(lang),
         Phrase::Settings.text(lang),
     ];
+    for label in nav {
+        assert!(
+            label.chars().count() <= tokens::NAV_BUDGET.of(lang == Lang::De),
+            "{lang:?}: {label}"
+        );
+    }
     let mut commands = app.world_mut().commands();
     let root = commands
         .spawn(Node {
@@ -401,4 +407,10 @@ fn narrow_desktop_with_large_german_text_wraps_without_losing_actions() {
             );
         }
     }
+}
+
+#[test]
+fn compact_replay_navigation_preserves_the_full_german_page_title() {
+    assert_eq!(ReplayPhrase::NavReplays.text(Lang::De), "Replays");
+    assert_eq!(ReplayPhrase::Replays.text(Lang::De), "Wiederholungen");
 }

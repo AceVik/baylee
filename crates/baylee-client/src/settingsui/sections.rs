@@ -16,7 +16,7 @@ use baylee_client_core::graphics::{
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::settings_map::{self, Row, Section};
 use baylee_client_core::sky::SkyMode;
-use baylee_client_core::tableview::{RingLean, VisitCamera};
+use baylee_client_core::tableview::{Arrangement, RingLean, VisitCamera};
 use baylee_client_core::tour::Tour;
 use bevy::prelude::*;
 
@@ -35,6 +35,44 @@ fn labels(lang: Lang, phrases: &[Phrase]) -> Vec<&'static str> {
 /// first is a word and so a [`Phrase`], the rest are names of methods.
 fn anti_aliasing_names(lang: Lang) -> [&'static str; 4] {
     [Phrase::SwitchOff.text(lang), "FXAA", "2\u{d7}", "4\u{d7}"]
+}
+
+/// Segment labels include their identifying letter in the text budget.
+fn arrangement_names(lang: Lang) -> Vec<String> {
+    Arrangement::ALL
+        .iter()
+        .map(|a| {
+            let phrase = if *a == Arrangement::UprightRing {
+                Phrase::ArrUprightRingShort
+            } else {
+                a.name()
+            };
+            format!("{} {}", a.letter(), phrase.text(lang))
+        })
+        .collect()
+}
+
+/// Compact buttons and full selection hints, in `MusicTheme::ALL` order.
+fn music_theme_names(lang: Lang) -> [(&'static str, &'static str); 16] {
+    [
+        (Phrase::MusicThemeEmber, Phrase::MusicThemeEmber),
+        (Phrase::MusicThemeGlass, Phrase::MusicThemeGlass),
+        (Phrase::MusicThemeThorn, Phrase::MusicThemeThorn),
+        (Phrase::MusicThemeTide, Phrase::MusicThemeTide),
+        (Phrase::MusicThemeStar, Phrase::MusicThemeStar),
+        (Phrase::MusicThemeVelvetShort, Phrase::MusicThemeVelvet),
+        (Phrase::MusicThemeCopperShort, Phrase::MusicThemeCopper),
+        (Phrase::MusicThemeJuniperShort, Phrase::MusicThemeJuniper),
+        (Phrase::MusicThemeLagoonShort, Phrase::MusicThemeLagoon),
+        (Phrase::MusicThemeLanternShort, Phrase::MusicThemeLantern),
+        (Phrase::MusicThemeNeonShort, Phrase::MusicThemeNeon),
+        (Phrase::MusicThemeCircuitShort, Phrase::MusicThemeCircuit),
+        (Phrase::MusicThemeMosaicShort, Phrase::MusicThemeMosaic),
+        (Phrase::MusicThemeOrbitShort, Phrase::MusicThemeOrbit),
+        (Phrase::MusicThemeIronShort, Phrase::MusicThemeIron),
+        (Phrase::MusicThemeRotating, Phrase::MusicThemeRotating),
+    ]
+    .map(|(short, full)| (short.text(lang), full.text(lang)))
 }
 
 fn index<T: PartialEq>(all: &[T], now: &T) -> Option<usize> {
@@ -269,17 +307,14 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
 /// dem Zug*, and the per-count memory, a stepper per seat count.
 #[allow(clippy::too_many_lines)] // three rows of one setting, read top to bottom
 fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableView) {
-    use baylee_client_core::tableview::{Arrangement, BySeats};
+    use baylee_client_core::tableview::BySeats;
     let lang = out.lang;
     // The kit's segmented control, as every other one-of-n row (4K pass,
     // 09.10.2026: eight buttons in a button's larger, bolder face stood
     // out of the section). Every arrangement is built now; the menu still
     // greys one that is not ([`Arrangement::built`]).
     debug_assert!(Arrangement::ALL.iter().all(|a| a.built()));
-    let texts: Vec<String> = Arrangement::ALL
-        .iter()
-        .map(|a| format!("{} {}", a.letter(), a.name().text(lang)))
-        .collect();
+    let texts = arrangement_names(lang);
     let names: Vec<&str> = texts.iter().map(String::as_str).collect();
     let chosen = Arrangement::ALL
         .iter()
@@ -414,31 +449,19 @@ fn music_selection(out: &mut Out, view: &View) {
         .map_or_else(baylee_client_core::music::MusicTheme::default, |s| {
             s.music.theme()
         });
-    let names = labels(
-        lang,
-        &[
-            Phrase::MusicThemeEmber,
-            Phrase::MusicThemeGlass,
-            Phrase::MusicThemeThorn,
-            Phrase::MusicThemeTide,
-            Phrase::MusicThemeStar,
-            Phrase::MusicThemeVelvet,
-            Phrase::MusicThemeCopper,
-            Phrase::MusicThemeJuniper,
-            Phrase::MusicThemeLagoon,
-            Phrase::MusicThemeLantern,
-            Phrase::MusicThemeNeon,
-            Phrase::MusicThemeCircuit,
-            Phrase::MusicThemeMosaic,
-            Phrase::MusicThemeOrbit,
-            Phrase::MusicThemeIron,
-            Phrase::MusicThemeRotating,
-        ],
-    );
-    let control = out.choices("music-theme", &names, index(&themes, &chosen), |i| {
+    let descriptions = music_theme_names(lang);
+    let names = descriptions.map(|(short, _)| short);
+    let selected = index(&themes, &chosen);
+    let control = out.choices("music-theme", &names, selected, |i| {
         Press::Settings(SettingsPress::PickMusicTheme(themes[i]))
     });
-    out.block(Row::MusicTheme, &[control]);
+    // Genre belongs in prose, outside the buttons' fixed text budget.
+    if let Some(at) = selected.filter(|&at| descriptions[at].0 != descriptions[at].1) {
+        let hint = out.words(descriptions[at].1, true);
+        out.block(Row::MusicTheme, &[control, hint]);
+    } else {
+        out.block(Row::MusicTheme, &[control]);
+    }
     let samples = baylee_client_core::music::SampleSet::ALL;
     let chosen = view
         .settings
@@ -710,6 +733,67 @@ pub(crate) fn draw(section: Section, out: &mut Out, view: &View) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// All options in both languages, including the letter on arrangements.
+    #[test]
+    fn settings_choice_labels_fit_their_unchanged_role_budgets() {
+        use crate::shellkit::tokens::{BUTTON_BUDGET, CHIP_BUDGET};
+        for lang in Lang::ALL {
+            let german = lang == Lang::De;
+            let music = music_theme_names(lang);
+            assert_eq!(
+                music.len(),
+                baylee_client_core::music::MusicTheme::ALL.len()
+            );
+            for (i, &(short, full)) in music.iter().enumerate() {
+                assert!(
+                    short.chars().count() <= BUTTON_BUDGET.of(german),
+                    "{lang:?}: {short}"
+                );
+                assert!(full.starts_with(short), "{lang:?}: {full}");
+                assert!(
+                    !music[..i].iter().any(|(other, _)| *other == short),
+                    "distinct suite names"
+                );
+            }
+            for label in arrangement_names(lang).iter().map(String::as_str).chain([
+                Phrase::MusicSamplesStudio.text(lang),
+                Phrase::MusicSamplesOriginal.text(lang),
+            ]) {
+                assert!(
+                    label.chars().count() <= CHIP_BUDGET.of(german),
+                    "{lang:?}: {label}"
+                );
+            }
+        }
+        assert!(
+            arrangement_names(Lang::De)
+                .iter()
+                .any(|s| s == "B Aufrecht")
+        );
+        assert_eq!(Phrase::ArrUprightRing.text(Lang::De), "Aufrechter Ring");
+    }
+
+    #[test]
+    fn compact_music_choices_keep_genres_and_sample_rates_in_hints() {
+        for lang in Lang::ALL {
+            let music = music_theme_names(lang);
+            // The ten additional suites retain their genre in the displayed hint.
+            for &(short, full) in &music[5..15] {
+                assert!(
+                    full.strip_prefix(short)
+                        .is_some_and(|rest| rest.starts_with(" · "))
+                );
+            }
+            let help = Phrase::HelpMusicSamples.text(lang);
+            assert!(help.contains("48 kHz"));
+            assert!(help.contains(if lang == Lang::De {
+                "44,1 kHz"
+            } else {
+                "44.1 kHz"
+            }));
+        }
+    }
 
     /// The row's first segment is a word, and words are `Phrase`s: it read
     /// "Off" in a German Grafik section beside the `VSync` row's "aus"

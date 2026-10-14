@@ -7,8 +7,10 @@ use crate::i18n::{Lang, messages};
 messages! {
     /// One thing a replay says.
     ReplayPhrase;
-    /// The hub's tab, and the screen's heading.
+    /// The screen's full heading.
     Replays { en: "Replays", de: "Wiederholungen" },
+    /// Compact header navigation label.
+    NavReplays { en: "Replays", de: "Replays" },
     /// The end sheet's way into the game's replay.
     WatchReplay { en: "Watch replay", de: "Wiederholung ansehen" },
     /// A row's button.
