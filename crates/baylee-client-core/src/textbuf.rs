@@ -194,9 +194,12 @@ impl TextBuffer {
     /// Control characters are dropped rather than inserted: Enter submits the
     /// form and Tab moves the caret, so both reach this in some shells as a
     /// character, and a field holding a newline is a field that draws one.
+    /// Empty or entirely discarded input leaves text and selection untouched.
     pub fn insert(&mut self, s: &str) {
         let cleaned: String = s.chars().filter(|c| !c.is_control()).collect();
-        self.replace_selection(&cleaned);
+        if !cleaned.is_empty() {
+            self.replace_selection(&cleaned);
+        }
     }
 
     /// Replaces the selection — or, with nothing selected, inserts at the

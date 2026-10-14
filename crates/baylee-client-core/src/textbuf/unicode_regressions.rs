@@ -107,3 +107,34 @@ fn clear_resets_selection_and_accepts_new_unicode_input() {
     assert_eq!(buffer.cursor(), 6);
     assert_valid(&buffer);
 }
+
+#[test]
+fn discarded_control_input_does_not_erase_a_selection() {
+    for input in ["", "\n", "\t", "\r\n", "\0\u{7f}\u{85}"] {
+        let mut buffer = TextBuffer::new("selected😀");
+        buffer.select_all();
+        let before = buffer.clone();
+        buffer.insert(input);
+        assert_eq!(buffer, before, "ignored input must not act as Delete");
+    }
+}
+
+#[test]
+fn mixed_control_and_visible_input_replaces_the_selection_once() {
+    let mut buffer = TextBuffer::new("old😀");
+    buffer.select_all();
+    buffer.insert("\n中\t😀\r");
+    assert_eq!(buffer.text(), "中😀");
+    assert_eq!(buffer.cursor(), 7);
+    assert_eq!(buffer.selection(), None);
+}
+
+#[test]
+fn explicit_empty_replacement_still_deletes_selected_text() {
+    let mut buffer = TextBuffer::new("old😀");
+    buffer.select_all();
+    buffer.replace_selection("");
+    assert!(buffer.is_empty());
+    assert_eq!(buffer.cursor(), 0);
+    assert_eq!(buffer.selection(), None);
+}
