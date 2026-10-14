@@ -20,6 +20,11 @@ use super::{InputClass, TextSize, tokens};
 /// The kit over an open gallery, as the client runs it, minus a window.
 fn app() -> App {
     let mut app = App::new();
+    // Node carries InheritedVisibility; propagate it just as the real client
+    // does so keyboard tests exercise visible controls instead of hidden defaults.
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<bevy::mesh::skinning::SkinnedMeshInverseBindposes>>()
+        .add_plugins(bevy::camera::visibility::VisibilityPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin)
         .init_state::<crate::DuelPhase>()
         .init_resource::<ButtonInput<KeyCode>>()

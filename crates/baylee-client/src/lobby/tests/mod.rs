@@ -78,6 +78,11 @@ fn answer(status: u16, body: &str) -> ehttp::Response {
 /// renderer, so this exercises the systems and the node tree, not pixels.
 fn headless() -> App {
     let mut app = App::new();
+    // Node carries InheritedVisibility; propagate it just as the real client
+    // does so keyboard tests exercise visible controls instead of hidden defaults.
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<bevy::mesh::skinning::SkinnedMeshInverseBindposes>>()
+        .add_plugins(bevy::camera::visibility::VisibilityPlugin);
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::state::app::StatesPlugin)
         .init_state::<DuelPhase>()
