@@ -22,7 +22,6 @@
 //!   frame. An anchor missing for a frame (its screen rebuilding) holds
 //!   everything where it was instead of sending the bubble to the centre.
 
-use crate::legacy_ui::LegacyButton;
 use crate::ui_button::UiButton;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tour::{Kind, Mode, Run};
@@ -802,14 +801,9 @@ type Controls<'w, 's> = Query<
         &'static InheritedVisibility,
         Option<&'static crate::shellkit::Role>,
         Has<UiButton>,
-        Has<LegacyButton>,
     ),
     (
-        Or<(
-            With<crate::shellkit::Role>,
-            With<UiButton>,
-            With<LegacyButton>,
-        )>,
+        Or<(With<crate::shellkit::Role>, With<UiButton>)>,
         Without<TourPress>,
         Without<Scrim>,
         Without<Ring>,
@@ -900,11 +894,9 @@ pub(super) fn place(
         let pressable: Vec<Rect> = hole.map_or_else(Vec::new, |hole| {
             controls
                 .iter()
-                .filter(|(_, _, shown, role, button, legacy_button)| {
+                .filter(|(_, _, shown, role, button)| {
                     shown.get()
-                        && (*button
-                            || *legacy_button
-                            || role.is_some_and(|r| *r == crate::shellkit::Role::Hit))
+                        && (*button || role.is_some_and(|r| *r == crate::shellkit::Role::Hit))
                 })
                 .map(|(node, at, ..)| logical(node, at))
                 .filter(|r| !r.intersect(hole).is_empty())

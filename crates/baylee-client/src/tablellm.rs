@@ -18,8 +18,8 @@ use crate::hud::{
     BESIDE_CORNER, ButtonWeight, CORNER_BUTTON, EDGE, TOP_CLEAR, UiFonts, answer_sized, btn_radius,
     palette, tf,
 };
-use crate::legacy_ui::LegacyButton;
 use crate::tableseats::{LlmPress, Phase};
+use crate::ui_button::UiButton;
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::llmseat::models::Resolved;
 use bevy::picking::events::PointerClick;
@@ -147,7 +147,7 @@ fn fold(commands: &mut Commands, fonts: &UiFonts, unfolded: bool) {
         },
         BackgroundColor(ground),
         BorderColor::all(palette::DIALOG_LINE),
-        LegacyButton,
+        UiButton,
         GlobalZIndex(crate::hud::Z_LOG),
         children![(
             // The kind of mind, as the chair's own name begins.

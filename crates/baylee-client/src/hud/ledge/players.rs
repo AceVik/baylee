@@ -78,7 +78,7 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use crate::hud::Hint;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use baylee_client_core::board::SeatRole;
 use baylee_client_core::seatplate::{Detail, SeatPlate};
 use baylee_view::SeatView;
@@ -782,7 +782,7 @@ fn spawn_button(
             },
             BackgroundColor(ground),
             BorderColor::all(RIM),
-            LegacyButton,
+            UiButton,
             Feel::rising_to(ground, GROUND_HOT),
             children![
                 (

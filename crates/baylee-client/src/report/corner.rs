@@ -12,7 +12,7 @@
 //! reach the corner now stands under [`crate::hud::TOP_CLEAR`]; no seat's
 //! place on the table reaches it (`camera_tests`).
 
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use bevy::prelude::*;
 
 use super::ReportDesk;
@@ -80,7 +80,7 @@ fn spawn(commands: &mut Commands, fonts: &UiFonts) {
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            LegacyButton,
+            UiButton,
             Feel::new(ground),
             GlobalZIndex(G_CORNER),
             children![(

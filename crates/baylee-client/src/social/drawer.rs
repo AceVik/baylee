@@ -8,7 +8,7 @@
 //! (`Action::Friends`), `/friends` and the chat's head open it too.
 
 use super::zoom::{z, zpx};
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ChatTab, Intent, Social};
 use baylee_protocol::social::{Place, Shown, Status};
@@ -71,6 +71,7 @@ pub(crate) enum DrawerPress {
 
 /// Installs the drawer.
 pub(crate) fn install(app: &mut App) {
+    crate::ui_button::install(app);
     app.init_resource::<DrawerSlide>()
         .add_systems(
             Update,
@@ -397,13 +398,12 @@ fn asks(
 /// The drawer's presses.
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(Entity, &LegacyInteraction, &DrawerPress), Changed<LegacyInteraction>>,
-    mut held: Local<std::collections::HashSet<Entity>>,
+    mut clicks: Clicks<DrawerPress>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut more: Local<Option<String>>,
 ) {
-    let clicked: Vec<DrawerPress> = super::released(&pressed, &mut held);
+    let clicked: Vec<DrawerPress> = clicks.read();
     let ui = &mut *ui;
     for press in clicked {
         match press {
@@ -600,7 +600,7 @@ fn sync_door(
                 FriendsDoor,
                 ChatSurface,
                 RelativeCursorPosition::default(),
-                LegacyButton,
+                UiButton,
                 DrawerPress::Toggle,
                 Node {
                     position_type: PositionType::Absolute,
@@ -720,7 +720,7 @@ fn small_button(
 ) -> Entity {
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(7.0), zpx(2.0)),
@@ -750,7 +750,7 @@ fn icon_button(
 ) -> Entity {
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             press,
             Node {
                 width: zpx(22.0),
@@ -839,7 +839,7 @@ pub(crate) fn text_box(
     let (before, after) = text.split_at(buffer.cursor().min(text.len()));
     let field = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             press,
             Text::default(),
             tf(fonts, z(12.0)),
@@ -1213,7 +1213,7 @@ fn sync_drawer(
             let line = row(commands);
             // The row lights under the pointer (its buttons are its own).
             commands.entity(line).insert((
-                LegacyButton,
+                UiButton,
                 Feel::new(Color::NONE),
                 BackgroundColor(Color::NONE),
                 Node {
@@ -1355,7 +1355,7 @@ fn sync_drawer(
             let line = row(&mut commands);
             let open = commands
                 .spawn((
-                    LegacyButton,
+                    UiButton,
                     DrawerPress::OpenGroup(group.id.clone()),
                     Node {
                         flex_grow: 1.0,
@@ -1597,3 +1597,6 @@ type DrawerKey = (u64, String, String, bool, Option<String>, String);
 /// The drawer's scrolling list, whose scroll survives its rebuilds.
 #[derive(Component)]
 pub(crate) struct DrawerList;
+
+#[cfg(test)]
+mod tests;

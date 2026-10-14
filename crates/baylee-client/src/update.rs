@@ -23,9 +23,9 @@
 pub mod native;
 
 use crate::hud::{UiFonts, palette, tf};
-use crate::legacy_ui::LegacyButton;
 use crate::lobby::Metrics;
 use crate::settings::ClientSettings;
+use crate::ui_button::UiButton;
 use crate::{DuelPhase, lobby};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::resume::RestartOffer;
@@ -781,7 +781,7 @@ pub(crate) fn menu_line(
     let shown = notice?.shown.as_ref()?;
     let line = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 width: percent(100),
                 ..default()

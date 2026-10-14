@@ -12,7 +12,7 @@
 //! moves under the finger: a press on a card that is sliding is the card's.
 //! Off a phone the drawer is always open and nothing is written.
 
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use baylee_client_core::handdrawer::{eased, slide};
 use baylee_client_core::tableview::TableFrame;
 use bevy::prelude::*;
@@ -203,7 +203,7 @@ pub fn sync_hand_tab(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            LegacyButton,
+            UiButton,
             crate::ambience::Feel::new(ground),
             GlobalZIndex(650),
         ))

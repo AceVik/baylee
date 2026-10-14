@@ -14,12 +14,12 @@
 use super::super::*;
 use super::keys::{self, ABOUT};
 use super::{FAN_CONTENT_NOTICE, FrontPress, source_address};
-use crate::legacy_ui::LegacyButton;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::focus::{Current, Stop};
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
 use crate::shellkit::{surfaces, tokens};
+use crate::ui_button::UiButton;
 
 /// Whether the full colophon (and the QR) stands under the card: on Wide
 /// and Vast, where the window is tall enough to hold it beside the card
@@ -619,7 +619,7 @@ fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     let frame = qr_frame(commands, picture);
     commands
         .entity(frame)
-        .insert((LegacyButton, Press::Front(FrontPress::OpenSource)));
+        .insert((UiButton, Press::Front(FrontPress::OpenSource)));
     frame
 }
 

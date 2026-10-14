@@ -1121,3 +1121,47 @@ fn on_a_phone_a_volume_stands_beside_its_words() {
         );
     }
 }
+
+/// A native button must not cut off the settings handler's Message path,
+/// nor turn one click into two edits of the account preference. As in the
+/// front-door test, opt the kit hit area into the native widget explicitly.
+#[test]
+fn native_button_settings_dispatch_toggles_the_actual_preference_once() {
+    use crate::ui_button::{UiButton, testing};
+    use baylee_client_core::prefs::AutoRule;
+    use bevy::picking::pointer::{PointerAction, PointerId};
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Gameplay);
+    app.init_resource::<crate::settings::ClientSettings>();
+    testing::install(&mut app);
+    let press = Press::Settings(SettingsPress::ToggleAuto(AutoRule::SkipEmptyBlocks));
+    let skips = |app: &App| {
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .auto()
+            .skip_empty_blocks
+    };
+    let before = skips(&app);
+    for expected in [!before, before] {
+        let target = press_target(&mut app, press);
+        app.world_mut().entity_mut(target).insert(UiButton);
+        // Native release hit-testing uses the preceding frame's hover map.
+        testing::frame(&mut app, PointerId::Mouse, Some(target), &[]);
+        testing::frame(
+            &mut app,
+            PointerId::Mouse,
+            Some(target),
+            &[
+                PointerAction::Press(PointerButton::Primary),
+                PointerAction::Release(PointerButton::Primary),
+            ],
+        );
+        assert_eq!(
+            skips(&app),
+            expected,
+            "the non-idempotent settings action ran once"
+        );
+        app.update();
+        assert_eq!(skips(&app), expected, "no deferred duplicate");
+    }
+    assert_eq!(app.world().resource::<testing::Activations>().0.len(), 2);
+}

@@ -423,3 +423,122 @@ fn a_click_that_survived_is_answered_once() {
         "pressed once, not twice (twice would toggle back)"
     );
 }
+
+/// Production input/focus dispatch and the lobby's actual activation
+/// handler must agree even when the control is also a native widget.
+/// Kit hit areas are not part of the marker migration, so this explicitly
+/// opts the drawn control into Button to exercise both paths together.
+#[test]
+fn native_button_keyboard_dispatch_runs_the_lobby_action_once_per_key() {
+    use crate::ui_button::{UiButton, testing};
+    let mut app = at_the_door();
+    testing::install(&mut app);
+    for (code, logical) in [(KeyCode::Enter, Key::Enter), (KeyCode::Space, Key::Space)] {
+        let create = press_target(&mut app, Press::Front(FrontPress::ToggleRegistering));
+        app.world_mut().entity_mut(create).insert(UiButton);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(create, bevy::input_focus::FocusCause::Navigated);
+        let before = app.world().resource::<testing::Activations>().0.len();
+        press_key(&mut app, code, logical, &[]);
+        assert_eq!(
+            app.world().resource::<LobbyState>().lobby.face(),
+            Face::Create,
+            "one key opens Create; a double toggle returns to SignIn"
+        );
+        assert_eq!(
+            app.world().resource::<testing::Activations>().0.len(),
+            before + 1,
+            "native keyboard dispatch really ran"
+        );
+        settle(&mut app);
+        press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+        settle(&mut app);
+        assert_eq!(
+            app.world().resource::<LobbyState>().lobby.face(),
+            Face::SignIn
+        );
+    }
+}
+
+#[test]
+fn native_activate_from_a_modified_enter_does_not_run_the_lobby_action() {
+    use crate::ui_button::{UiButton, testing};
+    let mut app = at_the_door();
+    testing::install(&mut app);
+    for modifier in [
+        KeyCode::ControlLeft,
+        KeyCode::SuperLeft,
+        KeyCode::AltLeft,
+        KeyCode::ShiftLeft,
+    ] {
+        let create = press_target(&mut app, Press::Front(FrontPress::ToggleRegistering));
+        app.world_mut().entity_mut(create).insert(UiButton);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(create, bevy::input_focus::FocusCause::Navigated);
+        let before = app.world().resource::<testing::Activations>().0.len();
+        press_key(&mut app, KeyCode::Enter, Key::Enter, &[modifier]);
+        assert_eq!(
+            app.world().resource::<LobbyState>().lobby.face(),
+            Face::SignIn
+        );
+        assert_eq!(
+            app.world().resource::<testing::Activations>().0.len(),
+            before + 1,
+            "unfiltered Activate was emitted but not forwarded"
+        );
+    }
+}
+
+/// The real picking dispatcher loses an entity Click when focus rebuilt
+/// the face. The lobby's existing logical-Press fallback still answers it.
+#[test]
+fn native_button_release_over_a_rebuilt_lobby_control_acts_once() {
+    use crate::ui_button::{UiButton, testing};
+    use bevy::picking::pointer::{PointerAction, PointerId};
+    let mut app = at_the_door();
+    // The report's global click observer reads device settings even for
+    // clicks elsewhere; standalone supplies them before input is installed.
+    app.init_resource::<crate::settings::ClientSettings>();
+    testing::install(&mut app);
+    let create = Press::Front(FrontPress::ToggleRegistering);
+    let old = press_target(&mut app, create);
+    app.world_mut().entity_mut(old).insert(UiButton);
+    testing::frame(
+        &mut app,
+        PointerId::Mouse,
+        Some(old),
+        &[PointerAction::Press(PointerButton::Primary)],
+    );
+    app.update();
+    assert!(
+        app.world().get_entity(old).is_err(),
+        "focus leaving the field rebuilt the face"
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::SignIn
+    );
+    let replacement = press_target(&mut app, create);
+    app.world_mut().entity_mut(replacement).insert(UiButton);
+    testing::frame(
+        &mut app,
+        PointerId::Mouse,
+        Some(replacement),
+        &[PointerAction::Release(PointerButton::Primary)],
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create
+    );
+    assert!(
+        app.world().resource::<testing::Activations>().0.is_empty(),
+        "the old entity's native click was lost; the logical fallback answered"
+    );
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create
+    );
+}

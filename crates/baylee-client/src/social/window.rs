@@ -10,7 +10,7 @@
 //! nothing here writes.
 
 use super::zoom::{z, zpx};
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{
     ChatPhrase, ChatTab, ComposerKey, ConvId, GroupRef, Intent, Social, TabFilter, TableContext,
@@ -229,6 +229,7 @@ impl Frame {
 
 /// Installs the window's systems.
 pub(crate) fn install(app: &mut App) {
+    crate::ui_button::install(app);
     app.add_systems(PostUpdate, restack.before(bevy::ui::UiSystems::Prepare));
     app.init_resource::<Windows>().add_systems(
         Update,
@@ -590,14 +591,13 @@ fn panel_follows_the_window(
 /// The window's presses.
 #[allow(clippy::too_many_lines)] // one arm per control, read top to bottom
 fn presses(
-    pressed: Query<(Entity, &LegacyInteraction, &ChatPress), Changed<LegacyInteraction>>,
-    mut held: Local<std::collections::HashSet<Entity>>,
+    mut clicks: Clicks<ChatPress>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut duel: Option<ResMut<Duel>>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
 ) {
-    let mut clicked: Vec<ChatPress> = super::released(&pressed, &mut held);
+    let mut clicked: Vec<ChatPress> = clicks.read();
     clicked.dedup();
     let ui = &mut *ui;
     for press in clicked {
@@ -1076,7 +1076,7 @@ fn chat_pill(
     };
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             ChatPress::Restore,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -1168,7 +1168,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
     let note = commands
         .spawn((
             Part::Note,
-            LegacyButton,
+            UiButton,
             ChatPress::Lock,
             Node {
                 display: Display::None,
@@ -1490,7 +1490,7 @@ fn head_parts(
             .id();
         let button = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 ChatPress::Tab(*tab),
                 Node {
                     flex_direction: FlexDirection::Row,
@@ -1525,7 +1525,7 @@ fn head_parts(
     let tool = |commands: &mut Commands, glyph: char, press: ChatPress| {
         commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 press,
                 Node {
                     width: zpx(HEAD_BTN),
@@ -1650,7 +1650,7 @@ fn group_bar(
     });
     let picker = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             ChatPress::GroupMenu,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -1745,7 +1745,7 @@ pub(crate) fn text_button(
 ) -> Entity {
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(8.0), zpx(3.0)),
@@ -2259,7 +2259,7 @@ fn composer_parts(
     let (chip_text, chip_ink, _) = target_label(machine, c.target(), lang);
     let chip = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             ChatPress::Chip,
             Node {
                 flex_direction: FlexDirection::Row,
@@ -2292,7 +2292,7 @@ fn composer_parts(
     let text = c.text();
     let field = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             ChatPress::Field,
             Text::default(),
             tf(fonts, z(inks.pt)),
@@ -2425,7 +2425,7 @@ fn composer_parts(
         .id();
     let send = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             ChatPress::Send,
             Node {
                 width: zpx(26.0),
@@ -2482,7 +2482,7 @@ fn composer_parts(
             let lit = i == highlight;
             let row = commands
                 .spawn((
-                    LegacyButton,
+                    UiButton,
                     ChatPress::Suggestion(i),
                     Node {
                         padding: UiRect::axes(zpx(8.0), zpx(3.0)),
@@ -2821,7 +2821,7 @@ fn filter_dialog(
         let mark = if on { "\u{2611}" } else { "\u{2610}" };
         let row = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 ChatPress::Filter(kind),
                 Node {
                     padding: UiRect::axes(zpx(4.0), zpx(3.0)),
@@ -2914,3 +2914,6 @@ fn wheel_in_the_lobby(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

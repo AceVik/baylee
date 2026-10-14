@@ -19,7 +19,6 @@
 //! Signed in nowhere, offline (`LocalHost`) or at a gateway with no chat,
 //! nothing here is drawn and the table's log panel is today's.
 
-use crate::legacy_ui::LegacyInteraction;
 use std::collections::VecDeque;
 
 use baylee_client_core::social::{
@@ -41,33 +40,6 @@ pub(crate) mod window;
 pub(crate) mod zoom;
 
 use transport::{Arrived, LinkNews, Mailbox, Socket};
-
-/// The controls of type `T` released this frame over the control they were
-/// pressed on: a click. Acted on at the release, never the press, so a
-/// panel that closes on a click is still standing when the pointer comes up
-/// and the release cannot land on whatever stood under it.
-pub(crate) fn released<T: Component + Clone>(
-    changed: &Query<(Entity, &LegacyInteraction, &T), Changed<LegacyInteraction>>,
-    held: &mut std::collections::HashSet<Entity>,
-) -> Vec<T> {
-    let mut out = Vec::new();
-    for (entity, interaction, press) in changed {
-        match interaction {
-            LegacyInteraction::Pressed => {
-                held.insert(entity);
-            }
-            LegacyInteraction::Hovered => {
-                if held.remove(&entity) {
-                    out.push(press.clone());
-                }
-            }
-            LegacyInteraction::None => {
-                held.remove(&entity);
-            }
-        }
-    }
-    out
-}
 
 /// How long a changed state file waits before it is written (§11.1).
 const SAVE_DEBOUNCE: f32 = 2.0;

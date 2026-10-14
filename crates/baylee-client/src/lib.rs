@@ -74,7 +74,6 @@ pub mod host;
 pub mod hud;
 pub mod input;
 pub mod keys;
-pub(crate) mod legacy_ui;
 pub mod lifeflash;
 pub mod loading;
 pub mod lobby;

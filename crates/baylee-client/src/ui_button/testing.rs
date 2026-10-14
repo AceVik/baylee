@@ -26,6 +26,9 @@ pub(crate) struct Activations(pub Vec<Entity>);
 /// The production input/focus/button plugins, without window or render
 /// backends. In particular pointer focus and keyboard dispatch both run.
 pub(crate) fn input_plugins(app: &mut App) {
+    // ScrollbarPlugin observes every pointer press, even away from a bar.
+    // Production gets this resource from UiPlugin; the headless app does not.
+    app.init_resource::<UiScale>();
     app.add_plugins((
         InputPlugin,
         InputFocusPlugin,
@@ -34,15 +37,31 @@ pub(crate) fn input_plugins(app: &mut App) {
         ButtonPlugin,
     ));
     super::install(app);
-    app.world_mut()
-        .spawn((Window::default(), bevy::window::PrimaryWindow));
+    if app
+        .world_mut()
+        .query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .iter(app.world())
+        .next()
+        .is_none()
+    {
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+    }
 }
 
 /// Only the renderer's hit testing is replaced. `pointer_events` produces
 /// both observer triggers and Messages, as it does in `DefaultPickingPlugins`.
 pub(crate) fn app() -> App {
     let mut app = App::new();
-    input_plugins(&mut app);
+    install(&mut app);
+    app
+}
+
+/// Adds native dispatch to an existing production-handler test app. Its
+/// systems and window remain installed; only backend hits are supplied by
+/// `frame`, just as in the minimal fixture above.
+pub(crate) fn install(app: &mut App) {
+    input_plugins(app);
     app.init_resource::<HoverMap>()
         .init_resource::<PreviousHoverMap>()
         .init_resource::<PickingSettings>()
@@ -75,7 +94,6 @@ pub(crate) fn app() -> App {
         app.world_mut()
             .spawn((id, PointerLocation::new(location())));
     }
-    app
 }
 
 fn location() -> Location {

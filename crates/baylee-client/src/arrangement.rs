@@ -10,7 +10,7 @@
 //! through [`crate::rebuild_board`], the one door every card's `Motion`
 //! target comes out of — nothing here positions a table object.
 
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tableview::{Arrangement, TableFrame, TableView};
 use bevy::prelude::*;
@@ -677,7 +677,7 @@ fn spawn_pill(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            LegacyButton,
+            UiButton,
             Feel::new(ground),
             GlobalZIndex(G_SWITCHER),
         ))
@@ -898,7 +898,7 @@ fn arrangement_row(
         } else {
             Color::NONE
         }),
-        LegacyButton,
+        UiButton,
     ));
     if live {
         line.insert(Feel::new(ground));
@@ -1028,7 +1028,7 @@ fn remember_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Menu
                 ..default()
             },
             BackgroundColor(ground),
-            LegacyButton,
+            UiButton,
             Feel::new(ground),
             children![(
                 Text::new(Phrase::ArrRememberForSeats.fill(lang, &[&look.seats.to_string()])),

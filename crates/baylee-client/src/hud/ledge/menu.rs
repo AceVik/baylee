@@ -64,7 +64,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 
 /// How wide the panel is.
 ///
@@ -283,7 +283,7 @@ pub(super) fn burger(commands: &mut Commands, fonts: &UiFonts, open: bool) -> En
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
-            LegacyButton,
+            UiButton,
             Feel::new(ground),
             MenuButton {
                 action: MenuAction::ToggleGameMenu,
@@ -606,7 +606,7 @@ fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
     commands
         .entity(id)
         .remove::<crate::lobby::Press>()
-        .insert(LegacyButton)
+        .insert(UiButton)
         .with_child((
             Text::new(""),
             crate::hud::tf(fonts, metrics.text),
@@ -773,3 +773,6 @@ mod tests {
         // that could never fail at run time.
     }
 }
+
+#[cfg(test)]
+mod pointer_tests;

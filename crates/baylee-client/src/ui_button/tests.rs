@@ -370,3 +370,105 @@ fn a_replaced_control_does_not_inherit_an_unrelated_press() {
     testing::click(&mut app, replacement);
     assert_eq!(actions(&app), [Action(2)]);
 }
+
+#[test]
+fn cancelling_touch_after_it_left_the_hover_map_releases_the_button() {
+    let mut app = app();
+    let button = app.world_mut().spawn((UiButton, Action(1))).id();
+    testing::frame(
+        &mut app,
+        PointerId::Touch(1),
+        Some(button),
+        &[PointerAction::Press(PointerButton::Primary)],
+    );
+    assert!(app.world().get::<Pressed>(button).is_some());
+    // generate_hovermap removes a cancelled pointer before pointer_events.
+    // No PointerCancel reaches the old button, and no release need follow.
+    testing::frame(
+        &mut app,
+        PointerId::Touch(1),
+        None,
+        &[PointerAction::Cancel],
+    );
+    assert!(actions(&app).is_empty());
+    assert!(app.world().get::<Pressed>(button).is_none());
+}
+
+#[test]
+fn each_touch_holding_the_same_button_keeps_its_own_release() {
+    let mut app = app();
+    let button = app.world_mut().spawn((UiButton, Action(1))).id();
+    for id in [PointerId::Touch(1), PointerId::Touch(2)] {
+        testing::frame(
+            &mut app,
+            id,
+            Some(button),
+            &[PointerAction::Press(PointerButton::Primary)],
+        );
+    }
+    testing::frame(
+        &mut app,
+        PointerId::Touch(2),
+        Some(button),
+        &[PointerAction::Release(PointerButton::Primary)],
+    );
+    assert_eq!(actions(&app), [Action(1)]);
+    assert!(
+        app.world().get::<Pressed>(button).is_some(),
+        "first touch is still holding"
+    );
+    testing::frame(
+        &mut app,
+        PointerId::Touch(1),
+        Some(button),
+        &[PointerAction::Release(PointerButton::Primary)],
+    );
+    assert_eq!(actions(&app), [Action(1), Action(1)]);
+    assert!(app.world().get::<Pressed>(button).is_none());
+}
+
+#[test]
+fn an_unrelated_touch_release_cannot_consume_a_held_buttons_click() {
+    let mut app = app();
+    let button = app.world_mut().spawn((UiButton, Action(1))).id();
+    let other = app.world_mut().spawn((UiButton, Action(2))).id();
+    testing::frame(
+        &mut app,
+        PointerId::Touch(1),
+        Some(button),
+        &[PointerAction::Press(PointerButton::Primary)],
+    );
+    testing::frame(
+        &mut app,
+        PointerId::Touch(2),
+        Some(other),
+        &[PointerAction::Press(PointerButton::Primary)],
+    );
+    testing::frame(
+        &mut app,
+        PointerId::Touch(2),
+        Some(button),
+        &[PointerAction::Move {
+            delta: Vec2::splat(20.0),
+        }],
+    );
+    testing::frame(
+        &mut app,
+        PointerId::Touch(2),
+        Some(button),
+        &[PointerAction::Release(PointerButton::Primary)],
+    );
+    assert!(actions(&app).is_empty());
+    assert!(
+        app.world().get::<Pressed>(button).is_some(),
+        "the unrelated release is not ours"
+    );
+    testing::frame(
+        &mut app,
+        PointerId::Touch(1),
+        Some(button),
+        &[PointerAction::Release(PointerButton::Primary)],
+    );
+    assert_eq!(actions(&app), [Action(1)]);
+    assert!(app.world().get::<Pressed>(button).is_none());
+}

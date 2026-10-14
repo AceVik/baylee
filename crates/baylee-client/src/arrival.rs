@@ -2,7 +2,7 @@
 //! Keep an opaque screen across camera handoff, prepare the real scene below,
 //! then acknowledge actual render preparation before scheduling its reveal.
 
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::UiButton;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -521,7 +521,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
             });
             root.spawn((
                 Exit,
-                LegacyButton,
+                UiButton,
                 Node {
                     padding: UiRect::axes(Val::Px(22.0), Val::Px(12.0)),
                     border: UiRect::all(Val::Px(1.0)),
@@ -679,11 +679,27 @@ fn cancel(
     journey: Res<Journey>,
     keys: Res<ButtonInput<KeyCode>>,
     mut commands: MessageWriter<DuelCommand>,
-    buttons: Query<&LegacyInteraction, (With<Exit>, Changed<LegacyInteraction>)>,
+    mut presses: MessageReader<bevy::picking::events::PointerPress>,
+    buttons: Query<(), With<bevy::ui_widgets::Button>>,
+    exits: Query<(), (With<Exit>, Without<bevy::ui::InteractionDisabled>)>,
+    parents: Query<&ChildOf>,
 ) {
-    if journey.destination == Destination::Table
-        && (keys.just_pressed(KeyCode::Escape)
-            || buttons.iter().any(|i| *i == LegacyInteraction::Pressed))
+    // Cancel is deliberately a down action, not a click. A press and release
+    // in one frame must still cancel even though Pressed is already gone.
+    let pressed = presses.read().fold(false, |pressed, event| {
+        if event.button != bevy::picking::pointer::PointerButton::Primary {
+            return pressed;
+        }
+        let mut at = Some(event.entity);
+        while let Some(entity) = at {
+            if buttons.contains(entity) {
+                return pressed || exits.contains(entity);
+            }
+            at = parents.get(entity).ok().map(ChildOf::parent);
+        }
+        pressed
+    });
+    if journey.destination == Destination::Table && (keys.just_pressed(KeyCode::Escape) || pressed)
     {
         commands.write(DuelCommand::Close);
     }
@@ -771,3 +787,6 @@ struct UiVertexOutput {
         );
     }
 }
+
+#[cfg(test)]
+mod pointer_tests;

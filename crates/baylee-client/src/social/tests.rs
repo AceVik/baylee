@@ -5,7 +5,6 @@
 //! The machine's own behaviour is tested in `baylee-client-core`; what is
 //! asked here is only what this crate adds to it.
 
-use crate::legacy_ui::LegacyInteraction;
 use std::collections::HashSet;
 
 use baylee_client_core::i18n::Lang;
@@ -18,141 +17,10 @@ use bevy::prelude::*;
 
 use super::rows::{self, Piece};
 use super::window;
-use super::{Arrivals, ChatUi, OsEntropy, released};
+use super::{Arrivals, ChatUi, OsEntropy};
 
-// ── released ────────────────────────────────────────────────────────────
-
-/// A control the test presses.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
-struct Press(&'static str);
-
-#[derive(Resource, Default)]
-struct Held(HashSet<Entity>);
-
-#[derive(Resource, Default)]
-struct Clicks(Vec<Press>);
-
-fn record_clicks(
-    changed: Query<(Entity, &LegacyInteraction, &Press), Changed<LegacyInteraction>>,
-    mut held: ResMut<Held>,
-    mut clicks: ResMut<Clicks>,
-) {
-    clicks.0.extend(released(&changed, &mut held.0));
-}
-
-fn click_app() -> App {
-    let mut app = App::new();
-    app.init_resource::<Held>()
-        .init_resource::<Clicks>()
-        .add_systems(Update, record_clicks);
-    app
-}
-
-fn control(app: &mut App, name: &'static str) -> Entity {
-    let id = app
-        .world_mut()
-        .spawn((LegacyInteraction::None, Press(name)))
-        .id();
-    app.update();
-    id
-}
-
-/// The pointer's state over `entity`, as one frame of `LegacyInteraction`.
-fn point(app: &mut App, entity: Entity, state: LegacyInteraction) {
-    *app.world_mut()
-        .entity_mut(entity)
-        .get_mut::<LegacyInteraction>()
-        .expect("an interaction") = state;
-    app.update();
-}
-
-fn clicked(app: &App) -> Vec<&'static str> {
-    app.world()
-        .resource::<Clicks>()
-        .0
-        .iter()
-        .map(|p| p.0)
-        .collect()
-}
-
-#[test]
-fn a_press_released_over_its_control_clicks_once() {
-    let mut app = click_app();
-    let send = control(&mut app, "send");
-    point(&mut app, send, LegacyInteraction::Pressed);
-    assert!(clicked(&app).is_empty(), "the press itself is no click");
-    point(&mut app, send, LegacyInteraction::Hovered);
-    assert_eq!(clicked(&app), ["send"]);
-    // A hover that follows is not a second click.
-    point(&mut app, send, LegacyInteraction::None);
-    point(&mut app, send, LegacyInteraction::Hovered);
-    assert_eq!(clicked(&app), ["send"], "hovering again clicks nothing");
-}
-
-#[test]
-fn a_press_released_elsewhere_clicks_nothing() {
-    let mut app = click_app();
-    let send = control(&mut app, "send");
-    point(&mut app, send, LegacyInteraction::Pressed);
-    // The pointer slid off before the button came up.
-    point(&mut app, send, LegacyInteraction::None);
-    assert!(clicked(&app).is_empty());
-    // Coming back over it later is a hover, not the release of that press.
-    point(&mut app, send, LegacyInteraction::Hovered);
-    assert!(clicked(&app).is_empty(), "the press was forgotten");
-}
-
-#[test]
-fn a_hover_that_was_never_pressed_clicks_nothing() {
-    let mut app = click_app();
-    let send = control(&mut app, "send");
-    point(&mut app, send, LegacyInteraction::Hovered);
-    point(&mut app, send, LegacyInteraction::None);
-    point(&mut app, send, LegacyInteraction::Hovered);
-    assert!(clicked(&app).is_empty());
-}
-
-#[test]
-fn a_release_over_another_control_clicks_neither() {
-    let mut app = click_app();
-    let first = control(&mut app, "first");
-    let second = control(&mut app, "second");
-    point(&mut app, first, LegacyInteraction::Pressed);
-    // The pointer left the first and came up over the second, which was
-    // never pressed.
-    point(&mut app, first, LegacyInteraction::None);
-    point(&mut app, second, LegacyInteraction::Hovered);
-    assert!(clicked(&app).is_empty());
-}
-
-#[test]
-fn two_controls_pressed_in_one_frame_each_click_on_their_own_release() {
-    let mut app = click_app();
-    let a = control(&mut app, "a");
-    let b = control(&mut app, "b");
-    for e in [a, b] {
-        *app.world_mut()
-            .entity_mut(e)
-            .get_mut::<LegacyInteraction>()
-            .expect("an interaction") = LegacyInteraction::Pressed;
-    }
-    app.update();
-    point(&mut app, b, LegacyInteraction::Hovered);
-    assert_eq!(clicked(&app), ["b"], "a is still held");
-    point(&mut app, a, LegacyInteraction::Hovered);
-    assert_eq!(clicked(&app), ["b", "a"]);
-}
-
-#[test]
-fn a_second_press_of_the_same_control_clicks_again() {
-    let mut app = click_app();
-    let send = control(&mut app, "send");
-    for _ in 0..2 {
-        point(&mut app, send, LegacyInteraction::Pressed);
-        point(&mut app, send, LegacyInteraction::Hovered);
-    }
-    assert_eq!(clicked(&app), ["send", "send"]);
-}
+// Pointer release contracts run the real drawer handler and Bevy dispatch
+// in `drawer::tests`; each other social surface tests its own handler too.
 
 // ── Arrivals ────────────────────────────────────────────────────────────
 

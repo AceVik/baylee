@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the stack panel shares one drawing vocabulary
 use super::*;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 
 pub(in crate::hud) fn control_button(
     commands: &mut Commands,
@@ -13,7 +13,7 @@ pub(in crate::hud) fn control_button(
 ) -> Entity {
     let button = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 min_height: px(28),
                 padding: UiRect::axes(px(8), px(5)),

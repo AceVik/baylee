@@ -5,7 +5,7 @@
 //! sounds, this account's devices, blocked players).
 
 use super::zoom::{z, zpx};
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, ConvId, Intent, KeyHome, Social};
 use baylee_protocol::social::{SocialSettings, WhispersFrom};
@@ -55,6 +55,7 @@ pub(crate) enum SheetPress {
 
 /// Installs the sheets.
 pub(crate) fn install(app: &mut App) {
+    crate::ui_button::install(app);
     app.add_systems(
         Update,
         (first_run, presses, sync)
@@ -78,14 +79,13 @@ fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
 
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
-    pressed: Query<(Entity, &LegacyInteraction, &SheetPress), Changed<LegacyInteraction>>,
-    mut held: Local<std::collections::HashSet<Entity>>,
+    mut clicks: Clicks<SheetPress>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
     mut forget_armed: Local<bool>,
 ) {
-    let clicked: Vec<SheetPress> = super::released(&pressed, &mut held);
+    let clicked: Vec<SheetPress> = clicks.read();
     for press in clicked {
         let Some(machine) = host.machine() else {
             return;
@@ -179,7 +179,7 @@ fn button(
 ) -> Entity {
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             press,
             Node {
                 padding: UiRect::axes(zpx(10.0), zpx(4.0)),
@@ -461,7 +461,7 @@ fn sync(
     });
     let close = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             SheetPress::Close,
             Node {
                 width: zpx(26.0),
@@ -781,3 +781,6 @@ fn sync(
     }
     commands.entity(card).add_children(&kids);
 }
+
+#[cfg(test)]
+mod tests;

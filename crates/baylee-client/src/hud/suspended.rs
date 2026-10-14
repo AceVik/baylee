@@ -1,6 +1,6 @@
 //! A retained, scrollable queue of every seat's publicly suspended cards.
 use super::{UiFonts, palette, tf, tf_bold};
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use crate::{Duel, settings::ClientSettings};
 use baylee_client_core::{BrowseZone, Lang, i18n::Phrase, suspended};
 use baylee_core::ids::PlayerId;
@@ -88,7 +88,7 @@ pub(crate) fn sync(
         for (owner, label) in rows {
             parent
                 .spawn((
-                    LegacyButton,
+                    UiButton,
                     Node {
                         width: percent(100),
                         padding: UiRect::all(px(6)),

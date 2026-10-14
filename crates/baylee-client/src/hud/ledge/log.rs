@@ -51,7 +51,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use baylee_client_core::card_face::CardText;
 use baylee_client_core::gamelog::{CardTextLookup, LogLine, NameSpan, Wording};
 use baylee_client_core::images::{ArtSize, ImageKey};
@@ -613,7 +613,7 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
         .id();
     let close = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             MenuButton {
                 action: MenuAction::ToggleLog,
             },
@@ -703,7 +703,7 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
     commands
         .spawn((
             LogNewBelow,
-            LegacyButton,
+            UiButton,
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,

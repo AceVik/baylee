@@ -25,7 +25,7 @@
 
 #[allow(clippy::wildcard_imports)] // the ledge's shared vocabulary
 use super::*;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 
 use crate::replay::{Loading, ReplayAsk, ReplayStatus};
 use baylee_client_core::automation::RailRow;
@@ -754,7 +754,7 @@ fn round(
     };
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 width: px(side),
                 height: px(side),
@@ -794,7 +794,7 @@ fn pill(commands: &mut Commands, fonts: &UiFonts, words: &str, on: bool, ask: Ba
     };
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 min_width: px(28.0),
                 height: px(22.0),
@@ -840,7 +840,7 @@ fn chip(commands: &mut Commands, fonts: &UiFonts, look: Chip, ask: BarAsk) -> En
     };
     let chip = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 height: px(26.0),
                 padding: UiRect::horizontal(px(10.0)),
@@ -950,7 +950,7 @@ fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
         let ground = if on { palette::DIALOG_LIT } else { Color::NONE };
         let row = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 Node {
                     height: px(30.0),
                     padding: UiRect::horizontal(px(10.0)),
@@ -1119,7 +1119,7 @@ fn sheet_button(commands: &mut Commands, fonts: &UiFonts, words: &str, lead: boo
     let ground = if lead { BRASS } else { palette::DIALOG_LIT };
     commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 height: px(30.0),
                 padding: UiRect::horizontal(px(14.0)),
@@ -1368,3 +1368,6 @@ pub fn replay_keys(
         asks.0.push(BarAsk::ToggleHand);
     }
 }
+
+#[cfg(test)]
+mod pointer_tests;

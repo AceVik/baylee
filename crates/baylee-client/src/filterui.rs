@@ -19,7 +19,7 @@
 //! way to draw one and forget to wire it, which is the failure this client
 //! has shipped before.
 
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use bevy::prelude::*;
 
 use baylee_client_core::cardquery::{Colors, Flag, Key, Op, Surface, Term, Value, render};
@@ -390,7 +390,7 @@ fn field(
     let box_node = commands
         .spawn((
             FilterAct(Act::Edit(at)),
-            LegacyButton,
+            UiButton,
             Node {
                 min_width: px(64),
                 height: px(CTRL_H - 4.0),
@@ -784,7 +784,7 @@ fn word(
     let button = commands
         .spawn((
             FilterAct(act),
-            LegacyButton,
+            UiButton,
             Node {
                 height: px(CTRL_H - 4.0),
                 padding: UiRect::horizontal(px(7)),
@@ -830,7 +830,7 @@ fn icon(
     let button = commands
         .spawn((
             FilterAct(act),
-            LegacyButton,
+            UiButton,
             Node {
                 width: px(CTRL_H - 4.0),
                 height: px(CTRL_H - 4.0),

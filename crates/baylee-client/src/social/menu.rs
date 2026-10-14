@@ -4,7 +4,7 @@
 //! sender's name writes to them.
 
 use super::zoom::{z, zpx};
-use crate::legacy_ui::{LegacyButton, LegacyInteraction};
+use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::social::{ChatPhrase, Intent, LineKind, LineState};
 use bevy::picking::events::PointerClick;
@@ -40,6 +40,7 @@ pub(crate) struct MenuAt(Vec2);
 
 /// Installs the row menu and the history's selection.
 pub(crate) fn install(app: &mut App) {
+    crate::ui_button::install(app);
     app.init_resource::<MenuAt>()
         .init_resource::<Selected>()
         .add_systems(
@@ -308,13 +309,8 @@ fn clicks_on_lines(
     }
 }
 
-fn presses(
-    pressed: Query<(Entity, &LegacyInteraction, &RowPress), Changed<LegacyInteraction>>,
-    mut held: Local<std::collections::HashSet<Entity>>,
-    mut host: ResMut<SocialHost>,
-    mut ui: ResMut<ChatUi>,
-) {
-    let clicked: Vec<RowPress> = super::released(&pressed, &mut held);
+fn presses(mut clicks: Clicks<RowPress>, mut host: ResMut<SocialHost>, mut ui: ResMut<ChatUi>) {
+    let clicked: Vec<RowPress> = clicks.read();
     let Some(key) = ui.row_menu.clone() else {
         return;
     };
@@ -432,7 +428,7 @@ fn sync(
     for (phrase, press) in items {
         let item = commands
             .spawn((
-                LegacyButton,
+                UiButton,
                 press,
                 Node {
                     padding: UiRect::axes(zpx(10.0), zpx(4.0)),
@@ -452,3 +448,6 @@ fn sync(
         commands.entity(root).add_child(item);
     }
 }
+
+#[cfg(test)]
+mod tests;

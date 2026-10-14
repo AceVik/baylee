@@ -43,7 +43,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use crate::legacy_ui::LegacyButton;
+use crate::ui_button::UiButton;
 use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::manapip;
 
@@ -1172,7 +1172,7 @@ pub(super) fn spawn_stack_panel(
 
     let toggle = commands
         .spawn((
-            LegacyButton,
+            UiButton,
             Node {
                 width: px(28),
                 height: px(26),
