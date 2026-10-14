@@ -23,7 +23,8 @@
 //! written to avoid. Every expectation below is therefore read off the
 //! [`FaceDef`] directly, and the two *derived* ones — a face's colors and a
 //! front face's keywords — are stated a second time here rather than
-//! borrowed. That duplication is the point: two statements of one rule can
+//! borrowed. Subtype expansion from changeling is likewise stated here.
+//! That duplication is the point: two statements of one rule can
 //! disagree, and a rule stated once and called twice cannot.
 //!
 //! # What is skipped, and why it is counted
@@ -291,16 +292,7 @@ fn mismatch(
             format!("{:?}", c.supertypes),
         ),
         Field::Subtypes => {
-            let mut want = SubtypeSet::from_slice(face.subtypes);
-            let keywords = def.keywords_for_face(0);
-            if keywords.contains(baylee_cards_dsl::KeywordSet::RANGELING) {
-                want.union_with(baylee_core::generated::subtypes::ALL_LAND_TYPES);
-            } else if keywords.contains(baylee_cards_dsl::KeywordSet::ALL_NONBASIC_LAND_TYPES) {
-                want.union_with(
-                    baylee_core::generated::subtypes::ALL_LAND_TYPES
-                        .difference(SubtypeSet::BASIC_LANDS),
-                );
-            }
+            let want = expected_subtypes(def, face);
             (c.subtypes == want, subtypes(want), subtypes(c.subtypes))
         }
         // The other rule stated twice: a front face keeps the keywords it
@@ -341,6 +333,25 @@ fn mismatch(
             face.name
         )
     })
+}
+
+/// Printed subtypes extended by characteristic-defining type keywords.
+fn expected_subtypes(def: &CardDef, face: &FaceDef) -> SubtypeSet {
+    let mut want = SubtypeSet::from_slice(face.subtypes);
+    let keywords = def.keywords_for_face(0);
+    // CR 702.73a: changeling defines every creature type, even on
+    // this otherwise empty board. Compare the exact set; no shield.
+    if keywords.contains(baylee_cards_dsl::KeywordSet::CHANGELING) {
+        want.union_with(baylee_core::generated::subtypes::ALL_CREATURE_TYPES);
+    }
+    if keywords.contains(baylee_cards_dsl::KeywordSet::RANGELING) {
+        want.union_with(baylee_core::generated::subtypes::ALL_LAND_TYPES);
+    } else if keywords.contains(baylee_cards_dsl::KeywordSet::ALL_NONBASIC_LAND_TYPES) {
+        want.union_with(
+            baylee_core::generated::subtypes::ALL_LAND_TYPES.difference(SubtypeSet::BASIC_LANDS),
+        );
+    }
+    want
 }
 
 /// The board: this card and nothing else, on either side.
@@ -748,4 +759,60 @@ fn an_effect_on_the_board_is_exactly_what_this_sweep_catches() {
         !shield.contains(&Field::Name) && !shield.contains(&Field::Power),
         "the Lattice shields fields its statics cannot move: {shield:?}"
     );
+}
+
+/// Changeling expands only creature types; losing one or gaining a land
+/// type must still fail the same comparison used by the pool sweep.
+fn check_changeling_subtypes(def: &CardDef) {
+    let card = def.index;
+    assert!(!shielded(def).contains(&Field::Subtypes));
+    let engine = alone(&[card]).expect("a changeling is alone on the board");
+    let (object, name) = read(&engine, card).unwrap();
+    let c = engine.state().object(object).unwrap().characteristics();
+    assert_eq!(
+        c.subtypes,
+        SubtypeSet::from_slice(def.faces[0].subtypes)
+            .union(baylee_core::generated::subtypes::ALL_CREATURE_TYPES)
+    );
+    assert!(mismatch(Field::Subtypes, def, &def.faces[0], c, &name).is_none());
+
+    let mut missing = c.clone();
+    missing
+        .subtypes
+        .remove(baylee_core::generated::subtypes::creature::ELF);
+    assert!(mismatch(Field::Subtypes, def, &def.faces[0], &missing, &name).is_some());
+    let mut extra = c.clone();
+    let noncreature = baylee_core::generated::subtypes::ALL_LAND_TYPES
+        .difference(c.subtypes)
+        .iter()
+        .next()
+        .expect("a noncreature subtype is absent");
+    extra.subtypes.insert(noncreature);
+    assert!(mismatch(Field::Subtypes, def, &def.faces[0], &extra, &name).is_some());
+    let elves = baylee_cards::by_index(llanowar_elves()).unwrap();
+    assert!(mismatch(Field::Subtypes, elves, &elves.faces[0], c, &name).is_some());
+}
+
+#[test]
+fn changeling_fixture_population_checks_exact_subtypes_without_shielding() {
+    let population: Vec<_> = baylee_cards::all()
+        .filter(|def| {
+            def.is_fully_read()
+                && def.faces[0].types.contains(TypeSet::CREATURE)
+                && def.faces[0].toughness.is_some_and(|value| value > 0)
+                && def.faces[0].enter_modifiers.is_empty()
+                && def
+                    .keywords_for_face(0)
+                    .contains(baylee_cards_dsl::KeywordSet::CHANGELING)
+                && !shielded(def).contains(&Field::Subtypes)
+        })
+        .collect();
+    assert!(
+        !population.is_empty(),
+        "the changeling fixture population vanished"
+    );
+    println!("changeling fixture population: {}", population.len());
+    for def in population {
+        check_changeling_subtypes(def);
+    }
 }

@@ -798,12 +798,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         (1034, 1311),
         "existing activated/loyalty reader census"
     );
-    // Corpus stage 1: 500 Generated cards add 205 activations, 169 readable.
+    // Corpus stage 2: 1995 Generated cards carry 784 activations, 645 readable.
+    // The 1495 additions contribute 579 rows, 476 readable; existing rows
+    // remain pinned separately and no reader implementation changed.
     // Keep the original population independently pinned: new cards cannot
     // compensate for a lost reader row among the existing cards.
     assert_eq!(
         (generated_read, generated_of),
-        (169, 205),
+        (645, 784),
         "generated activated/loyalty reader census"
     );
 

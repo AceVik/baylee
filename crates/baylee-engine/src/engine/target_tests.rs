@@ -86,7 +86,7 @@
 //! permanent type is worth. An enchantment would be the next one and cannot
 //! be had: every implemented enchantment in the pool prints a static, a
 //! trigger or a replacement effect, so putting one here would put a rule on
-//! the board — [`testkit::quiet_artifact`](super::testkit::quiet_artifact)
+//! the board — [`testkit::quiet_artifact`](quiet_artifact)
 //! says so where the next person will look.
 //!
 //! What it *does* hold was measured rather than argued. Replacing the chosen
@@ -103,14 +103,15 @@
 //! trample — because a continuous effect is registered, not recorded.
 
 use super::testkit::{
-    Duel, RegistryLookup, Rest, SEED, answer_one, arena, at_rest, basic_forest, keep_mulligans,
-    on_battlefield, presses, quiet_creature,
+    Duel, RegistryLookup, Rest, SEED, answer_one, arena, at_rest, basic_forest, basics, in_hand,
+    keep_mulligans, on_battlefield, presses, quiet_artifact, quiet_creature, tap_mana_where,
+    walk_to_own_main,
 };
 use super::*;
 use crate::object::{Characteristics, Status};
 use crate::zone::Zone;
-use baylee_cards_dsl::{AbilityDef, CardDef, CounterKind};
-use baylee_core::ids::{ObjectId, SubtypeId};
+use baylee_cards_dsl::{AbilityDef, CardDef, CounterKind, KeywordSet};
+use baylee_core::ids::{CardIndex, ObjectId, SubtypeId};
 
 /// Everything a player's answer named, so it can be taken out of the
 /// bystander set.
@@ -571,13 +572,134 @@ fn prints_a_static(def: &CardDef) -> bool {
     })
 }
 
+/// Recognize two independent, unconditional cast triggers: blue grants
+/// flying to one creature, red damages each creature without flying. Extra
+/// abilities or entry effects require a different fixture, not an exemption.
+fn split_cast_trigger_fixture(def: &CardDef) -> bool {
+    use baylee_cards_dsl::{
+        Amount, Color, ColorSet, Duration, Effect, Filter, TargetReq, TargetSpec, Trigger,
+    };
+    const EXPECTED: [AbilityDef; 2] = [
+        baylee_cards_dsl::triggered!(
+            Trigger::SpellCast(&Filter::And(&[
+                Filter::HasColor(ColorSet::from_slice(&[Color::Blue])),
+                Filter::ControlledByYou
+            ])),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::FLYING,
+                duration: Duration::UntilEndOfTurn
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        baylee_cards_dsl::triggered!(
+            Trigger::SpellCast(&Filter::And(&[
+                Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
+                Filter::ControlledByYou
+            ])),
+            &[Effect::DealDamageEach {
+                amount: Amount::Fixed(1),
+                filter: &Filter::And(&[
+                    Filter::CREATURE,
+                    Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))
+                ])
+            }]
+        ),
+    ];
+    def.faces.len() == 1
+        && def.faces[0].types == TypeSet::CREATURE
+        && def.faces[0].toughness.is_some_and(|value| value > 1)
+        && def.faces[0].enter_modifiers.is_empty()
+        && def.keywords_for_face(0).is_empty()
+        && def.abilities_for_face(0).len() == EXPECTED.len()
+        && EXPECTED
+            .iter()
+            .all(|ability| def.abilities_for_face(0).contains(ability))
+}
+
+/// A quiet creature supplies a cast color or a flying bystander without
+/// introducing any additional triggered, static, or activated effects.
+fn quiet_fixture_creature(color: Option<baylee_cards_dsl::Color>, flying: bool) -> CardIndex {
+    baylee_cards::all()
+        .find(|def| {
+            let face = &def.faces[0];
+            def.is_fully_read()
+                && def.faces.len() == 1
+                && face.types == TypeSet::CREATURE
+                && face.toughness.is_some_and(|value| value > 0)
+                && face.enter_modifiers.is_empty()
+                && def.abilities_for_face(0).is_empty()
+                && def.keywords_for_face(0)
+                    == if flying {
+                        KeywordSet::FLYING
+                    } else {
+                        KeywordSet::EMPTY
+                    }
+                && color.is_none_or(|color| {
+                    face.mana_cost.colors().union(face.color_indicator)
+                        == baylee_cards_dsl::ColorSet::from_slice(&[color])
+                })
+        })
+        .expect("the pool contains a quiet creature for this fixture")
+        .index
+}
+
+/// A blue-only starter isolates the targeted trigger. Every comparison is
+/// retained, while a separate population control exercises the red trigger.
+fn target_arena(def: &CardDef) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>)> {
+    if split_cast_trigger_fixture(def) {
+        let spell = quiet_fixture_creature(Some(baylee_cards_dsl::Color::Blue), false);
+        Some(split_trigger_cast_board(def.index, spell))
+    } else {
+        arena(def.index)
+    }
+}
+
+/// Both sides have ground creatures and a flyer, so the red trigger's
+/// untargeted damage and its flying restriction can be checked separately.
+fn split_trigger_cast_board(
+    card: CardIndex,
+    spell: CardIndex,
+) -> (Engine<RegistryLookup>, Vec<ObjectId>) {
+    let seat = PlayerId::new(0);
+    let bird = quiet_fixture_creature(None, true);
+    let elf = quiet_creature();
+    let rock = quiet_artifact();
+    let mut field = vec![card, elf, elf, bird, rock];
+    field.extend(basics());
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &field)
+        .battlefield(1, &[elf, elf, bird, rock])
+        .hand(0, &[spell])
+        .start();
+    assert!(walk_to_own_main(&mut engine, seat));
+    let source = on_battlefield(&engine, seat, card).expect("the trigger source is standing");
+    let hand = in_hand(&engine, seat, spell).expect("the starter is in hand");
+    let lands: Vec<_> = engine
+        .state()
+        .battlefield_seen()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .unwrap()
+                .characteristics()
+                .types
+                .contains(TypeSet::LAND)
+        })
+        .collect();
+    tap_mana_where(&mut engine, seat, |id| lands.contains(&id));
+    (engine, vec![source, hand])
+}
+
 /// Presses every button on one card that could make it target, and names the
 /// bystanders it reached.
 fn strays(def: &'static CardDef) -> (Vec<String>, Tally) {
     let seat = PlayerId::new(0);
     let mut offenders = Vec::new();
     let mut tally = Tally::default();
-    let Some((engine, objects)) = arena(def.index) else {
+    let Some((engine, objects)) = target_arena(def) else {
         return (offenders, tally);
     };
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
@@ -594,7 +716,7 @@ fn strays(def: &'static CardDef) -> (Vec<String>, Tally) {
     for (slot, press) in all {
         // A board per press: the first one moves the game on, and asking the
         // second question of that state would be asking a different question.
-        let Some((mut engine, objects)) = arena(def.index) else {
+        let Some((mut engine, objects)) = target_arena(def) else {
             continue;
         };
         let Some(object) = objects.get(slot).copied() else {
@@ -820,4 +942,139 @@ fn the_shield_hides_characteristics_and_nothing_else() {
         said[0].contains("status") && said[0].contains("tapped"),
         "the tap was reported as {said:?}"
     );
+}
+
+/// A blue spell has to change the chosen creature and leave every other
+/// option alone. The same fixture must also reach the pool sweep's watcher.
+fn check_blue_cast_trigger(def: &'static CardDef) {
+    assert!(!prints_a_static(def));
+    assert!(!REACHES_FURTHER.iter().any(|(name, _)| *name == def.name()));
+    let (offenders, tally) = strays(def);
+    assert!(offenders.is_empty(), "{offenders:?}");
+    assert_eq!(tally.cards_watched, 1);
+    assert!(tally.bystanders >= 4);
+
+    let spell = quiet_fixture_creature(Some(baylee_cards_dsl::Color::Blue), false);
+    let (mut engine, objects) = split_trigger_cast_board(def.index, spell);
+    let seat = PlayerId::new(0);
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: objects[1] })
+        .unwrap();
+    let (watch, chosen, _, rest) = drive_watching(&mut engine, seat);
+    assert!(matches!(rest, Rest::Reached));
+    let watch = watch.expect("the blue cast trigger offered multiple creatures");
+    let target = chosen
+        .iter()
+        .find(|id| watch.offered.contains(id))
+        .copied()
+        .unwrap();
+    let target_before = &watch.before[watch.offered.iter().position(|id| *id == target).unwrap()];
+    assert!(
+        !target_before.what.keywords.contains(KeywordSet::FLYING),
+        "the chosen creature must gain a keyword it did not have"
+    );
+    assert!(
+        engine
+            .state()
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::FLYING)
+    );
+    let mut compared = [0; 2];
+    for (id, before) in watch.offered.iter().zip(&watch.before) {
+        if chosen.contains(id) {
+            continue;
+        }
+        let after = look(&engine, *id).unwrap();
+        assert!(
+            differences(before, &after, false).is_empty(),
+            "blue-only trigger reached {}",
+            whose(&engine, *id)
+        );
+        if !before.what.keywords.contains(KeywordSet::FLYING) {
+            // An accidentally widened flying grant must still be caught.
+            let mut widened = look(&engine, *id).unwrap();
+            widened.what.keywords = widened.what.keywords.union(KeywordSet::FLYING);
+            assert!(!differences(before, &widened, false).is_empty());
+            compared[usize::from(before.controller.get())] += 1;
+        }
+    }
+    assert!(
+        compared.into_iter().all(|count| count > 0),
+        "ground creatures on both sides remain adversarial bystanders"
+    );
+}
+
+/// Red-only casts need no target, and the damage must reach both players'
+/// ground creatures while leaving their flyers and artifacts untouched.
+fn check_red_cast_trigger(def: &CardDef) {
+    let spell = quiet_fixture_creature(Some(baylee_cards_dsl::Color::Red), false);
+    let (mut engine, objects) = split_trigger_cast_board(def.index, spell);
+    let before: Vec<_> = engine
+        .state()
+        .battlefield_seen()
+        .map(|id| (id, look(&engine, id).unwrap()))
+        .collect();
+    let seat = PlayerId::new(0);
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: objects[1] })
+        .unwrap();
+    let (watch, _, prompted, rest) = drive_watching(&mut engine, seat);
+    assert!(matches!(rest, Rest::Reached));
+    assert!(
+        watch.is_none() && !prompted,
+        "the red trigger has no targets"
+    );
+    let mut dead = [0; 2];
+    let mut flyers = [0; 2];
+    for (id, before) in before {
+        let after = look(&engine, id).unwrap();
+        let owner = usize::from(before.controller.get());
+        if id == objects[0] {
+            assert_eq!(after.zone, Zone::Battlefield);
+            assert_eq!(after.damage, 1);
+        } else if before.what.types.contains(TypeSet::CREATURE)
+            && !before.what.keywords.contains(KeywordSet::FLYING)
+        {
+            assert_eq!(after.zone, Zone::Graveyard);
+            dead[owner] += 1;
+        } else {
+            assert!(
+                differences(&before, &after, false).is_empty(),
+                "red trigger reached {}",
+                whose(&engine, id)
+            );
+            if before.what.keywords.contains(KeywordSet::FLYING) {
+                flyers[owner] += 1;
+            }
+        }
+    }
+    assert_eq!(dead, [2, 2]);
+    assert_eq!(flyers, [1, 1]);
+    assert_eq!(
+        engine.state().object(objects[1]).unwrap().zone,
+        Zone::Battlefield,
+        "the red creature enters after the cast trigger resolves"
+    );
+}
+
+#[test]
+fn split_cast_trigger_fixture_population_keeps_targeting_and_bystander_damage_separate() {
+    let population: Vec<_> = baylee_cards::all()
+        .filter(|def| def.is_fully_read() && split_cast_trigger_fixture(def))
+        .collect();
+    assert!(
+        !population.is_empty(),
+        "the split cast trigger fixture population vanished"
+    );
+    println!(
+        "split cast trigger fixture population: {}",
+        population.len()
+    );
+    for def in population {
+        check_blue_cast_trigger(def);
+        check_red_cast_trigger(def);
+    }
 }

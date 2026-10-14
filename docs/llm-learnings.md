@@ -4545,3 +4545,18 @@ land type"; both are convention tests that fire on a first try.
   controller's effect (now ordered by the drawing player).
 - An old test that pinned a Partial limitation ("dredge is not written") goes red the day the
   card is done: grep the card's name across card_tests before flipping it.
+
+### Corpus expansion, first remaining batch (2026-10-14)
+
+- Keep new generated cards at Generated: generic engine fixtures discover structural
+  populations rather than adding literal new oracle IDs that would mark them tested.
+- Pool-wide tests must distinguish genuine rule failures from stale census bounds.
+  Count independently where possible; retain negative controls and existing guarantees.
+- Exclude Bloodhall Ooze and Graceful Antelope until optional effects are preserved.
+  Disembowel, Molder and Repeal are deferred by owner decision: do not increase the
+  client target-preview blind-spot ceiling to admit them.
+- Aura-granted mana fixtures must attach their aura before state-based actions.
+  Split triggers must test targeted and untargeted clauses independently; Changeling
+  fixtures must include all creature types when comparing printed characteristics.
+- Never regenerate a registry by hand after excluding generated files: use the
+  already-built xtask first, then rebuild xtask and check generation reproducibility.

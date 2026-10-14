@@ -73,13 +73,6 @@ pub fn wearing(name: &str) -> Option<(CardIndex, u8)> {
 
 /// What the registry prints under a name: a card, a token, or nothing.
 ///
-/// Cards are asked first, and the order is the answer to a collision rather
-/// than an accident of writing. No token name is a card name in today's pool
-/// and `no_token_is_named_after_a_card` is what says so; were one, the card
-/// is what a player means — a token is named for what it *is* and a card for
-/// what it is *called*, so a card printed "Soldier" is a Soldier in a way a
-/// Soldier chit is not.
-///
 /// A name a token is printed with answers the token, even where a card
 /// shares it (Antiquities' Shapeshifter and the Shapeshifter tokens): a name
 /// alone cannot tell them apart, and the board asks [`card_by_body`] for the
@@ -285,9 +278,13 @@ mod tests {
 
     /// The two tables meet in one answer, and a name reaches the right one.
     #[test]
-    fn a_name_finds_the_card_first_and_then_the_token() {
-        let (elves, face) = wearing("Llanowar Elves").expect("the pool has it");
-        assert_eq!(named("Llanowar Elves"), Some(Wears::Card(elves, face)));
+    fn a_name_finds_unambiguous_cards_and_prefers_tokens_on_collisions() {
+        let (card, face) = wearing("Counterspell").expect("the pool has it");
+        assert_eq!(named("Counterspell"), Some(Wears::Card(card, face)));
+        let token = crate::tokenart::wearing("Llanowar Elves")
+            .expect("the expanded pool has a named Llanowar Elves token");
+        assert!(wearing("Llanowar Elves").is_some());
+        assert_eq!(named("Llanowar Elves"), Some(Wears::Token(token)));
         assert_eq!(
             named("Soldier"),
             crate::tokenart::wearing("Soldier").map(Wears::Token),

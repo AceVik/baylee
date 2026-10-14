@@ -62,7 +62,7 @@
 //! the compiled card registry and a `Filter` takes `baylee-cards-dsl`, and
 //! `baylee-client-core` deliberately links neither.
 
-use baylee_cards_dsl::{AbilityDef, Filter, PlayerRel, TargetSpec};
+use baylee_cards_dsl::{AbilityDef, Filter, KeywordSet, PlayerRel, TargetSpec};
 use baylee_view::{CardIdentity, PlayerView, PublicObject, StackItem};
 
 /// Whether this client can **prove** the card has no legal target.
@@ -354,6 +354,20 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.token.is_some(),
         Filter::WithSingleTarget => object.targets.len() == 1,
+        Filter::TargetsPermanentYouControl => {
+            return targets_permanent_you_control(view, object);
+        }
+        Filter::HasKeyword(keywords) => {
+            // `KeywordSet::contains` means ANY requested bit, not all bits.
+            let present = object.keywords & keywords.bits();
+            // Gamehost adds rider-derived "can't be countered" on the stack.
+            // That bit alone cannot prove the characteristic the engine's
+            // HasKeyword reads, and must remain unknown under negation too.
+            if object.stack_item.is_some() && present == KeywordSet::UNCOUNTERABLE.bits() {
+                return None;
+            }
+            present != 0
+        }
         Filter::ControlledByYou => object.controller == view.seat,
         // Exact at a duel and refused above it. The engine asks
         // `state.is_opponent`, which knows about teams; a `PlayerView` does
@@ -403,16 +417,9 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // engine compares and the number the player is looking at.
         Filter::PowerAtLeast(n) => object.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => object.power.is_some_and(|p| p <= *n),
-        // Six the view cannot answer, named rather than swept up. The first
-        // three need the *source* object, which is a card in hand that has
-        // not been cast and so has no chosen subtype, no attachment and no
-        // identity on the battlefield to share. `HasKeyword` is a
-        // `KeywordSet` against the view's flat `u128` and is left until
-        // something needs it. `InZone` is answerable only for the zone the
-        // caller already chose to iterate, which makes it a tautology here
-        // rather than a reading. And `CmcAtMostX` is bounded by the X
-        // announced for the source, which is a number no view carries — the
-        // same refusal `baylee-ai`'s reader makes about it.
+        // Source-relative choices require a spell already cast; this
+        // preflight has no source context. In particular, neither X filter
+        // can use a candidate's mana value as the unannounced source's X.
         // Continuous ability removal and grants are evaluated by the engine.
         // Card identity cannot establish verified physical printing facts.
         Filter::HasWatermark
@@ -425,7 +432,6 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::SharesSubtypeWithCommander
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
-        | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
         | Filter::CmcExactlyX
         // Bounded by what the source's payment spent, which no view carries
@@ -456,8 +462,12 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::HasCounter(_)
         | Filter::IsCommander
         | Filter::HasAdventure
+        // StackItem has neither an exact source incarnation nor an
+        // authoritative activated/triggered kind. Printed ability identity
+        // cannot stand in for either (grants, copies and departed sources).
+        // Damage-source LKI rows are sent only for a source-choice decision,
+        // so following the live source handle here would be unsound.
         | Filter::ActivatedAbilityFrom(_)
-        | Filter::TargetsPermanentYouControl
         | Filter::HasRampage
         | Filter::HasAnyCounter
         | Filter::Enchanted
@@ -480,6 +490,32 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::OfSourceChosenColor
         | Filter::SharesAColorWith(_) => return None,
     })
+}
+
+/// Read exact target incarnations, never a later permanent at the same handle.
+fn targets_permanent_you_control(view: &PlayerView, object: &PublicObject) -> Option<bool> {
+    let mut unknown = false;
+    for target in &object.targets {
+        let baylee_core::ids::TargetRef::Object(reference) = target else {
+            continue;
+        };
+        let Some(target) = view.target_object(*reference) else {
+            unknown = true;
+            continue;
+        };
+        if !target.is_current || target.zone != baylee_view::LogZone::Battlefield {
+            continue;
+        }
+        // Keep the same entitlement guard as the candidate-object reader.
+        if target.card.is_none() && target.token.is_none() {
+            unknown = true;
+            continue;
+        }
+        if target.controller == view.seat {
+            return Some(true);
+        }
+    }
+    (!unknown).then_some(false)
 }
 
 /// Public seat identities determine opposition only in a two-player game.
@@ -522,8 +558,8 @@ pub(crate) fn only_a_dearer_mode_is_left(
 #[cfg(test)]
 mod tests {
     mod attached;
+    mod public_filters;
     use super::*;
-    use baylee_cards_dsl::KeywordSet;
     use baylee_client_core::test_support::{ViewBuilder, printed};
     use baylee_core::ids::PrintRef;
     use baylee_core::types::TypeSet;
@@ -703,8 +739,8 @@ mod tests {
     /// assertion is why this test is not paranoia: it shows [`matches`]
     /// answering that same filter `Some(false)` without complaint, because
     /// [`Filter::And`] returns at the first false part and never reaches the
-    /// keyword. Quicksand carries this shape in the pool today, on an
-    /// activated ability rather than a spell.
+    /// X-dependent leaf. The structural census must find it even though
+    /// the probe already failed the first leaf.
     #[test]
     fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
         // Both first in the body, where clippy wants an item, and where they
@@ -714,9 +750,9 @@ mod tests {
 
         static BLIND: Filter = Filter::And(&[
             // False for the probe, so a short-circuiting reader stops here
-            // and never asks about the keyword behind it.
+            // and never asks about the unannounced X behind it.
             Filter::HasType(TypeSet::LAND),
-            Filter::HasKeyword(KeywordSet::FLYING),
+            Filter::CmcExactlyX,
         ]);
 
         let probe = printed(1, 0, "Grizzly Bears", 0);
@@ -728,7 +764,7 @@ mod tests {
 
         assert!(matches!(
             unreadable_leaf(&view, &probe, &BLIND),
-            Some(Filter::HasKeyword(_))
+            Some(Filter::CmcExactlyX)
         ));
 
         // The hazard is real and not hypothetical: asking `matches` alone

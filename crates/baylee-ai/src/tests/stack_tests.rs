@@ -82,6 +82,8 @@ fn a_counter_names_the_spell_aimed_at_this_seat() {
 /// Open Communications still only draws: its unsupported additional clause
 /// keeps it on this list until that clause is implemented. Borne Upon a Wind
 /// and Gitaxian Probe now have their additional effects and leave it.
+/// Index only reorders the library: the existing predicate also deliberately
+/// permits pure selection spells without spending a counterspell.
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -120,6 +122,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
         held,
         [
             "Brainstorm",
+            "Index",
             "Open Communications",
             "Opt",
             "Reach Through Mists",

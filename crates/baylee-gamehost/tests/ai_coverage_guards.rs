@@ -540,26 +540,13 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
     }
 }
 
-/// A granted mana ability charges the tap and nothing else, in this pool.
+/// Only the named cards grant mana with a price beyond a tap.
 ///
-/// `simple_mana`'s doc — and `mana_shape` under it — says it reads a
-/// **free** mana ability, and what it actually checks is `cost.mana ==
-/// ZERO`. Free of *mana* is not free: `cost.parts` may still ask for a life
-/// payment, a counter or the permanent itself, and nothing in that family
-/// looks. For the AI's planner that was #168, and the fix is a price column
-/// in `policy::sources` rather than a change to the reader, because the
-/// reader answers what comes *out* of an ability and the price is what goes
-/// in.
-///
-/// For `PublicObject::granted_mana` it is a different question with the same
-/// hole, and the answer today is that the hole is unreachable — which is a
-/// fact about this pool and not about the code, so it is written here where
-/// a card can break it rather than in a comment where it cannot. Every
-/// `Modifier::GrantActivated` that grants a *mana* ability costs
-/// `Cost::TAP`, so the projection and the offer agree by accident of what is
-/// printed. The day one does not, `docs/protocol.md` §"Granted mana" is the
-/// paragraph that breaks: a land the planner counts on and the engine
-/// refuses.
+/// `simple_mana` reads output, not whether a non-mana price is free.
+/// `PublicObject::granted_mana` and `GrantSource::mana` therefore require
+/// `tap_only`: neither projection has a field for life or sacrifice costs.
+/// Each name below owes a real-board projection test and a documented AI
+/// limitation; a newly priced grant must trip this guard until both exist.
 ///
 /// The population bound is the load-bearing half. A grant hides in **two**
 /// shapes — `AbilityDef::Static`, which `ability_effects` deliberately
@@ -618,27 +605,17 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
         "the walk found {mana_sites} granted *mana* abilities and there were \
          three, so the assertion below is over a list too short to fail"
     );
-    // What used to stand here was `priced.is_empty()` — no card in the pool
-    // may grant a priced mana ability — and Forgotten Monument broke it the
-    // day it was written, correctly: the card really does sell its Caves a
-    // colour for `{T}` and a life. The hole was never the card's. It was that
-    // `GrantedMana` has no field for a price, so `granted_mana` reported the
-    // grant as free.
-    //
-    // `tap_only` is now that rule, read by the projection and asserted here
-    // from the other end. This test therefore says the thing that is still
-    // worth saying: whatever the pool grants, the predicate the projection
-    // uses is the predicate this walk applies, so a card that starts charging
-    // for a grant is silently dropped from the view rather than misreported.
-    // `view::granted_mana_refuses_a_priced_grant` is the same sentence with a
-    // board under it.
-    // Named and not counted, so the list falls in both directions: a card
-    // that stops charging drops out of it, and a card that starts charging
-    // walks into a view that cannot describe it and owes the same board-level
-    // test Forgotten Monument has.
+    // `view::tests::grants::granted_mana_refuses_a_priced_grant` builds
+    // both boards and checks both mana fields while the engine still offers
+    // the paid activation. Basal Sliver additionally sacrifices the recipient
+    // for exactly {B}{B}, leaving its grantor alive. Neither grant can be
+    // planned by the AI today; docs/ai-coverage-todo.md records that debt.
+    // Sort names so this is membership, independent of generated index order.
+    // Keep exact equality: additions and removals must both be reviewed.
+    priced.sort_unstable();
     assert_eq!(
         priced,
-        ["Forgotten Monument"],
+        ["Basal Sliver", "Forgotten Monument"],
         "the pool's priced granted mana abilities have changed. Each one is \
          dropped from `PublicObject::granted_mana` rather than reported free \
          — see `baylee_cards_dsl::tap_only` — and each owes a test with a \

@@ -1265,13 +1265,189 @@ const PAYS_BY_RETURNING_A_LAND: &[(&str, &str)] = &[
 /// Karoo clause on an **upkeep** trigger, so the driver above, which plays a
 /// land and waits for it to arrive, could never reach it.
 ///
-/// A row here carries the same promise a row in the table above does — that
-/// some test plays the card — and differs only in which test that is.
-const PAYS_BY_RETURNING_A_LAND_ELSEWHERE: &[(&str, &str)] = &[(
-    "050dac46-9ba0-4b8a-b61b-1c7ec6f3723a",
-    // played by `creatures::a_djinn_that_costs_a_bounce_pays_it_or_is_sacrificed`
-    "Waterspout Djinn",
-)];
+/// These existing rows are anchors for the structural upkeep fixture below:
+/// every row must still be discovered and played, along with any new card
+/// that writes the same upkeep payment. New cases need no literal oracle id.
+const PAYS_BY_RETURNING_A_LAND_ELSEWHERE: &[(&str, &str)] =
+    &[("050dac46-9ba0-4b8a-b61b-1c7ec6f3723a", "Waterspout Djinn")];
+
+/// The front-face upkeep payment this fixture can reach, identified by DSL
+/// structure rather than a name or coverage tier. Other shapes remain
+/// subject to the pool/table equality check.
+fn upkeep_bounce_cost(
+    def: &baylee_cards_dsl::CardDef,
+) -> Option<&'static baylee_cards_dsl::Filter> {
+    use baylee_cards_dsl::{AbilityDef, CostPart, PlayerRel, StepKind, Trigger, TriggerZone};
+
+    def.abilities_for_face(0).iter().find_map(|ability| {
+        let AbilityDef::Triggered {
+            trigger:
+                Trigger::StepBegin {
+                    step: StepKind::Upkeep,
+                    whose: PlayerRel::You,
+                },
+            zone: TriggerZone::Battlefield,
+            effects,
+            targets: None,
+            second_targets: None,
+            condition: None,
+            ..
+        } = ability
+        else {
+            return None;
+        };
+        let [
+            Effect::PlayerMayPayCostOr {
+                player: PlayerRel::You,
+                cost: CostPart::ReturnToHand(filter),
+                effect: Effect::SacrificeSelf,
+            },
+        ] = *effects
+        else {
+            return None;
+        };
+        Some(*filter)
+    })
+}
+
+/// An upkeep before its payment resolves, with our untapped Island, tapped
+/// Island and tapped Plains, and their Island. Tap after the untap step so
+/// the upkeep's menu sees the intended statuses.
+fn upkeep_bounce_board(
+    card: CardIndex,
+    pay: bool,
+) -> (Engine<RegistryLookup>, ObjectId, [ObjectId; 4]) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(if pay { 940 } else { 941 }, island())
+        .battlefield(0, &[card, island(), island(), plains()])
+        .battlefield(1, &[island()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    let body = on_battlefield(&engine, p0, card).expect("the upkeep creature is out");
+    let islands: Vec<_> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == p0 && o.card.is_some_and(|c| c.index == island()))
+        })
+        .collect();
+    assert_eq!(islands.len(), 2, "our two Islands are out");
+    let plain = on_battlefield(&engine, p0, plains()).expect("our Plains is out");
+    let theirs = on_battlefield(&engine, p1, island()).expect("their Island is out");
+    unf_tap(&mut engine, p0, islands[1]);
+    unf_tap(&mut engine, p0, plain);
+    (engine, body, [islands[0], islands[1], plain, theirs])
+}
+
+/// Play one answer to the upkeep bounce payment. Expected menus are
+/// independent of the engine's filter evaluator: an untapped Island cost
+/// excludes the tapped Island and Plains; an unrestricted land cost offers
+/// all three and is paid with the tapped Plains. Neither offers their
+/// opponent's Island or the creature itself.
+fn upkeep_bounce_is_paid_or_sacrificed(
+    def: &baylee_cards_dsl::CardDef,
+    filter: &baylee_cards_dsl::Filter,
+    pay: bool,
+) {
+    use baylee_cards_dsl::Filter;
+    use baylee_core::generated::subtypes;
+
+    let needs_untapped_island = if *filter == Filter::YOUR_LAND {
+        false
+    } else {
+        assert_eq!(
+            *filter,
+            Filter::And(&[
+                Filter::HasSubtype(subtypes::land::ISLAND),
+                Filter::Untapped,
+                Filter::ControlledByYou,
+            ]),
+            "{}: extend the gameplay fixture for this return filter",
+            def.name()
+        );
+        true
+    };
+    let p0 = PlayerId::new(0);
+    let (mut engine, body, [island, tapped_island, plain, theirs]) =
+        upkeep_bounce_board(def.index, pay);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("{}: the upkeep asks what pays", def.name())
+    };
+    assert_eq!(player, p0, "{}: the controller chooses", def.name());
+    assert_eq!(prompt, ChoicePrompt::CostReturn, "{}", def.name());
+    assert_eq!((min, max), (0, 1), "{}: return one or decline", def.name());
+    let mut expected = if needs_untapped_island {
+        vec![island]
+    } else {
+        vec![island, tapped_island, plain]
+    };
+    let mut offered = options;
+    expected.sort_unstable();
+    offered.sort_unstable();
+    assert_eq!(offered, expected, "{}: exact payment menu", def.name());
+    let payment = if needs_untapped_island { island } else { plain };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: if pay { vec![payment] } else { Vec::new() },
+            },
+        )
+        .unwrap();
+    let battlefield = engine.state().zones.list(ZoneLocation::Battlefield);
+    assert_eq!(
+        battlefield.contains(&body),
+        pay,
+        "{}: payment keeps the creature",
+        def.name()
+    );
+    assert_eq!(
+        in_graveyard(&engine, p0, def.index).is_some(),
+        !pay,
+        "{}: decline sacrifices it",
+        def.name()
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&payment),
+        pay,
+        "{}: payment returns to hand",
+        def.name()
+    );
+    for land in [island, tapped_island, plain, theirs] {
+        assert_eq!(
+            battlefield.contains(&land),
+            !pay || land != payment,
+            "{}: only the paid land leaves",
+            def.name()
+        );
+    }
+}
 
 /// The basic the row names, as a handle.
 fn basic(name: &str) -> CardIndex {
@@ -1424,13 +1600,12 @@ const PAYS_WITH_MANA: &[&str] = &[
     "98334bfa-c516-4c20-bdc5-9e32e7127adc", // Transguild Promenade
 ];
 
-/// The two tables above are the whole family, asked of the compiled pool.
+/// The land table and upkeep fixture cover the whole compiled family.
 ///
-/// [`PAYS_BY_RETURNING_A_LAND`] and [`PAYS_BY_RETURNING_A_LAND_ELSEWHERE`]
-/// claim between them to be every card that escapes an effect by bouncing a
-/// land, and a claim about a population is worth what a test says it is: a
-/// fifteenth of these written by a later codegen run would otherwise pass
-/// every gate in this file while never being played once. The
+/// [`PAYS_BY_RETURNING_A_LAND`] and the structurally enumerated upkeep
+/// payments claim between them to be every card that escapes an effect by
+/// bouncing a land. Every upkeep case is played here with both answers, so
+/// a later codegen run cannot add a row without exercising its gameplay. The
 /// same argument as `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives`
 /// and the reason `no_card_claims_a_keyword_the_engine_ignores` is a test.
 ///
@@ -1455,10 +1630,25 @@ fn every_land_that_pays_by_returning_one_is_in_the_table() {
     }
     pool.sort_unstable();
     pool.dedup();
+    let upkeep: Vec<_> = baylee_cards::generated::ALL
+        .iter()
+        .filter_map(|(id, def)| upkeep_bounce_cost(def).map(|filter| (*id, *def, filter)))
+        .collect();
+    for (id, name) in PAYS_BY_RETURNING_A_LAND_ELSEWHERE {
+        assert!(
+            upkeep.iter().any(|(found, _, _)| found == id),
+            "{name}: the structural upkeep fixture must still play this existing case"
+        );
+    }
+    for (_, def, filter) in &upkeep {
+        for pay in [true, false] {
+            upkeep_bounce_is_paid_or_sacrificed(def, filter, pay);
+        }
+    }
     let mut table: Vec<&str> = PAYS_BY_RETURNING_A_LAND
         .iter()
-        .chain(PAYS_BY_RETURNING_A_LAND_ELSEWHERE)
         .map(|(id, _)| *id)
+        .chain(upkeep.iter().map(|(id, _, _)| *id))
         .collect();
     table.sort_unstable();
 
@@ -1471,7 +1661,7 @@ fn every_land_that_pays_by_returning_one_is_in_the_table() {
     );
     assert_eq!(
         pool, table,
-        "the pool and PAYS_BY_RETURNING_A_LAND disagree. A card the table \
+        "the pool and the played land/upkeep cases disagree. A card the table \
          is missing is a card nothing plays; a row the pool is missing names \
          a card that left"
     );

@@ -87,7 +87,7 @@ fn unrelated_host_is_not_a_match_even_when_other_objects_match() {
 
 #[test]
 fn an_unattached_object_does_not_match_even_an_unknown_inner_filter() {
-    static UNKNOWN: Filter = Filter::AttachedTo(&Filter::HasKeyword(KeywordSet::FLYING));
+    static UNKNOWN: Filter = Filter::AttachedTo(&Filter::CmcExactlyX);
     let (mut attachment, host) = attached_pair(TypeSet::CREATURE);
     attachment.attached_to = None;
     let view = ViewBuilder::new(2)
@@ -168,7 +168,7 @@ fn a_hidden_host_remains_unknown_even_when_its_fields_appear_to_match() {
 
 #[test]
 fn an_unknown_inner_filter_on_a_visible_host_remains_unknown() {
-    static UNKNOWN: Filter = Filter::AttachedTo(&Filter::HasKeyword(KeywordSet::FLYING));
+    static UNKNOWN: Filter = Filter::AttachedTo(&Filter::CmcExactlyX);
     let (attachment, host) = attached_pair(TypeSet::CREATURE);
     let view = ViewBuilder::new(2)
         .with_battlefield(0, vec![attachment.clone()])
@@ -206,10 +206,7 @@ fn census_reads_attachment_filters_independently_of_the_probes_attachment() {
 
 #[test]
 fn census_finds_unknown_nested_filters_behind_an_unattached_probe() {
-    static BLIND: Filter = Filter::AttachedTo(&Filter::And(&[
-        Filter::LAND,
-        Filter::HasKeyword(KeywordSet::FLYING),
-    ]));
+    static BLIND: Filter = Filter::AttachedTo(&Filter::And(&[Filter::LAND, Filter::CmcExactlyX]));
     static NEGATED: Filter = Filter::Not(&BLIND);
     let mut probe = printed(1, 0, "Unattached probe fixture", 1);
     probe.types = TypeSet::CREATURE;
@@ -222,7 +219,7 @@ fn census_finds_unknown_nested_filters_behind_an_unattached_probe() {
         assert!(
             matches!(
                 unreadable_leaf(&view, &probe, filter),
-                Some(Filter::HasKeyword(_))
+                Some(Filter::CmcExactlyX)
             ),
             "the census must descend past both the absent attachment and the false type leaf"
         );

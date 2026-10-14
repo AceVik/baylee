@@ -500,25 +500,13 @@ fn a_copys_own_grant_is_read_off_the_card_it_is() {
     );
 }
 
-/// Forgotten Monument grants its other Caves `{T}`, pay 1 life: add one
-/// mana of any colour — and the view says **nothing** about it, on
-/// purpose.
-///
-/// [`baylee_view::GrantedMana`] carries a slot, the colours and the
-/// amount and has no field for a price, because an ability printed on no
-/// card has nowhere else to put one. Reporting this grant would therefore
-/// tell a planner it may tap the Cave for free; it would tap it, and the
-/// life would never be offered to pay. Saying nothing costs the planner
-/// one land and costs the player nothing at all, which is the asymmetry
-/// `baylee_cards_dsl::tap_only` encodes.
-///
-/// The second assertion is what keeps the first from being a way to hide
-/// a broken grant: the engine still **offers** the ability under
-/// `GRANTED_ABILITY`, so what the view withholds is a claim, not the
-/// player's button.
+/// Both priced grant shapes stay out of the planner's free mana projection.
+/// Forgotten Monument charges life; a structurally discovered generated card
+/// grants `SacrificeSelf`. The latter is activated on another matching
+/// permanent, proving the recipient pays with itself and the grantor survives.
 #[test]
 fn granted_mana_refuses_a_priced_grant() {
-    use baylee_engine::choice::{Pending, PlayerAction};
+    use baylee_cards_dsl::{CostPart, Filter, Modifier};
 
     let monument = by_oracle_id("71393988-ad6f-43fd-9978-c0de15ae8e87")
         .expect("Forgotten Monument is in the pool")
@@ -526,22 +514,93 @@ fn granted_mana_refuses_a_priced_grant() {
     let maw = by_oracle_id("952ab8fe-f7d3-4673-89de-8c6d3f8a081f")
         .expect("Cavernous Maw is in the pool")
         .index;
-    let mut preset = mixed_print_preset();
-    preset.seats[0].starting_battlefield = vec![
-        DeckEntry {
-            rule_print: None,
-            choices: baylee_core::card_metadata::DeckChoices::default(),
-            card: maw,
-            print: PrintRef::new(0),
-        },
-        DeckEntry {
-            rule_print: None,
-            choices: baylee_core::card_metadata::DeckChoices::default(),
-            card: monument,
-            print: PrintRef::new(0),
-        },
-    ];
+    priced_grant_board(monument, maw);
 
+    let (grantor, subtype) = baylee_cards::all()
+        .find_map(|def| {
+            def.abilities_for_face(0).iter().find_map(|ability| {
+                let AbilityDef::Static(rule) = ability else {
+                    return None;
+                };
+                let (
+                    Filter::HasSubtype(subtype),
+                    Modifier::GrantActivated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                    },
+                ) = (rule.filter, rule.modifier)
+                else {
+                    return None;
+                };
+                (cost.parts == [CostPart::SacrificeSelf]
+                    && baylee_cards_dsl::simple_mana(&cost, effects)
+                        .is_some_and(|mana| mana.colors == [ManaColor::Black] && mana.amount == 2))
+                .then_some((def, subtype))
+            })
+        })
+        .expect("the pool grants sacrifice-self for two black mana");
+    let recipient = baylee_cards::all()
+        .find(|def| {
+            def.index != grantor.index
+                && def.faces[0].subtypes.contains(&subtype)
+                && def.faces[0]
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+                && def.abilities_for_face(0).is_empty()
+        })
+        .expect("another creature receives the subtype's grant")
+        .index;
+    let (mut engine, source, recipient, ability_index) =
+        priced_grant_board(grantor.index, recipient);
+    let me = PlayerId::new(0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: recipient,
+                ability_index,
+            },
+        )
+        .expect("the granted sacrifice mana ability activates");
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == me));
+    assert!(engine.state().zones.list(ZoneLocation::Stack).is_empty());
+    let state = engine.state();
+    assert!(
+        state
+            .zones
+            .list(ZoneLocation::Graveyard(me))
+            .contains(&recipient),
+        "the recipient pays SacrificeSelf, not the grantor"
+    );
+    let battlefield = state.zones.list(ZoneLocation::Battlefield);
+    assert!(battlefield.contains(&source));
+    assert!(!battlefield.contains(&recipient));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 2);
+    assert_eq!(
+        pool.total(),
+        2,
+        "the paid mana ability resolves immediately"
+    );
+}
+
+/// A real board and legal offer under a priced static grant. Neither public
+/// mana field may advertise free output, but the player retains the ability.
+fn priced_grant_board(
+    grantor: CardIndex,
+    recipient: CardIndex,
+) -> (Engine<Registry>, ObjectId, ObjectId, u32) {
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = [recipient, grantor]
+        .map(|card| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
+            card,
+            print: PrintRef::new(0),
+        })
+        .to_vec();
     let mut engine = Engine::new(&preset, Registry).expect("game starts");
     for _ in 0..2 {
         let Pending::Mulligan { player, .. } = engine.pending().clone() else {
@@ -549,40 +608,42 @@ fn granted_mana_refuses_a_priced_grant() {
         };
         engine.apply(player, PlayerAction::MulliganKeep).unwrap();
     }
-    let view = player_view(
-        engine.state(),
-        PlayerId::new(0),
-        1,
-        None,
-        &SeatContext::default(),
-        &[],
-    );
-    let cave = view
+    let me = PlayerId::new(0);
+    let view = player_view(engine.state(), me, 1, None, &SeatContext::default(), &[]);
+    let source = lying_in(engine.state(), ZoneLocation::Battlefield, Some(grantor));
+    let target = view
         .battlefield
         .iter()
-        .find(|o| o.card.is_some_and(|c| c.index == maw))
-        .expect("the Cave is on the battlefield");
-    assert!(
-        cave.granted_mana.is_none(),
-        "the grant charges a life beside its {{T}} and `GrantedMana` has \
-         nowhere to say so, so the view must withhold it rather than \
-         report mana the engine will not hand over for nothing"
-    );
-
+        .find(|o| o.card.is_some_and(|c| c.index == recipient))
+        .expect("the recipient is on the battlefield");
+    for object in &view.battlefield {
+        assert!(
+            object.granted_mana.is_none(),
+            "a priced grant is never free mana"
+        );
+        assert!(
+            object.grants.iter().all(|grant| grant.mana.is_none()),
+            "GrantSource::mana must also withhold the priced grant"
+        );
+    }
+    let grant = target
+        .grants
+        .iter()
+        .find(|grant| grant.source == Some(source) && grant.mana_ability)
+        .expect("the priced mana grant remains public");
+    let ability_index = baylee_engine::choice::granted_ability(grant.slot);
+    let target = target.id;
     for _ in 0..30 {
         let Pending::Priority { player, legal } = engine.pending().clone() else {
             break;
         };
-        if player == PlayerId::new(0) {
+        if player == me {
             assert!(
-                legal
-                    .abilities
-                    .contains(&(cave.id, baylee_engine::choice::GRANTED_ABILITY)),
-                "the engine still offers the granted ability the view \
-                 declined to describe: {:?}",
+                legal.abilities.contains(&(target, ability_index)),
+                "the engine still offers the priced granted ability: {:?}",
                 legal.abilities
             );
-            return;
+            return (engine, source, target, ability_index);
         }
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }

@@ -719,11 +719,20 @@ fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
         takers.contains(&"Opposition Agent"),
         "the reader finds the card that does: {takers:?}"
     );
-    // 2,656 cards claim some coverage (September 2026); a few have a
-    // second face with text.
+    // Pool growth must not trip an arbitrary upper bound, and a partial
+    // walk must not pass merely because it stayed above a historical floor.
+    // Every non-stub face must have been read, including Generated cards.
+    let expected: usize = baylee_cards::all()
+        .filter(|def| !matches!(def.coverage, baylee_cards_dsl::Coverage::Unimplemented))
+        .map(|def| def.faces.len())
+        .sum();
     assert!(
-        (2_000..4_000).contains(&read),
-        "read {read} faces of implemented and partial cards"
+        expected > 2_000,
+        "the coverage population unexpectedly shrank"
+    );
+    assert_eq!(
+        read, expected,
+        "every non-stub face has Oracle text and was read"
     );
 }
 

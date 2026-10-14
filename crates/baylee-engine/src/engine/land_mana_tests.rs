@@ -71,8 +71,9 @@
 //! used to skip Dryad Arbor instead.
 
 use super::testkit::{
-    RegistryLookup, answer_one, basic_forest, card_index, placed_face, play_land_face,
-    play_land_face_facing, walk_to_own_main,
+    Duel, RegistryLookup, Rest, answer_one, basic_forest, card_index, drive_to_rest, mine,
+    on_battlefield, placed_face, play_land_face, play_land_face_facing, quiet_creature,
+    walk_to_own_main,
 };
 use super::*;
 use baylee_cards_dsl::{AbilityDef, CardDef, CostPart, FaceDef, SimpleMana};
@@ -729,6 +730,64 @@ impl Tally {
     }
 }
 
+/// An unconditional creature Aura whose only ongoing effect is a tap-only
+/// grant of one mana of any color. Match rules structure, never card identity.
+fn simple_creature_mana_aura(def: &CardDef) -> bool {
+    use baylee_cards_dsl::{Cost, Effect, Filter, Modifier, TargetReq, TargetSpec};
+    const EXPECTED: [AbilityDef; 2] = [
+        baylee_cards_dsl::spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        baylee_cards_dsl::static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantActivated {
+                cost: Cost::TAP,
+                effects: &[Effect::mana_of_any_color()],
+                mana_ability: true
+            }
+        ),
+    ];
+    def.faces.len() == 1
+        && def.faces[0].types == TypeSet::ENCHANTMENT
+        && def.faces[0]
+            .subtypes
+            .contains(&baylee_core::generated::subtypes::enchantment::AURA)
+        && def.faces[0].enter_modifiers.is_empty()
+        && def.keywords_for_face(0).is_empty()
+        && def.abilities_for_face(0).len() == EXPECTED.len()
+        && EXPECTED
+            .iter()
+            .all(|ability| def.abilities_for_face(0).contains(ability))
+}
+
+/// Seed a legal attachment before progress; an unattached Aura correctly
+/// dies under CR 704.5m before the ordinary placement helper returns.
+fn attached_mana_aura_board(card: CardIndex) -> Result<(Engine<RegistryLookup>, ObjectId), String> {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(7, basic_forest())
+        .battlefield(0, &[card, quiet_creature(), quiet_creature()])
+        .battlefield(1, &facing())
+        .start();
+    let aura = on_battlefield(&engine, seat, card).ok_or("Aura was not placed")?;
+    let host = on_battlefield(&engine, seat, quiet_creature()).ok_or("host was not placed")?;
+    engine
+        .dev_state_mut(seat)
+        .ok_or("the harness was refused the board")?
+        .attach(aura, host);
+    if !walk_to_own_main(&mut engine, seat) {
+        return Err("attached Aura never reached its controller's main phase".into());
+    }
+    if engine.state().object(aura).is_none_or(|object| {
+        object.zone != crate::zone::Zone::Battlefield || object.attached_to != Some(host)
+    }) {
+        return Err("Aura did not retain its legal attachment".into());
+    }
+    Ok((engine, aura))
+}
+
 /// The board a face makes its mana on, across an opponent who controls the
 /// [`facing`] lands: played as a land drop where it is a land that is one,
 /// and otherwise put on the battlefield before the first turn
@@ -762,7 +821,9 @@ fn board(card: CardIndex, face: usize) -> Result<(Engine<RegistryLookup>, Object
         && types.contains(TypeSet::LAND)
         && !types.contains(TypeSet::CREATURE)
         && def.land_faces_from_hand().any(|playable| playable == face);
-    let (mut engine, land) = if dropped {
+    let (mut engine, land) = if simple_creature_mana_aura(def) {
+        attached_mana_aura_board(card)
+    } else if dropped {
         play_land_face_facing(card, face, &facing())
     } else {
         placed_face(card, face, &facing())
@@ -1475,7 +1536,87 @@ fn every_land_in_the_pool_makes_the_mana_its_own_card_promises() {
 /// (CR 302.6).
 #[test]
 fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
-    hold("other permanents", other_permanent_faces, &OTHER_PERMANENTS);
+    let (offenders, tally) = sweep(other_permanent_faces);
+    report("other permanents", &tally);
+    assert!(offenders.is_empty(), "{offenders:#?}");
+    check_other_permanent_population(&tally);
+    check("other permanents", &tally, &FULL_CORPUS_OTHER_PERMANENTS);
+}
+
+/// Rest-batch-01-retests measured this complete population after attaching
+/// the mana Aura: 194 wholly readable faces, 91 costly lines, 14 granted
+/// lines, and 6 self-granting faces. Pin the new buckets exactly instead of
+/// giving them growth headroom. All other pre-expansion bounds remain.
+const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
+    fully_read: 194,
+    costly_lines: 91..=91,
+    granted_lines: 14..=14,
+    self_granted: 6..=6,
+    busy: 0,
+    not_implemented: 0,
+    ..OTHER_PERMANENTS
+};
+
+/// Enumerate eligibility without building any boards, separately from the
+/// sweep's success counters. Report both coverage tiers so a Generated face
+/// cannot silently disappear behind an aggregate floor or a failed fixture.
+fn check_other_permanent_population(tally: &Tally) {
+    let mut eligible = [0_usize; 3];
+    let mut readable = [0_usize; 3];
+    for def in baylee_cards::all() {
+        let tier = match def.coverage {
+            baylee_cards_dsl::Coverage::Implemented => 0,
+            baylee_cards_dsl::Coverage::Generated => 1,
+            _ => 2,
+        };
+        for face in other_permanent_faces(def) {
+            eligible[tier] += 1;
+            if def.is_fully_read()
+                && prints(def, face)
+                    .expect("face has Oracle text")
+                    .unparsed
+                    .is_empty()
+            {
+                readable[tier] += 1;
+            }
+        }
+    }
+    println!(
+        "other permanents census [Implemented, Generated, other]: eligible={eligible:?}, wholly readable={readable:?}"
+    );
+    let expected: usize = readable.iter().sum();
+    assert_eq!(
+        expected, 194,
+        "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
+    );
+    assert_eq!(
+        tally.fully_read, expected,
+        "an eligible wholly readable face was skipped by the board sweep"
+    );
+    // Pin successful work as well as eligibility: losing a route, color or
+    // printed promise cannot be compensated by still counting its face.
+    assert_eq!(
+        (
+            tally.colors,
+            tally.routes,
+            tally.promises,
+            tally.opponents_lands
+        ),
+        (151, 96, 96, 1)
+    );
+    assert_eq!((tally.creatures, tally.creature_promises), (119, 43));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (14, 25));
+    assert_eq!(
+        (
+            tally.conditional,
+            tally.costly,
+            tally.unreadable,
+            tally.dual_typed,
+            tally.self_typed
+        ),
+        (2, 61, 45, 0, 0),
+        "the measured skip categories changed"
+    );
 }
 
 /// The text reader reads the shapes it claims and refuses the rest.
@@ -1689,4 +1830,108 @@ fn a_land_that_gives_itself_a_basic_type_taps_for_it_the_turn_it_lands() {
         pressed(urborg, 0, Route::Intrinsic, ManaColor::Black).expect("Urborg taps for black");
     assert_eq!(made, vec![(ManaColor::Black, 1)]);
     assert!(tapped, "Urborg made mana and was left untapped");
+}
+
+/// The Aura stays in the sweep, but its mana belongs only to its host.
+fn check_attached_mana_aura(card: CardIndex) {
+    let seat = PlayerId::new(0);
+    for color in ManaColor::ALL
+        .into_iter()
+        .filter(|color| *color != ManaColor::Colorless)
+    {
+        let (mut engine, aura) =
+            attached_mana_aura_board(card).expect("the mana Aura is legally attached");
+        let host = engine.state().object(aura).unwrap().attached_to.unwrap();
+        let bystander = mine(
+            &engine,
+            seat,
+            quiet_creature(),
+            crate::zone::Zone::Battlefield,
+        )
+        .into_iter()
+        .find(|id| *id != host)
+        .expect("a second Elf is standing beside the host");
+        assert!(
+            offered(&engine, aura).unwrap().is_empty(),
+            "the Aura itself makes no mana"
+        );
+        assert_eq!(
+            offered(&engine, bystander).unwrap(),
+            vec![Route::Printed(0)]
+        );
+        let grant = offered(&engine, host)
+            .unwrap()
+            .into_iter()
+            .find(|route| matches!(route, Route::Granted(_)))
+            .expect("the enchanted creature is offered the granted ability");
+        engine.apply(seat, press(grant, host)).unwrap();
+        let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+            panic!("the grant must ask for a color");
+        };
+        assert_eq!(options.len(), 5);
+        assert!(!options.contains(&ManaColor::Colorless));
+        assert!(options.contains(&color));
+        engine
+            .apply(player, PlayerAction::ChooseColor(color))
+            .unwrap();
+        for actual in ManaColor::ALL {
+            assert_eq!(
+                engine.state().players[0].mana_pool.available(actual),
+                u32::from(actual == color)
+            );
+        }
+        assert!(
+            engine
+                .state()
+                .object(host)
+                .unwrap()
+                .status
+                .contains(Status::TAPPED)
+        );
+        assert!(
+            !engine
+                .state()
+                .object(bystander)
+                .unwrap()
+                .status
+                .contains(Status::TAPPED)
+        );
+
+        engine
+            .dev_state_mut(seat)
+            .unwrap()
+            .object_mut(aura)
+            .unwrap()
+            .attached_to = None;
+        engine.apply(seat, PlayerAction::PassPriority).unwrap();
+        assert!(matches!(drive_to_rest(&mut engine, seat), Rest::Reached));
+        assert_eq!(
+            engine.state().object(aura).unwrap().zone,
+            crate::zone::Zone::Graveyard
+        );
+        engine.dev_state_mut(seat).unwrap().set_tapped(host, false);
+        engine.refresh_offer();
+        assert_eq!(offered(&engine, host).unwrap(), vec![Route::Printed(0)]);
+        assert_eq!(
+            offered(&engine, bystander).unwrap(),
+            vec![Route::Printed(0)]
+        );
+    }
+}
+
+/// Every member of the structural family gets the same positive and negative
+/// fixture controls; adding a member does not create an individual card test.
+#[test]
+fn simple_mana_aura_fixtures_keep_grants_local_and_revoke_them() {
+    let population: Vec<_> = baylee_cards::all()
+        .filter(|def| def.is_fully_read() && simple_creature_mana_aura(def))
+        .collect();
+    assert!(
+        !population.is_empty(),
+        "the mana Aura fixture population vanished"
+    );
+    println!("simple mana Aura fixture population: {}", population.len());
+    for def in population {
+        check_attached_mana_aura(def.index);
+    }
 }
