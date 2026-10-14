@@ -550,3 +550,94 @@ rustc -O --edition 2024 --target x86_64-apple-darwin scripts/perf/bitmap-kernels
 rustc -O --edition 2024 --target wasm32-unknown-unknown -C target-feature=+simd128 --crate-type cdylib scripts/perf/bitmap-kernels.rs -o /tmp/bitmap.wasm
 node -e 'const fs=require("fs"); WebAssembly.instantiate(fs.readFileSync("/tmp/bitmap.wasm")).then(({instance})=>{if(instance.exports.verify()!==0)process.exitCode=1})'
 ```
+
+
+## Bevy 0.20 follow-up (14 October 2026)
+
+The beta.8 work starts from `7e4aa634e` (beta.7), independently of the
+package-upgrade branch. The new native-button work keeps the client's
+existing keyboard and pointer guards; the source-less `Activate` event is
+not forwarded as a second domain action. Input migration itself is not a
+claim of recovered frame time.
+
+### Bulk stage teardown
+
+`table::despawn_stage` now queues `despawn_all::<StageOrCard>()`. The old
+path collected a `BTreeSet`, walked every marked entity's ancestors, then
+queued individual root despawns. Bevy's bulk operation handles marked
+parents and descendants together, including entities already taken by a
+parent. The stage's cache clearing is unchanged. There is no stage-spawning
+system in `OnEnter(DuelPhase::Closed)`; evaluation at command application
+also includes a stage spawn already queued before closure.
+
+A release microbenchmark on the M1 Max, Bevy ECS 0.20, thin LTO, one codegen
+unit, compares those two command paths in one process. Setup is outside the
+timed interval: two marked zone nodes, 40 or 400 cards with both stage/card
+markers, two children each and an extra earlier-spawned marked child under
+half the cards. One unrelated entity survives. Each sample includes command
+application; the assertions require every selected entity and descendant
+gone and the unrelated entity alive. Each A/B/A leg has 100 warmups and
+1,000 measured closures. One-minute load before the run: 3.03; no client or
+Cargo build ran beside it.
+
+| Cards | A1 median | Bulk median | A2 median | Change against mean A |
+|---|---:|---:|---:|---:|
+| 40 | 11.666 µs | 6.875 µs | 11.333 µs | −40.2% |
+| 400 | 126.542 µs | 65.042 µs | 130.041 µs | −49.3% |
+
+This is a bounded teardown cost, not an idle FPS, GPU or energy improvement.
+The existing real teardown-schedule tests retain their duplicate-despawn
+warning detector and both parent/child spawn orders, and now also require
+an unrelated root and child to survive. Full-scene measurements are recorded
+separately below when available.
+
+### Where the remaining per-frame cost is
+
+A fresh release build of `7e4aa634e`, with `dev-control` and audio disabled,
+was profiled with a pinned visible seven-card hand and 40 permanents (20 per
+seat), 1600×1000 logical pixels, scale 1, Medium, MSAA 4, and all frame caps
+at 60. Configuration, cache and local game were isolated; outbound traffic
+was denied. This fixture is more controlled than October 13's random hand,
+so its absolute numbers must not be subtracted from that older comparison.
+After warmup, 1,803 unsampled frames over 30.051 s yielded 60 FPS,
+1.211 ms median main schedule, 1.516 ms p95, 3,386 allocations/frame,
+46.0% process CPU and 45.7 mean macOS `top` POWER (a score, not watts).
+These are a reference observation, not an improvement claim.
+
+A separate ten-second allocation sample (every 31st allocation, 4,000-stack
+cap) points first to Bevy's extraction access-set construction and task-pool
+work. In the main-thread samples, 136 stacks grow `FixedBitSet` through
+`FilteredAccessSet` during extraction, and 69 construct async-executor runners.
+Smaller application sites include 30 `produced_colors` allocations through
+`table_mana` and 30 scene live-set growth allocations. Counts are samples,
+not allocations/frame. The latter sites belong to the separate application
+performance package; the profile does not establish resources-as-entities
+as the cause of the regression.
+
+The separate Metal trace contains 1,804 ms of unioned depth-zero GPU-active
+intervals in 10.967 s (16.45% busy). Overlapping queues count once. Its
+encoder identifiers are not treated as presented frames. Screenshots verify
+the complete rendered fixture and the camera reports MSAA 4, but desktop
+occlusion was not independently established. CPU/POWER/GPU comparisons keep
+that limitation explicit; fixed 60 FPS alone does not prove visibility.
+
+The other proposed 0.20 levers remain hypotheses, not measured wins:
+
+- `summary_tick`: the table does not currently query its card/Motion/plate
+  components through `Changed<T>`. Annotating those components alone has no
+  demonstrated reader to accelerate. Remaining production change filters
+  concern shell fields, sliders and scroll positions.
+- Weak ordering: the main and extraction schedules are already single
+  threaded by measured policy. Weakening dependencies cannot create main
+  schedule parallelism and would risk command and keyboard ordering.
+- `FixedNode`: preview and tooltip placement depends on parent geometry and
+  clipping. The idle full-table profile has no open preview and cannot
+  justify changing that behavior. A separate overlay workload is needed.
+- Compressed static textures: no texture-bandwidth bottleneck is established
+  by this trace. Conversion and visual verification are deferred.
+
+The 0.20 release notes describe those APIs; the public 0.20-to-0.21 guide
+could not be retrieved on October 14. This branch removes the known legacy
+interaction dependency, not a claim of compatibility with an unreleased
+version. See [Bevy 0.20](https://bevy.org/news/bevy-0-20/) and
+[issue 388](https://github.com/AceVik/baylee/issues/388).
