@@ -157,26 +157,59 @@ pub(super) fn editor(
         }
     }
 
-    let deck = llm.deck(chair).unwrap_or(DECKS[0]);
-    let decks: Vec<(String, Press, bool)> = DECKS
+    // Use the account's decks, just like the seat card. The gateway keeps
+    // this choice when the bridge redeems its ticket with a fallback deck.
+    let seat = state.lobby.games()[index]
+        .seats
         .iter()
-        .enumerate()
-        .map(|(at, name)| {
-            (
-                (*name).to_string(),
-                Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Deck(at))),
-                *name == deck,
-            )
-        })
-        .collect();
-    chips(
-        commands,
-        surface,
-        fonts,
-        m,
-        Phrase::RoomLlmDeck.text(lang),
-        &decks,
-    );
+        .find(|seat| seat.seat == chair);
+    if let Some(seat) = seat.filter(|seat| can_pick_deck(&state.lobby.games()[index], seat)) {
+        let decks: Vec<(String, Press, bool)> = state
+            .lobby
+            .decks()
+            .iter()
+            .enumerate()
+            .filter(|(_, deck)| deck.blocked.is_empty())
+            .map(|(at, deck)| {
+                (
+                    deck.name.clone(),
+                    Press::Room(RoomPress::RoomDeck(index, chair, at)),
+                    deck.name == seat.deck,
+                )
+            })
+            .collect();
+        chips(
+            commands,
+            surface,
+            fonts,
+            m,
+            Phrase::RoomLlmDeck.text(lang),
+            &decks,
+        );
+    }
+
+    if seat.is_some_and(|seat| seat.deck.is_empty()) {
+        let deck = llm.deck(chair).unwrap_or(DECKS[0]);
+        let decks: Vec<(String, Press, bool)> = DECKS
+            .iter()
+            .enumerate()
+            .map(|(at, name)| {
+                (
+                    (*name).to_string(),
+                    Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Deck(at))),
+                    *name == deck,
+                )
+            })
+            .collect();
+        chips(
+            commands,
+            surface,
+            fonts,
+            m,
+            Phrase::RoomLlmDeck.text(lang),
+            &decks,
+        );
+    }
 
     let doors = row(commands, m, true);
     commands

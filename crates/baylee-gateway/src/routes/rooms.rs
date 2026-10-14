@@ -445,9 +445,11 @@ pub(crate) async fn set_seat(
             }
         }
         if let Some((deck_name, deck)) = chosen {
-            // A player sets their own deck; the host sets an AI's. Nobody
-            // sets a deck for another person.
-            let allowed = is_mine || (is_host && chair.kind == lobby::SeatKind::Ai);
+            // A player sets their own deck. The host chooses for the house,
+            // a delegated/hosted model, or an open chair before handover.
+            // An account-backed chair (including a reservation) stays its
+            // player's own: hosting never grants control of their deck.
+            let allowed = is_mine || (is_host && chair.account_id.is_none());
             if !allowed {
                 return Err(err(StatusCode::FORBIDDEN, "not your seat"));
             }

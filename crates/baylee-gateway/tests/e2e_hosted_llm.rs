@@ -52,6 +52,8 @@ const STOP_GRACE: Duration = Duration::from_secs(30);
 struct Played {
     started: Mutex<Vec<String>>,
     outcomes: Mutex<Vec<Option<Outcome>>>,
+    /// The final deck each model was actually told it plays.
+    decks: Mutex<BTreeMap<String, String>>,
     /// How many bridges were told `stop_seat`.
     stopped: Mutex<u32>,
 }
@@ -87,7 +89,7 @@ impl Launcher for InProcess {
             };
             played.started.lock().unwrap().push(host);
             let _ = started.send(());
-            let mind: Arc<dyn Mind> = Arc::new(AsModel(HouseMind::default()));
+            let mind: Arc<dyn Mind> = Arc::new(AsModel(HouseMind::default(), played.clone()));
             let play = async {
                 lobby.chair_ready(&chair).await?;
                 lobby
@@ -144,10 +146,14 @@ impl Launcher for InProcess {
 
 /// The house heuristic under a language model's name: a hosted chair is
 /// called `LLM-…`, and a bridge plays a chair only under its mind's name.
-struct AsModel(HouseMind);
+struct AsModel(HouseMind, Arc<Played>);
 
 impl Mind for AsModel {
     fn decide(&self, request: Request) -> Thinking<'_> {
+        self.1.decks.lock().unwrap().insert(
+            request.context.game_id.clone(),
+            request.context.deck.name.clone(),
+        );
         self.0.decide(request)
     }
 
@@ -425,6 +431,15 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     // A profile with no policy is open to nobody, known or not.
     assert_eq!(order(port, &host, &first.game_id, "nothing").0, 403);
 
+    // A saved deck chosen before the hosted bridge starts survives its
+    // fallback deck at redemption. Keep the scenario's cards, rename the deck.
+    let mut selected = Deck::acceptance("Victory").unwrap();
+    selected.name = "Host selected".into();
+    let selected_id = lobby.upload(&session, &selected).await.unwrap();
+    let choose = format!(r#"{{"deck_id":"{selected_id}"}}"#);
+    let route = format!("/lobby/games/{}/seats/1", first.game_id);
+    assert_eq!(http(port, "POST", &route, Some(&host), &choose).0, 200);
+
     // Two orders of sonnet go to the two seat agents; a third finds both
     // at their bound.
     let (status, body) = order(port, &host, &first.game_id, "sonnet");
@@ -445,6 +460,29 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     let mut hosts = played.started.lock().unwrap().clone();
     hosts.sort();
     assert_eq!(hosts, ["a", "b"], "one order each");
+    assert_eq!(
+        row(port, &host, &first.game_id)["seats"][1]["deck"],
+        "Host selected"
+    );
+    // A registered non-host cannot assign even its own saved deck to this model.
+    let outsider = login(port, "deckoutsider", "Deckoutsider");
+    let outsider_id = lobby
+        .upload(&Session::from_token(outsider.clone()), &selected)
+        .await
+        .unwrap();
+    let outsider_choice = format!(r#"{{"deck_id":"{outsider_id}"}}"#);
+    assert_eq!(
+        http(port, "POST", &route, Some(&outsider), &outsider_choice).0,
+        403
+    );
+    selected.name = "Host changed after seating".into();
+    let changed_id = lobby.upload(&session, &selected).await.unwrap();
+    let changed = format!(r#"{{"deck_id":"{changed_id}"}}"#);
+    assert_eq!(http(port, "POST", &route, Some(&host), &changed).0, 200);
+    assert_eq!(
+        row(port, &host, &first.game_id)["seats"][1]["deck"],
+        selected.name
+    );
     until("the reports say busy", || {
         profile(port, &host, "sonnet")["games"] == 2
     })
@@ -542,6 +580,16 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
     .expect("the game ends in time")
     .expect("the host's chair plays");
     assert_eq!(mine.stats.outcome, Some(Outcome::Lost));
+    assert_eq!(
+        played
+            .decks
+            .lock()
+            .unwrap()
+            .get(&first.game_id)
+            .map(String::as_str),
+        Some("Host changed after seating"),
+        "the model receives the host's final deck, not its startup fallback"
+    );
     until("the hosted bridge ends its game", || {
         !played.outcomes.lock().unwrap().is_empty()
     })

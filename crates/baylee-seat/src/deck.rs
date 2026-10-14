@@ -17,7 +17,7 @@ use baylee_core::ids::CardIndex;
 const ACCEPTANCE: &str = include_str!("../../../data/acceptance-decks.txt");
 
 /// A deck, in both shapes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct Deck {
     /// The deck's name in the lobby.
     pub name: String,
@@ -28,6 +28,7 @@ pub struct Deck {
     /// The commanders, by name.
     pub commanders: Vec<String>,
     /// The deck as the engine plays it.
+    #[serde(skip)]
     pub list: DeckList,
 }
 
@@ -139,7 +140,7 @@ impl Deck {
     }
 
     /// Resolves the rows to the cards the engine plays, as the gateway will.
-    fn resolve(&mut self) -> anyhow::Result<()> {
+    pub(crate) fn resolve(&mut self) -> anyhow::Result<()> {
         let loaded = baylee_cards::decks::from_lines(
             &self.name,
             &self.cards,
@@ -180,6 +181,16 @@ pub fn list_of(deck: &LoadedDeck) -> DeckList {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The authenticated chair payload resolves to the actual engine cards.
+    #[test]
+    fn a_chairs_saved_deck_resolves_the_actual_cards_for_the_mind() {
+        let chosen = Deck::acceptance("Allytifact").unwrap();
+        let mut handed: Deck = serde_json::from_value(chosen.upload()).unwrap();
+        handed.resolve().unwrap();
+        assert_eq!(handed.name, chosen.name);
+        assert_eq!(handed.list, chosen.list);
+    }
 
     /// Both acceptance decks resolve, commanders apart from the library.
     #[test]

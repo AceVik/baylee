@@ -13,6 +13,37 @@ use baylee_client_core::tour::Anchor;
 mod cards;
 mod llm;
 
+/// Mirror the gateway: a host chooses for automated and open chairs,
+/// while a person keeps control of their own deck.
+fn can_pick_deck(game: &GameSummary, seat: &client_core::lobby::GameSeat) -> bool {
+    game.state == "waiting"
+        && (seat.you
+            || (game.yours
+                && (seat.kind == SeatKind::Ai
+                    || !seat.taken
+                    || seat.delegated_by.is_some()
+                    || seat
+                        .hosted
+                        .as_ref()
+                        .is_some_and(client_core::lobby::hosted::HostedChair::standing))))
+}
+
+/// Resolve a deck press against the current chair, including its ownership.
+pub(super) fn deck_request(
+    state: &mut LobbyState,
+    index: usize,
+    chair: u32,
+    deck: usize,
+) -> Option<LobbyRequest> {
+    let game = state.lobby.games().get(index)?;
+    let seat = game.seats.iter().find(|seat| seat.seat == chair)?;
+    if !can_pick_deck(game, seat) || !state.lobby.decks().get(deck)?.blocked.is_empty() {
+        return None;
+    }
+    let (game, yours) = (game.id.clone(), seat.you);
+    state.lobby.seat_deck_at(&game, chair, deck, yours)
+}
+
 /// The room (the shell design, §5; WP2): the title row with Copy invite,
 /// Leave and Start; the rules rail with Edit rules and Set teams; one card
 /// per seat. `Esc` never leaves it (§9.6); the header's nav steps away and
@@ -648,7 +679,13 @@ fn seat_card(
     commands.entity(line).add_child(number);
     // Who sits here.
     let planned = state.llm.planned(seat.seat);
-    let empty = seat.kind == SeatKind::Human && !seat.taken && planned.is_none();
+    let empty = seat.kind == SeatKind::Human
+        && !seat.taken
+        && planned.is_none()
+        && !seat
+            .hosted
+            .as_ref()
+            .is_some_and(client_core::lobby::hosted::HostedChair::standing);
     let who = commands
         .spawn((
             Node {
@@ -769,10 +806,9 @@ fn seat_card(
                 super::parts::line(commands, kit, &failed.said(lang), kit.m.small, tokens::GOLD);
             commands.entity(card).add_child(said);
         }
-        return anchor;
     }
 
-    // The deck: my own a menu button, everyone else's words.
+    // The host also chooses the deck for local and hosted model chairs.
     let deck_line = commands
         .spawn((
             Node {
@@ -786,7 +822,7 @@ fn seat_card(
             Pickable::IGNORE,
         ))
         .id();
-    let mine = seat.you || (game.yours && seat.kind == SeatKind::Ai);
+    let mine = can_pick_deck(game, seat);
     if mine {
         let label = if seat.deck.is_empty() {
             Phrase::RoomPickDeck.text(lang).to_string()
@@ -898,7 +934,7 @@ fn seat_card(
         walk(commands, toggle);
         commands.entity(line).add_children(&[words, toggle]);
     }
-    if game.yours {
+    if game.yours && !empty {
         let more = super::parts::icon_button(
             commands,
             kit,
@@ -928,7 +964,7 @@ fn seat_card(
                 Weight::Secondary,
                 blocked.as_deref().map_or(Live::Yes, Live::No),
                 None,
-                Press::Room(RoomPress::RoomDeck(index, seat.seat, at, seat.you)),
+                Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
             );
             commands.entity(picks).add_child(b);
         }
@@ -1343,7 +1379,7 @@ pub(crate) enum RoomPress {
     /// Apply the host draft; true explicitly removes the password.
     SaveRoom(bool),
     /// Apply a chosen deck directly to this seat.
-    RoomDeck(usize, u32, usize, bool),
+    RoomDeck(usize, u32, usize),
     /// Toggle the deck choices for a seat.
     RoomDeckPicker(u32),
     /// Expand or collapse a seat's optional starting-position editor.
@@ -1467,12 +1503,10 @@ impl RoomPress {
                 let request = state.lobby.save_room(remove_password);
                 dispatch(state, mailbox, request);
             }
-            RoomPress::RoomDeck(index, seat, deck, yours) => {
+            RoomPress::RoomDeck(index, seat, deck) => {
                 state.room_deck_seat = None;
-                if let Some(game) = state.lobby.games().get(index).map(|g| g.id.clone()) {
-                    let request = state.lobby.seat_deck_at(&game, seat, deck, yours);
-                    dispatch(state, mailbox, request);
-                }
+                let request = deck_request(state, index, seat, deck);
+                dispatch(state, mailbox, request);
             }
             RoomPress::LeaveTable(index) => leave_table(state, mailbox, index),
             RoomPress::Ready(index, ready) => {
@@ -1497,7 +1531,7 @@ impl RoomPress {
                 }
             }
             RoomPress::RoomLlm(index, seat, press) => {
-                let found = state.lobby.games().get(index).map(|g| {
+                let found = state.lobby.games().get(index).filter(|g| g.yours).map(|g| {
                     let phase = if g.state == "waiting" {
                         crate::tableseats::Phase::Waiting
                     } else {

@@ -885,3 +885,18 @@ fn no_prompt_names_a_player_or_the_game() {
     assert!(prefix.contains("You are P1 "), "{prefix}");
     assert!(prefix.contains("YOUR DECK (40 cards)"), "{prefix}");
 }
+
+#[test]
+fn the_mind_receives_the_deck_selected_for_its_chair() {
+    let original = crate::deck::Deck::acceptance("Allytifact").unwrap();
+    let selected = crate::deck::Deck::acceptance("Victory").unwrap();
+    assert_ne!(
+        original.list, selected.list,
+        "the test must replace a different deck"
+    );
+    let mut core = SeatCore::new(BridgeConfig::default(), original.list, Disclosure::Llm);
+    core.set_deck(selected.list.clone());
+    core.hear(&table("LLM-seat", None));
+    core.hear(&view(1));
+    assert_eq!(core.context.as_ref().unwrap().deck, selected.list);
+}

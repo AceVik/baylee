@@ -413,6 +413,12 @@ impl SeatCore {
         }
     }
 
+    /// Use the deck the gateway handed this chair, before reading its
+    /// first frame or building the model's game context.
+    pub(crate) fn set_deck(&mut self, deck: DeckList) {
+        self.deck = deck;
+    }
+
     /// The seat that tells the table `mind` answers it (`v1::SeatMind`),
     /// for the game's record: once on every socket, before it says it is
     /// ready and so before its first answer (`docs/protocol.md` §"Who

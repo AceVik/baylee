@@ -65,6 +65,24 @@ impl SeatLink {
         &self.chair
     }
 
+    /// The deck handed to a delegated bridge after the room starts.
+    /// A session-backed player already brought its own deck.
+    pub(crate) async fn selected_deck(&self) -> anyhow::Result<Option<crate::mind::DeckList>> {
+        if self.session.is_some() {
+            return Ok(None);
+        }
+        let Some(mut deck) = self
+            .lobby
+            .chair_status(&self.chair)
+            .await?
+            .and_then(|status| status.deck)
+        else {
+            return Ok(None);
+        };
+        deck.resolve()?;
+        Ok(Some(deck.list))
+    }
+
     /// Sockets opened so far.
     #[must_use]
     pub const fn dials(&self) -> u32 {

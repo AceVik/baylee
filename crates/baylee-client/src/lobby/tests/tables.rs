@@ -667,3 +667,135 @@ fn a_parked_tour_holds_neither_the_keys_nor_the_modal() {
         Vec::<&str>::new()
     );
 }
+
+/// A listed local delegate or hosted model, without any provider or bridge.
+fn llm_deck_room(hosted: bool, host: bool) -> App {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::Decks(vec![
+            DeckSummary {
+                id: "mine".into(),
+                name: "Mine".into(),
+                ..Default::default()
+            },
+            DeckSummary {
+                id: "chosen".into(),
+                name: "For the model".into(),
+                ..Default::default()
+            },
+        ]));
+        state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "deck-room".into(),
+            seat: 0,
+            seat_token: "seat".into(),
+            local: false,
+        }));
+        let followup = state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "deck-room".into(),
+                state: "waiting".into(),
+                yours: host,
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        you: true,
+                        host,
+                        deck: "Mine".into(),
+                        ..Default::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        delegated_by: (!hosted).then(|| "Host".into()),
+                        hosted: hosted.then(|| client_core::lobby::hosted::HostedChair {
+                            profile: "test".into(),
+                            label: "Hosted model".into(),
+                            vendor: "Test".into(),
+                            model: "model".into(),
+                            state: "starting".into(),
+                            note: None,
+                        }),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }])));
+        if host {
+            // Opening the host's room also asks for hosted profiles. Finish
+            // that exchange, just as the real mailbox does; dropping the
+            // returned request would leave this fixture busy forever.
+            assert_eq!(followup, Some(LobbyRequest::HostedProfiles));
+            assert!(state.lobby.busy());
+            assert!(super::super::room::deck_request(&mut state, 0, 1, 1).is_none());
+            assert_eq!(
+                state.lobby.apply(LobbyEvent::HostedProfiles(Vec::new())),
+                None
+            );
+        } else {
+            assert_eq!(followup, None);
+        }
+        assert!(!state.lobby.busy());
+    }
+    app.update();
+    app
+}
+
+#[test]
+fn local_and_hosted_llm_chairs_offer_saved_decks_to_the_host() {
+    use super::super::room::{RoomPress, deck_request};
+    for hosted in [false, true] {
+        let mut app = llm_deck_room(hosted, true);
+        tap_control(&mut app, "the model's deck picker", |p| {
+            *p == Press::Room(RoomPress::RoomDeckPicker(1))
+        });
+        assert!(presses(&mut app).contains(&Press::Room(RoomPress::RoomDeck(0, 1, 1))));
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let selected = state.lobby.selected();
+        assert!(
+            !state.lobby.busy(),
+            "the room's initial reads have completed"
+        );
+        assert_eq!(
+            deck_request(&mut state, 0, 1, 1),
+            Some(LobbyRequest::SetSeat {
+                game_id: "deck-room".into(),
+                seat: 1,
+                kind: None,
+                ai: None,
+                deck_id: Some("chosen".into()),
+                team: None,
+            }),
+            "hosted={hosted}: the chosen user deck goes to the model's chair"
+        );
+        assert_eq!(
+            state.lobby.selected(),
+            selected,
+            "the host keeps their own pick"
+        );
+    }
+}
+
+#[test]
+fn local_and_hosted_llm_deck_presses_recheck_host_authority() {
+    use super::super::room::{RoomPress, deck_request};
+    for hosted in [false, true] {
+        let mut app = llm_deck_room(hosted, false);
+        assert!(!presses(&mut app).contains(&Press::Room(RoomPress::RoomDeckPicker(1))));
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        assert!(deck_request(&mut state, 0, 1, 1).is_none());
+        assert!(!state.lobby.busy());
+    }
+    let mut app = llm_deck_room(false, true);
+    tap_control(&mut app, "the model's deck picker", |p| {
+        *p == Press::Room(RoomPress::RoomDeckPicker(1))
+    });
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    let mut games = state.lobby.games().to_vec();
+    games[0].seats[1].delegated_by = None; // A person took this chair meanwhile.
+    state.lobby.apply(LobbyEvent::Games(GameListing::of(games)));
+    assert!(deck_request(&mut state, 0, 1, 1).is_none());
+}

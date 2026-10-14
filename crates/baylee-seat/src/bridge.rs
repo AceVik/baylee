@@ -295,6 +295,11 @@ async fn run(
     if socket.is_none() {
         return Ok(bridge.closed(&mut core, transcript, link).await);
     }
+    // The host may change a local or hosted model's deck until Start.
+    // Read it after connecting, when it is final, before any model context.
+    if let Some(deck) = link.selected_deck().await? {
+        core.set_deck(deck);
+    }
     loop {
         let Some(ws) = socket.as_mut() else {
             socket = if link.room_closed().await {

@@ -315,8 +315,13 @@ pub(crate) async fn redeem(
             // Not before the bridge says its mind answered (`ready`).
             ready: false,
         });
-        chair.deck_name.clone_from(&deck.name);
-        chair.deck = Some(deck);
+        // The host may have chosen a saved deck while this bridge was
+        // starting. Its ticket hands over that chair, including that deck;
+        // the bridge's acceptance deck is only the fallback.
+        if chair.deck.is_none() {
+            chair.deck_name.clone_from(&deck.name);
+            chair.deck = Some(deck);
+        }
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
         decide_secs
     };
@@ -396,6 +401,14 @@ pub(crate) async fn status(
         },
         "decide_secs": game.house_rules.decision_timeout_secs,
         "ready": game.seats[seat].ready(),
+        // Only this chair's bearer can read its final deck. The public
+        // listing still contains names, never another seat's card list.
+        "deck": game.seats[seat].deck.as_ref().map(|deck| serde_json::json!({
+            "name": deck.name,
+            "cards": deck.cards,
+            "sideboard": deck.sideboard,
+            "commanders": deck.commanders,
+        })),
     })))
 }
 

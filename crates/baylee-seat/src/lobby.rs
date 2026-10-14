@@ -179,6 +179,10 @@ impl ChairTicket {
 /// (`GET /lobby/games/{id}/chair`).
 #[derive(Clone, Debug, Deserialize)]
 pub struct ChairStatus {
+    /// This chair's final deck, including a host's saved-deck selection.
+    /// Older gateways omit it and the bridge retains its submitted deck.
+    #[serde(default)]
+    pub deck: Option<Deck>,
     /// `waiting`, `playing` or `over`.
     pub state: String,
     /// Seconds a question gets; `None` for an untimed table.

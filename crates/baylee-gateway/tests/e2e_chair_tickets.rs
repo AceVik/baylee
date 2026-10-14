@@ -690,3 +690,70 @@ async fn a_delegate_must_be_called_a_language_model() {
     let (status, body) = redeem(port, &ticket, &game, 1);
     assert_eq!(status, 200, "{body}");
 }
+
+/// The saved deck belongs to the chair, before and after the local bridge
+/// redeems it; other accounts and other people's occupied chairs stay guarded.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // complete authorization and handover scenario
+async fn a_local_llm_plays_the_hosts_selected_deck() {
+    let gw = spawn_gateway_with("chair_deck", &[]);
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let host = login(port, "deckhost", "Deckhost");
+    let other = login(port, "deckother", "Deckother");
+    let game = room(port, &host, 3);
+    let chosen = deck(port, &host);
+    let other_deck = deck(port, &other);
+    let route = format!("/lobby/games/{game}/seats/1");
+    let choose = format!(r#"{{"deck_id":"{chosen}"}}"#);
+    let forbidden = format!(r#"{{"deck_id":"{other_deck}"}}"#);
+    assert_eq!(http(port, "POST", &route, Some(&other), &forbidden).0, 403);
+    assert_eq!(http(port, "POST", &route, Some(&host), &choose).0, 200);
+    let (status, body) = redeem(port, &ticket(port, &host, &game, 1), &game, 1);
+    assert_eq!(status, 200, "{body}");
+    let seat_token = json_field(&body, "seat_token").to_string();
+    assert_eq!(row(port, &host, &game)["seats"][1]["deck"], "forests");
+    // The bridge offered swamps, but its authenticated handover names forests.
+    let status_route = format!("/lobby/games/{game}/chair");
+    let (status, body) = http(port, "GET", &status_route, Some(&seat_token), "");
+    assert_eq!(status, 200, "{body}");
+    let status: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(status["deck"]["cards"], serde_json::json!(["60 Forest"]));
+    assert_eq!(http(port, "POST", &route, Some(&other), &forbidden).0, 403);
+    // A seated bridge can still receive a new deck before Start.
+    let (status, body) = http(
+        port,
+        "POST",
+        "/decks",
+        Some(&host),
+        r#"{"name":"mountains","cards":["60 Mountain"]}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let mountain = json_field(&body, "deck_id");
+    let choose = format!(r#"{{"deck_id":"{mountain}"}}"#);
+    assert_eq!(http(port, "POST", &route, Some(&host), &choose).0, 200);
+    let (_, body) = http(port, "GET", &status_route, Some(&seat_token), "");
+    let status: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(status["deck"]["cards"], serde_json::json!(["60 Mountain"]));
+    assert_eq!(row(port, &host, &game)["seats"][0]["deck"], "forests");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game}/join"),
+        Some(&other),
+        &format!(r#"{{"seat":2,"deck_id":"{other_deck}"}}"#),
+    );
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game}/seats/2"),
+            Some(&host),
+            &choose
+        )
+        .0,
+        403,
+        "hosting does not control a person's deck"
+    );
+}
