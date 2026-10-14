@@ -228,10 +228,12 @@ pub(super) fn credit(tree: &Tree, image: &RgbImage) -> Option<f64> {
     }
     worst
 }
-pub(super) fn ring(image: &RgbImage, n: &Node) -> usize {
+pub(super) fn ring(image: &RgbImage, n: &Node, ui: f64) -> usize {
     let mut hits = 0;
-    for x in (n.x as i32 - 4)..(n.right() as i32 + 4) {
-        for y in [n.y as i32 - 3, n.bottom() as i32 + 2] {
+    // The node is in window pixels already, but the outline is 2 UI px
+    // wide, offset by 2 UI px. Sample it at the applied UI scale.
+    for x in ((n.x - 4.0 * ui) as i32)..((n.right() + 4.0 * ui) as i32) {
+        for y in [(n.y - 3.0 * ui) as i32, (n.bottom() + 2.0 * ui) as i32] {
             if x < 0
                 || y < 0
                 || i64::from(x) >= i64::from(image.width())

@@ -64,6 +64,9 @@ fn ring(d: &Devctl, out: &Path, order: &[String], report: &mut Report, tag: &str
         press(d, "Tab", None)?;
     }
     ensure!(focus(d)? == "create", "Tab did not reach create");
+    let ui = d.state()?["presentation"]["ui_scale"]
+        .as_f64()
+        .unwrap_or(1.0);
     let tree = d.nodes(Some("gallery"))?;
     let create = tree
         .0
@@ -72,7 +75,7 @@ fn ring(d: &Devctl, out: &Path, order: &[String], report: &mut Report, tag: &str
         .context("missing create hit wrapper")?;
     let path = out.join(format!("ring-key-{tag}.png"));
     d.screenshot(&path)?;
-    let by_key = pixels::ring(&pixels::load(&path)?, create);
+    let by_key = pixels::ring(&pixels::load(&path)?, create, ui);
     let x = create.x + create.w / 2.0;
     let y = create.y + create.h / 2.0;
     d.pointer(x, y, false)?;
@@ -80,7 +83,7 @@ fn ring(d: &Devctl, out: &Path, order: &[String], report: &mut Report, tag: &str
     sleep(0.6);
     let path = out.join(format!("ring-click-{tag}.png"));
     d.screenshot(&path)?;
-    let by_click = pixels::ring(&pixels::load(&path)?, create);
+    let by_click = pixels::ring(&pixels::load(&path)?, create, ui);
     report.expect(
         by_key > 20 && by_click < 5 && d.shell_state()?["focus_visible"] == false,
         &format!("{tag} ring after Tab ({by_key} accent pixels), none after click ({by_click})"),
@@ -248,6 +251,10 @@ pub(super) fn run(root: &Path, d: &Devctl, out: &Path) -> Result<()> {
     let result = (|| {
         let mut report = Report::default();
         for (w, h) in [(1920, 1080), (844, 390)] {
+            // Resizing rightly retains focus. Each independent walk needs
+            // a closed/reopened gallery instead of expecting Tab to reset it.
+            d.shell(&json!({"gallery":false}))?;
+            Devctl::until(4.0, || Ok(d.shell_state()?["table"] != "gallery"))?;
             d.resize(w, h)?;
             d.unit_scale()?;
             d.shell(&json!({"gallery":true,"text_size":"m","lang":"en","input":"pointer"}))?;

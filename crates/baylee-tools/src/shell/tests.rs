@@ -254,11 +254,11 @@ fn ring_pixels_are_measured_not_assumed_and_credit_ignores_the_glyph_box() {
         n(2, "credit", 30.0, 15.0, 40.0, 20.0)
     ]));
     let mut image = RgbImage::from_pixel(100, 100, Rgb([40, 40, 40]));
-    assert_eq!(pixels::ring(&image, &t.0[1]), 0);
+    assert_eq!(pixels::ring(&image, &t.0[1], 1.0), 0);
     for x in 10..90 {
         image.put_pixel(x, 7, Rgb([100, 200, 200]));
     }
-    assert_eq!(pixels::ring(&image, &t.0[1]), 80);
+    assert_eq!(pixels::ring(&image, &t.0[1], 1.0), 80);
     for x in 30..70 {
         for y in 15..35 {
             image.put_pixel(x, y, Rgb([255, 255, 255]));
@@ -702,5 +702,21 @@ fn social_occlusion_is_not_panel_ground_but_exposed_bright_pixels_still_fail() {
             .0
             .len(),
         2
+    );
+}
+
+#[test]
+fn a_scaled_focus_ring_is_sampled_at_its_scaled_offset() {
+    let t = tree(&json!([n(0, "hit", 10.0, 10.0, 80.0, 30.0)]));
+    let mut image = RgbImage::from_pixel(100, 100, Rgb([40, 40, 40]));
+    assert_eq!(pixels::ring(&image, &t.0[0], 0.5), 0);
+    for x in 10..90 {
+        image.put_pixel(x, 8, Rgb([100, 200, 200]));
+    }
+    assert_eq!(pixels::ring(&image, &t.0[0], 0.5), 80);
+    assert_eq!(
+        pixels::ring(&image, &t.0[0], 1.0),
+        0,
+        "the old unscaled sampling missed the visible ring"
     );
 }
