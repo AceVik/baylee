@@ -242,8 +242,6 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                 press,
                 Press::Front(
                     FrontPress::TermsAccept
-                        | FrontPress::TermsNotNow
-                        | FrontPress::TermsStay
                         | FrontPress::TermsRetry
                         | FrontPress::TermsDecline
                         | FrontPress::OpenImpressum

@@ -195,13 +195,36 @@ pub(crate) fn clip_bounds(clip: &bevy::ui::CalculatedClip) -> Option<Rect> {
 /// One clipping rectangle's axis-aligned bounds in window space.
 fn world_bounds(clip_rect: &bevy::ui::CalculatedClipRect) -> Rect {
     let to_world = clip_rect.world_to_clip_local.inverse();
-    let (min, max) = (clip_rect.rect.min, clip_rect.rect.max);
-    [Vec2::new(max.x, min.y), max, Vec2::new(min.x, max.y)]
-        .into_iter()
-        .fold(
-            Rect::from_center_size(to_world.transform_point2(min), Vec2::ZERO),
-            |bounds, corner| bounds.union_point(to_world.transform_point2(corner)),
-        )
+    let local = clip_rect.rect;
+    // An overflow-visible axis is (-inf, +inf). Transforming its corners
+    // normally computes 0 * inf on the other axis and poisons that axis
+    // with NaN; vertical scrollers would then appear to have no height.
+    // Project intervals instead, with a zero coefficient contributing zero.
+    let project = |x: f32, y: f32, offset: f32| {
+        let scaled = |coefficient: f32, min: f32, max: f32| {
+            if coefficient == 0.0 {
+                (0.0, 0.0)
+            } else if coefficient > 0.0 {
+                (coefficient * min, coefficient * max)
+            } else {
+                (coefficient * max, coefficient * min)
+            }
+        };
+        let (x_min, x_max) = scaled(x, local.min.x, local.max.x);
+        let (y_min, y_max) = scaled(y, local.min.y, local.max.y);
+        (x_min + y_min + offset, x_max + y_max + offset)
+    };
+    let (left, right) = project(
+        to_world.matrix2.x_axis.x,
+        to_world.matrix2.y_axis.x,
+        to_world.translation.x,
+    );
+    let (top, bottom) = project(
+        to_world.matrix2.x_axis.y,
+        to_world.matrix2.y_axis.y,
+        to_world.translation.y,
+    );
+    Rect::new(left, top, right, bottom)
 }
 
 #[cfg(test)]
@@ -331,6 +354,39 @@ mod tests {
         ]);
         let bounds = clip_bounds(&clip).expect("a rectangle");
         assert!(bounds.is_empty(), "{bounds:?}");
+    }
+
+    /// Bevy uses an infinite interval on the visible axis of a scroller.
+    /// Its finite axis must survive translation, scaling and reflection;
+    /// multiplying ordinary corners instead produces 0 * infinity = NaN.
+    #[test]
+    fn one_axis_scroll_clips_keep_their_finite_band() {
+        let vertical = Rect::new(-f32::INFINITY, -100.0, f32::INFINITY, 100.0);
+        let to_world = Affine2::from_scale_angle_translation(
+            Vec2::new(2.0, -3.0),
+            0.0,
+            Vec2::new(50.0, 400.0),
+        );
+        let bounds = clip_bounds(&clip_of(&[(vertical, to_world.inverse())])).unwrap();
+        assert_eq!(bounds.min.x, -f32::INFINITY);
+        assert_eq!(bounds.max.x, f32::INFINITY);
+        assert!((bounds.min.y - 100.0).abs() < EPS, "{bounds:?}");
+        assert!((bounds.max.y - 700.0).abs() < EPS, "{bounds:?}");
+
+        let horizontal = Rect::new(-150.0, -f32::INFINITY, 150.0, f32::INFINITY);
+        let viewport = Rect::new(10.0, 20.0, 800.0, 900.0);
+        let combined = clip_of(&[
+            (viewport, Affine2::IDENTITY),
+            (vertical, to_world.inverse()),
+            (
+                horizontal,
+                Affine2::from_translation(Vec2::new(-250.0, 0.0)),
+            ),
+        ]);
+        assert_rect(
+            clip_bounds(&combined).unwrap(),
+            Rect::new(100.0, 100.0, 400.0, 700.0),
+        );
     }
 
     /// A quarter turn keeps the clip a rectangle: window = R⁻¹ * local, and

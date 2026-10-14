@@ -125,20 +125,10 @@ pub(crate) const NEW_PASSWORD: TabOrder = TabOrder {
     modal: false,
 };
 /// The terms sheet: the text (a focusable scroll region), then its
-/// answers; a guest's question replaces Not now and Accept with Stay and
-/// Sign out.
+/// acceptance/deletion answers, or Retry if fetching failed.
 pub(crate) const TERMS: TabOrder = TabOrder {
     name: "terms",
-    stops: &[
-        "impressum",
-        "text",
-        "retry",
-        "not-now",
-        "decline",
-        "accept",
-        "stay",
-        "leave",
-    ],
+    stops: &["impressum", "text", "retry", "decline", "accept"],
     modal: true,
 };
 /// The About sheet.

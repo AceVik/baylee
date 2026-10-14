@@ -15,11 +15,10 @@
 //! file answers that; the version, which is what is accepted, is the same
 //! in every language.
 //!
-//! Two rules the sheet keeps, both here so they are tested without a
-//! renderer: **Esc never signs out** — it only moves the keyboard's focus to
-//! *Not now* (the sheet is modal and cannot be dismissed without choosing);
-//! and **a guest is asked before Not now signs it out**, because a guest
-//! that signs out loses its decks.
+//! Esc never signs out: it preserves the session and any text already
+//! fetched. The desktop sheet returns focus to the reading text or Retry;
+//! it offers no Not now action. Consumers that explicitly offer `not_now`
+//! must confirm before signing out a guest, which would lose its decks.
 //!
 //! The renderer is deliberately small: `#`/`##` headings, paragraphs,
 //! `**bold**`, `*italic*`/`_italic_`, `-`/`*` and `1.` lists, `---` rules,
@@ -526,7 +525,7 @@ impl Terms {
 
     /// Esc: nothing destructive (M4-1). A guest's question is answered with
     /// its safe answer (stay); otherwise nothing changes here, and the shell
-    /// moves the keyboard's focus to Not now.
+    /// chooses a safe focus in the current sheet.
     pub fn escape(&mut self) {
         self.stay();
     }

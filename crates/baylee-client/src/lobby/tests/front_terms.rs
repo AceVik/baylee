@@ -1,7 +1,7 @@
 //! The terms sheet as the shell runs it (WG-1; `DESIGN-v5` §11, §17 WP1;
 //! `KEYBOARD.md` §7.9, §9.6): a stale sign-in raises it, Esc ×10 leaves it
-//! up and the session signed in, a guest is asked before Not now signs it
-//! out, Accept is enabled only at the end and records the device's copy.
+//! up and the session signed in. No Not now/sign-out action is offered;
+//! Accept is enabled only at the end and records the device's copy.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -137,7 +137,7 @@ fn signed_in(app: &App) -> bool {
 }
 
 /// M4-1 (§9.6): Esc ×10 on the terms sheet — still signed in, the sheet
-/// still up, focus on Not now, nothing stored and nothing sent.
+/// still up, focus on the text, nothing stored and nothing sent.
 #[test]
 fn escape_ten_times_on_the_terms_leaves_everything_as_it_was() {
     let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
@@ -154,8 +154,8 @@ fn escape_ten_times_on_the_terms_leaves_everything_as_it_was() {
     assert_eq!(sheet(&app), before, "the sheet as it was");
     assert_eq!(
         focused_id(&app),
-        Some("not-now"),
-        "Esc moves focus to Not now"
+        Some("text"),
+        "Escape returns to reading without a destructive action"
     );
     assert!(
         app.world()
@@ -166,26 +166,33 @@ fn escape_ten_times_on_the_terms_leaves_everything_as_it_was() {
     );
 }
 
-/// A guest pressing Not now is asked first (C3-3), and stays on Stay; the
-/// second press signs it out with nothing stored.
+/// A guest and an account get the same explicit decision, with no
+/// postpone/sign-out control during reading, failure or fetching.
 #[test]
-fn a_guest_is_asked_before_not_now_signs_it_out() {
-    let mut app = signed_in_stale(true, "# Terms\n\nPlay fair.");
-    assert!(app.world().resource::<LobbyState>().lobby.guest());
-    click(&mut app, Press::Front(FrontPress::TermsNotNow));
-    assert!(signed_in(&app), "asked, not signed out");
-    assert!(matches!(sheet(&app), Sheet::Reading(r) if r.asking_guest));
-    click(&mut app, Press::Front(FrontPress::TermsStay));
-    assert!(matches!(sheet(&app), Sheet::Reading(r) if !r.asking_guest));
-    click(&mut app, Press::Front(FrontPress::TermsNotNow));
-    click(&mut app, Press::Front(FrontPress::TermsNotNow));
-    assert!(!signed_in(&app), "the second press signs the guest out");
-    assert!(!app.world().resource::<LobbyState>().terms.up());
-
-    // An account is signed out at once.
-    let mut account = signed_in_stale(false, "# Terms\n\nPlay fair.");
-    click(&mut account, Press::Front(FrontPress::TermsNotNow));
-    assert!(!signed_in(&account));
+fn terms_offer_no_not_now_or_hidden_sign_out_action() {
+    for guest in [false, true] {
+        let mut app = signed_in_stale(guest, "# Terms\n\nPlay fair.");
+        for expected in [vec!["accept", "decline"], vec!["retry"], vec![]] {
+            let mut query = app
+                .world_mut()
+                .query::<(&Press, &crate::shellkit::focus::Stop)>();
+            let mut ids: Vec<_> = query
+                .iter(app.world())
+                .filter(|(_, stop)| stop.table == "terms")
+                .map(|(_, stop)| stop.id)
+                .filter(|id| *id != "impressum")
+                .collect();
+            ids.sort_unstable();
+            assert_eq!(ids, expected, "guest={guest}, sheet={:?}", sheet(&app));
+            assert!(signed_in(&app));
+            if matches!(sheet(&app), Sheet::Reading(_)) {
+                post(&mut app, Reply::Terms(TermsReply::FetchFailed));
+            } else if matches!(sheet(&app), Sheet::Failed) {
+                click(&mut app, Press::Front(FrontPress::TermsRetry));
+                app.update();
+            }
+        }
+    }
 }
 
 /// Accept waits for the end; End (with focus on the text) reaches it, and

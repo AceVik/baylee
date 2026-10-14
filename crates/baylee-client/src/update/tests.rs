@@ -522,3 +522,408 @@ fn only_a_web_page_is_opened() {
     assert!(!openable("file:///etc/passwd"));
     assert!(!openable("javascript:alert(1)"));
 }
+
+/// Real Bevy text and flex layout, with shipped fonts; no renderer, native
+/// updater, gateway or injected `ComputedNode` measurements.
+struct NoticeLayout {
+    app: App,
+    window: Entity,
+    camera: Entity,
+    canvas: Entity,
+    footer: Option<Entity>,
+}
+
+impl NoticeLayout {
+    #[allow(clippy::too_many_lines)] // complete real Bevy layout fixture, including the footer
+    fn new(size: UVec2, footer_height: Option<f32>, lang: Lang, scale: f32) -> Self {
+        use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
+        let (mut app, fonts) = crate::face::tests::layout_app();
+        app.add_plugins(bevy::state::app::StatesPlugin)
+            .init_state::<DuelPhase>()
+            .add_message::<PointerClick>()
+            .insert_resource(fonts.clone())
+            .insert_resource(ClientSettings {
+                lang: lang.code().into(),
+                ..default()
+            })
+            .insert_resource(UiScale(scale))
+            .add_plugins(UpdatePlugin);
+        let window = app
+            .world_mut()
+            .spawn(Window {
+                resolution: bevy::window::WindowResolution::new(size.x, size.y)
+                    .with_scale_factor_override(1.0),
+                ..default()
+            })
+            .id();
+        // Camera target metadata as in bevy_ui's own headless layout tests.
+        let camera = app
+            .world_mut()
+            .spawn((
+                Camera2d,
+                bevy::ui::IsDefaultUiCamera,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size,
+                            scale_factor: 1.0,
+                        }),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .id();
+        let canvas = app
+            .world_mut()
+            .spawn(Node {
+                width: px(size.as_vec2().x / scale),
+                height: px(size.as_vec2().y / scale),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            })
+            .id();
+        let footer = footer_height.map(|height| {
+            app.world_mut().entity_mut(canvas).insert(lobby::LobbyRoot);
+            let page = app
+                .world_mut()
+                .spawn((
+                    crate::shellkit::role::Role::Scroll,
+                    Node {
+                        width: percent(100),
+                        flex_grow: 1.0,
+                        min_height: px(0),
+                        overflow: Overflow::scroll_y(),
+                        ..default()
+                    },
+                ))
+                .id();
+            let foot = app
+                .world_mut()
+                .spawn(Node {
+                    width: percent(100),
+                    height: px(height / scale),
+                    flex_shrink: 0.0,
+                    ..default()
+                })
+                .id();
+            let words = app
+                .world_mut()
+                .spawn((
+                    Text::new(format!(
+                        "{} · {} · Source (AGPL-3.0)",
+                        Phrase::ColophonNotice.text(lang),
+                        Phrase::ColophonScryfall.text(lang)
+                    )),
+                    tf(&fonts, 11.5),
+                    TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+                ))
+                .id();
+            app.world_mut().entity_mut(foot).add_child(words);
+            app.world_mut()
+                .entity_mut(canvas)
+                .add_children(&[page, foot]);
+            foot
+        });
+        if footer.is_none() {
+            app.world_mut()
+                .resource_mut::<NextState<DuelPhase>>()
+                .set(DuelPhase::Playing);
+        }
+        Self {
+            app,
+            window,
+            camera,
+            canvas,
+            footer,
+        }
+    }
+
+    fn show(&mut self, shown: Option<Shown>, place: UpdatePlace) -> Entity {
+        self.app.world_mut().resource_mut::<UpdateNotice>().shown = shown;
+        self.app.world_mut().insert_resource(place);
+        self.app.update();
+        let world = self.app.world_mut();
+        let toast = world
+            .query_filtered::<Entity, With<UpdateToast>>()
+            .single(world)
+            .unwrap();
+        self.app
+            .world_mut()
+            .entity_mut(self.canvas)
+            .add_child(toast);
+        self.settle();
+        toast
+    }
+
+    fn settle(&mut self) {
+        for _ in 0..4 {
+            self.app.update();
+        }
+    }
+
+    fn wheel(&mut self, entity: Entity, y: f32) {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::pointer::{Location, PointerId};
+        use bevy::window::WindowRef;
+        let location = Location {
+            target: NormalizedRenderTarget::Window(
+                WindowRef::Entity(self.window)
+                    .normalize(Some(self.window))
+                    .unwrap(),
+            ),
+            position: Vec2::ZERO,
+        };
+        self.app.world_mut().write_message(crate::test_pointer::aim(
+            PointerId::Mouse,
+            location,
+            crate::test_pointer::Scroll {
+                unit: MouseScrollUnit::Line,
+                x: 0.0,
+                y,
+                hit: bevy::picking::backend::HitData::new(self.camera, 0.0, None, None),
+                phase: bevy::input::touch::TouchPhase::Moved,
+            },
+            entity,
+        ));
+        self.settle();
+    }
+
+    fn rect(&self, entity: Entity) -> Rect {
+        let world = self.app.world();
+        let node = world.get::<ComputedNode>(entity).expect("real UI layout");
+        let at = world
+            .get::<bevy::ui::UiGlobalTransform>(entity)
+            .expect("real UI placement");
+        let scale = node.inverse_scale_factor() * world.resource::<UiScale>().0;
+        Rect::from_center_size(at.translation * scale, node.size() * scale)
+    }
+
+    fn assert_buttons_clear(&mut self, toast: Entity, top: f32, bottom: f32) {
+        let frame = self.rect(toast);
+        let size = self.app.world().get::<Window>(self.window).unwrap();
+        assert!(
+            frame.width() > 0.0 && frame.height() > 0.0,
+            "nonvacuous layout: {frame:?}"
+        );
+        assert!(
+            frame.min.x >= 0.0 && frame.max.x <= size.width() + 0.5,
+            "{frame:?}"
+        );
+        assert!(
+            frame.min.y >= top - 0.5 && frame.max.y <= bottom + 0.5,
+            "{frame:?}"
+        );
+        let world = self.app.world_mut();
+        let buttons: Vec<_> = world
+            .query_filtered::<Entity, With<UpdateButton>>()
+            .iter(world)
+            .collect();
+        assert!(!buttons.is_empty());
+        for button in buttons {
+            let rect = self.rect(button);
+            assert!(rect.height() >= 37.5, "no squeezed action: {rect:?}");
+            assert!(
+                rect.min.x >= frame.min.x && rect.max.x <= frame.max.x + 0.5,
+                "{rect:?}"
+            );
+            assert!(
+                rect.min.y >= frame.min.y && rect.max.y <= frame.max.y + 0.5,
+                "{rect:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_ready_buttons_clear_the_measured_footer_after_resize_without_rebuilding() {
+    for lang in [Lang::En, Lang::De] {
+        let mut fixture = NoticeLayout::new(UVec2::new(960, 700), Some(56.0), lang, 1.0);
+        let toast = fixture.show(Some(ready()), UpdatePlace::default());
+        let footer = fixture.footer.unwrap();
+        let bottom = fixture.rect(footer).min.y;
+        assert!((bottom - 644.0).abs() < 0.5, "the reported 960x700 repro");
+        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+
+        fixture
+            .app
+            .world_mut()
+            .get_mut::<Window>(fixture.window)
+            .unwrap()
+            .resolution
+            .set(640.0, 360.0);
+        fixture
+            .app
+            .world_mut()
+            .get_mut::<Camera>(fixture.camera)
+            .unwrap()
+            .computed
+            .target_info
+            .as_mut()
+            .unwrap()
+            .physical_size = UVec2::new(640, 360);
+        {
+            let mut node = fixture
+                .app
+                .world_mut()
+                .get_mut::<Node>(fixture.canvas)
+                .unwrap();
+            node.width = px(640);
+            node.height = px(360);
+        }
+        fixture
+            .app
+            .world_mut()
+            .get_mut::<Node>(footer)
+            .unwrap()
+            .height = px(80);
+        fixture.settle();
+        assert!(
+            fixture.app.world().get::<UpdateToast>(toast).is_some(),
+            "resize retained the controls"
+        );
+        let bottom = fixture.rect(footer).min.y;
+        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+    }
+}
+
+#[test]
+fn every_lobby_notice_keeps_its_actions_visible_when_long_text_scrolls() {
+    for lang in [Lang::En, Lang::De] {
+        for state in 0..4 {
+            let mut fixture = NoticeLayout::new(UVec2::new(640, 360), Some(80.0), lang, 1.0);
+            let mut place = read_only_place();
+            place.failed = Some("The operation could not finish. ".repeat(80));
+            let shown = match state {
+                0 => Some(ready()),
+                1 => Some(Shown::Available {
+                    version: "9.9.9".into(),
+                    page: "https://example.invalid/".into(),
+                    why: Why::Folder,
+                }),
+                2 => Some(Shown::Updated {
+                    version: "9.9.9".into(),
+                    page: Some("https://example.invalid/".into()),
+                }),
+                _ => {
+                    place.moved = Some((
+                        "/Applications/Baylee.app".into(),
+                        "/Downloads/Baylee.app".into(),
+                    ));
+                    None
+                }
+            };
+            let toast = fixture.show(shown, place);
+            let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
+            fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+            let world = fixture.app.world_mut();
+            let body = world
+                .query_filtered::<Entity, (With<ToastScroll>, Without<ToastActions>)>()
+                .single(world)
+                .unwrap();
+            let node = world.get::<ComputedNode>(body).unwrap();
+            // At least the ready/move/old-copy states carry the long failure.
+            if state != 2 {
+                assert!(node.content_size().y > node.size().y + 1.0);
+                let restart_or_hide = button(
+                    &mut fixture.app,
+                    if state == 0 {
+                        &UpdateButton::RestartNow
+                    } else {
+                        &UpdateButton::Hide
+                    },
+                );
+                let before = fixture.rect(restart_or_hide);
+                fixture.wheel(body, -4.0);
+                assert!(fixture.app.world().get::<ScrollPosition>(body).unwrap().y > 0.0);
+                assert_eq!(
+                    fixture.rect(restart_or_hide),
+                    before,
+                    "reading text does not move actions"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_table_offer_fits_above_the_hand_in_small_and_scaled_desktop_windows() {
+    for (size, scale) in [
+        (UVec2::new(640, 360), 1.0),
+        (UVec2::new(320, 480), 1.0),
+        (UVec2::new(2560, 1440), 1.25),
+    ] {
+        let mut fixture = NoticeLayout::new(size, None, Lang::En, scale);
+        let toast = fixture.show(Some(ready()), UpdatePlace::default());
+        let bottom = size.as_vec2().y - (crate::hud::HAND_ZONE_H + TOAST_GAP) * scale;
+        let top = crate::hud::TOP_CLEAR * scale;
+        fixture.assert_buttons_clear(toast, top, bottom);
+        let rect = fixture.rect(toast);
+        assert!(
+            (rect.center().x - size.as_vec2().x * 0.5).abs() < 0.5,
+            "centred: {rect:?}"
+        );
+    }
+}
+
+#[test]
+fn a_short_table_can_scroll_wrapped_german_actions_without_covering_the_ledge() {
+    let mut fixture = NoticeLayout::new(UVec2::new(640, 360), None, Lang::De, 1.0);
+    let toast = fixture.show(Some(ready()), UpdatePlace::default());
+    let world = fixture.app.world_mut();
+    let actions = world
+        .query_filtered::<Entity, With<ToastActions>>()
+        .single(world)
+        .unwrap();
+    let last = button(
+        &mut fixture.app,
+        &UpdateButton::Open("https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into()),
+    );
+    fixture.wheel(actions, -100.0);
+    let viewport = fixture.rect(actions);
+    let last_rect = fixture.rect(last);
+    assert!(
+        last_rect.min.y >= viewport.min.y - 0.5 && last_rect.max.y <= viewport.max.y + 0.5,
+        "the complete last action is reachable: {last_rect:?} in {viewport:?}"
+    );
+    assert!(fixture.rect(toast).max.y <= 360.0 - crate::hud::HAND_ZONE_H - TOAST_GAP + 0.5);
+    fixture.wheel(actions, 100.0);
+    let first = button(&mut fixture.app, &UpdateButton::RestartNow);
+    let button = fixture.rect(first);
+    assert!(
+        button.min.y >= viewport.min.y - 0.5 && button.max.y <= viewport.max.y + 0.5,
+        "the complete first action is reachable: {button:?} in {viewport:?}"
+    );
+}
+
+#[test]
+fn a_signed_in_german_notice_keeps_its_explanation_above_wrapped_actions() {
+    let mut fixture = NoticeLayout::new(UVec2::new(960, 700), None, Lang::De, 1.0);
+    fixture
+        .app
+        .world_mut()
+        .resource_mut::<NextState<DuelPhase>>()
+        .set(DuelPhase::Closed);
+    let toast = fixture.show(Some(ready()), UpdatePlace::default());
+    fixture.settle();
+    fixture.assert_buttons_clear(toast, 16.0, 684.0);
+    let world = fixture.app.world_mut();
+    let body = world
+        .query_filtered::<Entity, (With<ToastScroll>, Without<ToastActions>)>()
+        .single(world)
+        .unwrap();
+    let children = world.get::<Children>(body).unwrap().to_vec();
+    let frame = fixture.rect(body);
+    assert!(
+        frame.height() >= 40.0,
+        "the explanation must not collapse: {frame:?}"
+    );
+    assert!(children.len() >= 2, "headline and restart explanation");
+    for child in children {
+        let text = fixture.rect(child);
+        assert!(
+            text.min.y >= frame.min.y - 0.5 && text.max.y <= frame.max.y + 0.5,
+            "short explanation fully visible: {text:?} in {frame:?}"
+        );
+    }
+}

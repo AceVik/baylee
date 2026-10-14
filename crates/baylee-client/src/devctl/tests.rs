@@ -42,6 +42,25 @@ fn the_snapshot_names_browser_rows_and_their_controls() {
     );
 }
 
+#[test]
+fn shell_requests_with_no_available_knobs_still_answer_valid_json() {
+    let (mut app, tx) = harness();
+    app.add_systems(Update, shell_knobs.after(pump));
+    for body in [
+        "{}",
+        r#"{"unknown":true}"#,
+        r#"{"gallery":"true"}"#,
+        r#"{"text_size":"invalid"}"#,
+    ] {
+        let answers = ask(&tx, "/shell", body);
+        app.update();
+        let response = answers.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&response)
+            .unwrap_or_else(|error| panic!("{body}: {error}; response {response}"));
+        assert_eq!(parsed, serde_json::json!({"ok": true}), "{body}");
+    }
+}
+
 /// A key named either way round says the same thing.
 ///
 /// `harness_alias` already let a caller write `2` for `Digit2`, but only

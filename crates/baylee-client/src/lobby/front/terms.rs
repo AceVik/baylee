@@ -5,11 +5,10 @@
 //! drawing. The sheet stands over whatever the lobby shows after a sign-in
 //! (it is modal, its own `TabOrder`), and holds the screen until answered:
 //! **Accept and continue** (enabled once the end of the text has been in
-//! view), **Not now**, which signs out with nothing stored — a guest is
-//! asked first — or **Decline and delete account**, which opens the
-//! account deletion's own confirmation over the sheet (#292: the password
-//! again for an account, none for a guest). Esc moves focus to Not now and
-//! does nothing else; in the confirmation it is the confirmation's Cancel.
+//! view), or **Decline and delete account**, which opens account deletion's
+//! own confirmation (password again for an account, none for a guest).
+//! Escape returns focus to the text or Retry; it never signs out, accepts,
+//! or opens the destructive confirmation.
 
 use std::sync::Arc;
 
@@ -56,7 +55,7 @@ pub(crate) enum TermsReply {
 }
 
 /// Where a sheet wants the keyboard's focus once its tree is drawn: a stop
-/// of the terms or the About sheet, by name (Esc → Not now; the text on
+/// of the terms or the About sheet, by name (Esc → text/Retry; the text on
 /// opening). Kept until the stop is drawn, since the sheet is rebuilt
 /// after the key that asked.
 #[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
@@ -105,16 +104,16 @@ pub(crate) fn place_sheet_focus(
     let reading = matches!(state.terms.sheet(), Sheet::Reading(_));
     let now = (table.is_some(), reading);
     if now != (was.0, was.1) {
-        // Opened, or its text arrived: focus on the text; while the terms
-        // are still on their way (or failed), on the sheet's one answer.
+        // Opened, or its text arrived: focus on the text. Failed requests
+        // focus Retry; fetching offers no action until an answer arrives.
         if table.is_some() {
-            wanted.0 = Some(if reading || state.about_open {
-                "text"
+            wanted.0 = if reading || state.about_open {
+                Some("text")
             } else if matches!(state.terms.sheet(), Sheet::Failed) {
-                "retry"
+                Some("retry")
             } else {
-                "not-now"
-            });
+                None
+            };
         }
         (was.0, was.1) = now;
     }
@@ -390,8 +389,8 @@ pub(crate) fn read_the_terms(
 
 /// The sheet's keys (`KEYBOARD.md` §7.9): Space / `PageDown`, `PageUp`, ↑↓,
 /// Home and End scroll the text while it has focus (End enables Accept);
-/// Esc moves focus to Not now (or answers a guest's question with Stay) and
-/// does nothing else; Enter on a focused button is the walker's.
+/// Escape returns to reading (or Retry after a failed fetch), without
+/// accepting or signing out; Enter on a focused button is the walker's.
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(in crate::lobby) fn terms_keys(
     mut keys: MessageReader<KeyboardInput>,
@@ -418,7 +417,11 @@ pub(in crate::lobby) fn terms_keys(
         }
         if key.logical_key == Key::Escape {
             state.terms.escape();
-            wanted.0 = Some("not-now");
+            wanted.0 = match state.terms.sheet() {
+                Sheet::Reading(_) => Some("text"),
+                Sheet::Failed => Some("retry"),
+                Sheet::Closed | Sheet::Fetching => None,
+            };
             continue;
         }
         if !on_text {
@@ -681,16 +684,6 @@ pub(crate) fn sheet(
                 true,
             );
             body.push(words);
-            let not_now = controls::button(
-                commands,
-                kit,
-                Phrase::TermsNotNow.text(lang),
-                Weight::Secondary,
-                Live::Yes,
-                None,
-                (Press::Front(FrontPress::TermsNotNow), at("not-now")),
-            );
-            footer.push(not_now);
         }
         Sheet::Failed => {
             let retry = controls::button(
@@ -709,16 +702,6 @@ pub(crate) fn sheet(
                 retry,
             );
             body.push(line);
-            let not_now = controls::button(
-                commands,
-                kit,
-                Phrase::TermsNotNow.text(lang),
-                Weight::Secondary,
-                Live::Yes,
-                None,
-                (Press::Front(FrontPress::TermsNotNow), at("not-now")),
-            );
-            footer.push(not_now);
         }
         Sheet::Reading(reading) => {
             let text = commands
@@ -781,77 +764,39 @@ pub(crate) fn sheet(
                 true,
             );
             body.push(note);
-            if reading.asking_guest {
-                let ask = crate::shellkit::surfaces::prose(
-                    commands,
-                    kit,
-                    Phrase::TermsGuestAsk.text(lang),
-                    false,
-                );
-                body.push(ask);
-                let stay = controls::button(
-                    commands,
-                    kit,
-                    Phrase::TermsStay.text(lang),
-                    Weight::Primary,
-                    Live::Yes,
-                    None,
-                    (Press::Front(FrontPress::TermsStay), at("stay")),
-                );
-                let leave = controls::button(
-                    commands,
-                    kit,
-                    Phrase::TermsSignOut.text(lang),
-                    Weight::Danger,
-                    Live::Yes,
-                    None,
-                    (Press::Front(FrontPress::TermsNotNow), at("leave")),
-                );
-                footer.extend([stay, leave]);
+            let live = if state.terms.can_accept() {
+                Live::Yes
+            } else if reading.sending {
+                Live::No(Phrase::TermsSending.text(lang))
             } else {
-                let not_now = controls::button(
-                    commands,
-                    kit,
-                    Phrase::TermsNotNow.text(lang),
-                    Weight::Secondary,
-                    Live::Yes,
-                    None,
-                    (Press::Front(FrontPress::TermsNotNow), at("not-now")),
-                );
-                let live = if state.terms.can_accept() {
-                    Live::Yes
-                } else if reading.sending {
+                Live::No(Phrase::TermsScrollToAccept.text(lang))
+            };
+            // Declining is the account's deletion, by its own
+            // confirmation (password again for an account, none for a
+            // guest); the terms text names this button word for word.
+            let decline = controls::button(
+                commands,
+                kit,
+                Phrase::TermsDecline.text(lang),
+                Weight::Danger,
+                if reading.sending {
                     Live::No(Phrase::TermsSending.text(lang))
                 } else {
-                    Live::No(Phrase::TermsScrollToAccept.text(lang))
-                };
-                // Declining is the account's deletion, by its own
-                // confirmation (password again for an account, none for a
-                // guest); the terms text names this button word for word.
-                let decline = controls::button(
-                    commands,
-                    kit,
-                    Phrase::TermsDecline.text(lang),
-                    Weight::Danger,
-                    if reading.sending {
-                        Live::No(Phrase::TermsSending.text(lang))
-                    } else {
-                        Live::Yes
-                    },
-                    None,
-                    (Press::Front(FrontPress::TermsDecline), at("decline")),
-                );
-                let accept = controls::button(
-                    commands,
-                    kit,
-                    Phrase::TermsAccept.text(lang),
-                    Weight::Primary,
-                    live,
-                    Some("Enter"),
-                    (Press::Front(FrontPress::TermsAccept), at("accept")),
-                );
-                footer.extend([not_now, decline, accept]);
-            }
+                    Live::Yes
+                },
+                None,
+                (Press::Front(FrontPress::TermsDecline), at("decline")),
+            );
+            let accept = controls::button(
+                commands,
+                kit,
+                Phrase::TermsAccept.text(lang),
+                Weight::Primary,
+                live,
+                Some("Enter"),
+                (Press::Front(FrontPress::TermsAccept), at("accept")),
+            );
+            footer.extend([decline, accept]);
         }
     }
     let foot = commands

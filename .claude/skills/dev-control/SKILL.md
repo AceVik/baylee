@@ -70,7 +70,7 @@ Coordinates are **logical**; PNG dimensions are physical. Read `/health.scale`
 and divide measured image coordinates accordingly. Use `/window`, then wait
 for the reported size (the window manager can round by a pixel); resizing
 through OS scripting is unnecessary. Find controls in `/state.lobby_controls`,
-`desk_controls` or `hud_controls` and read `at_x`/`at_y`, not an old screenshot.
+`desk_controls` or `buttons` and read `at_x`/`at_y`, not an old screenshot.
 
 A pointer click already spans move, repeated aim, press, release and settle.
 Its reply follows the consuming frame. Do not work around the old missing

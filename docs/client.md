@@ -4394,12 +4394,13 @@ under 8 px) after its label. The settings search is a lobby field
 (`Field::SettingsSearch`) with the username's caret, selection and keys.
 
 **The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
-modal over whatever the sign-in led to, its own `TabOrder` (text, Not now,
-Decline and delete account, Accept). Accept waits until the end of the text has been in view (scroll,
-`End`, `Space`/`PageDown`, or a text that fits); Enter in the text accepts
-once it may; **Esc never signs out** — it moves focus to Not now (or
-answers a guest's question with Stay); Not now signs out with nothing
-stored, and a guest is asked first. **Decline and delete account** ("Ablehnen
+modal over whatever the sign-in led to, its own `TabOrder` (text,
+Decline and delete account, Accept). There is no Not now or sign-out button
+on this sheet (owner, 14.10.2026). Accept waits until the end of the text has
+been in view (scroll, `End`, `Space`/`PageDown`, or a text that fits); Enter
+in the text accepts once it may. **Escape never signs out or accepts**: it
+returns focus to the text, or to Retry after a failed fetch.
+**Decline and delete account** ("Ablehnen
 und Konto löschen", the words the terms name), drawn while the text is up
 (not on a sheet still loading or failed), opens the account deletion's own
 confirmation (#292, `confirm::draw_deletion`) over the sheet: the password

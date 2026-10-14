@@ -7,8 +7,10 @@
 //! cut nearest its drawn height in physical pixels ([`sharpen_brand`]), so it
 //! is crisp at every scale; its accessible name is the brand's word.
 //!
-//! - **Wide / Vast:** brand, the build's short form, the three nav pills,
+//! - **Wide / Vast:** brand, the build's short form, the nav pills,
 //!   the gateway pill with its name and counts, the bell, the account pill.
+//!   Native desktop uses tighter gaps and stacks the gateway's name over
+//!   its counts; that pill absorbs width pressure before any action does.
 //! - **Compact / Narrow:** the same, the gateway pill a dot, the account
 //!   pill its handle's first letter, no build (it stays in the popover).
 //! - **Phone** (44 tall): nav words stay; the gateway pill is a dot, or —
@@ -112,14 +114,22 @@ where
     let m = kit.m;
     let phone = m.frame == Frame::Phone;
     let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
+    let desktop = roomy && super::Platform::current() == super::Platform::Desktop;
     let bar = commands
         .spawn((
             Role::Header,
             Node {
                 width: Val::Percent(100.0),
+                // Large text at a narrow desktop keeps all actions reachable
+                // on a second row rather than placing them beyond the window.
+                flex_wrap: if !roomy && super::Platform::current() == super::Platform::Desktop {
+                    FlexWrap::Wrap
+                } else {
+                    FlexWrap::NoWrap
+                },
                 min_height: px_fixed(m.header),
                 padding: UiRect::axes(px_fixed(m.body), px_fixed(0.0)),
-                column_gap: px_fixed(m.gap),
+                column_gap: if desktop { m.px(8.0) } else { px_fixed(m.gap) },
                 align_items: AlignItems::Center,
                 flex_shrink: 0.0,
                 ..default()
@@ -286,13 +296,17 @@ pub(super) fn install(app: &mut App) {
 }
 
 /// The gateway pill on Wide and Vast: the reach dot, the name (or address)
-/// as its own label, the counts after it in muted ink, the caret.
+/// as its own label, the counts in muted ink, the caret. On native desktop
+/// the two labels share a bounded column: a long address clips inside its
+/// pill, leaving the account and navigation their full hit areas. The
+/// gateway popover still carries the complete address and counts.
 fn gateway_pill(
     commands: &mut Commands,
     kit: Kit,
     look: &HeaderLook,
     action: impl Bundle,
 ) -> Entity {
+    let desktop = super::Platform::current() == super::Platform::Desktop;
     let face = commands
         .spawn((
             Role::Pill,
@@ -331,10 +345,54 @@ fn gateway_pill(
             Pickable::IGNORE,
         ))
         .id();
-    commands
-        .entity(face)
-        .add_children(&[dot, name, counts, caret]);
-    hit(commands, kit, face, action)
+    if desktop {
+        let words = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    min_width: px_fixed(0.0),
+                    overflow: Overflow::clip_x(),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(words).add_children(&[name, counts]);
+        // `hit` normally protects its child's natural width. This pill
+        // alone may shrink; its face must follow that allotted width.
+        commands
+            .entity(face)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.max_width = Val::Percent(100.0);
+                node.min_width = px_fixed(0.0);
+            });
+        commands.entity(dot).entry::<Node>().and_modify(|mut node| {
+            node.flex_shrink = 0.0;
+        });
+        commands
+            .entity(caret)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_shrink = 0.0;
+            });
+        commands.entity(face).add_children(&[dot, words, caret]);
+    } else {
+        commands
+            .entity(face)
+            .add_children(&[dot, name, counts, caret]);
+    }
+    let wrapper = hit(commands, kit, face, action);
+    if desktop {
+        commands
+            .entity(wrapper)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.flex_shrink = 1.0;
+                node.min_width = px_fixed(kit.m.scaled(64.0).max(kit.m.hit));
+            });
+    }
+    wrapper
 }
 
 /// The bell: its glyph, and the unread count on it when there is one.
@@ -464,3 +522,9 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
 /// Marks a strip, so a test can count them.
 #[derive(Component)]
 pub struct SeatStrip;
+
+#[cfg(all(
+    test,
+    not(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))
+))]
+mod tests;

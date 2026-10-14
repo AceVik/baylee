@@ -9,6 +9,13 @@ use super::{
 use anyhow::{Result, ensure};
 use serde_json::{Value, json};
 use std::path::Path;
+
+// Native clients include Replays between Decks and Settings.
+const HEADER_SCREENS: [(&str, &str); 3] = [
+    ("play", "Header(Nav(0))"),
+    ("decks", "Header(Nav(1))"),
+    ("settings", "Header(Nav(3))"),
+];
 pub(super) fn tiles_per_row(tree: &Tree) -> usize {
     let top = tree
         .0
@@ -156,11 +163,7 @@ pub(super) fn header(d: &Devctl, out: &Path) -> Result<()> {
             let touch = check::TOUCH.contains(&(w, h));
             for lang in ["en", "de"] {
                 d.knobs("l", lang, touch)?;
-                for (screen, name) in [
-                    ("play", "Header(Nav(0))"),
-                    ("decks", "Header(Nav(1))"),
-                    ("settings", "Header(Nav(2))"),
-                ] {
+                for (screen, name) in HEADER_SCREENS {
                     d.tap(name, 1.0)?;
                     let tree = d.nodes(None)?;
                     let mut faults = Vec::new();
@@ -284,4 +287,56 @@ pub(super) fn probe(
         Ok(())
     })();
     common::cleanup(result, common::leave(d, screen))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HEADER_SCREENS;
+
+    #[test]
+    fn header_targets_match_the_clients_native_nav() {
+        let source =
+            syn::parse_file(include_str!("../../../baylee-client/src/lobby/header.rs")).unwrap();
+        let nav = source
+            .items
+            .iter()
+            .find_map(|item| match item {
+                syn::Item::Const(item) if item.ident == "NAV" => Some(item),
+                _ => None,
+            })
+            .unwrap();
+        let syn::Expr::If(nav) = nav.expr.as_ref() else {
+            panic!("expected desktop/mobile NAV branches");
+        };
+        let [syn::Stmt::Expr(syn::Expr::Reference(nav), None)] = nav.then_branch.stmts.as_slice()
+        else {
+            panic!("expected the native NAV slice");
+        };
+        let syn::Expr::Array(tabs) = nav.expr.as_ref() else {
+            panic!("expected native NAV entries");
+        };
+        for (screen, press) in HEADER_SCREENS {
+            let index: usize = press
+                .strip_prefix("Header(Nav(")
+                .unwrap()
+                .strip_suffix("))")
+                .unwrap()
+                .parse()
+                .unwrap();
+            let syn::Expr::Path(tab) = &tabs.elems[index] else {
+                panic!("expected a NavTab");
+            };
+            assert_eq!(
+                tab.path
+                    .segments
+                    .last()
+                    .unwrap()
+                    .ident
+                    .to_string()
+                    .to_ascii_lowercase(),
+                screen,
+                "{press} must open {screen}",
+            );
+        }
+    }
 }

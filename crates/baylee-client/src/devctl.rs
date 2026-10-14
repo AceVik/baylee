@@ -154,7 +154,8 @@ fn shell_knobs(
     let (mut settings, mut gallery, mut lobby, mut notice) = (settings, gallery, lobby, notice);
     for job in std::mem::take(&mut control.shell_jobs) {
         let body = job.body.as_str();
-        let mut said = Vec::new();
+        // Empty or unavailable knobs still yield a valid JSON response.
+        let mut said = vec![r#""ok":true"#.to_string()];
         if let Some(step) = field(body, "text_size") {
             let step = match step {
                 "xs" => Some(crate::shellkit::TextSize::Xs),
@@ -213,9 +214,7 @@ fn shell_knobs(
             notice.hidden = false;
             said.push(format!("\"update_ready\":{}", quoted(version)));
         }
-        let _ = job
-            .reply
-            .send(format!("{{\"ok\":true,{}}}", said.join(",")));
+        let _ = job.reply.send(format!("{{{}}}", said.join(",")));
     }
 }
 

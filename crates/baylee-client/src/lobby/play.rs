@@ -270,6 +270,9 @@ fn hero(
     let lang = lobby.lang();
     let phone = kit.m.frame == ShellFrame::Phone;
     let strip_hero = !phone && !matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
+    let stack_deck = !phone
+        && !strip_hero
+        && crate::shellkit::Platform::current() == crate::shellkit::Platform::Desktop;
     let mut anchors = HeroAnchors::default();
     let panel = commands
         .spawn((
@@ -320,6 +323,15 @@ fn hero(
         let line = commands
             .spawn((
                 Node {
+                    // A desktop sidebar can lose a third of its space to
+                    // the friends drawer. Stack artwork and words there;
+                    // their widths must never compete inside a narrow lane.
+                    flex_direction: if stack_deck {
+                        FlexDirection::Column
+                    } else {
+                        FlexDirection::Row
+                    },
+                    row_gap: kit.m.px(8.0),
                     column_gap: kit.m.px(12.0),
                     align_items: AlignItems::Start,
                     flex_shrink: 1.0,
@@ -356,7 +368,8 @@ fn hero(
                     flex_direction: FlexDirection::Column,
                     row_gap: kit.m.px(4.0),
                     flex_grow: 1.0,
-                    flex_basis: px(0),
+                    width: if stack_deck { percent(100) } else { Val::Auto },
+                    flex_basis: if stack_deck { Val::Auto } else { px(0) },
                     flex_shrink: 1.0,
                     min_width: px(0),
                     ..default()
@@ -2202,3 +2215,6 @@ pub(super) fn remember(
         house,
     });
 }
+
+#[cfg(test)]
+mod tests;

@@ -54,6 +54,15 @@ never printed. Requests do not follow redirects or inherit HTTP proxies.
 - `header`, `screens lobby`, `look`, `probe`, `measure hover` and the default
   walks expect the lane signed in. Walks require multiple decks and an open
   table named "Thursday …". `screens room` requires an already seated client.
+- Complete modal prerequisites before a sweep: accept the test gateway's
+  terms and acknowledge the first-device E2E notice (`GotIt`) when offered.
+  Those sheets intentionally block the header; the helpers do not dismiss
+  consent or safety notices automatically. The settings sweep supports the
+  signed-in desktop's `Header(Nav(3))` and the front door's
+  `Settings(OpenSettings)` entry, or an already open settings screen.
+- Front navigation and settings cleanup scroll a clipped control into its measured scroll
+  viewport before pressing it, with at most 12 wheel requests and fresh
+  geometry reads. This does not relax any layout/contrast assertion.
 - `keys` uses the source tree's named `GALLERY_ORDER`. W2 ends in a room, as
   the old script did; `measure presses` separately proves Start reaches an
   actual game view. W7 deletes one deck and undoes it.

@@ -1206,10 +1206,6 @@ pub(crate) enum FrontPress {
     About(bool),
     /// The terms sheet's Accept and continue.
     TermsAccept,
-    /// The terms sheet's Not now (a guest's second press signs it out).
-    TermsNotNow,
-    /// A guest stays on the terms sheet.
-    TermsStay,
     /// Ask for the terms again after a failure.
     TermsRetry,
     /// The terms sheet's Decline and delete account: the account deletion's
@@ -1273,13 +1269,6 @@ impl FrontPress {
                     terms::perform(ask, state, prefs, scrolled, mailbox, settings);
                 }
             }
-            FrontPress::TermsNotNow => {
-                let guest = state.lobby.guest();
-                if let Some(ask) = state.terms.not_now(guest) {
-                    terms::perform(ask, state, prefs, scrolled, mailbox, settings);
-                }
-            }
-            FrontPress::TermsStay => state.terms.stay(),
             // The same confirmation, password and request as Settings'
             // Delete account: declining the terms deletes nothing else.
             FrontPress::TermsDecline => state.lobby.ask_to_delete_account(),

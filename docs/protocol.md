@@ -3437,8 +3437,9 @@ address). A kept guest, which signs in to nothing, is asked when
 link as its text and address; anything else is text, no HTML is
 interpreted), enables Accept only once the end of the text has been in
 view, posts the version it showed, and on `409` fetches and shows the new
-text. Not now signs out with nothing stored (a guest is asked first); Esc
-never signs out. Decline and delete account (shown with the text) is the
+text. The desktop sheet offers no Not now or sign-out action. Esc keeps
+the session and returns focus to the reading text, or Retry after a failed
+fetch. Decline and delete account (shown with the text) is the
 account's deletion, §"Deleting an account (#292)", unchanged: a session that
 has not accepted the current version may delete its account like any other,
 since no route refuses it. A failed `GET /terms` says "Couldn't load the terms ·

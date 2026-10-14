@@ -5,8 +5,7 @@ use super::{
     devctl::{Devctl, sleep},
     tree::Tree,
 };
-use anyhow::{Result, bail};
-use serde_json::json;
+use anyhow::Result;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
@@ -48,28 +47,16 @@ pub(super) fn rows_in_view(tree: &Tree, height: f64) -> usize {
         .count()
 }
 fn into_view(d: &Devctl, name: &str) -> Result<()> {
-    for _ in 0..12 {
-        let hit = d
-            .controls()?
-            .into_iter()
-            .find(|c| c.press == name)
-            .ok_or_else(|| anyhow::anyhow!("control not offered: {name}"))?;
-        let (_, height) = d.size()?;
-        if hit.at_y > 20.0 && hit.at_y < height - 20.0 {
-            return Ok(());
-        }
-        d.pointer(hit.at_x, height / 2.0, false)?;
-        d.post("/scroll", &json!({"y":if hit.at_y>height/2.0{-3}else{3}}))?;
-    }
-    bail!("could not scroll control into view: {name}")
+    super::front::into_view(d, name)
 }
 fn open(d: &Devctl) -> Result<()> {
     if !d.has("Settings(CloseSettings)")? {
-        d.press_until(
-            "Settings(OpenSettings)",
-            || d.has("Settings(CloseSettings)"),
-            3,
-        )?;
+        let entry = if d.has("Header(Nav(3))")? {
+            "Header(Nav(3))"
+        } else {
+            "Settings(OpenSettings)"
+        };
+        d.press_until(entry, || d.has("Settings(CloseSettings)"), 3)?;
         sleep(0.6);
     }
     Ok(())
@@ -168,7 +155,16 @@ fn profile_sheet(d: &Devctl, out: &Path, c: &Case<'_>, report: &mut Report) -> R
     })();
     // No model invocation, and no new profile survives the check.
     let clean = (|| {
+        if d.has("Settings(CloseProfile)")? {
+            into_view(d, "Settings(CloseProfile)")?;
+            d.press_until(
+                "Settings(CloseProfile)",
+                || Ok(!d.has("Settings(CloseProfile)")?),
+                3,
+            )?;
+        }
         if d.has("Settings(Seat(Revert))")? {
+            into_view(d, "Settings(Seat(Revert))")?;
             d.press("Settings(Seat(Revert))")?;
         }
         Ok(())
@@ -228,6 +224,7 @@ pub(super) fn run(d: &Devctl, out: &Path) -> Result<()> {
     let clean = (|| {
         common::reset(d)?;
         if d.has("Settings(CloseSettings)")? {
+            into_view(d, "Settings(CloseSettings)")?;
             d.press("Settings(CloseSettings)")?;
         }
         Ok(())
