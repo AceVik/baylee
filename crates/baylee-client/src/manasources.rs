@@ -10,8 +10,10 @@
 //! engine already answered that question and this does not second-guess it.
 //! What the registry adds is only *what comes out*.
 
+use std::borrow::Cow;
+
 use baylee_client_core::manaplan::{Source, Tap, basic_land_color};
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::LegalActions;
 use baylee_view::PlayerView;
 
@@ -312,6 +314,31 @@ pub fn printed_source(
     mana_ability(view, object, index, ability_at(view, object, index)?)
 }
 
+/// Builds an owned planner source from the shared ability reading.
+fn mana_ability(
+    view: &PlayerView,
+    id: baylee_core::ids::ObjectId,
+    index: u32,
+    ability: &'static AbilityDef,
+) -> Option<Source> {
+    read_mana_ability(
+        view,
+        id,
+        index,
+        ability,
+        |colors, amount, bundle, priced| Source {
+            id,
+            tap: Tap::Ability(index),
+            colors: colors.into_owned(),
+            amount,
+            bundle,
+            priced,
+            preserve: 0,
+            dear: None,
+        },
+    )
+}
+
 /// Reads one ability as a mana source, or decides it is not one this can use.
 ///
 /// The reading itself is [`baylee_cards_dsl::mana_with_riders`], which is where it
@@ -320,12 +347,13 @@ pub fn printed_source(
 /// be the one that knows the answer. What the shape leaves open is which
 /// colours a source that depends on the board makes, and that is this
 /// module's to answer — it is the one with a [`PlayerView`] in its hand.
-fn mana_ability(
+fn read_mana_ability<T>(
     view: &PlayerView,
     id: baylee_core::ids::ObjectId,
     index: u32,
     ability: &'static AbilityDef,
-) -> Option<Source> {
+    read: impl FnOnce(Cow<'_, [ManaColor]>, u8, bool, bool) -> T,
+) -> Option<T> {
     // `ActivatedConditional` belongs here beside `Activated`, and the
     // condition is deliberately not re-checked: this list is built from
     // `LegalActions` and nothing else, and the engine offers a conditional
@@ -348,34 +376,24 @@ fn mana_ability(
     else {
         return None;
     };
-    // A tap that says "add" more than once is read first, and it is the only
-    // place a `Source` is ever marked a bundle. The two readings are
-    // disjoint rather than ordered — `mana_written` returns `None` on a
-    // second `AddMana`, so nothing below can see a Karoo — but asking the
-    // narrower question first is how this reads as the special case it is.
-    //
-    // `produced_colors` is not consulted: a bundle is `ManaSource::Fixed`
-    // throughout by construction, so its colours are printed on the card and
-    // need no board to resolve. `amount` is the count that arrives, because
-    // the field means what one activation makes and a Karoo makes two.
-    if let Some(colors) = baylee_cards_dsl::mana_bundle(cost, effects) {
+    // The single-clause reader and bundles are disjoint: `mana_written`
+    // refuses a second AddMana, and `mana_bundle` requires multiple. Ask the
+    // common question first, avoiding a bundle Vec that a plain land would
+    // immediately discard. Riders remain accepted by both DSL readers.
+    let Some((source, amount, restricted)) = baylee_cards_dsl::mana_with_riders(cost, effects)
+    else {
+        // Bundle colours are fixed in the definition, not projected from
+        // the board. Keep this already-owned Vec for the planner and read
+        // it directly for the table's colour tally.
+        let colors = baylee_cards_dsl::mana_bundle(cost, effects)?;
         let amount = u8::try_from(colors.len()).unwrap_or(u8::MAX);
-        return Some(Source {
-            id,
-            tap: Tap::Ability(index),
-            colors,
+        return Some(read(
+            Cow::Owned(colors),
             amount,
-            bundle: true,
-            priced: priced(cost, effects),
-            preserve: 0,
-            dear: None,
-        });
-    }
-    // The planner's door rather than the strict one: an ability that also
-    // does something else is still a source, and `priced` is what keeps it
-    // behind every clean tap. See the module header in `manaread.rs` for why
-    // the bar moves for this caller and for no other.
-    let (source, amount, restricted) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
+            true,
+            priced(cost, effects),
+        ));
+    };
     // Still refused, and for the reason `simple_mana` refused it: what a
     // Cavern of Souls' mana may be spent on is a rules question, and
     // answering it this side of the wire is the guess the reading exists to
@@ -393,16 +411,8 @@ fn mana_ability(
     let amount = amount
         .or_else(|| baylee_ai::mana_poured(view, id, effects))
         .filter(|amount| *amount > 0)?;
-    let colors = produced_colors(view, id, index, source)?;
-    Some(Source {
-        id,
-        tap: Tap::Ability(index),
-        colors,
-        amount,
-        bundle: false,
-        priced: priced(cost, effects),
-        preserve: 0,
-        dear: None,
+    with_produced_colors(view, id, index, source, |colors| {
+        read(Cow::Borrowed(colors), amount, false, priced(cost, effects))
     })
 }
 
@@ -435,10 +445,22 @@ pub(crate) fn produced_colors(
     index: u32,
     source: baylee_cards_dsl::ManaSource,
 ) -> Option<Vec<baylee_core::mana::ManaColor>> {
+    with_produced_colors(view, object, index, source, <[ManaColor]>::to_vec)
+}
+
+/// Lends colours only for this synchronous call, including the stack-local
+/// fixed colour. Choices and host projections keep their existing storage.
+fn with_produced_colors<T>(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
+    source: baylee_cards_dsl::ManaSource,
+    read: impl FnOnce(&[ManaColor]) -> T,
+) -> Option<T> {
     match source {
-        baylee_cards_dsl::ManaSource::Fixed(color) => Some(vec![color]),
-        baylee_cards_dsl::ManaSource::Choice(colors) => Some(colors.to_vec()),
-        // All five are the host's to answer, and the chosen colour is the
+        baylee_cards_dsl::ManaSource::Fixed(color) => Some(read(std::slice::from_ref(&color))),
+        baylee_cards_dsl::ManaSource::Choice(colors) => Some(read(colors)),
+        // These are the host's to answer, and the chosen colour is the
         // one the client could not have derived with the whole board in
         // front of it: the answer is on the object, printed on no card.
         baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
@@ -450,7 +472,7 @@ pub(crate) fn produced_colors(
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {
             let board = view.object(object)?.board_mana.as_ref()?;
-            (board.index == index).then(|| board.colors.clone())
+            (board.index == index).then(|| read(&board.colors))
         }
     }
 }
@@ -717,14 +739,13 @@ pub fn table_mana(view: &PlayerView) -> [f32; 5] {
             let Ok(index) = u32::try_from(index) else {
                 continue;
             };
-            let Some(source) = mana_ability(view, object.id, index, ability) else {
-                continue;
-            };
-            for color in source.colors {
-                if let Some(slot) = colors.get_mut(color as usize) {
-                    *slot = true;
+            let _ = read_mana_ability(view, object.id, index, ability, |made, _, _, _| {
+                for &color in made.as_ref() {
+                    if let Some(slot) = colors.get_mut(color as usize) {
+                        *slot = true;
+                    }
                 }
-            }
+            });
         }
 
         let made = colors.iter().filter(|on| **on).count();
@@ -760,6 +781,8 @@ mod tests {
     use baylee_core::ids::ObjectId;
     use baylee_core::mana::ManaColor;
     use baylee_engine::choice::GRANTED_ABILITY;
+
+    mod borrowed;
 
     #[test]
     fn intrinsic_mana_reads_hacked_land_colors_from_the_host() {
