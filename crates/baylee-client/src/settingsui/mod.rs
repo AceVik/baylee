@@ -185,7 +185,7 @@ fn search_field(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
 fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
     let state = view.state;
     let lang = state.lobby.lang();
-    let holder = nav_holder(commands, kit, side, view.nav_scroll);
+    let (panel, holder) = nav_holder(commands, kit, side, view.nav_scroll, view.metrics);
     // The way back to where the screen was opened over (the builder, the
     // front door, Play): before sign-in no header stands over it at all.
     {
@@ -257,12 +257,18 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
             .id();
         commands.entity(holder).add_child(foot);
     }
-    holder
+    panel
 }
 
 /// The nav's own panel: a column beside the rows, or a wrapping row.
-fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> Entity {
-    commands
+fn nav_holder(
+    commands: &mut Commands,
+    kit: Kit,
+    side: bool,
+    scroll: f32,
+    metrics: Metrics,
+) -> (Entity, Entity) {
+    let panel = commands
         .spawn((
             Role::Panel,
             Node {
@@ -271,7 +277,25 @@ fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> Ent
                 } else {
                     Val::Percent(100.0)
                 },
+                min_height: px_fixed(0.0),
                 flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px_fixed(kit.m.pad * 0.7)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL),
+            BorderColor::all(tokens::BORDER),
+        ))
+        .id();
+    let list = commands
+        .spawn((
+            Role::Scroll,
+            Node {
+                min_height: px_fixed(0.0),
+                flex_grow: 1.0,
                 flex_direction: if side {
                     FlexDirection::Column
                 } else {
@@ -287,23 +311,27 @@ fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> Ent
                 } else {
                     AlignItems::Center
                 },
-                padding: UiRect::all(px_fixed(kit.m.pad * 0.7)),
                 row_gap: kit.m.px(4.0),
                 column_gap: kit.m.px(6.0),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            // A phone's list is taller than its window: it scrolls under
-            // a finger or a wheel, and keeps its place across rebuilds.
             ScrollPosition(Vec2::new(0.0, scroll)),
             Scrollable(List::SettingsNav),
             Pickable::default(),
         ))
-        .id()
+        .id();
+    if side {
+        // All sections and even a long development build identifier remain
+        // reachable at the supported canvas floor, with a visible scroll cue.
+        let bar = crate::lobby::scrollbars::attach(commands, panel, list, metrics);
+        commands
+            .entity(bar)
+            .insert(crate::lobby::scrollbars::OnlyWhenNeeded);
+    } else {
+        commands.entity(panel).add_child(list);
+    }
+    (panel, list)
 }
 
 /// One section in the sidebar: a full-width row, lit when shown.
