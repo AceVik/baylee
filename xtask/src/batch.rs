@@ -111,6 +111,12 @@ pub(crate) fn drift_from_status(porcelain: &str, asked: &BTreeSet<String>) -> Ve
             continue;
         }
         let path = path.rsplit(" -> ").next().unwrap_or(path);
+        // Codegen adds module declarations here for every new card. This
+        // exact registry is not a card; deletion, renames and other mod.rs
+        // paths must still be reported rather than broadly ignored.
+        if path == "crates/baylee-cards/src/cards/mod.rs" && status.trim() == "M" {
+            continue;
+        }
         let slug = Path::new(path)
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())

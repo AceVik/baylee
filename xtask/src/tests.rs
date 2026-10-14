@@ -944,3 +944,26 @@ fn no_generated_card_already_has_its_card_test() {
          `cargo run -p xtask -- codegen` to promote them: {behind:?}"
     );
 }
+
+#[test]
+fn batch_registry_growth_is_expected_but_other_module_changes_are_not() {
+    let asked = std::collections::BTreeSet::new();
+    for status in [" M", "M "] {
+        assert!(
+            super::drift_from_status(
+                &format!("{status} crates/baylee-cards/src/cards/mod.rs\n"),
+                &asked
+            )
+            .is_empty(),
+            "{status}"
+        );
+    }
+    for line in [
+        " D crates/baylee-cards/src/cards/mod.rs",
+        " M crates/baylee-cards/src/cards/creatures/mod.rs",
+        "R  crates/baylee-cards/src/cards/x.rs -> crates/baylee-cards/src/cards/mod.rs",
+        " M crates/baylee-cards/src/cards/creatures/real_card.rs",
+    ] {
+        assert_eq!(super::drift_from_status(line, &asked).len(), 1, "{line}");
+    }
+}
