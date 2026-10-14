@@ -127,9 +127,10 @@ fn unpack_zip(archive: &Path, dest: &Path) -> io::Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(archive)?).map_err(refused)?;
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index).map_err(refused)?;
-        let rel: PathBuf = entry
-            .enclosed_name()
-            .ok_or_else(|| refused(format!("{} leaves the archive", entry.name())))?;
+        let rel: PathBuf = entry.enclosed_name().ok_or_else(|| match entry.name() {
+            Ok(name) => refused(format!("{name} leaves the archive")),
+            Err(error) => refused(error),
+        })?;
         if !is_inside(&rel) {
             return Err(refused(format!("{} leaves the archive", rel.display())));
         }

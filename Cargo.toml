@@ -193,7 +193,7 @@ hkdf = "0.13"
 # Only for its `zeroize` feature: HKDF's HMAC states are wiped when dropped.
 hmac = "0.13"
 zeroize = "1"
-zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 tar = { version = "0.4", default-features = false }
 # Card text fetch in the client. Tiny, and the only HTTP client that works
 # unchanged on native and wasm — bevy's asset server only does assets.
