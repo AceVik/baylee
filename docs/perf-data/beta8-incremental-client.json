@@ -1,0 +1,155 @@
+{
+  "notes": [
+    "PROVISIONAL: desktop occlusion unverified; geometry/screenshots reviewed separately.",
+    "CPU is driver process CPU percent; POWER is macOS top POWER score, not watts; RSS is end MiB.",
+    "Main = perf.update_ms (First-to-Last); allocs/bytes are per frame, total across threads vs main.",
+    "FPS/frames belong only to the perf window; GPU is a separate trace, not GPU ms/frame or framecount.",
+    "GPU total is union of exact-PID Active intervals at ALL depths over TOC duration; unknown PIDs excluded.",
+    "Depth-zero union and summed interval durations are diagnostics, not total GPU busy; overlaps count once in the total.",
+    "Optional pass statistics count labeled GPU intervals, not frames, drawcalls, vertices or GPU cycles."
+  ],
+  "runs": [
+    {
+      "label": "p2",
+      "screen": "full",
+      "pid": 47662,
+      "commit": "556242c73a947b3953c409060c4ab0abf00f0370",
+      "binary_sha256": "6f9bec4b1069462231e95e251059acb8d62081e362efdf0b308f7a04dee3ed10",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 47.07284799980414,
+      "cpu_window_seconds": 30.081035249999985,
+      "top_power_mean": 46.13571428571429,
+      "top_power_samples": 14,
+      "rss_mib_end": 482.75,
+      "main_ms": {
+        "mean": 1.295,
+        "p95": 1.489,
+        "p99": 1.591
+      },
+      "allocs_per_frame_total": 3396.9,
+      "allocs_per_frame_main": 848.7,
+      "alloc_bytes_per_frame": 1016036,
+      "systems": 738,
+      "entities": 1070,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.066,
+      "gpu": {
+        "status": "skipped",
+        "pid_attribution_verified": false
+      }
+    },
+    {
+      "label": "incremental",
+      "screen": "full",
+      "pid": 49510,
+      "commit": "8e9b0cce806dc89f35737ca1f03c9c45cd914176",
+      "binary_sha256": "8d2722ac7f654a3052ac77d263c333a0f2013edeff2ef4cf681f4a1b2485d3b4",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 46.76911902434308,
+      "cpu_window_seconds": 30.083953457999996,
+      "top_power_mean": 45.778571428571425,
+      "top_power_samples": 14,
+      "rss_mib_end": 482.703125,
+      "main_ms": {
+        "mean": 1.259,
+        "p95": 1.455,
+        "p99": 1.597
+      },
+      "allocs_per_frame_total": 3347.8,
+      "allocs_per_frame_main": 803.7,
+      "alloc_bytes_per_frame": 996339,
+      "systems": 740,
+      "entities": 1071,
+      "fps": 59.83,
+      "perf_frames": 1799,
+      "perf_seconds": 30.07,
+      "gpu": {
+        "status": "skipped",
+        "pid_attribution_verified": false
+      }
+    },
+    {
+      "label": "p2",
+      "screen": "full",
+      "pid": 50945,
+      "commit": "556242c73a947b3953c409060c4ab0abf00f0370",
+      "binary_sha256": "6f9bec4b1069462231e95e251059acb8d62081e362efdf0b308f7a04dee3ed10",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 47.615461719716194,
+      "cpu_window_seconds": 30.074264708999976,
+      "top_power_mean": 46.771428571428565,
+      "top_power_samples": 14,
+      "rss_mib_end": 477.5625,
+      "main_ms": {
+        "mean": 1.329,
+        "p95": 1.554,
+        "p99": 1.67
+      },
+      "allocs_per_frame_total": 3391.8,
+      "allocs_per_frame_main": 846.5,
+      "alloc_bytes_per_frame": 1011755,
+      "systems": 738,
+      "entities": 1068,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.067,
+      "gpu": {
+        "status": "skipped",
+        "pid_attribution_verified": false
+      }
+    }
+  ],
+  "schema": 1,
+  "date": "2026-10-14",
+  "code_commit": "8e9b0cce806dc89f35737ca1f03c9c45cd914176",
+  "fixture": {
+    "permanents": 40,
+    "hand_cards": 7,
+    "viewport": [
+      1600,
+      1000
+    ],
+    "scale": 1,
+    "preset": "Medium",
+    "msaa": 4,
+    "fps_caps": 60
+  },
+  "method": "One silent isolated offline client at a time; 30s warmup, 30s unsampled CPU, separate 10s allocation sample. No recordings during measurement. A/B/A on identical fixtures.",
+  "limitations": [
+    "Provisional rendered comparison; desktop occlusion was not independently verified.",
+    "No GPU trace or GPU improvement claim.",
+    "Small process-CPU difference does not establish recovery of the older 14\u201320% regression.",
+    "Dev-control builds include instrumentation; the candidate also includes the idle recording systems."
+  ],
+  "deltas_vs_mean_a": {
+    "cpu_percent": {
+      "reference_mean": 47.34415485976017,
+      "candidate": 46.76911902434308,
+      "percent_change": -1.2145867575848013
+    },
+    "allocs_per_frame_total": {
+      "reference_mean": 3394.3500000000004,
+      "candidate": 3347.8,
+      "percent_change": -1.3713965855023824
+    },
+    "allocs_per_frame_main": {
+      "reference_mean": 847.6,
+      "candidate": 803.7,
+      "percent_change": -5.179329872581406
+    },
+    "alloc_bytes_per_frame": {
+      "reference_mean": 1013895.5,
+      "candidate": 996339,
+      "percent_change": -1.7315887090928017
+    },
+    "main_ms_mean": {
+      "reference_mean": 1.3119999999999998,
+      "candidate": 1.259,
+      "percent_change": -4.039634146341465
+    }
+  }
+}

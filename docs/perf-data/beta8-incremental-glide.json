@@ -1,0 +1,1522 @@
+{
+  "schema": 1,
+  "date": "2026-10-14",
+  "code_commit": "8e9b0cce806dc89f35737ca1f03c9c45cd914176",
+  "machine": "Apple M1 Max, 64 GB RAM",
+  "method": "Three A/B/A cycles per case; median candidate and median mean-A duration over 6000 frames. Target writes included. Original uses PlainMotion without summary tick writes.",
+  "builds": {
+    "summary": {
+      "base_commit": "8e9b0cce806dc89f35737ca1f03c9c45cd914176",
+      "annotation": true,
+      "motion_sha256": "e5a836452f5c911ee22076f1a0601d116e5e0f670ba22425007ec8b19c85190c",
+      "binary_sha256": "500c8d8e144f4bde62b1821409740a03d7a15b04bd0b8ddafe879099a553fd00",
+      "load_at_measurement": [
+        3.7822265625,
+        5.03369140625,
+        6.44921875
+      ],
+      "profile": "release, thin LTO, codegen-units=1, optimized test binary",
+      "writer_cost_included": true,
+      "motion_contracts_passed": true
+    },
+    "no-summary": {
+      "base_commit": "8e9b0cce806dc89f35737ca1f03c9c45cd914176",
+      "annotation": false,
+      "motion_sha256": "e9729764ec7b375d86478cb80c9a4ff3226a642cbfd042812769bad2e4242b0a",
+      "binary_sha256": "d482ccb1dcba5a181c070fa21a3025f89daf0af66d6aa10c25ddc041c3fea3b1",
+      "load_at_measurement": [
+        3.4443359375,
+        4.625,
+        5.4072265625
+      ],
+      "profile": "release, thin LTO, codegen-units=1, optimized test binary",
+      "writer_cost_included": true,
+      "motion_contracts_passed": true
+    }
+  },
+  "no_summary_mutation": "Only #[component(summary_tick)] was removed. Original bytes restored before building the final client.",
+  "notes": [
+    "Microbenchmarks cover one system and target writes, not a full rendered frame.",
+    "Dense and half-active cases remain slower than the original; see the complete matrix.",
+    "Summary-only percentages normalize each candidate to its own returning baseline; variants were separately built."
+  ],
+  "frames_per_leg": 6000,
+  "raw": [
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 3482959.0,
+      "b_ns": 997917.0,
+      "a2_ns": 3407916.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 3113250.0,
+      "b_ns": 892500.0,
+      "a2_ns": 3142375.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 2827541.0,
+      "b_ns": 823667.0,
+      "a2_ns": 2792792.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 2632333.0,
+      "b_ns": 3549417.0,
+      "a2_ns": 2395167.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 2389375.0,
+      "b_ns": 3515959.0,
+      "a2_ns": 2230875.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 2223875.0,
+      "b_ns": 3207750.0,
+      "a2_ns": 2206250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 18692750.0,
+      "b_ns": 1714583.0,
+      "a2_ns": 18559709.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 18555792.0,
+      "b_ns": 1768875.0,
+      "a2_ns": 18522792.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 18658791.0,
+      "b_ns": 1742417.0,
+      "a2_ns": 18604250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 17084875.0,
+      "b_ns": 25329958.0,
+      "a2_ns": 17177000.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 17071083.0,
+      "b_ns": 25278042.0,
+      "a2_ns": 17316250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 16979417.0,
+      "b_ns": 25527542.0,
+      "a2_ns": 17379334.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2157958.0,
+      "b_ns": 483625.0,
+      "a2_ns": 2160917.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2136666.0,
+      "b_ns": 483500.0,
+      "a2_ns": 2241000.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2231625.0,
+      "b_ns": 486417.0,
+      "a2_ns": 2164458.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2149250.0,
+      "b_ns": 784833.0,
+      "a2_ns": 2168916.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2184875.0,
+      "b_ns": 807792.0,
+      "a2_ns": 2213916.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2125500.0,
+      "b_ns": 816500.0,
+      "a2_ns": 2189959.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2274834.0,
+      "b_ns": 1285709.0,
+      "a2_ns": 2272959.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2254834.0,
+      "b_ns": 1290333.0,
+      "a2_ns": 2299084.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2272750.0,
+      "b_ns": 1302958.0,
+      "a2_ns": 2291375.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2397959.0,
+      "b_ns": 1906000.0,
+      "a2_ns": 2375167.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2399500.0,
+      "b_ns": 1881250.0,
+      "a2_ns": 2383250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2426333.0,
+      "b_ns": 1914500.0,
+      "a2_ns": 2398917.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2618792.0,
+      "b_ns": 3800959.0,
+      "a2_ns": 2578625.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2570833.0,
+      "b_ns": 3729000.0,
+      "a2_ns": 2662958.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2728625.0,
+      "b_ns": 3688458.0,
+      "a2_ns": 2769500.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 3057416.0,
+      "b_ns": 4438708.0,
+      "a2_ns": 3072709.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2987500.0,
+      "b_ns": 4454291.0,
+      "a2_ns": 3093792.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 3011584.0,
+      "b_ns": 4482084.0,
+      "a2_ns": 3064333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 18596125.0,
+      "b_ns": 1408166.0,
+      "a2_ns": 18688333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 18386458.0,
+      "b_ns": 1394625.0,
+      "a2_ns": 18551333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 18562125.0,
+      "b_ns": 1450833.0,
+      "a2_ns": 18620625.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 18707083.0,
+      "b_ns": 3182584.0,
+      "a2_ns": 18609959.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 18740875.0,
+      "b_ns": 3309625.0,
+      "a2_ns": 18516667.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 18602666.0,
+      "b_ns": 3279083.0,
+      "a2_ns": 18491750.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 19649500.0,
+      "b_ns": 9391375.0,
+      "a2_ns": 19631250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 19767000.0,
+      "b_ns": 9112583.0,
+      "a2_ns": 19738500.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 19573375.0,
+      "b_ns": 9304291.0,
+      "a2_ns": 19495750.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 20612625.0,
+      "b_ns": 14905708.0,
+      "a2_ns": 20529334.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 20599167.0,
+      "b_ns": 15227583.0,
+      "a2_ns": 20462042.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 20601542.0,
+      "b_ns": 15058625.0,
+      "a2_ns": 20715209.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 22533459.0,
+      "b_ns": 32221874.999999996,
+      "a2_ns": 22270042.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 22777041.0,
+      "b_ns": 31655083.0,
+      "a2_ns": 22803291.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 22207709.0,
+      "b_ns": 32531834.000000004,
+      "a2_ns": 22345583.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 26342667.0,
+      "b_ns": 38383333.0,
+      "a2_ns": 26566667.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 26020625.0,
+      "b_ns": 39167000.0,
+      "a2_ns": 25752333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 26444416.0,
+      "b_ns": 38321625.0,
+      "a2_ns": 26530584.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 2104167.0,
+      "b_ns": 742958.0,
+      "a2_ns": 2100500.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 2120917.0,
+      "b_ns": 755667.0,
+      "a2_ns": 2155250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 2125959.0,
+      "b_ns": 762583.0,
+      "a2_ns": 2214292.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 1963416.0,
+      "b_ns": 2946666.0,
+      "a2_ns": 1989666.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 1983708.0,
+      "b_ns": 2965667.0,
+      "a2_ns": 2009291.0000000002,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 1985417.0,
+      "b_ns": 2933542.0,
+      "a2_ns": 1989459.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 18316000.0,
+      "b_ns": 3144875.0,
+      "a2_ns": 18297333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 18306500.0,
+      "b_ns": 3149084.0,
+      "a2_ns": 18329791.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 18286834.0,
+      "b_ns": 3162042.0,
+      "a2_ns": 18398500.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 0,
+      "target_period": 16,
+      "a1_ns": 16843083.0,
+      "b_ns": 25035209.0,
+      "a2_ns": 16923333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 1,
+      "target_period": 16,
+      "a1_ns": 17227667.0,
+      "b_ns": 26051958.0,
+      "a2_ns": 18148208.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 2,
+      "target_period": 16,
+      "a1_ns": 18302000.0,
+      "b_ns": 25392625.0,
+      "a2_ns": 16889250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2205042.0,
+      "b_ns": 621459.0,
+      "a2_ns": 2174584.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2128250.0,
+      "b_ns": 635750.0,
+      "a2_ns": 2153041.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 0,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2126500.0,
+      "b_ns": 634083.0,
+      "a2_ns": 2157583.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2158834.0,
+      "b_ns": 804833.0,
+      "a2_ns": 2152458.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2165625.0,
+      "b_ns": 801208.0,
+      "a2_ns": 2167084.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2162667.0,
+      "b_ns": 841083.0,
+      "a2_ns": 2150959.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2245666.0,
+      "b_ns": 1333917.0,
+      "a2_ns": 2363000.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2236500.0,
+      "b_ns": 1268542.0,
+      "a2_ns": 2197958.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 5,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2250208.0,
+      "b_ns": 1268333.0,
+      "a2_ns": 2240000.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2341459.0,
+      "b_ns": 1837125.0,
+      "a2_ns": 2350292.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2336833.0,
+      "b_ns": 1846667.0,
+      "a2_ns": 2329542.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 10,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2325667.0,
+      "b_ns": 1871000.0,
+      "a2_ns": 2343625.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2694417.0,
+      "b_ns": 3627750.0,
+      "a2_ns": 2602125.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2586959.0,
+      "b_ns": 3660542.0,
+      "a2_ns": 2588625.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 20,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2596291.0,
+      "b_ns": 3647375.0,
+      "a2_ns": 2586375.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 2878666.0,
+      "b_ns": 4223417.0,
+      "a2_ns": 2902416.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 2896125.0,
+      "b_ns": 4135957.9999999995,
+      "a2_ns": 2910333.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 2947250.0,
+      "b_ns": 4132583.0000000005,
+      "a2_ns": 2911833.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 18397542.0,
+      "b_ns": 2898500.0,
+      "a2_ns": 18319375.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 18368916.0,
+      "b_ns": 2885959.0,
+      "a2_ns": 18311250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 0,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 18269542.0,
+      "b_ns": 2909291.0,
+      "a2_ns": 18271042.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 18308959.0,
+      "b_ns": 3199541.0,
+      "a2_ns": 18238542.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 18373250.0,
+      "b_ns": 3224750.0,
+      "a2_ns": 18293458.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 18384292.0,
+      "b_ns": 3262125.0,
+      "a2_ns": 18629750.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 19452375.0,
+      "b_ns": 8879250.0,
+      "a2_ns": 19411500.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 19369625.0,
+      "b_ns": 8899250.0,
+      "a2_ns": 19426083.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 50,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 20346459.0,
+      "b_ns": 9441250.0,
+      "a2_ns": 20228917.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 20285625.0,
+      "b_ns": 14604291.0,
+      "a2_ns": 20259250.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 20247667.0,
+      "b_ns": 14562667.0,
+      "a2_ns": 20260458.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 100,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 20292458.0,
+      "b_ns": 14424166.0,
+      "a2_ns": 20294083.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 22190709.0,
+      "b_ns": 30912000.0,
+      "a2_ns": 22138917.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 22206083.0,
+      "b_ns": 30969333.0,
+      "a2_ns": 22112209.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 200,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 22110959.0,
+      "b_ns": 30922625.0,
+      "a2_ns": 22143542.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 0,
+      "target_period": 1,
+      "a1_ns": 25563625.0,
+      "b_ns": 36968292.0,
+      "a2_ns": 25564667.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 1,
+      "target_period": 1,
+      "a1_ns": 25565000.0,
+      "b_ns": 36953292.0,
+      "a2_ns": 25577667.0,
+      "source": "benchmark.log"
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "cycle": 2,
+      "target_period": 1,
+      "a1_ns": 26175625.0,
+      "b_ns": 36979209.0,
+      "a2_ns": 25581916.0,
+      "source": "benchmark.log"
+    }
+  ],
+  "summary": [
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 0,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 357.00691666666665,
+      "candidate_ns_per_frame": 105.6805,
+      "percent_change": -70.39819256536346
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 359.46883333333335,
+      "candidate_ns_per_frame": 134.13883333333334,
+      "percent_change": -62.684154815461525
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 1,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 356.34725,
+      "candidate_ns_per_frame": 125.9445,
+      "percent_change": -64.65680596665192
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 5,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 374.184,
+      "candidate_ns_per_frame": 211.42366666666666,
+      "percent_change": -43.4974059108175
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 10,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 389.10766666666666,
+      "candidate_ns_per_frame": 307.7778333333333,
+      "percent_change": -20.901627056093297
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 20,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 431.8888333333333,
+      "candidate_ns_per_frame": 607.8958333333334,
+      "percent_change": 40.75284805156265
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 483.8715,
+      "candidate_ns_per_frame": 689.3263333333333,
+      "percent_change": 42.4606188488748
+    },
+    {
+      "summary_tick": false,
+      "cards": 40,
+      "changed": 40,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 331.23966666666666,
+      "candidate_ns_per_frame": 491.111,
+      "percent_change": 48.264549636265386
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 0,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3056.6805,
+      "candidate_ns_per_frame": 483.0833333333333,
+      "percent_change": -84.19581852492162
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3055.559,
+      "candidate_ns_per_frame": 537.4583333333334,
+      "percent_change": -82.41047437364706
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 1,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3053.02425,
+      "candidate_ns_per_frame": 524.8473333333334,
+      "percent_change": -82.80893663608033
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 50,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3238.65625,
+      "candidate_ns_per_frame": 1483.2083333333333,
+      "percent_change": -54.20297126830508
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 100,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3378.7395833333335,
+      "candidate_ns_per_frame": 2427.1111666666666,
+      "percent_change": -28.165189805123337
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 200,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3693.191,
+      "candidate_ns_per_frame": 5153.770833333333,
+      "percent_change": 39.54790947268456
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 4261.888916666667,
+      "candidate_ns_per_frame": 6161.382,
+      "percent_change": 44.56927715560863
+    },
+    {
+      "summary_tick": false,
+      "cards": 400,
+      "changed": 400,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 2932.6041666666665,
+      "candidate_ns_per_frame": 4232.104166666667,
+      "percent_change": 44.31215145810392
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 0,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 364.8055,
+      "candidate_ns_per_frame": 80.60416666666667,
+      "percent_change": -77.90489269852931
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 359.8471666666667,
+      "candidate_ns_per_frame": 134.632,
+      "percent_change": -62.586338737325065
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 1,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 521.3020833333334,
+      "candidate_ns_per_frame": 148.75,
+      "percent_change": -71.46568088720151
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 5,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 379.49316666666664,
+      "candidate_ns_per_frame": 215.0555,
+      "percent_change": -43.33086366509015
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 10,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 398.5625,
+      "candidate_ns_per_frame": 317.6666666666667,
+      "percent_change": -20.296900318854217
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 20,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 436.14925,
+      "candidate_ns_per_frame": 621.5,
+      "percent_change": 42.497092451723816
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 506.77433333333335,
+      "candidate_ns_per_frame": 742.3818333333334,
+      "percent_change": 46.49160079798833
+    },
+    {
+      "summary_tick": true,
+      "cards": 40,
+      "changed": 40,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 385.0208333333333,
+      "candidate_ns_per_frame": 585.9931666666666,
+      "percent_change": 52.197781505329786
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 0,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3098.5625,
+      "candidate_ns_per_frame": 234.69433333333333,
+      "percent_change": -92.42570277884235
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3104.795166666667,
+      "candidate_ns_per_frame": 546.5138333333333,
+      "percent_change": -82.397749159083
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 1,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3104.3715833333335,
+      "candidate_ns_per_frame": 290.4028333333333,
+      "percent_change": -90.64535847150385
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 50,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3273.3958333333335,
+      "candidate_ns_per_frame": 1550.7151666666666,
+      "percent_change": -52.62671410296391
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 100,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3428.4965833333335,
+      "candidate_ns_per_frame": 2509.7708333333335,
+      "percent_change": -26.796752677722512
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 200,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 3733.6250833333334,
+      "candidate_ns_per_frame": 5370.312499999999,
+      "percent_change": 43.8364158193798
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "target_period": 1,
+      "cycles": 3,
+      "baseline_ns_per_frame": 4409.111166666667,
+      "candidate_ns_per_frame": 6397.222166666666,
+      "percent_change": 45.09097014904779
+    },
+    {
+      "summary_tick": true,
+      "cards": 400,
+      "changed": 400,
+      "target_period": 16,
+      "cycles": 3,
+      "baseline_ns_per_frame": 2863.22925,
+      "candidate_ns_per_frame": 4221.659666666666,
+      "percent_change": 47.443997600494846
+    }
+  ],
+  "summary_only_comparison": [
+    {
+      "cards": 40,
+      "changed": 0,
+      "target_period": 1,
+      "normalized_summary_percent": -25.3589249566646
+    },
+    {
+      "cards": 40,
+      "changed": 1,
+      "target_period": 1,
+      "normalized_summary_percent": 0.2621301424441169
+    },
+    {
+      "cards": 40,
+      "changed": 1,
+      "target_period": 16,
+      "normalized_summary_percent": -19.265024304608957
+    },
+    {
+      "cards": 40,
+      "changed": 5,
+      "target_period": 1,
+      "normalized_summary_percent": 0.29475150373536874
+    },
+    {
+      "cards": 40,
+      "changed": 10,
+      "target_period": 1,
+      "normalized_summary_percent": 0.7645248754584832
+    },
+    {
+      "cards": 40,
+      "changed": 20,
+      "target_period": 1,
+      "normalized_summary_percent": 1.2392249423771373
+    },
+    {
+      "cards": 40,
+      "changed": 40,
+      "target_period": 1,
+      "normalized_summary_percent": 2.8295412315944457
+    },
+    {
+      "cards": 40,
+      "changed": 40,
+      "target_period": 16,
+      "normalized_summary_percent": 2.6528471429709377
+    },
+    {
+      "cards": 400,
+      "changed": 0,
+      "target_period": 1,
+      "normalized_summary_percent": -52.074093599206186
+    },
+    {
+      "cards": 400,
+      "changed": 1,
+      "target_period": 1,
+      "normalized_summary_percent": 0.07234541075393786
+    },
+    {
+      "cards": 400,
+      "changed": 1,
+      "target_period": 16,
+      "normalized_summary_percent": -45.58427637391229
+    },
+    {
+      "cards": 400,
+      "changed": 50,
+      "target_period": 1,
+      "normalized_summary_percent": 3.4418328197136194
+    },
+    {
+      "cards": 400,
+      "changed": 100,
+      "target_period": 1,
+      "normalized_summary_percent": 1.9049777171937565
+    },
+    {
+      "cards": 400,
+      "changed": 200,
+      "target_period": 1,
+      "normalized_summary_percent": 3.0731426668449524
+    },
+    {
+      "cards": 400,
+      "changed": 400,
+      "target_period": 1,
+      "normalized_summary_percent": 0.3608602074406386
+    },
+    {
+      "cards": 400,
+      "changed": 400,
+      "target_period": 16,
+      "normalized_summary_percent": 2.1701887961251387
+    }
+  ]
+}

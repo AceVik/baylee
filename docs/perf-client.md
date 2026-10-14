@@ -625,10 +625,10 @@ that limitation explicit; fixed 60 FPS alone does not prove visibility.
 
 The other proposed 0.20 levers remain hypotheses, not measured wins:
 
-- `summary_tick`: the table does not currently query its card/Motion/plate
-  components through `Changed<T>`. Annotating those components alone has no
-  demonstrated reader to accelerate. Remaining production change filters
-  concern shell fields, sliders and scroll positions.
+- `summary_tick`: the native-button package had no contiguous change-tick
+  reader for card/Motion/plate components. Annotating those components alone
+  would not demonstrate a gain. The incremental follow-up below introduces
+  an actual Motion reader and measures it separately.
 - Weak ordering: the main and extraction schedules are already single
   threaded by measured policy. Weakening dependencies cannot create main
   schedule parallelism and would risk command and keyboard ordering.
@@ -750,3 +750,108 @@ nested hit targets and preserved keyboard guards. The native-button
 migration removes the legacy interaction dependency across the lobby,
 shell, HUD, chat, replay and settings paths. Documentation and numeric
 receipts were added after these code gates; no source change followed them.
+
+## Incremental card presentation (14 October 2026)
+
+The snapshot receiver derives the table's five mana-color totals once per
+installed public view. The firewheel still eases each frame and follows live
+seat/layout changes. Same-sequence replay or perspective replacements refresh
+the totals; rewind and a new duel clear them. This removes registry work from
+the rendered-frame path without changing the strength calculation.
+
+Scene synchronization reuses placement/live/fan buffers and retains exact
+per-card inputs. Stable card content skips face/material/decoration work while
+hover and flying poses continue. Font/texture epochs, camera, placement,
+passing states and late decoration readiness invalidate the cache. Constructed
+faces additionally compare the authorized PublicObject, preserving same-sequence
+replacement and loss of visibility. Unchanged object buffers survive camera
+and layout changes; stamps retain full entity generations and only live cards.
+Placement generation and several unrelated scene systems still run each frame.
+
+Motion uses Bevy 0.20's component summary ticks through contiguous iteration,
+explicitly skipping unchanged columns before looking at row ticks. Only Motion
+opts in. Unfinished glides, external transform/visibility changes and recoil
+keep cards active. Above one quarter active, it uses a linear pose scan; once
+the count falls, a bounded reusable candidate buffer returns to sparse work.
+This keeps a lone flier from pinning the table in dense mode. Differential
+tests compare pose float bits and moving counts with the original scan, including
+replay placement, reduced motion, delayed recoil, component removal and entity
+reuse. The quarter threshold is an implementation heuristic, not an assertion
+of optimality on every architecture.
+
+The first sparse-only prototype improved idle and one-target microbenchmarks
+but regressed the all-target rewrite case by about 61% at both 40 and 400
+cards. That prompted the dense path; it is not a result claimed for the final
+implementation. The optimized comparison includes the original component
+without summary-write costs, the candidate with summary ticks, and the same
+candidate with only the annotation removed. Target writes are timed too.
+
+At code commit `8e9b0cce8`, all three required gates pass: default 496 s,
+features 465 s and wasm 13 s. The main suite passes 14,416 tests with 23
+intentional skips, including the two opt-in microbenchmarks. Feature checks
+pass 2,073 client tests, including 35 dev-control tests. Recording additionally
+passes ten Python tests and a real, isolated client capture documented in
+[`perf-data/beta8-recording-qa.json`](perf-data/beta8-recording-qa.json).
+
+### Optimized Motion comparison
+
+The table reports nanoseconds per synthetic frame for the original and the
+final annotated candidate, including target writes. Three A/B/A cycles per
+case use the same optimized test binary. The complete matrix also contains
+one eighth, one quarter, one half and targets held for sixteen frames.
+
+| Cards | Targets rewritten/frame | Original ns/frame | Candidate ns/frame | Change |
+|---|---:|---:|---:|---:|
+| 40 | 0 | 364.8 | 80.6 | -77.9% |
+| 40 | 1 | 359.8 | 134.6 | -62.6% |
+| 40 | 40 | 506.8 | 742.4 | +46.5% |
+| 400 | 0 | 3098.6 | 234.7 | -92.4% |
+| 400 | 1 | 3104.8 | 546.5 | -82.4% |
+| 400 | 400 | 4409.1 | 6397.2 | +45.1% |
+
+With the same algorithm and only the annotation removed, normalized idle
+candidate/baseline ratios show an additional 25.4% reduction at 40 cards
+and 52.1% at 400 from summary ticks. One rewritten target in the single test
+column defeats its bulk skip; there is no demonstrated additional win there.
+Real flying/ordinary cards can occupy separate columns. Both builds pass the
+twelve exact motion contracts.
+
+The dense path reduces the sparse prototype's worst case, but does **not**
+eliminate its cost. All-target rewriting remains about 45–46% slower than
+the original system (roughly 0.24 microseconds extra at 40 cards and 2.0
+microseconds at 400). Half-active cases also regress by about 43–44%.
+Holding all targets for sixteen frames still costs more. This tradeoff must
+remain visible; the large idle percentages are not whole-client gains.
+See the complete numbers and build hashes in
+[`perf-data/beta8-incremental-glide.json`](perf-data/beta8-incremental-glide.json).
+
+### Rendered client A/B/A
+
+A is the native-button baseline `556242c73`; B is `8e9b0cce8`. The full
+fixture, cached images, camera, 1600×1000 viewport, Medium/MSAA4, and three
+60 FPS caps match. Each leg uses a fresh silent isolated offline process.
+Thirty seconds of warmup precede thirty unsampled seconds; a separate
+ten-second allocation-stack sample follows. Recording stays off. The
+candidate includes its idle dev-control recorder systems. Preflight images
+were inspected before accepting each leg.
+
+| Leg | CPU % | POWER | Main mean / p95 / p99 ms | Allocations/frame total / main | RSS MiB | FPS |
+|---|---:|---:|---:|---:|---:|---:|
+| A1 | 47.07 | 46.14 | 1.295 / 1.489 / 1.591 | 3396.9 / 848.7 | 482.8 | 60.00 |
+| B | 46.77 | 45.78 | 1.259 / 1.455 / 1.597 | 3347.8 / 803.7 | 482.7 | 59.83 |
+| A2 | 47.62 | 46.77 | 1.329 / 1.554 / 1.670 | 3391.8 / 846.5 | 477.6 | 60.00 |
+
+Against mean A, main-thread allocations fall by 43.9 per frame (5.2%),
+and total allocations by 46.6 (1.4%). Mean First-to-Last time is about 4.0%
+lower in this scene. Process CPU is only about 1.2% lower; that small
+observation does not establish a general CPU win or recovery of the older
+Bevy-upgrade regression. FPS is capped, so this is no maximum-FPS claim.
+The cache removes repeated application work, while remaining Bevy extraction
+and renderer costs still dominate the per-frame allocation count.
+
+This rendered comparison stays provisional: desktop occlusion was not
+independently established, and no GPU trace was collected. POWER is macOS
+`top`'s score, not watts; RSS is an end sample. Numeric receipts and the
+limitations are retained in
+[`perf-data/beta8-incremental-client.json`](perf-data/beta8-incremental-client.json).
+No card images or captured footage are committed.
