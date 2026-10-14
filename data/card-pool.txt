@@ -5212,10 +5212,8 @@ Snapping Creeper
 Summit Apes
 Surrakar Banisher
 Terra Eternal
-Vapor Snare
 Affa Guard Hound
 Akoum Boulderfoot
-Awakening Zone
 Bala Ged Scorpion
 Battle-Rattle Shaman
 Bloodrite Invoker
@@ -5354,7 +5352,6 @@ Echo Circlet
 Embersmith
 Ferrovore
 Flameborn Hellion
-Glint Hawk
 Glint Hawk Idol
 Golden Urn
 Golem Foundry
@@ -5518,7 +5515,6 @@ Kite Shield
 Lord of the Unreal
 Manalith
 Merfolk Mesmerist
-Mind Unbound
 Onyx Mage
 Peregrine Griffin
 Rune-Scarred Demon
@@ -5550,7 +5546,6 @@ Claustrophobia
 Cobbled Wings
 Darkthicket Wolf
 Dead Weight
-Demonmail Hauberk
 Doomed Traveler
 Elder of Laurels
 Falkenrath Marauders
@@ -5641,7 +5636,6 @@ Stromkirk Captain
 Talons of Falkenrath
 Thought Scour
 Torch Fiend
-Abundant Growth
 Alchemist's Apprentice
 Angel's Tomb
 Angelic Armaments
@@ -5785,7 +5779,6 @@ Drainpipe Vermin
 Dramatic Rescue
 Dreadbore
 Explosive Impact
-Faerie Impostor
 Fall of the Gavel
 Fencing Ace
 Frostburn Weird
@@ -6082,7 +6075,6 @@ Great Hart
 Griffin Dreamfinder
 Hold at Bay
 Impetuous Sunchaser
-Karametra's Favor
 Mortal's Ardor
 Mortal's Resolve
 Nullify
@@ -6180,7 +6172,6 @@ Paragon of Gathering Mists
 Paragon of New Dawns
 Paragon of Open Graves
 Pillar of Light
-Quickling
 Research Assistant
 Rogue's Gloves
 Sacred Armory
@@ -6334,7 +6325,6 @@ Hand of Silumgar
 Herald of Dromoka
 Impact Tremors
 Kolaghan Monument
-Kolaghan's Command
 Learn from the Past
 Necromaster Dragon
 Ojutai Monument
@@ -6349,10 +6339,8 @@ Secure the Wastes
 Seismic Rupture
 Shambling Goblin
 Shape the Sands
-Sheltered Aerie
 Sibsig Icebreakers
 Silumgar Monument
-Silumgar's Command
 Student of Ojutai
 Sunscorch Regent
 Surge of Righteousness
@@ -6543,7 +6531,6 @@ Zulaport Chainmage
 Aim High
 Always Watching
 Anguished Unmaking
-Behold the Beyond
 Bygone Bishop
 Byway Courier
 Call the Bloodline
@@ -6572,7 +6559,6 @@ Jace's Scrutiny
 Loam Dryad
 Magnifying Glass
 Markov Dreadknight
-Murderer's Axe
 Nahiri's Machinations
 Niblis of Dusk
 Open the Armory
@@ -6608,7 +6594,6 @@ Vessel of Paramnesia
 Vessel of Volatility
 Veteran Cathar
 Watcher in the Web
-Weirding Wood
 Wicker Witch
 Blood Mist
 Bold Impaler
@@ -6776,7 +6761,6 @@ Renegade's Getaway
 Salvage Scuttler
 Siege Modification
 Sram, Senior Edificer
-Unbridled Growth
 Universal Solvent
 Verdant Automaton
 Watchful Automaton
@@ -6805,7 +6789,6 @@ Fan Bearer
 Final Reward
 Forsake the Worldly
 Galestrike
-Gift of Paradise
 Graceful Cat
 Greater Sandwurm
 Haze of Pollen
@@ -6882,7 +6865,6 @@ Scrounger of Souls
 Seer of the Last Tomorrow
 Striped Riverwinder
 Thorned Moloch
-Tragic Lesson
 Unraveling Mummy
 Without Weakness
 Bloodline Necromancer
@@ -6930,7 +6912,6 @@ Jungle Delver
 Legion's Judgment
 Looming Altisaur
 Nest Robber
-New Horizons
 One With the Wind
 Overflowing Insight
 Paladin of the Bloodstained
@@ -7057,7 +7038,6 @@ Homarid Explorer
 Invoke the Divine
 Karplusan Hound
 Kazarov, Sengir Pureblood
-Keldon Warcaller
 Knight of New Benalia
 Llanowar Envoy
 Lyra Dawnbringer
@@ -7265,7 +7245,6 @@ Take Heart
 Tenth District Guard
 Torch Courier
 Unexplained Disappearance
-Urban Utopia
 Vedalken Mesmerist
 Veiled Shade
 Vernadi Shieldmate
@@ -7311,7 +7290,6 @@ Impassioned Orator
 Judith, the Scourge Diva
 Noxious Groodion
 Open the Gates
-Orzhov Locket
 Pitiless Pontiff
 Prowling Caracal
 Prying Eyes
@@ -7827,7 +7805,6 @@ Inkling Summoning
 Introduction to Prophecy
 Kelpie Guide
 Lash of Malice
-Letter of Acceptance
 Moldering Karok
 Needlethorn Drake
 Oggyar Battle-Seer
@@ -7972,7 +7949,6 @@ Haunted Library
 Headless Rider
 Kessig Flamebreather
 Massive Might
-Nature's Embrace
 Nebelgast Beguiler
 Piercing Light
 Pointed Discussion
@@ -8376,7 +8352,6 @@ High Noon
 Holy Cow
 Intrepid Stablemaster
 Legion Extruder
-Lotus Ring
 Oasis Gardener
 Outlaw Medic
 Pest Control

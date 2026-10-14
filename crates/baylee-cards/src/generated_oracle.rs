@@ -18464,10 +18464,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Whenever this creature or another Ally you control enters, you may destroy target artifact. If that artifact is put into a graveyard this way, this creature deals damage to that artifact's controller equal to the number of Allies you control.",
     ],
     &[],
-    // Vapor Snare
-    &[
-        "Enchant creature\nYou control enchanted creature.\nAt the beginning of your upkeep, sacrifice this Aura unless you return a land you control to its owner's hand.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -18489,10 +18486,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Awakening Zone
-    &[
-        "At the beginning of your upkeep, you may create a 0/1 colorless Eldrazi Spawn creature token. It has \"Sacrifice this token: Add {C}.\"",
-    ],
+    &[],
     // Bala Ged Scorpion
     &["When this creature enters, you may destroy target creature with power 1 or less."],
     &[],
@@ -19205,10 +19199,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Glimmerpost
     &["When this land enters, you gain 1 life for each Locus on the battlefield.\n{T}: Add {C}."],
-    // Glint Hawk
-    &[
-        "Flying\nWhen this creature enters, sacrifice it unless you return an artifact you control to its owner's hand.",
-    ],
+    &[],
     // Glint Hawk Idol
     &[
         "Whenever another artifact you control enters, you may have this artifact become a 2/2 Bird artifact creature with flying until end of turn.\n{W}: This artifact becomes a 2/2 Bird artifact creature with flying until end of turn.",
@@ -20101,10 +20092,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Merfolk Mesmerist
     &["{U}, {T}: Target player mills two cards."],
-    // Mind Unbound
-    &[
-        "At the beginning of your upkeep, put a lore counter on this enchantment, then draw a card for each lore counter on this enchantment.",
-    ],
+    &[],
     &[],
     // Onyx Mage
     &[
@@ -20259,8 +20247,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Enchant creature\nEnchanted creature gets -2/-2."],
     &[],
     &[],
-    // Demonmail Hauberk
-    &["Equipped creature gets +4/+2.\nEquip—Sacrifice a creature."],
+    &[],
     &[],
     &[],
     &[],
@@ -20789,10 +20776,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Flash\nFlying\nWhen this creature enters, you may exile target non-Angel creature you control, then return that card to the battlefield under your control.",
     ],
     &[],
-    // Abundant Growth
-    &[
-        "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has \"{T}: Add one mana of any color.\"",
-    ],
+    &[],
     &[],
     // Alchemist's Apprentice
     &["Sacrifice this creature: Draw a card."],
@@ -21528,10 +21512,7 @@ pub static ORACLE: &[&[&str]] = &[
     // Explosive Impact
     &["Explosive Impact deals 5 damage to any target."],
     &[],
-    // Faerie Impostor
-    &[
-        "Flying\nWhen this creature enters, sacrifice it unless you return another creature you control to its owner's hand.",
-    ],
+    &[],
     // Fall of the Gavel
     &["Counter target spell. You gain 5 life."],
     // Fencing Ace
@@ -23090,10 +23071,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Impetuous Sunchaser
     &["Flying, haste\nThis creature attacks each combat if able."],
-    // Karametra's Favor
-    &[
-        "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has \"{T}: Add one mana of any color.\"",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -23720,10 +23698,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Exile target creature with toughness 4 or greater."],
     &[],
     &[],
-    // Quickling
-    &[
-        "Flash (You may cast this spell any time you could cast an instant.)\nFlying\nWhen this creature enters, sacrifice it unless you return another creature you control to its owner's hand.",
-    ],
+    &[],
     // Radiant Fountain
     &["When this land enters, you gain 2 life.\n{T}: Add {C}."],
     // Research Assistant
@@ -24655,10 +24630,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Kolaghan's Command
-    &[
-        "Choose two —\n• Return target creature card from your graveyard to your hand.\n• Target player discards a card.\n• Destroy target artifact.\n• Kolaghan's Command deals 2 damage to any target.",
-    ],
+    &[],
     // Learn from the Past
     &["Target player shuffles their graveyard into their library.\nDraw a card."],
     &[],
@@ -24752,8 +24724,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target creature gets +0/+5 and gains reach until end of turn. (It can block creatures with flying.)",
     ],
-    // Sheltered Aerie
-    &["Enchant land\nEnchanted land has \"{T}: Add two mana of any one color.\""],
+    &[],
     &[],
     &[],
     // Sibsig Icebreakers
@@ -24771,10 +24742,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Silumgar's Command
-    &[
-        "Choose two —\n• Counter target noncreature spell.\n• Return target permanent to its owner's hand.\n• Target creature gets -3/-3 until end of turn.\n• Destroy target planeswalker.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -25969,10 +25937,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Behold the Beyond
-    &[
-        "Discard your hand. Search your library for three cards, put them into your hand, then shuffle.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -26181,8 +26146,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Murderer's Axe
-    &["Equipped creature gets +2/+2.\nEquip—Discard a card."],
+    &[],
     &[],
     &[],
     // Nahiri's Machinations
@@ -26369,10 +26333,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Reach (This creature can block creatures with flying.)\nThis creature can block an additional seven creatures each combat.",
     ],
-    // Weirding Wood
-    &[
-        "Enchant land\nWhen this Aura enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nEnchanted land has \"{T}: Add two mana of any one color.\"",
-    ],
+    &[],
     &[],
     // Westvale Abbey
     &[
@@ -27491,10 +27452,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Unbridled Growth
-    &[
-        "Enchant land\nEnchanted land has \"{T}: Add one mana of any color.\"\nSacrifice this Aura: Draw a card.",
-    ],
+    &[],
     // Universal Solvent
     &["{7}, {T}, Sacrifice this artifact: Destroy target permanent."],
     &[],
@@ -27652,10 +27610,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Gift of Paradise
-    &[
-        "Enchant land\nWhen this Aura enters, you gain 3 life.\nEnchanted land has \"{T}: Add two mana of any one color.\"",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -28196,10 +28151,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Tragic Lesson
-    &[
-        "Draw two cards. Then discard a card unless you return a land you control to its owner's hand.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -28521,10 +28473,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Nest Robber
     &["Haste"],
-    // New Horizons
-    &[
-        "Enchant land\nWhen this Aura enters, put a +1/+1 counter on target creature you control.\nEnchanted land has \"{T}: Add two mana of any one color.\"",
-    ],
+    &[],
     &[],
     // One With the Wind
     &["Enchant creature\nEnchanted creature gets +2/+2 and has flying."],
@@ -29218,8 +29167,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Keldon Warcaller
-    &["Whenever this creature attacks, put a lore counter on target Saga you control."],
+    &[],
     &[],
     &[],
     // Knight of New Benalia
@@ -30316,10 +30264,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Return target creature to its owner's hand.\nSurveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
     ],
     &[],
-    // Urban Utopia
-    &[
-        "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has \"{T}: Add one mana of any color.\"",
-    ],
+    &[],
     // Vedalken Mesmerist
     &[
         "Whenever this creature attacks, target creature an opponent controls gets -2/-0 until end of turn.",
@@ -30553,8 +30498,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Search your library for a basic land card or Gate card, reveal it, put it into your hand, then shuffle.",
     ],
     &[],
-    // Orzhov Locket
-    &["{T}: Add {W} or {B}.\n{W/B}{W/B}{W/B}{W/B}, {T}, Sacrifice this artifact: Draw two cards."],
+    &[],
     &[],
     &[],
     &[],
@@ -34763,8 +34707,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Target creature gets +2/-2 until end of turn."],
     &[],
     &[],
-    // Letter of Acceptance
-    &["{T}: Add one mana of any color.\n{2}, {T}, Sacrifice this artifact: Draw a card."],
+    &[],
     &[],
     &[],
     // Lorehold Campus
@@ -36521,10 +36464,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Nature's Embrace
-    &[
-        "Enchant creature or land\nAs long as enchanted permanent is a creature, it gets +2/+2.\nAs long as enchanted permanent is a land, it has \"{T}: Add two mana of any one color.\"",
-    ],
+    &[],
     // Nebelgast Beguiler
     &["{W}, {T}: Tap target creature."],
     &[],
@@ -43444,10 +43384,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Lotus Ring
-    &[
-        "Indestructible\nEquipped creature gets +3/+3 and has vigilance and \"{T}, Sacrifice this creature: Add three mana of any one color.\"\nEquip {3}",
-    ],
+    &[],
     // Lush Oasis
     &[
         "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {G} or {U}.",

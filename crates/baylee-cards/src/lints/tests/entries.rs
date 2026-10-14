@@ -322,9 +322,10 @@ fn every_custom_counter_in_the_pool_is_an_assigned_id() {
     // keeps a changed `Debug` spelling from reading as a clean pool; the
     // ceiling, twice that, is what keeps something that is not a counter
     // from being read as one, and is the number to raise when the pool
-    // honestly outgrows it.
+    // honestly outgrows it. The full corpus (2026-10-14) measured 67, every
+    // id assigned (the assertion above); re-anchored around that.
     assert!(
-        (31..=62).contains(&carriers),
+        (60..=80).contains(&carriers),
         "{carriers} definitions carry a custom counter; the reader is not \
          reading the pool's counters"
     );
