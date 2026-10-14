@@ -75,18 +75,23 @@ Build and test only, never shipped:
 | package | version | licence | why |
 | --- | --- | --- | --- |
 | typescript | 7.0.2 | Apache-2.0 | type checking |
-| vite | 8.3.1 | MIT | the build (rolldown, oxc, lightningcss MPL-2.0) |
-| vitest | 5.0.2 | MIT | unit and component tests |
-| jsdom | 30.1.1 | MIT | the DOM for those tests |
+| vite | 8.3.4 | MIT | the build (rolldown, oxc, lightningcss MPL-2.0) |
+| vitest | 5.0.4 | MIT | unit and component tests |
+| jsdom | 29.1.1 | MIT | the DOM for those tests |
 | @testing-library/react | 16.3.3 | MIT | component tests |
-| @testing-library/user-event | 14.6.7 | MIT | typing and clicking in them |
-| oxlint | 1.85.0 | MIT | lint |
-| @playwright/test | 1.63.0 | Apache-2.0 | end-to-end tests |
+| @testing-library/user-event | 14.6.8 | MIT | typing and clicking in them |
+| oxlint | 1.88.0 | MIT | lint |
+| @playwright/test | 1.64.0 | Apache-2.0 | end-to-end tests |
 | postgres | 3.4.9 | Unlicense | the e2e harness's schema, nothing else |
 | @types/react, @types/react-dom | 19.3.0 | MIT | types |
-| @types/node | 24.19.0 | MIT | types for the e2e harness |
+| @types/node | 24.19.2 | MIT | types for the e2e harness |
 
-The whole installed tree (27.09.2026): 114 MIT, 28 Apache-2.0, 12 MPL-2.0
+`jsdom` stays on 29.1.1 so the build and tests support Node 22.22.1.
+On the Node 22 line, jsdom 30 and some of its dependencies require at
+least 22.22.2. The complete lockfile, including optional platform packages,
+was checked against 22.22.1, and `npm ci --engine-strict` succeeds on it.
+
+The whole locked tree (14.10.2026): 116 MIT, 28 Apache-2.0, 12 MPL-2.0
 (lightningcss and its platform builds), 2 each of ISC, BSD-2-Clause,
 BSD-3-Clause and MIT-0, and one each of BlueOak-1.0.0, CC0-1.0 and
 Unlicense. All are compatible with AGPL-3.0; none of the non-MIT ones
