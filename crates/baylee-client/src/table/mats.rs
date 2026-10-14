@@ -104,8 +104,11 @@ fn firewheel_of(
     layout: &TableLayout,
 ) -> (Vec4, Vec4) {
     let seats = board.pods.len().max(1);
-    let burn = duel.view.as_ref().map_or([0.0; 5], |view| {
-        baylee_client_core::firewheel::strength(crate::manasources::table_mana(view), seats)
+    // `receive_view` reads the registry once per installed snapshot, including
+    // replacements with the same sequence. The frame only reads five totals;
+    // seats and screen-up still follow the current board and settled layout.
+    let burn = duel.view.as_ref().map_or([0.0; 5], |_| {
+        baylee_client_core::firewheel::strength(duel.table_mana, seats)
     });
     let up = layout
         .local()
@@ -626,3 +629,6 @@ mod rigid_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

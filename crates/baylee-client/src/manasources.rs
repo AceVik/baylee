@@ -653,6 +653,13 @@ const BASIC_MANA: [(baylee_core::ids::SubtypeId, baylee_core::mana::ManaColor); 
     ]
 };
 
+#[cfg(test)]
+std::thread_local! {
+    /// Per-test-thread count of full mana reads, including the registry walk.
+    /// The table tests exercise real frame systems without timing assertions.
+    pub(crate) static TABLE_MANA_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// How much of each colour of mana stands on the whole table.
 ///
 /// Indexed the way [`ManaColor`] is numbered and `tabletop::PIE` is ordered
@@ -683,6 +690,8 @@ const BASIC_MANA: [(baylee_core::ids::SubtypeId, baylee_core::mana::ManaColor); 
 /// nobody at the table knows what it makes.
 #[must_use]
 pub fn table_mana(view: &PlayerView) -> [f32; 5] {
+    #[cfg(test)]
+    TABLE_MANA_READS.with(|reads| reads.set(reads.get() + 1));
     let mut tally = [0.0_f32; 5];
     for object in &view.battlefield {
         // One permanent, one union of colours, counted once. Building the

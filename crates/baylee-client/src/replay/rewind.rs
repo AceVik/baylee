@@ -63,6 +63,7 @@ impl Duel {
             // views. Across a jump there is no difference to read: a life
             // total that moved by five turns is no flash, no cue.
             view: None,
+            table_mana: [0.0; 5],
             board: None,
             life_flash: Default::default(),
             tally: Default::default(),

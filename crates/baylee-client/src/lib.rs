@@ -470,6 +470,10 @@ pub struct Duel {
     pub statics: Option<GameStatic>,
     /// The most recent snapshot.
     pub view: Option<PlayerView>,
+    /// Mana colours contributed by the visible battlefield, derived at the
+    /// snapshot boundary in `receive_view`. The firewheel animates towards
+    /// these values without rereading card abilities every rendered frame.
+    pub(crate) table_mana: [f32; 5],
     /// The render model derived from it.
     pub board: Option<BoardModel>,
     /// The choice being answered, if any.
@@ -1195,6 +1199,7 @@ impl Duel {
             self.follow_pending = None;
         }
         self.follow_the_turn(&view);
+        self.table_mana = manasources::table_mana(&view);
         self.view = Some(view);
         let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
