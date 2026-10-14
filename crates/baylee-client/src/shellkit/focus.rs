@@ -222,6 +222,32 @@ fn table_open(phase: Option<&State<crate::DuelPhase>>) -> bool {
     phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed)
 }
 
+/// Bare logical stops in headless tests have no visibility component.
+/// Rendered stops must inherit visibility from their screen: a hidden lobby
+/// must not compete with the gallery or another page for Tab and Enter.
+fn shown(visibility: Option<&InheritedVisibility>) -> bool {
+    visibility.is_none_or(|visibility| visibility.get())
+}
+
+type StopQuery<'w, 's> =
+    Query<'w, 's, (Entity, &'static Stop, Option<&'static InheritedVisibility>)>;
+
+fn visible_stops(stops: &StopQuery<'_, '_>) -> Vec<(Entity, Stop)> {
+    stops
+        .iter()
+        .filter(|(_, _, visibility)| shown(*visibility))
+        .map(|(e, stop, _)| (e, *stop))
+        .collect()
+}
+
+fn visible_stop(stops: &StopQuery<'_, '_>, entity: Entity) -> Option<(Entity, Stop)> {
+    stops
+        .get(entity)
+        .ok()
+        .filter(|(_, _, visibility)| shown(*visibility))
+        .map(|(e, stop, _)| (e, *stop))
+}
+
 /// The active table among the drawn stops: a modal one if any of its stops
 /// is drawn, else the page's.
 fn active(stops: &[(Entity, Stop)]) -> Option<&'static TabOrder> {
@@ -290,6 +316,20 @@ fn held(codes: &ButtonInput<KeyCode>, keys: [KeyCode; 2]) -> bool {
     codes.any_pressed(keys)
 }
 
+/// Command modifiers reserve navigation and activation for shortcuts.
+fn command_held(codes: Option<&ButtonInput<KeyCode>>) -> bool {
+    codes.is_some_and(|c| {
+        c.any_pressed([
+            KeyCode::ControlLeft,
+            KeyCode::ControlRight,
+            KeyCode::AltLeft,
+            KeyCode::AltRight,
+            KeyCode::SuperLeft,
+            KeyCode::SuperRight,
+        ])
+    })
+}
+
 /// Tab and Shift+Tab over the active table; arrows, Home and End inside a
 /// composite.
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
@@ -297,7 +337,7 @@ fn walk(
     mut keys: MessageReader<KeyboardInput>,
     codes: Option<Res<ButtonInput<KeyCode>>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
-    stops: Query<(Entity, &Stop)>,
+    stops: StopQuery<'_, '_>,
     current: Query<&Current>,
     fields: Query<(), With<ShellField>>,
     mut focus: ResMut<InputFocus>,
@@ -310,7 +350,8 @@ fn walk(
         keys.clear();
         return;
     }
-    let drawn: Vec<(Entity, Stop)> = stops.iter().map(|(e, s)| (e, *s)).collect();
+    let drawn = visible_stops(&stops);
+    let live_stop = |entity| visible_stop(&stops, entity);
     // A screen rebuilt from its state (the lobby redraws its tree on every
     // change) despawns the focused stop and draws the same one anew: focus
     // follows it to the new entity, ring and all, rather than being lost to
@@ -319,9 +360,9 @@ fn walk(
     // while the table it stood in is still the one drawn.
     // (A focus cleared on purpose, its stop still drawn, stays cleared.)
     let lost = match focus.get() {
-        Some(f) => stops.get(f).is_err(),
+        Some(f) => live_stop(f).is_none(),
         None => {
-            last.is_some_and(|e| stops.get(e).is_err())
+            last.is_some_and(|e| live_stop(e).is_none())
                 && remembered
                     .0
                     .is_some_and(|r| active(&drawn).is_some_and(|t| t.name == r.table))
@@ -333,8 +374,8 @@ fn walk(
     {
         focus.set(*entity, FocusCause::Navigated);
     }
-    if let Some((entity, stop)) = focus.get().and_then(|f| stops.get(f).ok()) {
-        remembered.0 = Some(*stop);
+    if let Some((entity, stop)) = focus.get().and_then(live_stop) {
+        remembered.0 = Some(stop);
         *last = Some(entity);
     }
     // At a table only a modal kit sheet walks (a sheet over the table, such
@@ -345,7 +386,7 @@ fn walk(
     // A focused stop that went away (its screen redrew, its sheet closed)
     // leaves nothing focused rather than a dangling entity.
     if focus.get().is_some()
-        && (focus.get().is_some_and(|f| stops.get(f).is_err()) || (at_table && order.is_none()))
+        && (focus.get().is_some_and(|f| live_stop(f).is_none()) || (at_table && order.is_none()))
     {
         focus.clear();
     }
@@ -354,11 +395,7 @@ fn walk(
         remembered.0 = None;
         return;
     };
-    let ctrl_alt_meta = codes.as_deref().is_some_and(|c| {
-        held(c, [KeyCode::ControlLeft, KeyCode::ControlRight])
-            || held(c, [KeyCode::AltLeft, KeyCode::AltRight])
-            || held(c, [KeyCode::SuperLeft, KeyCode::SuperRight])
-    });
+    let ctrl_alt_meta = command_held(codes.as_deref());
     let shift = codes
         .as_deref()
         .is_some_and(|c| held(c, [KeyCode::ShiftLeft, KeyCode::ShiftRight]));
@@ -366,7 +403,7 @@ fn walk(
         if key.state != ButtonState::Pressed {
             continue;
         }
-        let here = focus.get().and_then(|f| stops.get(f).ok().map(|(_, s)| *s));
+        let here = focus.get().and_then(live_stop).map(|(_, stop)| stop);
         match &key.logical_key {
             Key::Tab if !key.repeat && !ctrl_alt_meta => {
                 let entries = entries(order, &drawn, &current);
@@ -414,8 +451,8 @@ fn walk(
             _ => {}
         }
     }
-    if let Some((entity, stop)) = focus.get().and_then(|f| stops.get(f).ok()) {
-        remembered.0 = Some(*stop);
+    if let Some((entity, stop)) = focus.get().and_then(live_stop) {
+        remembered.0 = Some(stop);
         *last = Some(entity);
     }
 }
@@ -462,9 +499,13 @@ fn edit_fields(
     mut keys: MessageReader<KeyboardInput>,
     codes: Option<Res<ButtonInput<KeyCode>>>,
     focus: Res<InputFocus>,
-    mut fields: Query<&mut ShellField>,
+    mut fields: Query<(&mut ShellField, Option<&InheritedVisibility>)>,
 ) {
-    let Some(mut field) = focus.get().and_then(|f| fields.get_mut(f).ok()) else {
+    let Some((mut field, _)) = focus
+        .get()
+        .and_then(|f| fields.get_mut(f).ok())
+        .filter(|(_, visibility)| shown(*visibility))
+    else {
         keys.clear();
         return;
     };
@@ -503,7 +544,7 @@ fn activate(
     mut clicks: MessageReader<PointerClick>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     focus: Res<InputFocus>,
-    stops: Query<&Stop>,
+    stops: Query<(&Stop, Option<&InheritedVisibility>)>,
     fields: Query<(), With<ShellField>>,
     off: Query<(), With<super::controls::Disabled>>,
     parents: Query<&ChildOf>,
@@ -522,16 +563,7 @@ fn activate(
     let answers = |stop: &Stop| !at_table || table(stop.table).is_some_and(|t| t.modal);
     // A chord is the shell's, never the focused stop's: `Cmd/Ctrl+Enter` is
     // the room's Start, and taken as Enter it pressed whatever had focus.
-    let chord = codes.as_deref().is_some_and(|c| {
-        c.any_pressed([
-            KeyCode::ControlLeft,
-            KeyCode::ControlRight,
-            KeyCode::SuperLeft,
-            KeyCode::SuperRight,
-            KeyCode::AltLeft,
-            KeyCode::AltRight,
-        ])
-    });
+    let chord = command_held(codes.as_deref());
     let shift = codes
         .as_deref()
         .is_some_and(|c| c.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]));
@@ -551,7 +583,11 @@ fn activate(
         if fields.contains(entity) || off.contains(entity) {
             continue;
         }
-        if let Ok(stop) = stops.get(entity).ok().filter(|s| answers(s)).ok_or(()) {
+        if let Some((stop, _)) = stops
+            .get(entity)
+            .ok()
+            .filter(|(s, visibility)| answers(s) && shown(*visibility))
+        {
             out.write(Activated {
                 entity,
                 stop: *stop,
@@ -562,8 +598,8 @@ fn activate(
     for click in clicks.read() {
         let mut at = Some(click.entity);
         while let Some(e) = at {
-            if let Ok(stop) = stops.get(e) {
-                if !off.contains(e) && answers(stop) {
+            if let Ok((stop, visibility)) = stops.get(e) {
+                if shown(visibility) && !off.contains(e) && answers(stop) {
                     out.write(Activated {
                         entity: e,
                         stop: *stop,
@@ -622,14 +658,16 @@ fn draw_ring(
 fn report(
     focus: Res<InputFocus>,
     visible: Res<InputFocusVisible>,
-    stops: Query<(Entity, &Stop)>,
+    stops: StopQuery<'_, '_>,
     fields: Query<(), With<ShellField>>,
     mut out: ResMut<FocusReport>,
 ) {
-    let drawn: Vec<(Entity, Stop)> = stops.iter().map(|(e, s)| (e, *s)).collect();
+    let drawn = visible_stops(&stops);
     let now = FocusReport {
         table: active(&drawn).map(|t| t.name),
-        stop: focus.get().and_then(|f| stops.get(f).ok().map(|(_, s)| *s)),
+        stop: focus
+            .get()
+            .and_then(|f| drawn.iter().find(|(e, _)| *e == f).map(|(_, s)| *s)),
         visible: visible.0,
         field: focus.get().is_some_and(|f| fields.contains(f)),
     };
@@ -659,6 +697,76 @@ mod tests {
         // A stop the screen does not draw is skipped, not stopped at.
         assert_eq!(next_in(&PAGE, &["a", "c"], Some("a"), true), Some("c"));
         assert_eq!(next_in(&PAGE, &[], None, true), None);
+    }
+
+    #[test]
+    fn hidden_pages_cannot_take_tab_or_edit_a_field_behind_the_visible_page() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<KeyboardInput>();
+        install(&mut app);
+        let hidden = app
+            .world_mut()
+            .spawn((Stop::new("play", "create"), InheritedVisibility::HIDDEN))
+            .id();
+        let field = app
+            .world_mut()
+            .spawn((
+                Stop::new("overlay", "search"),
+                ShellField::new("keep", ""),
+                InheritedVisibility::HIDDEN,
+            ))
+            .id();
+        let nav = app
+            .world_mut()
+            .spawn((Stop::new("gallery", "nav"), InheritedVisibility::VISIBLE))
+            .id();
+        let create = app
+            .world_mut()
+            .spawn((Stop::new("gallery", "create"), InheritedVisibility::VISIBLE))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(field, FocusCause::Navigated);
+        let key = |key_code, logical_key, text| KeyboardInput {
+            key_code,
+            logical_key,
+            state: ButtonState::Pressed,
+            text,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        };
+        app.world_mut().write_message(key(
+            KeyCode::KeyQ,
+            Key::Character("q".into()),
+            Some("q".into()),
+        ));
+        app.update();
+        assert_eq!(app.world().get::<ShellField>(field).unwrap().value, "keep");
+        assert_eq!(app.world().resource::<FocusReport>().table, Some("gallery"));
+        assert!(app.world().resource::<InputFocus>().get().is_none());
+        app.world_mut()
+            .write_message(key(KeyCode::Tab, Key::Tab, None));
+        app.update();
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(nav));
+        app.world_mut()
+            .write_message(key(KeyCode::Tab, Key::Tab, None));
+        app.update();
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(create));
+        app.world_mut()
+            .entity_mut(nav)
+            .insert(InheritedVisibility::HIDDEN);
+        app.world_mut()
+            .entity_mut(create)
+            .insert(InheritedVisibility::HIDDEN);
+        app.world_mut()
+            .entity_mut(hidden)
+            .insert(InheritedVisibility::VISIBLE);
+        app.world_mut()
+            .write_message(key(KeyCode::Tab, Key::Tab, None));
+        app.update();
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(hidden));
+        assert_eq!(app.world().resource::<FocusReport>().table, Some("play"));
     }
 
     #[test]

@@ -104,7 +104,7 @@ fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(
     let occlusions = pixels::social_controls(state);
     let aim = [
         x.clamp(left, right),
-        (left + right) / 2.0,
+        left.midpoint(right),
         left + inset,
         right - inset,
     ]

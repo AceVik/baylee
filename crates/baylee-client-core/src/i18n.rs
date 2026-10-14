@@ -6418,7 +6418,7 @@ messages! {
     /// Account: the handle.
     HelpHandle { en: "What other players see you as", de: "Wie andere Spieler dich sehen" },
     /// Account: copies the handle.
-    CopyHandle { en: "Copy my handle", de: "Meinen Namen kopieren" },
+    CopyHandle { en: "Copy my handle", de: "Namen kopieren" },
     /// Account: signing out.
     RowSignOut { en: "Sign out", de: "Abmelden" },
     /// Account: what signing out does.
