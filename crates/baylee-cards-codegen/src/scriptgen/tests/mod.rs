@@ -1,5 +1,6 @@
 use super::*;
 
+mod affected_defined;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;

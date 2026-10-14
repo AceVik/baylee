@@ -193,9 +193,7 @@ impl Tx<'_> {
         {
             return self.characteristic_pt(p);
         }
-        let Some(affected) = p.take("Affected") else {
-            return self.deny("a continuous static with no `Affected$`".to_string());
-        };
+        let affected = self.continuous_affected(&mut p)?;
         if p.peek("AddKeyword")
             .is_some_and(|k| k.starts_with("UntapAdjust:"))
         {
@@ -244,6 +242,42 @@ impl Tx<'_> {
         }
         self.body.abilities.extend(out);
         Some(())
+    }
+
+    /// Normalize the selected objects before reading their validity predicate.
+    /// Applying the relation to every alternative preserves comma-union semantics.
+    /// Unknown definitions must never silently widen to every permanent.
+    fn continuous_affected(&self, p: &mut Params) -> Option<String> {
+        let affected = p.take("Affected");
+        let Some(defined) = p.take("AffectedDefined") else {
+            return affected
+                .or_else(|| self.deny("a continuous static with no `Affected$`".to_string()));
+        };
+        let relation = match defined.as_str() {
+            "Self" => "Self",
+            "Enchanted" => "EnchantedBy",
+            "Equipped" => "EquippedBy",
+            "AttachedBy Self" => "AttachedBy",
+            other => return self.deny(format!("continuous `AffectedDefined$ {other}`")),
+        };
+        let valid = affected.as_deref().unwrap_or("Card");
+        Some(
+            valid
+                .split(',')
+                .map(|alternative| {
+                    let (base, tail) = alternative
+                        .trim()
+                        .split_once('.')
+                        .unwrap_or((alternative.trim(), ""));
+                    if tail.is_empty() {
+                        format!("{base}.{relation}")
+                    } else {
+                        format!("{base}.{relation}+{tail}")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(","),
+        )
     }
 
     /// "Players can't untap more than one creature during their untap
