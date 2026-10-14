@@ -1,0 +1,543 @@
+{
+  "status": "partial_evidence_not_completed_gpu_ABA",
+  "notes": [
+    "Original result.json files unchanged: A1/B collected, A2 failed after GPU export.",
+    "Only earlier separately guarded CPU/perf phases extracted. Whole failed run never marked collected.",
+    "All desktop metrics provisional: rendered image reviewed, desktop occlusion unverified.",
+    "CPU is percent of one core; POWER is macOS top score, not watts; RSS is end value, not peak.",
+    "No GPU comparison or overall GPU gain claimed. First rejected attempt excluded entirely.",
+    "Allocation counts are unsampled perf counters; separate capped stack samples only attribute paths."
+  ],
+  "runs": [
+    {
+      "run": "01-main-full",
+      "driver_status": "collected",
+      "driver_failure": null,
+      "phase_result": "completed earlier CPU/perf phase; whole run not promoted",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "pid": 33556,
+      "cpu_percent": 44.96500055011767,
+      "cpu_window_seconds": 30.067830166999997,
+      "top_power_mean": 44.97333333333334,
+      "top_power_samples": 15,
+      "rss_mib_end": 481.28125,
+      "perf": {
+        "alloc_bytes_per_frame": 1010841,
+        "allocs_per_frame": 3385.9,
+        "entities": 1060,
+        "fps": 60.0,
+        "frame_ms": {
+          "max": 26.81,
+          "mean": 16.666,
+          "p50": 16.714,
+          "p95": 18.214,
+          "p99": 18.652
+        },
+        "frames": 1803,
+        "main_allocs_per_frame": 837.2,
+        "ok": true,
+        "secs": 30.051,
+        "systems": 737,
+        "update_ms": {
+          "max": 2.372,
+          "mean": 1.279,
+          "p50": 1.27,
+          "p95": 1.51,
+          "p99": 1.703
+        }
+      },
+      "cpu_phase_load1_min": 2.19287109375,
+      "cpu_phase_load1_max": 2.85400390625,
+      "process": {
+        "after": {
+          "cpu_seconds": 49.37,
+          "monotonic": 116.248268958,
+          "rss_kib": 492832
+        },
+        "before": {
+          "cpu_seconds": 35.85,
+          "monotonic": 86.180438791,
+          "rss_kib": 492832
+        }
+      },
+      "cpu_phase_load_samples": [
+        {
+          "load1": 2.85400390625,
+          "t": 86.230943291
+        },
+        {
+          "load1": 2.78515625,
+          "t": 88.286507458
+        },
+        {
+          "load1": 2.78515625,
+          "t": 90.341031333
+        },
+        {
+          "load1": 2.78515625,
+          "t": 92.394841625
+        },
+        {
+          "load1": 2.64208984375,
+          "t": 94.448966541
+        },
+        {
+          "load1": 2.64208984375,
+          "t": 96.504738
+        },
+        {
+          "load1": 2.43017578125,
+          "t": 98.553066208
+        },
+        {
+          "load1": 2.43017578125,
+          "t": 100.6003115
+        },
+        {
+          "load1": 2.3154296875,
+          "t": 102.656117041
+        },
+        {
+          "load1": 2.3154296875,
+          "t": 104.708376041
+        },
+        {
+          "load1": 2.3154296875,
+          "t": 106.762074791
+        },
+        {
+          "load1": 2.2099609375,
+          "t": 108.819246875
+        },
+        {
+          "load1": 2.2099609375,
+          "t": 110.873187125
+        },
+        {
+          "load1": 2.19287109375,
+          "t": 112.927941208
+        },
+        {
+          "load1": 2.19287109375,
+          "t": 114.977124458
+        },
+        {
+          "load1": 2.19287109375,
+          "t": 116.240590583
+        }
+      ],
+      "gpu": {
+        "status": "excluded_from_comparison",
+        "reason": "A2 final GPU-phase load guard failed"
+      },
+      "file_sha256": {
+        "result.json": "d904601cee0e3e40aba94ea511280dcc233b9fd436a5f29739c36097a49a6da5",
+        "perf.json": "23932046f86c70a45fc6ddabbf8edfe4bd1f795da2f638493da6e8f5e6aa7fc2",
+        "process.json": "21932e4402f3ee2541fadaa4a2e9e1d6e21355663d1d048d5205c672474bf711",
+        "top.txt": "e91b70bfdd2da1f532450cd5534c6f3a0e70584999511a58d4cb5d4b9de16ba6",
+        "allocs.txt": "be756b2e44fab68a1330d8303a35448ede0e5877fb432d785444f6fcb1bed95d",
+        "preflight.png": "7f3ab8b46fd693b7bf6e53916fe7ca524dc8bdc935322ca5027f3125b4b735e6",
+        "state-before.json": "9eeccf0bcd54638d5694d07f16163d0e0ed8d89cb4404793a7fc879922968941",
+        "state-after.json": "d97f31a81ceba3213fd27f869af4e868fb729b337f8d1a3c7157ef2feca1aa0a",
+        "REVIEW.json": "74ed37c725029ccc0e0f2ebb523e8d2a470498b46bd1cd17ab8f16d6fae009a8"
+      },
+      "top_power_samples_raw_after_lifetime_sample": [
+        37.7,
+        45.2,
+        46.1,
+        45.5,
+        44.4,
+        44.8,
+        45.2,
+        44.7,
+        46.1,
+        46.1,
+        45.6,
+        46.5,
+        45.6,
+        45.2,
+        45.9
+      ],
+      "view_before_after_equal": true
+    },
+    {
+      "run": "02-p3-full",
+      "driver_status": "collected",
+      "driver_failure": null,
+      "phase_result": "completed earlier CPU/perf phase; whole run not promoted",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "commit": "743ec35c846e00cf19a477c77ae92923f6661b4c",
+      "binary_sha256": "91da2e2f8e3f4a420661ce6aa7419a2c0f2cd2fd0da913a7704f947e872013c7",
+      "pid": 34949,
+      "cpu_percent": 45.81126269389643,
+      "cpu_window_seconds": 30.058110582999973,
+      "top_power_mean": 45.473333333333336,
+      "top_power_samples": 15,
+      "rss_mib_end": 469.65625,
+      "perf": {
+        "alloc_bytes_per_frame": 1008743,
+        "allocs_per_frame": 3358.1,
+        "entities": 1060,
+        "fps": 60.0,
+        "frame_ms": {
+          "max": 22.678,
+          "mean": 16.666,
+          "p50": 16.654,
+          "p95": 17.191,
+          "p99": 17.584
+        },
+        "frames": 1803,
+        "main_allocs_per_frame": 809.7,
+        "ok": true,
+        "secs": 30.05,
+        "systems": 737,
+        "update_ms": {
+          "max": 2.007,
+          "mean": 1.257,
+          "p50": 1.244,
+          "p95": 1.509,
+          "p99": 1.653
+        }
+      },
+      "cpu_phase_load1_min": 3.337890625,
+      "cpu_phase_load1_max": 4.3291015625,
+      "process": {
+        "after": {
+          "cpu_seconds": 68.81,
+          "monotonic": 322.550693666,
+          "rss_kib": 480928
+        },
+        "before": {
+          "cpu_seconds": 55.04,
+          "monotonic": 292.492583083,
+          "rss_kib": 480880
+        }
+      },
+      "cpu_phase_load_samples": [
+        {
+          "load1": 4.3291015625,
+          "t": 292.533688958
+        },
+        {
+          "load1": 3.982421875,
+          "t": 294.582372541
+        },
+        {
+          "load1": 3.982421875,
+          "t": 296.637933708
+        },
+        {
+          "load1": 3.8232421875,
+          "t": 298.687151375
+        },
+        {
+          "load1": 3.8232421875,
+          "t": 300.741575083
+        },
+        {
+          "load1": 3.9169921875,
+          "t": 302.79725475
+        },
+        {
+          "load1": 3.9169921875,
+          "t": 304.84884975
+        },
+        {
+          "load1": 3.9169921875,
+          "t": 306.901344
+        },
+        {
+          "load1": 3.76318359375,
+          "t": 308.953823916
+        },
+        {
+          "load1": 3.76318359375,
+          "t": 311.007330625
+        },
+        {
+          "load1": 3.54150390625,
+          "t": 313.057740333
+        },
+        {
+          "load1": 3.54150390625,
+          "t": 315.106545833
+        },
+        {
+          "load1": 3.54150390625,
+          "t": 317.156464041
+        },
+        {
+          "load1": 3.337890625,
+          "t": 319.20863525
+        },
+        {
+          "load1": 3.337890625,
+          "t": 321.257082333
+        },
+        {
+          "load1": 3.337890625,
+          "t": 322.542949291
+        }
+      ],
+      "gpu": {
+        "status": "excluded_from_comparison",
+        "reason": "A2 final GPU-phase load guard failed"
+      },
+      "file_sha256": {
+        "result.json": "20fccb8ec6f49c8aca6012931384815105bf1eba443b785c9f7fe735e6ad7e3f",
+        "perf.json": "ba2db7a824c4b7576601039ec08e157d455b3757ff4208496b915e519acb4b91",
+        "process.json": "06767e1e83af9c8db3bb7cb985a99d766479b47596c781fa8d27d7c85932c602",
+        "top.txt": "1e55e240dabedd537712a766670ecfbe89c7395a37522d1b13c656bb8571f595",
+        "allocs.txt": "9b7d8b88e3317acaa02c93b43c28ff062a189a0d504698d17b0f238281bf45e1",
+        "preflight.png": "8f5d224a87ac83366ba0b33a9bdee6a41189451a69e0f7a1402d5743e30cabdf",
+        "state-before.json": "ac9f1dd01e428dfdc922baf77e9ae35b167cbd0b0a6f09c0a56432395cee25ab",
+        "state-after.json": "be5d955aafaae027e1ce186977c3ed0d7ab6796a9d2c579a880df053a3681e7f",
+        "REVIEW.json": "989d7da8eb678d741781686c4c4ebddeb7c5a7f98bd2fc2cd9cb0c0aed50bbb7"
+      },
+      "top_power_samples_raw_after_lifetime_sample": [
+        37.6,
+        45.7,
+        46.5,
+        46.3,
+        45.9,
+        45.9,
+        46.4,
+        45.7,
+        45.3,
+        46.0,
+        45.8,
+        46.1,
+        46.6,
+        46.0,
+        46.3
+      ],
+      "view_before_after_equal": true
+    },
+    {
+      "run": "03-main-full",
+      "driver_status": "failed",
+      "driver_failure": "Refused: Refusing noisy run: one-minute load 11.17 >= 10",
+      "phase_result": "completed earlier CPU/perf phase; whole run not promoted",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "pid": 36738,
+      "cpu_percent": 47.051263835809586,
+      "cpu_window_seconds": 30.073581125000032,
+      "top_power_mean": 46.68666666666665,
+      "top_power_samples": 15,
+      "rss_mib_end": 480.28125,
+      "perf": {
+        "alloc_bytes_per_frame": 1010421,
+        "allocs_per_frame": 3385.8,
+        "entities": 1060,
+        "fps": 60.0,
+        "frame_ms": {
+          "max": 20.026,
+          "mean": 16.667,
+          "p50": 16.656,
+          "p95": 18.79,
+          "p99": 19.348
+        },
+        "frames": 1803,
+        "main_allocs_per_frame": 836.7,
+        "ok": true,
+        "secs": 30.048,
+        "systems": 737,
+        "update_ms": {
+          "max": 2.744,
+          "mean": 1.286,
+          "p50": 1.241,
+          "p95": 1.752,
+          "p99": 2.279
+        }
+      },
+      "cpu_phase_load1_min": 2.6064453125,
+      "cpu_phase_load1_max": 3.32958984375,
+      "process": {
+        "after": {
+          "cpu_seconds": 62.75,
+          "monotonic": 513.716546708,
+          "rss_kib": 491808
+        },
+        "before": {
+          "cpu_seconds": 48.6,
+          "monotonic": 483.642965583,
+          "rss_kib": 491728
+        }
+      },
+      "cpu_phase_load_samples": [
+        {
+          "load1": 3.271484375,
+          "t": 483.702522125
+        },
+        {
+          "load1": 3.271484375,
+          "t": 485.75216475
+        },
+        {
+          "load1": 3.271484375,
+          "t": 487.809940583
+        },
+        {
+          "load1": 3.32958984375,
+          "t": 489.867253166
+        },
+        {
+          "load1": 3.32958984375,
+          "t": 491.925494416
+        },
+        {
+          "load1": 3.142578125,
+          "t": 493.977518458
+        },
+        {
+          "load1": 3.142578125,
+          "t": 496.027274916
+        },
+        {
+          "load1": 2.970703125,
+          "t": 498.081122291
+        },
+        {
+          "load1": 2.970703125,
+          "t": 500.140031875
+        },
+        {
+          "load1": 2.970703125,
+          "t": 502.19592575
+        },
+        {
+          "load1": 2.732421875,
+          "t": 504.253327375
+        },
+        {
+          "load1": 2.732421875,
+          "t": 506.309480166
+        },
+        {
+          "load1": 2.83349609375,
+          "t": 508.364677541
+        },
+        {
+          "load1": 2.83349609375,
+          "t": 510.421630625
+        },
+        {
+          "load1": 2.83349609375,
+          "t": 512.469237
+        },
+        {
+          "load1": 2.6064453125,
+          "t": 513.70469025
+        }
+      ],
+      "gpu": {
+        "status": "excluded_from_comparison",
+        "reason": "A2 final GPU-phase load guard failed"
+      },
+      "file_sha256": {
+        "result.json": "90084248539a48d590e97ca3100750d8a2a78ac962eddef6e892de138158316d",
+        "perf.json": "16ecc05323740b81f7e9b2e8d5699e7784cfe99123e598939d981682247671a5",
+        "process.json": "1289a017afdf02aadd24839ba0f9a6b16f1f1bbe8edbd972e904a437d415683a",
+        "top.txt": "0c2912347eff73d2786af0309787a50dcfd942bf6be7cb0c0dce310c0624d733",
+        "allocs.txt": "2653050ca83514f8cc009af8453f044ae0dcf98e54ebdaf4724b547efcd76ea3",
+        "preflight.png": "1a4df73bb424255c93d859bf30b12d6a293aec0a15a1d4ba14e9c234cc882e38",
+        "state-before.json": "59251fc6d687b7e3bd89e78e1bc48b04d6916ff630f119dd99da7cacf38f0173",
+        "state-after.json": "f5a8e13ba37db61a77a7687434c284df3a3fa6d7ad463269a2f779f7c89ea424",
+        "REVIEW.json": "ac0de8e56596a319510c751a475d4d1ed00dd5331337c9ca7a4666275864d3d2"
+      },
+      "top_power_samples_raw_after_lifetime_sample": [
+        38.0,
+        47.6,
+        46.4,
+        47.7,
+        47.1,
+        47.8,
+        47.6,
+        46.7,
+        46.9,
+        48.2,
+        47.3,
+        47.3,
+        46.9,
+        47.5,
+        47.3
+      ],
+      "view_before_after_equal": true
+    }
+  ],
+  "post_measurement_binary_sha256": {
+    "baseline": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+    "p3": "91da2e2f8e3f4a420661ce6aa7419a2c0f2cd2fd0da913a7704f947e872013c7"
+  },
+  "allocation_attribution": {
+    "samples_stored_per_run": 4000,
+    "every_n_allocations_per_thread": 31,
+    "printed_groups_limit": 300,
+    "printed_main_stacks_limit": 40,
+    "produced_colors_table_mana_sync_table_samples_A1": 32,
+    "produced_colors_table_mana_sync_table_samples_A2": 30,
+    "B": "no matching entry in truncated report; not a proven zero",
+    "main_samples": [
+      985,
+      950,
+      985
+    ]
+  },
+  "driver_inputs_sha256": {
+    "driver.py": "162d8598b55b56dcb7f283d0c39bd62cd8cf12ba7d5efb2e110e953d6d4ea98c",
+    "settings.json": "303ebdc80ea845dd2d9a9cf05d43b991de380f7186d2d527176e63a6e7e48972",
+    "fixture.json": "4d0a1b1fae142f3d73a82572dcfe90892d87c3c7069e9a11a13ebb0e8e69a071"
+  },
+  "build_receipt": {
+    "source": "743ec35c846e00cf19a477c77ae92923f6661b4c",
+    "inputs_sha256": {
+      "Cargo.toml": "53d02fdac2f53354b3278d8fd344ec7e3fed68272c1a94e79864e74ce43f9c8c",
+      "Cargo.lock": "7d81ed1edaf734acfc5cfc5b9faa5f54cf625dca0459c0cbb566603c55e504ff",
+      ".cargo/config.toml": "f3da4cf4530bf72f3cbabf1cb1891a76d87b14bc805116bcd7f447351e302367",
+      "rust-toolchain.toml": "55759668bdf041ef55e0d5e05aa459ad3b9aeeb391e9bb48db1c7d26dc121a63"
+    },
+    "binary_sha256": "91da2e2f8e3f4a420661ce6aa7419a2c0f2cd2fd0da913a7704f947e872013c7",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+    "seconds": 545.028,
+    "profile": "release; thin LTO; 1 codegen unit; dev-control; unchanged .cargo/config"
+  },
+  "gates": {
+    "source": "743ec35c846e00cf19a477c77ae92923f6661b4c",
+    "results": [
+      {
+        "gate": "deny",
+        "exit": 0,
+        "seconds": 1.843
+      },
+      {
+        "gate": "gate",
+        "exit": 0,
+        "seconds": 511.669
+      },
+      {
+        "gate": "features",
+        "exit": 0,
+        "seconds": 514.334
+      },
+      {
+        "gate": "wasm",
+        "exit": 0,
+        "seconds": 20.18
+      }
+    ],
+    "main_test_passed": 14351,
+    "main_test_skipped": 21,
+    "main_test_seconds": 326.243,
+    "client_features_passed": 1996,
+    "devctl_tests": 25,
+    "devctl_floor": 15,
+    "integrated_branch_tested": false
+  }
+}

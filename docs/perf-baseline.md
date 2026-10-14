@@ -1144,7 +1144,13 @@ Gezielte Tests auf B: `sba::tests` **25**, `deathtouch` **13**, `phas` **65**,
 `state::tests` **38** (einschließlich Hash-Memo-Referenz), `arena::tests` **10**,
 alle grün; diese Filter überlappen. Formatcheck der drei Rust-Dateien und
 `cargo clippy --locked --offline -p baylee-engine --lib --tests --bench basics
--- -D warnings` sind grün. Vollständige P3-Gates folgen in der Parent-Lane.
+-- -D warnings` sind grün. Die vollständigen P3-Gates auf `743ec35c8`
+(cargo-deny, Hauptgate, Feature-Gate, WASM-Gate) sind ebenfalls grün;
+14.351 Tests bestanden, 21 unverändert übersprungen. Details und Zeiten
+stehen im Abschnitt „Manafarben ohne kurzlebige Planner-Quellen“ in
+[perf-client.md](perf-client.md). Dieser spätere Stand ergänzt den Guard
+um die dort separat beschriebene Client-Optimierung; die Engine-Quelle
+des Guards blieb seit den Benchmarks unverändert.
 
 Rohdaten und Belege: [111 Einzelmessungen](perf-data/p3-sba-reset-2026-10-14/measurements.json),
 [A/B/A-Auswertung](perf-data/p3-sba-reset-2026-10-14/summary.json), [Build-/Pool-Provenienz](perf-data/p3-sba-reset-2026-10-14/provenance.json),

@@ -1,0 +1,211 @@
+{
+  "note": "Unedited preflight screenshots: live backgrounds differ in animation phase; compare B and returning A. Printed hand interiors and card geometry measured separately. The 2/8 thresholds are 8-bit channel levels; the percentages count affected pixels. No card artwork is included in this artifact.",
+  "comparisons": [
+    {
+      "a": "01-main-full",
+      "b": "02-p3-full",
+      "image_sha256": {
+        "01-main-full": "7f3ab8b46fd693b7bf6e53916fe7ca524dc8bdc935322ca5027f3125b4b735e6",
+        "02-p3-full": "8f5d224a87ac83366ba0b33a9bdee6a41189451a69e0f7a1402d5743e30cabdf"
+      },
+      "whole_image": {
+        "rmse_8bit": 6.554424412181439,
+        "pixels_above_2_percent": 23.0004375,
+        "pixels_above_8_percent": 16.085437499999998
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": false,
+        "buttons": true
+      },
+      "max_card_pixel_delta": {
+        "at_x": 0.0,
+        "at_y": 0.5999999999999943,
+        "w": 0.0,
+        "h": 0.7999999999999972
+      }
+    },
+    {
+      "a": "01-main-full",
+      "b": "03-main-full",
+      "image_sha256": {
+        "01-main-full": "7f3ab8b46fd693b7bf6e53916fe7ca524dc8bdc935322ca5027f3125b4b735e6",
+        "03-main-full": "1a4df73bb424255c93d859bf30b12d6a293aec0a15a1d4ba14e9c234cc882e38"
+      },
+      "whole_image": {
+        "rmse_8bit": 6.414978906824246,
+        "pixels_above_2_percent": 22.5455625,
+        "pixels_above_8_percent": 15.714687499999998
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": false,
+        "buttons": true
+      },
+      "max_card_pixel_delta": {
+        "at_x": 0.0,
+        "at_y": 0.5999999999999943,
+        "w": 0.10000000000000142,
+        "h": 1.0
+      }
+    }
+  ]
+}

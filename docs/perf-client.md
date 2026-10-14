@@ -551,7 +551,6 @@ rustc -O --edition 2024 --target wasm32-unknown-unknown -C target-feature=+simd1
 node -e 'const fs=require("fs"); WebAssembly.instantiate(fs.readFileSync("/tmp/bitmap.wasm")).then(({instance})=>{if(instance.exports.verify()!==0)process.exitCode=1})'
 ```
 
-
 ## Bevy 0.20 follow-up (14 October 2026)
 
 The beta.8 work starts from `7e4aa634e` (beta.7), independently of the
@@ -861,3 +860,137 @@ belong to that historical commit. Their current equivalents are native Rust
 regressions in `baylee-tools`; run `cargo test -p baylee-tools recording`.
 Current capture/encoding commands and their evidence limits are in
 `docs/dev-tools.md` and the client's recording section.
+
+## Manafarben ohne kurzlebige Planner-Quellen (14 October 2026)
+
+Der Client liest die Manafarben für die Tischdarstellung nun über dieselbe
+Ability-Auswertung wie der Planner, ohne dafür jedes Mal eine besitzende
+`Source` und ihren Farbvektor anzulegen. Feste Farben werden für den Aufruf
+vom Stack geliehen, gedruckte Auswahlen und Host-Projektionen aus ihren
+bestehenden Slices. Der Planner erhält weiterhin seine besitzende `Source`;
+mehrteilige Mana-Bündel behalten den bereits erzeugten Vektor.
+
+Die DSL-Leser für eine einzelne Mana-Klausel und ein Bündel sind disjunkt.
+Die einzelne Klausel wird zuerst geprüft, damit gewöhnliche Länder nicht
+zunächst einen Bündel-Vektor erzeugen und wieder verwerfen. DSL, Regeln,
+wire types und öffentliche Planner-Schnittstelle bleiben unverändert.
+Der veraltete Kommentar über „fünf“ projektierte Quellen wurde korrigiert.
+
+Fünf neue Referenztests vergleichen mit der früheren, getrennt aufbewahrten
+Owned-Auswertung: alle `Source`-Felder, Projektionsindex und -reihenfolge,
+Wiederholungen, Bedingungen, Einschränkungen, dynamische Mengen, Bündel,
+Face-down-Status und verliehene Fähigkeiten. Die Tischsummen werden für jede
+Präfixlänge und beide Kartenreihenfolgen bitweise verglichen; weitere
+Assertions belegen geliehene Slices und das Verschieben des Bündel-Vektors.
+Alle 34 Tests unter `manasources::tests` und der Client-Clippy-Lauf mit
+verweigerten Warnungen sind grün.
+
+### Messaufbau
+
+A ist `7e4aa634ee630b50af552de2550ac8d520b15119`, B ist
+`743ec35c8` (vollständige SHA in den Messdaten). Beide Release-Programme sind
+separat kopiert und per SHA-256 festgehalten: Thin LTO, eine Codegen-Einheit,
+`dev-control`, identische Paketversionen und Compileroptionen. B enthält
+außerdem den separat vermessenen Engine-SBA-Guard; im hier stillstehenden
+Duell wurden keine weiteren Spielaktionen ausgeführt.
+
+Die A/B/A-Folge zeigt dasselbe volle Duell mit 40 Permanents und einer
+festgelegten Sieben-Karten-Hand, 1600×1000, Skala 1, Medium, MSAA4 und durchweg
+60 FPS als Obergrenze. Jede Instanz läuft lautlos, mit leerer eigener
+Konfiguration und gesperrtem externen Netz. Vor jedem Messlauf wurden das
+interne Bild und die Einstellungen geprüft. Desktop-Verdeckung wurde nicht
+unabhängig verifiziert; die Desktop-Metriken bleiben entsprechend vorläufig.
+
+CPU wird über 30 s beobachtet; `/perf`, Allokations-Stack-Sampling und der
+10-s-Metal-Trace laufen in getrennten Phasen. `POWER` ist der Score von `top`,
+keine Wattmessung. RSS am Ende ist keine Peak-RAM-Messung.
+
+**Teilweise Messreihe:** Ein erster Versuch wurde wegen Last 15,30 vollständig
+verworfen. Im zweiten Versuch sind A1 und B vollständig erfasst. Bei A2
+scheitert erst die Abschlussprüfung nach dem GPU-Export an Last 11,17.
+`result.json` bleibt ausdrücklich `failed`; es wurde nicht umgeschrieben.
+Die zuvor bereits abgeschlossenen CPU-/Perf-Phasen sind getrennt aus den
+unveränderten `perf.json`, `process.json` und `top.txt` ausgewertet. Ihre
+regelmäßigen Load-Prüfungen liegen unter 10, ihr Zustand ist vor/nach der
+Messung unverändert. A1/B stimmen mit ihren vollständigen Resultaten überein.
+Es gibt **keinen gültigen GPU-A/B/A-Vergleich** aus dieser Folge und keine
+Behauptung über GPU-Gewinn oder -Regression. Die ungültige GPU-Phase wird
+nicht nachträglich als gültig erklärt.
+
+| Metrik | A1 | B | A2 |
+|---|---:|---:|---:|
+| CPU, % eines Kerns | 44.965 | 45.811 | 47.051 |
+| top POWER | 44.973 | 45.473 | 46.687 |
+| RSS am Ende, MiB | 481.281 | 469.656 | 480.281 |
+| Main mean / p95 / p99, ms | 1.279 / 1.510 / 1.703 | 1.257 / 1.509 / 1.653 | 1.286 / 1.752 / 2.279 |
+| Allokationen/Frame, gesamt | 3385.9 | 3358.1 | 3385.8 |
+| Allokationen/Frame, Main | 837.2 | 809.7 | 836.7 |
+| Allokierte Bytes/Frame | 1010841 | 1008743 | 1010421 |
+| Load-Spanne während CPU-Phase | 2.19–2.85 | 3.34–4.33 | 2.61–3.33 |
+
+Alle drei `/perf`-Fenster enthalten 1.803 Frames bei 60,0 FPS; jeweils
+737 Systeme und 1.060 Entities. Gegen die Mitte der As spart B **27,75
+Allokationen/Frame insgesamt (0,82 %)** und **27,25 im Main (3,26 %)**.
+Die Allokationsbytes sinken um 1.888/Frame (0,19 %), schwanken jedoch mit
+anderer Arbeit pro Frame. CPU liegt innerhalb der A-Spanne; der rund 2 %
+kleinere Main-Mittelwert ist aus einer Folge kein belastbarer Zeitgewinn.
+Auch aus dem niedrigeren End-RSS folgt kein nachgewiesener RAM-Gewinn.
+
+Das separate Stack-Sampling zeigt in A1 32 und in A2 30 gespeicherte
+Samples unter `produced_colors → table_mana → sync_table`; B hat keinen
+entsprechenden Eintrag im ausgegebenen Bericht. Je Lauf werden maximal
+4.000 Samples erfasst, jede 31. Allokation pro Thread, mit begrenzter
+Gruppen-/Stack-Ausgabe. Das stützt den entfernten Pfad, beweist aber weder
+null Allokationen noch eine Rate aus den Stichproben. Die rund 28/Frame
+stammen ausschließlich aus den unsampled `/perf`-Zählern.
+
+Bei A2 wurden die endgültige Fixture- und Binärintegritätsprüfung nach GPU
+nicht mehr erreicht. Der frühere CPU-Zustand ist separat belegt; eine spätere
+SHA-Prüfung der kopierten Programme stimmt ebenfalls mit den Start-Hashes
+überein. Sie ersetzt keine vollständige Abschlussprüfung des fehlgeschlagenen
+Laufs. Das ergänzende Sampling endet unter Load 4,91; als Gültigkeitsgrenze
+galt überall `<10`, nicht durchgehend `<4`.
+
+Die sieben gedruckten Handkarten-Innenflächen sind im Screenshotvergleich
+A1/B und A1/A2 pixelgleich (RMSE 0). Kamera und Buttons stimmen überein.
+Das ganze animierte Bild hat RMSE 6,554 bzw. 6,415 auf der 8-Bit-Skala;
+Kartenposition/-höhe schwanken maximal 0,6/0,8 px bei A1/B und 0,6/1,0 px
+bei A1/A2. Der Vergleich liefert keinen Hinweis auf eine zusätzliche
+Darstellungsänderung; er behauptet keine pixelgleiche Animationsphase.
+[Messdaten und Quellhashes](perf-data/beta8-client-mana.json),
+[Bildvergleich ohne Kartenbilder](perf-data/beta8-client-mana-image-diff.json).
+
+### Grenzen und Übergabe
+
+Diese Änderung betrifft die stationäre Mana-Auswertung. Sie ersetzt weder
+eine Gesamtoptimierung des Renderers noch einen Durchsatztest ganzer Partien.
+Die übrigen im Profil sichtbaren Bevy-Extraktions- und Scheduling-Allokationen
+bleiben offen. In anderen Crates wurde kein vermeintlich toter Code ohne
+belastbaren Nachweis entfernt.
+
+### Abschlussprüfungen
+
+Geprüfter Code-Stand: `743ec35c846e00cf19a477c77ae92923f6661b4c`; der folgende Bericht ist eine
+anschließende reine Dokumentationsänderung. Die kurzen Namen in der Tabelle
+stehen für `cargo deny check`, `scripts/gate.sh`, `scripts/gate-features.sh`
+und `scripts/gate-wasm.sh`.
+
+| Prüfung | Exit | Dauer |
+|---|---:|---:|
+| `deny` | 0 | 1.843 s |
+| `gate` | 0 | 511.669 s |
+| `features` | 0 | 514.334 s |
+| `wasm` | 0 | 20.180 s |
+
+Hauptgate: **14.351 Tests bestanden, 21 unverändert übersprungen**,
+326,243 s reine Nextest-Laufzeit; Format, Clippy und 3.318 Karten-Payloads
+validiert. Feature-Gate: unter anderem **1.996 Client-Tests**, davon 25
+`devctl::` bei Mindestzahl 15, und Gateway-`dev-table`. Alle acht WASM-Crates
+geprüft. Die vorhandenen Advisory-Ausnahmen bleiben unverändert. Die bekannte
+macOS-Linkerwarnung zur Größe der Debug-`__eh_frame`-Sektion ist keine
+Clippy- oder Testverletzung.
+
+Der geteilte PostgreSQL lief weiter. Keine echten Modellaufrufe, keine
+Produktions-Gateways und keine Serveränderung. Diese Gates betreffen den
+eigenständigen P3-Branch; eine zusammengeführte Integration der vier Pakete
+und ein CI-Lauf nach Push werden nicht behauptet.
