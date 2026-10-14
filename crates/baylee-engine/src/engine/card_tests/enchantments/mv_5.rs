@@ -3,8 +3,89 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod asceticism;
+mod berserkers_onslaught;
+mod blockbuster;
 mod blood_rites;
 mod centaur_glade;
+mod curse_of_marit_lage;
+mod dictate_of_heliod;
 mod dispersing_orb;
+mod enchanted_evening;
+mod festering_evil;
+mod gravitational_shift;
+mod intimidation;
+mod liliana_s_mastery;
 mod nature_s_revolt;
 mod righteous_cause;
+mod screams_of_the_damned;
+mod wrath_of_marit_lage;
+
+/// Declares `attackers` for `seat` against `at` and stops once the
+/// declaration has been accepted.
+#[track_caller]
+fn declare_attack(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    attackers: &[ObjectId],
+    at: PlayerId,
+) {
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == seat),
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|a| (*a, Defender::Player(at)))
+                    .collect(),
+            },
+        )
+        .expect("the attack was on the offer");
+}
+
+/// Nobody blocks; the game runs on to the second main phase.
+#[track_caller]
+fn finish_combat(engine: &mut Engine<RegistryLookup>) {
+    pass_until(engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+}
+
+/// After the attack was declared: the blocks the defender is offered, or
+/// `None` when combat went by without asking (nothing could block).
+#[track_caller]
+fn blocks_offered(engine: &mut Engine<RegistryLookup>) -> Option<Vec<crate::choice::BlockOption>> {
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => return Some(blockers),
+            Pending::Priority { player, .. } => {
+                if matches!(
+                    engine.state().turn.step,
+                    Step::CombatDamageFirst | Step::CombatDamage | Step::CombatEnd
+                ) || engine.state().turn.phase == Phase::SecondMain
+                {
+                    return None;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the blockers: {other:?}"),
+        }
+    }
+    panic!("never reached blockers or damage")
+}
+
+/// Whether `blocker` is offered the block of `attacker`.
+fn may_block(
+    offer: &Option<Vec<crate::choice::BlockOption>>,
+    blocker: ObjectId,
+    attacker: ObjectId,
+) -> bool {
+    offer.as_ref().is_some_and(|o| {
+        o.iter()
+            .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
+    })
+}
