@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the table's shared vocabulary
 use super::*;
+use bevy::ecs::{entity::EntityHashSet, system::SystemParam};
 
 /// How quickly a card settles onto its mark, as a fraction of the remaining
 /// distance per second.
@@ -115,26 +116,107 @@ pub struct CardShadow;
 /// nothing to keep in step, because the target is recomputed from the model
 /// every frame.
 #[derive(Component, Clone, Copy)]
+#[component(summary_tick)]
 pub struct Motion {
     /// The transform the card belongs at right now.
     pub target: Transform,
 }
 
-/// Moves every card towards its mark.
+type MotionTargets<'w, 's> = Query<'w, 's, (Entity, Ref<'static, Motion>), With<Transform>>;
+type ChangedPoses<'w, 's> =
+    Query<'w, 's, Entity, (With<Motion>, Or<(Changed<Transform>, Changed<Visibility>)>)>;
+type CardPoses<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Motion,
+        &'static mut Transform,
+        Option<&'static crate::combatfx::Recoil>,
+        Option<&'static Visibility>,
+    ),
+>;
+
+type RecoilingCards<'w, 's> =
+    Query<'w, 's, Entity, (With<Motion>, With<Transform>, With<crate::combatfx::Recoil>)>;
+
+/// The glide's wakeups and unfinished cards, owned by each instance of the system.
+///
+/// Motion's summary tick skips unchanged target columns. Transform/visibility
+/// ticks still need a row scan: either can be changed independently of Motion.
+/// The active set holds full entity generations, including departing cards that
+/// have lost `CardVisual`; a missing `Motion`/`Transform` drops an entry on lookup.
+#[derive(SystemParam)]
+pub struct GlideCards<'w, 's> {
+    targets: MotionTargets<'w, 's>,
+    poses: ParamSet<'w, 's, (ChangedPoses<'w, 's>, CardPoses<'w, 's>)>,
+    recoils: RecoilingCards<'w, 's>,
+    active: Local<'s, EntityHashSet>,
+}
+
+/// Returns the number of per-entity target ticks inspected, so the bulk-skip
+/// contract can be checked independently of wall-clock timings. The caller of
+/// the production path ignores the count; inlining eliminates its bookkeeping.
+#[inline]
+fn wake_targets(targets: &MotionTargets, active: &mut EntityHashSet) -> usize {
+    let mut inspected = 0;
+    for (entities, motions) in targets
+        .contiguous_iter()
+        .expect("Motion and Transform use table storage")
+    {
+        let (_, ticks) = ContiguousRef::split(motions);
+        if !ticks.summary_tick_is_changed().unwrap_or(true) {
+            continue;
+        }
+        inspected += entities.len();
+        for (&entity, changed) in entities.iter().zip(ticks.is_changed_iter()) {
+            if changed {
+                active.insert(entity);
+            }
+        }
+    }
+    inspected
+}
+
+impl GlideCards<'_, '_> {
+    fn advance(&mut self, still: bool, t: f32, now: f32) -> usize {
+        wake_targets(&self.targets, &mut self.active);
+        self.active.extend(self.poses.p0().iter());
+        // Even a zero offset can be a delayed strike. Recoil keeps its card
+        // active until the component is removed, including while hidden or
+        // under reduce_motion/Placing. Removal gets one final settling pass.
+        self.active.extend(self.recoils.iter());
+        if self.active.is_empty() {
+            return 0;
+        }
+        let mut moving = 0;
+        let mut poses = self.poses.p1();
+        self.active.retain(|entity| {
+            let Ok((motion, mut transform, recoil, seen)) = poses.get_mut(*entity) else {
+                return false;
+            };
+            let mut target = motion.target;
+            if !still && let Some(recoil) = recoil {
+                target.translation += recoil.offset(now);
+            }
+            let moved = advance_card(&mut transform, target, seen, still, t);
+            moving += usize::from(moved);
+            moved || recoil.is_some()
+        });
+        moving
+    }
+}
+
+/// Moves unfinished or externally changed cards towards their marks.
 ///
 /// Frame-rate independent: the fraction covered is `1 - e^(-rate · dt)`, so
 /// the same motion plays out identically at 30 and at 144 frames per second.
-/// A naive `lerp(0.2)` per frame does not — it makes the whole table twice as
-/// fast on a better machine, which is the bug this shape exists to avoid.
+/// Unchanged targets do not stop an in-flight glide: the system retains it
+/// until it settles. Only `Motion` opts into summary ticks, and `wake_targets`
+/// actually consumes them through contiguous iteration.
 pub fn glide(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
-    mut cards: Query<(
-        &Motion,
-        &mut Transform,
-        Option<&crate::combatfx::Recoil>,
-        Option<&Visibility>,
-    )>,
+    mut cards: GlideCards,
     report: Option<ResMut<GlideReport>>,
     placing: Option<ResMut<Placing>>,
 ) {
@@ -143,41 +225,41 @@ pub fn glide(
     let placed = placing.is_some_and(|mut placing| placing.frames > 0 && placing.spend());
     let still = prefs.all().reduce_motion || placed;
     let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
-    let mut moving = 0_usize;
-    for (motion, mut transform, recoil, seen) in &mut cards {
-        let mut target = motion.target;
-        if !still && let Some(recoil) = recoil {
-            target.translation += recoil.offset(time.elapsed_secs());
-        }
-        // The rotation is compared component by component (either sign: `q`
-        // and `-q` are one rotation). `angle_between` was the test, and its
-        // `acos` near one is coarser than `SETTLED`: a card on its mark could
-        // read as a thousandth of a radian off it for ever and be slerped
-        // again every frame — a still table that never stopped writing.
-        let there = transform.translation.distance_squared(target.translation) < SETTLED * SETTLED
-            && (transform.rotation.abs_diff_eq(target.rotation, SETTLED)
-                || transform.rotation.abs_diff_eq(-target.rotation, SETTLED))
-            && transform.scale.distance_squared(target.scale) < SETTLED * SETTLED;
-        // A card nobody can see is put on its mark: a parked seat's cards
-        // going off the felt (DESIGN-v8 §0) and a scrolled row's cards
-        // outside its window travel unseen, and a glide nobody watches is a
-        // transform written every frame for nothing.
-        let hidden = matches!(seen, Some(Visibility::Hidden));
-        if still || there || hidden {
-            if *transform != target {
-                *transform = target;
-            }
-            continue;
-        }
-        moving += 1;
-        transform.translation = transform.translation.lerp(target.translation, t);
-        transform.rotation = transform.rotation.slerp(target.rotation, t);
-        transform.scale = transform.scale.lerp(target.scale, t);
-    }
+    let moving = cards.advance(still, t, time.elapsed_secs());
     if let Some(mut report) = report {
         report.note(moving);
     }
 }
+
+/// The original glide step; returns whether this frame interpolated the card.
+fn advance_card(
+    transform: &mut Mut<Transform>,
+    target: Transform,
+    seen: Option<&Visibility>,
+    still: bool,
+    t: f32,
+) -> bool {
+    // Compare either quaternion sign: angle_between's acos near one was
+    // coarser than SETTLED and kept already-settled rotations writing forever.
+    let there = transform.translation.distance_squared(target.translation) < SETTLED * SETTLED
+        && (transform.rotation.abs_diff_eq(target.rotation, SETTLED)
+            || transform.rotation.abs_diff_eq(-target.rotation, SETTLED))
+        && transform.scale.distance_squared(target.scale) < SETTLED * SETTLED;
+    let hidden = matches!(seen, Some(Visibility::Hidden));
+    if still || there || hidden {
+        if **transform != target {
+            **transform = target;
+        }
+        return false;
+    }
+    transform.translation = transform.translation.lerp(target.translation, t);
+    transform.rotation = transform.rotation.slerp(target.rotation, t);
+    transform.scale = transform.scale.lerp(target.scale, t);
+    true
+}
+
+#[cfg(test)]
+mod incremental_tests;
 
 /// A replay jumped (`HostMessage::Jump`): for the next few frames
 /// [`glide`] puts every card on its mark instead of moving it there. A few
