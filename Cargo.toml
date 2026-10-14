@@ -85,7 +85,7 @@ heck = "0.5"
 # Rust source read as data by xtask (`verify --coverage`: the DSL's types and
 # the engine's match arms, with their lines); both already in the tree
 # through the derive macros.
-syn = { version = "2", features = ["full", "visit"] }
+syn = { version = "3", features = ["full", "visit"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 # Native maintenance/asset tools, independent of the renderer.
 regex = "1"
