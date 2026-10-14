@@ -387,6 +387,14 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         Filter::Unblocked => is_unblocked(view, object.id),
         // The view names what every public object is attached to.
         Filter::IsAttached => object.attached_to.is_some(),
+        Filter::AttachedTo(inner) => {
+            let Some(host) = object.attached_to else {
+                return Some(false);
+            };
+            // Missing or hidden hosts are unknown, never proof that a cast
+            // lacks a target. Only the host's public projection is read.
+            return matches(view, view.object(host)?, inner);
+        }
         Filter::CmcAtMost(n) => object.mana_value <= *n,
         Filter::CmcAtLeast(n) => object.mana_value >= *n,
         Filter::ToughnessAtMost(n) => object.toughness.is_some_and(|t| t <= *n),
@@ -460,14 +468,13 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::Kicked
         | Filter::CastFromHand
         // Relative to a resolution's reference object, this turn's blocks
-        // and damage, an Aura's host, or a colour chosen or compared across
+        // and damage, or a colour chosen or compared across
         // the board: nothing a target probe from the view can close.
         | Filter::Reference
         | Filter::BlockingReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
         | Filter::BlockedThisTurnBy(_)
-        | Filter::AttachedTo(_)
         | Filter::SharesTypeWithReference(_)
         | Filter::DealtDamageToSourceThisTurn
         | Filter::OfSourceChosenColor
@@ -514,6 +521,7 @@ pub(crate) fn only_a_dearer_mode_is_left(
 
 #[cfg(test)]
 mod tests {
+    mod attached;
     use super::*;
     use baylee_cards_dsl::KeywordSet;
     use baylee_client_core::test_support::{ViewBuilder, printed};
@@ -680,7 +688,7 @@ mod tests {
             Filter::And(parts) | Filter::Or(parts) => {
                 parts.iter().find_map(|p| unreadable_leaf(view, probe, p))
             }
-            Filter::Not(f) => unreadable_leaf(view, probe, f),
+            Filter::Not(f) | Filter::AttachedTo(f) => unreadable_leaf(view, probe, f),
             leaf => matches(view, probe, leaf).is_none().then_some(leaf),
         }
     }
