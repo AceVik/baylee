@@ -176,7 +176,7 @@ mod native {
         std::thread::Builder::new()
             .name("baylee-socket".to_owned())
             .spawn(move || {
-                if let Err(err) = run_socket(&url, options, &*on_event, &rx) {
+                if let Err(err) = run_socket(&url, &options, &*on_event, &rx) {
                     let _ = on_event(WsEvent::Error(err));
                 }
             })
@@ -208,9 +208,19 @@ mod native {
         CONFIG.clone()
     }
 
+    // ewebsock 0.8's From<Options> targets tungstenite 0.24, not this version.
+    fn socket_config(options: &ewebsock::Options) -> tungstenite::protocol::WebSocketConfig {
+        let max_frame_size = (options.max_incoming_frame_size != usize::MAX)
+            .then_some(options.max_incoming_frame_size);
+        tungstenite::protocol::WebSocketConfig::default()
+            // 0.24 read in 4 KiB chunks; the new 128 KiB default costs more per socket.
+            .read_buffer_size(4 * 1024)
+            .max_frame_size(max_frame_size)
+    }
+
     fn run_socket(
         url: &str,
-        options: ewebsock::Options,
+        options: &ewebsock::Options,
         on_event: &(dyn Fn(WsEvent) -> ControlFlow<()> + Send),
         rx: &mpsc::Receiver<WsMessage>,
     ) -> Result<(), String> {
@@ -229,7 +239,7 @@ mod native {
         let stream = TcpStream::connect((host, port)).map_err(|err| format!("Connect: {err}"))?;
         stream.set_nodelay(true).ok();
         let read_timeout = options.read_timeout;
-        let config = tungstenite::protocol::WebSocketConfig::from(options);
+        let config = socket_config(options);
         let (mut socket, _) = tungstenite::client_tls_with_config(
             uri,
             stream,
@@ -257,10 +267,10 @@ mod native {
             match rx.try_recv() {
                 Ok(message) => {
                     let message = match message {
-                        WsMessage::Text(text) => tungstenite::Message::Text(text),
-                        WsMessage::Binary(data) => tungstenite::Message::Binary(data),
-                        WsMessage::Ping(data) => tungstenite::Message::Ping(data),
-                        WsMessage::Pong(data) => tungstenite::Message::Pong(data),
+                        WsMessage::Text(text) => tungstenite::Message::Text(text.into()),
+                        WsMessage::Binary(data) => tungstenite::Message::Binary(data.into()),
+                        WsMessage::Ping(data) => tungstenite::Message::Ping(data.into()),
+                        WsMessage::Pong(data) => tungstenite::Message::Pong(data.into()),
                         WsMessage::Unknown(_) => continue,
                     };
                     if let Err(err) = socket.send(message) {
@@ -277,16 +287,16 @@ mod native {
             }
             let control = match socket.read() {
                 Ok(tungstenite::Message::Text(text)) => {
-                    on_event(WsEvent::Message(WsMessage::Text(text)))
+                    on_event(WsEvent::Message(WsMessage::Text(text.to_string())))
                 }
                 Ok(tungstenite::Message::Binary(data)) => {
-                    on_event(WsEvent::Message(WsMessage::Binary(data)))
+                    on_event(WsEvent::Message(WsMessage::Binary(data.to_vec())))
                 }
                 Ok(tungstenite::Message::Ping(data)) => {
-                    on_event(WsEvent::Message(WsMessage::Ping(data)))
+                    on_event(WsEvent::Message(WsMessage::Ping(data.to_vec())))
                 }
                 Ok(tungstenite::Message::Pong(data)) => {
-                    on_event(WsEvent::Message(WsMessage::Pong(data)))
+                    on_event(WsEvent::Message(WsMessage::Pong(data.to_vec())))
                 }
                 Ok(tungstenite::Message::Close(_))
                 | Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
@@ -360,4 +370,7 @@ mod native {
             self.0.signature_verification_algorithms.supported_schemes()
         }
     }
+
+    #[cfg(test)]
+    mod tests;
 }
