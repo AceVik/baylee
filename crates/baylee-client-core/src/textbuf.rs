@@ -622,3 +622,6 @@ mod tests {
         assert_eq!((seg.head, seg.selected, seg.tail), ("m", "är", " chen"));
     }
 }
+
+#[cfg(test)]
+mod unicode_regressions;
