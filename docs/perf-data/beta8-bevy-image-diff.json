@@ -1,0 +1,377 @@
+{
+  "note": "Live animated backgrounds differ in phase; printed hand interiors compared separately. No altered screenshots committed.",
+  "comparisons": [
+    {
+      "a": "01-main-empty",
+      "b": "02-p2-empty",
+      "whole_image": {
+        "rmse_8bit": 6.019230259482243,
+        "pixels_above_2_percent": 26.3925,
+        "pixels_above_8_percent": 18.6204375
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": true,
+        "buttons": true
+      }
+    },
+    {
+      "a": "01-main-empty",
+      "b": "03-main-empty",
+      "whole_image": {
+        "rmse_8bit": 6.237546008514353,
+        "pixels_above_2_percent": 25.874125,
+        "pixels_above_8_percent": 17.761625
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": true,
+        "buttons": true
+      }
+    },
+    {
+      "a": "04-main-full",
+      "b": "05-p2-full",
+      "whole_image": {
+        "rmse_8bit": 6.333374857320016,
+        "pixels_above_2_percent": 24.97825,
+        "pixels_above_8_percent": 16.8006875
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": false,
+        "buttons": true
+      }
+    },
+    {
+      "a": "04-main-full",
+      "b": "06-main-full",
+      "whole_image": {
+        "rmse_8bit": 6.508442754095125,
+        "pixels_above_2_percent": 24.6350625,
+        "pixels_above_8_percent": 16.83575
+      },
+      "printed_hand_interiors": [
+        {
+          "box": [
+            460,
+            872,
+            537,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            560,
+            872,
+            637,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            660,
+            872,
+            737,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            760,
+            872,
+            837,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            860,
+            872,
+            937,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            960,
+            872,
+            1037,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        },
+        {
+          "box": [
+            1060,
+            872,
+            1137,
+            982
+          ],
+          "rmse_8bit": 0.0,
+          "pixels_above_2_percent": 0.0,
+          "pixels_above_8_percent": 0.0
+        }
+      ],
+      "geometry_equal": {
+        "camera": true,
+        "cards": false,
+        "buttons": true
+      }
+    }
+  ]
+}

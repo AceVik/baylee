@@ -1,0 +1,235 @@
+{
+  "notes": [
+    "PROVISIONAL: desktop occlusion unverified; geometry/screenshots reviewed separately.",
+    "CPU is driver process CPU percent; POWER is macOS top POWER score, not watts; RSS is end MiB.",
+    "Main = perf.update_ms (First-to-Last); allocs/bytes are per frame, total across threads vs main.",
+    "FPS/frames belong only to the perf window; GPU is a separate trace, not GPU ms/frame or framecount.",
+    "GPU total is union of exact-PID Active intervals at ALL depths over TOC duration; unknown PIDs excluded.",
+    "Depth-zero union and summed interval durations are diagnostics, not total GPU busy; overlaps count once in the total.",
+    "Optional pass statistics count labeled GPU intervals, not frames, drawcalls, vertices or GPU cycles."
+  ],
+  "runs": [
+    {
+      "label": "main",
+      "screen": "full",
+      "pid": 8402,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 44.804108143291465,
+      "cpu_window_seconds": 30.086526790999997,
+      "top_power_mean": 44.96666666666666,
+      "top_power_samples": 15,
+      "rss_mib_end": 482.375,
+      "main_ms": {
+        "mean": 1.25,
+        "p95": 1.476,
+        "p99": 1.631
+      },
+      "allocs_per_frame_total": 3385.5,
+      "allocs_per_frame_main": 836.7,
+      "alloc_bytes_per_frame": 1011129,
+      "systems": 737,
+      "entities": 1060,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.068,
+      "gpu": {
+        "pid": 8402,
+        "toc_run_index": 1,
+        "trace_seconds": 10.83818,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 19586,
+        "active_rows_all_processes": 19586,
+        "active_depth_zero_rows_all_processes": 14423,
+        "unattributed_active_rows": 25,
+        "unattributed_active_depth_zero_rows": 17,
+        "active_rows": 11430,
+        "active_rows_by_depth": {
+          "0": 7812,
+          "1": 3612,
+          "2": 6
+        },
+        "depth_zero_rows": 7812,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1693.62158,
+        "gpu_busy_percent_union": 15.626438940855383,
+        "interval_duration_sum_ms_diagnostic": 1870.526078,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1395.494733,
+          "gpu_busy_percent_union": 12.875729439813696,
+          "higher_depth_active_ms_outside_depth_zero": 298.126847,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting"
+      },
+      "run": "01-main-full",
+      "load1_range": [
+        2.65869140625,
+        5.51513671875
+      ]
+    },
+    {
+      "label": "p2",
+      "screen": "full",
+      "pid": 10255,
+      "commit": "556242c73a947b3953c409060c4ab0abf00f0370",
+      "binary_sha256": "6f9bec4b1069462231e95e251059acb8d62081e362efdf0b308f7a04dee3ed10",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 46.71449761994381,
+      "cpu_window_seconds": 30.076316167000016,
+      "top_power_mean": 46.42666666666666,
+      "top_power_samples": 15,
+      "rss_mib_end": 472.765625,
+      "main_ms": {
+        "mean": 1.29,
+        "p95": 1.815,
+        "p99": 2.333
+      },
+      "allocs_per_frame_total": 3391.7,
+      "allocs_per_frame_main": 843.9,
+      "alloc_bytes_per_frame": 1010344,
+      "systems": 738,
+      "entities": 1066,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.066,
+      "gpu": {
+        "pid": 10255,
+        "toc_run_index": 1,
+        "trace_seconds": 10.703491,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 18390,
+        "active_rows_all_processes": 18390,
+        "active_depth_zero_rows_all_processes": 12876,
+        "unattributed_active_rows": 3,
+        "unattributed_active_depth_zero_rows": 2,
+        "active_rows": 11232,
+        "active_rows_by_depth": {
+          "0": 7594,
+          "1": 3637,
+          "2": 1
+        },
+        "depth_zero_rows": 7594,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 2130.309503,
+        "gpu_busy_percent_union": 19.902941040451196,
+        "interval_duration_sum_ms_diagnostic": 2400.785481,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1754.569489,
+          "gpu_busy_percent_union": 16.392497447795304,
+          "higher_depth_active_ms_outside_depth_zero": 375.740014,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting"
+      },
+      "run": "02-p2-full",
+      "load1_range": [
+        2.244140625,
+        5.68896484375
+      ]
+    },
+    {
+      "label": "main",
+      "screen": "full",
+      "pid": 12210,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 44.14584160955234,
+      "cpu_window_seconds": 30.059456375000025,
+      "top_power_mean": 43.99333333333334,
+      "top_power_samples": 15,
+      "rss_mib_end": 471.375,
+      "main_ms": {
+        "mean": 1.243,
+        "p95": 1.648,
+        "p99": 3.134
+      },
+      "allocs_per_frame_total": 3385.9,
+      "allocs_per_frame_main": 840.0,
+      "alloc_bytes_per_frame": 1009757,
+      "systems": 737,
+      "entities": 1060,
+      "fps": 60.0,
+      "perf_frames": 1803,
+      "perf_seconds": 30.05,
+      "gpu": {
+        "pid": 12210,
+        "toc_run_index": 1,
+        "trace_seconds": 10.793029,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 18572,
+        "active_rows_all_processes": 18572,
+        "active_depth_zero_rows_all_processes": 13016,
+        "unattributed_active_rows": 1,
+        "unattributed_active_depth_zero_rows": 1,
+        "active_rows": 11394,
+        "active_rows_by_depth": {
+          "0": 7719,
+          "1": 3675
+        },
+        "depth_zero_rows": 7719,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 2144.835868,
+        "gpu_busy_percent_union": 19.872418280354847,
+        "interval_duration_sum_ms_diagnostic": 2364.343347,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1766.372846,
+          "gpu_busy_percent_union": 16.365867691080975,
+          "higher_depth_active_ms_outside_depth_zero": 378.463022,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting"
+      },
+      "run": "03-main-full",
+      "load1_range": [
+        2.8017578125,
+        4.2080078125
+      ]
+    }
+  ],
+  "date": "2026-10-14",
+  "hardware": "Apple M1 Max, 64 GiB",
+  "rust": "1.99.0",
+  "comparison": "Second full-table A/B/A; same immutable binaries, fixture, settings and separate sampling windows as first comparison; provisional desktop occlusion unverified"
+}

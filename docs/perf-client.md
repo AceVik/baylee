@@ -589,7 +589,7 @@ This is a bounded teardown cost, not an idle FPS, GPU or energy improvement.
 The existing real teardown-schedule tests retain their duplicate-despawn
 warning detector and both parent/child spawn orders, and now also require
 an unrelated root and child to survive. Full-scene measurements are recorded
-separately below when available.
+separately below.
 
 ### Where the remaining per-frame cost is
 
@@ -614,8 +614,10 @@ not allocations/frame. The latter sites belong to the separate application
 performance package; the profile does not establish resources-as-entities
 as the cause of the regression.
 
-The separate Metal trace contains 1,804 ms of unioned depth-zero GPU-active
-intervals in 10.967 s (16.45% busy). Overlapping queues count once. Its
+The separate Metal trace contains 2,184 ms of unioned GPU-active intervals
+at all depths in 10.967 s (19.92% busy). Overlapping queues count once.
+Restricting the union to depth zero gives 16.45%, but omits disjoint
+higher-depth work and is only a diagnostic, not total GPU activity. Its
 encoder identifiers are not treated as presented frames. Screenshots verify
 the complete rendered fixture and the camera reports MSAA 4, but desktop
 occlusion was not independently established. CPU/POWER/GPU comparisons keep
@@ -641,3 +643,110 @@ could not be retrieved on October 14. This branch removes the known legacy
 interaction dependency, not a claim of compatibility with an unreleased
 version. See [Bevy 0.20](https://bevy.org/news/bevy-0-20/) and
 [issue 388](https://github.com/AceVik/baylee/issues/388).
+
+### Native-button A/B/A on the rendered client
+
+Both binaries were freshly built with the same Rust 1.99.0 `release` profile
+and `dev-control`: A is `7e4aa634e`, B is `556242c73` (native buttons and
+bulk teardown). Each leg launches one new silent, isolated offline client.
+The fixture, cached card art, camera, 1600×1000 viewport, Medium/MSAA4 and
+all 60 FPS caps are identical. Thirty seconds of warmup precede a separate
+30-second unsampled CPU interval; allocation stacks and Metal tracing run
+afterward, not during that interval. No Cargo run overlaps this sequence.
+The new pinned hand means these values do not directly quantify October
+13's Bevy 0.19-to-0.20 regression.
+
+| Scene / leg | CPU % | POWER | Main mean / p95 / p99 (ms) | Allocations/frame (total / main) | RSS MiB | GPU busy % |
+|---|---:|---:|---:|---:|---:|---:|
+| Empty A1 | 43.93 | 43.51 | 1.272 / 2.060 / 2.237 | 2586.1 / 597.1 | 474.9 | 17.72 |
+| Empty B | 44.22 | 43.74 | 1.244 / 2.009 / 2.212 | 2590.2 / 601.0 | 483.7 | 18.00 |
+| Empty A2 | 46.51 | 46.12 | 1.330 / 2.302 / 2.585 | 2585.2 / 595.7 | 475.2 | 18.22 |
+| Full A1 | 45.85 | 45.53 | 1.255 / 1.481 / 1.657 | 3386.3 / 837.7 | 473.1 | 15.35 |
+| Full B | 45.51 | 45.13 | 1.243 / 1.458 / 1.586 | 3392.3 / 843.8 | 477.8 | 18.56 |
+| Full A2 | 46.64 | 46.21 | 1.267 / 1.657 / 2.150 | 3386.2 / 837.0 | 481.9 | 16.07 |
+
+All six unsampled intervals report 60 FPS. CPU is process CPU across all
+threads (100% means one logical CPU); POWER is macOS `top`'s score, not watts.
+RSS is an end sample, not peak memory. Metal numbers are the union of
+exact-PID Active intervals at all depths across queues divided by the trace's
+own duration. Encoder IDs are not presented frames; GPU ms/frame is not
+inferred from the earlier CPU interval. Desktop occlusion remains
+unverified, so these measurements stay provisional despite the complete
+rendered screenshots and correctly attributed GPU activity.
+
+There is **no demonstrated steady-state CPU or allocation win** here. The
+extra input-ownership system/observers add one system and six entities; the
+measured allocation count is slightly higher (about 4–6 per frame). CPU
+differences are small against the returning baseline's drift. The full
+scene's GPU B value is above both As and requires a focused repeat before
+calling rendering performance unchanged. This table does not establish
+recovery of the earlier 14–20% CPU regression. The teardown benchmark above
+is a separate, demonstrated improvement.
+
+Camera state and button geometry match exactly in all A/B/A comparisons.
+Empty-scene card geometry also matches exactly. The seven hand-card
+interiors (77×110 pixels each, x=460+100k, y=872) are pixel-identical, RMSE 0,
+in both scenes. Whole-image A1/B versus A1/A2 RMSE is 6.019 versus 6.238
+(empty), and 6.333 versus 6.508 (full), on 8-bit channels; the background and
+table motion were running at different phases. This bounds the visual
+comparison; it is not a claim of pixel identity for the animated scene.
+No card images or screenshots are added to the repository.
+
+Raw numeric receipts, hashes, load ranges and GPU attribution are in
+[`perf-data/beta8-bevy-client.json`](perf-data/beta8-bevy-client.json); image
+comparison regions and thresholds are in
+[`perf-data/beta8-bevy-image-diff.json`](perf-data/beta8-bevy-image-diff.json).
+
+The first GPU comparison is affected by different device performance-state
+occupancy. In full A1/B/A2, 66.64% / 90.73% / 74.83% of the client's active
+time overlaps the GPU's `Minimum` state (over 99.8% of active time has state
+coverage). Within that state, the opaque-pass median is 1.860 / 1.867 /
+1.857 ms, although its mean remains 5.3% higher in B and the UI mean 5.9%
+higher. Opaque-pass event rates differ by only about 0.4%. Shader, material,
+render configuration and UI rebuild counts are unchanged. These data
+support performance-state variation as a confounder; they do not prove
+its cause or completely explain the difference. The trace exposes no MHz,
+and lower state occupancy is not a measurement of watts or energy saved.
+A focused full-table A/B/A repeat is used to check reproducibility.
+
+### Full-table repeat and validation
+
+The same immutable binaries and protocol were repeated after the gates
+and an isolated test run, under the global heavy-work lock after load
+returned below 4. This is another A/B/A sequence, not pooled samples from
+the first one. No source or graphics changes were made between sequences.
+
+| Leg | CPU % | POWER | Main mean / p95 / p99 (ms) | Allocations/frame (total / main) | RSS MiB | GPU busy % |
+|---|---:|---:|---:|---:|---:|---:|
+| A1 | 44.80 | 44.97 | 1.250 / 1.476 / 1.631 | 3385.5 / 836.7 | 482.4 | 15.63 |
+| B | 46.71 | 46.43 | 1.290 / 1.815 / 2.333 | 3391.7 / 843.9 | 472.8 | 19.90 |
+| A2 | 44.15 | 43.99 | 1.243 / 1.648 / 3.134 | 3385.9 / 840.0 | 471.4 | 19.87 |
+
+All three intervals again report 60 FPS. The GPU increase relative to A1
+also appears in returning A2 with the original binary. Together with the
+first trace's performance-state evidence, this prevents attributing that
+GPU gap to the patch. CPU B is about 5% above mean A in this repeat, whereas
+it was about 1.6% below mean A in the first full sequence: no reproducible
+CPU improvement is established. The consistent small allocation increase
+remains a cost of native input ownership. The branch's performance claim
+is limited to measured bulk teardown; further work is required to recover
+the earlier steady-state regression. No thermal/frequency-normalized GPU
+claim or unverified desktop-visibility claim is made.
+
+The numeric receipt is
+[`perf-data/beta8-bevy-client-repeat.json`](perf-data/beta8-bevy-client-repeat.json).
+The rendered fixtures were visually checked for complete art and identical
+layout before each leg.
+
+At the tested code commit `556242c73`, `cargo deny check`, `gate.sh`,
+`gate-features.sh` and `gate-wasm.sh` all passed (1.6 / 493.0 / 593.0 /
+56.9 seconds respectively). The main suite passed 14,385 tests with 21
+existing skips; its test phase was 337.415 seconds. Feature checks passed
+2,032 client tests, including 25 dev-control tests, and the dev-table,
+test-support, training, fuzz, mutation and shipped-hook checks. Native
+pointer ownership tests include cancellation without hover/release, two
+touches on one button, unrelated-pointer release, disabling/re-enabling,
+nested hit targets and preserved keyboard guards. The native-button
+migration removes the legacy interaction dependency across the lobby,
+shell, HUD, chat, replay and settings paths. Documentation and numeric
+receipts were added after these code gates; no source change followed them.

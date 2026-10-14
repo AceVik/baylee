@@ -1,0 +1,1630 @@
+{
+  "notes": [
+    "PROVISIONAL: desktop occlusion unverified; geometry/screenshots reviewed separately.",
+    "CPU is driver process CPU percent; POWER is macOS top POWER score, not watts; RSS is end MiB.",
+    "Main = perf.update_ms (First-to-Last); allocs/bytes are per frame, total across threads vs main.",
+    "FPS/frames belong only to the perf window; GPU is a separate trace, not GPU ms/frame or framecount.",
+    "GPU total is union of exact-PID Active intervals at ALL depths over TOC duration; unknown PIDs excluded.",
+    "Depth-zero union and summed interval durations are diagnostics, not total GPU busy; overlaps count once in the total.",
+    "Optional pass statistics count labeled GPU intervals, not frames, drawcalls, vertices or GPU cycles."
+  ],
+  "runs": [
+    {
+      "label": "main",
+      "screen": "empty",
+      "pid": 58965,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 43.932451122809134,
+      "cpu_window_seconds": 30.068889084000006,
+      "top_power_mean": 43.51333333333332,
+      "top_power_samples": 15,
+      "rss_mib_end": 474.859375,
+      "main_ms": {
+        "mean": 1.272,
+        "p95": 2.06,
+        "p99": 2.237
+      },
+      "allocs_per_frame_total": 2586.1,
+      "allocs_per_frame_main": 597.1,
+      "alloc_bytes_per_frame": 749645,
+      "systems": 737,
+      "entities": 983,
+      "fps": 60.0,
+      "perf_frames": 1803,
+      "perf_seconds": 30.049,
+      "gpu": {
+        "pid": 58965,
+        "toc_run_index": 1,
+        "trace_seconds": 10.69496,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 17704,
+        "active_rows_all_processes": 17704,
+        "active_depth_zero_rows_all_processes": 12752,
+        "unattributed_active_rows": 0,
+        "unattributed_active_depth_zero_rows": 0,
+        "active_rows": 10608,
+        "active_rows_by_depth": {
+          "0": 7123,
+          "1": 3485
+        },
+        "depth_zero_rows": 7123,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1895.092436,
+        "gpu_busy_percent_union": 17.719490638581163,
+        "interval_duration_sum_ms_diagnostic": 2151.015288,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1547.330136,
+          "gpu_busy_percent_union": 14.467844068608017,
+          "higher_depth_active_ms_outside_depth_zero": 347.7623,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 15.332209935897435,
+            "p50_us": 15.208,
+            "p95_us": 16.792,
+            "union_ms_per_trace_second": 0.8945614569853464
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1248,
+            "intervals_per_trace_second": 116.69047850576347,
+            "mean_us": 11.969290865384615,
+            "p50_us": 11.459,
+            "p95_us": 14.625,
+            "union_ms_per_trace_second": 1.3967022784563945
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1248,
+            "intervals_per_trace_second": 116.69047850576347,
+            "mean_us": 7.038554487179487,
+            "p50_us": 6.458,
+            "p95_us": 9.833,
+            "union_ms_per_trace_second": 0.8213322910978629
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 34.56964262820512,
+            "p50_us": 34.208,
+            "p95_us": 39.917,
+            "union_ms_per_trace_second": 2.016974070029247
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 41.384980769230765,
+            "p50_us": 41.5,
+            "p95_us": 46.0,
+            "union_ms_per_trace_second": 2.4146166044566786
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 45.327375,
+            "p50_us": 45.708,
+            "p95_us": 49.458,
+            "union_ms_per_trace_second": 2.64463653908009
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 58.136884615384616,
+            "p50_us": 58.625,
+            "p95_us": 62.542,
+            "union_ms_per_trace_second": 3.3920104423017947
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 1783.3548974358976,
+            "p50_us": 1850.583,
+            "p95_us": 1862.167,
+            "union_ms_per_trace_second": 104.0502681636958
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 518.5475416666667,
+            "p50_us": 537.542,
+            "p95_us": 541.792,
+            "union_ms_per_trace_second": 30.254780382535326
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 393.1308237179487,
+            "p50_us": 404.333,
+            "p95_us": 444.459,
+            "union_ms_per_trace_second": 22.93731196750619
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 41.466280448717946,
+            "p50_us": 41.875,
+            "p95_us": 45.417,
+            "union_ms_per_trace_second": 2.419360053707541
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 77.09514423076924,
+            "p50_us": 79.083,
+            "p95_us": 82.917,
+            "union_ms_per_trace_second": 4.498134635379656
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 88.16315064102564,
+            "p50_us": 92.417,
+            "p95_us": 98.209,
+            "union_ms_per_trace_second": 5.143900117438495
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 159.50460576923078,
+            "p50_us": 109.458,
+            "p95_us": 252.792,
+            "union_ms_per_trace_second": 9.306334385542348
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.34523925288173,
+            "mean_us": 153.11065705128206,
+            "p50_us": 113.708,
+            "p95_us": 253.5,
+            "union_ms_per_trace_second": 8.933277917822974
+          }
+        ]
+      },
+      "run": "01-main-empty",
+      "load1_range": [
+        1.72705078125,
+        2.1982421875
+      ]
+    },
+    {
+      "label": "p2",
+      "screen": "empty",
+      "pid": 60385,
+      "commit": "556242c73a947b3953c409060c4ab0abf00f0370",
+      "binary_sha256": "6f9bec4b1069462231e95e251059acb8d62081e362efdf0b308f7a04dee3ed10",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 44.215762892023285,
+      "cpu_window_seconds": 30.05715412500001,
+      "top_power_mean": 43.739999999999995,
+      "top_power_samples": 15,
+      "rss_mib_end": 483.734375,
+      "main_ms": {
+        "mean": 1.244,
+        "p95": 2.009,
+        "p99": 2.212
+      },
+      "allocs_per_frame_total": 2590.2,
+      "allocs_per_frame_main": 601.0,
+      "alloc_bytes_per_frame": 750673,
+      "systems": 738,
+      "entities": 989,
+      "fps": 60.0,
+      "perf_frames": 1803,
+      "perf_seconds": 30.049,
+      "gpu": {
+        "pid": 60385,
+        "toc_run_index": 1,
+        "trace_seconds": 10.705069,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 18348,
+        "active_rows_all_processes": 18348,
+        "active_depth_zero_rows_all_processes": 13430,
+        "unattributed_active_rows": 9,
+        "unattributed_active_depth_zero_rows": 9,
+        "active_rows": 10591,
+        "active_rows_by_depth": {
+          "0": 7304,
+          "1": 3284,
+          "2": 3
+        },
+        "depth_zero_rows": 7304,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1926.791367,
+        "gpu_busy_percent_union": 17.998869199255044,
+        "interval_duration_sum_ms_diagnostic": 2162.478357,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1564.766127,
+          "gpu_busy_percent_union": 14.617057834937823,
+          "higher_depth_active_ms_outside_depth_zero": 362.02524,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 15.305500802568218,
+            "p50_us": 15.291,
+            "p95_us": 17.25,
+            "union_ms_per_trace_second": 0.8907300831036213
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1246,
+            "intervals_per_trace_second": 116.39345808980774,
+            "mean_us": 12.46830176565008,
+            "p50_us": 11.5,
+            "p95_us": 14.667,
+            "union_ms_per_trace_second": 1.4512287590112685
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1246,
+            "intervals_per_trace_second": 116.39345808980774,
+            "mean_us": 6.930569823434992,
+            "p50_us": 6.5,
+            "p95_us": 9.209,
+            "union_ms_per_trace_second": 0.806672988282467
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 34.37345585874799,
+            "p50_us": 34.125,
+            "p95_us": 37.167,
+            "union_ms_per_trace_second": 2.0004226969485206
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 40.94128892455859,
+            "p50_us": 40.708,
+            "p95_us": 43.917,
+            "union_ms_per_trace_second": 2.38264909829166
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 45.816796147672555,
+            "p50_us": 45.416,
+            "p95_us": 49.708,
+            "union_ms_per_trace_second": 2.666387671111695
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 58.60100321027287,
+            "p50_us": 58.459,
+            "p95_us": 59.959,
+            "union_ms_per_trace_second": 3.4103867055877926
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 1800.7333434991974,
+            "p50_us": 1806.833,
+            "p95_us": 1815.958,
+            "union_ms_per_trace_second": 104.7967904737466
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 537.886224719101,
+            "p50_us": 538.209,
+            "p95_us": 544.25,
+            "union_ms_per_trace_second": 31.3032188769638
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 407.9602070626003,
+            "p50_us": 407.333,
+            "p95_us": 440.875,
+            "union_ms_per_trace_second": 23.741949631525028
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 43.96556821829856,
+            "p50_us": 44.458,
+            "p95_us": 45.875,
+            "union_ms_per_trace_second": 2.558652260905558
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 79.1448683788122,
+            "p50_us": 78.958,
+            "p95_us": 82.834,
+            "union_ms_per_trace_second": 4.6059724603363135
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 83.43779935794542,
+            "p50_us": 89.916,
+            "p95_us": 97.458,
+            "union_ms_per_trace_second": 4.8558070013374035
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 149.46548635634028,
+            "p50_us": 142.583,
+            "p95_us": 300.875,
+            "union_ms_per_trace_second": 8.698402411044711
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.19672904490387,
+            "mean_us": 134.643518459069,
+            "p50_us": 124.541,
+            "p95_us": 288.417,
+            "union_ms_per_trace_second": 7.835812361414953
+          }
+        ]
+      },
+      "run": "02-p2-empty",
+      "load1_range": [
+        1.83154296875,
+        3.00341796875
+      ]
+    },
+    {
+      "label": "main",
+      "screen": "empty",
+      "pid": 61930,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 46.506929050405255,
+      "cpu_window_seconds": 30.08153900000002,
+      "top_power_mean": 46.12,
+      "top_power_samples": 15,
+      "rss_mib_end": 475.203125,
+      "main_ms": {
+        "mean": 1.33,
+        "p95": 2.302,
+        "p99": 2.585
+      },
+      "allocs_per_frame_total": 2585.2,
+      "allocs_per_frame_main": 595.7,
+      "alloc_bytes_per_frame": 748254,
+      "systems": 737,
+      "entities": 983,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.066,
+      "gpu": {
+        "pid": 61930,
+        "toc_run_index": 1,
+        "trace_seconds": 10.699294,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 19023,
+        "active_rows_all_processes": 19023,
+        "active_depth_zero_rows_all_processes": 14315,
+        "unattributed_active_rows": 17,
+        "unattributed_active_depth_zero_rows": 17,
+        "active_rows": 10592,
+        "active_rows_by_depth": {
+          "0": 7360,
+          "1": 3219,
+          "2": 13
+        },
+        "depth_zero_rows": 7360,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1949.176096,
+        "gpu_busy_percent_union": 18.217801062387856,
+        "interval_duration_sum_ms_diagnostic": 2163.866926,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1583.064568,
+          "gpu_busy_percent_union": 14.79597222022313,
+          "higher_depth_active_ms_outside_depth_zero": 366.111528,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 15.411043338683788,
+            "p50_us": 15.416,
+            "p95_us": 17.167,
+            "union_ms_per_trace_second": 0.897356405011396
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1246,
+            "intervals_per_trace_second": 116.45628206870472,
+            "mean_us": 11.879289727126807,
+            "p50_us": 11.375,
+            "p95_us": 14.667,
+            "union_ms_per_trace_second": 1.3834179152381456
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1246,
+            "intervals_per_trace_second": 116.45628206870472,
+            "mean_us": 6.780058587479935,
+            "p50_us": 6.417,
+            "p95_us": 9.375,
+            "union_ms_per_trace_second": 0.7895804153059071
+          },
+          {
+            "channel": "Compute",
+            "label": "Command Buffer 5:early_mesh_preprocessing",
+            "intervals": 1,
+            "intervals_per_trace_second": 0.09346411080955434,
+            "mean_us": 41.25,
+            "p50_us": 41.25,
+            "p95_us": 41.25,
+            "union_ms_per_trace_second": 0.003855394570894117
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 34.52955537720706,
+            "p50_us": 34.125,
+            "p95_us": 37.542,
+            "union_ms_per_trace_second": 2.010591820357493
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 622,
+            "intervals_per_trace_second": 58.134676923542806,
+            "mean_us": 41.57998553054663,
+            "p50_us": 41.25,
+            "p95_us": 44.625,
+            "union_ms_per_trace_second": 2.4172390253039127
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 622,
+            "intervals_per_trace_second": 58.134676923542806,
+            "mean_us": 46.323451768488745,
+            "p50_us": 45.709,
+            "p95_us": 50.625,
+            "union_ms_per_trace_second": 2.692998902544411
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 61.69528571428572,
+            "p50_us": 61.375,
+            "p95_us": 63.125,
+            "union_ms_per_trace_second": 3.592401797726093
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.32160514516191,
+            "mean_us": 1824.8117756410256,
+            "p50_us": 1826.792,
+            "p95_us": 1836.0,
+            "union_ms_per_trace_second": 106.42595184317769
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 540.1056693418941,
+            "p50_us": 538.667,
+            "p95_us": 543.917,
+            "union_ms_per_trace_second": 31.44934908789309
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 410.4059438202247,
+            "p50_us": 407.459,
+            "p95_us": 444.042,
+            "union_ms_per_trace_second": 23.897175178100536
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 44.56521348314607,
+            "p50_us": 43.75,
+            "p95_us": 46.125,
+            "union_ms_per_trace_second": 2.5949495359226504
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 1,
+            "intervals_per_trace_second": 0.09346411080955434,
+            "mean_us": 22.667,
+            "p50_us": 22.667,
+            "p95_us": 22.667,
+            "union_ms_per_trace_second": 0.0021185509997201685
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 79.52433547351525,
+            "p50_us": 79.042,
+            "p95_us": 82.75,
+            "union_ms_per_trace_second": 4.630554221614997
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 79.10171107544141,
+            "p50_us": 83.833,
+            "p95_us": 97.041,
+            "union_ms_per_trace_second": 4.605945588559394
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 135.32118459069022,
+            "p50_us": 110.167,
+            "p95_us": 232.125,
+            "union_ms_per_trace_second": 7.879501021282339
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 623,
+            "intervals_per_trace_second": 58.22814103435236,
+            "mean_us": 119.71722471910113,
+            "p50_us": 101.375,
+            "p95_us": 225.875,
+            "union_ms_per_trace_second": 6.970911445185075
+          }
+        ]
+      },
+      "run": "03-main-empty",
+      "load1_range": [
+        3.00341796875,
+        6.3662109375
+      ]
+    },
+    {
+      "label": "main",
+      "screen": "full",
+      "pid": 63542,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 45.846302676095505,
+      "cpu_window_seconds": 30.07876141600002,
+      "top_power_mean": 45.52666666666667,
+      "top_power_samples": 15,
+      "rss_mib_end": 473.0625,
+      "main_ms": {
+        "mean": 1.255,
+        "p95": 1.481,
+        "p99": 1.657
+      },
+      "allocs_per_frame_total": 3386.3,
+      "allocs_per_frame_main": 837.7,
+      "alloc_bytes_per_frame": 1011153,
+      "systems": 737,
+      "entities": 1060,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.066,
+      "gpu": {
+        "pid": 63542,
+        "toc_run_index": 1,
+        "trace_seconds": 10.692091,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 19003,
+        "active_rows_all_processes": 19003,
+        "active_depth_zero_rows_all_processes": 14191,
+        "unattributed_active_rows": 2,
+        "unattributed_active_depth_zero_rows": 2,
+        "active_rows": 11232,
+        "active_rows_by_depth": {
+          "0": 7816,
+          "1": 3416
+        },
+        "depth_zero_rows": 7816,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1641.731022,
+        "gpu_busy_percent_union": 15.354630090596872,
+        "interval_duration_sum_ms_diagnostic": 1814.208518,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1359.54747,
+          "gpu_busy_percent_union": 12.715449859152901,
+          "higher_depth_active_ms_outside_depth_zero": 282.183552,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 14.629203525641026,
+            "p50_us": 14.208,
+            "p95_us": 18.5,
+            "union_ms_per_trace_second": 0.8537734106453078
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1248,
+            "intervals_per_trace_second": 116.72178996605996,
+            "mean_us": 11.054269230769231,
+            "p50_us": 10.75,
+            "p95_us": 14.375,
+            "union_ms_per_trace_second": 1.2902740913821253
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1248,
+            "intervals_per_trace_second": 116.72178996605996,
+            "mean_us": 6.958258814102565,
+            "p50_us": 5.75,
+            "p95_us": 7.834,
+            "union_ms_per_trace_second": 0.8121804238291649
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 78.80334775641025,
+            "p50_us": 80.083,
+            "p95_us": 96.375,
+            "union_ms_per_trace_second": 4.5990339027230505
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 36.75540064102564,
+            "p50_us": 36.917,
+            "p95_us": 47.917,
+            "union_ms_per_trace_second": 2.14507807687009
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 96.73871314102564,
+            "p50_us": 98.667,
+            "p95_us": 118.375,
+            "union_ms_per_trace_second": 5.64575787841686
+          },
+          {
+            "channel": "Compute",
+            "label": "sparse buffer updates:sparse buffer updates",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 17.456525641025642,
+            "p50_us": 17.417,
+            "p95_us": 20.333,
+            "union_ms_per_trace_second": 1.0187784597044676
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 126.71500801282052,
+            "p50_us": 130.208,
+            "p95_us": 159.5,
+            "union_ms_per_trace_second": 7.395201275410021
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 1414.1493012820513,
+            "p50_us": 1495.708,
+            "p95_us": 1869.166,
+            "union_ms_per_trace_second": 82.53101886244703
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 415.61290865384615,
+            "p50_us": 439.083,
+            "p95_us": 546.458,
+            "union_ms_per_trace_second": 24.255541315538746
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 298.9874375,
+            "p50_us": 312.5,
+            "p95_us": 421.0,
+            "union_ms_per_trace_second": 17.44917444118274
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 32.97214423076923,
+            "p50_us": 34.125,
+            "p95_us": 45.583,
+            "union_ms_per_trace_second": 1.924283846817241
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 66.46033493589744,
+            "p50_us": 69.042,
+            "p95_us": 85.416,
+            "union_ms_per_trace_second": 3.878684627730909
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 70.94616826923077,
+            "p50_us": 73.292,
+            "p95_us": 97.583,
+            "union_ms_per_trace_second": 4.140481875808951
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 102.03685897435896,
+            "p50_us": 93.875,
+            "p95_us": 216.708,
+            "union_ms_per_trace_second": 5.954962411000804
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36089498302998,
+            "mean_us": 99.09703685897436,
+            "p50_us": 89.167,
+            "p95_us": 208.667,
+            "union_ms_per_trace_second": 5.783391761256054
+          }
+        ]
+      },
+      "run": "04-main-full",
+      "load1_range": [
+        3.02099609375,
+        4.62939453125
+      ]
+    },
+    {
+      "label": "p2",
+      "screen": "full",
+      "pid": 65438,
+      "commit": "556242c73a947b3953c409060c4ab0abf00f0370",
+      "binary_sha256": "6f9bec4b1069462231e95e251059acb8d62081e362efdf0b308f7a04dee3ed10",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 45.513885492198185,
+      "cpu_window_seconds": 30.078732790999993,
+      "top_power_mean": 45.13333333333333,
+      "top_power_samples": 15,
+      "rss_mib_end": 477.75,
+      "main_ms": {
+        "mean": 1.243,
+        "p95": 1.458,
+        "p99": 1.586
+      },
+      "allocs_per_frame_total": 3392.3,
+      "allocs_per_frame_main": 843.8,
+      "alloc_bytes_per_frame": 1010603,
+      "systems": 738,
+      "entities": 1066,
+      "fps": 60.0,
+      "perf_frames": 1804,
+      "perf_seconds": 30.066,
+      "gpu": {
+        "pid": 65438,
+        "toc_run_index": 1,
+        "trace_seconds": 10.703585,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 18501,
+        "active_rows_all_processes": 18501,
+        "active_depth_zero_rows_all_processes": 13435,
+        "unattributed_active_rows": 1,
+        "unattributed_active_depth_zero_rows": 1,
+        "active_rows": 11298,
+        "active_rows_by_depth": {
+          "0": 7717,
+          "1": 3579,
+          "2": 2
+        },
+        "depth_zero_rows": 7717,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1986.622424,
+        "gpu_busy_percent_union": 18.560346127021926,
+        "interval_duration_sum_ms_diagnostic": 2186.031497,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1641.714369,
+          "gpu_busy_percent_union": 15.337986001886284,
+          "higher_depth_active_ms_outside_depth_zero": 344.908055,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 15.869617834394905,
+            "p50_us": 15.541,
+            "p95_us": 19.167,
+            "union_ms_per_trace_second": 0.9311011217269728
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1256,
+            "intervals_per_trace_second": 117.34386189300126,
+            "mean_us": 11.841748407643312,
+            "p50_us": 11.583,
+            "p95_us": 14.916,
+            "union_ms_per_trace_second": 1.3895564897181645
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1255,
+            "intervals_per_trace_second": 117.25043525136671,
+            "mean_us": 6.503089243027889,
+            "p50_us": 6.334,
+            "p95_us": 8.084,
+            "union_ms_per_trace_second": 0.7624900442235008
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 87.62857165605097,
+            "p50_us": 90.75,
+            "p95_us": 97.834,
+            "union_ms_per_trace_second": 5.141337505144304
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 42.50053025477707,
+            "p50_us": 43.417,
+            "p95_us": 49.458,
+            "union_ms_per_trace_second": 2.493588176297941
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 108.696724522293,
+            "p50_us": 113.416,
+            "p95_us": 118.542,
+            "union_ms_per_trace_second": 6.377446715282777
+          },
+          {
+            "channel": "Compute",
+            "label": "sparse buffer updates:sparse buffer updates",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 19.299890127388537,
+            "p50_us": 19.875,
+            "p95_us": 20.708,
+            "union_ms_per_trace_second": 1.1323618208291895
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 148.07896656050954,
+            "p50_us": 156.5,
+            "p95_us": 161.667,
+            "union_ms_per_trace_second": 8.688078900667392
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 1720.6521961722488,
+            "p50_us": 1865.75,
+            "p95_us": 1875.291,
+            "union_ms_per_trace_second": 100.79323208065335
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 501.2852679425837,
+            "p50_us": 542.333,
+            "p95_us": 547.042,
+            "union_ms_per_trace_second": 29.364541226140584
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 370.3976842105263,
+            "p50_us": 395.292,
+            "p95_us": 436.291,
+            "union_ms_per_trace_second": 21.69734233903874
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 40.183121212121215,
+            "p50_us": 42.041,
+            "p95_us": 45.875,
+            "union_ms_per_trace_second": 2.353867138907198
+          },
+          {
+            "channel": "Vertex",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1,
+            "intervals_per_trace_second": 0.09342664163455515,
+            "mean_us": 18.792,
+            "p50_us": 18.792,
+            "p95_us": 18.792,
+            "union_ms_per_trace_second": 0.0017556734495965604
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 78.1308821656051,
+            "p50_us": 82.75,
+            "p95_us": 86.125,
+            "union_ms_per_trace_second": 4.58408972320956
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 628,
+            "intervals_per_trace_second": 58.67193094650063,
+            "mean_us": 86.64229299363058,
+            "p50_us": 92.875,
+            "p95_us": 99.458,
+            "union_ms_per_trace_second": 5.083470631568769
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 114.14865071770335,
+            "p50_us": 110.333,
+            "p95_us": 216.583,
+            "union_ms_per_trace_second": 6.686657227461639
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 627,
+            "intervals_per_trace_second": 58.57850430486608,
+            "mean_us": 115.2754673046252,
+            "p50_us": 110.875,
+            "p95_us": 214.042,
+            "union_ms_per_trace_second": 6.752664457749435
+          }
+        ]
+      },
+      "run": "05-p2-full",
+      "load1_range": [
+        2.39990234375,
+        4.62109375
+      ]
+    },
+    {
+      "label": "main",
+      "screen": "full",
+      "pid": 67107,
+      "commit": "7e4aa634ee630b50af552de2550ac8d520b15119",
+      "binary_sha256": "662b3b0fa890bc8efdec7e7120a2ed6ceb1b4900550832e406fd7369914061e8",
+      "metrics_provisional": true,
+      "desktop_occlusion_verified": false,
+      "cpu_percent": 46.639773883182706,
+      "cpu_window_seconds": 30.060180040999967,
+      "top_power_mean": 46.21333333333333,
+      "top_power_samples": 15,
+      "rss_mib_end": 481.890625,
+      "main_ms": {
+        "mean": 1.267,
+        "p95": 1.657,
+        "p99": 2.15
+      },
+      "allocs_per_frame_total": 3386.2,
+      "allocs_per_frame_main": 837.0,
+      "alloc_bytes_per_frame": 1011789,
+      "systems": 737,
+      "entities": 1060,
+      "fps": 60.0,
+      "perf_frames": 1803,
+      "perf_seconds": 30.049,
+      "gpu": {
+        "pid": 67107,
+        "toc_run_index": 1,
+        "trace_seconds": 10.69073,
+        "duration_source": "gpu-toc.xml",
+        "rows_scanned": 19415,
+        "active_rows_all_processes": 19415,
+        "active_depth_zero_rows_all_processes": 14388,
+        "unattributed_active_rows": 14,
+        "unattributed_active_depth_zero_rows": 13,
+        "active_rows": 11233,
+        "active_rows_by_depth": {
+          "1": 3561,
+          "0": 7667,
+          "2": 5
+        },
+        "depth_zero_rows": 7667,
+        "clipped_rows": 0,
+        "zero_or_outside_window_rows": 0,
+        "status": "ok",
+        "pid_attribution_verified": true,
+        "method_version": 2,
+        "gpu_active_ms_union": 1718.296645,
+        "gpu_busy_percent_union": 16.072771878066323,
+        "interval_duration_sum_ms_diagnostic": 1908.311416,
+        "depth_zero_diagnostic": {
+          "gpu_active_ms_union": 1413.62116,
+          "gpu_busy_percent_union": 13.222868410295648,
+          "higher_depth_active_ms_outside_depth_zero": 304.675485,
+          "note": "depth-zero subset only; higher depths can contain disjoint active work"
+        },
+        "channels": [
+          "Compute",
+          "Fragment",
+          "Vertex"
+        ],
+        "devices": [
+          "M1 Max"
+        ],
+        "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+        "pass_intervals": [
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) PendingWrites:Blit Command 0",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 15.618628205128205,
+            "p50_us": 14.875,
+            "p95_us": 19.292,
+            "union_ms_per_trace_second": 0.9116331625623321
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+            "intervals": 1249,
+            "intervals_per_trace_second": 116.83018839686345,
+            "mean_us": 11.401769415532426,
+            "p50_us": 11.0,
+            "p95_us": 14.375,
+            "union_ms_per_trace_second": 1.3320708688742489
+          },
+          {
+            "channel": "Compute",
+            "label": "(wgpu internal) Pre Pass:Blit Command 0",
+            "intervals": 1248,
+            "intervals_per_trace_second": 116.73664941496044,
+            "mean_us": 6.201757211538462,
+            "p50_us": 6.125,
+            "p95_us": 7.25,
+            "union_ms_per_trace_second": 0.7239723573600679
+          },
+          {
+            "channel": "Compute",
+            "label": "bin unpacking:bin unpacking",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 80.64970512820513,
+            "p50_us": 82.542,
+            "p95_us": 96.5,
+            "union_ms_per_trace_second": 4.707388176485609
+          },
+          {
+            "channel": "Compute",
+            "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 37.859105769230766,
+            "p50_us": 37.666,
+            "p95_us": 47.708,
+            "union_ms_per_trace_second": 2.209772578673299
+          },
+          {
+            "channel": "Compute",
+            "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 101.21027083333333,
+            "p50_us": 102.541,
+            "p95_us": 118.75,
+            "union_ms_per_trace_second": 5.9074739517320145
+          },
+          {
+            "channel": "Compute",
+            "label": "sparse buffer updates:sparse buffer updates",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 18.33140544871795,
+            "p50_us": 18.208,
+            "p95_us": 20.542,
+            "union_ms_per_trace_second": 1.0699734255752413
+          },
+          {
+            "channel": "Compute",
+            "label": "uniform allocation:uniform allocation",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 137.83940865384616,
+            "p50_us": 137.833,
+            "p95_us": 166.584,
+            "union_ms_per_trace_second": 8.045455361794751
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 1479.0905673076923,
+            "p50_us": 1498.083,
+            "p95_us": 1865.125,
+            "union_ms_per_trace_second": 86.3320385043865
+          },
+          {
+            "channel": "Fragment",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 434.00894871794867,
+            "p50_us": 443.041,
+            "p95_us": 545.917,
+            "union_ms_per_trace_second": 25.33237524472136
+          },
+          {
+            "channel": "Fragment",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 314.9071826923077,
+            "p50_us": 343.75,
+            "p95_us": 423.25,
+            "union_ms_per_trace_second": 18.38060469210241
+          },
+          {
+            "channel": "Fragment",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 35.339669871794875,
+            "p50_us": 37.666,
+            "p95_us": 45.875,
+            "union_ms_per_trace_second": 2.062717326132079
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 68.5092467948718,
+            "p50_us": 68.292,
+            "p95_us": 85.208,
+            "union_ms_per_trace_second": 3.998769962387975
+          },
+          {
+            "channel": "Vertex",
+            "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 75.41962019230769,
+            "p50_us": 80.25,
+            "p95_us": 99.042,
+            "union_ms_per_trace_second": 4.402116880699447
+          },
+          {
+            "channel": "Vertex",
+            "label": "ui:ui",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 113.4625625,
+            "p50_us": 102.167,
+            "p95_us": 236.625,
+            "union_ms_per_trace_second": 6.622619690142769
+          },
+          {
+            "channel": "Vertex",
+            "label": "upscaling:upscaling",
+            "intervals": 624,
+            "intervals_per_trace_second": 58.36832470748022,
+            "mean_us": 110.71972435897436,
+            "p50_us": 99.625,
+            "p95_us": 231.541,
+            "union_ms_per_trace_second": 6.462524822907322
+          }
+        ]
+      },
+      "run": "06-main-full",
+      "load1_range": [
+        3.08740234375,
+        4.62109375
+      ]
+    }
+  ],
+  "date": "2026-10-14",
+  "hardware": "Apple M1 Max, 64 GiB",
+  "rust": "1.99.0",
+  "build": "cargo build --locked --release -p baylee-client --features dev-control; CARGO_INCREMENTAL=0",
+  "conditions": "1600x1000, scale 1, Medium, MSAA4, all frame caps 60; silent isolated offline fixture; seven pinned visible hand cards; empty/40 permanent boards; 30s warmup + 30s unsampled CPU interval, separate 10s allocation sample and 10s Metal trace",
+  "comparison": "A/B/A per screen; provisional desktop occlusion unverified",
+  "baseline_probe_gpu": {
+    "pid": 224,
+    "toc_run_index": 1,
+    "trace_seconds": 10.967482,
+    "duration_source": "gpu-toc.xml",
+    "rows_scanned": 18954,
+    "active_rows_all_processes": 18954,
+    "active_depth_zero_rows_all_processes": 13283,
+    "unattributed_active_rows": 3,
+    "unattributed_active_depth_zero_rows": 2,
+    "active_rows": 11556,
+    "active_rows_by_depth": {
+      "0": 7806,
+      "1": 3749,
+      "2": 1
+    },
+    "depth_zero_rows": 7806,
+    "clipped_rows": 0,
+    "zero_or_outside_window_rows": 0,
+    "status": "ok",
+    "pid_attribution_verified": true,
+    "method_version": 2,
+    "gpu_active_ms_union": 2184.457882,
+    "gpu_busy_percent_union": 19.917588029777484,
+    "interval_duration_sum_ms_diagnostic": 2411.036519,
+    "depth_zero_diagnostic": {
+      "gpu_active_ms_union": 1804.043425,
+      "gpu_busy_percent_union": 16.449021069740528,
+      "higher_depth_active_ms_outside_depth_zero": 380.414457,
+      "note": "depth-zero subset only; higher depths can contain disjoint active work"
+    },
+    "channels": [
+      "Compute",
+      "Fragment",
+      "Vertex"
+    ],
+    "devices": [
+      "M1 Max"
+    ],
+    "method": "exact PID; Active at ALL depths; clipped to TOC window; union across depths/queues/devices, no overlap double-counting",
+    "pass_intervals": [
+      {
+        "channel": "Compute",
+        "label": "(wgpu internal) PendingWrites:Blit Command 0",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 16.119965732087227,
+        "p50_us": 15.625,
+        "p95_us": 19.083,
+        "union_ms_per_trace_second": 0.9436092988345
+      },
+      {
+        "channel": "Compute",
+        "label": "(wgpu internal) Pre Pass:(wgpu internal) Indirect draw validation pass",
+        "intervals": 1284,
+        "intervals_per_trace_second": 117.07336287399423,
+        "mean_us": 12.323809968847351,
+        "p50_us": 11.791,
+        "p95_us": 14.667,
+        "union_ms_per_trace_second": 1.4427898764730136
+      },
+      {
+        "channel": "Compute",
+        "label": "(wgpu internal) Pre Pass:Blit Command 0",
+        "intervals": 1284,
+        "intervals_per_trace_second": 117.07336287399423,
+        "mean_us": 6.591746884735203,
+        "p50_us": 6.416,
+        "p95_us": 8.417,
+        "union_ms_per_trace_second": 0.7717179750101254
+      },
+      {
+        "channel": "Compute",
+        "label": "bin unpacking:bin unpacking",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 92.14120560747664,
+        "p50_us": 91.792,
+        "p95_us": 97.125,
+        "union_ms_per_trace_second": 5.393640399865712
+      },
+      {
+        "channel": "Compute",
+        "label": "early_mesh_preprocessing:early_mesh_preprocessing",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 44.50221495327102,
+        "p50_us": 43.417,
+        "p95_us": 49.541,
+        "union_ms_per_trace_second": 2.6050119799603957
+      },
+      {
+        "channel": "Compute",
+        "label": "main_indirect_parameters_building:main_indirect_parameters_building",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 115.60016355140188,
+        "p50_us": 115.584,
+        "p95_us": 119.792,
+        "union_ms_per_trace_second": 6.766849947873176
+      },
+      {
+        "channel": "Compute",
+        "label": "sparse buffer updates:sparse buffer updates",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 20.07740031152648,
+        "p50_us": 20.042,
+        "p95_us": 20.708,
+        "union_ms_per_trace_second": 1.175264386118892
+      },
+      {
+        "channel": "Compute",
+        "label": "uniform allocation:uniform allocation",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 157.28860903426792,
+        "p50_us": 157.208,
+        "p95_us": 161.875,
+        "union_ms_per_trace_second": 9.207153200707326
+      },
+      {
+        "channel": "Fragment",
+        "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 1851.042894080997,
+        "p50_us": 1859.334,
+        "p95_us": 1868.208,
+        "union_ms_per_trace_second": 108.35390821703649
+      },
+      {
+        "channel": "Fragment",
+        "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 541.1690872274144,
+        "p50_us": 543.292,
+        "p95_us": 548.375,
+        "union_ms_per_trace_second": 31.678242462581654
+      },
+      {
+        "channel": "Fragment",
+        "label": "ui:ui",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 400.8459003115265,
+        "p50_us": 400.875,
+        "p95_us": 434.417,
+        "union_ms_per_trace_second": 23.46418877186213
+      },
+      {
+        "channel": "Fragment",
+        "label": "upscaling:upscaling",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 44.02526012461059,
+        "p50_us": 44.833,
+        "p95_us": 46.125,
+        "union_ms_per_trace_second": 2.577092627095262
+      },
+      {
+        "channel": "Vertex",
+        "label": "main_opaque_pass_3d:main_opaque_pass_3d",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 83.38968691588785,
+        "p50_us": 83.208,
+        "p95_us": 86.25,
+        "union_ms_per_trace_second": 4.881355538126253
+      },
+      {
+        "channel": "Vertex",
+        "label": "main_transparent_pass_3d:main_transparent_pass_3d",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 94.31411682242991,
+        "p50_us": 94.625,
+        "p95_us": 100.167,
+        "union_ms_per_trace_second": 5.52083541144631
+      },
+      {
+        "channel": "Vertex",
+        "label": "ui:ui",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 127.02227725856697,
+        "p50_us": 109.042,
+        "p95_us": 231.542,
+        "union_ms_per_trace_second": 7.435462579286659
+      },
+      {
+        "channel": "Vertex",
+        "label": "upscaling:upscaling",
+        "intervals": 642,
+        "intervals_per_trace_second": 58.536681436997114,
+        "mean_us": 130.13870093457945,
+        "p50_us": 110.541,
+        "p95_us": 224.125,
+        "union_ms_per_trace_second": 7.6178876792321155
+      }
+    ]
+  }
+}
