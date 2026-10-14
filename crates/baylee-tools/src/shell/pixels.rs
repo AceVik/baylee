@@ -56,11 +56,51 @@ fn covered(cover: &[&Node], edges: &[&Node], x: f64, y: f64) -> bool {
                     || (y - d.y).abs().min((y - d.bottom()).abs()) <= 4.0)
         })
 }
+/// Social controls live outside the shell tree but may cover its surfaces.
+/// Rectangles use logical pixels, like the shell dump and pointer protocol.
+pub(super) fn social_controls(state: &serde_json::Value) -> Vec<[f64; 4]> {
+    state["chat"]["controls"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| {
+            let (x, y, w, h) = (
+                c["x"].as_f64()?,
+                c["y"].as_f64()?,
+                c["w"].as_f64()?,
+                c["h"].as_f64()?,
+            );
+            ([x, y, w, h].iter().all(|v| v.is_finite()) && w > 0.0 && h > 0.0).then_some([
+                x - w / 2.0,
+                y - h / 2.0,
+                x + w / 2.0,
+                y + h / 2.0,
+            ])
+        })
+        .collect()
+}
+
+pub(super) fn occluded(rects: &[[f64; 4]], x: f64, y: f64) -> bool {
+    rects
+        .iter()
+        .any(|&[left, top, right, bottom]| x >= left && x <= right && y >= top && y <= bottom)
+}
+
 pub(super) fn contrast(
     tree: &Tree,
     image: &RgbImage,
     width: f64,
     height: f64,
+) -> Result<(Vec<String>, Vec<Contrast>)> {
+    contrast_behind(tree, image, width, height, &[])
+}
+
+pub(super) fn contrast_behind(
+    tree: &Tree,
+    image: &RgbImage,
+    width: f64,
+    height: f64,
+    occlusions: &[[f64; 4]],
 ) -> Result<(Vec<String>, Vec<Contrast>)> {
     ensure!(
         width > 0.0 && height > 0.0 && width.is_finite() && height.is_finite(),
@@ -110,7 +150,7 @@ pub(super) fn contrast(
             while x < x1 - 3.0 {
                 let corner = (x - n.x < 16.0 || n.right() - x < 16.0)
                     && (y - n.y < 16.0 || n.bottom() - y < 16.0);
-                if !corner && !covered(&cover, &edges, x, y) {
+                if !corner && !covered(&cover, &edges, x, y) && !occluded(occlusions, x, y) {
                     let color = rgb(image, (x * sx) as u32, (y * sy) as u32);
                     seen += 1;
                     if brightest.is_none_or(|b| luminance(color) > luminance(b)) {

@@ -3,6 +3,7 @@ use super::{
     check,
     common::{self, Report},
     devctl::{Devctl, read_stable, sleep},
+    pixels,
     tree::Tree,
 };
 use anyhow::{Context, Result, bail, ensure};
@@ -99,11 +100,18 @@ fn scroll_target(state: &Value, size: (f64, f64), name: &str) -> Result<Option<(
     );
     let down = y + h / 2.0 > bottom;
     let inset = ((bottom - top) / 2.0).min(12.0);
-    Ok(Some((
+    let y = if down { bottom - inset } else { top + inset };
+    let occlusions = pixels::social_controls(state);
+    let aim = [
         x.clamp(left, right),
-        if down { bottom - inset } else { top + inset },
-        if down { -3.0 } else { 3.0 },
-    )))
+        (left + right) / 2.0,
+        left + inset,
+        right - inset,
+    ]
+    .into_iter()
+    .find(|&x| !pixels::occluded(&occlusions, x, y))
+    .context("scroll viewport is covered by social controls")?;
+    Ok(Some((aim, y, if down { -3.0 } else { 3.0 })))
 }
 
 pub(super) fn into_view(d: &Devctl, name: &str) -> Result<()> {
@@ -319,6 +327,18 @@ mod tests {
             scroll_target(&broken, (960.0, 700.0), "Front(GuestFace)").is_err(),
             "scrolling must not excuse horizontal layout overflow"
         );
+    }
+
+    #[test]
+    fn scrolling_aims_around_the_chat_pill_instead_of_feeding_its_wheel_handler() {
+        let mut clipped = state("Front(GuestFace)", 648.0);
+        clipped["chat"] = json!({"controls":[{"x":480.0,"y":632.0,"w":200.0,"h":56.0}]});
+        assert_eq!(
+            scroll_target(&clipped, (960.0, 700.0), "Front(GuestFace)").unwrap(),
+            Some((12.0, 632.0, -3.0))
+        );
+        clipped["chat"]["controls"][0]["w"] = json!(960.0);
+        assert!(scroll_target(&clipped, (960.0, 700.0), "Front(GuestFace)").is_err());
     }
 
     /// A scripted loopback fixture; unexpected writes or stale reads fail.

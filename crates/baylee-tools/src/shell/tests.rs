@@ -680,3 +680,27 @@ fn fixture_reads_delayed_fragmented_requests_from_an_initially_nonblocking_socke
         "POST /key HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}"
     );
 }
+
+#[test]
+fn social_occlusion_is_not_panel_ground_but_exposed_bright_pixels_still_fail() {
+    let t = tree(&json!([n(0, "panel", 0.0, 0.0, 96.0, 96.0)]));
+    let mut image = RgbImage::from_pixel(96, 96, Rgb([40, 40, 40]));
+    image.put_pixel(72, 72, Rgb([255, 255, 255]));
+    let controls = pixels::social_controls(&json!({"chat":{"controls":[
+        {"x":72.0,"y":72.0,"w":12.0,"h":12.0},
+        {"x":0.0,"y":0.0,"w":-1.0,"h":1.0}, {}
+    ]}}));
+    assert_eq!(controls, vec![[66.0, 66.0, 78.0, 78.0]]);
+    assert_eq!(pixels::contrast(&t, &image, 96.0, 96.0).unwrap().0.len(), 2);
+    let (faults, report) = pixels::contrast_behind(&t, &image, 96.0, 96.0, &controls).unwrap();
+    assert!(faults.is_empty());
+    assert!(report[0].samples > 100);
+    image.put_pixel(48, 48, Rgb([255, 255, 255]));
+    assert_eq!(
+        pixels::contrast_behind(&t, &image, 96.0, 96.0, &controls)
+            .unwrap()
+            .0
+            .len(),
+        2
+    );
+}

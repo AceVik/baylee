@@ -157,7 +157,8 @@ pub(super) fn photograph(
     d.screenshot(path)?;
     let image = pixels::load(path)?;
     let (w, h) = d.size()?;
-    let (mut faults, mut report) = pixels::contrast(tree, &image, w, h)?;
+    let occlusions = pixels::social_controls(&d.state()?);
+    let (mut faults, mut report) = pixels::contrast_behind(tree, &image, w, h, &occlusions)?;
     if let Some(kind) = skip_kind {
         faults.retain(|f| !f.contains(&format!(" on {kind} ")));
         report.retain(|c| c.kind != kind);
