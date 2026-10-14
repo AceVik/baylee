@@ -21,4 +21,4 @@ thiserror.workspace = true
 # unmaintained). `serde-saphyr` is pure safe Rust over its own parser, says
 # "panic-free parsing" of the untrusted input a pasted deck is, bounds alias
 # expansion by default, and builds for the browser.
-serde-saphyr = { version = "1.3", default-features = false, features = ["serialize", "deserialize"] }
+serde-saphyr = { version = "2", default-features = false, features = ["serialize", "deserialize"] }
