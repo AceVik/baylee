@@ -181,7 +181,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 until 15.10.2026: the full generated pool (9078 cards) put the
+    # per-card sweeps of partition 1 past it (harness 172 s on ten cores
+    # here, over 19 min on the four-core runner).
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
