@@ -9682,6 +9682,13 @@ are silent unless `BAYLEE_DEV_SOUND=1` explicitly opts in. The native Rust
 helpers (`cargo run --profile tools -p baylee-tools -- shell …` and `recording …`) replace
 the Python drivers; see `docs/dev-tools.md` for the command mapping.
 
+When worktrees share a Cargo target directory, copy the finished client and
+helper into a directory for that test run: another build can replace the
+shared executable. Pass the matching checkout as the helper's `--root`.
+Gallery keyboard checks start in an offline or signed-in lobby. Shell panel
+contrast measurements exclude the separately rendered social controls;
+scroll checks aim around them rather than sending their wheel events to chat.
+
 The last four are for measuring, and `docs/perf-client.md` says how: `/perf`
 reports frame time, main-schedule time, entities, systems and allocations per
 frame (a `dev-control` build counts allocations through its own global

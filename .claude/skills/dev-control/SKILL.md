@@ -34,7 +34,10 @@ explicitly authorised staging gateway and isolated test accounts. Keep
 secrets out of command transcripts, dumps and screenshots.
 
 Build once under the shared Cargo lock, then run the binary for repeated
-checks. Record its commit, features and settings. Wait for `/health` with a
+checks. If worktrees share a target directory, copy the finished client and
+helper into a directory for this run; later builds can replace the shared
+executables. Pass the matching checkout as the helper's `--root`.
+Record its commit, features and settings. Wait for `/health` with a
 bounded deadline and inspect stderr if it fails; never loop forever. The
 passive macOS window stays above other windows to obtain drawable surfaces,
 without focusing or taking OS pointer input. A black screenshot is not proof
