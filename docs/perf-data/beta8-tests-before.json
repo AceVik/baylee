@@ -1,0 +1,211 @@
+{
+  "source": "7e4aa634ee630b50af552de2550ac8d520b15119",
+  "profile": "default; nextest --workspace --all-targets --no-fail-fast",
+  "summary": "Summary [ 335.556s] 14344 tests run: 14344 passed (2 slow), 21 skipped",
+  "top50": [
+    {
+      "seconds": 96.577,
+      "test": "baylee-client-core music::score::tests::every_scene_has_finite_audio_and_headroom"
+    },
+    {
+      "seconds": 65.044,
+      "test": "baylee-gamehost harness::tests::every_implemented_card_survives_a_game"
+    },
+    {
+      "seconds": 54.245,
+      "test": "baylee-client::duel_flow every_question_this_suite_reaches_gets_an_answer"
+    },
+    {
+      "seconds": 42.588,
+      "test": "baylee-engine engine::refusal_tests::a_refused_answer_changes_nothing_and_every_question_has_an_answer"
+    },
+    {
+      "seconds": 37.396,
+      "test": "baylee-engine engine::refusal_tests::every_answer_inside_a_stated_bound_is_taken_where_vehicles_crew_and_menace_attacks"
+    },
+    {
+      "seconds": 37.016,
+      "test": "baylee-engine engine::loop_tests::a_real_endless_loop_resolves_and_is_then_broken"
+    },
+    {
+      "seconds": 35.789,
+      "test": "baylee-feedback alive::tests::the_count_is_bounded"
+    },
+    {
+      "seconds": 34.671,
+      "test": "baylee-client-core dial::tests::the_dial_fills_the_middle_and_stays_off_the_boards"
+    },
+    {
+      "seconds": 33.493,
+      "test": "baylee-engine engine::target_tests::an_ability_that_targets_reaches_the_target_and_nothing_else"
+    },
+    {
+      "seconds": 32.387,
+      "test": "baylee-engine engine::offer_tests::every_offered_ability_can_be_activated"
+    },
+    {
+      "seconds": 30.815,
+      "test": "baylee-client table::arrangement_tests::a_new_seat_of_interest_settles_within_the_ceiling"
+    },
+    {
+      "seconds": 29.966,
+      "test": "baylee-update::apply_tree a_crash_after_any_step_is_finished_at_the_next_start"
+    },
+    {
+      "seconds": 26.698,
+      "test": "baylee-engine engine::loop_tests::the_comp_rules_policy_makes_the_same_loop_a_draw"
+    },
+    {
+      "seconds": 25.199,
+      "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size"
+    },
+    {
+      "seconds": 24.545,
+      "test": "baylee-engine engine::refusal_tests::the_sweep_names_a_bound_apply_holds_and_the_question_does_not_state"
+    },
+    {
+      "seconds": 22.789,
+      "test": "baylee-engine layers::tests::indexed::indexed_projection_matches_complete_plan_for_mixed_effects"
+    },
+    {
+      "seconds": 22.439,
+      "test": "baylee-gamehost harness::tests::a_table_of_more_than_two_plays_itself"
+    },
+    {
+      "seconds": 21.298,
+      "test": "baylee-client music::tests::the_stream_remains_endless_stereo"
+    },
+    {
+      "seconds": 20.887,
+      "test": "baylee-seat::stopped a_bridge_stopped_by_sigterm_settles_its_game_under_load"
+    },
+    {
+      "seconds": 20.856,
+      "test": "baylee-update::apply_tree a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client"
+    },
+    {
+      "seconds": 20.795,
+      "test": "baylee-engine engine::claim_tests::what_a_card_says_in_english_is_what_the_journal_records"
+    },
+    {
+      "seconds": 20.553,
+      "test": "baylee-gamehost log::tests::a_loop_a_seat_yields_to_still_folds"
+    },
+    {
+      "seconds": 18.897,
+      "test": "baylee-gateway::e2e_lost_connection alone_with_the_house_the_game_pauses_until_the_player_is_back"
+    },
+    {
+      "seconds": 18.712,
+      "test": "baylee-client sound::tests::a_cue_renders_the_same_bytes_twice"
+    },
+    {
+      "seconds": 17.511,
+      "test": "baylee-client table::arrangement_tests::a_switch_settles_within_the_ceiling_and_cuts_when_still"
+    },
+    {
+      "seconds": 16.847,
+      "test": "baylee-client-core layout::tests::packed::neighbouring_boards_keep_the_gap_and_never_meet"
+    },
+    {
+      "seconds": 15.308,
+      "test": "baylee-gateway::e2e_lost_connection with_another_player_the_table_waits_then_the_house_holds_the_chair"
+    },
+    {
+      "seconds": 14.66,
+      "test": "baylee-feedback::deploy_hooks the_new_gateway_must_name_the_target_commit_built_clean"
+    },
+    {
+      "seconds": 14.289,
+      "test": "baylee-gateway::e2e_social_presence invisible_reads_as_offline_and_the_last_socket_closing_does_too"
+    },
+    {
+      "seconds": 13.901,
+      "test": "baylee-client table::arrangement_tests::the_camera_settles_on_a_new_arrangement_within_36_frames"
+    },
+    {
+      "seconds": 13.622,
+      "test": "baylee-gateway::e2e_social_presence a_friend_is_shown_where_the_table_is_only_when_it_is_shared_and_open"
+    },
+    {
+      "seconds": 13.393,
+      "test": "baylee-gateway::e2e_social_table a_running_tables_chat_never_reaches_a_spectator_or_the_engine"
+    },
+    {
+      "seconds": 13.315,
+      "test": "baylee-client sound::tests::no_cue_ends_on_a_step"
+    },
+    {
+      "seconds": 13.127,
+      "test": "baylee-client sound::tests::every_cue_is_loud_enough_to_hear_and_quiet_enough_not_to_clip"
+    },
+    {
+      "seconds": 13.064,
+      "test": "baylee-client table::shell_tests::a_standing_border_never_lands_on_another_cards_print"
+    },
+    {
+      "seconds": 13.026,
+      "test": "baylee-client sound::tests::no_two_cues_sound_alike"
+    },
+    {
+      "seconds": 12.788,
+      "test": "baylee-gamehost session::tests::project::a_projection_is_the_same_every_time"
+    },
+    {
+      "seconds": 12.179,
+      "test": "baylee-gateway::e2e_replays a_seat_that_never_said_is_shared_in_a_game_after_the_cutoff_and_not_before"
+    },
+    {
+      "seconds": 12.172,
+      "test": "baylee-gateway::e2e_feedback a_report_goes_from_the_client_through_the_gateway_to_the_service"
+    },
+    {
+      "seconds": 12.124,
+      "test": "baylee-client table::badge_tests::no_badge_lies_on_another_cards_print"
+    },
+    {
+      "seconds": 11.968,
+      "test": "baylee-client-core music::orchestra::tests::a_block_is_the_frames_it_replaces"
+    },
+    {
+      "seconds": 11.849,
+      "test": "baylee-client table::shell_tests::a_wave_never_lands_on_another_cards_print"
+    },
+    {
+      "seconds": 11.675,
+      "test": "baylee-gamehost session::tests::project::shown_with_its_own_cards_is_the_seat_projection_and_all_hands"
+    },
+    {
+      "seconds": 10.905,
+      "test": "baylee-client-core music::score::tests::sample_banks_change_without_resetting_the_musical_phrase"
+    },
+    {
+      "seconds": 10.751,
+      "test": "baylee-engine engine::automation_tests::a_large_automated_stack_yields_a_real_choice_at_the_safety_limit"
+    },
+    {
+      "seconds": 10.724,
+      "test": "baylee-engine-server tests::projection::an_order_that_withholds_the_seats_own_cards_sends_the_public_table_drawn_from_it"
+    },
+    {
+      "seconds": 10.721,
+      "test": "baylee-client-core music::orchestra::tests::rendering_never_grows_the_voice_list"
+    },
+    {
+      "seconds": 10.594,
+      "test": "baylee-gateway::e2e_replays an_account_has_two_jobs_at_once_and_a_third_is_refused"
+    },
+    {
+      "seconds": 10.535,
+      "test": "baylee-client sound::tests::the_two_ears_agree_about_where_the_sound_is"
+    },
+    {
+      "seconds": 10.532,
+      "test": "baylee-client-core music::score::tests::every_suite_and_scene_can_enter_within_one_short_pulse"
+    }
+  ],
+  "date": "2026-10-14",
+  "hardware": "Apple M1 Max, 64 GiB",
+  "rust": "1.99.0",
+  "scope": "Unmodified beta.7 code with the two documentation commits; local shared PostgreSQL; no simultaneous heavy Cargo run"
+}

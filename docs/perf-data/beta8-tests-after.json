@@ -1,0 +1,921 @@
+{
+  "source": "9aa40144050ee458f4521d2a8b5ac1682dbb7487",
+  "tested_base": "78164a73e4ffd6089a73a2c64d7ba00b3c749da2",
+  "source_sha256": {
+    "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+    "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+  },
+  "source_unchanged_during_gates": true,
+  "profile": "default; nextest --workspace --all-targets --no-fail-fast",
+  "summary": "Summary [ 325.665s] 14344 tests run: 14344 passed (2 slow), 21 skipped",
+  "top50": [
+    {
+      "seconds": 95.431,
+      "test": "baylee-client-core music::score::tests::every_scene_has_finite_audio_and_headroom"
+    },
+    {
+      "seconds": 63.525,
+      "test": "baylee-gamehost harness::tests::every_implemented_card_survives_a_game"
+    },
+    {
+      "seconds": 53.079,
+      "test": "baylee-client::duel_flow every_question_this_suite_reaches_gets_an_answer"
+    },
+    {
+      "seconds": 41.521,
+      "test": "baylee-engine engine::refusal_tests::a_refused_answer_changes_nothing_and_every_question_has_an_answer"
+    },
+    {
+      "seconds": 36.967,
+      "test": "baylee-engine engine::refusal_tests::every_answer_inside_a_stated_bound_is_taken_where_vehicles_crew_and_menace_attacks"
+    },
+    {
+      "seconds": 36.173,
+      "test": "baylee-engine engine::loop_tests::a_real_endless_loop_resolves_and_is_then_broken"
+    },
+    {
+      "seconds": 34.59,
+      "test": "baylee-client-core dial::tests::the_dial_fills_the_middle_and_stays_off_the_boards"
+    },
+    {
+      "seconds": 33.393,
+      "test": "baylee-engine engine::target_tests::an_ability_that_targets_reaches_the_target_and_nothing_else"
+    },
+    {
+      "seconds": 31.762,
+      "test": "baylee-engine engine::offer_tests::every_offered_ability_can_be_activated"
+    },
+    {
+      "seconds": 30.445,
+      "test": "baylee-client table::arrangement_tests::a_new_seat_of_interest_settles_within_the_ceiling"
+    },
+    {
+      "seconds": 29.892,
+      "test": "baylee-update::apply_tree a_crash_after_any_step_is_finished_at_the_next_start"
+    },
+    {
+      "seconds": 26.703,
+      "test": "baylee-engine engine::loop_tests::the_comp_rules_policy_makes_the_same_loop_a_draw"
+    },
+    {
+      "seconds": 24.207,
+      "test": "baylee-engine engine::refusal_tests::the_sweep_names_a_bound_apply_holds_and_the_question_does_not_state"
+    },
+    {
+      "seconds": 22.429,
+      "test": "baylee-gamehost harness::tests::a_table_of_more_than_two_plays_itself"
+    },
+    {
+      "seconds": 22.096,
+      "test": "baylee-engine layers::tests::indexed::indexed_projection_matches_complete_plan_for_mixed_effects"
+    },
+    {
+      "seconds": 22.089,
+      "test": "baylee-engine engine::claim_tests::what_a_card_says_in_english_is_what_the_journal_records"
+    },
+    {
+      "seconds": 21.026,
+      "test": "baylee-client music::tests::the_stream_remains_endless_stereo"
+    },
+    {
+      "seconds": 20.88,
+      "test": "baylee-update::apply_tree a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client"
+    },
+    {
+      "seconds": 20.703,
+      "test": "baylee-seat::stopped a_bridge_stopped_by_sigterm_settles_its_game_under_load"
+    },
+    {
+      "seconds": 19.386,
+      "test": "baylee-client sound::tests::a_cue_renders_the_same_bytes_twice"
+    },
+    {
+      "seconds": 18.904,
+      "test": "baylee-gateway::e2e_lost_connection alone_with_the_house_the_game_pauses_until_the_player_is_back"
+    },
+    {
+      "seconds": 18.845,
+      "test": "baylee-gamehost log::tests::a_loop_a_seat_yields_to_still_folds"
+    },
+    {
+      "seconds": 16.715,
+      "test": "baylee-client-core layout::tests::packed::neighbouring_boards_keep_the_gap_and_never_meet"
+    },
+    {
+      "seconds": 16.688,
+      "test": "baylee-feedback::deploy_hooks the_new_gateway_must_name_the_target_commit_built_clean"
+    },
+    {
+      "seconds": 16.633,
+      "test": "baylee-client table::arrangement_tests::a_switch_settles_within_the_ceiling_and_cuts_when_still"
+    },
+    {
+      "seconds": 15.747,
+      "test": "baylee-gateway::e2e_social_presence a_friend_is_shown_where_the_table_is_only_when_it_is_shared_and_open"
+    },
+    {
+      "seconds": 15.338,
+      "test": "baylee-gateway::e2e_lost_connection with_another_player_the_table_waits_then_the_house_holds_the_chair"
+    },
+    {
+      "seconds": 14.243,
+      "test": "baylee-gateway::e2e_social_presence invisible_reads_as_offline_and_the_last_socket_closing_does_too"
+    },
+    {
+      "seconds": 13.505,
+      "test": "baylee-gateway::e2e_social_table a_running_tables_chat_never_reaches_a_spectator_or_the_engine"
+    },
+    {
+      "seconds": 13.185,
+      "test": "baylee-client sound::tests::no_cue_ends_on_a_step"
+    },
+    {
+      "seconds": 13.179,
+      "test": "baylee-client sound::tests::every_cue_is_loud_enough_to_hear_and_quiet_enough_not_to_clip"
+    },
+    {
+      "seconds": 13.12,
+      "test": "baylee-client table::arrangement_tests::the_camera_settles_on_a_new_arrangement_within_36_frames"
+    },
+    {
+      "seconds": 13.034,
+      "test": "baylee-gateway::e2e_feedback a_report_goes_from_the_client_through_the_gateway_to_the_service"
+    },
+    {
+      "seconds": 12.717,
+      "test": "baylee-client sound::tests::no_two_cues_sound_alike"
+    },
+    {
+      "seconds": 12.17,
+      "test": "baylee-gateway::e2e_replays a_seat_that_never_said_is_shared_in_a_game_after_the_cutoff_and_not_before"
+    },
+    {
+      "seconds": 11.827,
+      "test": "baylee-client table::shell_tests::a_standing_border_never_lands_on_another_cards_print"
+    },
+    {
+      "seconds": 11.485,
+      "test": "baylee-client-core music::orchestra::tests::a_block_is_the_frames_it_replaces"
+    },
+    {
+      "seconds": 11.46,
+      "test": "baylee-client table::badge_tests::no_badge_lies_on_another_cards_print"
+    },
+    {
+      "seconds": 11.12,
+      "test": "baylee-gamehost session::tests::project::a_projection_is_the_same_every_time"
+    },
+    {
+      "seconds": 11.119,
+      "test": "baylee-gamehost session::tests::project::shown_with_its_own_cards_is_the_seat_projection_and_all_hands"
+    },
+    {
+      "seconds": 11.001,
+      "test": "baylee-client-core music::score::tests::sample_banks_change_without_resetting_the_musical_phrase"
+    },
+    {
+      "seconds": 10.57,
+      "test": "baylee-gateway::e2e_replays an_account_has_two_jobs_at_once_and_a_third_is_refused"
+    },
+    {
+      "seconds": 10.559,
+      "test": "baylee-client table::shell_tests::a_wave_never_lands_on_another_cards_print"
+    },
+    {
+      "seconds": 10.498,
+      "test": "baylee-client-core music::score::tests::a_result_dismissed_before_the_next_pulse_still_gets_its_cue"
+    },
+    {
+      "seconds": 10.489,
+      "test": "baylee-engine-server tests::projection::an_order_that_withholds_the_seats_own_cards_sends_the_public_table_drawn_from_it"
+    },
+    {
+      "seconds": 10.475,
+      "test": "baylee-client sound::tests::the_two_ears_agree_about_where_the_sound_is"
+    },
+    {
+      "seconds": 10.409,
+      "test": "baylee-client-core music::score::tests::every_suite_and_scene_can_enter_within_one_short_pulse"
+    },
+    {
+      "seconds": 10.33,
+      "test": "baylee-client-core music::orchestra::tests::rendering_never_grows_the_voice_list"
+    },
+    {
+      "seconds": 10.191,
+      "test": "baylee-engine engine::automation_tests::a_large_automated_stack_yields_a_real_choice_at_the_safety_limit"
+    },
+    {
+      "seconds": 9.739,
+      "test": "baylee-gateway::e2e_seat_llm a_language_model_seat_plays_a_game_through_real_sockets"
+    }
+  ],
+  "date": "2026-10-14",
+  "started_at": "2026-10-14T06:22:15.245801+02:00",
+  "finished_at": "2026-10-14T06:36:22.043545+02:00",
+  "hardware": "Apple M1 Max, 64 GiB",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "scope": "P4 tests-only changes; shared target, incremental off, isolated XDG, local PostgreSQL, all three gates under the global Cargo lock; external network denied, loopback allowed; no simultaneous heavy Cargo run.",
+  "counts": {
+    "run": 14344,
+    "passed": 14344,
+    "skipped": 21
+  },
+  "suite_comparison": {
+    "before_seconds": 335.556,
+    "after_seconds": 325.665,
+    "saved_seconds": 9.891,
+    "percent_shorter": 2.947645102456807,
+    "caveat": "One bounded A1/B/A2 sequence. A1 is the parent baseline; B and A2 use the same corrected V2 sandbox/PATH. No randomized repetitions or estimate of runner overhead; the whole-suite difference is descriptive, not a causal 3% claim."
+  },
+  "changed_tests": [
+    {
+      "test": "baylee-feedback alive::tests::the_count_is_bounded",
+      "before_seconds": 35.789,
+      "after_seconds": 0.046,
+      "saved_seconds": 35.743,
+      "speedup": 778.0217391304349
+    },
+    {
+      "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size",
+      "before_seconds": 25.199,
+      "after_seconds": 0.564,
+      "saved_seconds": 24.635,
+      "speedup": 44.679078014184405
+    }
+  ],
+  "gates": [
+    {
+      "gate": "gate",
+      "exit": 0,
+      "seconds": 364.956
+    },
+    {
+      "gate": "features",
+      "exit": 0,
+      "seconds": 411.692
+    },
+    {
+      "gate": "wasm",
+      "exit": 0,
+      "seconds": 16.358,
+      "reused_from_initial_attempt": true,
+      "source_sha256": {
+        "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+        "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+      }
+    }
+  ],
+  "gate_steps": [
+    {
+      "step": "fmt",
+      "exit": 0,
+      "seconds": 10
+    },
+    {
+      "step": "clippy",
+      "exit": 0,
+      "seconds": 21
+    },
+    {
+      "step": "test",
+      "exit": 0,
+      "seconds": 328
+    },
+    {
+      "step": "scryfall-cache",
+      "exit": 0,
+      "seconds": 5
+    },
+    {
+      "step": "validate",
+      "exit": 0,
+      "seconds": 1
+    }
+  ],
+  "feature_steps": [
+    "STEP client-features-clippy ok (20s)",
+    "STEP client-features-test ok (1991 passed, 25 of them devctl::, floor 15, 127s)",
+    "STEP dev-dylink-resolves ok (1s)",
+    "STEP android-dev-control ok (0s)",
+    "STEP dev-table-clippy ok (1s)",
+    "STEP dev-table-test ok (261s)",
+    "STEP test-support ok (0s)",
+    "STEP train-without-play ok (0s)",
+    "STEP fuzz ok (1s)",
+    "STEP mutate ok (0s)",
+    "STEP verification-hooks-shipped ok (0 in the shipped graph, 1 in the engine's dev graph, 1s)"
+  ],
+  "cache_validation_lines": [
+    "scryfall cache: 3318/3318 payloads held in $HOME/.codex/worktrees/b8-tests/baylee/data/scryfall-cache",
+    "scryfall cache: 3318/3318 payloads held (0 fetched this run)",
+    "scryfall cache: 16 header(s) name a printing other than today's default (16 fetched this run)",
+    "validate: the oldest cached payload is 23 day(s) old \u2014 CI reads live Scryfall",
+    "validate: against the printings \u2014 3318 payloads, 10 loyalty, 3318 identity, 472 keyword, 897 mana, 3318 oracle, 3437 cost, 956 activation cost, 102 player target, 36 target count, 274 optional clause, 3318 printing, 3439 type line, 26 ability-defined P/T, 41 enters-tapped bound, 110 back face",
+    "validate: 3318 header type lines against the code",
+    "validate: 3318 cards conform (3270 finished \u2014 1310 hand-owned, 1960 machine-owned \u2014 and 48 stubs)"
+  ],
+  "ci_estimate": {
+    "historical_run": 38484576125,
+    "historical_sha": "7e4aa634ee630b50af552de2550ac8d520b15119",
+    "historical_job": "test (1/2)",
+    "historical_job_id": 115595085852,
+    "historical_nextest_seconds": 1094.176,
+    "historical_runs": [
+      {
+        "run": 38484576125,
+        "sha": "7e4aa634ee630b50af552de2550ac8d520b15119",
+        "jobs": [
+          {
+            "name": "test (2/2)",
+            "seconds": 1159.0,
+            "result": "success"
+          },
+          {
+            "name": "bench",
+            "seconds": 153.0,
+            "result": "success"
+          },
+          {
+            "name": "test (1/2)",
+            "seconds": 1730.0,
+            "result": "success"
+          },
+          {
+            "name": "test-release",
+            "seconds": 2110.0,
+            "result": "success"
+          },
+          {
+            "name": "features",
+            "seconds": 1657.0,
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "run": 38473323434,
+        "sha": "f14e2354d55534c43709653a952d31714a501b8e",
+        "jobs": [
+          {
+            "name": "test (1/2)",
+            "seconds": 1703.0,
+            "result": "success"
+          },
+          {
+            "name": "test (2/2)",
+            "seconds": 1164.0,
+            "result": "success"
+          },
+          {
+            "name": "bench",
+            "seconds": 156.0,
+            "result": "success"
+          },
+          {
+            "name": "test-release",
+            "seconds": 3029.0,
+            "result": "success"
+          },
+          {
+            "name": "features",
+            "seconds": 1127.0,
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "run": 38435293058,
+        "sha": "edc246f6e34633a9c84a54c93c836521fbbf39ea",
+        "jobs": [
+          {
+            "name": "test (1/2)",
+            "seconds": 1457.0,
+            "result": "success"
+          },
+          {
+            "name": "test (2/2)",
+            "seconds": 824.0,
+            "result": "success"
+          },
+          {
+            "name": "features",
+            "seconds": 1674.0,
+            "result": "success"
+          },
+          {
+            "name": "bench",
+            "seconds": 154.0,
+            "result": "success"
+          },
+          {
+            "name": "test-release",
+            "seconds": 1461.0,
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_cases": [
+      {
+        "test": "baylee-feedback alive::tests::the_count_is_bounded",
+        "historical_seconds": 85.133,
+        "estimated_after_seconds": 0.10942239235519292,
+        "estimated_saved_test_case_seconds": 85.0235776076448
+      },
+      {
+        "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size",
+        "historical_seconds": 89.484,
+        "estimated_after_seconds": 2.0028166197071307,
+        "estimated_saved_test_case_seconds": 87.48118338029286
+      }
+    ],
+    "estimated_saved_test_case_seconds": 172.50476098793766,
+    "caveat": "Transfer of macOS debug test ratios to one historical Linux CI partition. Sum of test-case seconds, not a measured or predicted parallel job wall-time reduction. No post-push CI run claimed; no release-profile extrapolation.",
+    "A2_ratio_sensitivity": {
+      "test_cases": [
+        {
+          "test": "baylee-feedback alive::tests::the_count_is_bounded",
+          "A2_seconds": 35.259,
+          "estimated_after_seconds": 0.1110671885192433,
+          "estimated_saved_test_case_seconds": 85.02193281148075
+        },
+        {
+          "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size",
+          "A2_seconds": 25.281,
+          "estimated_after_seconds": 1.9963203987184048,
+          "estimated_saved_test_case_seconds": 87.48767960128158
+        }
+      ],
+      "estimated_saved_test_case_seconds": 172.50961241276235
+    }
+  },
+  "suite_membership": {
+    "baseline_and_after_test_names_identical": true,
+    "count": 14344,
+    "sorted_names_sha256": "3a84a8e10fb3cb2c2cec12bd2a92cc97af7be60ed8534ee2b40250bcb0e669d5"
+  },
+  "raw_log_sha256": {
+    "baylee-b8-tests-baseline.log": "10e11a35b44aee590be47efe083f4f1086a578a693ea4b30263eb62a7c2795e2",
+    "baylee-b8-p4-v2-targeted.log": "af774f040f9abd9b100e0a7760345040ad4a12ff6d8a68cd9dd6d3a80fc43646",
+    "baylee-b8-p4-v2-gate.log": "cb95fb08d80e18870639d487db208a383761da48989168015a3aae1a22af9b24",
+    "baylee-b8-p4-v2-features.log": "e780970eecdf560dfdbce17666a5073e05dc7858a16333bff456f318080f3357",
+    "baylee-b8-p4-wasm.log": "8f123514526a86f365a3c9bbd733475e1b263cd9a556ac4f058e55098a185c01",
+    "baylee-b8-p4-a-return.log": "28d401d784777f5bfe7fccc0ca57b39c879c0e4b0d6a9083f6c7bda70d950958"
+  },
+  "discarded_initial_attempt": {
+    "summary": [
+      "Summary [ 335.421s] 14344 tests run: 14338 passed (2 slow), 6 failed, 21 skipped"
+    ],
+    "performance_evidence": false,
+    "reason": "The initial network profile denied test Unix IPC; macOS also refused execution of setuid /bin/ps inside the sandbox. No source or assertion changed to repair the environment.",
+    "failed_tests": [
+      {
+        "test": "baylee-gateway::e2e_local_agents a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one",
+        "seconds": 0.653,
+        "panic_location": "crates/baylee-gateway/tests/e2e_local_agents.rs:82:62",
+        "stderr": "unix: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+      },
+      {
+        "test": "baylee-gateway::e2e_hosted_access a_policy_decides_who_is_listed_a_model_and_who_may_order_it",
+        "seconds": 32.052,
+        "panic_location": "crates/baylee-gateway/tests/e2e_hosted_access.rs:327:5",
+        "stderr": "the seat agent reports its profiles did not happen in time"
+      },
+      {
+        "test": "baylee-gateway::e2e_hosted_access the_console_sets_policies_lists_accounts_and_audits_by_id",
+        "seconds": 32.109,
+        "panic_location": "crates/baylee-gateway/tests/e2e_hosted_access.rs:327:5",
+        "stderr": "the seat agent reports its profiles did not happen in time"
+      },
+      {
+        "test": "baylee-gateway::e2e_hosted_llm hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game",
+        "seconds": 33.34,
+        "panic_location": "crates/baylee-gateway/tests/e2e_hosted_llm.rs:264:5",
+        "stderr": "both seat agents report did not happen in time"
+      },
+      {
+        "test": "baylee-seat::cli_mind a_process_that_died_between_turns_is_begun_again_for_the_next_question",
+        "seconds": 2.04,
+        "panic_location": "crates/baylee-seat/tests/cli_mind.rs:590:5",
+        "stderr": "the process died after its reply"
+      },
+      {
+        "test": "baylee-seat::cli_mind a_running_count_of_usage_is_booked_by_its_differences_per_process",
+        "seconds": 2.051,
+        "panic_location": "crates/baylee-seat/tests/cli_mind.rs:1283:5",
+        "stderr": "the process died"
+      }
+    ],
+    "gates": [
+      {
+        "gate": "gate",
+        "exit": 1,
+        "seconds": 499.194,
+        "log": "/private/tmp/baylee-b8-p4-gate.log"
+      },
+      {
+        "gate": "features",
+        "exit": 1,
+        "seconds": 346.34,
+        "log": "/private/tmp/baylee-b8-p4-features.log"
+      },
+      {
+        "gate": "wasm",
+        "exit": 0,
+        "seconds": 16.358,
+        "log": "/private/tmp/baylee-b8-p4-wasm.log"
+      }
+    ],
+    "source_unchanged": true,
+    "network_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n"
+  },
+  "isolation_repair": {
+    "network_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(allow network-outbound (subpath \"/private/tmp/baylee-b8-p4-tmp\"))\n",
+    "test_tmpdir": "/private/tmp/baylee-b8-p4-tmp",
+    "ps_fixture_mode": "0o755",
+    "ps_fixture_sha256": "46d0545004748a17ac5228f2d40d1d39286defe7e4456c99ce88927fe28a3f6a",
+    "ps_fixture": "Copy of /bin/ps, chmod 0755, ad-hoc signed with codesign, placed first on the gate process PATH only. Same ps implementation; no replacement result or weakened process-death assertion.",
+    "probe": {
+      "original_ps": "spawn failed with EPERM; original mode 04755",
+      "fixed_ps_live_own_pid": "exit 0, nonempty status",
+      "fixed_ps_reaped_own_child": "exit 1, empty status",
+      "unix_socket": "self-owned temporary socket connect succeeded under the revised sandbox"
+    },
+    "targeted_recheck": {
+      "gate": "targeted",
+      "exit": 0,
+      "seconds": 70.106,
+      "log": "/private/tmp/baylee-b8-p4-v2-targeted.log"
+    },
+    "ps_provenance": {
+      "source": {
+        "path": "/bin/ps",
+        "sha256": "3bbba882e30d91fc4ff6e6844ca7c59fef4351b9a3fea35dca55708d6d487d1c",
+        "mode": "0o4755"
+      },
+      "fixture": {
+        "path": "/private/tmp/baylee-b8-p4-fixture-bin/ps",
+        "sha256": "46d0545004748a17ac5228f2d40d1d39286defe7e4456c99ce88927fe28a3f6a",
+        "mode": "0o755"
+      },
+      "fresh_copy_sha256": "3bbba882e30d91fc4ff6e6844ca7c59fef4351b9a3fea35dca55708d6d487d1c",
+      "after_chmod_0755_sha256": "3bbba882e30d91fc4ff6e6844ca7c59fef4351b9a3fea35dca55708d6d487d1c",
+      "reconstructed_signed_sha256": "46d0545004748a17ac5228f2d40d1d39286defe7e4456c99ce88927fe28a3f6a",
+      "reconstruction_matches_fixture": true,
+      "all_file_backed_macho_sections_identical": true,
+      "macho_sections": {
+        "x86_64": {
+          "__TEXT,__text": {
+            "bytes": 16052,
+            "sha256": "7d600a992bf8968ef715a337b6ff6e3003679b8009dc377c237b6705fbf87aa7"
+          },
+          "__TEXT,__stubs": {
+            "bytes": 426,
+            "sha256": "2c2b893a051772fa9c8987fd9f192740466bfec6bd2e20a21cbc950beb03e252"
+          },
+          "__TEXT,__const": {
+            "bytes": 368,
+            "sha256": "8295c431efa9823ae4dd39d3eb677c2de581873891d5831f5e1eef988dcdfbb5"
+          },
+          "__TEXT,__cstring": {
+            "bytes": 2006,
+            "sha256": "e41bf357d6014c459d592fec3f2a7dcdb08abedfa9381129c1cdd4b3ba323232"
+          },
+          "__TEXT,__unwind_info": {
+            "bytes": 264,
+            "sha256": "4b5f49d05daf648064331fe0083a5435435868ed960199396335a6c6c3efd373"
+          },
+          "__DATA_CONST,__got": {
+            "bytes": 616,
+            "sha256": "66cf2917c7febe3edfd095b4a70174ccfe345911aecf9a0342ebb4c6b219e3dd"
+          },
+          "__DATA,__data": {
+            "bytes": 8547,
+            "sha256": "795348a64df7b47a27633a434a0552e9764953a90af6c318614a6b3cbe8eaf7c"
+          }
+        },
+        "arm64e": {
+          "__TEXT,__text": {
+            "bytes": 17204,
+            "sha256": "330df5432924a42fbf6247fb10973605f10159f1ed757c349fe15d305fc70e9b"
+          },
+          "__TEXT,__auth_stubs": {
+            "bytes": 1120,
+            "sha256": "23f5b6dd4e58292f2193d9e3f0d9fa439a7226ca56ee95d1d2b97ba69d75442d"
+          },
+          "__TEXT,__const": {
+            "bytes": 304,
+            "sha256": "55b66b6b349dfa157ffa12b9811a1201e762c8a77ad16f8897595a3fc43d8a64"
+          },
+          "__TEXT,__cstring": {
+            "bytes": 2015,
+            "sha256": "511d6936a9c60c5d197ad7a1bb934c8d51d5cae688cce5253f0f36802866b433"
+          },
+          "__TEXT,__unwind_info": {
+            "bytes": 288,
+            "sha256": "da30f734825d66da5ae02efce757e736c5d93cfd5333b3012f43c29477824ea0"
+          },
+          "__DATA_CONST,__auth_got": {
+            "bytes": 560,
+            "sha256": "ed6ce869d3baeac21c495050e46cefb615f9e0e36b14e9a9c8b47e80903e4cc5"
+          },
+          "__DATA_CONST,__got": {
+            "bytes": 48,
+            "sha256": "0b1b75f358fedd615635ed56a3de9ae9be5f0418e54ddf193704cb4646f03aa6"
+          },
+          "__DATA_CONST,__const": {
+            "bytes": 32,
+            "sha256": "4922e1edc97dfedb6c055612eac2a5c6870b5bfe0acdfd69514dc2e088b48c76"
+          },
+          "__DATA,__data": {
+            "bytes": 8447,
+            "sha256": "97f531ea7ef7445aec57edc814f8ff6ace20c57803de5a786c97d0dad38399f5"
+          }
+        }
+      }
+    },
+    "ps_live_dead_probe": {
+      "ps": "/private/tmp/baylee-b8-p4-fixture-bin/ps",
+      "ps_sha256": "46d0545004748a17ac5228f2d40d1d39286defe7e4456c99ce88927fe28a3f6a",
+      "network_profile_sha256": "11f91eb03f66bab521877c66caded248a94cc26a82eddc9e422d47dff6ad9ecf",
+      "live": {
+        "pid": 51745,
+        "returncode": 0,
+        "stdout": "?   \n",
+        "stderr": "",
+        "exited_predicate": false
+      },
+      "dead": {
+        "pid": 51745,
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "",
+        "exited_predicate": true
+      }
+    }
+  },
+  "existing_linker_warning": {
+    "message": "__eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table",
+    "in_baseline": true,
+    "in_after": true
+  },
+  "a_return": {
+    "meta": {
+      "source": "78164a73e4ffd6089a73a2c64d7ba00b3c749da2",
+      "started_at": "2026-10-14T06:45:55.529143+02:00",
+      "candidate_before_sha256": {
+        "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+        "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+      },
+      "baseline_sha256": {
+        "crates/baylee-feedback/src/alive.rs": "41e098a9ea91c166b4cc05fbff53c3861bcbb56e92c3a60ba487b45ba61273c1",
+        "crates/baylee-client-core/src/dial.rs": "338f58fb2bc57bd7ea3ee82ee6e4a4b4f06e1885deb8cf7d0a996a57b8e5586b"
+      },
+      "production_prefix_identical": true,
+      "network_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(allow network-outbound (subpath \"/private/tmp/baylee-b8-p4-tmp\"))\n",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "--workspace",
+        "--all-targets",
+        "--no-fail-fast"
+      ],
+      "profile": "default; nextest --workspace --all-targets --no-fail-fast",
+      "environment_matches_B": "Same whitelist, target, compiler, incremental=0, offline Cargo, local DB, XDG paths, TMPDIR, PATH/ps fixture and outer V2 network sandbox; session label only differs.",
+      "exit": 0,
+      "command_seconds": 444.968,
+      "baseline_unchanged_during_run": true,
+      "candidate_after_sha256": {
+        "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+        "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+      },
+      "restored": true,
+      "finished_at": "2026-10-14T06:53:20.539181+02:00"
+    },
+    "summary": "Summary [ 331.917s] 14344 tests run: 14344 passed (2 slow), 21 skipped",
+    "top50": [
+      {
+        "seconds": 95.762,
+        "test": "baylee-client-core music::score::tests::every_scene_has_finite_audio_and_headroom"
+      },
+      {
+        "seconds": 63.78,
+        "test": "baylee-gamehost harness::tests::every_implemented_card_survives_a_game"
+      },
+      {
+        "seconds": 54.655,
+        "test": "baylee-client::duel_flow every_question_this_suite_reaches_gets_an_answer"
+      },
+      {
+        "seconds": 41.756,
+        "test": "baylee-engine engine::refusal_tests::a_refused_answer_changes_nothing_and_every_question_has_an_answer"
+      },
+      {
+        "seconds": 36.852,
+        "test": "baylee-engine engine::refusal_tests::every_answer_inside_a_stated_bound_is_taken_where_vehicles_crew_and_menace_attacks"
+      },
+      {
+        "seconds": 36.402,
+        "test": "baylee-engine engine::loop_tests::a_real_endless_loop_resolves_and_is_then_broken"
+      },
+      {
+        "seconds": 35.259,
+        "test": "baylee-feedback alive::tests::the_count_is_bounded"
+      },
+      {
+        "seconds": 34.576,
+        "test": "baylee-client-core dial::tests::the_dial_fills_the_middle_and_stays_off_the_boards"
+      },
+      {
+        "seconds": 33.034,
+        "test": "baylee-engine engine::target_tests::an_ability_that_targets_reaches_the_target_and_nothing_else"
+      },
+      {
+        "seconds": 31.875,
+        "test": "baylee-engine engine::offer_tests::every_offered_ability_can_be_activated"
+      },
+      {
+        "seconds": 31.048,
+        "test": "baylee-client table::arrangement_tests::a_new_seat_of_interest_settles_within_the_ceiling"
+      },
+      {
+        "seconds": 30.026,
+        "test": "baylee-update::apply_tree a_crash_after_any_step_is_finished_at_the_next_start"
+      },
+      {
+        "seconds": 27.274,
+        "test": "baylee-engine engine::loop_tests::the_comp_rules_policy_makes_the_same_loop_a_draw"
+      },
+      {
+        "seconds": 25.281,
+        "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size"
+      },
+      {
+        "seconds": 23.971,
+        "test": "baylee-engine engine::refusal_tests::the_sweep_names_a_bound_apply_holds_and_the_question_does_not_state"
+      },
+      {
+        "seconds": 22.295,
+        "test": "baylee-engine engine::claim_tests::what_a_card_says_in_english_is_what_the_journal_records"
+      },
+      {
+        "seconds": 22.174,
+        "test": "baylee-engine layers::tests::indexed::indexed_projection_matches_complete_plan_for_mixed_effects"
+      },
+      {
+        "seconds": 21.493,
+        "test": "baylee-gamehost harness::tests::a_table_of_more_than_two_plays_itself"
+      },
+      {
+        "seconds": 20.882,
+        "test": "baylee-update::apply_tree a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client"
+      },
+      {
+        "seconds": 20.748,
+        "test": "baylee-client music::tests::the_stream_remains_endless_stereo"
+      },
+      {
+        "seconds": 20.717,
+        "test": "baylee-seat::stopped a_bridge_stopped_by_sigterm_settles_its_game_under_load"
+      },
+      {
+        "seconds": 19.224,
+        "test": "baylee-client sound::tests::a_cue_renders_the_same_bytes_twice"
+      },
+      {
+        "seconds": 19.043,
+        "test": "baylee-gateway::e2e_lost_connection alone_with_the_house_the_game_pauses_until_the_player_is_back"
+      },
+      {
+        "seconds": 18.768,
+        "test": "baylee-gamehost log::tests::a_loop_a_seat_yields_to_still_folds"
+      },
+      {
+        "seconds": 17.189,
+        "test": "baylee-client table::arrangement_tests::a_switch_settles_within_the_ceiling_and_cuts_when_still"
+      },
+      {
+        "seconds": 16.589,
+        "test": "baylee-client-core layout::tests::packed::neighbouring_boards_keep_the_gap_and_never_meet"
+      },
+      {
+        "seconds": 16.486,
+        "test": "baylee-feedback::deploy_hooks the_new_gateway_must_name_the_target_commit_built_clean"
+      },
+      {
+        "seconds": 15.295,
+        "test": "baylee-gateway::e2e_lost_connection with_another_player_the_table_waits_then_the_house_holds_the_chair"
+      },
+      {
+        "seconds": 14.79,
+        "test": "baylee-gateway::e2e_social_presence a_friend_is_shown_where_the_table_is_only_when_it_is_shared_and_open"
+      },
+      {
+        "seconds": 13.515,
+        "test": "baylee-client table::arrangement_tests::the_camera_settles_on_a_new_arrangement_within_36_frames"
+      },
+      {
+        "seconds": 13.421,
+        "test": "baylee-gateway::e2e_social_table a_running_tables_chat_never_reaches_a_spectator_or_the_engine"
+      },
+      {
+        "seconds": 13.052,
+        "test": "baylee-client sound::tests::no_cue_ends_on_a_step"
+      },
+      {
+        "seconds": 13.008,
+        "test": "baylee-gateway::e2e_feedback a_report_goes_from_the_client_through_the_gateway_to_the_service"
+      },
+      {
+        "seconds": 13.007,
+        "test": "baylee-client sound::tests::every_cue_is_loud_enough_to_hear_and_quiet_enough_not_to_clip"
+      },
+      {
+        "seconds": 12.662,
+        "test": "baylee-client table::shell_tests::a_standing_border_never_lands_on_another_cards_print"
+      },
+      {
+        "seconds": 12.544,
+        "test": "baylee-client sound::tests::no_two_cues_sound_alike"
+      },
+      {
+        "seconds": 12.224,
+        "test": "baylee-gateway::e2e_social_presence invisible_reads_as_offline_and_the_last_socket_closing_does_too"
+      },
+      {
+        "seconds": 12.201,
+        "test": "baylee-gateway::e2e_replays a_seat_that_never_said_is_shared_in_a_game_after_the_cutoff_and_not_before"
+      },
+      {
+        "seconds": 12.073,
+        "test": "baylee-client-core music::orchestra::tests::a_block_is_the_frames_it_replaces"
+      },
+      {
+        "seconds": 11.574,
+        "test": "baylee-client table::badge_tests::no_badge_lies_on_another_cards_print"
+      },
+      {
+        "seconds": 11.487,
+        "test": "baylee-client table::shell_tests::a_wave_never_lands_on_another_cards_print"
+      },
+      {
+        "seconds": 11.415,
+        "test": "baylee-gamehost session::tests::project::a_projection_is_the_same_every_time"
+      },
+      {
+        "seconds": 11.16,
+        "test": "baylee-engine-server tests::projection::an_order_that_withholds_the_seats_own_cards_sends_the_public_table_drawn_from_it"
+      },
+      {
+        "seconds": 10.984,
+        "test": "baylee-client-core music::score::tests::sample_banks_change_without_resetting_the_musical_phrase"
+      },
+      {
+        "seconds": 10.968,
+        "test": "baylee-gamehost session::tests::project::shown_with_its_own_cards_is_the_seat_projection_and_all_hands"
+      },
+      {
+        "seconds": 10.934,
+        "test": "baylee-client-core music::orchestra::tests::rendering_never_grows_the_voice_list"
+      },
+      {
+        "seconds": 10.587,
+        "test": "baylee-gateway::e2e_replays an_account_has_two_jobs_at_once_and_a_third_is_refused"
+      },
+      {
+        "seconds": 10.493,
+        "test": "baylee-client-core music::score::tests::every_suite_and_scene_can_enter_within_one_short_pulse"
+      },
+      {
+        "seconds": 10.474,
+        "test": "baylee-client sound::tests::the_two_ears_agree_about_where_the_sound_is"
+      },
+      {
+        "seconds": 10.089,
+        "test": "baylee-engine engine::automation_tests::a_large_automated_stack_yields_a_real_choice_at_the_safety_limit"
+      }
+    ],
+    "suite_names_match_A1_and_B": true,
+    "changed_tests": [
+      {
+        "test": "baylee-feedback alive::tests::the_count_is_bounded",
+        "seconds": 35.259
+      },
+      {
+        "test": "baylee-client-core dial::tests::a_tearing_table_keeps_the_dial_at_today_s_size",
+        "seconds": 25.281
+      }
+    ]
+  },
+  "aba": {
+    "A1_seconds": 335.556,
+    "B_seconds": 325.665,
+    "A2_seconds": 331.917,
+    "A_control_difference_seconds": -3.63900000000001,
+    "B_vs_A2_saved_seconds": 6.251999999999953,
+    "caveat": "One bounded A1/B/A2 sequence. A1 is the parent baseline; B and A2 use the same corrected V2 sandbox/PATH. No randomized repetitions or estimate of runner overhead; the whole-suite difference is descriptive, not a causal 3% claim."
+  }
+}

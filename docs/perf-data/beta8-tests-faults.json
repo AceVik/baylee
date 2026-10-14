@@ -1,0 +1,147 @@
+{
+  "green_runs": 4,
+  "assertion_faults_detected": 5,
+  "source_restored": {
+    "before": {
+      "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+      "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+    },
+    "after": {
+      "crates/baylee-feedback/src/alive.rs": "d77969ec3cb54637e1d284c7a8fd95c01644314c1d8bff1636c71a0a42dbe877",
+      "crates/baylee-client-core/src/dial.rs": "3a94348ad8b56780c588df04744c1f6d0068404d9ffe1ee07d8107b1cc73eb1c"
+    },
+    "restored": true
+  },
+  "runs": [
+    {
+      "name": "alive-green",
+      "exit": 0,
+      "seconds": 15.141,
+      "expected_failure": false,
+      "test_seconds": 0.03,
+      "local_log_name": "baylee-b8-testfault-alive-green.log"
+    },
+    {
+      "name": "dial-green",
+      "exit": 0,
+      "seconds": 27.751,
+      "expected_failure": false,
+      "test_seconds": 0.53,
+      "asserted_layouts": {
+        "Spotlight": 635,
+        "FocusRing": 635
+      },
+      "local_log_name": "baylee-b8-testfault-dial-green.log"
+    },
+    {
+      "name": "alive-no-cap",
+      "exit": 101,
+      "seconds": 2.702,
+      "expected_failure": true,
+      "test_seconds": 0.02,
+      "panic_location": "crates/baylee-feedback/src/alive.rs:172:9",
+      "assertion_evidence": "assertion `left == right` failed\n  left: 20001\n right: 20000",
+      "local_log_name": "baylee-b8-testfault-alive-no-cap.log"
+    },
+    {
+      "name": "alive-off-by-one",
+      "exit": 101,
+      "seconds": 2.74,
+      "expected_failure": true,
+      "test_seconds": 0.01,
+      "panic_location": "crates/baylee-feedback/src/alive.rs:169:9",
+      "assertion_evidence": "assertion `left == right` failed: the last slot is accepted\n  left: 19999\n right: 20000",
+      "local_log_name": "baylee-b8-testfault-alive-off-by-one.log"
+    },
+    {
+      "name": "alive-no-refresh",
+      "exit": 101,
+      "seconds": 2.734,
+      "expected_failure": true,
+      "test_seconds": 0.03,
+      "panic_location": "crates/baylee-feedback/src/alive.rs:181:9",
+      "assertion_evidence": "assertion `left == right` failed: known games still refresh at capacity\n  left: Some(2024-10-04 0:00:00.0 +00:00:00)\n right: Some(2024-10-04 0:01:00.0 +00:00:00)",
+      "local_log_name": "baylee-b8-testfault-alive-no-refresh.log"
+    },
+    {
+      "name": "alive-no-expiry-before-cap",
+      "exit": 101,
+      "seconds": 2.769,
+      "expected_failure": true,
+      "test_seconds": 0.02,
+      "panic_location": "crates/baylee-feedback/src/alive.rs:189:9",
+      "assertion_evidence": "assertion `left == right` failed\n  left: 1\n right: 2",
+      "local_log_name": "baylee-b8-testfault-alive-no-expiry-before-cap.log"
+    },
+    {
+      "name": "dial-wrong-scale",
+      "exit": 101,
+      "seconds": 16.993,
+      "expected_failure": true,
+      "test_seconds": 0.0,
+      "panic_location": "crates/baylee-client-core/src/dial.rs:986:21",
+      "assertion_evidence": "Spotlight n=3 aspect=2.8 interest=None teams=ffa: 1.1",
+      "local_log_name": "baylee-b8-testfault-dial-wrong-scale.log"
+    },
+    {
+      "name": "alive-restored",
+      "exit": 0,
+      "seconds": 2.755,
+      "expected_failure": false,
+      "test_seconds": 0.03,
+      "local_log_name": "baylee-b8-testfault-alive-restored.log"
+    },
+    {
+      "name": "dial-restored",
+      "exit": 0,
+      "seconds": 17.443,
+      "expected_failure": false,
+      "test_seconds": 0.52,
+      "asserted_layouts": {
+        "Spotlight": 635,
+        "FocusRing": 635
+      },
+      "local_log_name": "baylee-b8-testfault-dial-restored.log"
+    }
+  ],
+  "source": "9aa40144050ee458f4521d2a8b5ac1682dbb7487",
+  "command_template": "cargo test --locked -p <crate> --lib <test> -- --exact --nocapture",
+  "driver_sha256": "84dd4840663a8c6fbe3b1b657929f7d74995e0dfc08038aff22c16c7b437a892",
+  "mutations": [
+    {
+      "name": "alive-no-cap",
+      "file": "crates/baylee-feedback/src/alive.rs",
+      "before": "if self.seen.len() >= MAX_GAMES && !self.seen.contains_key(game) {",
+      "after": "if false {"
+    },
+    {
+      "name": "alive-off-by-one",
+      "file": "crates/baylee-feedback/src/alive.rs",
+      "before": "if self.seen.len() >= MAX_GAMES && !self.seen.contains_key(game) {",
+      "after": "if self.seen.len() >= MAX_GAMES - 1 && !self.seen.contains_key(game) {"
+    },
+    {
+      "name": "alive-no-refresh",
+      "file": "crates/baylee-feedback/src/alive.rs",
+      "before": "if self.seen.len() >= MAX_GAMES && !self.seen.contains_key(game) {",
+      "after": "if self.seen.len() >= MAX_GAMES {"
+    },
+    {
+      "name": "alive-no-expiry-before-cap",
+      "file": "crates/baylee-feedback/src/alive.rs",
+      "before": "pub fn beat(&mut self, game: &str, now: OffsetDateTime) {\n        self.sweep(now);",
+      "after": "pub fn beat(&mut self, game: &str, now: OffsetDateTime) {"
+    },
+    {
+      "name": "dial-wrong-scale",
+      "file": "crates/baylee-client-core/src/dial.rs",
+      "before": "        return MIN_SCALE;",
+      "after": "        return MIN_SCALE + 0.1;"
+    }
+  ],
+  "production_prefix_unchanged": {
+    "crates/baylee-feedback/src/alive.rs": "0708d70d2d04de7b716d408317746f565db9e8ea8a092dde5b13e54ba5ec026c",
+    "crates/baylee-client-core/src/dial.rs": "063b26ff9fada5a2914111f754300c9fea14cc3cad4f130b86f74724d84e5e83"
+  },
+  "isolation": "Nine sequential commands under one outer global Cargo lock; same shared target, CARGO_INCREMENTAL=0, isolated XDG, restored in finally; source hashes checked before and after."
+}
