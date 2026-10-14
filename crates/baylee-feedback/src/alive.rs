@@ -156,12 +156,39 @@ mod tests {
     /// Past [`MAX_GAMES`] a new game is not counted; a known one still is.
     #[test]
     fn the_count_is_bounded() {
-        let mut presence = Presence::default();
         let now = OffsetDateTime::UNIX_EPOCH + time::Duration::days(20_000);
-        for n in 0..MAX_GAMES {
-            presence.beat(&format!("{n:032x}"), now);
-        }
+        // Filling through beat sweeps the growing map 20,000 times. Build
+        // the prefix directly; exercise the actual boundary through beat.
+        let mut presence = Presence {
+            seen: (0..MAX_GAMES - 1)
+                .map(|n| (format!("{n:032x}"), now))
+                .collect(),
+        };
+        let last = format!("{:032x}", MAX_GAMES - 1);
+        presence.beat(&last, now);
+        assert_eq!(presence.count(now), MAX_GAMES, "the last slot is accepted");
+        assert_eq!(presence.seen.get(&last), Some(&now));
         presence.beat(TWO, now);
         assert_eq!(presence.count(now), MAX_GAMES);
+        assert!(
+            !presence.seen.contains_key(TWO),
+            "a full map refuses a newcomer"
+        );
+
+        let refreshed = now + time::Duration::seconds(BEAT_SECS);
+        presence.beat(&last, refreshed);
+        assert_eq!(presence.count(refreshed), MAX_GAMES);
+        assert_eq!(
+            presence.seen.get(&last),
+            Some(&refreshed),
+            "known games still refresh at capacity"
+        );
+
+        // Expiration makes room before checking capacity. Only the renewed
+        // game and the newcomer should remain, exactly at the TTL boundary.
+        presence.beat(TWO, now + TTL);
+        assert_eq!(presence.count(now + TTL), 2);
+        assert_eq!(presence.seen.get(&last), Some(&refreshed));
+        assert_eq!(presence.seen.get(TWO), Some(&(now + TTL)));
     }
 }
