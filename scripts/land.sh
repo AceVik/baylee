@@ -64,7 +64,7 @@ clean() {
 }
 behind() {
     # Fetches origin/main; true when HEAD does not already contain it.
-    git fetch --quiet origin main
+    git fetch --quiet origin main || die "fetching origin/main failed; nothing gated or pushed"
     ! git merge-base --is-ancestor origin/main HEAD
 }
 mergeable() {
