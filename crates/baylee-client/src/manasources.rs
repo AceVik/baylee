@@ -1556,8 +1556,13 @@ mod tests {
         // Clocktower's time counter — a single mana ability with a rider
         // beside it. The card batches of 21–22.09 added them, and no gate
         // that built this crate ran in between.
+        //
+        // Read on 14.10.2026 at 30 with the full corpus: the new ones are
+        // the same shape (more threshold and depletion lands, Elves of Deep
+        // Shadow's damage, Pristine Talisman's life, the Urza lands' amount,
+        // Rainbow Vale's control change).
         assert!(
-            (16..=28).contains(&gained.len()),
+            (26..=36).contains(&gained.len()),
             "{} cards gained a source: {gained:?}",
             gained.len()
         );

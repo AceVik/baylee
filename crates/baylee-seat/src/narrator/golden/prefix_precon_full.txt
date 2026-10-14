@@ -55,6 +55,8 @@ Main deck:
     This land enters tapped.
     {T}: Add {U}.
     {4}{U}, {T}, Sacrifice this land: Draw two cards.
+  1× Meteor Golem {7} · Artifact Creature — Golem · 3/3
+    When this creature enters, destroy target nonland permanent an opponent controls.
   1× Molimo, Maro-Sorcerer {4}{G}{G}{G} · Legendary Creature — Elemental Sorcerer · 0/0
     Trample
     Molimo's power and toughness are each equal to the number of lands you control.
@@ -94,6 +96,8 @@ Main deck:
     Shroud
   1× Sol Ring {1} · Artifact
     {T}: Add {C}{C}.
+  1× Sporemound {3}{G}{G} · Creature — Fungus · 3/3
+    Landfall — Whenever a land you control enters, create a 1/1 green Saproling creature token.
   1× Swiftfoot Boots {2} · Artifact — Equipment
     Equipped creature has hexproof and haste.
     Equip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)
@@ -227,6 +231,9 @@ Main deck:
   1× Thriving Moor · Land
     This land enters tapped. As it enters, choose a color other than black.
     {T}: Add {B} or one mana of the chosen color.
+  1× Timeless Lotus {5} · Legendary Artifact
+    Timeless Lotus enters tapped.
+    {T}: Add {W}{U}{B}{R}{G}.
   1× Unclaimed Territory · Land
     As this land enters, choose a creature type.
     {T}: Add {C}.
@@ -234,10 +241,3 @@ Main deck:
   1× Arcane Lighthouse · Land
     {T}: Add {C}.
     {1}, {T}: Until end of turn, creatures your opponents control lose hexproof and shroud and can't have hexproof or shroud.
-  1× Bottle Gnomes {3} · Artifact Creature — Gnome · 1/3
-    Sacrifice this creature: You gain 3 life.
-  1× Buried Ruin · Land
-    {T}: Add {C}.
-    {2}, {T}, Sacrifice this land: Return target artifact card from your graveyard to your hand.
-  1× Cathodion {3} · Artifact Creature — Construct · 3/3
-    When this creature dies, add {C}{C}{C}.

@@ -803,9 +803,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // remain pinned separately and no reader implementation changed.
     // Keep the original population independently pinned: new cards cannot
     // compensate for a lost reader row among the existing cards.
+    // Full corpus (2026-10-14): the rest of the generated cards bring the
+    // Generated population to 1688 activations, 1487 readable; the existing
+    // census above is unchanged, so no reader row was lost.
     assert_eq!(
         (generated_read, generated_of),
-        (645, 784),
+        (1487, 1688),
         "generated activated/loyalty reader census"
     );
 

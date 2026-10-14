@@ -84,6 +84,10 @@ fn a_counter_names_the_spell_aimed_at_this_seat() {
 /// and Gitaxian Probe now have their additional effects and leave it.
 /// Index only reorders the library: the existing predicate also deliberately
 /// permits pure selection spells without spending a counterspell.
+/// The full corpus (2026-10-14) adds seven more of exactly those shapes:
+/// Consider, Deliberate, Introduction to Prophecy and Preordain (look or
+/// scry, then draw), Curate, Contingency Plan and Taigam's Scheming (look or
+/// surveil into the graveyard, no draw).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -122,11 +126,18 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
         held,
         [
             "Brainstorm",
+            "Consider",
+            "Contingency Plan",
+            "Curate",
+            "Deliberate",
             "Index",
+            "Introduction to Prophecy",
             "Open Communications",
             "Opt",
+            "Preordain",
             "Reach Through Mists",
             "Serum Visions",
+            "Taigam's Scheming",
         ]
     );
 }

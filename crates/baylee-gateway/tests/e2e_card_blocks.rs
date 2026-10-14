@@ -282,7 +282,13 @@ fn the_console_searches_blocks_lists_and_lifts() {
         assert!(row.get(field).is_some(), "{field} in {row}");
     }
     assert!(row["blocked"].is_null(), "not blocked yet: {row}");
-    let (_, upper) = admin_json(&c, "GET", "/admin/cards/search?q=BALEFUL", &Value::Null);
+    let (_, upper) = admin_json(
+        &c,
+        "GET",
+        // The full corpus holds other "Baleful …" cards; name it whole.
+        "/admin/cards/search?q=BALEFUL%20STRIX",
+        &Value::Null,
+    );
     assert_eq!(upper["cards"][0]["index"], strix, "case does not matter");
     let (_, by_index) = admin_json(
         &c,

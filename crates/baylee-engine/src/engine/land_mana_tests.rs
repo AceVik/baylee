@@ -1475,8 +1475,9 @@ const LANDS: Bounds = Bounds {
     // Implemented. 1029 after wave 2 pair D's Contested War Zone went
     // Implemented; 1032 after wave 3 pair E's Den of the Bugbear, Dalkovan
     // Encampment and Archway of Innovation; 1033 after wave 4's Dakmor
-    // Salvage.
-    promises: 700..=1033,
+    // Salvage. 1034 once the full corpus (2026-10-14) added its generated
+    // lands; the ceiling keeps a few promises of slack above that.
+    promises: 700..=1040,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,
@@ -1547,11 +1548,22 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// the mana Aura: 194 wholly readable faces, 91 costly lines, 14 granted
 /// lines, and 6 self-granting faces. Pin the new buckets exactly instead of
 /// giving them growth headroom. All other pre-expansion bounds remain.
+///
+/// The full corpus (2026-10-14, the rest of the generated cards) re-measured
+/// it, after leaving out the mana Auras the attached fixture cannot place:
+/// 366 wholly readable faces (146 Implemented, 220 Generated), 128 costly
+/// lines, 41 granted, 7 self-granting; 211 promises (90 by creatures of 227)
+/// and 55 unparsed lines, each listed in the output. Pinned exactly again.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    fully_read: 194,
-    costly_lines: 91..=91,
-    granted_lines: 14..=14,
-    self_granted: 6..=6,
+    colors: 468,
+    routes: 212,
+    promises: 211..=211,
+    creature_promises: 90..=90,
+    unparsed: 55..=55,
+    fully_read: 366,
+    costly_lines: 128..=128,
+    granted_lines: 41..=41,
+    self_granted: 7..=7,
     busy: 0,
     not_implemented: 0,
     ..OTHER_PERMANENTS
@@ -1586,7 +1598,7 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 194,
+        expected, 366,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -1602,10 +1614,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (151, 96, 96, 1)
+        (468, 212, 211, 1)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (119, 43));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (14, 25));
+    assert_eq!((tally.creatures, tally.creature_promises), (227, 90));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (20, 55));
     assert_eq!(
         (
             tally.conditional,
@@ -1614,7 +1626,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (2, 61, 45, 0, 0),
+        (4, 93, 77, 0, 0),
         "the measured skip categories changed"
     );
 }

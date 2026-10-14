@@ -136,7 +136,7 @@ mod tests {
 
     /// The tie `wearing` documents is real, and it is the first of the two.
     ///
-    /// Two tokens are printed "Shapeshifter". A copy of either is drawn as
+    /// Three tokens are printed "Shapeshifter". A copy of either is drawn as
     /// the first, because a projected name is all a copy carries — and the
     /// chits themselves are drawn from their own ids, so the *tokens* are
     /// never confused with each other. That is the whole reason `name`
@@ -147,8 +147,11 @@ mod tests {
             .filter_map(|i| u16::try_from(i).ok())
             .filter(|id| super::name(*id) == Some("Shapeshifter"))
             .collect();
-        assert_eq!(twins.len(), 2, "the pool mints two Shapeshifters");
+        // The full corpus (2026-10-14) reads a third Shapeshifter token script.
+        assert_eq!(twins.len(), 3, "the pool mints three Shapeshifters");
         assert_eq!(super::wearing("Shapeshifter"), Some(twins[0]));
-        assert_ne!(super::of(twins[0]), super::of(twins[1]), "and two pictures");
+        assert_ne!(super::of(twins[0]), super::of(twins[1]), "and own pictures");
+        assert_ne!(super::of(twins[1]), super::of(twins[2]), "and own pictures");
+        assert_ne!(super::of(twins[0]), super::of(twins[2]), "and own pictures");
     }
 }

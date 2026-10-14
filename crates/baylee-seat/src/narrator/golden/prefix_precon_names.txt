@@ -27,6 +27,7 @@ Main deck:
   1× Kodama's Reach
   1× Meloku the Clouded Mirror
   1× Memorial to Genius
+  1× Meteor Golem
   1× Molimo, Maro-Sorcerer
   1× Mulldrifter
   1× Rampaging Baloths
@@ -41,6 +42,7 @@ Main deck:
   1× Simic Signet
   1× Simic Sky Swallower
   1× Sol Ring
+  1× Sporemound
   1× Swiftfoot Boots
   1× Terramorphic Expanse
   1× Thornwood Falls
@@ -86,8 +88,6 @@ Main deck:
   1× Thriving Heath
   1× Thriving Isle
   1× Thriving Moor
+  1× Timeless Lotus
   1× Unclaimed Territory
   1× Arcane Lighthouse
-  1× Bottle Gnomes
-  1× Buried Ruin
-  1× Cathodion
