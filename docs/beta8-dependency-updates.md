@@ -118,7 +118,7 @@ Die abschließenden vier Gate-Ergebnisse stammen aus `/private/tmp/baylee-b8-fin
 | `scripts/gate-features.sh` | Exit 0, bestanden | 593,2 s |
 | `scripts/gate-wasm.sh` | Exit 0, bestanden | 57,8 s |
 
-Das Hauptgate meldet **14.349/14.349 Tests bestanden, 21 übersprungen**, Testphase 335,575 s. cargo-deny ist mit den bestehenden Ausnahmen grün; Warnungen über Mehrfachversionen/unbenutzte Lizenzfreigaben bleiben. Das separate cargo-audit-Log meldet beim Scan keine Befunde, enthält aber keinen gespeicherten Exitcode und ersetzt nicht den belegten finalen deny-Lauf.
+Das Hauptgate meldet **14.349/14.349 Tests bestanden, 21 übersprungen**, Testphase 335,575 s. cargo-deny ist mit den bestehenden Ausnahmen grün; Warnungen über Mehrfachversionen/unbenutzte Lizenzfreigaben bleiben. Der abschließende separate `cargo-audit 0.22.2`-Lauf ist ebenfalls mit **Exit 0** belegt (2,483 s): 902 Abhängigkeiten, 1.310 Advisories, 0 nicht ausgenommene Schwachstellen und keine Warnungen. Es gelten ausschließlich die beiden bestehenden Ausnahmen oben. Die Advisory-Datenbank wurde aktualisiert; Commit `6aed84668c23d7f535077a9fe918bf1fa0f6a5bc` vom 13.10.2026. [Audit-Nachweis](perf-data/beta8-dependency-audit.json).
 
 npm: **129 Node-Engine-Deklarationen einschließlich Root, 0 inkompatibel** mit Node 22.22.1; frisches `npm ci --include=dev --engine-strict` und `npm run check` bestanden (Typecheck, Lint, 274 Tests in 15 Dateien, Build), `npm audit`: 0 bekannte Schwachstellen. Diese Ergebnisse gelten für die geprüfte macOS-arm64-Installation; optionale Plattformpakete sind im Engine-Scan enthalten.
 
