@@ -294,23 +294,6 @@ fn population_in_range(compared: usize) -> bool {
     (READ_FLOOR..=READ_CEILING).contains(&compared)
 }
 
-#[cfg(test)]
-mod population_tests {
-    use super::*;
-
-    #[test]
-    fn missing_and_misclassified_cards_trip_opposite_bounds() {
-        assert!(population_in_range(READ_EXPECTED));
-        assert!(population_in_range(READ_FLOOR));
-        assert!(population_in_range(READ_CEILING));
-        // Inject lost cards and incorrectly included machine-owned cards.
-        assert!(!population_in_range(READ_EXPECTED - READ_SLACK - 1));
-        assert!(!population_in_range(READ_EXPECTED + READ_SLACK + 1));
-        assert!(!population_in_range(0));
-        assert!(!population_in_range(READ_EXPECTED + 1_960));
-    }
-}
-
 /// Reads every hand-written card a second way and prints the disagreements.
 #[allow(clippy::too_many_lines)] // one paragraph per skip bucket; splitting hides the census
 pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result<()> {
@@ -572,4 +555,21 @@ pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> any
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod population_tests {
+    use super::*;
+
+    #[test]
+    fn missing_and_misclassified_cards_trip_opposite_bounds() {
+        assert!(population_in_range(READ_EXPECTED));
+        assert!(population_in_range(READ_FLOOR));
+        assert!(population_in_range(READ_CEILING));
+        // Inject lost cards and incorrectly included machine-owned cards.
+        assert!(!population_in_range(READ_EXPECTED - READ_SLACK - 1));
+        assert!(!population_in_range(READ_EXPECTED + READ_SLACK + 1));
+        assert!(!population_in_range(0));
+        assert!(!population_in_range(READ_EXPECTED + 1_960));
+    }
 }
