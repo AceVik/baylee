@@ -353,7 +353,8 @@ pub(super) fn exec_immediate(
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::PumpFilter { .. }
-        | Effect::PumpTarget { .. } => counters::exec(state, res, op),
+        | Effect::PumpTarget { .. }
+        | Effect::PumpTargetSlot { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),

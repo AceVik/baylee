@@ -205,3 +205,19 @@ mod whirling_dervish;
 mod marionette_apprentice;
 
 mod giant_slug;
+
+mod voyaging_satyr;
+
+mod kiora_s_follower;
+
+mod putrid_leech;
+
+mod alchemist_s_apprentice;
+
+mod elvish_visionary;
+
+mod ravenous_rats;
+
+mod young_pyromancer;
+
+mod wizened_cenn;

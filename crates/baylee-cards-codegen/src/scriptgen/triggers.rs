@@ -562,6 +562,10 @@ impl Tx<'_> {
             .target
             .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
             .unwrap_or_default();
+        let second = chain
+            .second_target
+            .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
+            .unwrap_or_default();
         // The targets stay **outside** the `may`, and the two rules say why:
         // CR 603.3d chose them when the ability went on the stack, CR 603.5
         // puts the choice at resolution. A declined "may" is therefore an
@@ -587,7 +591,7 @@ impl Tx<'_> {
             None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
-        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{condition})");
+        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{second}{condition})");
         if let Some((role, other, secondary)) = self.block_line.take() {
             return self.pair_block_half(role, other, secondary, ability);
         }

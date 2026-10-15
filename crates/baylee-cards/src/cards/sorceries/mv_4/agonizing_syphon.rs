@@ -10,7 +10,7 @@ card!(
     oracle_id = "11669fe5-9298-4e1a-a4f7-6a4598dbc8dd",
     scryfall_id = "3532a279-b8e1-4124-bcd7-d7f4c71673eb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agonizing Syphon",
         mana_cost = mana!("{3}{B}"),

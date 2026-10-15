@@ -18,3 +18,5 @@ mod soul_feast;
 mod spring_of_eternal_peace;
 mod suppression_ray;
 mod tidings;
+
+mod angelic_edict;

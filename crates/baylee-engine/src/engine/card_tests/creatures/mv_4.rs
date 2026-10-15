@@ -190,3 +190,9 @@ mod emiel_the_blessed;
 mod ayesha_tanaka;
 
 mod halfdane;
+
+mod akroan_mastiff;
+
+mod zarichi_tiger;
+
+mod aeronaut_admiral;

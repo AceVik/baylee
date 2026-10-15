@@ -10,7 +10,7 @@ card!(
     oracle_id = "3754dce0-3e97-406f-8807-a4942a222c41",
     scryfall_id = "43febc63-597d-4392-b8ea-a00841148c45",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gaea's Anthem",
         mana_cost = mana!("{1}{G}{G}"),

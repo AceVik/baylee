@@ -11,7 +11,7 @@ card!(
     oracle_id = "9c12bdbf-80cd-4edb-bebb-b4efcf532272",
     scryfall_id = "985a5866-8c62-46af-a0c0-e69d01d87f4f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manic Vandal",
         mana_cost = mana!("{2}{R}"),

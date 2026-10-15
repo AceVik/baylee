@@ -47,3 +47,7 @@ mod verdigris;
 mod void_rend;
 mod whir_of_invention;
 mod zap;
+
+mod aerial_predation;
+
+mod wildsize;

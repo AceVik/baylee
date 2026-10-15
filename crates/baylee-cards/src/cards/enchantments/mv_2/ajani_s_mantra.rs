@@ -10,7 +10,7 @@ card!(
     oracle_id = "2f47661e-a107-4d98-8773-0a068a63df49",
     scryfall_id = "de4da30d-5c72-4323-b305-7277038b4a05",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ajani's Mantra",
         mana_cost = mana!("{1}{W}"),

@@ -410,7 +410,12 @@ impl Tx<'_> {
     /// here, not one with a flag: `PumpFilter` binds `Filter::This` to the
     /// source, `PumpTarget` to what the spell targeted, and an ability can
     /// have both a target and a pump on itself.
-    pub(super) fn pump_effect(&mut self, p: &mut Params, target: &str) -> Option<Vec<String>> {
+    pub(super) fn pump_effect(
+        &mut self,
+        p: &mut Params,
+        target: &str,
+        second: bool,
+    ) -> Option<Vec<String>> {
         let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
@@ -472,8 +477,13 @@ impl Tx<'_> {
                 if target == "TargetSpec::AnyPlayer" {
                     return None;
                 }
+                let kind = if second {
+                    "PumpTargetSlot { slot: TargetSlot::Second,"
+                } else {
+                    "PumpTarget {"
+                };
                 vec![format!(
-                    "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                    "Effect::{kind} power: {power}, toughness: {toughness}, \
                      keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
                 )]
             }

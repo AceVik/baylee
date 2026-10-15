@@ -44,3 +44,7 @@ mod sylvan_library;
 mod the_meathook_massacre;
 mod trade_routes;
 mod underworld_breach;
+
+mod ajani_s_mantra;
+
+mod favorable_winds;

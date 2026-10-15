@@ -11,7 +11,7 @@ card!(
     oracle_id = "9c5f0d91-9d86-4e66-94fd-4af93ad01838",
     scryfall_id = "7e038684-c476-41db-a1b1-57c46e5b4c9a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirited Companion",
         mana_cost = mana!("{1}{W}"),

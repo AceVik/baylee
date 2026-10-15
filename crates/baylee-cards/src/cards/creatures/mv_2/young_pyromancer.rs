@@ -17,7 +17,7 @@ card!(
     oracle_id = "5fac139a-07d3-4e6c-98e3-d98b199f7a6f",
     scryfall_id = "c0d74ecd-a595-4012-81b4-083264b40c94",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Young Pyromancer",
         mana_cost = mana!("{1}{R}"),

@@ -67,6 +67,24 @@ impl Tx<'_> {
         Some(claimed)
     }
 
+    /// Read the activation count separately from cost and effect emission.
+    fn activation_limit(&mut self, limit: Option<&str>) -> Option<String> {
+        Some(match limit {
+            None => String::new(),
+            Some(n) => {
+                let Ok(n) = n.parse::<u8>() else {
+                    // `GE4` and `X` are the corpus's other two spellings
+                    // (5 scripts between them) and neither is a count
+                    // this side can read: one is a *threshold* on the
+                    // counters already spent, the other a number the
+                    // board works out.
+                    return self.deny(format!("activation limit `{n}`"));
+                };
+                format!(", limit = ActivationLimit::PerTurn({n})")
+            }
+        })
+    }
+
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if let Some((api, p)) = Params::parse(spec)
@@ -126,6 +144,11 @@ impl Tx<'_> {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
         let effects = format!("&[{}]", chain.effects.join(", "));
+        let second_targets = chain
+            .second_target
+            .as_ref()
+            .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
+            .unwrap_or_default();
         if is_activated {
             let Some(cost) = cost else {
                 return self.deny("an activated ability with no `Cost$`".to_string());
@@ -140,20 +163,7 @@ impl Tx<'_> {
                 .target
                 .map(|t| format!(", target = Some({t})"))
                 .unwrap_or_default();
-            let limit = match limit {
-                None => String::new(),
-                Some(n) => {
-                    let Ok(n) = n.parse::<u8>() else {
-                        // `GE4` and `X` are the corpus's other two spellings
-                        // (5 scripts between them) and neither is a count
-                        // this side can read: one is a *threshold* on the
-                        // counters already spent, the other a number the
-                        // board works out.
-                        return self.deny(format!("activation limit `{n}`"));
-                    };
-                    format!(", limit = ActivationLimit::PerTurn({n})")
-                }
-            };
+            let limit = self.activation_limit(limit.as_deref())?;
             // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
             // — the macro supplies the tap, because tapping is what almost
             // every mana ability costs. Writing the cost out again says
@@ -164,7 +174,7 @@ impl Tx<'_> {
             // to say: `mana_ability!(&[…], limit = …)` would bind the
             // effects where the cost goes and `limit = …` — an assignment
             // expression, and so a legal one — where the effects go.
-            let extras = format!("{target}{limit}{condition}");
+            let extras = format!("{target}{second_targets}{limit}{condition}");
             let line = match (mana_ability, cost.as_str()) {
                 (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
                 (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
@@ -234,7 +244,7 @@ impl Tx<'_> {
                 .unwrap_or_default();
             self.body
                 .abilities
-                .push(format!("spell!({effects}{targets})"));
+                .push(format!("spell!({effects}{targets}{second_targets})"));
         }
         Some(())
     }
@@ -279,7 +289,14 @@ impl Tx<'_> {
                 .target
                 .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
                 .unwrap_or_default();
-            modes.push(format!("mode!(&[{}]{targets})", chain.effects.join(", ")));
+            let second = chain
+                .second_target
+                .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
+                .unwrap_or_default();
+            modes.push(format!(
+                "mode!(&[{}]{targets}{second})",
+                chain.effects.join(", ")
+            ));
         }
         if modes.len() < 2 {
             return self.deny("a charm with fewer than two modes".to_string());

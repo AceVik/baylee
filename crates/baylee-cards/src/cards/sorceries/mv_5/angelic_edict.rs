@@ -12,7 +12,7 @@ card!(
     oracle_id = "36de8401-ee4e-413f-91ad-06924e39c857",
     scryfall_id = "f14ed7f7-83c4-425b-a2b7-5bd76558ce76",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Edict",
         mana_cost = mana!("{4}{W}"),

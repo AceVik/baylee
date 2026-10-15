@@ -11,7 +11,7 @@ card!(
     oracle_id = "b5905ef3-6565-462f-a015-2bb5b5b09eff",
     scryfall_id = "585f1c8e-6898-4def-8e3f-d45cd263f776",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wizened Cenn",
         mana_cost = mana!("{W}{W}"),

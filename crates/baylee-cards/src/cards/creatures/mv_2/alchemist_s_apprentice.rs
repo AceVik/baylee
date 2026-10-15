@@ -11,7 +11,7 @@ card!(
     oracle_id = "de085c51-2555-450e-a479-ddbb3bea9e8c",
     scryfall_id = "31abba67-1241-4fb3-88b5-4c4668ec5f25",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alchemist's Apprentice",
         mana_cost = mana!("{1}{U}"),

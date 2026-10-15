@@ -2825,6 +2825,20 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// Apply a pump to one explicit target instance, preserving its binding
+    /// when another instance becomes illegal (Agony Warp's two clauses).
+    PumpTargetSlot {
+        /// Source, first target instance, or second target instance.
+        slot: TargetSlot,
+        /// Power modifier.
+        power: Amount,
+        /// Toughness modifier.
+        toughness: Amount,
+        /// Keywords granted alongside the pump.
+        keywords: KeywordSet,
+        /// How long the changes last.
+        duration: crate::static_ability::Duration,
+    },
     /// "target creature gains protection from the color of your choice
     /// until end of turn" (Sejiri Steppe). The color is chosen as the
     /// effect resolves (CR 608.2d asks it then, not on activation), by its

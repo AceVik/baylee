@@ -28,3 +28,7 @@ mod tsunami;
 mod unyaro_bee_sting;
 mod vengeance;
 mod wrath_of_god;
+
+mod agonizing_syphon;
+
+mod ancestral_reminiscence;

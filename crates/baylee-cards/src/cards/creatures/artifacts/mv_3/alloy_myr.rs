@@ -10,7 +10,7 @@ card!(
     index = index::ALLOY_MYR,
     oracle_id = "efb0394c-2a45-4dd8-bca3-08704056fa31",
     scryfall_id = "e8d2180b-f54c-47a9-9458-28e7a19e35ee",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alloy Myr",
         mana_cost = mana!("{3}"),

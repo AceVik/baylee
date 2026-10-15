@@ -2,6 +2,84 @@
 
 use super::*;
 
+#[test]
+fn repeated_target_declarations_keep_independent_pump_slots() {
+    // Synthetic grammar fixture, not a corpus card: distinct numbers make
+    // accidentally moving an instruction to the other slot observable.
+    for second in ["Creature", "Creature.YouCtrl"] {
+        let text = format!(
+            "Name:Two separate gifts\nTypes:Instant\nManaCost:1 G\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 2 | SubAbility$ Next\n\
+             SVar:Next:DB$ Pump | ValidTgts$ {second} | NumDef$ 5\n"
+        );
+        let body = read(&text);
+        let ability = &body.abilities[0];
+        assert!(
+            ability.contains("Effect::PumpTarget { power: Amount::Fixed(2)"),
+            "{ability}"
+        );
+        assert!(
+            ability.contains("Effect::PumpTargetSlot { slot: TargetSlot::Second,"),
+            "{ability}"
+        );
+        assert!(ability.contains("toughness: Amount::Fixed(5)"), "{ability}");
+        assert!(
+            ability.contains("second_targets = Some(TargetReq::one("),
+            "{ability}"
+        );
+    }
+}
+
+#[test]
+fn repeated_targets_without_slot_support_are_refused_even_when_types_match() {
+    for next in [
+        "DB$ Destroy | ValidTgts$ Creature",
+        "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | SubAbility$ Third",
+        "DB$ Pump | ValidTgts$ Creature | NumDef$ X",
+        "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | UnknownRule$ True",
+        "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | Duration$ Permanent",
+        "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | TgtNum$ 2",
+    ] {
+        let text = format!(
+            "Name:Independent target boundary\nTypes:Instant\nManaCost:2 G\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 4 | SubAbility$ Next\n\
+             SVar:Next:{next}\nSVar:Third:DB$ Pump | ValidTgts$ Creature | NumDef$ 2\n"
+        );
+        assert!(refused(&text), "independent target collapsed: {text}");
+    }
+}
+
+#[test]
+fn a_defined_target_continuation_does_not_ask_for_another_target() {
+    let body = read(
+        "Name:One gift in two parts\nTypes:Instant\nManaCost:1 G\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 2 | SubAbility$ Next\n\
+         SVar:Next:DB$ Pump | Defined$ Targeted | NumDef$ 5\n",
+    );
+    assert!(!body.abilities[0].contains("second_targets"));
+    assert_eq!(body.abilities[0].matches("Effect::PumpTarget {").count(), 2);
+}
+
+#[test]
+fn independent_counter_targets_are_refused_until_counter_slots_are_supported() {
+    let head = "Name:Separate counters\nTypes:Instant\nManaCost:2 G\n\
+                A:SP$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 2";
+    let single = read(head);
+    assert!(single.abilities[0].contains("Effect::AddCounter"));
+    let pair = format!(
+        "{head} | SubAbility$ Next\n\
+         SVar:Next:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4\n"
+    );
+    assert!(
+        refused(&pair),
+        "two target clauses must not collapse into one"
+    );
+    assert_eq!(
+        refusal_reason(&parse(&pair), &cats(), None).as_deref(),
+        Some("unsupported independent target in one chain")
+    );
+}
+
 /// `Produced$ W U` is "add {W}{U}" — two mana at once. `Combo W U` is
 /// the choice between them, and reading one as the other would hand a
 /// bounce land twice the mana or half of it.

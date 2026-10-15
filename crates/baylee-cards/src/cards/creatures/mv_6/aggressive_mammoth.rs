@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7724b978-999b-4654-96f3-58e28aa7cb34",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aggressive Mammoth",
         mana_cost = mana!("{3}{G}{G}{G}"),

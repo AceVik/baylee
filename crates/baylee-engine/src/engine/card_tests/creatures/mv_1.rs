@@ -109,3 +109,5 @@ mod wall_of_wood;
 mod will_o_the_wisp;
 mod wirewood_symbiote;
 mod young_wolf;
+
+mod acolyte_of_xathrid;

@@ -1,0 +1,593 @@
+{
+  "date": "2026-10-15",
+  "scope": "32 additional Generated cards; separate from original 540 Partial cards",
+  "authors": "GPT-6 Luna, four groups of eight, Oracle-blind",
+  "reviewer": "GPT-6.1 Sol; production engine/DSL/codegen repair by GPT-6 Astra",
+  "result": {
+    "cards": 32,
+    "tests_passed": 35,
+    "ability_entries_fired": 34,
+    "ability_mutants_killed": 34,
+    "initial_compiler_errors": 15,
+    "first_runtime": {
+      "passed": 25,
+      "failed": 10
+    },
+    "second_runtime": {
+      "passed": 27,
+      "failed": 8
+    },
+    "third_runtime": {
+      "passed": 34,
+      "failed": 1
+    },
+    "token_savings": "not measured; do not infer savings from model price alone"
+  },
+  "limitations": [
+    "All 32 received full review; results do not justify unattended promotion or sampling alone.",
+    "Whole-ability mutation detects absent abilities, not every erroneous clause.",
+    "Some review feedback was retracted after checking actual harness APIs.",
+    "Initial compilation overlapped author fixes; diagnostics are not a clean frozen first-draft rate."
+  ],
+  "production_findings": {
+    "fixed": [
+      "Agony Warp: independent first/second target bindings",
+      "Martial Glory: same generator repair, remains Generated without own test"
+    ],
+    "fail_closed_unimplemented": [
+      "Bounty of Might: three independent target clauses",
+      "Seeds of Strength: three independent target clauses",
+      "Common Bond: second-target counter placement"
+    ]
+  },
+  "rule_source": "https://magic.wizards.com/en/news/feature/modern-masters-2015-edition-release-notes-2015-05-12",
+  "cards": [
+    {
+      "name": "Abrade",
+      "oracle_id": "f9db72dc-9a5b-48a4-a86e-7464d9a2166a",
+      "index": 16869,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/instants/mv_2/abrade.rs",
+      "first_review_issues": [
+        "fixture queries absent creature",
+        "incorrect exclusion of legal creature target"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Aerial Predation",
+      "oracle_id": "6bac1495-16cf-4e1e-9126-482f85322c78",
+      "index": 12731,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/instants/mv_3/aerial_predation.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Agony Warp",
+      "oracle_id": "377c217b-ddad-4e1a-9122-f347113d3dfa",
+      "index": 9866,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/instants/mv_2/agony_warp.rs",
+      "first_review_issues": [
+        "incorrect distinct-target rule",
+        "second target dies before inspected stats",
+        "duration untested"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Angelic Edict",
+      "oracle_id": "36de8401-ee4e-413f-91ad-06924e39c857",
+      "index": 12975,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/sorceries/mv_5/angelic_edict.rs",
+      "first_review_issues": [
+        "enchantment branch offered but never resolved"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Agonizing Syphon",
+      "oracle_id": "11669fe5-9298-4e1a-a4f7-6a4598dbc8dd",
+      "index": 19074,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/sorceries/mv_4/agonizing_syphon.rs",
+      "first_review_issues": [
+        "creature any-target category never resolved"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Wildsize",
+      "oracle_id": "e1f439c7-217f-4b20-a77d-b9014c5de8c0",
+      "index": 8059,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/instants/mv_3/wildsize.rs",
+      "first_review_issues": [
+        "trample grant checked on creature already with trample",
+        "duration untested",
+        "no operational trample"
+      ],
+      "semantic_review_rounds": 3,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Wrecking Ball",
+      "oracle_id": "0a1b0910-3b0c-4aa3-b47f-8eb069122743",
+      "index": 8231,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/instants/mv_4/wrecking_ball.rs",
+      "first_review_issues": [
+        "fixture cannot pay red mana",
+        "creature branch offered but never resolved"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Ancestral Reminiscence",
+      "oracle_id": "dbfa2743-34ff-40e3-81f7-740fc08cd18a",
+      "index": 26826,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/sorceries/mv_4/ancestral_reminiscence.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Spirited Companion",
+      "oracle_id": "9c5f0d91-9d86-4e66-94fd-4af93ad01838",
+      "index": 22977,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/enchantments/mv_2/spirited_companion.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Elvish Visionary",
+      "oracle_id": "c6a3a882-a127-4590-93d7-679ef4313efe",
+      "index": 9922,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/elvish_visionary.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Ravenous Rats",
+      "oracle_id": "2fa1bbfd-92b5-482c-b32d-4cdc286474c4",
+      "index": 3091,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/ravenous_rats.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Manic Vandal",
+      "oracle_id": "9c12bdbf-80cd-4edb-bebb-b4efcf532272",
+      "index": 11222,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_3/manic_vandal.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Nyx-Fleece Ram",
+      "oracle_id": "5a20113c-7ea8-4edf-af9f-148ccd326a88",
+      "index": 13970,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/enchantments/mv_2/nyx_fleece_ram.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Ajani's Mantra",
+      "oracle_id": "2f47661e-a107-4d98-8773-0a068a63df49",
+      "index": 11166,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/enchantments/mv_2/ajani_s_mantra.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Young Pyromancer",
+      "oracle_id": "5fac139a-07d3-4e6c-98e3-d98b199f7a6f",
+      "index": 13439,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/young_pyromancer.rs",
+      "first_review_issues": [
+        "opponent instant/sorcery negative absent"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Witty Roastmaster",
+      "oracle_id": "34edbf1b-0826-49f1-a04d-15cc8c543b22",
+      "index": 23439,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_3/witty_roastmaster.rs",
+      "first_review_issues": [
+        "each opponent checked only with one opponent (optional strengthening)"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Voyaging Satyr",
+      "oracle_id": "bce18f34-848e-4dd2-9a38-6084c0695f78",
+      "index": 13648,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/voyaging_satyr.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Kiora's Follower",
+      "oracle_id": "22c044ad-77d7-4c93-953d-e2daa9686ff7",
+      "index": 13718,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/kiora_s_follower.rs",
+      "first_review_issues": [
+        "land category offered but never resolved"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Putrid Leech",
+      "oracle_id": "16b723bc-aab9-40f2-8e1b-b9c2bd2af3bc",
+      "index": 10323,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/putrid_leech.rs",
+      "first_review_issues": [
+        "priority handoff mistaken for next turn; expiry/reset not reached"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Alchemist's Apprentice",
+      "oracle_id": "de085c51-2555-450e-a479-ddbb3bea9e8c",
+      "index": 12346,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/alchemist_s_apprentice.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Akroan Mastiff",
+      "oracle_id": "6039b9b7-e49a-4ea3-887c-a17dd502d63f",
+      "index": 13888,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_4/akroan_mastiff.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Acolyte of Xathrid",
+      "oracle_id": "62dca41b-58b0-45eb-ada7-568e80a2abec",
+      "index": 10376,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_1/acolyte_of_xathrid.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Alloy Myr",
+      "oracle_id": "efb0394c-2a45-4dd8-bca3-08704056fa31",
+      "index": 11638,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/artifacts/mv_3/alloy_myr.rs",
+      "first_review_issues": [
+        "only one of five colors resolved"
+      ],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Zarichi Tiger",
+      "oracle_id": "0749e79f-e61d-4037-bb39-75f1ebf46c5d",
+      "index": 13187,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_4/zarichi_tiger.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 2,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Always Watching",
+      "oracle_id": "c2153115-bc12-458d-baeb-538ec61e1242",
+      "index": 15580,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/enchantments/mv_3/always_watching.rs",
+      "first_review_issues": [
+        "cast without floating mana"
+      ],
+      "semantic_review_rounds": 5,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        },
+        {
+          "ability": 1,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Gaea's Anthem",
+      "oracle_id": "3754dce0-3e97-406f-8807-a4942a222c41",
+      "index": 8696,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/enchantments/mv_3/gaea_s_anthem.rs",
+      "first_review_issues": [
+        "cast without floating mana",
+        "fixture lacks required green while preserving attacker"
+      ],
+      "semantic_review_rounds": 4,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Goblin Chieftain",
+      "oracle_id": "368b4052-174e-4458-a6e6-eaf8093aa0fe",
+      "index": 10416,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_3/goblin_chieftain.rs",
+      "first_review_issues": [
+        "cast without floating mana",
+        "existing bystanders do not demonstrate haste/sickness"
+      ],
+      "semantic_review_rounds": 3,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        },
+        {
+          "ability": 1,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Wizened Cenn",
+      "oracle_id": "b5905ef3-6565-462f-a015-2bb5b5b09eff",
+      "index": 9256,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_2/wizened_cenn.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 3,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Windstorm Drake",
+      "oracle_id": "16977ebd-6384-4c28-b9c3-448563a07807",
+      "index": 18611,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_5/windstorm_drake.rs",
+      "first_review_issues": [
+        "flying clause only bits; no operational flight",
+        "other excludes source not asserted in P/T"
+      ],
+      "semantic_review_rounds": 4,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Aggressive Mammoth",
+      "oracle_id": "032b5fc4-5aca-41b6-9bf6-2c1ed0018968",
+      "index": 17885,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_6/aggressive_mammoth.rs",
+      "first_review_issues": [
+        "nonflying Elf cannot block flying attacker"
+      ],
+      "semantic_review_rounds": 3,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Aeronaut Admiral",
+      "oracle_id": "dcde1a62-33a5-4454-a389-9bf7a3521a4c",
+      "index": 16424,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/creatures/mv_4/aeronaut_admiral.rs",
+      "first_review_issues": [
+        "fixture Vehicle already flying; gain/remove assertions vacuous or wrong",
+        "fixture uses printing UUID"
+      ],
+      "semantic_review_rounds": 5,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    },
+    {
+      "name": "Favorable Winds",
+      "oracle_id": "2361ca87-6352-4ba3-8d91-b3d71242914d",
+      "index": 12414,
+      "test_path": "crates/baylee-engine/src/engine/card_tests/enchantments/mv_2/favorable_winds.rs",
+      "first_review_issues": [],
+      "semantic_review_rounds": 4,
+      "final_status": "tests, semantic review, ability firing and ability mutation passed",
+      "mutants": [
+        {
+          "ability": 0,
+          "exit": 101
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "card_tests": "35 passed across all 32 cards; Admiral test rerun successfully after final helper extraction",
+    "ability_log": "34 required ability entries observed",
+    "mutations": "34/34 whole-ability mutants killed; Admiral mutant rechecked after helper extraction",
+    "broad_engine": "7411 passed, 1 Admiral fixture failure, 2 ignored, 7 pending-batch51 tests filtered; sole failure fixed and focused test passed afterward",
+    "supporting_suites": {
+      "cards": 144,
+      "codegen": 327,
+      "ai": 262,
+      "dsl": 82
+    },
+    "codegen_check": "passed",
+    "workspace_clippy_all_targets_dev_control": "passed",
+    "diff_check": "passed"
+  }
+}

@@ -11,7 +11,7 @@ card!(
     oracle_id = "16b723bc-aab9-40f2-8e1b-b9c2bd2af3bc",
     scryfall_id = "c901a8d7-e230-4a08-afe5-00e9d1c85544",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Putrid Leech",
         mana_cost = mana!("{B}{G}"),

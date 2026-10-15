@@ -12,7 +12,7 @@ card!(
     oracle_id = "0a1b0910-3b0c-4aa3-b47f-8eb069122743",
     scryfall_id = "9a8fafff-e9b1-49e1-9bba-5f3c82cac894",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wrecking Ball",
         mana_cost = mana!("{2}{B}{R}"),

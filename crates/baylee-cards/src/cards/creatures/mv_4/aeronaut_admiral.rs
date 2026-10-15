@@ -13,7 +13,7 @@ card!(
     scryfall_id = "943f7244-aa62-423f-aaaa-680bdfb4f47e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aeronaut Admiral",
         mana_cost = mana!("{3}{W}"),

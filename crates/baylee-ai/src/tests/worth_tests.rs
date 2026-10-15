@@ -1582,3 +1582,28 @@ fn harabaz_druid_pours_one_mana_per_ally_its_controller_has() {
         Some(1)
     );
 }
+
+#[test]
+fn second_slot_pump_is_not_valued_against_the_first_target() {
+    let v = view(0, &[20, 20], vec![permanent(obj(1), ME, 2)]);
+    let effect = baylee_cards_dsl::Effect::PumpTargetSlot {
+        slot: baylee_cards_dsl::TargetSlot::Second,
+        power: baylee_cards_dsl::Amount::NegXFixed(3),
+        toughness: baylee_cards_dsl::Amount::Fixed(0),
+        keywords: baylee_cards_dsl::KeywordSet::EMPTY,
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+    };
+    assert_eq!(
+        agent().effects_worth(
+            &v,
+            Origin {
+                id: obj(2),
+                object: None
+            },
+            &[effect],
+            Aim::Object(obj(1)),
+            0,
+        ),
+        None,
+    );
+}

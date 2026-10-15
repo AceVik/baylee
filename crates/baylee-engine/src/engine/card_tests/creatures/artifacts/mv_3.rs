@@ -16,3 +16,5 @@ mod onulet;
 mod thermal_navigator;
 mod wall_of_spears;
 mod yotian_soldier;
+
+mod alloy_myr;

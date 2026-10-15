@@ -249,3 +249,9 @@ mod gaea_s_avenger;
 mod old_man_of_the_sea;
 
 mod pit_scorpion;
+
+mod manic_vandal;
+
+mod witty_roastmaster;
+
+mod goblin_chieftain;

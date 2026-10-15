@@ -464,8 +464,51 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
+        Effect::PumpTargetSlot {
+            slot,
+            power,
+            toughness,
+            keywords,
+            duration,
+        } => {
+            let p = signed(&power, state, you, res);
+            let t = signed(&toughness, state, you, res);
+            let filters = pump_slot_filters(state, res, slot);
+            pump(state, res, you, &filters, (p, t), keywords, duration);
+            None
+        }
         _ => unreachable!("not a counter/P-T effect"),
     }
+}
+
+/// A target instance never slides into the other one's place after pruning.
+fn pump_slot_filters(
+    state: &GameState,
+    res: &Resolution,
+    slot: baylee_cards_dsl::TargetSlot,
+) -> SmallVec<[crate::effects::EffectFilter; 4]> {
+    use baylee_cards_dsl::TargetSlot;
+    let bind = |reference: baylee_core::ids::DamageSourceRef| {
+        crate::effects::EffectFilter::ObjectIs(reference.object, reference.version)
+    };
+    if slot == TargetSlot::This {
+        return super::subjects::source(state, res)
+            .filter(|reference| super::subjects::on_battlefield(state, *reference))
+            .map(bind)
+            .into_iter()
+            .collect();
+    }
+    let targets = match slot {
+        TargetSlot::First => res.targets.as_slice(),
+        TargetSlot::Second => res.second_targets.as_slice(),
+        TargetSlot::This => unreachable!("handled source"),
+    };
+    targets
+        .iter()
+        .filter_map(|target| super::subjects::target(state, res, *target))
+        .filter(|reference| super::subjects::on_battlefield(state, *reference))
+        .map(bind)
+        .collect()
 }
 
 /// Registers one pump: a P/T modifier, and a keyword grant beside it when
@@ -588,6 +631,58 @@ mod pump_tests {
             toughness,
             keywords,
             duration: Duration::UntilEndOfTurn,
+        }
+    }
+
+    #[test]
+    fn explicit_pump_slots_do_not_slide_when_either_target_instance_is_illegal() {
+        use baylee_cards_dsl::TargetSlot;
+        for absent in [None, Some(TargetSlot::First), Some(TargetSlot::Second)] {
+            let mut state = state();
+            let first = permanent(&mut state, me(), "first target");
+            let second = permanent(&mut state, me(), "second target");
+            let source = permanent(&mut state, me(), "spell");
+            let mut res = resolution(source, &[first]);
+            res.second_targets.push(second);
+            if absent == Some(TargetSlot::First) {
+                res.targets.clear();
+            } else if absent == Some(TargetSlot::Second) {
+                res.second_targets.clear();
+            }
+            for (slot, power, toughness) in [
+                (TargetSlot::First, Amount::NegXFixed(2), Amount::Fixed(0)),
+                (TargetSlot::Second, Amount::Fixed(0), Amount::NegXFixed(5)),
+            ] {
+                exec(
+                    &mut state,
+                    &mut res,
+                    Effect::PumpTargetSlot {
+                        slot,
+                        power,
+                        toughness,
+                        keywords: KeywordSet::EMPTY,
+                        duration: Duration::UntilEndOfTurn,
+                    },
+                );
+            }
+            let effects: Vec<_> = state.effects.iter().collect();
+            assert_eq!(effects.len(), if absent.is_some() { 1 } else { 2 });
+            for effect in effects {
+                let crate::effects::EffectFilter::ObjectIs(target, _) = effect.filter else {
+                    panic!("pump is bound to an exact target");
+                };
+                assert_eq!(
+                    effect.modifier,
+                    if target == first {
+                        assert_ne!(absent, Some(TargetSlot::First));
+                        Modifier::ModifyPT(-2, 0)
+                    } else {
+                        assert_eq!(target, second);
+                        assert_ne!(absent, Some(TargetSlot::Second));
+                        Modifier::ModifyPT(0, -5)
+                    }
+                );
+            }
         }
     }
 

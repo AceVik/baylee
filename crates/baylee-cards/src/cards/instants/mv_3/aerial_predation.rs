@@ -12,7 +12,7 @@ card!(
     oracle_id = "6bac1495-16cf-4e1e-9126-482f85322c78",
     scryfall_id = "3b405858-83eb-4939-b86d-4ba190fca048",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Predation",
         mana_cost = mana!("{2}{G}"),

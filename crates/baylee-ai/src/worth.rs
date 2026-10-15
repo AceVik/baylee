@@ -1412,6 +1412,25 @@ impl HeuristicAgent {
                 let objects: Vec<_> = origin.object.into_iter().collect();
                 self.modifier_worth(view, origin, &objects, modifier, *duration)?
             }
+            Effect::PumpTargetSlot {
+                slot,
+                power,
+                toughness,
+                keywords,
+                duration,
+            } => {
+                // This evaluator carries one aim, not bindings for both instances.
+                // Never value a second-slot modifier against the first target.
+                let target = match slot {
+                    baylee_cards_dsl::TargetSlot::This => origin.object,
+                    baylee_cards_dsl::TargetSlot::First => subject,
+                    baylee_cards_dsl::TargetSlot::Second => return None,
+                };
+                let objects: Vec<&PublicObject> = target.into_iter().collect();
+                let p = i32::try_from(count(*power)?).unwrap_or(0);
+                let t = i32::try_from(count(*toughness)?).unwrap_or(0);
+                self.pump(view, &objects, (p, t, keywords.bits()), *duration)
+            }
             Effect::PumpTarget {
                 power,
                 toughness,

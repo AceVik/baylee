@@ -22,3 +22,5 @@ mod waterlogged_teachings;
 mod rapid_fire;
 
 mod storm_seeker;
+
+mod wrecking_ball;

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "89fcc35b-76fa-4408-8620-a1e11b2caf1f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Chieftain",
         mana_cost = mana!("{1}{R}{R}"),

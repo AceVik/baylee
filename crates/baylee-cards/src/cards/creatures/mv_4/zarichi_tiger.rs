@@ -11,7 +11,7 @@ card!(
     oracle_id = "0749e79f-e61d-4037-bb39-75f1ebf46c5d",
     scryfall_id = "7bf5efe4-d9a0-4704-b5ba-3213c946df37",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zarichi Tiger",
         mana_cost = mana!("{3}{W}"),

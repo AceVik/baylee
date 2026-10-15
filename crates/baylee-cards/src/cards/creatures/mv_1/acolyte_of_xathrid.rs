@@ -11,7 +11,7 @@ card!(
     oracle_id = "62dca41b-58b0-45eb-ada7-568e80a2abec",
     scryfall_id = "4b0b14d4-41de-42ac-9894-77bbcebaabfc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Acolyte of Xathrid",
         mana_cost = mana!("{B}"),

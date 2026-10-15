@@ -1032,7 +1032,8 @@ impl Effect {
             | Effect::PumpFilter { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
-            | Effect::PumpTarget { .. } => (NONE, NONE),
+            | Effect::PumpTarget { .. }
+            | Effect::PumpTargetSlot { .. } => (NONE, NONE),
         }
     }
 

@@ -11,7 +11,7 @@ card!(
     oracle_id = "5a20113c-7ea8-4edf-af9f-148ccd326a88",
     scryfall_id = "771fcea9-1007-4ff6-8000-99017978ac1c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nyx-Fleece Ram",
         mana_cost = mana!("{1}{W}"),

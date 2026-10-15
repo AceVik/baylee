@@ -64,3 +64,5 @@ mod hunding_gjornersen;
 mod marhault_elsdragon;
 
 mod frost_giant;
+
+mod aggressive_mammoth;

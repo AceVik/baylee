@@ -11,7 +11,7 @@ card!(
     oracle_id = "6039b9b7-e49a-4ea3-887c-a17dd502d63f",
     scryfall_id = "7e21938b-46b1-4b2f-8269-0cd0e998cddc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroan Mastiff",
         mana_cost = mana!("{3}{W}"),

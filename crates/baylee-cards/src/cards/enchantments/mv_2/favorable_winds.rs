@@ -10,7 +10,7 @@ card!(
     oracle_id = "2361ca87-6352-4ba3-8d91-b3d71242914d",
     scryfall_id = "1de89026-13a6-4ae3-9059-460bdd657285",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Favorable Winds",
         mana_cost = mana!("{1}{U}"),

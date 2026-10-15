@@ -149,6 +149,9 @@ fn reads_event(effect: &Effect) -> bool {
         }
         | Effect::PumpTarget {
             power, toughness, ..
+        }
+        | Effect::PumpTargetSlot {
+            power, toughness, ..
         } => reads_amount(*power) || reads_amount(*toughness),
         Effect::PlayerMayPayOr { player, mana, .. }
         | Effect::PlayerMayPayThen { player, mana, .. }

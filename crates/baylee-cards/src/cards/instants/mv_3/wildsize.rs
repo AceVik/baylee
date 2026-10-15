@@ -11,7 +11,7 @@ card!(
     oracle_id = "e1f439c7-217f-4b20-a77d-b9014c5de8c0",
     scryfall_id = "a8fd3631-af9c-4cf7-9336-95c84c7a925c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildsize",
         mana_cost = mana!("{2}{G}"),

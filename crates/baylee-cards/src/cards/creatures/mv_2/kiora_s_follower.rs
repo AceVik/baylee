@@ -11,7 +11,7 @@ card!(
     oracle_id = "22c044ad-77d7-4c93-953d-e2daa9686ff7",
     scryfall_id = "3666d3eb-fc62-4966-9149-aa3435650c29",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kiora's Follower",
         mana_cost = mana!("{G}{U}"),

@@ -23,31 +23,7 @@ impl Tx<'_> {
         let valid = p.take("ValidTgts");
         let targets_here = valid.is_some();
         if let Some(valid) = valid {
-            // A card in a graveyard is a different kind of target from a
-            // permanent (CR 115.1 names both, and they are chosen from
-            // different zones), so the zone the line moves *from* decides
-            // the spec before the valid-string is read.
-            let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
-                self.graveyard_target(&valid)
-            } else {
-                // "Target spell or permanent" (the Laces): the stack is a
-                // zone a target may be chosen in only where the line says
-                // so. The battlefield alone is what every target already
-                // is.
-                match p.take("TgtZone").as_deref() {
-                    None | Some("Battlefield") => self.target_spec(&valid, &api),
-                    Some("Stack,Battlefield" | "Battlefield,Stack") => {
-                        self.spell_or_permanent_target(&valid)
-                    }
-                    Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
-                }
-            };
-            let Some(spec) = spec else {
-                return self.deny(format!("target `{valid}`"));
-            };
-            if chain.target.get_or_insert(spec.clone()) != &spec {
-                return self.deny("two different targets in one chain".to_string());
-            }
+            self.chain_target(&api, &mut p, &valid, chain)?;
         }
         let sub = p.take("SubAbility");
         // The chosen-source shield is three lines in the reference and one
@@ -64,7 +40,12 @@ impl Tx<'_> {
         // `PlayerRel::Chosen`. Handing the *requirement* to the effect
         // instead is how a burn spell ends up dealing damage to nothing at
         // all: `DealDamage` looks for an object target and finds none.
-        let target: Option<String> = match chain.target.as_deref() {
+        let target: Option<String> = match chain
+            .second_target
+            .as_ref()
+            .or(chain.target.as_ref())
+            .map(String::as_str)
+        {
             Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
                 Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
             }
@@ -94,8 +75,11 @@ impl Tx<'_> {
             None => None,
         };
 
-        let Some(mut effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
-        else {
+        let Some(mut effects) = (if chain.second_target.is_some() {
+            self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
+        } else {
+            self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
+        }) else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
             // effect, the second is a missing case in one that exists.
@@ -128,6 +112,63 @@ impl Tx<'_> {
             }
             None => Some(()),
         }
+    }
+
+    /// Register a fresh target declaration without merging independent instances.
+    fn chain_target(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        valid: &str,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        // A card in a graveyard is a different kind of target from a
+        // permanent (CR 115.1 names both, and they are chosen from
+        // different zones), so the zone the line moves *from* decides
+        // the spec before the valid-string is read.
+        let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
+            self.graveyard_target(valid)
+        } else {
+            // "Target spell or permanent" (the Laces): the stack is a
+            // zone a target may be chosen in only where the line says
+            // so. The battlefield alone is what every target already
+            // is.
+            match p.take("TgtZone").as_deref() {
+                None | Some("Battlefield") => self.target_spec(valid, api),
+                Some("Stack,Battlefield" | "Battlefield,Stack") => {
+                    self.spell_or_permanent_target(valid)
+                }
+                Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
+            }
+        };
+        let Some(spec) = spec else {
+            return self.deny(format!("target `{valid}`"));
+        };
+        if chain.target.is_some() {
+            // A fresh ValidTgts declares another target instance even
+            // when its restriction is identical. Never alias it to the
+            // earlier list. Only a terminal fixed pump has explicit
+            // second-slot semantics in this reader so far.
+            if chain.second_target.is_some()
+                || api != "Pump"
+                || p.peek("SubAbility").is_some()
+                || p.peek("Defined").is_some_and(|v| v != "Targeted")
+                || ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                    .iter()
+                    .any(|key| p.peek(key).is_some())
+                || ["NumAtt", "NumDef"].iter().any(|key| {
+                    p.peek(key)
+                        .is_some_and(|value| value.parse::<i16>().is_err())
+                })
+                || !spec.starts_with("TargetSpec::Object(")
+            {
+                return self.deny("unsupported independent target in one chain".to_string());
+            }
+            chain.second_target = Some(spec);
+        } else {
+            chain.target = Some(spec);
+        }
+        Some(())
     }
 
     /// `ReplaceDyingDefined$` — "if that creature would die this turn,
@@ -682,7 +723,7 @@ impl Tx<'_> {
                 self.everything_protection(p)?
             }
             "Phases" => self.phase_your_permanents(p)?,
-            "Pump" => self.pump_effect(p, aimed)?,
+            "Pump" => self.pump_effect(p, aimed, false)?,
             "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,

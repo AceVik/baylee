@@ -250,11 +250,12 @@ impl Params {
     }
 }
 
-/// A chain of `SubAbility$`-linked effects and the target they share.
+/// A chain of effects and its independently announced target instances.
 #[derive(Debug, Default)]
 struct Chain {
     effects: Vec<String>,
     target: Option<String>,
+    second_target: Option<String>,
     could_add_mana: bool,
     moves_library: bool,
 }

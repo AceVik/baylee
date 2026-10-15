@@ -25,13 +25,15 @@ card!(
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             },
-            Effect::PumpTarget {
+            Effect::PumpTargetSlot {
+                slot: TargetSlot::Second,
                 power: Amount::Fixed(0),
                 toughness: Amount::Fixed(3),
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             }
         ],
-        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        second_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
     ),],
 );

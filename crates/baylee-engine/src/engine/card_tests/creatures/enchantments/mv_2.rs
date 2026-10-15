@@ -4,3 +4,7 @@
 use super::*;
 
 mod spirit_of_the_labyrinth;
+
+mod spirited_companion;
+
+mod nyx_fleece_ram;

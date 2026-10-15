@@ -27216,14 +27216,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Seeds of Strength
-    &[FaceLines {
-        sentences: 3,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Seismic Spike
     &[FaceLines {
         sentences: 1,
@@ -42450,14 +42443,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Common Bond
-    &[FaceLines {
-        sentences: 2,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -57735,14 +57721,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Bounty of Might
-    &[FaceLines {
-        sentences: 3,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Burglar Rat
     &[FaceLines {
         sentences: 1,

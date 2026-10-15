@@ -11,7 +11,7 @@ card!(
     oracle_id = "377c217b-ddad-4e1a-9122-f347113d3dfa",
     scryfall_id = "5890a23e-1da0-432b-8dc8-85b92dee9ba1",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agony Warp",
         mana_cost = mana!("{U}{B}"),
@@ -25,13 +25,15 @@ card!(
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             },
-            Effect::PumpTarget {
+            Effect::PumpTargetSlot {
+                slot: TargetSlot::Second,
                 power: Amount::Fixed(0),
                 toughness: Amount::NegXFixed(3),
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             }
         ],
-        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        second_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
     ),],
 );
