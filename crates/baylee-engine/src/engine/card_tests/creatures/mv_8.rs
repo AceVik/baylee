@@ -5,17 +5,27 @@ use super::*;
 
 mod akroma_angel_of_wrath;
 mod ancient_brontodon;
+mod ashen_firebeast;
 mod avacyn_angel_of_hope;
 mod axelrod_gunnarson;
+mod baleful_force;
 mod benthic_behemoth;
+mod bloodfire_colossus;
 mod brimstone_dragon;
+mod celestial_force;
 mod chromium;
 mod copper_host_crusher;
 mod crash_of_rhinos;
 mod eldrazi_devastator;
+mod godsire;
 mod goliath_spider;
+mod griselbrand;
+mod hellkite_overlord;
 mod maelstrom_wanderer;
+mod pestilence_demon;
 mod scaled_wurm;
+mod skeletal_wurm;
+mod utvara_hellkite;
 mod verdant_force;
 mod zetalpa_primal_dawn;
 
