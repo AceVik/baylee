@@ -182,9 +182,125 @@ fn once_each_turn_any_color(card: CardIndex) {
     assert!(offered(&engine), "a new turn, a new activation");
 }
 
+/// Seat 0's `card` attacks into a Bears and a Storm Crow: the Crow may block
+/// it, the Bears (no flying, no reach) may not.
+#[track_caller]
+fn only_a_flier_may_block(card: CardIndex) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = table(&[], &[card], &[grizzly_bears(), storm_crow()]);
+    let me = on_battlefield(&engine, p0, card).expect("seated");
+    assert!(keywords(&engine, me).contains(KeywordSet::FLYING));
+    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("seated");
+    let crow = on_battlefield(&engine, p1, storm_crow()).expect("seated");
+    let options = attack_and_collect_blocks(&mut engine, me, p1);
+    assert!(
+        options.iter().any(|o| o.blocker == crow),
+        "a flier may block"
+    );
+    assert!(
+        !options.iter().any(|o| o.blocker == bears),
+        "a ground creature may not"
+    );
+}
+
+/// Passes to seat 0's next turn, first main phase.
+#[track_caller]
+fn to_my_next_turn(engine: &mut Engine<RegistryLookup>) {
+    let p0 = PlayerId::new(0);
+    let now = engine.state().turn.number;
+    pass_until(engine, |e| {
+        e.state().turn.number > now
+            && e.state().turn.active == p0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+}
+
+/// Answers whatever stands between here and the next quiet priority, naming
+/// seat 1 for a "target opponent"/"any target" question, and says whether such
+/// a question was asked.
+#[track_caller]
+fn settle_aiming_at_opponent(engine: &mut Engine<RegistryLookup>) -> bool {
+    let p1 = PlayerId::new(1);
+    let mut asked = false;
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChoosePlayer { player, options } => {
+                asked = true;
+                assert!(options.contains(&p1), "the opponent is on the menu");
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(p1))
+                    .expect("the opponent is a legal choice");
+            }
+            Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } => {
+                asked = true;
+                assert!(player_options.contains(&p1), "the opponent is on the menu");
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![p1],
+                        },
+                    )
+                    .expect("the opponent is a legal target");
+            }
+            Pending::Priority { .. } if stack_is_empty(engine) => return asked,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected question: {other:?}"),
+        }
+    }
+    panic!("no quiet priority within forty actions")
+}
+
+/// Seat 0's `attacker` attacks seat 1 and the combat runs on. The blocks the
+/// opponent is then offered (`Some`), or `None` when nobody could block and
+/// the question was never asked.
+#[track_caller]
+fn attack_block_options(
+    engine: &mut Engine<RegistryLookup>,
+    attacker: ObjectId,
+) -> Option<Vec<crate::choice::BlockOption>> {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker was on the offer");
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => return Some(blockers),
+            Pending::Priority { player, .. } => {
+                if engine.state().turn.step == Step::CombatDamage
+                    || engine.state().turn.phase == Phase::SecondMain
+                {
+                    return None;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the blockers: {other:?}"),
+        }
+    }
+    panic!("never reached the blockers or the damage")
+}
+
 mod a_i_m_synthoids;
+mod aegis_automaton;
 mod alpha_myr;
 mod arcbound_ravager;
+mod attentive_sunscribe;
 mod baleful_strix;
 mod battering_ram;
 mod bronze_sable;
@@ -193,37 +309,66 @@ mod coastal_bulwark;
 mod consulate_skygate;
 mod copper_myr;
 mod coretapper;
+mod corridor_monitor;
+mod darklit_gargoyle;
+mod diversion_unit;
 mod doom_s_servo_guards;
+mod escaped_experiment;
 mod field_creeper;
 mod friendly_teddy;
+mod glaze_fiend;
 mod gleaming_barrier;
 mod gold_myr;
+mod gust_skimmer;
 mod haunted_guardian;
 mod hedron_crawler;
+mod hedron_scrabbler;
+mod hermitic_nautilus;
 mod hovermyr;
+mod hydra_assault_robot;
 mod iron_myr;
+mod jousting_dummy;
 mod leaden_myr;
 mod malcator_s_watcher;
 mod manakin;
+mod mandible_justiciar;
 mod mandroid_squadron;
+mod mechan_navigator;
+mod mechanized_ninja_cavalry;
+mod metallurgeon;
+mod monoskelion;
 mod myr_retriever;
 mod myr_sire;
+mod narnam_cobra;
 mod omega_myr;
+mod one_clown_band;
 mod ornithopter_of_paradise;
+mod parcel_myr;
 mod perilous_myr;
 mod piggy_bank;
 mod pili_pala;
 mod prismite;
+mod ragged_playmate;
+mod red_herring;
 mod runed_servitor;
 mod salvaged_manaworker;
 mod sanitation_automaton;
 mod scarecrow_guide;
+mod scorpion_sentinel;
 mod shire_scarecrow;
 mod silver_myr;
+mod sliversmith;
 mod sundial_dawn_tyrant;
+mod suspicious_bookcase;
 mod three_tree_mascot;
 mod tidehollow_strix;
+mod tough_cookie;
+mod towering_viewpoint;
 mod vault_skirge;
 mod vedalken_outlander;
+mod verdant_automaton;
+mod voltaic_servant;
+mod wall_of_tanglecord;
+mod welder_automaton;
 mod wreckage_wickerfolk;
 mod wretched_doll;
