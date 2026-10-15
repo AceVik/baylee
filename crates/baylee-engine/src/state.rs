@@ -231,6 +231,13 @@ pub struct DelayedTrigger {
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
+    /// The next matching spell its controller casts before this turn ends.
+    NextSpellCastThisTurn {
+        /// Characteristics required of the completed spell.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Ignore casts before this watch was registered.
+        after: u64,
+    },
     /// At the controller's next upkeep.
     NextUpkeep,
     /// At the beginning of this player's next actual draw step.
@@ -340,7 +347,8 @@ impl DelayedWhen {
     pub const fn lapses_with_the_turn(self) -> bool {
         matches!(
             self,
-            Self::DiesThisTurn { .. }
+            Self::NextSpellCastThisTurn { .. }
+                | Self::DiesThisTurn { .. }
                 | Self::DealtDamageThisTurn { .. }
                 | Self::EndOfCombatThisTurn
                 | Self::YouAttackThisTurn { .. }
@@ -2329,6 +2337,20 @@ impl GameState {
             return;
         }
         self.change_life(player, -i32::try_from(amount).unwrap_or(i32::MAX), cause);
+        self.record_player_damage_result(source, player, amount, is_combat);
+    }
+
+    /// Records damage independently of its life-loss or poison result.
+    pub(crate) fn record_player_damage_result(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: u32,
+        is_combat: bool,
+    ) {
+        if amount == 0 {
+            return;
+        }
         if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
             *tally = tally.saturating_add(amount);
         }
@@ -2839,6 +2861,7 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockingReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
+        | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
         Filter::Not(f)

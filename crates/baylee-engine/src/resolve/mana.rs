@@ -74,6 +74,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
+/// Produce ordinary mana whose lifetime extends through this combat.
+pub(super) fn add_combat_mana(
+    state: &mut GameState,
+    res: &Resolution,
+    color: ManaColor,
+    amount: u16,
+) {
+    let production = state.next_restriction_id;
+    add(state, res, color, amount, None);
+    if state.next_restriction_id != production {
+        state.players[usize::from(res.controller.get())]
+            .mana_pool
+            .retain_until_combat_end(baylee_core::mana::RestrictionId(production));
+    }
+}
+
 /// Adds the mana, asking for a color first when there is more than one.
 fn add_mana(
     state: &mut GameState,

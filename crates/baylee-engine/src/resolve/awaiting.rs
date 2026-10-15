@@ -182,6 +182,8 @@ pub enum AwaitingOp {
         /// The still-available branches, in displayed order.
         choices: Vec<&'static Effect>,
     },
+    /// Each controller selects a tied maximum before one atomic exchange.
+    ExchangeGreatest(Box<super::greatest_exchange::Selection>),
     /// A minimum-power creature chosen without targeting.
     DestroyWeakest {
         /// Ignore regeneration shields.
@@ -413,6 +415,11 @@ pub enum AwaitingOp {
     /// owner's whatever a card might say. See [`Effect::Surveil`] for why
     /// there is no version of this that names somebody else.
     Surveil,
+    /// Optional graveyard placement after a nonland was revealed by explore.
+    Explore {
+        /// The exploring creature's controller.
+        player: PlayerId,
+    },
     /// The controller decides whether to take an optional clause
     /// ([`Effect::MayDo`]).
     MayDo {
@@ -870,6 +877,12 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::NewTargets(selection) => {
+                crate::state::structural_fingerprint(&(20_u8, selection))
+            }
+            Self::ExchangeGreatest(selection) => {
+                crate::state::structural_fingerprint(&(19_u8, selection.fingerprint()))
+            }
             Self::DiscardAny(selection) => crate::state::structural_fingerprint(&(12u8, selection)),
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),

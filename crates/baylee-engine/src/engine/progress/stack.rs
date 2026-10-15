@@ -280,9 +280,9 @@ impl<L: CardLookup> Engine<L> {
         if chosen.is_empty() && chosen_players.is_empty() {
             return None;
         }
-        // A second instance's requirement may name the first (Glyph of
-        // Delusion's Wall "that blocked" the first target).
-        let reference = (!players).then(|| obj.targets.first().copied()).flatten();
+        // Relational pairs use the opposite announced incarnation, even if
+        // that card left and the same arena handle has since returned.
+        let reference = self.state.recorded_target_reference(obj.id, players, 0);
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         let objects: SmallVec<[ObjectId; 2]> = chosen

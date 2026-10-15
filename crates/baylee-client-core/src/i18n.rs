@@ -2671,11 +2671,11 @@ messages! {
         en: "Scry: keep cards on top or put them on the bottom",
         de: "Hellsicht: Karten oben lassen oder unter die Bibliothek legen",
     },
-    /// A surveil (CR 701.25a): the looked-at cards go back on top or into
-    /// the graveyard.
+    /// The shared surveil/explore choice: keep cards on top or put them into
+    /// the graveyard, without labeling either operation as the other mechanic.
     SurveilPrompt {
-        en: "Surveil: keep cards on top or put them into your graveyard",
-        de: "Überwachen: Karten oben lassen oder auf deinen Friedhof legen",
+        en: "Keep cards on top or put them into your graveyard",
+        de: "Karten oben lassen oder auf deinen Friedhof legen",
     },
     /// Library of Leng: cards an effect makes you discard go into the
     /// graveyard, or on top of your library in an order.

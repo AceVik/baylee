@@ -1502,7 +1502,8 @@ fn alternative_parts_payable(
         // joins them for its own reason: zero is a legal number to announce,
         // so there is nothing here an alternative cost could fail to pay.
         // Counted activation costs are not spell additional costs.
-        CostPart::PayEnergy(_)
+        CostPart::ExertSelf
+        | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)

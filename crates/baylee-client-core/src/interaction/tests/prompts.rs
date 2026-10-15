@@ -887,11 +887,10 @@ fn a_one_pile_ordering_says_which_end_the_first_card_is() {
     }
 }
 
-/// A scry and a surveil name themselves, in the game's own words for them,
-/// and each says where its second pile goes — the bottom is still the
-/// library, a graveyard is a zone every player reads.
+/// Arrangement headlines name both destinations. The top/graveyard choice
+/// is shared by surveil and explore, so it must not claim either mechanic.
 #[test]
-fn a_scry_and_a_surveil_say_what_they_are_and_where_the_rest_goes() {
+fn arrangement_headlines_describe_the_destinations_without_mislabeling_explore() {
     let look = |prompt, away| Pending::Arrange {
         player: me(),
         cards: vec![obj(1), obj(2)],
@@ -909,8 +908,8 @@ fn a_scry_and_a_surveil_say_what_they_are_and_where_the_rest_goes() {
         ),
         (
             look(ArrangePrompt::Surveil, ArrangePlace::Graveyard),
-            ["Surveil", "graveyard"],
-            ["Überwachen", "Friedhof"],
+            ["top", "graveyard"],
+            ["oben", "Friedhof"],
         ),
     ] {
         let i = interaction(pending);
@@ -918,6 +917,8 @@ fn a_scry_and_a_surveil_say_what_they_are_and_where_the_rest_goes() {
         let german = i.prompt().headline(Lang::De, Turn::Mine, None, false);
         assert!(en.iter().all(|w| english.contains(w)), "{english}");
         assert!(de.iter().all(|w| german.contains(w)), "{german}");
+        assert!(!english.contains("Surveil"), "{english}");
+        assert!(!german.contains("Überwachen"), "{german}");
     }
 }
 

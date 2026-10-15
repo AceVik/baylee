@@ -1102,10 +1102,9 @@ impl Builder<'_, '_> {
                 "QUESTION: Scry {n} (CR 701.22a): put any number of these cards on the bottom \
                  of your library and the rest on top, in any order."
             ),
-            ArrangePrompt::Surveil => format!(
-                "QUESTION: Surveil {n} (CR 701.25a): put any number of these cards into your \
+            ArrangePrompt::Surveil => "QUESTION: Put any number of these cards into your \
                  graveyard and the rest on top of your library, in any order."
-            ),
+                .into(),
             ArrangePrompt::Order => "QUESTION: Put these cards in order.".into(),
             ArrangePrompt::DiscardToLibrary => format!(
                 "QUESTION: You are discarding {n} card(s). Library of Leng lets you put any \

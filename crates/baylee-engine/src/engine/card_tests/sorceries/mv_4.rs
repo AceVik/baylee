@@ -15,6 +15,7 @@ mod creeping_mold;
 mod demolish;
 mod diabolic_tutor;
 mod flashfires;
+mod juxtapose;
 mod lay_waste;
 mod mizzix_s_mastery;
 mod natural_order;

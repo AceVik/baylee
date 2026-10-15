@@ -852,6 +852,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
         | Filter::MatchesChosenTypeOfSource
+        | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_)
         | Filter::SharesSubtypeWithCommander => {
             matches!(

@@ -1277,6 +1277,15 @@ pub enum Effect {
     /// Crowns' −5). CR 701.12a–b: if either is gone or both have one
     /// controller, nothing changes hands.
     ExchangeControl,
+    /// You and the player named by `with` exchange the greatest-mana-value
+    /// permanent each controls matching `filter`. Each controller breaks
+    /// their own ties. The exchange happens only if both transfers can.
+    ExchangeGreatestManaValue {
+        /// Which permanents participate in this exchange.
+        filter: &'static Filter,
+        /// The other player; the first player named participates.
+        with: PlayerRel,
+    },
     /// For each player in `who`, that player chooses up to one matching
     /// permanent they control and it is destroyed (The True
     /// Scriptures I).
@@ -1531,6 +1540,45 @@ pub enum Effect {
     MayDo {
         /// What happens on a yes.
         effects: &'static [Effect],
+    },
+    /// Let the first player named by `player` decide whether to perform the
+    /// nested instructions. Their decision does not change the resolving
+    /// ability's controller or the meaning of "you" in those instructions.
+    MayDoFor {
+        /// The player who decides; no question is asked if nobody is named.
+        player: PlayerRel,
+        /// Instructions performed on acceptance.
+        effects: &'static [Effect],
+    },
+    /// Register a delayed trigger for the next spell matching `filter`
+    /// this controller casts during the current turn. The event spell is
+    /// available to the triggered instructions as `EventObject`.
+    WhenNextSpellCastThisTurn {
+        /// Which spell consumes the delayed trigger.
+        filter: &'static Filter,
+        /// The delayed trigger's instructions.
+        effects: &'static [Effect],
+    },
+    /// The exact spell which triggered this ability enters with additional
+    /// +1/+1 counters if it resolves as a permanent spell.
+    EventSpellEntersWithP1P1 {
+        /// Additional counters on entry.
+        n: u32,
+    },
+    /// Have the named creature explore: reveal its controller's top library
+    /// card, put a revealed land into their hand, otherwise put a +1/+1
+    /// counter on the creature and optionally put the revealed card into
+    /// that player's graveyard.
+    Explore {
+        /// The creature that explores.
+        target: TargetSpec,
+    },
+    /// Add fixed mana which remains in the pool until the combat phase ends.
+    AddCombatMana {
+        /// Mana color.
+        color: ManaColor,
+        /// Number of mana units.
+        amount: u16,
     },
     /// Optionally behold a matching permanent you control or a matching card
     /// in your hand (CR 701.4), then perform the supplied instructions.

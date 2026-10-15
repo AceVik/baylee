@@ -3,11 +3,12 @@
 //! Oracle: {T}: Add {G}. When you next cast a Bird creature spell this turn, it enters with an additional +1/+1 counter on it.
 //! Oracle: {2}{G}{G}, {T}: Create a 2/2 green Bird creature token with "Whenever a land you control enters, this token gets +1/+0 until end of turn."
 //! Set: FIC #462 — Final Fantasy Commander | Scryfall ID: 4fcd08ad-4dac-4236-9030-f59e473b3ec7 | Oracle ID: ed77fdf2-59c0-4310-9b12-80d28beeaeef
-// PARTIAL — the enters-tapped-unless-legendary clause, {T}: Add {G} and the
-// Bird; the delayed +1/+1-counter rider is dropped (see below).
+// IMPLEMENTED — conditional entry, green mana with the delayed next-Bird
+// entry-counter trigger, and a Bird token with its own landfall ability.
 
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
 card!(
     index = index::CHOCOBO_CAMP,
@@ -19,17 +20,15 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnless(&f!(your LEGENDARY_CREATURE))],
     ),],
-    coverage = Coverage::Partial(
-        "the mana line's delayed rider — \"when you next cast a Bird creature spell this \
-         turn, it enters with an additional +1/+1 counter on it\" — has no variant: no \
-         effect sets up an entry replacement for a spell cast later in the turn"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // NOT SUPPORTED: "When you next cast a Bird creature spell this turn,
-        // it enters with an additional +1/+1 counter on it." — no Effect
-        // creates an entry replacement (counters) pointed at a spell cast
-        // later in the turn, so the mana line stands on its own.
-        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(&[
+            Effect::mana(ManaColor::Green, 1),
+            Effect::WhenNextSpellCastThisTurn {
+                filter: &Filter::And(&[Filter::CREATURE, Filter::HasSubtype(creature::BIRD)]),
+                effects: &[Effect::EventSpellEntersWithP1P1 { n: 1 }],
+            },
+        ]),
         activated!(
             cost!("{2}{G}{G}", TapSelf),
             &[Effect::CreateToken {

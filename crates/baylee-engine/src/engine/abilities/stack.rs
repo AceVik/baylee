@@ -79,6 +79,16 @@ impl<L: CardLookup> Engine<L> {
         });
         let captured_text = list.base_text(ability_index as usize);
         let abilities = list.abilities.clone();
+        // Retargeting and copying read the captured requirement without a card
+        // lookup. Modal triggers bind theirs when their selected mode is stored.
+        let target_req = if matches!(
+            abilities.get(ability_index as usize),
+            Some(baylee_cards_dsl::AbilityDef::ModalTriggered { .. })
+        ) {
+            None
+        } else {
+            crate::object::ability_target_req(abilities.clone(), ability_index, None)
+        };
         let source_version = self.state.object(source).map(|o| o.version);
         let counter_version = crate::resolve::linked_counters::uses_links(&abilities)
             .then(|| self.state.object(source).map_or(0, |o| o.version));
@@ -123,6 +133,7 @@ impl<L: CardLookup> Engine<L> {
                 base,
             );
             obj.take_abilities(list);
+            obj.target_req = target_req;
             if let Some(version) = source_version {
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));

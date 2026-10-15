@@ -510,6 +510,11 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     if untaps != cost.parts.contains(&CostPart::UntapSelf) {
         return false;
     }
+    // Exert has no symbol, but must distinguish otherwise identical
+    // activations so the client preserves this additional payment.
+    if head.to_lowercase().contains("exert") != cost.parts.contains(&CostPart::ExertSelf) {
+        return false;
+    }
     // Energy symbols belong to nonmana payments, not the mana cost.
     printed.retain(|s| s != "T" && s != "Q" && s != "E");
     let mut want = braced(&cost.mana.to_string());
@@ -1235,6 +1240,7 @@ fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
         // Printed in symbols, and read by `cost_fits` there; the prose says
         // nothing about either.
         CostPart::TapSelf | CostPart::UntapSelf => true,
+        CostPart::ExertSelf => lower.contains("exert"),
         CostPart::PayLife(n) => lower.contains(&format!("pay {n} life")),
         CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
         CostPart::Discard(_) => lower.contains("discard"),

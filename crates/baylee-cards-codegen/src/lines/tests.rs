@@ -1108,3 +1108,22 @@ fn counted_color_mana_and_energy_costs_keep_their_printed_lines() {
         "{3}, {T}, Pay X {E}, Sacrifice this land: Destroy target nonland permanent with mana value X."
     ));
 }
+
+#[test]
+fn exert_payment_distinguishes_otherwise_identical_activation_costs() {
+    use baylee_cards_dsl::{Cost, CostPart, ManaCost};
+    let exert = Cost {
+        mana: ManaCost::parse("{R}"),
+        parts: &[CostPart::TapSelf, CostPart::ExertSelf],
+    };
+    let ordinary = Cost {
+        mana: ManaCost::parse("{R}"),
+        parts: &[CostPart::TapSelf],
+    };
+    let printed = "{R}, {T}, Exert this land: Add {R}{R}.";
+    assert!(cost_fits(&exert, printed));
+    assert!(!cost_fits(&ordinary, printed));
+    assert!(!cost_fits(&exert, "{R}, {T}: Add {R}{R}."));
+    assert!(parts_fit(exert.parts, "exert this land"));
+    assert!(!parts_fit(exert.parts, "tap this land"));
+}

@@ -767,6 +767,14 @@ existing tolerated-use exceptions: continue the non-commercial rules engine and
 card implementations while preserving notices, attribution and asset restrictions.
 The temporary hold recorded above is lifted by this explicit owner instruction.
 
+The resumed original-card batches 51 and 55 (2026-10-15) continue under this
+owner decision. The [official policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were re-read: “Tell the Community it’s unofficial.” remains covered by the
+existing notices. Rules and behavioral tests introduce no artwork, music,
+font or corpus source files. The Scryfall API terms endpoint returned HTTP 403
+during this check; no fresh successful read of that page is claimed, and the
+existing API/image obligations remain in force.
+
 
 The Black Vise completion (2026-10-02) follows that owner decision. Its new
 client annotation is ordinary seat-name text in the existing licensed fonts;

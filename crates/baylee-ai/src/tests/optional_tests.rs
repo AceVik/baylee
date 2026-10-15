@@ -300,3 +300,37 @@ fn camouflage_piles_each_get_one_of_the_best_blockers() {
     };
     assert_eq!(objects, vec![obj(6), obj(5)], "the best and a third");
 }
+
+#[test]
+fn another_players_may_preserves_unknown_controller_semantics() {
+    static GAIN: [Effect; 1] = [Effect::MayDoFor {
+        player: PlayerRel::Chosen,
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(4),
+        }],
+    }];
+    static LOSE: [Effect; 1] = [Effect::MayDoFor {
+        player: PlayerRel::Chosen,
+        effects: &[Effect::LoseLife {
+            amount: Amount::Fixed(4),
+            target: PlayerRel::You,
+        }],
+    }];
+    // This seat decides for an opposing source. Its acceptance must not
+    // reinterpret either implicit "you" as the choosing seat.
+    let v = view(0, &[20, 20], vec![creature(7, THEM, 1, 1)]);
+    for effects in [&GAIN[..], &LOSE[..]] {
+        assert_eq!(
+            agent().act_with_context(
+                &v,
+                &may(None),
+                &DecisionContext {
+                    source: Some(obj(7)),
+                    effects,
+                    ..Default::default()
+                },
+            ),
+            PlayerAction::YesNo(false),
+        );
+    }
+}

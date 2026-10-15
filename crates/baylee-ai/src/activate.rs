@@ -313,7 +313,8 @@ fn consumes(cost: &Cost) -> bool {
             // pile that pays for the next activation is one card shorter.
             | CostPart::ExileFromGraveyard(_) => true,
             CostPart::TapN { count, .. } => *count > 0,
-            CostPart::PayLifeX | CostPart::PayCommanderColors
+            // Exerting again is legal and adds no further untap penalty.
+            CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
             | CostPart::TapX(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_) => false,
         })
 }
@@ -478,6 +479,18 @@ mod tests {
             "Earthcraft: the whole cost is somebody else's tap, and a creature \
              that paid cannot pay again"
         );
+    }
+
+    #[test]
+    fn exerting_alone_does_not_bound_repeated_activations() {
+        assert!(!consumes(&Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::ExertSelf],
+        }));
+        assert!(consumes(&Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::TapSelf, CostPart::ExertSelf],
+        }));
     }
 
     /// X may be zero, so paying it is not a limit on anything.

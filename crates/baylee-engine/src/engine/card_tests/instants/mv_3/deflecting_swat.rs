@@ -246,59 +246,92 @@ fn deflecting_swat_may_leave_the_target_where_it_is() {
     );
 }
 
-/// A limitation, pinned: Deflecting Swat on an **ability** leaves its target
-/// alone (#249). A non-synthetic ability carries no `target_req`, so the
-/// resolver cannot read what it may target without a card lookup, and asks
-/// nothing. That is a legal answer under CR 115.7d, but the only one: Rod of
-/// Ruin's shot at p0 could have gone to p1 or to either creature.
+/// A printed activated ability carries its target requirement: the Swat
+/// can redirect the Rod's shot to the other player or optionally retain it.
 #[test]
-fn deflecting_swat_leaves_an_abilitys_target_alone_until_249() {
+fn deflecting_swat_redirects_or_keeps_a_printed_ability_target() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
-        .hand(0, &[deflecting_swat()])
-        .battlefield(1, &[forest(), forest(), forest(), rod_of_ruin()])
-        .life(0, 20)
-        .life(1, 20)
-        .start();
-    keep_mulligans(&mut engine);
-    reach_their_main_phase(&mut engine, p1);
-
-    tap_all_mana(&mut engine, p1);
-    activate(&mut engine, p1, rod_of_ruin(), 0);
-    engine
-        .apply(
-            p1,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p0],
-            },
-        )
-        .expect("\"any target\": a player");
-    let shot = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Stack)
-        .last()
-        .copied()
-        .expect("the Rod's ability is on the stack");
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
-
-    let asked = swatted(&mut engine, p0, shot);
-    assert!(
-        asked.is_none(),
-        "#249: the Swat cannot read what the Rod's ability may target, so it \
-         asks nothing; when #249 lands this asks, and this test moves: {asked:?}"
-    );
-    pass_until(&mut engine, stack_is_empty);
-    assert_eq!(
-        (
+    for redirect in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
+            .hand(0, &[deflecting_swat()])
+            .battlefield(1, &[forest(), forest(), forest(), rod_of_ruin()])
+            .life(0, 20)
+            .life(1, 20)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_their_main_phase(&mut engine, p1);
+        let rod = on_battlefield(&engine, p1, rod_of_ruin()).unwrap();
+        let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+        let from = engine.journal().entries().len();
+        tap_all_mana(&mut engine, p1);
+        activate(&mut engine, p1, rod_of_ruin(), 0);
+        engine
+            .apply(
+                p1,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p0],
+                },
+            )
+            .unwrap();
+        let shot = *engine
+            .state()
+            .zones
+            .list(ZoneLocation::Stack)
+            .last()
+            .unwrap();
+        engine.apply(p1, PlayerAction::PassPriority).unwrap();
+        let Some(Pending::ChooseTargets {
+            player,
+            options,
+            player_options,
+            min,
+            max,
+            ..
+        }) = swatted(&mut engine, p0, shot)
+        else {
+            panic!("printed ability can be redirected")
+        };
+        assert_eq!(player, p0);
+        assert_eq!((min, max), (0, 1));
+        assert!(player_options.contains(&p1));
+        assert!(options.contains(&elf));
+        let before = (
             engine.state().players[0].life,
-            engine.state().players[1].life
-        ),
-        (19, 20),
-        "#249: the shot still lands where it was aimed"
-    );
+            engine.state().players[1].life,
+        );
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: if redirect { vec![p1] } else { vec![] },
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            (
+                engine.state().players[0].life,
+                engine.state().players[1].life
+            ),
+            (
+                before.0 - i32::from(!redirect),
+                before.1 - i32::from(redirect)
+            )
+        );
+        assert_eq!(engine.state().object(elf).unwrap().damage, 0);
+        assert_eq!(
+            damage_events(&engine, from),
+            vec![(
+                rod,
+                crate::event::DamageTarget::Player(if redirect { p1 } else { p0 }),
+                1,
+                false
+            )]
+        );
+    }
 }
 
 /// Deflecting Swat on a Curse of the Swine holding two targets (#247): each

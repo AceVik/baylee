@@ -704,3 +704,46 @@ fn a_masked_damage_source_competes_at_its_recipient_and_only_reveals_if_damage_r
         );
     }
 }
+
+#[test]
+fn infect_preserves_damage_events_lifelink_and_deathtouch_without_marking_damage() {
+    let mut state = state(2);
+    let source = creature(&mut state, A, 3, 3);
+    state.object_mut(source).unwrap().base_mut().keywords = KeywordSet::INFECT
+        .union(KeywordSet::LIFELINK)
+        .union(KeywordSet::DEATHTOUCH);
+    let target = creature(&mut state, B, 5, 5);
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![
+            assigned(source, DamageTarget::Player(B), 2),
+            assigned(source, DamageTarget::Object(target), 1),
+        ],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(state.players[1].life, 20);
+    assert_eq!(state.players[1].poison, 2);
+    assert_eq!(state.players[0].life, 23);
+    assert_eq!(state.per_turn.damage_dealt_to[1], 2);
+    let target = state.object(target).unwrap();
+    assert_eq!(target.damage, 0);
+    assert_eq!(target.counters.get(CounterKind::M1M1), 1);
+    assert!(target.deathtouched);
+    assert_eq!(work.dealt(), 3);
+}
+
+#[test]
+fn prevented_infect_adds_no_poison() {
+    let mut state = state(2);
+    let source = creature(&mut state, A, 3, 3);
+    state.object_mut(source).unwrap().base_mut().keywords = KeywordSet::INFECT;
+    shield(&mut state, B, ShieldKind::Next(2));
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![assigned(source, DamageTarget::Player(B), 2)],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(state.players[1].life, 20);
+    assert_eq!(state.players[1].poison, 0);
+    assert_eq!(work.dealt(), 0);
+}

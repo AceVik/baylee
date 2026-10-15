@@ -160,7 +160,12 @@ impl<L: CardLookup> Engine<L> {
         };
         req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
         let controller = obj.controller;
-        let (options, _) = eval::stack_target_options(&self.state, obj, &req.spec);
+        let reference = obj
+            .targets
+            .first()
+            .and_then(|id| self.state.source_identity(*id));
+        let (options, _) =
+            eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         if let Some(obj) = self.state.object_mut(top) {
             obj.set_second(SmallVec::new(), Some(req));
         }

@@ -58,7 +58,12 @@ impl<L: CardLookup> Engine<L> {
                             self.mana_entry_counters(spell, amount);
                         }
                     }
-                    SpendRider::Haste => self.mana_haste(spell, provenance.controller),
+                    SpendRider::Haste => {
+                        self.mana_haste(spell, provenance.controller, Duration::Indefinitely);
+                    }
+                    SpendRider::HasteUntilEndOfTurn => {
+                        self.mana_haste(spell, provenance.controller, Duration::UntilEndOfTurn);
+                    }
                     SpendRider::Copy => self.queue_mana_copy(provenance, spell),
                 }
             }
@@ -117,7 +122,7 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    fn mana_haste(&mut self, spell: ObjectId, controller: PlayerId) {
+    fn mana_haste(&mut self, spell: ObjectId, controller: PlayerId, duration: Duration) {
         let modifier = Modifier::AddKeyword(KeywordSet::HASTE);
         let timestamp = self.state.next_timestamp();
         let filter = crate::effects::EffectFilter::object(&self.state, spell);
@@ -132,7 +137,7 @@ impl<L: CardLookup> Engine<L> {
                 origin: crate::effects::EffectOrigin::Resolution,
                 layer: modifier.layer(),
                 timestamp,
-                duration: Duration::Indefinitely,
+                duration,
                 filter,
                 modifier,
             });

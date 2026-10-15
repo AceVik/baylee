@@ -494,7 +494,8 @@ express at all yet.
   then the parts. A part is named without its `CostPart::` prefix, which on a
   fetchland was the same word three times.
 
-  The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
+  The parts: `TapSelf`, `UntapSelf`, `ExertSelf` (see below),
+  `SacrificeSelf`, `Sacrifice(filter)`,
   `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
   matching permanent you control, including the source when it matches),
   `DiscardHand` (the entire hand, payable even when empty),
@@ -530,6 +531,15 @@ express at all yet.
   never refused — a permanent can always take one — and never doubled,
   because CR 614.16 gives a counter-doubling replacement the effects of
   resolving spells and abilities and not costs).
+
+  `CostPart::ExertSelf` exerts the source as an activation cost. It does not
+  tap the permanent, require it to be untapped, or impose summoning sickness;
+  write `TapSelf` separately when the printed cost includes `{T}`. It may be
+  paid again while the permanent is already exerted. The same incarnation
+  does not untap during the paying player's next actual untap step. Another
+  player's untap step is unaffected if control changes, and a skipped untap
+  step does not consume the suppression. Arena of Glory writes
+  `cost!("{R}", TapSelf, ExertSelf)`.
 
   A part with **named fields** keeps its braces —
   `cost!(TapSelf, RemoveCounterSelf { kind: CounterKind::Charge, n: 1 })` —
@@ -2753,7 +2763,7 @@ turns that into a build failure. A land with exactly one basic type (a plain
 Swamp) may rely on the shortcut, though every basic in the pool prints the
 ability anyway.
 
-Every mana line is one `Effect::AddMana`, which answers three independent
+Ordinary mana production uses `Effect::AddMana`, which answers three independent
 questions — which colors (`ManaSource`), how much (`Amount`), and what the
 mana may be spent on (`ManaRestriction`). Card files say it through the
 constructors, which read like the printed line:
@@ -2780,6 +2790,22 @@ and only a spell the filter matches sets its rider off, once per unit spent
 (CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
 `restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
 almost nothing.
+
+`SpendRider::HasteUntilEndOfTurn` gives the matching creature spell haste
+through cleanup and follows that exact spell onto the battlefield. Use
+`.when_spent(&Filter::CREATURE, SpendRider::HasteUntilEndOfTurn)` for Arena of
+Glory: the mana can pay other costs, but those payments grant no haste. The
+existing `SpendRider::Haste` grants haste indefinitely; choose the variant
+that matches the printed duration.
+
+`Effect::AddCombatMana { color, amount }` produces fixed-color ordinary mana
+which survives step boundaries until the combat phase ends. Only the unspent
+units from that instruction persist; they empty before the postcombat main
+phase. Fire Nation Palace grants `Modifier::GrantTriggered` with
+`Trigger::Attacks(&Filter::This)` and
+`AddCombatMana { color: ManaColor::Red, amount: 4 }`,
+using `Duration::UntilEndOfTurn` for the granted ability. The attack trigger
+uses the stack; multiple granted instances trigger separately.
 
 `Effect::mana(...).mana_until_end_of_turn()` keeps only that produced mana as
 steps and phases end, until cleanup removes its retention flag (Birgi). It
@@ -3554,6 +3580,26 @@ creature returned as an additional cost and the spell exiled afterward.
 
 `Modifier::OneSpellManaAnyType` offers North Star's permission for one spell's
 mana cost; additional colored costs and snow requirements remain constrained.
+`Effect::WhenNextSpellCastThisTurn { filter, effects }` creates a delayed
+trigger for the next matching spell its controller casts this turn. It expires
+unused at turn end and is consumed by the matching cast, independently of
+whether that spell resolves. Its triggered ability uses the stack and can be
+countered. `TargetSpec::EventObject` names the exact spell which caused it.
+`Effect::EventSpellEntersWithP1P1 { n }` makes that spell enter with additional
++1/+1 counters if it resolves as a permanent. Chocobo Camp pairs these effects
+with a Bird-creature filter; the delayed trigger is created by the mana
+ability, regardless of how that mana is later spent. Separate activations can
+all trigger from the same next matching spell.
+
+`Effect::Explore { target }` has the named creature explore using its
+controller's library. The top card is revealed: a land goes to hand; otherwise
+the creature gets a +1/+1 counter and its controller chooses whether to leave
+the revealed card on top or put it into their graveyard. An empty library
+still gives the counter. A Map token uses a separate target requirement for a
+creature you control, and its activation is restricted to sorcery timing;
+`Explore` itself does not supply those activation restrictions. Targets are
+rechecked on resolution as usual.
+
 `Modifier::NextSpellUncounterable` protects the next spell cast by the effect's
 controller. `Modifier::NextDrawWish` replaces one draw during its duration;
 Commander and controlled-player restrictions still govern outside-game access.

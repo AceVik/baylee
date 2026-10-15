@@ -4,8 +4,8 @@
 //! Oracle: {1}{W}{U}: Until end of turn, this land becomes a 2/3 white and blue Bird creature with flying. It's still a land.
 //! Oracle: Whenever this land attacks, create a Map token.
 //! Set: FRC #81 — Reality Fracture Commander | Scryfall ID: 109900a9-6dcb-4f89-b84c-0ce0a0175e8f | Oracle ID: 91320daf-f69c-4350-b0fc-4bb37a6904b1
-// PARTIAL — the land enters tapped, taps for {W} or {U}, and animates
-// itself until end of turn; the attack trigger has no Map token to create.
+// IMPLEMENTED — tapped entry, white/blue mana, temporary Bird animation,
+// and an attack trigger creating a Map with its explore activation.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -15,8 +15,7 @@ card!(
     oracle_id = "91320daf-f69c-4350-b0fc-4bb37a6904b1",
     scryfall_id = "109900a9-6dcb-4f89-b84c-0ce0a0175e8f",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage =
-        Coverage::Partial("the attack trigger's Map token does not exist in `crate::tokens`",),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Restless Anchorage",
         types = TypeSet::LAND,
@@ -54,9 +53,11 @@ card!(
                 ),
             ],
         ),
-        // NOT SUPPORTED: "Whenever this land attacks, create a Map token." —
-        // the pool has no Map token for `crate::tokens` to hand out, and a
-        // card file may not define one (`no_card_file_defines_its_own_token`);
-        // the token's own explore ability has no variant in this DSL either.
+        triggered!(
+            Trigger::Attacks(&Filter::This),
+            &[Effect::CreateToken {
+                token: &crate::tokens::MAP
+            }],
+        ),
     ],
 );

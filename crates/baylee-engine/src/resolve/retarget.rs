@@ -45,11 +45,14 @@ use crate::state::GameState;
 use crate::zone::Zone;
 
 mod dependent;
+mod paired;
+#[cfg(test)]
+mod player_tests;
 
 pub use crate::choice::TargetRef as Aim;
 
 /// A change of targets waiting on its next answer.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Retarget {
     /// The spell or ability whose targets change.
     spell: ObjectId,
@@ -226,7 +229,7 @@ fn options(
         .object(retarget.spell)
         .filter(|o| o.zone == Zone::Stack)?;
     let req = dependent::requirement(obj, retarget, retarget.was[slot].0, None)?;
-    let (mut objects, mut players) = eval::stack_target_options(state, obj, &req.spec);
+    let (mut objects, mut players) = eval::stack_retarget_options(state, obj, &req.spec);
     objects.retain(|id| {
         let Some(reference) = state.source_identity(*id) else {
             return false;
@@ -280,9 +283,20 @@ fn write(state: &mut GameState, retarget: &Retarget) {
     let second_req = dependent::requirement(obj, retarget, 1, None);
     obj.targets.clear();
     obj.target_players = SeatSet::new();
-    if first_req
-        .is_some_and(|req| matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent))
-    {
+    // Activations also mirror a lone any-target player in `chosen_player`.
+    // Replace both representations, or the old recipient survives beside the
+    // new one when targeting and damage readers combine the two fields.
+    let targets_players = first_req.is_some_and(|req| {
+        matches!(
+            req.spec,
+            TargetSpec::AnyTarget
+                | TargetSpec::AnyPlayer
+                | TargetSpec::AnyOpponent
+                | TargetSpec::OpponentOrObject(_)
+                | TargetSpec::PlayerOrObject(_)
+        )
+    });
+    if targets_players {
         obj.chosen_player = None;
     }
     let mut second = smallvec::SmallVec::new();
@@ -302,6 +316,9 @@ fn write(state: &mut GameState, retarget: &Retarget) {
             (_, Aim::Object(reference)) => second.push(reference.object),
             (_, Aim::Player(_)) => unreachable!("second target groups contain objects"),
         }
+    }
+    if targets_players && obj.target_players.len() == 1 {
+        obj.chosen_player = obj.target_players.iter().next();
     }
     obj.set_second(second, second_req);
     let mut targets = crate::sources::TargetReferences::default();
@@ -380,7 +397,9 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
     let Some(req) = dependent::requirement(obj, retarget, group, Some(candidate)) else {
         return false;
     };
-    if !dependent::can_finish(state, obj, retarget, candidate) {
+    if !dependent::can_finish(state, obj, retarget, candidate)
+        || !paired::can_finish(state, obj, retarget, candidate)
+    {
         return false;
     }
     let used: Vec<_> = retarget.was[..slot]
@@ -403,7 +422,7 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
     if used.iter().any(|&aim| conflicts(aim, candidate)) {
         return false;
     }
-    let (objects, players) = eval::stack_target_options(state, obj, &req.spec);
+    let (objects, players) = eval::stack_retarget_options(state, obj, &req.spec);
     let mut available: Vec<Aim> = objects
         .into_iter()
         .filter_map(|id| state.source_identity(id).map(Aim::Object))

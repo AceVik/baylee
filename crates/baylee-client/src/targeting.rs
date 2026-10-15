@@ -486,6 +486,9 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::BlockedReferenceThisTurn
         | Filter::BlockedThisTurnBy(_)
         | Filter::SharesTypeWithReference(_)
+        // This probe has no sequential target pair or the other target's
+        // last battlefield characteristics. Leave the relation to the engine.
+        | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
         | Filter::OfSourceChosenColor
         | Filter::SharesAColorWith(_) => return None,
@@ -754,6 +757,10 @@ mod tests {
             Filter::HasType(TypeSet::LAND),
             Filter::CmcExactlyX,
         ]);
+        static RELATIVE_PAIR: Filter = Filter::And(&[
+            Filter::HasType(TypeSet::LAND),
+            Filter::SharesCreatureTypeWithOtherTarget,
+        ]);
 
         let probe = printed(1, 0, "Grizzly Bears", 0);
         let view = ViewBuilder::new(2)
@@ -770,6 +777,14 @@ mod tests {
         // The hazard is real and not hypothetical: asking `matches` alone
         // reads the same filter as a clean `false`.
         assert_eq!(matches(&view, &probe, &BLIND), Some(false));
+        assert_eq!(
+            matches(&view, &probe, &Filter::SharesCreatureTypeWithOtherTarget),
+            None
+        );
+        assert!(matches!(
+            unreadable_leaf(&view, &probe, &RELATIVE_PAIR),
+            Some(Filter::SharesCreatureTypeWithOtherTarget)
+        ));
     }
 
     /// How much of the pool [`provably_targetless`] can actually reach.

@@ -112,6 +112,7 @@ impl<L: CardLookup> Engine<L> {
                     // once per list, and a wildcard answers it with silence.
                     CostPart::TapSelf
                     | CostPart::UntapSelf
+                    | CostPart::ExertSelf
                     | CostPart::SacrificeSelf
                     | CostPart::Sacrifice(_)
                     | CostPart::Discard(_)
@@ -220,6 +221,7 @@ impl<L: CardLookup> Engine<L> {
                 // here rather than refused.
                 CostPart::TapSelf
                 | CostPart::UntapSelf
+                | CostPart::ExertSelf
                 | CostPart::SacrificeSelf
                 | CostPart::DiscardRandom
                 | CostPart::PayEnergy(_)

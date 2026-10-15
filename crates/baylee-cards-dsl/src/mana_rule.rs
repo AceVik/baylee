@@ -24,6 +24,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
         matches!(
             effect,
             Effect::AddMana { .. }
+                | Effect::AddCombatMana { .. }
                 | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
                 | Effect::AddManaLikeEvent { .. }
@@ -56,6 +57,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
     match part {
         CostPart::TapSelf
         | CostPart::UntapSelf
+        | CostPart::ExertSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::PayLife(_)

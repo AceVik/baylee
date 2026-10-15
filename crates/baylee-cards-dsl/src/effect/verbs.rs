@@ -640,6 +640,8 @@ impl Effect {
             Effect::ChooseOne { choices: effects }
             | Effect::Sequence(effects)
             | Effect::MayDo { effects }
+            | Effect::MayDoFor { player: _, effects }
+            | Effect::WhenNextSpellCastThisTurn { filter: _, effects }
             | Effect::MayDoOnceEachTurn { effects }
             | Effect::NthResolutionThisTurn { effects }
             | Effect::Repeat { times: _, effects }
@@ -881,6 +883,7 @@ impl Effect {
             | Effect::DelayedManaAtNextFirstMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
+            | Effect::ExchangeGreatestManaValue { .. }
             | Effect::ExchangeControlOrSacrifice
             | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
@@ -925,6 +928,9 @@ impl Effect {
             | Effect::EachPlayerSearchBeforeShuffle { .. }
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
+            | Effect::Explore { .. }
+            | Effect::EventSpellEntersWithP1P1 { .. }
+            | Effect::AddCombatMana { .. }
             | Effect::ScryFor { .. }
             | Effect::ExileLibraryAndShuffleHand { .. }
             | Effect::SetPTFilter { .. }

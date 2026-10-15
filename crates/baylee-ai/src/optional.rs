@@ -125,9 +125,12 @@ pub(crate) fn not_now(
 
 /// The first "you may" among `effects`, looking inside sequences and
 /// branches: what a yes would do.
-fn may_branch(effects: &[Effect]) -> Option<&'static [Effect]> {
+// `Err` names a choice whose original resolution controller is not in the
+// decision context. The deciding seat must not become the meaning of "you".
+fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
     effects.iter().find_map(|effect| match effect {
-        Effect::MayDo { effects } | Effect::MayDoOnceEachTurn { effects } => Some(*effects),
+        Effect::MayDo { effects } | Effect::MayDoOnceEachTurn { effects } => Some(Ok(*effects)),
+        Effect::MayDoFor { .. } => Some(Err(())),
         other => {
             let (then, otherwise) = other.branches();
             may_branch(then).or_else(|| may_branch(otherwise))
@@ -185,8 +188,12 @@ impl HeuristicAgent {
         if is_draw_skip(source) {
             return skips_draw(view, hostile);
         }
-        let Some(then) = may_branch(context.effects) else {
-            return true;
+        let then = match may_branch(context.effects) {
+            Some(Ok(then)) => then,
+            // A legal decline is safer than valuing another controller's
+            // instructions as though the pending choosing player owned them.
+            Some(Err(())) => return false,
+            None => return true,
         };
         let Some(id) = context.source else {
             return true;

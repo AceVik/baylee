@@ -10,6 +10,8 @@ pub enum CostPart {
     TapSelf,
     /// Untap the source (`{Q}`).
     UntapSelf,
+    /// Exert the source: it does not untap during its controller's next untap step.
+    ExertSelf,
     /// Sacrifice the source.
     SacrificeSelf,
     /// Sacrifice a permanent matching the filter.

@@ -5,6 +5,7 @@
 
 mod stack_filters;
 pub(crate) mod target_domain;
+pub(crate) mod target_pair;
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
@@ -310,6 +311,11 @@ pub fn matches_projected_with_context(
                     .intersection(reference.characteristics().types)
                     .intersects(*types)
             }),
+        Filter::SharesCreatureTypeWithOtherTarget => context.reference.is_none_or(|reference| {
+            reference != obj.id && state.object(reference).is_some_and(|other| {
+                target_pair::shares(chars, other.characteristics())
+            })
+        }),
         Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
         Filter::BlockedThisTurnBy(inner) => state.per_turn.blocks.iter().any(|record| {
             record.attacker.object == obj.id
@@ -2226,14 +2232,16 @@ pub fn target_options_with_context(
     // Protection (CR 702.16b) keeps out matching sources, and so does a
     // printed "can't be the target of" sentence; hexproof and shroud
     // (CR 702.11b/702.18b) keep out whole classes of chooser.
-    choice_options_with_context(spec, state, you, context)
+    let mut options = choice_options_with_context(spec, state, you, context)
         .into_iter()
         .filter(|id| {
             !protected_from(state, *id, this)
                 && !untargetable_by_source(state, *id, this)
                 && !untargetable_by(state, *id, you)
         })
-        .collect()
+        .collect();
+    target_pair::retain_partners(state, spec, context, &mut options);
+    options
 }
 
 /// Targeting with the characteristics of the chosen face and casting form.
@@ -2299,6 +2307,7 @@ pub(crate) fn spell_target_options_relative(
         })
         .collect();
     target_domain::retain(state, &mut options, wall_only);
+    target_pair::retain_partners(state, spec, context, &mut options);
     options
 }
 
@@ -2509,7 +2518,27 @@ pub fn stack_target_options_relative(
     state: &GameState,
     obj: &GameObject,
     spec: &TargetSpec,
-    reference: Option<ObjectId>,
+    reference: Option<baylee_core::ids::DamageSourceRef>,
+) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    stack_target_options_impl(state, obj, spec, reference, false)
+}
+
+/// Candidate replacement targets, before joint restrictions are checked against
+/// the complete prospective target list by the retarget continuation.
+pub(crate) fn stack_retarget_options(
+    state: &GameState,
+    obj: &GameObject,
+    spec: &TargetSpec,
+) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    stack_target_options_impl(state, obj, spec, None, true)
+}
+
+fn stack_target_options_impl(
+    state: &GameState,
+    obj: &GameObject,
+    spec: &TargetSpec,
+    reference: Option<baylee_core::ids::DamageSourceRef>,
+    retargeting: bool,
 ) -> (Vec<ObjectId>, Vec<PlayerId>) {
     let you = obj.controller;
     let this = if obj.kind == crate::object::ObjectKind::AbilityOnStack {
@@ -2520,9 +2549,10 @@ pub fn stack_target_options_relative(
     let context = RuleContext {
         source: this,
         text: live_context(state, obj.id).text,
-        reference,
+        reference: reference.map(|reference| reference.object),
     };
-    let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
+    let mut objects = target_pair::stack_options(state, obj, spec, context, reference, retargeting)
+        .unwrap_or_else(|| target_options_with_x(spec, state, you, context, Some(obj.x_value)));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));
     objects.retain(|id| *id != obj.id && aura_target_permitted(state, obj, *id));
     (objects, target_player_options(state, spec, you))

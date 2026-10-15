@@ -14,6 +14,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
     match part {
         CostPart::TapSelf
         | CostPart::UntapSelf
+        | CostPart::ExertSelf
         | CostPart::SacrificeSelf
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
@@ -57,6 +58,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::ReturnSelfToHand => true,
         CostPart::TapSelf
         | CostPart::UntapSelf
+        | CostPart::ExertSelf
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }

@@ -903,6 +903,8 @@ impl ManaFlags {
     pub const SNOW: Self = Self(2);
     /// `NO_EMPTY` expires during cleanup of this turn.
     pub const UNTIL_END_OF_TURN: Self = Self(4);
+    /// `NO_EMPTY` expires at the end of the current combat phase.
+    pub const UNTIL_END_OF_COMBAT: Self = Self(8);
 
     /// Whether all flags of `other` are set.
     #[must_use]
@@ -1175,6 +1177,30 @@ impl ManaPool {
             .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
     }
 
+    /// Keep the units from one production instruction until combat ends.
+    pub fn retain_until_combat_end(&mut self, restriction: RestrictionId) {
+        for unit in self.ridden.iter_mut().chain(self.restricted.iter_mut()) {
+            if unit.restriction == restriction {
+                unit.flags = unit
+                    .flags
+                    .union(ManaFlags::NO_EMPTY)
+                    .union(ManaFlags::UNTIL_END_OF_COMBAT);
+            }
+        }
+    }
+
+    /// End combat-specific retention before emptying pools at the phase boundary.
+    pub fn expire_combat_retention(&mut self) {
+        for unit in self.ridden.iter_mut().chain(self.restricted.iter_mut()) {
+            if unit.flags.contains(ManaFlags::UNTIL_END_OF_COMBAT) {
+                unit.flags = ManaFlags(
+                    unit.flags.bits()
+                        & !(ManaFlags::NO_EMPTY.bits() | ManaFlags::UNTIL_END_OF_COMBAT.bits()),
+                );
+            }
+        }
+    }
+
     /// End the temporary retention effect; the next step end empties the mana.
     pub fn expire_turn_retention(&mut self) {
         for r in self.ridden.iter_mut().chain(self.restricted.iter_mut()) {
@@ -1403,6 +1429,23 @@ mod tests {
         );
         assert_eq!(pool.snow_available(ManaColor::Blue), 1);
         pool.expire_turn_retention();
+        pool.empty_at_step_end();
+        assert!(pool.is_empty());
+        assert!(pool.ridden().is_empty());
+    }
+
+    #[test]
+    fn combat_retention_preserves_unspent_units_only_until_combat_ends() {
+        let mut pool = ManaPool::new();
+        pool.add_ridden(ridden(ManaColor::Red, 4, 9));
+        pool.add_ridden(ridden(ManaColor::Red, 1, 10));
+        pool.retain_until_combat_end(RestrictionId(9));
+        pool.empty_at_step_end();
+        assert_eq!(pool.available(ManaColor::Red), 4);
+        assert!(pool.take_ridden_units(9, 2).is_some());
+        pool.empty_at_step_end();
+        assert_eq!(pool.available(ManaColor::Red), 2);
+        pool.expire_combat_retention();
         pool.empty_at_step_end();
         assert!(pool.is_empty());
         assert!(pool.ridden().is_empty());

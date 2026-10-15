@@ -657,6 +657,25 @@ pub(super) fn resume_arranged_inner(
         // order. The owner's graveyard and not the controller's: a card only
         // ever goes to its owner's graveyard, and a surveil that met a stolen
         // card would still send it home.
+        (AwaitingOp::Explore { player }, [top, graveyard]) => {
+            for &card in graveyard {
+                let owner = state.object(card).map_or(player, |object| object.owner);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            for &card in top.iter().rev() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         (AwaitingOp::Surveil, [top, graveyard]) => {
             for &card in graveyard {
                 let owner = state.object(card).map_or(res.controller, |o| o.owner);

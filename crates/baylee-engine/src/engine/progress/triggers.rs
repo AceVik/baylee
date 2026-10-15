@@ -22,6 +22,10 @@ impl<L: CardLookup> Engine<L> {
             && let Some(obj) = self.state.object_mut(top)
         {
             obj.mode_index = Some(mode);
+            if let (Some(abilities), Some(loc)) = (&obj.own_abilities, obj.ability) {
+                obj.target_req =
+                    crate::object::ability_target_req(abilities, loc.index, Some(mode));
+            }
         }
     }
 
@@ -366,6 +370,7 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
+        crate::trigger::bird_entry::consume(&mut self.state, self.trigger_scan_seq);
         self.trigger_scan_seq = self.state.journal.last_seq();
         crate::resolve::linked_reanimation::prune(&mut self.state);
         // The scan has passed every journal entry a departed object could

@@ -7,6 +7,7 @@
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
 mod activations;
+pub(crate) mod bird_entry;
 mod discarded;
 mod event_groups;
 mod radiation;
@@ -268,6 +269,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     watch_triggers(state, events, &mut triggers);
     damage_watch_triggers(state, events, &mut triggers);
     attack_watch_triggers(state, events, &mut triggers);
+    bird_entry::collect(state, events, &mut triggers);
     cast_copy_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
     for trigger in &mut triggers {

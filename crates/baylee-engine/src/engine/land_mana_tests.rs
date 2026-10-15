@@ -1529,8 +1529,13 @@ const LANDS: Bounds = Bounds {
     // Implemented; 1032 after wave 3 pair E's Den of the Bugbear, Dalkovan
     // Encampment and Archway of Innovation; 1033 after wave 4's Dakmor
     // Salvage. 1034 once the full corpus (2026-10-14) added its generated
-    // lands; the ceiling keeps a few promises of slack above that.
-    promises: 700..=1040,
+    // lands. 1044 measured 2026-10-15 after seven Partial -> Implemented
+    // land promotions. Secret Tunnel, Arena of Glory, Fire Nation Palace,
+    // Inkmoth Nexus, Restless Anchorage and Stardew Valley each contribute
+    // one newly judged simple promise. Chocobo Camp's Bird rider remains
+    // explicitly unparsed, not a seventh simple promise. Keep the original
+    // six-promise slack budget above the current measured population.
+    promises: 700..=1050,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

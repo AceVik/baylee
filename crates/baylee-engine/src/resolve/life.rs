@@ -915,7 +915,7 @@ mod tests {
     fn an_effects_damage_meets_the_prevention_shields() {
         let mut state = state();
         let source = permanent(&mut state, "Shock");
-        let creature = permanent(&mut state, "Grizzly Bears");
+        let creature = typed(&mut state, me(), "Grizzly Bears", TypeSet::CREATURE);
         state.shields.push(Shield {
             protects: Shielded::Player(me()),
             kind: ShieldKind::Next(2),
@@ -1191,7 +1191,7 @@ mod tests {
             .expect("just made it")
             .base_mut()
             .keywords = KeywordSet::DEATHTOUCH;
-        let bear = permanent(&mut state, "Bear");
+        let bear = typed(&mut state, me(), "Bear", TypeSet::CREATURE);
 
         deal_to_object_with_loyalty(&mut state, bear, 1, plain);
         let obj = state.object(bear).expect("still there");
@@ -1225,7 +1225,7 @@ mod tests {
     fn protection_stops_the_damage_and_the_event_with_it() {
         let mut state = state();
         let source = permanent(&mut state, "Bolt");
-        let bear = permanent(&mut state, "Bear");
+        let bear = typed(&mut state, me(), "Bear", TypeSet::CREATURE);
         let version = state.object(bear).expect("just made it").version;
         let modifier = Modifier::ProtectionFrom(&Filter::ControlledByYou);
         state.effects.register(ContinuousEffect {
@@ -1256,7 +1256,7 @@ mod tests {
         // The other branch of the same call, so a green run cannot mean the
         // damage failed to land for some reason of its own: an identical
         // creature without the effect takes it.
-        let unprotected = permanent(&mut state, "Other Bear");
+        let unprotected = typed(&mut state, me(), "Other Bear", TypeSet::CREATURE);
         deal_to_object_with_loyalty(&mut state, unprotected, 3, source);
         assert_eq!(state.object(unprotected).expect("still there").damage, 3);
         assert_eq!(state.journal.len(), entries + 1);
@@ -1270,7 +1270,7 @@ mod tests {
     fn maze_of_ith_s_modifiers_leave_an_effect_s_damage_alone() {
         let mut state = state();
         let source = permanent(&mut state, "Bolt");
-        let bear = permanent(&mut state, "Bear");
+        let bear = typed(&mut state, me(), "Bear", TypeSet::CREATURE);
         for (on, modifier) in [
             (bear, Modifier::PreventDamageToIt),
             (source, Modifier::PreventDamageFromIt),
@@ -1433,10 +1433,10 @@ mod tests {
     ///
     /// The filter is `Any` on purpose. A card's filter names its printed
     /// noun, so no card in the pool would ever put a land in front of this
-    /// resolver — which is exactly why the type skip needs a test of its own:
-    /// `deal_to_object_with_loyalty` marks damage on anything that is not a
-    /// walker (CR 120.1a says it may not), and a phased-out permanent is
-    /// treated as though it does not exist (CR 702.26b).
+    /// resolver — which is exactly why the type skip needs a test of its own.
+    /// The damage commit also restricts marking to creatures; the resolver
+    /// must avoid even generating damage events for other permanents. A
+    /// phased-out permanent is treated as nonexistent (CR 702.26b).
     #[test]
     fn damage_to_each_reaches_what_can_be_dealt_damage_and_nothing_else() {
         let mut state = state();

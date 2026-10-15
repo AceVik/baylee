@@ -22,6 +22,7 @@ use smallvec::SmallVec;
 
 mod attachments;
 mod behold;
+mod bird_entry;
 mod names;
 pub use names::resume_name;
 mod chosen;
@@ -34,8 +35,10 @@ mod counters;
 mod delayed_returns;
 mod draw_debts;
 mod equalize;
+mod explore;
 mod future_attacks;
 mod graveyard_choice;
+mod greatest_exchange;
 mod landwalk;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
@@ -1221,6 +1224,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::EachPlayerSearchBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
+        | Effect::Explore { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
@@ -1242,6 +1246,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChooseCardName { .. }
         | Effect::ChooseNumber { .. }
         | Effect::DestroyWeakest { .. }
+        | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
         | Effect::SacrificeAndIf { .. }
@@ -1253,6 +1258,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::AddManaUnlessAnyPlayerPays { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoFor { .. }
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),

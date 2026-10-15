@@ -427,6 +427,25 @@ pub static JUNK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// Colorless Map artifact: a controlled creature explores at sorcery speed.
+/// Scryfall TLCI #17, checked 2026-10-15; Wizards' LCI mechanics article
+/// confirms the cost, target restriction and timing.
+pub static MAP: TokenDef = TokenDef {
+    name: "Map",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::MAP],
+    abilities: &[activated!(
+        cost!("{1}", TapSelf, SacrificeSelf),
+        &[Effect::Explore {
+            target: baylee_cards_dsl::TargetSpec::Object(&Filter::YOUR_CREATURE),
+        }],
+        target = Some(baylee_cards_dsl::TargetSpec::Object(&Filter::YOUR_CREATURE)),
+        timing = baylee_cards_dsl::ActivationTiming::SorcerySpeed,
+    )],
+    scryfall_id: "64839118-09d2-4645-9d3c-f80755ac781f",
+    ..TokenDef::DEFAULT
+};
+
 /// Ordinary colorless 1/1 Spirit, with no printed abilities.
 pub static SPIRIT_1_1_COLORLESS: TokenDef = TokenDef {
     name: "Spirit",
@@ -553,6 +572,10 @@ pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
         || std::ptr::eq(token, &raw const VIBRANIUM)
     {
         Some("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.")
+    } else if std::ptr::eq(token, &raw const MAP) {
+        Some(
+            "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery.",
+        )
     } else if std::ptr::eq(token, &raw const JUNK) {
         Some(
             "{T}, Sacrifice this artifact: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.",

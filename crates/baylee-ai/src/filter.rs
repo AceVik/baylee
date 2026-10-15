@@ -292,6 +292,8 @@ impl HeuristicAgent {
         | Filter::BlockedThisTurnBy(_)
         | Filter::AttachedTo(_)
         | Filter::SharesTypeWithReference(_)
+        // Pairwise target context is not available to this filter reader.
+        | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.

@@ -2030,6 +2030,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(127);
             filter_hash(h, inner);
         }
+        F::SharesCreatureTypeWithOtherTarget => h.u8(130),
         F::OfSourceChosenColor => h.u8(128),
         F::SharesAColorWith(inner) => {
             h.u8(129);

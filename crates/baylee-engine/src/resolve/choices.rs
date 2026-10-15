@@ -33,6 +33,10 @@ pub(super) fn exec_choice(
         Effect::DestroyWeakest { filter, no_regen } => {
             super::weakest::start(state, res, filter, no_regen)
         }
+        Effect::ExchangeGreatestManaValue { filter, with } => {
+            super::greatest_exchange::start(state, res, filter, with)
+        }
+        Effect::Explore { target } => super::explore::start(state, res, target),
         Effect::MayBehold { filter, then } => super::behold::start(state, res, filter, then),
         Effect::ChooseOne { choices } => {
             // CR 608.2d and 701.26b: an optional untap cannot replace a scry
@@ -656,7 +660,13 @@ pub(super) fn exec_choice(
         Effect::AddManaUnlessAnyPlayerPays { .. } | Effect::AddMana { .. } => {
             mana::exec(state, res, op)
         }
-        Effect::MayDo { effects } => {
+        Effect::MayDo { effects } | Effect::MayDoFor { effects, .. } => {
+            let player = match op {
+                Effect::MayDoFor { player, .. } => {
+                    players_of(player, state, you, res).first().copied()?
+                }
+                _ => you,
+            };
             if !may_clause_possible(state, res, effects) {
                 return None;
             }
@@ -665,7 +675,7 @@ pub(super) fn exec_choice(
                 once_each_turn: None,
             });
             Some(Pending::YesNo {
-                player: you,
+                player,
                 prompt: YesNoPrompt::MayDo,
                 source: resolving_ability(state, res),
             })

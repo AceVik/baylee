@@ -395,6 +395,18 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::WhenNextSpellCastThisTurn { filter, effects } => {
+            bird_entry::register(state, res, filter, effects);
+            None
+        }
+        Effect::EventSpellEntersWithP1P1 { n } => {
+            bird_entry::grant(state, res, n);
+            None
+        }
+        Effect::AddCombatMana { color, amount } => {
+            mana::add_combat_mana(state, res, color, amount);
+            None
+        }
         Effect::ChangeController { new_controller } => control::change(state, res, new_controller),
         Effect::ControlRotation => control::ask(state, res),
         Effect::AllCreaturesToOwner => {
@@ -2446,6 +2458,7 @@ pub(super) fn exec_immediate(
         | Effect::EachPlayerSearchBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
+        | Effect::Explore { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
@@ -2467,6 +2480,7 @@ pub(super) fn exec_immediate(
         | Effect::ChooseCardName { .. }
         | Effect::ChooseNumber { .. }
         | Effect::DestroyWeakest { .. }
+        | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
         | Effect::SacrificeAndIf { .. }
@@ -2478,6 +2492,7 @@ pub(super) fn exec_immediate(
         | Effect::AddManaUnlessAnyPlayerPays { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoFor { .. }
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {

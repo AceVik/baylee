@@ -327,6 +327,12 @@ pub enum Filter {
     /// (Gauntlets of Chaos: "target permanent an opponent controls that
     /// shares one of those types with it").
     SharesTypeWithReference(TypeSet),
+    /// One of two distinct targets that share a creature type. Write the
+    /// same object filter on both sequential target requirements. The first
+    /// choice offers only candidates with a legal partner; the second is
+    /// relative to the first. Resolution checks the relation symmetrically,
+    /// using the other target's last battlefield characteristics if it left.
+    SharesCreatureTypeWithOtherTarget,
     /// Dealt damage this turn to the source as the permanent it last was on
     /// the battlefield, and is the same object that dealt it (Brine Hag:
     /// "all creatures that dealt damage to it this turn").

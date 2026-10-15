@@ -1215,6 +1215,15 @@ impl HeuristicAgent {
         x: u32,
     ) -> Option<i64> {
         let me = view.seat;
+        // These need resolution metadata the valuation context does not
+        // carry: the original controller/chooser, or the future event spell.
+        // Do not turn a nested clause into a concrete value for this seat.
+        if matches!(
+            effect,
+            Effect::MayDoFor { .. } | Effect::WhenNextSpellCastThisTurn { .. }
+        ) {
+            return None;
+        }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
             let then = self.effects_worth(view, origin, then, aim, x)?;
@@ -1708,6 +1717,20 @@ impl HeuristicAgent {
                     Some(o) if makes_mana(o) => Self::mana_price(view),
                     _ => 0,
                 },
+                // Exerting leaves the source usable now, but gives up its
+                // next untap. Price that future use without the current
+                // combat restriction imposed by `creature_tap_price`.
+                CostPart::ExertSelf => {
+                    let o = origin.object?;
+                    if creature(o) {
+                        60 + i64::from(o.power.unwrap_or(0).max(0)) * 30
+                            + i64::from(o.toughness.unwrap_or(0).max(0)) * 20
+                    } else if makes_mana(o) {
+                        Self::mana_price(view)
+                    } else {
+                        return None;
+                    }
+                }
                 CostPart::UntapSelf
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX

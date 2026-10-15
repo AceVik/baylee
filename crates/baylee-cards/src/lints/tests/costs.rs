@@ -424,3 +424,19 @@ fn the_loyalty_lint_catches_a_walker_with_no_starting_loyalty() {
         "a walker with loyalty is not a fault"
     );
 }
+
+#[test]
+fn exert_requires_the_source_but_does_not_move_it() {
+    assert_eq!(
+        cost_order_fault(&[CostPart::SacrificeSelf, CostPart::ExertSelf]),
+        Some((CostPart::SacrificeSelf, CostPart::ExertSelf)),
+    );
+    assert_eq!(
+        cost_order_fault(&[CostPart::ExertSelf, CostPart::SacrificeSelf]),
+        None,
+    );
+    assert_eq!(
+        cost_order_fault(&[CostPart::ExertSelf, CostPart::TapSelf]),
+        None,
+    );
+}

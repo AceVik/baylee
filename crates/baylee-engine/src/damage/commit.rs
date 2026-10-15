@@ -26,13 +26,27 @@ impl DamageWork {
             match part.view.recipient {
                 DamageTarget::Player(player) => {
                     state.record_player_damage(part.view.source, part.source_version, player);
-                    state.damage_player(
-                        part.view.source,
-                        player,
-                        part.view.amount,
-                        part.view.is_combat,
-                        Cause::Effect,
-                    );
+                    if part.keywords.contains(KeywordSet::INFECT) {
+                        state.change_player_counters(
+                            player,
+                            CounterKind::Poison,
+                            i32::try_from(part.view.amount).unwrap_or(i32::MAX),
+                        );
+                        state.record_player_damage_result(
+                            part.view.source,
+                            player,
+                            part.view.amount,
+                            part.view.is_combat,
+                        );
+                    } else {
+                        state.damage_player(
+                            part.view.source,
+                            player,
+                            part.view.amount,
+                            part.view.is_combat,
+                            Cause::Effect,
+                        );
+                    }
                     if part.view.is_combat
                         && state
                             .commanders
@@ -101,7 +115,32 @@ impl Part {
                 CounterKind::Loyalty,
                 u16::try_from(n).unwrap_or(u16::MAX),
             );
-        } else if let Some(obj) = state.object_mut(target) {
+        }
+        if state
+            .object(target)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
+            && self.keywords.contains(KeywordSet::INFECT)
+        {
+            // Combat damage is a turn-based action, so effect-only counter
+            // multipliers do not apply to its results.
+            let place = if self.view.is_combat {
+                crate::replacement::record_counters_by
+            } else {
+                crate::replacement::put_counters_by
+            };
+            place(
+                state,
+                self.controller,
+                target,
+                CounterKind::M1M1,
+                u16::try_from(n).unwrap_or(u16::MAX),
+            );
+            if let Some(obj) = state.object_mut(target) {
+                obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
+            }
+        } else if let Some(obj) = state.object_mut(target)
+            && obj.characteristics().types.contains(TypeSet::CREATURE)
+        {
             obj.damage = obj
                 .damage
                 .saturating_add(u16::try_from(n).unwrap_or(u16::MAX));

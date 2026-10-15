@@ -131,6 +131,8 @@ pub enum SpendRider {
     CommanderScry,
     /// The creature spell gains haste indefinitely (CR 400.7a, 611.2a).
     Haste,
+    /// The creature spell gains haste until end of turn.
+    HasteUntilEndOfTurn,
     /// Copy the spell or nonmana activated ability this unit pays for.
     /// A separate delayed trigger belongs to each unit (CR 106.6a).
     Copy,

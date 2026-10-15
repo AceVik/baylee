@@ -81,6 +81,9 @@ impl<L: CardLookup> Engine<L> {
         // propped up any test that spent mana in a later step than it made
         // it in.
         for player in &mut self.state.players {
+            if self.state.turn.step == Step::CombatEnd {
+                player.mana_pool.expire_combat_retention();
+            }
             player.mana_pool.empty_at_step_end();
         }
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);

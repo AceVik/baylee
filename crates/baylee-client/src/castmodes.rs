@@ -261,6 +261,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         // source and would be safe to admit the day a card wants them.
         CostPart::TapSelf
         | CostPart::UntapSelf
+        | CostPart::ExertSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)

@@ -860,6 +860,38 @@ fn a_scry_reads_as_its_golden_text() {
     );
 }
 
+/// The top/graveyard arrangement also serves explore, so its instructions
+/// describe the destinations and ordering without claiming surveil occurred.
+#[test]
+fn the_shared_graveyard_arrangement_does_not_mislabel_explore() {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+    let (mut view, _) = board();
+    view.looking_at = vec![card(70, "Forest"), card(71, "Lightning Bolt")];
+    let pending = Pending::Arrange {
+        player: ME,
+        cards: vec![id(70), id(71)],
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, 2),
+            ArrangePile::up_to(ArrangePlace::Graveyard, 2),
+        ],
+        prompt: ArrangePrompt::Surveil,
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("graveyard and the rest on top of your library, in any order"));
+    assert!(!text.contains("Surveil"));
+    assert!(!text.contains("701.25"));
+}
+
 /// Log lines already heard are not told twice, and a gap is said.
 /// Whether to pay an additional cost is asked with the spell and its cost,
 /// and with what a yes without the mana does. Found by the gateway e2e: a

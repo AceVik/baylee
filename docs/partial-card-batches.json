@@ -3,7 +3,7 @@
   "original_partial_count": 540,
   "completed_before_plan": 284,
   "remaining_at_start": 256,
-  "note": "Mechanism-based work packages; order and boundaries may change when shared prerequisites are found. Completion requires every printed clause and behavioral validation. Reconciled on 2026-10-15 by Oracle ID against current source coverage: 486 of the original 540 Implemented, 51 Partial, 3 excluded Un-cards. completed_cards lists only Implemented cards; withdrawn_cards lists exclusions, never completions.",
+  "note": "Mechanism-based work packages; order and boundaries may change with shared prerequisites. Completion requires every printed clause and behavioral validation. Original 540: 497 Implemented, 40 Partial, 3 owner-excluded. Exclusions never count as implementations.",
   "batches": [
     {
       "batch": 39,
@@ -928,12 +928,16 @@
         "Rohgahh of Kher Keep",
         "Contested War Zone",
         "Mirror Universe",
-        "Gauntlets of Chaos"
+        "Gauntlets of Chaos",
+        "Secret Tunnel",
+        "Stardew Valley",
+        "Juxtapose"
       ],
       "partials_lane_notes": [
         "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
         "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3).",
-        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13"
+        "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
+        "2026-10-15: GPT-6.1 Sol card/tests, Astra production engine, independent Sol/Astra reviews; eight-card slice has 56 canonical tests and 18/18 recorded abilities with 18/18 whole-ability mutants killed. Shared integration gates recorded in llm-learnings."
       ]
     },
     {
@@ -1100,7 +1104,7 @@
     {
       "batch": 55,
       "title": "Attacking tokens and combat keywords",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Floral Spuzzem",
@@ -1138,11 +1142,17 @@
       "completed_cards": [
         "Floral Spuzzem",
         "Dalkovan Encampment",
-        "Den of the Bugbear"
+        "Den of the Bugbear",
+        "Chocobo Camp",
+        "Fire Nation Palace",
+        "Arena of Glory",
+        "Restless Anchorage",
+        "Inkmoth Nexus"
       ],
       "partials_lane_notes": [
         "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
-        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13",
+        "2026-10-15: GPT-6.1 Sol card/tests, Astra production engine, independent Sol/Astra reviews; eight-card slice has 56 canonical tests and 18/18 recorded abilities with 18/18 whole-ability mutants killed. Shared integration gates recorded in llm-learnings."
       ]
     },
     {
@@ -1621,7 +1631,7 @@
     {
       "batch": 68,
       "title": "Copies controlled by resolution participants",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Chain Lightning",
@@ -1639,7 +1649,7 @@
   "current_session_scope": {
     "batches": [
       51,
-      63
+      68
     ],
     "target_original_cards_complete": 537,
     "then": [
@@ -1648,9 +1658,9 @@
       "wait for explicit Go before post-card test/build/performance phases or final main integration/push"
     ],
     "authorized_on": "2026-10-15",
-    "note": "Resumed on 2026-10-15 after rebase: 486 Implemented, 51 Partial, 3 previously excluded Un-cards. Batch 63 now adds three validated implementations: 489 Implemented, 48 Partial, 3 excluded. Batch 51 is active. Generated-card testing is separate from the original 540. Stop after eligible original cards are complete and await explicit Go before later optimization phases.",
+    "note": "GPT-6.1 Sol owns cards and tests; Astra exclusively owns production engine. Batch55 complete; batch51 has Cuombajj Witches remaining; batch68 prepared and awaits copy APIs. Original progress497 Implemented,40 Partial,3 owner-excluded. Stop after all537 eligible originals complete and await Go before deferred optimization and final integration/push.",
     "post_rebase_original_cards_complete": 486,
-    "current_original_cards_complete": 489,
-    "remaining_original_partial_cards": 48
+    "current_original_cards_complete": 497,
+    "remaining_original_partial_cards": 40
   }
 }

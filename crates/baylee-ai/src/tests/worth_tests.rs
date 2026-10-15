@@ -800,7 +800,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Avishkar Raceway's draw activation: both use existing readable effects.
     // Muraganda Raceway adds a mana ability, excluded from this census, and
     // StartYourEngines is a synthesized keyword rather than an activation.
-    assert_eq!((read, of), (2523, 3001), "activated/loyalty reader census");
+    // Resumed Batch55 adds Secret Tunnel's paired-target activation and
+    // Fire Nation Palace's firebending grant: two new unread rows (the
+    // evaluator lacks the second target binding and triggered grant value).
+    // Stardew Valley's existing draw activation loses its readable row when
+    // its chosen-player optional control transfer is completed. The exact
+    // chooser/reference context is unavailable, so it is deliberately unknown.
+    // Arena of Glory and Chocobo Camp change only mana abilities, excluded here.
+    assert_eq!((read, of), (2522, 3003), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -1606,4 +1613,79 @@ fn second_slot_pump_is_not_valued_against_the_first_target() {
         ),
         None,
     );
+}
+
+#[test]
+fn exert_prices_a_future_untap_without_blocking_the_current_main_phase() {
+    use baylee_cards_dsl::{Cost, CostPart, ManaCost};
+    let mut v = view(0, &[20, 20], vec![permanent(obj(1), ME, 2)]);
+    main_phase(&mut v);
+    let agent = expert();
+    let cost = Cost {
+        mana: ManaCost::ZERO,
+        parts: &[CostPart::ExertSelf],
+    };
+    assert_eq!(
+        agent.cost_worth(&v, Origin::of(&v, obj(1)), &cost),
+        Some(160)
+    );
+    assert_eq!(
+        agent.cost_worth(&v, Origin::of(&v, obj(1)), &Cost::TAP),
+        None,
+    );
+    assert_eq!(agent.cost_worth(&v, Origin::of(&v, obj(99)), &cost), None);
+}
+
+#[test]
+fn a_delayed_spell_carrier_has_no_value_without_its_future_event_context() {
+    use baylee_cards_dsl::{Effect, Filter};
+    let v = view(0, &[20, 20], vec![permanent(obj(1), ME, 2)]);
+    let effects = [Effect::WhenNextSpellCastThisTurn {
+        filter: &Filter::CREATURE,
+        effects: &[Effect::GainLife {
+            amount: baylee_cards_dsl::Amount::Fixed(4),
+        }],
+    }];
+    assert_eq!(
+        expert().effects_worth(&v, Origin::of(&v, obj(1)), &effects, Aim::Source, 0),
+        None,
+    );
+}
+
+#[test]
+fn resumed_batch55_contextual_rows_explain_the_activation_reader_census() {
+    use baylee_cards_dsl::Effect;
+    let v = view(0, &[20, 20], vec![]);
+    let origin = Origin {
+        id: obj(1),
+        object: None,
+    };
+    let reader = agent();
+    // The old Stardew row was a draw alone, which the empty-board census reads.
+    assert!(
+        reader
+            .effects_worth(&v, origin, &[Effect::draw(1)], Aim::Source, 0,)
+            .is_some()
+    );
+    for (name, index) in [
+        ("Secret Tunnel", 2),
+        ("Fire Nation Palace", 1),
+        ("Stardew Valley", 2),
+    ] {
+        let card = baylee_cards::decks::by_name(name).unwrap();
+        let ability = &baylee_cards::by_index(card).unwrap().abilities[index];
+        let AbilityDef::Activated {
+            effects,
+            mana_ability: false,
+            ..
+        } = ability
+        else {
+            panic!("{name} row {index} must be the nonmana activation being counted");
+        };
+        assert_eq!(
+            reader.effects_worth(&v, origin, effects, Aim::Source, 0),
+            None,
+            "{name} requires resolution context the empty-board reader does not have",
+        );
+    }
 }

@@ -177,6 +177,19 @@ impl<L: CardLookup> Engine<L> {
                 .can_pay_life(player, i32::from(self.state.commander_colors(player).len()))
     }
 
+    /// Source actions have separate requirements: exert only needs a
+    /// battlefield permanent; tap symbols also require readiness and tap state.
+    fn can_pay_source_action(&self, source: ObjectId, part: &CostPart) -> bool {
+        self.state.object(source).is_some_and(|object| match part {
+            CostPart::ExertSelf => object.zone == crate::zone::Zone::Battlefield,
+            CostPart::TapSelf | CostPart::UntapSelf => {
+                !crate::combat::summoning_sick(&self.state, object)
+                    && object.status.contains(Status::TAPPED) == matches!(part, CostPart::UntapSelf)
+            }
+            _ => unreachable!("source action cost"),
+        })
+    }
+
     pub(crate) fn can_afford(
         &self,
         player: PlayerId,
@@ -189,23 +202,8 @@ impl<L: CardLookup> Engine<L> {
         }
         for part in cost.parts {
             match part {
-                // CR 302.6, second sentence: a creature's activated ability
-                // with the tap or the untap symbol in its cost cannot be
-                // activated unless the creature has been under its
-                // controller's control since their most recent turn began.
-                // The check belongs here and not in the cost payment: a
-                // creature tapped to pay someone *else's* cost (convoke,
-                // crew) is not activating an ability of its own, and
-                // summoning sickness has never stopped that.
-                CostPart::TapSelf | CostPart::UntapSelf => {
-                    let Some(obj) = self.state.object(source) else {
-                        return false;
-                    };
-                    if crate::combat::summoning_sick(&self.state, obj) {
-                        return false;
-                    }
-                    // CR 107.5–107.6: the symbols require opposite initial states.
-                    if obj.status.contains(Status::TAPPED) != matches!(part, CostPart::UntapSelf) {
+                CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
+                    if !self.can_pay_source_action(source, part) {
                         return false;
                     }
                 }
@@ -515,6 +513,31 @@ impl<L: CardLookup> Engine<L> {
                         object: source,
                         cause: Cause::Cost,
                     });
+                }
+                CostPart::ExertSelf => {
+                    let version = self.state.object(source).expect("exerted source").version;
+                    let filter = crate::effects::EffectFilter::DslAbout(
+                        &baylee_cards_dsl::Filter::And(&[
+                            baylee_cards_dsl::Filter::Reference,
+                            baylee_cards_dsl::Filter::ControlledByYou,
+                        ]),
+                        source,
+                        version,
+                    );
+                    let timestamp = self.state.next_timestamp();
+                    self.state
+                        .effects
+                        .register(crate::effects::ContinuousEffect {
+                            id: baylee_core::ids::EffectId::new(0),
+                            source: Some(source),
+                            controller: player,
+                            origin: crate::effects::EffectOrigin::Resolution,
+                            layer: baylee_cards_dsl::Modifier::DoesNotUntap.layer(),
+                            timestamp,
+                            duration: baylee_cards_dsl::Duration::UntilYourNextUntapStep,
+                            filter,
+                            modifier: baylee_cards_dsl::Modifier::DoesNotUntap,
+                        });
                 }
                 CostPart::UntapSelf => {
                     if self.state.set_tapped(source, false) {

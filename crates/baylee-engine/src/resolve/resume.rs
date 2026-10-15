@@ -72,6 +72,11 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ExchangeGreatest(selection) => {
+            if let Some(question) = greatest_exchange::resume(state, res, *selection, chosen) {
+                return next_choice(state, res, since, question);
+            }
+        }
         AwaitingOp::DestroyWeakest { no_regen } => {
             if let Some(&card) = chosen.first() {
                 super::weakest::destroy(state, card, no_regen);
@@ -1088,7 +1093,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
         | AwaitingOp::DiscardDestination { .. }
-        | AwaitingOp::Surveil => {
+        | AwaitingOp::Surveil
+        | AwaitingOp::Explore { .. } => {
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ChooseCardName { .. }

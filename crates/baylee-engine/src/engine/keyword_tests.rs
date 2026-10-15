@@ -99,7 +99,7 @@ fn without_flash_a_creature_waits_for_its_own_main_phase() {
 ///
 /// `KeywordSet` is deliberately larger than this: it has room for the
 /// keywords the pool will grow into. The danger is the gap between the two
-/// — a card printing `KeywordSet::INFECT` today would compile, ship, and do
+/// — a card printing `KeywordSet::WITHER` today would compile, ship, and do
 /// nothing at all, which is exactly how hexproof, shroud, defender and
 /// flash sat unenforced on fifteen cards until 2026-08-31. The test below
 /// closes that gap: add the keyword to a card and the build fails until
@@ -116,6 +116,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("shroud", K::SHROUD),                                   // eval::untargetable_by
         ("shadow", K::SHADOW), // combat::can_block (both directions)
         ("indestructible", K::INDESTRUCTIBLE), // sba::run
+        ("infect", K::INFECT), // damage::commit
         ("lifelink", K::LIFELINK), // combat::deal_combat_damage
         ("menace", K::MENACE), // combat::can_block
         ("reach", K::REACH),   // combat::can_block
