@@ -1317,6 +1317,7 @@ dependencies = [
  "alias_record",
  "anyhow",
  "base64 0.22.1",
+ "baylee-cards-codegen",
  "clap",
  "ctrlc",
  "ds_parser",

@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use baylee_cards_codegen::coverage_holds::CoverageHolds;
 use regex::Regex;
 use serde_json::Value;
 use syn::visit::Visit;
@@ -137,21 +138,33 @@ fn collect_tests(
 
 /// `Coverage::Generated` cards whose card test already exists at the
 /// card's own path: codegen would write them `Implemented`, so the tree is
-/// behind it. A Generated card without a test is expected and exempt.
+/// behind it. A Generated card without a test or with an explicit acceptance
+/// hold is expected and exempt.
 fn promotable(root: &Path) -> Result<Vec<String>> {
-    fn walk(cards: &Path, dir: &Path, tests: &Path, out: &mut Vec<String>) -> Result<()> {
+    fn walk(
+        cards: &Path,
+        dir: &Path,
+        tests: &Path,
+        holds: &CoverageHolds,
+        out: &mut Vec<String>,
+    ) -> Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
             let ty = entry.file_type()?;
             if ty.is_dir() {
-                walk(cards, &path, tests, out)?;
+                walk(cards, &path, tests, holds, out)?;
             } else if ty.is_file()
                 && path.extension().is_some_and(|e| e == "rs")
                 && path.file_name().is_none_or(|n| n != "mod.rs")
             {
                 let rel = path.strip_prefix(cards)?;
-                if tests.join(rel).is_file() && fs::read_to_string(&path)?.contains(GENERATED) {
+                let text = fs::read_to_string(&path)?;
+                let accepted = oracle(&text).map_or_else(
+                    || tests.join(rel).is_file(),
+                    |id| holds.accepts_tests(&id, tests.join(rel).is_file()),
+                );
+                if accepted && text.contains(GENERATED) {
                     out.push(rel.to_string_lossy().into_owned());
                 }
             }
@@ -159,9 +172,14 @@ fn promotable(root: &Path) -> Result<Vec<String>> {
         Ok(())
     }
     let mut out = Vec::new();
+    let holds_path = root.join("data/card-test-holds.tsv");
+    let holds = CoverageHolds::parse(
+        &fs::read_to_string(&holds_path)
+            .with_context(|| format!("read {}", holds_path.display()))?,
+    )?;
     let cards = root.join(CARDS);
     if cards.is_dir() {
-        walk(&cards, &cards, &root.join(CARD_TESTS), &mut out)?;
+        walk(&cards, &cards, &root.join(CARD_TESTS), &holds, &mut out)?;
     }
     out.sort();
     Ok(out)
@@ -407,6 +425,8 @@ fn test() { let _ = card_index("00000000-0000-0000-0000-000000000002"); assert_e
     #[test]
     fn a_generated_card_is_flagged_only_once_its_test_exists() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("data")).unwrap();
+        fs::write(dir.path().join("data/card-test-holds.tsv"), "").unwrap();
         let card = dir.path().join(CARDS).join("lands/utility");
         fs::create_dir_all(&card).unwrap();
         fs::write(card.join("a.rs"), "coverage = Coverage::Generated,").unwrap();
@@ -421,6 +441,29 @@ fn test() { let _ = card_index("00000000-0000-0000-0000-000000000002"); assert_e
         fs::write(tests.join("b.rs"), "").unwrap();
         assert_eq!(promotable(dir.path()).unwrap(), ["lands/utility/a.rs"]);
         assert!(report(&[], &[], &[], &["x.rs".into()]).is_some());
+    }
+
+    #[test]
+    fn held_generated_tests_remain_enabled_without_promotion_debt() {
+        let dir = tempfile::tempdir().unwrap();
+        let card = dir.path().join(CARDS).join("instants/mv_2");
+        let tests = dir.path().join(CARD_TESTS).join("instants/mv_2");
+        fs::create_dir_all(&card).unwrap();
+        fs::create_dir_all(&tests).unwrap();
+        fs::create_dir_all(dir.path().join("data")).unwrap();
+        let id = "00000000-0000-0000-0000-000000000001";
+        fs::write(
+            card.join("held.rs"),
+            format!("oracle_id = \"{id}\", coverage = Coverage::Generated,"),
+        )
+        .unwrap();
+        fs::write(tests.join("held.rs"), "#[test] fn useful_test() {}").unwrap();
+        let manifest = dir.path().join("data/card-test-holds.tsv");
+        fs::write(&manifest, format!("{id}\tKnown rules gap\n")).unwrap();
+        assert!(promotable(dir.path()).unwrap().is_empty());
+        assert!(tests.join("held.rs").is_file());
+        fs::write(&manifest, "").unwrap();
+        assert_eq!(promotable(dir.path()).unwrap(), ["instants/mv_2/held.rs"]);
     }
     #[test]
     fn oracle_header_and_macro_are_read() {

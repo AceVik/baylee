@@ -60,13 +60,15 @@ pub(crate) fn cards(
         &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
     );
     let mut found = card_files(&cards_dir)?;
-    // A card read in full is `Implemented` once a test plays it, else
-    // `Generated` (`stubgen::read_coverage`). A test is its own file at the
+    // A card read in full is `Implemented` once accepted tests play it, else
+    // `Generated` (`stubgen::read_coverage`). Explicit coverage holds keep
+    // useful tests from accepting a documented rules gap. A test is its own file at the
     // same path under `card_tests/`, or any engine test naming its oracle id:
     // the older cards are played in shared modules (`card_tests/creatures.rs`,
     // `*_tests.rs`), and a path-only check demoted 257 of them.
     let card_tests = root.join("crates/baylee-engine/src/engine/card_tests");
     let named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
+    let coverage_holds = crate::coverage_holds::load(root)?;
 
     // Refuse an orphan *before* the first rename, not after the last one. The
     // slug a card claims is known without fetching anything, and a bail in
@@ -120,7 +122,12 @@ pub(crate) fn cards(
             scripts,
             tokens,
             &cycles,
-            &|rel| card_tests.join(rel).is_file() || named_in_tests.contains(&oracle_id),
+            &|rel| {
+                coverage_holds.accepts_tests(
+                    &oracle_id,
+                    card_tests.join(rel).is_file() || named_in_tests.contains(&oracle_id),
+                )
+            },
         )?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
@@ -130,22 +137,7 @@ pub(crate) fn cards(
         if let Some(current) = found.remove(&info.slug)
             && current != stub_path
         {
-            if check {
-                changed.push(current.clone());
-            } else {
-                if let Some(parent) = stub_path.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::rename(&current, &stub_path)?;
-                println!(
-                    "moved {} -> {}",
-                    current
-                        .strip_prefix(&cards_dir)
-                        .unwrap_or(&current)
-                        .display(),
-                    info.path
-                );
-            }
+            relocate_card(current, &stub_path, &cards_dir, &info.path, check, changed)?;
         }
         // Ownership decides, and the file says which it is. A stub and a card
         // a reader wrote in full are both **machine-owned**: codegen rewrites
@@ -197,6 +189,34 @@ pub(crate) fn cards(
         changed,
     )?;
     write_index_tree(root, check, &ledger, changed)?;
+    Ok(())
+}
+
+/// Reconcile a card's previous path with the reader's current layout.
+fn relocate_card(
+    current: PathBuf,
+    destination: &Path,
+    cards_dir: &Path,
+    relative_destination: &str,
+    check: bool,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    if check {
+        changed.push(current);
+    } else {
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::rename(&current, destination)?;
+        println!(
+            "moved {} -> {}",
+            current
+                .strip_prefix(cards_dir)
+                .unwrap_or(&current)
+                .display(),
+            relative_destination
+        );
+    }
     Ok(())
 }
 

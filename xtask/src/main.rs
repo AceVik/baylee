@@ -9,6 +9,7 @@ mod check_text;
 mod cli;
 mod codegen;
 mod corpus;
+mod coverage_holds;
 mod cr_check;
 mod cross_read;
 mod dev_table;

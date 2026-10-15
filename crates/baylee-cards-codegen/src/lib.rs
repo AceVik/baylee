@@ -11,6 +11,7 @@ pub mod acceptance;
 pub mod body;
 pub mod cardindex;
 pub mod catalog;
+pub mod coverage_holds;
 pub mod error;
 pub mod landgen;
 pub mod layout;
