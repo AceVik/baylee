@@ -69,26 +69,61 @@ fn pay_the_price_with(
     pass_until(engine, stack_is_empty);
 }
 
+/// Walks to the declare-attackers question and sends `attacker` at
+/// `defender`; every other creature stays home.
+#[track_caller]
+fn attack_with(engine: &mut Engine<RegistryLookup>, attacker: ObjectId, defender: PlayerId) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert!(
+        attackers.contains(&attacker),
+        "the creature may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(defender))],
+            },
+        )
+        .expect("the attacker came off the list");
+}
+
 mod aether_sting;
+mod aquatic_incursion;
 mod arboria;
+mod blood_mist;
 mod breeding_pit;
 mod builder_s_blessing;
 mod burning_earth;
 mod castle;
+mod coastal_piracy;
 mod conversion;
 mod crucible_of_fire;
 mod cyclone;
 mod dampening_pulse;
+mod daxos_s_torment;
 mod day_of_destiny;
 mod dogged_pursuit;
 mod efficient_construction;
+mod elderfang_venom;
 mod embargo;
 mod emrakul_s_influence;
 mod field_of_souls;
 mod from_beyond;
+mod frozen_aether;
 mod glaciers;
+mod glare_of_subdual;
 mod grasping_shadows;
 mod greed;
+mod gruul_war_chant;
 mod ill_gotten_inheritance;
 mod invoke_prejudice;
 mod karma;
@@ -97,7 +132,9 @@ mod levitation;
 mod living_lands;
 mod living_plane;
 mod manabarbs;
+mod martyrs_tomb;
 mod mystic_decree;
+mod natural_emergence;
 mod night_of_souls_betrayal;
 mod opposition;
 mod orcish_oriflamme;
@@ -108,15 +145,20 @@ mod pride_of_the_perfect;
 mod primal_order;
 mod pyrohemia;
 mod reckless_assault;
+mod reconnaissance_mission;
 mod sarkhan_s_unsealing;
+mod security_detail;
 mod serra_aviary;
 mod smothering_tithe;
 mod snake_pit;
 mod spirit_mirror;
 mod spiritual_asylum;
+mod stimulus_package;
 mod storm_the_vault;
+mod strands_of_night;
 mod the_abyss;
 mod treasure_trove;
 mod vance_s_blasting_cannons;
 mod vernal_bloom;
+mod vigilante_justice;
 mod whirlwind_of_thought;

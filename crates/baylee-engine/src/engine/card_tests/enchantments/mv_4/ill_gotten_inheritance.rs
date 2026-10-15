@@ -46,7 +46,7 @@ fn ill_gotten_inheritance_sacrifices_for_four_damage_to_the_chosen_opponent() {
     float(&mut engine, p0, ManaColor::Black, 6);
 
     activate(&mut engine, p0, ill_gotten_inheritance(), 1);
-    let Pending::ChooseTargets { options: _, .. } = engine.pending().clone() else {
+    let Pending::ChooseTargets { .. } = engine.pending().clone() else {
         panic!("a target opponent is asked, got {:?}", engine.pending())
     };
     engine
