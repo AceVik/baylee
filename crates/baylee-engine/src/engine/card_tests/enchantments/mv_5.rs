@@ -127,11 +127,11 @@ fn blocks_offered(engine: &mut Engine<RegistryLookup>) -> Option<Vec<crate::choi
 
 /// Whether `blocker` is offered the block of `attacker`.
 fn may_block(
-    offer: &Option<Vec<crate::choice::BlockOption>>,
+    offer: Option<&Vec<crate::choice::BlockOption>>,
     blocker: ObjectId,
     attacker: ObjectId,
 ) -> bool {
-    offer.as_ref().is_some_and(|o| {
+    offer.is_some_and(|o| {
         o.iter()
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })

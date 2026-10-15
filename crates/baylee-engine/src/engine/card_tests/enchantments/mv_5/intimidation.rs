@@ -32,11 +32,11 @@ fn intimidation_gives_my_creatures_fear() {
         "the black Goblin can block, so blocks are asked"
     );
     assert!(
-        may_block(&offer, black_blocker, attacker),
+        may_block(offer.as_ref(), black_blocker, attacker),
         "a black creature may block a creature with fear"
     );
     assert!(
-        !may_block(&offer, red_blocker, attacker),
+        !may_block(offer.as_ref(), red_blocker, attacker),
         "a red, non-artifact creature may not"
     );
 }
