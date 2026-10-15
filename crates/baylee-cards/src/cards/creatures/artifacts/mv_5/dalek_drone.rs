@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ba77763c-b50c-4787-b352-68af16e4c741",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dalek Drone",
         mana_cost = mana!("{3}{B}{B}"),

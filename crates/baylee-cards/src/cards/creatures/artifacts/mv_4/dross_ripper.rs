@@ -11,7 +11,7 @@ card!(
     oracle_id = "bf3b7489-e9d6-4b3c-9fb8-3bb727584db9",
     scryfall_id = "55d54f08-53f0-41b2-8b86-8244515224eb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dross Ripper",
         mana_cost = mana!("{4}"),

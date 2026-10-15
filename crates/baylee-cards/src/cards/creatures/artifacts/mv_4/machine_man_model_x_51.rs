@@ -13,7 +13,7 @@ card!(
     oracle_id = "853587be-9709-43a4-81c9-5b6dabe523cf",
     scryfall_id = "b15fcd0a-ad2a-4265-a4f6-c11d361ad686",
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Machine Man, Model X-51",
         mana_cost = mana!("{4}"),

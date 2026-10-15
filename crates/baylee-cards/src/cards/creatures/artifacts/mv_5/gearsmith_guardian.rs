@@ -16,7 +16,7 @@ card!(
     index = index::GEARSMITH_GUARDIAN,
     oracle_id = "0c0f7092-3fe6-4a6e-8b4e-803810b43e50",
     scryfall_id = "1d532b01-8bf7-4a27-a438-db03bcd00694",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gearsmith Guardian",
         mana_cost = mana!("{5}"),

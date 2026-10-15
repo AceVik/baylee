@@ -11,7 +11,7 @@ card!(
     oracle_id = "f6d0360c-ebc6-48b5-80ad-d52dadcdd5f5",
     scryfall_id = "8ed3c301-8d8e-45fe-902a-af03a79525be",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tangle Hulk",
         mana_cost = mana!("{5}"),

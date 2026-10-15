@@ -12,7 +12,7 @@ card!(
     scryfall_id = "294e0651-99b4-4792-8ee8-107e7484117d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Badgey, Malicious Glitch",
         mana_cost = mana!("{3}{B}"),

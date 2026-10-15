@@ -12,7 +12,7 @@ card!(
     index = index::ANCESTRAL_STATUE,
     oracle_id = "da69fbf7-c894-41dd-85ec-217de23a362f",
     scryfall_id = "8d4113be-6dd9-4c15-9f57-a146bc520df8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancestral Statue",
         mana_cost = mana!("{4}"),

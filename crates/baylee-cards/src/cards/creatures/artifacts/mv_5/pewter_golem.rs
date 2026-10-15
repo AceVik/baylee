@@ -11,7 +11,7 @@ card!(
     oracle_id = "c9d2c69e-6a4a-45b0-aff1-c19bcbe3b490",
     scryfall_id = "28aa6682-bf11-4959-9d07-423a55f35199",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pewter Golem",
         mana_cost = mana!("{5}"),

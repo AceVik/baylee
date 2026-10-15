@@ -11,7 +11,7 @@ card!(
     index = index::FILIGREE_CRAWLER,
     oracle_id = "f74095aa-232f-432e-a899-86e9463ab5be",
     scryfall_id = "8d8e817c-079e-4e7c-a8ca-54634f30bf36",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Filigree Crawler",
         mana_cost = mana!("{4}"),

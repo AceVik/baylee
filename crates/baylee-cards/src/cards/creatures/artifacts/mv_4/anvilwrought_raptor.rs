@@ -12,7 +12,7 @@ card!(
     oracle_id = "d87ebd8c-ad2c-45c9-8c97-f046aeda861c",
     scryfall_id = "aa6d7bbe-0418-4a58-a97b-13b50eb0b642",
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anvilwrought Raptor",
         mana_cost = mana!("{4}"),

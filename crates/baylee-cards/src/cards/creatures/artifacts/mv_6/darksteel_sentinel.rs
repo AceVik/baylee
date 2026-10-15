@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::VIGILANCE
         .union(KeywordSet::INDESTRUCTIBLE)
         .union(KeywordSet::FLASH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darksteel Sentinel",
         mana_cost = mana!("{6}"),

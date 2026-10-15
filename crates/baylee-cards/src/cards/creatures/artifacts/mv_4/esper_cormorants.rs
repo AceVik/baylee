@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2c5068ed-8477-4d8d-9e37-c72474208e2d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Esper Cormorants",
         mana_cost = mana!("{2}{W}{U}"),

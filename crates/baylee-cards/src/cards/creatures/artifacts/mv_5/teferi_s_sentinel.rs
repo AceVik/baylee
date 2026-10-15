@@ -16,7 +16,7 @@ card!(
     index = index::TEFERI_S_SENTINEL,
     oracle_id = "bf24c063-dd9a-4381-b94e-682b0cb0c03d",
     scryfall_id = "058304f4-f08a-4b3a-ae74-c06f4968c99a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teferi's Sentinel",
         mana_cost = mana!("{5}"),

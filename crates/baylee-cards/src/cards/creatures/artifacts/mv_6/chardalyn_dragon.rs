@@ -11,7 +11,7 @@ card!(
     oracle_id = "0bf1f2c1-2148-4302-a6e7-d509a005a85f",
     scryfall_id = "a950d8be-dcf7-4253-a3cc-c040ba632355",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chardalyn Dragon",
         mana_cost = mana!("{6}"),

@@ -11,7 +11,7 @@ card!(
     index = index::SOLDEVI_STEAM_BEAST,
     oracle_id = "935728dd-ad97-47a9-97ca-068af7960d07",
     scryfall_id = "ead79d2c-170e-4106-962d-d69c4b5fead0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soldevi Steam Beast",
         mana_cost = mana!("{5}"),

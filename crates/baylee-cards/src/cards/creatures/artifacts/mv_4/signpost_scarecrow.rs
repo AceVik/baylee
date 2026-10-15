@@ -12,7 +12,7 @@ card!(
     oracle_id = "5b6c6dab-0687-4297-b215-89e699d65681",
     scryfall_id = "e77f544c-1d27-4632-8ca5-7dfb38f42b1c",
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Signpost Scarecrow",
         mana_cost = mana!("{4}"),

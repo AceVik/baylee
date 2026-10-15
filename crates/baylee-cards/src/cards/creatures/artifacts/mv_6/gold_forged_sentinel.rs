@@ -11,7 +11,7 @@ card!(
     oracle_id = "c338fb29-2dd2-4f76-ba3d-fa6770adcce8",
     scryfall_id = "ca1bcaee-52bf-4000-8ffa-ee5e04703de6",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gold-Forged Sentinel",
         mana_cost = mana!("{6}"),

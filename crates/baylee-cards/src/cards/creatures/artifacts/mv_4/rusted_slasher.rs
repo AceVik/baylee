@@ -10,7 +10,7 @@ card!(
     index = index::RUSTED_SLASHER,
     oracle_id = "098cc111-493b-470b-929c-67deb981240c",
     scryfall_id = "f2228ee5-507a-46ba-82ae-72ba3088a568",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rusted Slasher",
         mana_cost = mana!("{4}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "79d290ea-c095-4135-9711-f3ce089dae43",
     scryfall_id = "6f614bb4-92e3-4ae0-9f2f-294434706c48",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Architects of Will",
         mana_cost = mana!("{2}{U}{B}"),

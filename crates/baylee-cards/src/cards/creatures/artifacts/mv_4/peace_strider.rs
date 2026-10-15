@@ -10,7 +10,7 @@ card!(
     index = index::PEACE_STRIDER,
     oracle_id = "b0e96742-77c0-4de5-84b0-0d59a8bee3e0",
     scryfall_id = "4bc9bd97-f256-4dcd-b2a7-3239d443a0af",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peace Strider",
         mana_cost = mana!("{4}"),

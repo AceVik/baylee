@@ -12,7 +12,7 @@ card!(
     index = index::MASTICORE,
     oracle_id = "621476a4-44bf-4f55-adb1-880cdd213f38",
     scryfall_id = "42663ac9-6b77-44f5-be76-c2c52d8465fc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Masticore",
         mana_cost = mana!("{4}"),

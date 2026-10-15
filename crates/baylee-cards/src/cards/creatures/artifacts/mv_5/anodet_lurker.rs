@@ -10,7 +10,7 @@ card!(
     index = index::ANODET_LURKER,
     oracle_id = "5c2dbe90-5784-4bc4-a715-76a61c1ecfbc",
     scryfall_id = "c97773f5-548a-4107-b29c-56b5428d5ddb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anodet Lurker",
         mana_cost = mana!("{5}"),

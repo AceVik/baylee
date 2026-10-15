@@ -9,7 +9,7 @@ card!(
     index = index::VENSER_S_SLIVER,
     oracle_id = "54d65915-3833-4e4d-a066-37ae9507846f",
     scryfall_id = "1e3c5a64-453b-4477-853a-9514ba326f16",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venser's Sliver",
         mana_cost = mana!("{5}"),

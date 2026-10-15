@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9de1a93e-ec71-45fa-b0b8-2c21123e390c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dinotomaton",
         mana_cost = mana!("{3}{R}"),

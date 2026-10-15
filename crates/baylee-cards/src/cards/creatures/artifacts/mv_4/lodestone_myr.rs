@@ -12,7 +12,7 @@ card!(
     oracle_id = "7635fb35-7ac8-4e61-8a52-6b0c14cd88b8",
     scryfall_id = "617ddf01-3678-470d-b009-003d6a561dbf",
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lodestone Myr",
         mana_cost = mana!("{4}"),

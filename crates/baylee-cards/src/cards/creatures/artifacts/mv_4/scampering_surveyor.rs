@@ -15,7 +15,7 @@ card!(
     index = index::SCAMPERING_SURVEYOR,
     oracle_id = "63c8f510-eba8-4f00-9f80-fbbc74801a4a",
     scryfall_id = "afcb2a90-d4c0-4c83-8ee7-2ac3a23b4402",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scampering Surveyor",
         mana_cost = mana!("{4}"),

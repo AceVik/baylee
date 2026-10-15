@@ -10,7 +10,7 @@ card!(
     index = index::FORGOTTEN_SENTINEL,
     oracle_id = "9bd4a0bd-d10c-434a-8254-89f38740aafd",
     scryfall_id = "3bd39a06-c53a-42c2-b2df-028358f03406",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forgotten Sentinel",
         mana_cost = mana!("{4}"),

@@ -11,7 +11,7 @@ card!(
     index = index::WORKHORSE,
     oracle_id = "bb4ab425-3da7-455d-b217-3d585d476113",
     scryfall_id = "c2571ff7-0287-4ba2-8365-5ff08de641a2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Workhorse",
         mana_cost = mana!("{6}"),

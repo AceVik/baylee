@@ -11,7 +11,7 @@ card!(
     oracle_id = "fe07a23a-e526-4277-8c39-6bae5355f0d4",
     scryfall_id = "068e7803-7c9f-43d7-b6dc-8e1390d902d0",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Millennial Gargoyle",
         mana_cost = mana!("{4}"),

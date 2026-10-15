@@ -23,7 +23,7 @@ card!(
     index = index::WATCHWING_SCARECROW,
     oracle_id = "24bd190c-04bf-44d3-97ba-9dafd9adf7ae",
     scryfall_id = "5c7774fd-3460-46e3-9c9c-7aa70f2ff6d8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watchwing Scarecrow",
         mana_cost = mana!("{4}"),

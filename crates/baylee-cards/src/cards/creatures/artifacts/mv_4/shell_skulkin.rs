@@ -15,7 +15,7 @@ card!(
     index = index::SHELL_SKULKIN,
     oracle_id = "82df38bc-f29b-49f8-b734-e4df6d0f645a",
     scryfall_id = "c0953373-66e1-4af1-a4ec-cc990e20a1de",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shell Skulkin",
         mana_cost = mana!("{4}"),

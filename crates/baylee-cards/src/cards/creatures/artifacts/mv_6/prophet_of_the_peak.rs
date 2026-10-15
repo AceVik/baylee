@@ -10,7 +10,7 @@ card!(
     index = index::PROPHET_OF_THE_PEAK,
     oracle_id = "eaa1634e-6ba1-41c2-91c0-967b36d13e14",
     scryfall_id = "58131bf2-2a9f-4b81-9eeb-810372f3896c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prophet of the Peak",
         mana_cost = mana!("{6}"),

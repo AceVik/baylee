@@ -14,7 +14,7 @@ card!(
     oracle_id = "4976f08c-6f8e-42e4-9584-f04793518ddb",
     scryfall_id = "7e57e1d7-da1d-4a2b-867f-85b8331b7bbc",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield-Wall Sentinel",
         mana_cost = mana!("{4}"),

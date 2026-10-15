@@ -35,7 +35,7 @@ card!(
     index = index::TEK,
     oracle_id = "f85aef9b-b6ad-4716-b48b-5e26b474a59d",
     scryfall_id = "c1f38104-a699-4bb9-930a-699f7bbc338a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tek",
         mana_cost = mana!("{5}"),

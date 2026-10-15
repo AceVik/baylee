@@ -12,7 +12,7 @@ card!(
     scryfall_id = "55aef108-6aaf-465d-b3f6-5ac1499f44a3",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tower Gargoyle",
         mana_cost = mana!("{1}{W}{U}{B}"),

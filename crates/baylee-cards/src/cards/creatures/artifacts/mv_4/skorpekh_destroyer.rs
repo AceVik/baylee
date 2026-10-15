@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b8c69031-588d-44a2-89b3-972a335541e5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skorpekh Destroyer",
         mana_cost = mana!("{2}{B}{B}"),

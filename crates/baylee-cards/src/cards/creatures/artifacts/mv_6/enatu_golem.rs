@@ -10,7 +10,7 @@ card!(
     index = index::ENATU_GOLEM,
     oracle_id = "1cb3f27c-2670-43b8-9305-8adf2e7bd3ae",
     scryfall_id = "74b2e63d-61c6-46e4-9a6f-56653c49b2ea",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enatu Golem",
         mana_cost = mana!("{6}"),

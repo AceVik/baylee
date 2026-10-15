@@ -10,7 +10,7 @@ card!(
     index = index::BEAST_OF_BURDEN,
     oracle_id = "67389ccc-dacc-4ce3-a9a2-f551a0d6e9d3",
     scryfall_id = "e1a19f6d-4fab-4be6-af9e-c66acc16e4f8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beast of Burden",
         mana_cost = mana!("{6}"),

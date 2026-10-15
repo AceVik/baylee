@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7f71ec76-47e1-4f55-bc57-e7b1c88baedd",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudheath Drake",
         mana_cost = mana!("{4}{U}"),

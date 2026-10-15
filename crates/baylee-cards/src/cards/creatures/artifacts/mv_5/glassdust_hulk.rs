@@ -15,7 +15,7 @@ card!(
     oracle_id = "a1379c25-6daf-4efa-a517-6e6e25c31875",
     scryfall_id = "215a8c38-c968-4337-88b3-b0b03b249a4b",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glassdust Hulk",
         mana_cost = mana!("{3}{W}{U}"),

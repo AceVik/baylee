@@ -16,7 +16,7 @@ card!(
     scryfall_id = "774ece27-ca6b-4e04-88ae-cfc774401bdc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ethersworn Adjudicator",
         mana_cost = mana!("{4}{U}"),

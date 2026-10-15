@@ -9,7 +9,7 @@ card!(
     index = index::GILDED_SENTINEL,
     oracle_id = "a382165d-d715-4836-b1ce-9e5d8dc56fb4",
     scryfall_id = "01cc1a59-76bf-4721-b4a7-ef746f3d3990",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilded Sentinel",
         mana_cost = mana!("{4}"),

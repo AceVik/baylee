@@ -15,7 +15,7 @@ card!(
     index = index::DRAGONLOFT_IDOL,
     oracle_id = "736ce43b-28cd-4b8b-9936-3e3975a56b6a",
     scryfall_id = "2e9fa21a-a92e-4bcd-84fe-a7aa159fd0eb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonloft Idol",
         mana_cost = mana!("{4}"),

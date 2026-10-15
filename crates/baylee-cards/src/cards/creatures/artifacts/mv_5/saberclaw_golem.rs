@@ -11,7 +11,7 @@ card!(
     oracle_id = "4989d38e-332f-48f5-863b-1566921156c8",
     scryfall_id = "6656b6d1-1c92-4da4-8afb-36f11610b0b4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saberclaw Golem",
         mana_cost = mana!("{5}"),

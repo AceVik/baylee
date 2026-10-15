@@ -16,7 +16,7 @@ card!(
     index = index::DOVIN_S_AUTOMATON,
     oracle_id = "3d133b18-f1c7-48de-82a6-affb0514b96b",
     scryfall_id = "0a962509-2e77-4655-b397-9625b2f3407a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dovin's Automaton",
         mana_cost = mana!("{4}"),

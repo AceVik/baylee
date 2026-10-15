@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7b44099c-0b24-423a-b8c0-5d5e8687fe61",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venomcrawler",
         mana_cost = mana!("{3}{B}"),

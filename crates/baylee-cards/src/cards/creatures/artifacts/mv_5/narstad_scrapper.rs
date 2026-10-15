@@ -10,7 +10,7 @@ card!(
     index = index::NARSTAD_SCRAPPER,
     oracle_id = "16acd858-dba6-401e-bbfb-cabdd6d0120e",
     scryfall_id = "f808ed9b-95ac-4069-bdca-b100bc816b5b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Narstad Scrapper",
         mana_cost = mana!("{5}"),

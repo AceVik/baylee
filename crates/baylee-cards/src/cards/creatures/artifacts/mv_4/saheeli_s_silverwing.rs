@@ -12,7 +12,7 @@ card!(
     oracle_id = "ab5f6e83-a151-48b6-8cc5-3b2dae94079c",
     scryfall_id = "dba77c07-5d23-4a1a-90a0-b8293848d637",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saheeli's Silverwing",
         mana_cost = mana!("{4}"),

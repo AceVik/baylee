@@ -11,7 +11,7 @@ card!(
     oracle_id = "fd9bb758-a763-46bf-9e56-4be26e271741",
     scryfall_id = "1e5ac1be-43e4-4535-8633-730f306c0d00",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vectis Agents",
         mana_cost = mana!("{3}{U}{B}"),

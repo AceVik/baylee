@@ -12,7 +12,7 @@ card!(
     index = index::MINDLESS_AUTOMATON,
     oracle_id = "e7441107-57b1-4e88-a9d8-3eb7c338ef07",
     scryfall_id = "ccce91e9-58f4-4358-a696-5c439ea19fc9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindless Automaton",
         mana_cost = mana!("{4}"),

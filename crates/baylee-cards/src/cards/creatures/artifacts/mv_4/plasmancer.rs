@@ -18,7 +18,7 @@ card!(
     scryfall_id = "8deb5d3a-0762-4c4f-afef-fd86728914b4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plasmancer",
         mana_cost = mana!("{2}{B}{B}"),

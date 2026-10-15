@@ -9,7 +9,7 @@ card!(
     index = index::PHYREXIAN_HULK,
     oracle_id = "a16509da-ad46-4ee3-86f3-06c521c23481",
     scryfall_id = "304bc0a2-0cf4-4609-a0fc-de933402c64a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Hulk",
         mana_cost = mana!("{6}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c4e4bbea-7e3f-4de0-bb01-dfd67f21c254",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slippery Bogle",
         mana_cost = mana!("{G/U}"),

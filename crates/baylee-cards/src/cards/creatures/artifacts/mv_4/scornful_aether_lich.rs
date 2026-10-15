@@ -11,7 +11,7 @@ card!(
     oracle_id = "f8834831-5571-466d-9227-bb91ca2dce3f",
     scryfall_id = "75cdb2ff-6e30-4766-9166-9036a0bdb809",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scornful Aether-Lich",
         mana_cost = mana!("{3}{U}"),

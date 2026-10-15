@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2f510946-34de-4c12-8998-f61887d1a0e1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slash Panther",
         mana_cost = mana!("{4}{R/P}"),

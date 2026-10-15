@@ -9,7 +9,7 @@ card!(
     index = index::PRIZEFIGHTER_CONSTRUCT,
     oracle_id = "6f4cfd69-c739-4398-93a5-e6238b7cd83b",
     scryfall_id = "8e389c92-b54b-46b3-a7ab-b8a5a2a7d380",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prizefighter Construct",
         mana_cost = mana!("{5}"),

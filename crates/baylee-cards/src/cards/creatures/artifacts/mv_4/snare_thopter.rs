@@ -11,7 +11,7 @@ card!(
     oracle_id = "a3be0e16-6063-4cd0-87cb-606591a958c2",
     scryfall_id = "52b0ba0d-078e-4f54-81da-88f86227df4f",
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snare Thopter",
         mana_cost = mana!("{4}"),

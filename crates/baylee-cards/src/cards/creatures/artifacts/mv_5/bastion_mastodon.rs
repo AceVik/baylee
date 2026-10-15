@@ -11,7 +11,7 @@ card!(
     oracle_id = "48a01671-da1f-4875-bcd5-ca99566ff399",
     scryfall_id = "c3ea690f-fd4e-4d05-b815-22d97736e894",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bastion Mastodon",
         mana_cost = mana!("{5}"),

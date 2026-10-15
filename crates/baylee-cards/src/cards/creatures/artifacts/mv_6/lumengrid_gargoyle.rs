@@ -11,7 +11,7 @@ card!(
     oracle_id = "1070ede7-c81d-4c77-a1a9-6f243432a640",
     scryfall_id = "c200239c-d28e-4c55-a7bc-64a1d138cc2f",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lumengrid Gargoyle",
         mana_cost = mana!("{6}"),

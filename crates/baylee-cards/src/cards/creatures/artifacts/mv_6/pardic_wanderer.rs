@@ -11,7 +11,7 @@ card!(
     oracle_id = "82ff4500-b118-4ce7-9f7c-92661328b242",
     scryfall_id = "2fffe967-3a99-4f00-af46-f4e5567598df",
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pardic Wanderer",
         mana_cost = mana!("{6}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "00f579f4-2d18-4c7c-91b2-34726b384535",
     scryfall_id = "69959c54-1350-4c64-8e5a-fc8447bb979c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bladed Sentinel",
         mana_cost = mana!("{4}"),

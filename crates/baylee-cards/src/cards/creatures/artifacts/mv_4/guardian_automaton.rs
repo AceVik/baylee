@@ -10,7 +10,7 @@ card!(
     index = index::GUARDIAN_AUTOMATON,
     oracle_id = "cd29d0fd-685f-4c26-b69c-e96f1c0d59c4",
     scryfall_id = "7e8916b7-f5e4-4fae-8db8-9859d69212ec",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Automaton",
         mana_cost = mana!("{4}"),

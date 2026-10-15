@@ -13,7 +13,7 @@ card!(
     oracle_id = "172e7250-94a4-466f-9438-159174925012",
     scryfall_id = "5776e576-5562-45ea-a29b-185410317e17",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scrapyard Steelbreaker",
         mana_cost = mana!("{3}{R}"),

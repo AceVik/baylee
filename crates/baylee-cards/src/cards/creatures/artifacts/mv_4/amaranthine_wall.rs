@@ -12,7 +12,7 @@ card!(
     oracle_id = "3c9fcda6-3ebc-4f9d-9f73-2bb4252d9420",
     scryfall_id = "73b49065-0a46-4813-a721-71d718e73d18",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Amaranthine Wall",
         mana_cost = mana!("{4}"),

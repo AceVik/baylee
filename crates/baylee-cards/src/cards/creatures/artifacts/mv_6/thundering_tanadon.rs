@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e2fab443-0f4b-45ea-8a6d-435b93803409",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thundering Tanadon",
         mana_cost = mana!("{4}{G/P}{G/P}"),

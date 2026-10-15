@@ -12,7 +12,7 @@ card!(
     index = index::GEISTCATCHER_S_RIG,
     oracle_id = "1bfdbb96-cc18-4609-ba17-d169967df8d0",
     scryfall_id = "0b8f741c-919e-457d-8a02-c7282c1305ec",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geistcatcher's Rig",
         mana_cost = mana!("{6}"),

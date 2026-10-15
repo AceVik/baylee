@@ -9,7 +9,7 @@ card!(
     index = index::GLASS_GOLEM,
     oracle_id = "24e48968-bfeb-4965-9e06-8b04397fcb53",
     scryfall_id = "1b87dc27-3cea-4101-aec5-ca0b96978476",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glass Golem",
         mana_cost = mana!("{5}"),

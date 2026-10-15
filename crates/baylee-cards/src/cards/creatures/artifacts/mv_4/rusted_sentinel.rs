@@ -10,7 +10,7 @@ card!(
     index = index::RUSTED_SENTINEL,
     oracle_id = "bab28608-b388-4c48-92a4-689943bbbf4a",
     scryfall_id = "cba5fc44-4b9a-418b-a4e0-26d2c3a1eca4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rusted Sentinel",
         mana_cost = mana!("{4}"),

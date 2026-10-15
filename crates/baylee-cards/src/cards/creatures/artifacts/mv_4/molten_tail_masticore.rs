@@ -12,7 +12,7 @@ card!(
     index = index::MOLTEN_TAIL_MASTICORE,
     oracle_id = "15fb3a7a-a6c3-4bef-9f72-1d04b623063e",
     scryfall_id = "48311a45-c0e1-4170-8dab-2b3495096c48",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten-Tail Masticore",
         mana_cost = mana!("{4}"),

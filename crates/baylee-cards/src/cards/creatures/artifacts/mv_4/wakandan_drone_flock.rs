@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4b12dc1f-2218-4c71-aafa-ea6a26eeb0aa",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wakandan Drone Flock",
         mana_cost = mana!("{3}{W}"),

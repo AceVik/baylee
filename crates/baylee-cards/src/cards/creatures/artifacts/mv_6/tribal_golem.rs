@@ -36,7 +36,7 @@ card!(
     oracle_id = "9027d519-2e89-404f-b357-22799aee1874",
     scryfall_id = "6e208be1-8b24-4048-90b2-6389f08043d1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tribal Golem",
         mana_cost = mana!("{6}"),

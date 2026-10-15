@@ -11,7 +11,7 @@ card!(
     oracle_id = "abc5ac3e-f196-49df-8a9d-16df3114ffad",
     scryfall_id = "e5c54795-d555-4972-b72d-b2d2374bed9b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dukhara Peafowl",
         mana_cost = mana!("{4}"),

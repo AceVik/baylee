@@ -12,7 +12,7 @@ card!(
     oracle_id = "1654cab1-0697-4547-b1fe-2d0a61385199",
     scryfall_id = "50c6e815-bfe7-4599-9227-d36504a3640f",
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boulderborn Dragon",
         mana_cost = mana!("{5}"),

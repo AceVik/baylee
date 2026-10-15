@@ -11,7 +11,7 @@ card!(
     oracle_id = "c04b4323-db6a-4ab1-99b7-eef3acad3c4f",
     scryfall_id = "7b608c28-18cc-47d6-861e-2fd783aa3ade",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soliton",
         mana_cost = mana!("{5}"),

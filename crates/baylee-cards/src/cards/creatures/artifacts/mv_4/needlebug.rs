@@ -12,7 +12,7 @@ card!(
     oracle_id = "2d5fba80-c84f-4f84-84e4-9c797ac244fc",
     scryfall_id = "d54fbd8a-1e2a-450e-98f2-26bbc9e9ac79",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Needlebug",
         mana_cost = mana!("{4}"),

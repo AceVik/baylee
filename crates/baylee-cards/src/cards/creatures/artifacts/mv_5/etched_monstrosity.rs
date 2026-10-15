@@ -18,7 +18,7 @@ card!(
         Color::Blue,
         Color::White
     ]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Etched Monstrosity",
         mana_cost = mana!("{5}"),

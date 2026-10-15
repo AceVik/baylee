@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b38f8149-0ab8-42cb-9af6-8c647550ab68",
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ultron, Machine Overlord",
         mana_cost = mana!("{5}"),
