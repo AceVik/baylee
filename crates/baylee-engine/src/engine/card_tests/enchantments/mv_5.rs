@@ -10,16 +10,26 @@ mod blood_rites;
 mod centaur_glade;
 mod curse_of_marit_lage;
 mod dictate_of_heliod;
+mod dire_undercurrents;
 mod dispersing_orb;
 mod enchanted_evening;
 mod festering_evil;
 mod gravitational_shift;
 mod intimidation;
+mod larceny;
 mod liliana_s_mastery;
+mod moldervine_reclamation;
 mod nature_s_revolt;
+mod open_the_graves;
+mod painful_quandary;
+mod polluted_bonds;
+mod putrefaction;
 mod righteous_cause;
 mod screams_of_the_damned;
+mod sigil_of_the_empty_throne;
+mod where_ancients_tread;
 mod wrath_of_marit_lage;
+mod zendikar_s_roil;
 
 /// Declares `attackers` for `seat` against `at` and stops once the
 /// declaration has been accepted.
@@ -45,6 +55,43 @@ fn declare_attack(
             },
         )
         .expect("the attack was on the offer");
+}
+
+/// How many cards `seat` holds.
+fn hand_len(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine.state().zones.list(ZoneLocation::Hand(seat)).len()
+}
+
+/// Plays on until `done`, passing priority, declaring no attackers or
+/// blockers, and answering every other question out of what it enumerated.
+#[track_caller]
+fn run_until(engine: &mut Engine<RegistryLookup>, done: impl Fn(&Engine<RegistryLookup>) -> bool) {
+    for _ in 0..200 {
+        if done(engine) {
+            return;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => {
+                let (player, action) = answer_one(engine)
+                    .unwrap_or_else(|rest| panic!("{other:?} could not be answered: {rest:?}"));
+                engine.apply(player, action).unwrap();
+            }
+        }
+    }
+    panic!("never reached the wanted state; at {:?}", engine.pending());
 }
 
 /// Nobody blocks; the game runs on to the second main phase.
