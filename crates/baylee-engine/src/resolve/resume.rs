@@ -1084,7 +1084,9 @@ pub(super) fn resume_inner(
                 tokens::populate(state, res.controller, id);
             }
         }
-        AwaitingOp::ShieldFromChosenSource { .. } | AwaitingOp::RedirectFromChosenSource { .. } => {
+        AwaitingOp::DamageShieldSource { .. }
+        | AwaitingOp::ShieldFromChosenSource { .. }
+        | AwaitingOp::RedirectFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
         AwaitingOp::Entry { .. }
@@ -1112,6 +1114,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::ManaUnlessPaidColor { .. }
+        | AwaitingOp::CounterPlacementChoice
+        | AwaitingOp::ShieldCounterChoice
         | AwaitingOp::RegenerationChoice
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
@@ -1203,6 +1207,11 @@ pub(super) fn resume_source_inner(
 ) -> Flow {
     let since = state.journal.last_seq();
     match res.awaiting.take().expect("source choice suspended") {
+        AwaitingOp::DamageShieldSource { kind } => {
+            if let Some(chosen) = chosen {
+                life::batch57::answer(state, res, kind, chosen);
+            }
+        }
         AwaitingOp::ShieldFromChosenSource {
             all_recipients,
             sources,

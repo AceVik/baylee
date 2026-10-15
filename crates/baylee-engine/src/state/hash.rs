@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+mod arrival_history;
 mod mana;
 
 impl GameState {
@@ -30,6 +31,8 @@ impl GameState {
             entries,
             sba_legend_decisions,
             regeneration_choices,
+            shield_choices,
+            counter_choices,
             players,
             turn,
             combat,
@@ -132,6 +135,8 @@ impl GameState {
         entries.hash(&mut h);
         sba_legend_decisions.hash(&mut h);
         regeneration_choices.hash(&mut h);
+        shield_choices.hash(&mut h);
+        counter_choices.hash(&mut h);
         hash_effects(&mut h, effects);
         text_changes.hash(&mut h);
         effect_text_overrides.hash(&mut h);
@@ -512,6 +517,11 @@ impl GameState {
         self.per_turn.instant_or_sorcery_cast.hash(h);
         self.per_turn.instants_cast.hash(h);
         self.per_turn.entered_subtypes.hash(h);
+        let arrival_bound = arrival_history::bound(self);
+        h.usize(self.per_turn.creatures_entered.len());
+        for &count in &self.per_turn.creatures_entered {
+            h.u32(arrival_bound.map_or(count, |bound| count.min(bound)));
+        }
         for reference in &self.per_turn.pending_entry_history {
             h.u32(position(reference.object));
             h.u8(moves_since(
@@ -636,6 +646,33 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
             crate::prevention::Shielded::Everything => h.u8(2),
         }
         match shield.kind {
+            crate::prevention::ShieldKind::RedirectSource { source, to, next } => {
+                h.u8(6);
+                hash_chosen_source(h, state, &source, position);
+                match to {
+                    crate::prevention::RedirectDestination::Object(reference) => {
+                        h.u8(0);
+                        h.u32(position(reference.object));
+                        h.u8(moves_since(
+                            state.object(reference.object),
+                            reference.version,
+                        ));
+                    }
+                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
+                }
+                h.boolean(next);
+            }
+            crate::prevention::ShieldKind::ReflectNextSource { source, reflection } => {
+                h.u8(7);
+                hash_chosen_source(h, state, &source, position);
+                h.u32(position(reflection.object));
+                h.u8(moves_since(
+                    state.object(reflection.object),
+                    reflection.version,
+                ));
+                hash_damage_source(h, state, reflection.object, reflection.version);
+            }
+            crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
             crate::prevention::ShieldKind::Next(n) => {
                 h.u8(0);
                 h.u32(n);
@@ -1061,6 +1098,7 @@ fn hash_object_situation(
     for t in &obj.targets {
         h.u32(position(*t));
     }
+    obj.second_target_players().hash(h);
     h.usize(obj.second_targets().len());
     for t in obj.second_targets() {
         h.u32(position(*t));
@@ -2079,6 +2117,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Hone => h.u8(16),
         CounterKind::Stun => h.u8(17),
         CounterKind::Finality => h.u8(18),
+        CounterKind::Shield => h.u8(20),
         // The id is hashed whole. Folding it modulo 100 was safe while every
         // tag was one byte and is not worth keeping now that the function
         // writes as many as it likes.

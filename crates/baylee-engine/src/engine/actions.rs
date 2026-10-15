@@ -126,15 +126,40 @@ impl<L: CardLookup> Engine<L> {
         if matches!(
             self.pending,
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. }
+                    | crate::choice::YesNoPrompt::UseShieldCounter { .. },
                 ..
             }
-        ) {
+        ) || (crate::replacement::counter_order::has_pending(&self.state)
+            && matches!(
+                self.pending,
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::ApplyAdditionalCountersNext { .. },
+                    ..
+                }
+            ))
+        {
             let PlayerAction::YesNo(use_shield) = action else {
                 unreachable!("validated yes/no")
             };
-            crate::sba::answer_regeneration_choice(&mut self.state, use_shield);
+            match self.pending {
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::UseShieldCounter { .. },
+                    ..
+                } => crate::sba::answer_shield_choice(&mut self.state, use_shield),
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::ApplyAdditionalCountersNext { .. },
+                    ..
+                } => crate::replacement::counter_order::answer(&mut self.state, use_shield),
+                _ => crate::sba::answer_regeneration_choice(&mut self.state, use_shield),
+            }
             self.awaiting_answer = false;
+            if self.activation_payment.is_some() {
+                if !self.offer_counter_order() {
+                    self.resume_activation_payment()?;
+                }
+                return Ok(());
+            }
             if let Some(mut res) = self.resolution.take() {
                 res.awaiting = None;
                 match resolve::run(&mut self.state, &mut res) {
@@ -181,7 +206,18 @@ impl<L: CardLookup> Engine<L> {
         if matches!(
             self.pending,
             Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
-        ) {
+        ) || (matches!(
+            self.pending,
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::ApplyAdditionalCountersNext { .. },
+                ..
+            }
+        ) && (self.combat_damage.is_some()
+            || self
+                .resolution
+                .as_ref()
+                .is_some_and(|res| matches!(res.awaiting, Some(resolve::AwaitingOp::Damage(_))))))
+        {
             if let Some(mut work) = self.combat_damage.take() {
                 if let Some(pending) = work.answer(&mut self.state, &action) {
                     self.combat_damage = Some(work);
@@ -558,6 +594,43 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                if matches!(
+                    self.pending_plan,
+                    Some(
+                        PlanKind::ActivateAbility { .. }
+                            | PlanKind::ActivateAbilitySecondTargets { .. }
+                    )
+                ) {
+                    self.activation_target_choice.opponent = Some(chosen);
+                    let (source, ability_index, targets) =
+                        match self.pending_plan.take().expect("activation chooser") {
+                            PlanKind::ActivateAbility {
+                                source,
+                                ability_index,
+                            } => (source, ability_index, SmallVec::new()),
+                            PlanKind::ActivateAbilitySecondTargets {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players,
+                            } => {
+                                self.activation_target_players = target_players;
+                                (source, ability_index, targets)
+                            }
+                            _ => unreachable!("activation chooser plan"),
+                        };
+                    let controller = self
+                        .activation_target_choice
+                        .controller
+                        .expect("activation controller");
+                    if self
+                        .start_activation(controller, source, ability_index, targets)
+                        .is_err()
+                    {
+                        self.reverse_activation(controller);
+                    }
+                    return Ok(());
+                }
                 // The graveyard an activation's targets come from; the
                 // target question follows, narrowed to it.
                 if let Some(PlanKind::ChooseActivationGraveyard {
@@ -707,6 +780,7 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
                 self.activation_second_targets = None;
+                self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
                 self.activation_target_references = crate::sources::TargetReferences::default();
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
@@ -792,10 +866,9 @@ impl<L: CardLookup> Engine<L> {
                         wizard.convoke_taps = objects.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::Sacrifice;
                     } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
-                        // The second instance of "target" is objects only in
-                        // every shape that prints one, so no seat is kept.
                         wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
+                        wizard.second_target_players = players.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::DivideDamage;
                     } else {
                         wizard.target_references.first = self.state.capture_target_group(&objects);
@@ -861,6 +934,7 @@ impl<L: CardLookup> Engine<L> {
                         targets: first,
                         target_players,
                     } => {
+                        let player = self.activation_target_choice.controller.unwrap_or(player);
                         self.activation_target_references.second =
                             self.state.capture_target_group(&targets);
                         let second = targets.into_iter().collect();
@@ -874,6 +948,8 @@ impl<L: CardLookup> Engine<L> {
                             );
                         } else {
                             self.activation_second_targets = Some(second);
+                            self.activation_target_choice.second_players =
+                                players.iter().copied().collect();
                             self.activation_target_players = target_players;
                             if self
                                 .start_activation(player, source, ability_index, first)
@@ -887,6 +963,7 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     } => {
+                        let player = self.activation_target_choice.controller.unwrap_or(player);
                         self.activation_target_references.first =
                             self.state.capture_target_group(&targets);
                         // Loyalty abilities complete via their own finish path
@@ -1036,6 +1113,7 @@ impl<L: CardLookup> Engine<L> {
                         if let Some(obj) = self.state.object_mut(on_stack) {
                             let req = obj.second_target_req();
                             obj.set_second(targets.into_iter().collect(), req);
+                            obj.set_second_players(players.iter().copied().collect());
                         }
                     }
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
@@ -2129,6 +2207,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();
         self.activation_second_targets = None;
+        self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.activation_targets_answered = false;
         self.activation_target_players.clear();

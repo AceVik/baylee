@@ -3,7 +3,7 @@
   "original_partial_count": 540,
   "completed_before_plan": 284,
   "remaining_at_start": 256,
-  "note": "Mechanism-based work packages; order and boundaries may change with shared prerequisites. Completion requires every printed clause and behavioral validation. Original 540: 497 Implemented, 40 Partial, 3 owner-excluded. Exclusions never count as implementations.",
+  "note": "Mechanism-based work packages; order and boundaries may change with shared prerequisites. Completion requires every printed clause and behavioral validation. Original 540: 508 Implemented, 29 Partial, 3 owner-excluded. Exclusions never count as implementations.",
   "batches": [
     {
       "batch": 39,
@@ -1211,7 +1211,7 @@
     {
       "batch": 57,
       "title": "Replacement ordering, damage and measured results",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Ali from Cairo",
@@ -1279,12 +1279,22 @@
         }
       ],
       "completed_cards": [
+        "Ali from Cairo",
+        "Ojer Axonil, Deepest Might // Temple of Power",
+        "Shimian Night Stalker",
         "Mishra's War Machine",
-        "Syphon Soul",
-        "Hellfire",
+        "Reverberation",
+        "Silhouette",
+        "Eye for an Eye",
         "Backdraft",
         "Reverse Polarity",
-        "Equinox"
+        "Syphon Soul",
+        "Hellfire",
+        "Equinox",
+        "Nova Pentacle",
+        "Forethought Amulet",
+        "Brad Boimler, Eager Ensign",
+        "Diamond City"
       ],
       "partials_lane_notes": [
         "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
@@ -1642,13 +1652,16 @@
           "path": "crates/baylee-cards/src/cards/sorceries/mv_3/sevinne_s_reclamation.rs"
         }
       ],
-      "completed_cards": []
+      "completed_cards": [
+        "Sevinne's Reclamation"
+      ]
     }
   ],
   "stop_after_cards": "Owner instruction 2026-10-12: stop after all 540 original Partial cards are fully implemented and validated; save/compact context and wait for explicit Go before post-card test/build/performance phases or final main integration/push.",
   "current_session_scope": {
     "batches": [
       51,
+      57,
       68
     ],
     "target_original_cards_complete": 537,
@@ -1658,9 +1671,9 @@
       "wait for explicit Go before post-card test/build/performance phases or final main integration/push"
     ],
     "authorized_on": "2026-10-15",
-    "note": "GPT-6.1 Sol owns cards and tests; Astra exclusively owns production engine. Batch55 complete; batch51 has Cuombajj Witches remaining; batch68 prepared and awaits copy APIs. Original progress497 Implemented,40 Partial,3 owner-excluded. Stop after all537 eligible originals complete and await Go before deferred optimization and final integration/push.",
+    "note": "Batch57 completed all ten damage/counter cards; Sevinne's Reclamation completed in batch68. All13 current card suites pass66 canonical tests;18 abilities fired and16 distinct whole-ability position mutants were killed (Ojer shares positions across faces). Original progress508 Implemented,29 Partial,3 excluded. Witches and Chain Lightning retain Battle correctness holds. GPT-6.1 Sol owns cards/tests/client/consumers; Astra exclusively owns production engine/DSL. Shared integration gates passed: engine7779, cards145, gamehost300, protocol34, seat262, view44; workspace Clippy and codegen reproducibility green. Stop at537 eligible originals and wait for explicit Go.",
     "post_rebase_original_cards_complete": 486,
-    "current_original_cards_complete": 497,
-    "remaining_original_partial_cards": 40
+    "current_original_cards_complete": 508,
+    "remaining_original_partial_cards": 29
   }
 }

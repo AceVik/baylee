@@ -148,6 +148,11 @@ fn begin(
                 ),
             )
         }))
+        .chain(
+            obj.second_target_players()
+                .iter()
+                .map(|player| (1, Aim::Player(player))),
+        )
         .collect();
     if change_to.is_some() && was.len() != 1 {
         return None;
@@ -196,9 +201,14 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut retarget: Retarget) -> O
                 index: u32::try_from(slot).unwrap_or(u32::MAX),
                 of: u32::try_from(retarget.was.len()).unwrap_or(u32::MAX),
             };
+            let chooser = if retarget.copy {
+                state.object(retarget.spell)?.controller
+            } else {
+                res.controller
+            };
             res.awaiting = Some(AwaitingOp::NewTargets(Box::new(retarget)));
             return Some(Pending::ChooseTargets {
-                player: res.controller,
+                player: chooser,
                 options,
                 player_options,
                 min,
@@ -300,6 +310,7 @@ fn write(state: &mut GameState, retarget: &Retarget) {
         obj.chosen_player = None;
     }
     let mut second = smallvec::SmallVec::new();
+    let mut second_players = SeatSet::new();
     for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
         let aim = now.unwrap_or(*was);
         match (*group, aim) {
@@ -314,13 +325,16 @@ fn write(state: &mut GameState, retarget: &Retarget) {
                 }
             }
             (_, Aim::Object(reference)) => second.push(reference.object),
-            (_, Aim::Player(_)) => unreachable!("second target groups contain objects"),
+            (_, Aim::Player(player)) => {
+                second_players.insert(player);
+            }
         }
     }
     if targets_players && obj.target_players.len() == 1 {
         obj.chosen_player = obj.target_players.iter().next();
     }
     obj.set_second(second, second_req);
+    obj.set_second_players(second_players);
     let mut targets = crate::sources::TargetReferences::default();
     for (second, _, reference) in references {
         if second {
@@ -371,7 +385,12 @@ fn retarget_references(retarget: &Retarget) -> Vec<(bool, u32, baylee_core::ids:
 /// put beside its objects, and the one a "target player" or "target
 /// opponent" requirement chose.
 fn targeted_players(obj: &crate::object::GameObject) -> Vec<PlayerId> {
-    let mut players: Vec<_> = obj.target_players.iter().chain(obj.chosen_player).collect();
+    let mut players: Vec<_> = obj
+        .target_players
+        .iter()
+        .chain(obj.chosen_player)
+        .chain(obj.second_target_players().iter())
+        .collect();
     players.sort_unstable();
     players.dedup();
     players

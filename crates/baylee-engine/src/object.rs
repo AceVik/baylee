@@ -11,7 +11,7 @@ use crate::zone::Zone;
 mod cast_history;
 use baylee_cards_dsl::{CardDef, KeywordSet};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef};
+use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef, SeatSet};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 pub use cast_history::CastHistory;
@@ -1094,6 +1094,8 @@ pub type RiderSet = Vec<Rider>;
 /// [`baylee_cards_dsl::TargetSlot::Second`] and nothing else.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct SecondInstance {
+    /// Players chosen for this instance, independent of the first instance.
+    pub players: SeatSet,
     /// What was chosen for it.
     pub targets: SmallVec<[ObjectId; 1]>,
     /// The spell's requirement for it, written by the cast wizard for the
@@ -1584,6 +1586,21 @@ impl GameObject {
         self.second.as_ref().map_or(&[], |s| s.targets.as_slice())
     }
 
+    /// Players chosen for the second instance of the word target.
+    #[must_use]
+    pub fn second_target_players(&self) -> SeatSet {
+        self.second
+            .as_ref()
+            .map_or_else(SeatSet::new, |s| s.players)
+    }
+
+    /// Sets the second instance's player targets without changing its objects.
+    pub fn set_second_players(&mut self, players: SeatSet) {
+        if !players.is_empty() || self.second.is_some() {
+            self.second.get_or_insert_with(Default::default).players = players;
+        }
+    }
+
     /// The requirement the second instance was chosen under, if the cast
     /// wizard wrote one.
     #[must_use]
@@ -1597,8 +1614,14 @@ impl GameObject {
         targets: SmallVec<[ObjectId; 1]>,
         req: Option<baylee_cards_dsl::TargetReq>,
     ) {
-        self.second = (!targets.is_empty() || req.is_some())
-            .then(|| Box::new(SecondInstance { targets, req }));
+        let players = self.second_target_players();
+        self.second = (!targets.is_empty() || !players.is_empty() || req.is_some()).then(|| {
+            Box::new(SecondInstance {
+                players,
+                targets,
+                req,
+            })
+        });
     }
 
     /// Creates a card-less object (token, emblem).

@@ -59,6 +59,7 @@ fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Stun => V::Stun,
         CounterKind::Finality => V::Finality,
         CounterKind::Bore => V::Bore,
+        CounterKind::Shield => V::Shield,
         CounterKind::Custom(id) => V::Custom(u32::from(id)),
     }
 }
@@ -615,10 +616,13 @@ impl HeuristicAgent {
     /// "target player" and "that permanent's controller".
     fn players(&self, view: &PlayerView, rel: PlayerRel, aim: Aim) -> Option<Vec<PlayerId>> {
         match (rel, aim) {
-            (PlayerRel::Chosen, Aim::Player(p)) => Some(vec![p]),
-            (PlayerRel::ControllerOfTarget, Aim::Object(id)) => {
-                view.object(id).map(|o| vec![o.controller])
+            (PlayerRel::Chosen | PlayerRel::TargetPlayerOrController, Aim::Player(p)) => {
+                Some(vec![p])
             }
+            (
+                PlayerRel::ControllerOfTarget | PlayerRel::TargetPlayerOrController,
+                Aim::Object(id),
+            ) => view.object(id).map(|o| vec![o.controller]),
             (PlayerRel::Chosen | PlayerRel::ControllerOfTarget, _) => Some(Vec::new()),
             _ => self.seats(rel, view),
         }
@@ -1187,6 +1191,9 @@ impl HeuristicAgent {
                 }
             }
             CounterKind::Poison | CounterKind::Rad => -sign * n * 50,
+            // The counter alone does not identify a future damage/destruction
+            // event to value; do not price it as an unconditional life gain.
+            CounterKind::Shield => return None,
             // A clock's sign is the card's under it (`tactics::clock_score`),
             // and a custom counter means what its card says.
             CounterKind::Time | CounterKind::Lore | CounterKind::Bore | CounterKind::Custom(_) => {
@@ -1216,11 +1223,13 @@ impl HeuristicAgent {
     ) -> Option<i64> {
         let me = view.seat;
         // These need resolution metadata the valuation context does not
-        // carry: the original controller/chooser, or the future event spell.
+        // carry: the original controller/chooser, cast origin, or the future event spell.
         // Do not turn a nested clause into a concrete value for this seat.
         if matches!(
             effect,
-            Effect::MayDoFor { .. } | Effect::WhenNextSpellCastThisTurn { .. }
+            Effect::MayDoFor { .. }
+                | Effect::WhenNextSpellCastThisTurn { .. }
+                | Effect::IfCastFromGraveyard { .. }
         ) {
             return None;
         }

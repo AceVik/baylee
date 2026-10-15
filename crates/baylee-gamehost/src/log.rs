@@ -404,12 +404,19 @@ impl GameLog {
             objects: if synthetic {
                 Vec::new()
             } else {
-                obj.targets.to_vec()
+                obj.targets
+                    .iter()
+                    .chain(obj.second_targets().iter())
+                    .copied()
+                    .collect()
             },
             players: if synthetic {
                 SeatSet::new()
             } else {
                 obj.target_players
+                    .iter()
+                    .chain(obj.second_target_players().iter())
+                    .collect()
             },
         })
     }

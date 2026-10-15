@@ -63,6 +63,8 @@ pub enum CounterKind {
     Hone,
     /// Replaces an untap attempt by removing one counter (CR 122.1d).
     Stun,
+    /// Intrinsic destruction replacement and damage prevention (CR 122.1c).
+    Shield,
     /// Exile instead of a battlefield-to-graveyard move (CR 122.1h).
     Finality,
     /// Card-specific counters.
@@ -98,6 +100,7 @@ impl CounterKind {
             "energy" => Some(Self::Energy),
             "rad" => Some(Self::Rad),
             "stun" => Some(Self::Stun),
+            "shield" => Some(Self::Shield),
             "finality" => Some(Self::Finality),
             "lifelink" => Some(Self::Lifelink),
             "level" => Some(Self::Level),

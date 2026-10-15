@@ -226,13 +226,23 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // empty list and puts nothing anywhere, which is the same
             // no-subject answer `this_object` gave by returning `None`.
             if res.targeted {
-                for &target in &res.targets {
-                    if subjects::target(state, res, target)
-                        .is_some_and(|reference| subjects::is_current(state, reference))
-                    {
-                        crate::replacement::put_counters_by(state, res.controller, target, kind, n);
-                    }
-                }
+                let plans = res
+                    .targets
+                    .iter()
+                    .filter_map(|&target| {
+                        subjects::target(state, res, target)
+                            .filter(|&reference| subjects::is_current(state, reference))?;
+                        crate::replacement::counter_order::plan(
+                            state,
+                            res.controller,
+                            target,
+                            vec![(kind, n)],
+                            true,
+                            None,
+                        )
+                    })
+                    .collect();
+                crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
             } else {
                 let target = this_to_affect(state, res)?;
                 crate::replacement::put_counters_by(state, res.controller, target, kind, n);
@@ -285,9 +295,20 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // Per object, not once for the sweep: "a permanent you control"
             // is asked of each permanent the counters land on, so a board
             // holding one of mine and one of theirs gets two answers.
-            for id in objects {
-                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
-            }
+            let plans = objects
+                .into_iter()
+                .filter_map(|id| {
+                    crate::replacement::counter_order::plan(
+                        state,
+                        res.controller,
+                        id,
+                        vec![(kind, n)],
+                        true,
+                        None,
+                    )
+                })
+                .collect();
+            crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
             None
         }
         Effect::DoubleCountersFilter { filter, kind } => {
@@ -304,9 +325,20 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 })
                 .filter(|(_, n)| *n > 0)
                 .collect();
-            for (id, n) in objects {
-                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
-            }
+            let plans = objects
+                .into_iter()
+                .filter_map(|(id, n)| {
+                    crate::replacement::counter_order::plan(
+                        state,
+                        res.controller,
+                        id,
+                        vec![(kind, n)],
+                        true,
+                        None,
+                    )
+                })
+                .collect();
+            crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
             None
         }
         Effect::DrainAllCountersIntoSelf => {

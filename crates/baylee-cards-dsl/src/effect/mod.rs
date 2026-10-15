@@ -29,9 +29,56 @@ pub use play::*;
 pub use search::*;
 pub use targets::*;
 
+/// Where a damage-redirection instruction sends damage.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageRedirectTo {
+    /// The exact source permanent of the resolving ability.
+    ThisObject,
+    /// The instruction's chosen target.
+    Target(TargetSpec),
+    /// The controller of the source dealing the damage.
+    DamagingSourceController,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Deal damage simultaneously to both independently announced target groups.
+    DealDamageToBothTargetInstances {
+        /// Damage dealt to every recipient of either group.
+        amount: Amount,
+    },
+    /// Redirect the targeted source's damage for the rest of this turn.
+    RedirectTargetSourceDamageThisTurn {
+        /// The source whose damage is redirected.
+        source: TargetSpec,
+        /// Only redirect damage that would be dealt to this ability's controller.
+        only_to_you: bool,
+        /// Destination of the redirected damage.
+        to: DamageRedirectTo,
+    },
+    /// Choose a source, then redirect its next damage to you to the target.
+    RedirectNextChosenSourceDamageToTarget {
+        /// Recipient of redirected damage.
+        target: TargetSpec,
+    },
+    /// Choose a source and reflect its next damage to you to its controller.
+    ReflectNextChosenSourceDamage,
+    /// Prevent damage to the target from spells or abilities targeting it this turn.
+    PreventDamageFromTargetingCausesThisTurn {
+        /// The protected permanent.
+        target: TargetSpec,
+    },
+    /// Copy this resolving spell under the indicated player's control.
+    CopyResolvingSpell {
+        /// Controller of the copy and its new-target decisions.
+        controller: PlayerRel,
+    },
+    /// Perform these instructions only if this spell was cast from a graveyard.
+    IfCastFromGraveyard {
+        /// The instructions for a graveyard cast.
+        effects: &'static [Effect],
+    },
     /// Put this exact source onto the battlefield under its owner's control.
     PutSelfOntoBattlefield,
     /// Choose a color, then make mana unless a player pays the specified cost.

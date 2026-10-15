@@ -42,6 +42,7 @@ mod coiling_oracle;
 mod collector_ouphe;
 mod consumptive_goo;
 mod crystalline_sliver;
+mod cuombajj_witches;
 mod dakmor_bat;
 mod dandan;
 mod dauthi_voidwalker;

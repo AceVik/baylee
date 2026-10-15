@@ -7,6 +7,7 @@ mod advanced_hoverguard;
 mod akroma_s_devoted;
 mod alaborn_cavalier;
 mod aladdin;
+mod ali_from_cairo;
 mod altered_ego;
 mod anaba_bodyguard;
 mod anaba_shaman;

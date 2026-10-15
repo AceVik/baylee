@@ -44,6 +44,9 @@ impl<L: CardLookup> Engine<L> {
     /// Entry choices may interrupt a resolving instruction or a standalone land play.
     pub(crate) fn continue_entry_queue(&mut self) -> bool {
         loop {
+            if self.offer_counter_order() {
+                return true;
+            }
             if let Some(pending) = crate::entry::next_question(&self.state)
                 .or_else(|| crate::entry::advance(&mut self.state))
             {
@@ -60,6 +63,9 @@ impl<L: CardLookup> Engine<L> {
                     self.state.refresh_characteristics();
                     let changed = self.apply_enter_modifiers();
                     if self.awaiting_answer {
+                        return true;
+                    }
+                    if self.offer_counter_order() {
                         return true;
                     }
                     if !changed {
@@ -365,6 +371,16 @@ impl<L: CardLookup> Engine<L> {
         false
     }
 
+    /// Finish a counter event before any dependent engine operation proceeds.
+    pub(crate) fn offer_counter_order(&mut self) -> bool {
+        let Some(pending) = crate::replacement::counter_order::pending(&mut self.state) else {
+            return false;
+        };
+        self.pending = pending;
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Payment opportunities update layers and mana triggers without priority.
     /// Ordinary triggers and SBAs wait (CR 117.2e, 117.5, 605.4a).
     fn advance_payment_window(&mut self) -> bool {
@@ -403,11 +419,14 @@ impl<L: CardLookup> Engine<L> {
         // which nobody is asked anything, so it is the only place a game can
         // loop without a player being able to stop it (see `crate::loops`).
         let mut watch = crate::loops::LoopWatch::default();
-        while !self.advance_combat_damage() {
+        loop {
+            if self.offer_counter_order() || self.advance_combat_damage() {
+                return;
+            }
             if self.state.numeric_failure.is_some() {
                 return;
             }
-            if let Some(pending) = crate::sba::regeneration_choice(&mut self.state) {
+            if let Some(pending) = crate::sba::destruction_choice(&mut self.state) {
                 self.pending = pending;
                 self.awaiting_answer = true;
                 return;
@@ -472,6 +491,9 @@ impl<L: CardLookup> Engine<L> {
             }
             // 0b. As-it-enters modifiers (taplands, shockland choices).
             let wrote = self.apply_enter_modifiers();
+            if self.offer_counter_order() {
+                return;
+            }
             if self.awaiting_answer {
                 // The question is published from here, and the step that
                 // asks it may already have moved the board behind 0a: a

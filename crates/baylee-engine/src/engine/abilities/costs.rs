@@ -421,7 +421,9 @@ impl<L: CardLookup> Engine<L> {
         chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
-        if !cost.parts.iter().any(can_refuse_part_way) {
+        if !cost.parts.iter().any(|part| {
+            can_refuse_part_way(part) || matches!(part, CostPart::PutCounterSelf { .. })
+        }) {
             return self.pay_cost_parts(player, source, cost, chosen, x);
         }
         let before = self.state.checkpoint();
@@ -461,11 +463,60 @@ impl<L: CardLookup> Engine<L> {
         chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
-        let mut answers = chosen.iter();
-        let mut paid = crate::object::PaidRecord::default();
-        let subject_before = self.state.source_identity(source);
-        let subject_seq = self.state.journal.last_seq();
-        if !cost.mana.is_empty() {
+        let mut work = super::payment::CostPayment::new(
+            &self.state,
+            player,
+            source,
+            *cost,
+            chosen.to_vec(),
+            x,
+        );
+        if self.advance_cost_payment(&mut work)? {
+            Ok(work.paid)
+        } else {
+            Err(EngineError::IllegalAction(
+                "counter ordering requires a payment continuation",
+            ))
+        }
+    }
+
+    /// Resume at the first unpaid part; counter choices never replay a payment.
+    pub(super) fn begin_cost_payment(
+        &mut self,
+        work: &mut super::payment::CostPayment,
+    ) -> Result<bool, EngineError> {
+        if !work.cost.parts.iter().any(can_refuse_part_way) {
+            return self.advance_cost_payment(work);
+        }
+        // Announcement callers may consume a payment error and cancel normally.
+        // Preserve the existing local transaction even when apply itself succeeds.
+        let before = self.state.checkpoint();
+        let scan_before = self.trigger_scan_seq;
+        let queue_before = self.trigger_queue.len();
+        let outcome = self.advance_cost_payment(work);
+        if outcome.is_err() {
+            self.state.roll_back(before);
+            self.trigger_scan_seq = scan_before;
+            self.trigger_queue.truncate(queue_before);
+        }
+        outcome
+    }
+
+    /// Continue an already begun payment without replaying its paid prefix.
+    #[allow(clippy::too_many_lines)] // Exhaustive payment dispatch shares one cursor.
+    pub(super) fn advance_cost_payment(
+        &mut self,
+        work: &mut super::payment::CostPayment,
+    ) -> Result<bool, EngineError> {
+        let player = work.player;
+        let source = work.source;
+        let cost = work.cost;
+        let x = work.x;
+        let mut answers = work.chosen[work.answer..].iter();
+        let mut paid = std::mem::take(&mut work.paid);
+        let subject_before = work.subject_before;
+        let subject_seq = work.subject_seq;
+        if !work.mana_paid && !cost.mana.is_empty() {
             // CR 107.3a, second half: while an activated ability is on the
             // stack, any X in its activation cost equals the announced
             // value. Without `with_x` the variable pip is worth nothing and
@@ -500,9 +551,10 @@ impl<L: CardLookup> Engine<L> {
                 &self.state.players[player.get() as usize].mana_pool,
             );
         }
-        let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in cost.parts {
-            graveyard_batch.before_part(&mut self.state, part);
+        work.mana_paid = true;
+        while let Some(part) = cost.parts.get(work.next) {
+            work.next += 1;
+            work.graveyard_batch.before_part(&mut self.state, part);
             if paid_by_the_casting_wizard(part) {
                 continue;
             }
@@ -708,14 +760,6 @@ impl<L: CardLookup> Engine<L> {
                 // refusal is the same too, and is not dead code: the bound
                 // was read when the question was asked, and a counter can
                 // leave in between (Thief of Blood in response).
-                // `record_counters` and not `put_counters`, which is the
-                // door that applies the doubling replacements. CR 614.16:
-                // "if an effect would put one or more counters on a
-                // permanent" applies to what the effect of a resolving spell
-                // or ability puts there and to what another replacement puts
-                // there — a cost is neither. Doubling Season is the pool's
-                // only such replacement and prints exactly that wording, so
-                // this is the measured answer and not a cautious one.
                 CostPart::PayEnergy(n) => {
                     if !self.state.pay_energy(player, u32::from(*n)) {
                         return Err(EngineError::IllegalAction("not enough energy"));
@@ -726,6 +770,8 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction("not enough energy"));
                     }
                 }
+                // A cost is not initially an effect. Another replacement can
+                // make effect-only doublers applicable (CR 614.16).
                 CostPart::PutCounterSelf { kind, n } => {
                     crate::replacement::record_counters_by(
                         &mut self.state,
@@ -734,6 +780,9 @@ impl<L: CardLookup> Engine<L> {
                         *kind,
                         *n,
                     );
+                    if !crate::replacement::counter_order::has_pending(&self.state) {
+                        self.state.refresh_characteristics();
+                    }
                 }
                 CostPart::RemoveCounterSelfX { kind } => {
                     let want = u16::try_from(x).unwrap_or(u16::MAX);
@@ -756,7 +805,7 @@ impl<L: CardLookup> Engine<L> {
                     let selected = answers
                         .next()
                         .ok_or(EngineError::IllegalAction("unanswered tap group"))?;
-                    let options = cost_wizard::menu(&self.state, player, source, cost, part);
+                    let options = cost_wizard::menu(&self.state, player, source, &cost, part);
                     if selected.len() != usize::try_from(*count).unwrap_or(usize::MAX)
                         || selected
                             .iter()
@@ -828,11 +877,16 @@ impl<L: CardLookup> Engine<L> {
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
+            if crate::replacement::counter_order::has_pending(&self.state) {
+                work.answer = work.chosen.len() - answers.len();
+                work.paid = paid;
+                return Ok(false);
+            }
             // Detect events between cost parts while their subjects and Aura
             // attachments still exist; stack placement waits for priority.
             self.capture_cost_triggers();
         }
-        graveyard_batch.finish(&mut self.state);
+        work.graveyard_batch.finish_pending(&mut self.state);
         if let Some(before) = subject_before {
             self.note_mana_activation(before);
             paid.source_after_cost = crate::resolve::subjects::public_successor(
@@ -842,6 +896,7 @@ impl<L: CardLookup> Engine<L> {
                 Cause::Cost,
             );
         }
-        Ok(paid)
+        work.paid = paid;
+        Ok(true)
     }
 }

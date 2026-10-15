@@ -3,6 +3,7 @@ mod auras;
 mod choices;
 mod commit;
 mod copying;
+mod counters;
 mod departure;
 mod equilibrium;
 mod forms;
@@ -32,6 +33,9 @@ use crate::{
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Entries {
     pending: VecDeque<Attempt>,
+    /// Fully decided co-arrivals, retained until the whole counter transaction is ready.
+    ready: VecDeque<Attempt>,
+    counter_transaction: bool,
     /// Lookup only; the queue is the authoritative ordered pending state.
     pending_objects: BTreeSet<ObjectId>,
     /// Derived queue caches: insertion/departure invalidates the APNAP order.
@@ -75,6 +79,10 @@ struct Attempt {
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
+    counter_plans: Vec<crate::replacement::counter_order::CounterPlacementPlan>,
+    counters_prepared: bool,
+    counter_caps: Vec<(CounterKind, u16)>,
+    next_counter: usize,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
 }
@@ -95,6 +103,7 @@ enum CopyStatus {
 #[derive(Clone, Debug, Hash)]
 enum Question {
     AuraHost,
+    Counters,
     TapLife(u16),
     TapCounters {
         kind: CounterKind,
@@ -137,6 +146,8 @@ enum Question {
 impl Hash for Entries {
     fn hash<H: Hasher>(&self, h: &mut H) {
         self.pending.hash(h);
+        self.ready.hash(h);
+        self.counter_transaction.hash(h);
         self.question.hash(h);
         self.committing.hash(h);
         self.after.hash(h);
@@ -150,8 +161,9 @@ impl Hash for Entries {
 
 impl Entries {
     pub(crate) fn begin_event(&mut self, _seq: u64, putter: Option<PlayerId>) {
-        if self.pending.is_empty() && self.question.is_none() {
+        if self.pending.is_empty() && self.ready.is_empty() && self.question.is_none() {
             self.event_objects.clear();
+            self.counter_transaction = false;
             self.putter = putter;
         }
     }
@@ -288,7 +300,14 @@ pub(crate) fn defer(
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
     let aura = auras::needs_choice(state, id);
-    if !aura && !external && copy.is_none() && !modifiers.iter().any(needs_before_entry) {
+    let counter_entry = counters::needs_entry(state, id);
+    state.entries.counter_transaction |= counter_entry;
+    if !aura
+        && !external
+        && !counter_entry
+        && copy.is_none()
+        && !modifiers.iter().any(needs_before_entry)
+    {
         return false;
     }
     let Some(object) = state.object(id) else {
@@ -304,7 +323,12 @@ pub(crate) fn defer(
     if lost {
         modifiers = &[];
     }
-    if (lost || copy.is_none()) && !modifiers.iter().any(needs_before_entry) && !external && !aura {
+    if (lost || copy.is_none())
+        && !modifiers.iter().any(needs_before_entry)
+        && !external
+        && !aura
+        && !counter_entry
+    {
         return false;
     }
     let attempt = Attempt {
@@ -324,6 +348,10 @@ pub(crate) fn defer(
         sacrifices: None,
         chosen_number: None,
         counters: Vec::new(),
+        counter_plans: Vec::new(),
+        counters_prepared: false,
+        counter_caps: Vec::new(),
+        next_counter: 0,
         copy: if lost {
             CopyStatus::None
         } else {
@@ -352,6 +380,7 @@ pub(crate) fn battlefield_reference(
             .entries
             .pending
             .iter()
+            .chain(&state.entries.ready)
             .find(|entry| entry.object == id && entry.version == object.version)?
             .version
             .wrapping_add(1)

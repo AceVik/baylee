@@ -23,6 +23,7 @@ card!(
             max: u8::MAX,
             count_is_x: false,
             distinct_mana_values: false,
+            chooser: baylee_cards_dsl::TargetChooser::Controller,
         })
     )],
     faces = &[face!(

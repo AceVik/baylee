@@ -259,11 +259,13 @@ impl<L: CardLookup> Engine<L> {
                     &req.spec,
                     wizard.targets.first().copied(),
                 );
-                if options.len() < req.min as usize {
+                let player_options =
+                    eval::target_player_options(&self.state, &req.spec, wizard.player);
+                if options.len() + player_options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
                 }
-                if options.is_empty() || req.max == 0 {
+                if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
                     // "Up to one" with nothing to point at: the empty answer
                     // is the only one, for the reason the first stage gives.
                     let mut wizard = wizard;
@@ -272,11 +274,12 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 }
                 let (min, max) = req.bounds(wizard.x);
-                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options,
-                    player_options: Vec::new(),
+                    player_options,
                     min,
                     max,
                     reason: TargetPrompt::Targets,

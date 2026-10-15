@@ -58,6 +58,8 @@ pub enum CounterKind {
     Custom(u32),
     /// Bore counters (Brass's Tunnel-Grinder).
     Bore,
+    /// A shield counter replaces destruction or prevents one damage event.
+    Shield,
 }
 
 impl CounterKind {
@@ -109,6 +111,7 @@ impl CounterKind {
             Self::Finality => Cow::Borrowed("FINAL"),
             Self::Custom(_) => Cow::Borrowed("•"),
             Self::Bore => Cow::Borrowed("BORE"),
+            Self::Shield => Cow::Borrowed("SHIELD"),
         }
     }
 }

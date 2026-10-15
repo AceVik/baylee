@@ -45,10 +45,10 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, DamageTo, DivisionAmount, Effect, ExilePlay, ExileUntil,
-    Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
-    ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
-    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+    Amount, ColorSubject, CounterKind, DamageRedirectTo, DamageTo, DivisionAmount, Effect,
+    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
+    ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider,
+    TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -63,7 +63,8 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
+    DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
+    StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.

@@ -1,6 +1,34 @@
 use super::*;
 
 #[test]
+fn second_instance_player_targets_remain_distinct_in_the_public_stack_view() {
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let card = state.zones.list(ZoneLocation::Library(p0))[0];
+    let source = state
+        .move_object(
+            card,
+            ZoneLocation::Stack,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
+        )
+        .unwrap();
+    let object = state.object_mut(source).unwrap();
+    object.target_players.insert(p0);
+    object.set_second_players([p0, p1].into_iter().collect());
+    let public = super::super::object::public_object(&state, source, p0).unwrap();
+    assert_eq!(
+        public.targets,
+        [
+            TargetRef::Player(p0),
+            TargetRef::Player(p0),
+            TargetRef::Player(p1)
+        ]
+    );
+}
+
+#[test]
 fn second_generation_copy_keeps_vesuvans_quote_and_a_tokens_original_index() {
     use baylee_core::generated::index;
     use baylee_engine::copiable_abilities::compose;

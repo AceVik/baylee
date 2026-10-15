@@ -28,6 +28,7 @@ pub(crate) struct Batch {
 /// a named source plus another permanent. Discard parts form their own group;
 /// another payment action ends either group (independent costs, CR 601.2h).
 /// Queued choices stay inside the caller's payment checkpoint until it succeeds.
+#[derive(Clone, Debug, Hash)]
 pub(crate) struct PaymentBatch {
     since: u64,
     kind: Option<u8>,
@@ -55,6 +56,12 @@ impl PaymentBatch {
             self.since = state.journal.last_seq();
         }
         self.kind = kind;
+    }
+
+    pub(crate) fn finish_pending(&mut self, state: &mut GameState) {
+        capture(state, self.since);
+        self.since = state.journal.last_seq();
+        self.kind = None;
     }
 
     pub(crate) fn finish(self, state: &mut GameState) {

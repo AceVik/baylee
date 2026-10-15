@@ -30,6 +30,7 @@ card!(
                     max: 2,
                     count_is_x: false,
                     distinct_mana_values: false,
+                    chooser: baylee_cards_dsl::TargetChooser::Controller,
                 }),
             )],
         ),

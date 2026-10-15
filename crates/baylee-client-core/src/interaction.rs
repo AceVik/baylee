@@ -1153,6 +1153,7 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Loyalty => Phrase::LogCountersLoyalty.text(lang).to_owned(),
         CounterKind::Lore => Phrase::LogCountersLore.text(lang).to_owned(),
         CounterKind::Bore => Phrase::LogCountersBore.text(lang).to_owned(),
+        CounterKind::Shield => Phrase::LogCountersShield.text(lang).to_owned(),
         CounterKind::Time => Phrase::LogCountersTime.text(lang).to_owned(),
         CounterKind::Charge => Phrase::LogCountersCharge.text(lang).to_owned(),
         CounterKind::Poison => Phrase::LogCountersPoison.text(lang).to_owned(),
@@ -1271,6 +1272,10 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // translation.
         YesNoPrompt::UseRegenerationShield { .. } => {
             Phrase::UseRegenerationShield.text(lang).to_string()
+        }
+        YesNoPrompt::UseShieldCounter { .. } => Phrase::UseShieldCounter.text(lang).to_string(),
+        YesNoPrompt::ApplyAdditionalCountersNext { additional, .. } => {
+            Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
         }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's

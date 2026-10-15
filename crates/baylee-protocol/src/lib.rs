@@ -26,7 +26,9 @@ pub mod tape;
 /// Version 31 asks about draws: `ChoicePrompt::Dredge` and
 /// `ChoicePrompt::DrawReplacement` (dredge, Chains of Mephistopheles,
 /// Aladdin's Lamp).
-pub const PROTOCOL_VERSION: u32 = 31;
+/// Version 32 carries damage amount replacements, reflection, shield counters
+/// and shield/additional-counter replacement choices.
+pub const PROTOCOL_VERSION: u32 = 32;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -302,7 +304,8 @@ mod tests {
         // 31: draw questions, `ChoicePrompt::Dredge` and
         // `ChoicePrompt::DrawReplacement`, variants an older client cannot
         // decode.
-        assert_eq!(PROTOCOL_VERSION, 31);
+        // 32: additional `DamageEffectKind` variants an older client cannot decode.
+        assert_eq!(PROTOCOL_VERSION, 32);
     }
 
     #[test]

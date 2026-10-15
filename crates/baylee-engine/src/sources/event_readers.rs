@@ -46,6 +46,11 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::IfEventObjectMatches { .. }
         | Effect::IfEventPowerAtLeast { .. }
         | Effect::MoveCounterToEvent { .. } => true,
+        Effect::RedirectTargetSourceDamageThisTurn { source, to, .. } => {
+            reads_target(*source)
+                || matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
+        }
+        Effect::CopyResolvingSpell { controller } => reads_player(*controller),
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
@@ -66,7 +71,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PlayerMayPayManaOr { player, .. }
         | Effect::PlayerMayPayManaThen { player, .. }
         | Effect::OptionalBasicLandSearchFor { player, .. } => reads_player(*player),
-        Effect::DealDamageWithCappedLifeGain { amount, .. }
+        Effect::DealDamageToBothTargetInstances { amount }
+        | Effect::DealDamageWithCappedLifeGain { amount, .. }
         | Effect::GainLife { amount, .. }
         | Effect::DrawCards { amount, .. }
         | Effect::DealDamageToTargetController { amount, .. }
@@ -84,7 +90,9 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::Poison { amount, who }
         | Effect::GainLifeFor { amount, who, .. }
         | Effect::DrawCardsFor { amount, who, .. } => reads_amount(*amount) || reads_player(*who),
-        Effect::CantAttackDuringNextControllerTurn { target }
+        Effect::RedirectNextChosenSourceDamageToTarget { target }
+        | Effect::PreventDamageFromTargetingCausesThisTurn { target }
+        | Effect::CantAttackDuringNextControllerTurn { target }
         | Effect::SuppressUntap { target, .. }
         | Effect::Exile { target, .. }
         | Effect::Blink { target, .. }

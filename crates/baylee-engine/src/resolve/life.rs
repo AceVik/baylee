@@ -8,6 +8,8 @@ use crate::prevention::{Shield, ShieldKind, ShieldOrigin, Shielded};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
+pub(super) mod batch57;
+
 /// Executes one life/damage effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -16,6 +18,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
@@ -293,7 +296,11 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     } else {
         AfterDamage::Done
     };
-    let work = DamageWork::new(state, assignments);
+    let cause = batch57::cause(state, res);
+    let mut work = DamageWork::new(state, assignments);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
     finish_or_suspend(state, res, DamageResolution { work, after })
 }
 
@@ -381,7 +388,12 @@ pub(super) fn damage_with_payment(
 ) -> Option<Pending> {
     let origin = origin(state, res);
     let assignment = assignment(state, res, res.source, DamageTarget::Player(player), damage);
-    let work = DamageWork::new(state, vec![assignment]).with_paid_prevention(paid, origin, player);
+    let cause = batch57::cause(state, res);
+    let mut work =
+        DamageWork::new(state, vec![assignment]).with_paid_prevention(paid, origin, player);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
     finish_or_suspend(
         state,
         res,
@@ -426,6 +438,38 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
         // Each recipient's amount is determined as the effect is applied
         // (CR 608.2h), before any of it is dealt; a player recipient's
         // through `amount_for_player` ("that player", Typhoon).
+        Effect::DealDamageToBothTargetInstances { amount } => {
+            let first = recipients(state, res, you, TargetSpec::AnyTarget);
+            first
+                .into_iter()
+                .chain(res.second_targets.iter().copied().map(DamageTarget::Object))
+                .chain(
+                    res.subject
+                        .second_players()
+                        .iter()
+                        .map(DamageTarget::Player),
+                )
+                .map(|to| {
+                    let n = match to {
+                        DamageTarget::Player(player) => {
+                            super::amount_for_player(&amount, state, you, res, player)
+                        }
+                        DamageTarget::Object(_) => amount2(&amount, state, you, res),
+                    };
+                    assignment(state, res, res.source, to, n)
+                })
+                .fold(Vec::<Assignment>::new(), |mut assignments, next| {
+                    if let Some(existing) = assignments
+                        .iter_mut()
+                        .find(|a| a.recipient == next.recipient)
+                    {
+                        existing.amount = existing.amount.saturating_add(next.amount);
+                    } else {
+                        assignments.push(next);
+                    }
+                    assignments
+                })
+        }
         Effect::DealDamage { amount, target } => recipients(state, res, you, target)
             .into_iter()
             .map(|to| {

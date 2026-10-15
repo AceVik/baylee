@@ -226,7 +226,10 @@ pub use turn::{DayNight, Phase, Step};
 /// targets a spell or an ability on the stack was announced with), and the
 /// `ObjectStatus::NO_ABILITIES` bit.
 /// Version 78 adds public speed totals to each seat.
-pub const VIEW_VERSION: u32 = 78;
+/// Version 79 adds shield counters, damage amount replacement/reflection
+/// choices, and shield/additional-counter replacement prompts. Older readers
+/// cannot decode these new counter and imported engine choice variants.
+pub const VIEW_VERSION: u32 = 79;
 
 // ------------------------------------------------------------------- targets
 

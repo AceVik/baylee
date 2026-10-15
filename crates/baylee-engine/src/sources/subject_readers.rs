@@ -4,7 +4,17 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
     let mut refers = false;
     Effect::walk(effects, &mut 0, &mut |effect| {
         refers |= match effect {
-            Effect::GrantSpecialActionUntilEndOfTurn {
+            Effect::RedirectTargetSourceDamageThisTurn { source, to, .. } => {
+                matches!(source, TargetSpec::ThisObject)
+                    || matches!(to, baylee_cards_dsl::DamageRedirectTo::ThisObject)
+                    || matches!(
+                        to,
+                        baylee_cards_dsl::DamageRedirectTo::Target(TargetSpec::ThisObject)
+                    )
+            }
+            Effect::RedirectNextChosenSourceDamageToTarget { target }
+            | Effect::PreventDamageFromTargetingCausesThisTurn { target }
+            | Effect::GrantSpecialActionUntilEndOfTurn {
                 effect: baylee_cards_dsl::SpecialActionEffect::PreventNextDamage { target, .. },
                 ..
             }
@@ -36,7 +46,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SetPTFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }
-            Effect::PutSourceFromHandOntoBattlefield
+            Effect::ReflectNextChosenSourceDamage
+            | Effect::PutSourceFromHandOntoBattlefield
             | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf

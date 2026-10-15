@@ -164,12 +164,12 @@ impl<L: CardLookup> Engine<L> {
             .targets
             .first()
             .and_then(|id| self.state.source_identity(*id));
-        let (options, _) =
+        let (options, player_options) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         if let Some(obj) = self.state.object_mut(top) {
             obj.set_second(SmallVec::new(), Some(req));
         }
-        if options.len() < usize::from(req.min) {
+        if options.len() + player_options.len() < usize::from(req.min) {
             // No legal choice for a required target: "the ability is simply
             // removed from the stack" (CR 603.3d). No card prints a required
             // second target on a trigger today; Ravager's is "up to one".
@@ -179,17 +179,17 @@ impl<L: CardLookup> Engine<L> {
             let _ = self.state.arena.remove(top);
             return false;
         }
-        if options.is_empty() {
+        if options.is_empty() && player_options.is_empty() {
             // "Up to one" with nothing to point at: nothing to decide.
             return false;
         }
         let (min, max) = req.bounds(0);
-        let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+        let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
         self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
         self.pending = Pending::ChooseTargets {
             player: controller,
             options,
-            player_options: Vec::new(),
+            player_options,
             min,
             max,
             reason: TargetPrompt::Targets,
@@ -530,5 +530,47 @@ mod tests {
         assert_eq!(e.trigger_queue.len(), 3);
         assert_eq!(e.target_batch_count(), 1);
         assert!(matches!(e.pending(), Pending::ChooseTargets { .. }));
+    }
+}
+
+/// Announcement state retained while a different seat chooses targets.
+#[derive(Clone, Debug, Default, Hash)]
+pub(super) struct ActivationTargetChoice {
+    pub controller: Option<PlayerId>,
+    pub opponent: Option<PlayerId>,
+    pub second_players: baylee_core::ids::SeatSet,
+}
+
+impl<L: CardLookup> Engine<L> {
+    /// Pick the target chooser while retaining the activator's rules context.
+    pub(super) fn activation_target_chooser(
+        &mut self,
+        req: baylee_cards_dsl::TargetReq,
+        controller: PlayerId,
+        plan: PlanKind,
+    ) -> Result<Option<PlayerId>, EngineError> {
+        if req.chooser == baylee_cards_dsl::TargetChooser::Controller {
+            return Ok(Some(controller));
+        }
+        if let Some(opponent) = self.activation_target_choice.opponent {
+            return Ok(Some(opponent));
+        }
+        let opponents = self.opponents_in_turn_order(controller);
+        match opponents.as_slice() {
+            [] => Err(EngineError::IllegalAction("no opponent can choose targets")),
+            [only] => {
+                self.activation_target_choice.opponent = Some(*only);
+                Ok(Some(*only))
+            }
+            _ => {
+                self.pending_plan = Some(plan);
+                self.pending = Pending::ChoosePlayer {
+                    player: controller,
+                    options: opponents,
+                };
+                self.awaiting_answer = true;
+                Ok(None)
+            }
+        }
     }
 }

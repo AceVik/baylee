@@ -24,6 +24,7 @@ mod life_chisel;
 mod machine_god_s_effigy;
 mod mightstone;
 mod nevinyrral_s_disk;
+mod nova_pentacle;
 mod panharmonicon;
 mod power_armor;
 mod power_matrix;

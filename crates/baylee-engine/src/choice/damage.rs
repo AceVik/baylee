@@ -35,6 +35,20 @@ pub struct DamagePartView {
 /// What applying an offered damage replacement/prevention effect does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DamageEffectKind {
+    /// Change each indicated source's damage amount without preventing damage.
+    ReplaceAmount {
+        /// Resulting amount per source and recipient.
+        amount: u32,
+    },
+    /// Add damage from the reflecting spell to the same simultaneous event.
+    Reflect {
+        /// Exact source of the additional damage.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Recipient of the additional damage.
+        to: PlayerId,
+    },
+    /// Remove one shield counter and prevent this event's damage to the permanent.
+    RemoveShieldCounter,
     /// Turn the specified permanent face up, then continue the same damage event.
     TurnFaceUp {
         /// Exact permanent affected by the replacement.

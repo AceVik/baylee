@@ -695,12 +695,7 @@ impl GameState {
         self.capture_source_references();
         let mut out = BTreeSet::new();
         for (_, obj) in self.arena.iter() {
-            if (obj.zone == Zone::Battlefield
-                && !obj.status.contains(crate::object::Status::PHASED_OUT))
-                || (obj.zone == Zone::Stack && obj.kind == ObjectKind::Spell)
-                || (obj.zone == Zone::Command
-                    && !obj.status.contains(crate::object::Status::FACE_DOWN))
-            {
+            if is_public_damage_source(obj) {
                 out.insert(identity(obj));
             }
         }
@@ -721,7 +716,9 @@ impl GameState {
             }
             if let ShieldKind::AllFrom { source }
             | ShieldKind::NextFrom { source, .. }
-            | ShieldKind::RedirectNextFrom { source, .. } = shield.kind
+            | ShieldKind::RedirectNextFrom { source, .. }
+            | ShieldKind::RedirectSource { source, .. }
+            | ShieldKind::ReflectNextSource { source, .. } = shield.kind
             {
                 out.insert(DamageSourceRef {
                     object: source.id,
@@ -733,6 +730,18 @@ impl GameState {
                 }) {
                     out.insert(*permanent);
                 }
+            }
+            match shield.kind {
+                ShieldKind::ReflectNextSource { reflection, .. } => {
+                    out.insert(reflection);
+                }
+                ShieldKind::RedirectSource {
+                    to: crate::prevention::RedirectDestination::Object(reference),
+                    ..
+                } => {
+                    out.insert(reference);
+                }
+                _ => {}
             }
         }
         for effect in self.effects.iter().filter(|e| is_prevention(&e.modifier)) {
@@ -862,6 +871,14 @@ impl GameState {
                     .is_some_and(|object| object.version == reference.version)
         });
     }
+}
+
+/// Public objects that can be chosen without a retained source reference.
+fn is_public_damage_source(object: &GameObject) -> bool {
+    (object.zone == Zone::Battlefield && !object.status.contains(crate::object::Status::PHASED_OUT))
+        || (object.zone == Zone::Stack && object.kind == ObjectKind::Spell)
+        || (object.zone == Zone::Command
+            && !object.status.contains(crate::object::Status::FACE_DOWN))
 }
 
 fn is_prevention(modifier: &Modifier) -> bool {

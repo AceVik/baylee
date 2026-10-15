@@ -9,6 +9,8 @@ pub enum Amount {
     Fixed(u32),
     /// Total life opponents have lost this turn; later gains do not subtract.
     OpponentsLifeLostThisTurn,
+    /// Creature arrivals under your control this turn, including departed entrants.
+    CreaturesEnteredUnderYourControlThisTurn,
     /// The value of X chosen at cast time.
     X,
     /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a

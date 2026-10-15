@@ -925,6 +925,11 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::PayLifeOrEnterTapped { amount } => entry_life_words(*amount),
         YesNoPrompt::ManaAnyType => north_star_words(),
         YesNoPrompt::UseRegenerationShield { .. } => regeneration_words(),
+        YesNoPrompt::UseShieldCounter { permanent } => shield_counter_words(table, *permanent),
+        YesNoPrompt::ApplyAdditionalCountersNext {
+            permanent,
+            additional,
+        } => additional_counter_words(table, *permanent, *additional),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
@@ -956,14 +961,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {amount} life"),
             "don't pay".into(),
         ),
-        YesNoPrompt::Miracle { card } => (
-            format!(
-                "Reveal {} and cast it for its miracle cost?",
-                table.named(*card)
-            ),
-            "cast it for its miracle cost".into(),
-            "keep it in your hand".into(),
-        ),
+        YesNoPrompt::Miracle { card } => miracle_words(table, *card),
         YesNoPrompt::DrawOffer { proposer } => (
             format!("{} offers a draw. Accept?", Table::player_id(*proposer)),
             "accept the draw".into(),
@@ -1018,6 +1016,43 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn miracle_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Reveal {} and cast it for its miracle cost?",
+            table.named(card)
+        ),
+        "cast it for its miracle cost".into(),
+        "keep it in your hand".into(),
+    )
+}
+
+fn shield_counter_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Use a shield counter on {} instead of regeneration?",
+            table.named(permanent)
+        ),
+        "remove one shield counter and replace the destruction".into(),
+        "use regeneration and keep the shield counter".into(),
+    )
+}
+
+fn additional_counter_words(
+    table: &Table<'_>,
+    permanent: ObjectId,
+    additional: u16,
+) -> (String, String, String) {
+    (
+        format!(
+            "Apply {additional} additional counters of each kind to {} next?",
+            table.named(permanent)
+        ),
+        "apply the additive counter replacement next".into(),
+        "apply another replacement first; this does not decline the additional counters".into(),
+    )
 }
 
 fn north_star_words() -> (String, String, String) {

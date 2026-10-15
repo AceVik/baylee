@@ -301,6 +301,7 @@ impl<L: CardLookup> Engine<L> {
             obj.target_players = wizard.target_players;
             obj.target_req = target_req;
             obj.set_second(wizard.second_targets.clone(), second_target_req);
+            obj.set_second_players(wizard.second_target_players);
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
             obj.replicated = wizard.replicated;
@@ -312,6 +313,8 @@ impl<L: CardLookup> Engine<L> {
             // this (CR 702.88a).
             obj.cast_history
                 .set_from_hand(obj.zone == crate::zone::Zone::Hand);
+            obj.cast_history
+                .set_from_graveyard(obj.zone == crate::zone::Zone::Graveyard);
             // The chosen permission determines the replacement, independent
             // of other permissions that happen to be available.
             if obj.zone == crate::zone::Zone::Graveyard {

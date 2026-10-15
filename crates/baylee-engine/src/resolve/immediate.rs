@@ -243,6 +243,7 @@ pub(super) fn exec_immediate(
         | Effect::GainLifeFor { .. }
         | Effect::GainLifeDoubleX
         | Effect::LoseLife { .. }
+        | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamage { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
@@ -490,6 +491,22 @@ pub(super) fn exec_immediate(
             None
         }
         // --- Conditional branches ---------------------------------------
+        Effect::IfCastFromGraveyard { effects } => {
+            if super::copying::was_cast_from_graveyard(state, res) {
+                run_nested(state, res, effects)
+            } else {
+                None
+            }
+        }
+        Effect::CopyResolvingSpell { controller } => {
+            super::copying::copy_resolving(state, res, controller)
+        }
+        Effect::RedirectTargetSourceDamageThisTurn { .. }
+        | Effect::RedirectNextChosenSourceDamageToTarget { .. }
+        | Effect::ReflectNextChosenSourceDamage
+        | Effect::PreventDamageFromTargetingCausesThisTurn { .. } => {
+            life::batch57::exec(state, res, op)
+        }
         Effect::IfKicked { then, otherwise } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let branch = if kicked { then } else { otherwise };

@@ -16,6 +16,7 @@ mod irradiate;
 mod lightning_blast;
 mod memory_deluge;
 mod might_of_oaks;
+mod reverberation;
 mod sudden_strength;
 mod waterlogged_teachings;
 

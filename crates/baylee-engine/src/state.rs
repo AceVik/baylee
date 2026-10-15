@@ -578,6 +578,8 @@ pub struct PerTurn {
     pub instants_cast: Vec<u32>,
     /// Union of subtypes controlled at actual entry during this turn.
     pub entered_subtypes: Vec<baylee_core::types::SubtypeSet>,
+    /// Creature arrivals under each player's control, including later departures.
+    pub creatures_entered: Vec<u32>,
     /// Arrivals awaiting the complete simultaneous battlefield projection.
     pub(crate) pending_entry_history: Vec<baylee_core::ids::DamageSourceRef>,
     /// Exact graveyard successors of actual discards, paired with their discarder.
@@ -797,6 +799,7 @@ impl PerTurn {
             spells_cast: vec![0; players],
             instants_cast: vec![0; players],
             entered_subtypes: vec![baylee_core::types::SubtypeSet::EMPTY; players],
+            creatures_entered: vec![0; players],
             pending_entry_history: Vec::new(),
             discarded_to_graveyard: Vec::new(),
             no_more_spells: vec![false; players],
@@ -881,6 +884,7 @@ impl PerTurn {
         self.instants_cast.fill(0);
         self.entered_subtypes
             .fill(baylee_core::types::SubtypeSet::EMPTY);
+        self.creatures_entered.fill(0);
         self.pending_entry_history.clear();
         self.discarded_to_graveyard.clear();
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
@@ -1042,6 +1046,10 @@ pub struct GameState {
     pub(crate) sba_legend_decisions: Vec<crate::sba::LegendDecision>,
     /// Competing regeneration replacements awaiting the affected controller.
     pub(crate) regeneration_choices: crate::sba::RegenerationChoices,
+    /// Shield-counter replacement choices awaiting the affected controller.
+    pub(crate) shield_choices: crate::sba::ShieldChoices,
+    /// Counter-placement replacements awaiting their affected controller's order.
+    pub(crate) counter_choices: crate::replacement::counter_order::CounterChoices,
     /// Seats in turn order.
     pub players: Vec<Player>,
     /// Turn bookkeeping.
@@ -1510,6 +1518,8 @@ impl GameState {
             entries,
             sba_legend_decisions,
             regeneration_choices,
+            shield_choices,
+            counter_choices,
             players,
             turn,
             combat,
@@ -1609,6 +1619,8 @@ impl GameState {
                 "state.regeneration_choices",
                 format!("{regeneration_choices:?}"),
             ),
+            ("state.shield_choices", format!("{shield_choices:?}")),
+            ("state.counter_choices", format!("{counter_choices:?}")),
             ("state.players", format!("{players:?}")),
             ("state.turn", format!("{turn:?}")),
             ("state.combat", format!("{combat:?}")),

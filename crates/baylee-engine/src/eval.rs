@@ -148,7 +148,7 @@ pub fn matches_projected_with_context(
                     obj.chosen_player
                         .is_some_and(|p| !obj.target_players.contains(p)),
                 );
-            obj.targets.len() + obj.second_targets().len() + players == 1
+            obj.targets.len() + obj.second_targets().len() + players + obj.second_target_players().len() == 1
         }
         Filter::HasManaAbility => {
             (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
@@ -443,7 +443,7 @@ pub fn controller_of_attached(state: &GameState, source: ObjectId) -> Option<Pla
 }
 
 /// Resolves a relative player reference to concrete players — or `None` for
-/// the two relations the game state alone cannot answer.
+/// relations the game state alone cannot answer.
 ///
 /// `Chosen` is the player a spell or ability targeted and `ControllerOfTarget`
 /// is read off its first object target, so both need the *resolution's* own
@@ -497,6 +497,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
                 .collect()
         }
         PlayerRel::ControllerOfTarget
+        | PlayerRel::TargetPlayerOrController
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Recipient
         | PlayerRel::DefendingPlayer
@@ -817,6 +818,8 @@ pub fn amount_with_context(
     let this = context.source;
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
+        Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
+            .get(usize::from(you.get())).copied().unwrap_or(0),
         Amount::X | Amount::NegX => x.unwrap_or(0),
         // The magnitude, like every other arm here: the sign is
         // `Amount::is_negative`'s question and no caller of this reads one.

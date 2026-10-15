@@ -194,6 +194,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 | CounterKind::Shadow
                 | CounterKind::Energy
                 | CounterKind::Charge
+                | CounterKind::Shield
                 | CounterKind::Level => {
                     m.benefit = 1;
                     m.size_counter = matches!(kind, CounterKind::Plus { .. }).then_some(*kind);

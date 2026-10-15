@@ -14,8 +14,11 @@ use crate::state::GameState;
 use baylee_cards_dsl::{CounterKind, KeywordSet};
 use baylee_core::ids::{EffectId, ObjectId, PlayerId};
 
+mod batch57;
 mod candidates;
 mod commit;
+mod counter_result;
+mod life_result;
 #[cfg(test)]
 mod prevention_tests;
 #[cfg(test)]
@@ -34,14 +37,23 @@ pub(crate) struct Assignment {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum EffectKey {
     FaceUp(baylee_core::ids::DamageSourceRef),
+    ShieldCounter(baylee_core::ids::DamageSourceRef),
     Shield(u64),
     Continuous(EffectId),
     Paid,
 }
 
+/// The instruction that caused damage, independent of its damage source.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct DamageCause {
+    pub object: baylee_core::ids::DamageSourceRef,
+    pub targets: Vec<baylee_core::ids::DamageSourceRef>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Part {
     view: DamagePartView,
+    cause: Option<DamageCause>,
     source_version: Option<u32>,
     recipient_version: Option<u32>,
     keywords: KeywordSet,
@@ -70,6 +82,8 @@ pub(crate) struct DamageWork {
     paid: Option<(u32, ShieldOrigin, PlayerId)>,
     life_gains: Vec<(PlayerId, u32)>,
     counter_removals: Vec<(ObjectId, u32, CounterKind, u32)>,
+    result_plans: Option<Vec<crate::replacement::counter_order::CounterPlacementPlan>>,
+    result_question: Option<usize>,
     complete: bool,
 }
 
@@ -91,6 +105,7 @@ impl DamageWork {
                 let object = state.damage_source(a.source, a.source_version);
                 let chars = object.map(crate::object::GameObject::characteristics);
                 Part {
+                    cause: None,
                     view: DamagePartView {
                         id: u32::try_from(index).expect("too many damage parts"),
                         source: a.source,
@@ -129,6 +144,8 @@ impl DamageWork {
             paid: None,
             life_gains: Vec::new(),
             counter_removals: Vec::new(),
+            result_plans: None,
+            result_question: None,
             complete: false,
         }
     }
@@ -171,12 +188,18 @@ impl DamageWork {
         if self.complete {
             return None;
         }
-        let pending = self.prepare(state);
-        if pending.is_none() {
-            self.commit(state);
-            self.complete = true;
+        if self.result_plans.is_none() {
+            if let Some(pending) = self.prepare(state) {
+                return Some(pending);
+            }
+            self.plan_counter_results(state);
         }
-        pending
+        if let Some(pending) = self.prepare_counter_results(state) {
+            return Some(pending);
+        }
+        self.commit(state);
+        self.complete = true;
+        None
     }
 
     fn prepare(&mut self, state: &mut GameState) -> Option<Pending> {
@@ -229,6 +252,13 @@ impl DamageWork {
         state: &mut GameState,
         answer: &PlayerAction,
     ) -> Option<Pending> {
+        if let Some(index) = self.result_question.take() {
+            let PlayerAction::YesNo(apply) = answer else {
+                unreachable!("validated counter result answer")
+            };
+            self.result_plans.as_mut().expect("results planned")[index].answer(*apply);
+            return self.advance(state);
+        }
         let question = self.question.take().expect("damage decision waiting");
         match (question, answer) {
             (PendingDamage::Effect(options), PlayerAction::ChooseDamageEffect { effect, .. }) => {
@@ -255,6 +285,7 @@ impl DamageWork {
     /// No unperformed choice is retained across that changed event.
     pub(crate) fn refresh(&mut self, state: &mut GameState) -> Option<Pending> {
         self.question = None;
+        self.result_question = None;
         self.advance(state)
     }
 
@@ -433,7 +464,9 @@ impl DamageWork {
                     }
                 }
             }
-            EffectKey::Continuous(_) | EffectKey::FaceUp(_) => unreachable!("finite prevention"),
+            EffectKey::Continuous(_) | EffectKey::FaceUp(_) | EffectKey::ShieldCounter(_) => {
+                unreachable!("finite prevention")
+            }
         }
     }
 
@@ -488,6 +521,9 @@ impl DamageWork {
     }
 
     fn apply_effect(&mut self, state: &mut GameState, candidate: &Candidate) {
+        if self.apply_batch57(state, candidate) {
+            return;
+        }
         if let DamageEffectKind::TurnFaceUp { object } = candidate.option.kind {
             if state
                 .object(object.object)
@@ -529,7 +565,10 @@ impl DamageWork {
                     part.applied.push(candidate.key);
                     used = true;
                 }
-                DamageEffectKind::TurnFaceUp { .. } => unreachable!("face-up handled first"),
+                DamageEffectKind::TurnFaceUp { .. }
+                | DamageEffectKind::ReplaceAmount { .. }
+                | DamageEffectKind::Reflect { .. }
+                | DamageEffectKind::RemoveShieldCounter => unreachable!("handled first"),
                 DamageEffectKind::RemoveCounter { .. } => unreachable!("allocated counters"),
                 DamageEffectKind::PreventFromSource { all_but, .. } => {
                     let n = if preventable {
@@ -558,6 +597,10 @@ impl DamageWork {
         if used
             && let EffectKey::Shield(id) = candidate.key
             && let Some(i) = state.shields.position(id)
+            && !matches!(
+                state.shields[i].kind,
+                ShieldKind::RedirectSource { next: false, .. }
+            )
         {
             state.shields.remove(i);
         }

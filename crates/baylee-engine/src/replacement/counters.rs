@@ -68,13 +68,13 @@ pub fn put_counters_by(
     kind: baylee_cards_dsl::CounterKind,
     n: u16,
 ) {
-    let n = n.saturating_mul(counter_multiplier(state, id));
-    record_counters_by(state, by, id, kind, n);
+    put_counter_group_by(state, by, id, vec![(kind, n)]);
 }
 
-/// The same door with the multiplying replacements left out: `n` counters
-/// land, recorded and with the projections invalidated, and nothing gets to
-/// say otherwise.
+/// Counter placement from a cost or turn-based action. Unconditional
+/// counter replacements apply; effect-only doublers initially do not.
+/// An additive replacement itself puts counters, so it can make those
+/// doublers applicable under CR 614.16.
 ///
 /// There is one caller, and CR 614.16 is why it is separate. A
 /// counter-doubling replacement applies to what "the effect of a resolving
@@ -96,8 +96,60 @@ pub fn record_counters(
     record_counters_by(state, by, id, kind, n);
 }
 
-/// Records an actual placement with its placing player; no effect-only multiplier.
+/// Places counters for a cost or turn-based action with its placing player.
 pub fn record_counters_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) {
+    place_counters_by(state, by, id, vec![(kind, n)], false, None);
+}
+
+/// An instruction that cannot exceed this absolute number after replacements.
+pub fn put_counters_bounded_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+    maximum: u16,
+) {
+    place_counters_by(state, by, id, vec![(kind, n)], true, Some(maximum));
+}
+
+/// A simultaneous set of counter kinds shares one replacement ordering.
+pub(crate) fn put_counter_group_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    counters: Vec<(baylee_cards_dsl::CounterKind, u16)>,
+) {
+    place_counters_by(state, by, id, counters, true, None);
+}
+
+fn place_counters_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    counters: Vec<(baylee_cards_dsl::CounterKind, u16)>,
+    by_effect: bool,
+    maximum: Option<u16>,
+) {
+    for &(kind, n) in &counters {
+        if n == 0 {
+            commit_counters_by(state, by, id, kind, 0);
+        }
+    }
+    let Some(plan) = super::counter_order::plan(state, by, id, counters, by_effect, maximum) else {
+        return;
+    };
+    super::counter_order::enqueue_batch(state, vec![plan], Vec::new());
+}
+
+/// Commit a fully replaced placement, without reapplying its replacements.
+pub(crate) fn commit_counters_by(
     state: &mut GameState,
     by: PlayerId,
     id: ObjectId,

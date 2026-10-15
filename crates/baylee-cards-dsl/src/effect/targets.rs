@@ -55,6 +55,8 @@ pub enum PlayerRel {
     EachOtherPlayer,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The first targeted player, or the controller of the first targeted permanent.
+    TargetPlayerOrController,
     /// The player who controlled the object the triggering event was about,
     /// as the event happened — Massacre Wurm's "whenever a creature an
     /// opponent controls dies, **that player** loses 2 life". Nothing is
@@ -233,11 +235,22 @@ pub enum ColorSubject {
     Attached,
 }
 
+/// Who chooses an activated ability's targets without changing its controller.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TargetChooser {
+    /// The spell or ability's controller chooses.
+    Controller,
+    /// An opponent chosen by the controller chooses.
+    Opponent,
+}
+
 /// How many targets an ability/spell requires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TargetReq {
     /// What may be targeted.
     pub spec: TargetSpec,
+    /// Who makes an activated ability's target choice; other abilities use the controller.
+    pub chooser: TargetChooser,
     /// Minimum number of targets (0 = may decline).
     pub min: u8,
     /// Maximum number of targets (255 = "any number", X-driven).
@@ -249,6 +262,13 @@ pub struct TargetReq {
 }
 
 impl TargetReq {
+    /// Have an opponent chosen by the controller choose these activation targets.
+    #[must_use]
+    pub const fn chosen_by_opponent(mut self) -> Self {
+        self.chooser = TargetChooser::Opponent;
+        self
+    }
+
     /// Exactly one target.
     pub const fn one(spec: TargetSpec) -> Self {
         Self {
@@ -257,6 +277,7 @@ impl TargetReq {
             max: 1,
             count_is_x: false,
             distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
         }
     }
 
@@ -268,6 +289,7 @@ impl TargetReq {
             max: n,
             count_is_x: false,
             distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
         }
     }
 
@@ -301,6 +323,7 @@ impl TargetReq {
             max: 1,
             count_is_x: false,
             distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
         }
     }
 
@@ -312,6 +335,7 @@ impl TargetReq {
             max,
             count_is_x: false,
             distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
         }
     }
 
@@ -323,6 +347,7 @@ impl TargetReq {
             max: 255,
             count_is_x: true,
             distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
         }
     }
 }

@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod forethought_amulet;
 mod gilded_lotus;
 mod myr_matrix;
 mod the_hive;

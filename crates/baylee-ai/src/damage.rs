@@ -34,11 +34,37 @@ fn score(
     };
     let mut left = capacity;
     let mut result = 0_i64;
+    let mut replaced = Vec::new();
     for part in affected {
         let share = u64::from(part.amount).min(left);
         left -= share;
         let weight = value(view, part.recipient, hostile);
         let benefit = match effect.kind {
+            DamageEffectKind::ReplaceAmount { amount } => {
+                // Redirection can split a source's damage into several parts.
+                // The replacement sets one amount per source and recipient,
+                // rather than charging the resulting amount for every split.
+                let key = (part.source, part.recipient);
+                if replaced.contains(&key) {
+                    0
+                } else {
+                    replaced.push(key);
+                    let original: u64 = parts
+                        .iter()
+                        .filter(|other| {
+                            effect.parts.contains(&other.id)
+                                && (other.source, other.recipient) == key
+                        })
+                        .map(|other| u64::from(other.amount))
+                        .sum();
+                    (i64::try_from(original).unwrap_or(i64::MAX / 256) - i64::from(amount)) * weight
+                }
+            }
+            // Reflection adds the full indicated amount even when the original
+            // damage cannot be prevented; it does not remove the original part.
+            DamageEffectKind::Reflect { to, .. } => {
+                -i64::from(part.amount) * value(view, DamageTarget::Player(to), hostile)
+            }
             DamageEffectKind::TurnFaceUp { .. } => 0,
             DamageEffectKind::Redirect { to } | DamageEffectKind::RedirectNext { to, .. } => {
                 i64::try_from(share).unwrap_or(i64::MAX / 256) * (weight - value(view, to, hostile))
@@ -69,7 +95,7 @@ fn score(
         | DamageEffectKind::PreventAll
         | DamageEffectKind::Protection => 3,
         DamageEffectKind::PreventThisEvent { .. } => 2,
-        DamageEffectKind::RemoveCounter { .. } => -1,
+        DamageEffectKind::RemoveCounter { .. } | DamageEffectKind::RemoveShieldCounter => -1,
         _ => 0,
     })
 }
@@ -166,6 +192,67 @@ mod tests {
     use baylee_engine::choice::{
         DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView,
     };
+
+    #[test]
+    fn amount_replacement_and_reflection_work_without_preventing_the_original() {
+        let view = ViewBuilder::new(2).build();
+        let me = view.seat;
+        let opponent = PlayerId::new(1);
+        let part = DamagePartView {
+            id: 1,
+            source: ObjectId::new(9, 0),
+            recipient: DamageTarget::Player(me),
+            amount: 5,
+            is_combat: false,
+            preventable: false,
+        };
+        let mut option = DamageEffectOption {
+            id: 1,
+            source: None,
+            ability: None,
+            controller: me,
+            kind: DamageEffectKind::ReplaceAmount { amount: 1 },
+            parts: vec![1],
+        };
+        let hostile = |player| player == opponent;
+        assert_eq!(
+            score(&view, &option, std::slice::from_ref(&part), &hostile),
+            1600
+        );
+        let split = [
+            DamagePartView {
+                amount: 3,
+                ..part.clone()
+            },
+            DamagePartView {
+                id: 2,
+                amount: 2,
+                ..part.clone()
+            },
+        ];
+        option.parts.push(2);
+        assert_eq!(score(&view, &option, &split, &hostile), 1600);
+        option.parts = vec![1];
+        option.kind = DamageEffectKind::Reflect {
+            source: baylee_core::ids::DamageSourceRef {
+                object: ObjectId::new(10, 0),
+                version: 1,
+            },
+            to: opponent,
+        };
+        assert_eq!(
+            score(&view, &option, std::slice::from_ref(&part), &hostile),
+            2000
+        );
+        option.kind = DamageEffectKind::Reflect {
+            source: baylee_core::ids::DamageSourceRef {
+                object: ObjectId::new(10, 0),
+                version: 1,
+            },
+            to: me,
+        };
+        assert_eq!(score(&view, &option, &[part], &hostile), -2000);
+    }
 
     #[test]
     fn exact_source_ai_prefers_the_hostile_referenced_incarnation() {

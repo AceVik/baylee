@@ -639,6 +639,7 @@ impl Effect {
             // has to read it.
             Effect::ChooseOne { choices: effects }
             | Effect::Sequence(effects)
+            | Effect::IfCastFromGraveyard { effects }
             | Effect::MayDo { effects }
             | Effect::MayDoFor { player: _, effects }
             | Effect::WhenNextSpellCastThisTurn { filter: _, effects }
@@ -782,6 +783,7 @@ impl Effect {
             | Effect::DrawCardsFor { .. }
             | Effect::DrawRevealDiscardUnless { .. }
             | Effect::ExileTargetsCreateTokens { .. }
+            | Effect::DealDamageToBothTargetInstances { .. }
             | Effect::DealDamage { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
@@ -790,6 +792,11 @@ impl Effect {
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
             | Effect::GrantSpecialActionUntilEndOfTurn { .. }
+            | Effect::CopyResolvingSpell { .. }
+            | Effect::RedirectTargetSourceDamageThisTurn { .. }
+            | Effect::RedirectNextChosenSourceDamageToTarget { .. }
+            | Effect::ReflectNextChosenSourceDamage
+            | Effect::PreventDamageFromTargetingCausesThisTurn { .. }
             | Effect::RedirectNextDamage { .. }
             | Effect::LoseHalfLife { .. }
             | Effect::PreventNextDamage { .. }

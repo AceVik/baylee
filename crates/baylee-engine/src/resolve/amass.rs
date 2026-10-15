@@ -15,27 +15,46 @@ pub(super) fn start(
         state.numeric_failure = Some("amass counter instruction exceeds u16");
         return None;
     };
-    let armies = |state: &GameState| {
-        state
-            .battlefield_seen()
-            .filter(|id| {
-                state.object(*id).is_some_and(|o| {
-                    o.controller == res.controller
-                        && o.characteristics()
-                            .types
-                            .contains(baylee_core::types::TypeSet::CREATURE)
-                        && o.characteristics()
-                            .subtypes
-                            .contains(baylee_core::generated::subtypes::creature::ARMY)
-                })
-            })
-            .collect::<Vec<_>>()
-    };
-    let mut options = armies(state);
-    if options.is_empty() {
-        super::tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
-        options = armies(state);
+    if candidates(state, res.controller).is_empty() {
+        let created =
+            super::tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+        if created.iter().any(|id| state.entries.contains(*id)) || state.entries.has_after() {
+            res.awaiting = Some(AwaitingOp::Entry {
+                next: None,
+                after: Some(super::after_entry::AfterEntry::Amass { subtype, amount }),
+            });
+            return None;
+        }
     }
+    after_entry(state, res, subtype, amount)
+}
+
+fn candidates(state: &GameState, controller: baylee_core::ids::PlayerId) -> Vec<ObjectId> {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state.object(*id).is_some_and(|o| {
+                o.controller == controller
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && o.characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::creature::ARMY)
+            })
+        })
+        .collect::<Vec<_>>()
+}
+
+/// Entry replacements have finished; choose the Army before checking SBAs.
+pub(super) fn after_entry(
+    state: &mut GameState,
+    res: &mut Resolution,
+    subtype: SubtypeId,
+    amount: u16,
+) -> Option<Pending> {
+    state.refresh_characteristics();
+    let options = candidates(state, res.controller);
     match options.as_slice() {
         [] => None,
         [only] => {

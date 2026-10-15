@@ -320,6 +320,11 @@ impl<L: CardLookup> Engine<L> {
         let Some(req) = targets else {
             return true;
         };
+        if req.chooser == baylee_cards_dsl::TargetChooser::Opponent
+            && self.opponents_in_turn_order(player).is_empty()
+        {
+            return false;
+        }
         if req.min == 0 {
             return true;
         }

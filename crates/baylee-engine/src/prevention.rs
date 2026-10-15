@@ -27,9 +27,36 @@ pub enum Shielded {
     Everything,
 }
 
+/// Destination fixed by a resolved redirection effect.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RedirectDestination {
+    /// The exact permanent chosen when the effect resolved.
+    Object(DamageSourceRef),
+    /// Controller of the source actually dealing damage, using its last known information.
+    SourceController,
+}
+
 /// How a shield prevents, and how much of it is left.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ShieldKind {
+    /// Redirect matching source damage for the turn, or only its next event.
+    RedirectSource {
+        /// Exact chosen damage source.
+        source: ChosenSource,
+        /// New recipient.
+        to: RedirectDestination,
+        /// Consume after the next matching damage event.
+        next: bool,
+    },
+    /// Preserve the original damage and create simultaneous reflected damage.
+    ReflectNextSource {
+        /// Exact chosen damage source.
+        source: ChosenSource,
+        /// The spell dealing the additional damage.
+        reflection: DamageSourceRef,
+    },
+    /// Prevent damage whose causing spell or ability targeted the protected object.
+    TargetingCauses,
     /// "Prevent the next N damage" (CR 615.7): each 1 damage prevented
     /// takes 1 off, and the shield is gone at 0.
     Next(u32),

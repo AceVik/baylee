@@ -20,6 +20,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
+mod after_entry;
 mod attachments;
 mod behold;
 mod bird_entry;
@@ -877,6 +878,15 @@ pub(super) fn players_of(
         // below: "Exile target creature. Its controller gains life …" reads
         // its second sentence after the first has moved the creature, and
         // nothing controls a card in exile.
+        PlayerRel::TargetPlayerOrController => res
+            .target_players
+            .iter()
+            .next()
+            .or(res.chosen_player)
+            .map_or_else(
+                || players_of(PlayerRel::ControllerOfTarget, state, you, res),
+                |player| vec![player],
+            ),
         PlayerRel::ControllerOfTarget => res
             .targets
             .first()
@@ -1017,8 +1027,24 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         );
     }
     loop {
-        if let Some(pending) = crate::sba::regeneration_choice(state) {
-            res.awaiting = Some(AwaitingOp::RegenerationChoice);
+        if let Some(pending) = crate::replacement::counter_order::pending(state) {
+            res.awaiting = Some(AwaitingOp::CounterPlacementChoice);
+            return Flow::Wait(pending);
+        }
+        if let Some(pending) = crate::sba::destruction_choice(state) {
+            res.awaiting = Some(
+                if matches!(
+                    pending,
+                    Pending::YesNo {
+                        prompt: YesNoPrompt::UseShieldCounter { .. },
+                        ..
+                    }
+                ) {
+                    AwaitingOp::ShieldCounterChoice
+                } else {
+                    AwaitingOp::RegenerationChoice
+                },
+            );
             return Flow::Wait(pending);
         }
         // A draw Island Sanctuary may replace, queued by the instruction
@@ -1037,6 +1063,10 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // here: "target" means what that mode chose from now on.
         if res.retarget_left == Some(res.effects.len() - res.pc) {
             res.retarget_left = None;
+            res.target_players = res.subject.second_players();
+            res.chosen_player = (res.target_players.len() == 1)
+                .then(|| res.target_players.iter().next())
+                .flatten();
             res.targets = std::mem::take(&mut res.second_targets)
                 .into_iter()
                 .collect();
@@ -1111,7 +1141,7 @@ fn order_before_continuing(
                 pending,
             ))
         });
-        res.awaiting = Some(AwaitingOp::Entry { next });
+        res.awaiting = Some(AwaitingOp::Entry { next, after: None });
         return Some(entry_choice.map_or(Flow::Enter, Flow::Wait));
     }
     // A nested program already suspended on this very queue.
@@ -1130,9 +1160,17 @@ fn order_before_continuing(
 /// Continue the original instruction after every entry replacement has finished.
 pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flow {
     linked_reanimation::flush(state, res);
-    let Some(AwaitingOp::Entry { next }) = res.awaiting.take() else {
+    let Some(AwaitingOp::Entry { next, after }) = res.awaiting.take() else {
         unreachable!("entry continuation")
     };
+    if let Some(after) = after {
+        debug_assert!(next.is_none(), "post-entry work owns its next decision");
+        if let Some(pending) = after_entry::resume(state, res, after) {
+            return Flow::Wait(pending);
+        }
+        advance_program(res);
+        return run(state, res);
+    }
     if let Some(next) = next {
         let (awaiting, pending) = *next;
         res.awaiting = Some(awaiting);
@@ -1146,6 +1184,7 @@ pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flo
 fn advance_program(res: &mut Resolution) {
     if res.loot.is_none()
         && res.draw_watch.is_none()
+        && !matches!(res.awaiting, Some(AwaitingOp::Entry { after: Some(_), .. }))
         && !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
     {
         res.pc += 1;

@@ -16,6 +16,7 @@ impl DamageWork {
                 continue;
             }
             masked_candidates(state, part, &mut out);
+            self.batch57_candidates(state, part, &mut out);
             for (id, shield, origin) in state.shields.identified() {
                 if !shield.protects.covers(state, part.view.recipient) {
                     continue;
@@ -68,7 +69,10 @@ impl DamageWork {
                             to: DamageTarget::Player(to),
                         }
                     }
-                    _ => continue,
+                    _ => match super::batch57::shield_kind(state, part, shield.kind) {
+                        Some(kind) => kind,
+                        None => continue,
+                    },
                 };
                 add(
                     &mut out,
@@ -311,7 +315,7 @@ impl DamageWork {
     }
 }
 
-fn add(
+pub(super) fn add(
     out: &mut Vec<Candidate>,
     part: &Part,
     key: EffectKey,

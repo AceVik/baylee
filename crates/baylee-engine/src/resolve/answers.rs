@@ -79,13 +79,18 @@ pub(super) fn resume_with_number_inner(
     else {
         unreachable!("numeric resolution choice has a counter continuation");
     };
-    if let Some(obj) = state.object(target).filter(|o| o.version == version) {
-        let room = maximum.saturating_sub(obj.counters.get(kind));
-        let count = u16::try_from(number)
-            .unwrap_or(u16::MAX)
-            .saturating_mul(crate::replacement::counter_multiplier(state, target))
-            .min(room);
-        crate::replacement::record_counters_by(state, res.controller, target, kind, count);
+    if state
+        .object(target)
+        .is_some_and(|object| object.version == version)
+    {
+        crate::replacement::put_counters_bounded_by(
+            state,
+            res.controller,
+            target,
+            kind,
+            u16::try_from(number).unwrap_or(u16::MAX),
+            maximum,
+        );
     }
     res.pc += 1;
     run(state, res)

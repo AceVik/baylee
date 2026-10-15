@@ -39,7 +39,11 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                 | Modifier::LifeGainDrawsInstead { who }
                 | Modifier::CantBeAttackedExceptBy { who, .. }
                 | Modifier::SkipUntapStep { who }
-                | Modifier::UntapAtMost { who, .. }) = modifier
+                | Modifier::UntapAtMost { who, .. }
+                | Modifier::ReplacePlayerDamage {
+                    recipients: who, ..
+                }
+                | Modifier::DamageLifeLossFloor { players: who, .. }) = modifier
                 else {
                     continue;
                 };
@@ -58,6 +62,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::DefendingPlayer
                     | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
+                    | PlayerRel::TargetPlayerOrController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
                     | PlayerRel::EventPlayer

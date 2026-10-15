@@ -9,7 +9,11 @@ use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
+mod destruction;
 mod regeneration;
+mod shield;
+pub(crate) use destruction::destruction_choice;
+pub(crate) use shield::{ShieldChoices, answer_shield_choice, shield_choice};
 mod speed;
 pub(crate) use regeneration::{
     RegenerationChoices, answer_regeneration_choice, regeneration_choice,
@@ -250,7 +254,7 @@ pub(crate) fn run_with_sagas(
         // CR 704.5g lethal damage, CR 704.5h deathtouch — one point from a
         // deathtouch source is lethal however big the creature is.
         if obj.damage >= toughness as u16 || obj.deathtouched {
-            destroy_with(state, id, true, departure(id));
+            destroy_with(state, id, true, departure(id), false);
             outcome.changed = true;
         }
     }
@@ -702,7 +706,7 @@ pub fn apply_legend_choice(
 /// Lethal damage routes through here, so a shielded creature survives a
 /// Lightning Bolt and a "destroy target creature" by the same line.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, true, None);
+    destroy_with(state, id, true, None, true);
 }
 
 /// Destroys a permanent whose destruction a card said it could not be
@@ -715,7 +719,7 @@ pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
 /// overload — and every one of them was correct for free while no shield
 /// existed at all.
 pub fn destroy_no_regen(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, false, None);
+    destroy_with(state, id, false, None, true);
 }
 
 /// The two doors above, and the order the rules put their questions in.
@@ -736,6 +740,7 @@ fn destroy_with(
     id: baylee_core::ids::ObjectId,
     regeneratable: bool,
     departure: Option<crate::damage_history::BattlefieldDeparture>,
+    by_effect: bool,
 ) {
     // Only a permanent is destroyed (CR 701.8a: "move it from the
     // battlefield"). A delayed "destroy that creature" whose creature went
@@ -765,6 +770,15 @@ fn destroy_with(
                 && crate::effects::applies_to(state, effect, object)
         })
     });
+    let regeneration_available = regeneratable
+        && (standing_regeneration
+            || state
+                .object(id)
+                .is_some_and(|object| object.regeneration_shields > 0));
+    // CR 122.1c: shield counters replace destruction by an effect, never lethal-damage SBAs.
+    if by_effect && shield::replace_destroy(state, id, regeneration_available) {
+        return;
+    }
     if regeneratable
         && standing_regeneration
         && let Some(object) = state.object(id)
@@ -812,7 +826,7 @@ pub(crate) fn destroy_all(
         .map(|id| (*id, state.departure_snapshot(*id)))
         .collect();
     for (id, departure) in departures {
-        destroy_with(state, id, !no_regen, departure);
+        destroy_with(state, id, !no_regen, departure, true);
     }
 }
 

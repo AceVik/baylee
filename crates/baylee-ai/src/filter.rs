@@ -563,6 +563,7 @@ impl HeuristicAgent {
             | PlayerRel::DefendingPlayer
             | PlayerRel::OwnerOfEvent
             | PlayerRel::ControllerOfTarget
+            | PlayerRel::TargetPlayerOrController
             | PlayerRel::ControllerOfEvent
             | PlayerRel::DamagedPlayer
             | PlayerRel::EventPlayer

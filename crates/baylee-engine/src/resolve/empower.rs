@@ -25,11 +25,28 @@ pub(super) fn start(
     token: &'static TokenDef,
     amount: u16,
 ) -> Option<Pending> {
-    let mut options = candidates(state, res);
-    if options.is_empty() {
-        super::tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
-        options = candidates(state, res);
+    if candidates(state, res).is_empty() {
+        let created =
+            super::tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+        if created.iter().any(|id| state.entries.contains(*id)) || state.entries.has_after() {
+            res.awaiting = Some(AwaitingOp::Entry {
+                next: None,
+                after: Some(super::after_entry::AfterEntry::EmpowerJace { amount }),
+            });
+            return None;
+        }
     }
+    after_entry(state, res, amount)
+}
+
+/// Entry replacements have finished; choose among the actual surviving tokens.
+pub(super) fn after_entry(
+    state: &mut GameState,
+    res: &mut Resolution,
+    amount: u16,
+) -> Option<Pending> {
+    state.refresh_characteristics();
+    let options = candidates(state, res);
     match options.as_slice() {
         [] => None,
         [only] => {

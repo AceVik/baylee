@@ -747,3 +747,352 @@ fn prevented_infect_adds_no_poison() {
     assert_eq!(state.players[1].poison, 0);
     assert_eq!(work.dealt(), 0);
 }
+
+fn replacement(state: &mut GameState, source: ObjectId, modifier: baylee_cards_dsl::Modifier) {
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(source),
+        controller: A,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: 2,
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+        modifier,
+    });
+}
+
+#[test]
+fn numeric_replacements_are_ordered_and_are_not_prevention() {
+    use baylee_cards_dsl::{DamageAmountReplacement as Amount, Filter, Modifier, PlayerRel};
+    for cap_first in [false, true] {
+        let mut state = state(2);
+        let source = creature(&mut state, B, 4, 4);
+        for replacement_amount in [Amount::Cap(2), Amount::FloorAtEffectSourcePower] {
+            replacement(
+                &mut state,
+                source,
+                Modifier::ReplacePlayerDamage {
+                    sources: &Filter::Any,
+                    recipients: PlayerRel::You,
+                    combat: None,
+                    replacement: replacement_amount,
+                },
+            );
+        }
+        replacement(&mut state, source, Modifier::CombatDamageCantBePrevented);
+        let mut assignment = assigned(source, DamageTarget::Player(A), 3);
+        assignment.is_combat = true;
+        let mut work = DamageWork::new(&mut state, vec![assignment]);
+        let pending = work
+            .advance(&mut state)
+            .expect("recipient orders replacements");
+        let answer = choose(
+            &pending,
+            |kind| matches!(kind, DamageEffectKind::ReplaceAmount { amount } if amount == if cap_first {2} else {4}),
+        );
+        assert!(work.answer(&mut state, &answer).is_none());
+        assert_eq!(state.players[0].life, if cap_first { 16 } else { 18 });
+    }
+}
+
+#[test]
+fn intrinsic_shield_counter_is_one_per_simultaneous_event_even_if_unpreventable() {
+    for unpreventable in [false, true] {
+        let mut state = state(2);
+        let source = creature(&mut state, B, 4, 4);
+        let target = creature(&mut state, A, 9, 9);
+        state
+            .object_mut(target)
+            .unwrap()
+            .counters
+            .add(CounterKind::Shield, 2);
+        if unpreventable {
+            replacement(
+                &mut state,
+                source,
+                baylee_cards_dsl::Modifier::CombatDamageCantBePrevented,
+            );
+        }
+        let mut assignments = vec![
+            assigned(source, DamageTarget::Object(target), 2),
+            assigned(source, DamageTarget::Object(target), 3),
+        ];
+        for assignment in &mut assignments {
+            assignment.is_combat = true;
+        }
+        let mut work = DamageWork::new(&mut state, assignments);
+        assert!(work.advance(&mut state).is_none());
+        assert_eq!(
+            state
+                .object(target)
+                .unwrap()
+                .counters
+                .get(CounterKind::Shield),
+            1
+        );
+        assert_eq!(
+            state.object(target).unwrap().damage,
+            if unpreventable { 5 } else { 0 }
+        );
+    }
+}
+
+#[test]
+fn reflection_retains_original_damage_and_has_its_own_lifelink_source() {
+    let mut state = state(2);
+    let source = creature(&mut state, B, 3, 3);
+    let eye = creature(&mut state, A, 1, 1);
+    state.object_mut(eye).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
+    let reflection = state.source_identity(eye).unwrap();
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(source).unwrap(),
+        &baylee_cards_dsl::Filter::Any,
+        A,
+        eye,
+    )
+    .unwrap();
+    shield(
+        &mut state,
+        A,
+        ShieldKind::ReflectNextSource {
+            source: chosen,
+            reflection,
+        },
+    );
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![assigned(source, DamageTarget::Player(A), 3)],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(state.players[0].life, 20);
+    assert_eq!(state.players[1].life, 17);
+    assert!(state.shields.is_empty());
+    assert_eq!(work.dealt(), 6);
+}
+
+#[test]
+fn targeting_cause_is_distinct_from_damage_source_and_combat() {
+    for targeted in [false, true] {
+        let mut state = state(2);
+        let source = creature(&mut state, B, 3, 3);
+        let target = creature(&mut state, A, 4, 4);
+        let cause = creature(&mut state, A, 1, 1);
+        let target_ref = state.source_identity(target).unwrap();
+        state.shields.push(Shield {
+            protects: Shielded::Object(target, target_ref.version),
+            kind: ShieldKind::TargetingCauses,
+            controller: A,
+        });
+        let cause = DamageCause {
+            object: state.source_identity(cause).unwrap(),
+            targets: if targeted { vec![target_ref] } else { vec![] },
+        };
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![assigned(source, DamageTarget::Object(target), 3)],
+        )
+        .with_cause(&cause);
+        assert!(work.advance(&mut state).is_none());
+        assert_eq!(
+            state.object(target).unwrap().damage,
+            if targeted { 0 } else { 3 }
+        );
+    }
+}
+
+#[test]
+fn source_redirection_repeats_but_not_after_destination_changes_incarnation() {
+    use crate::event::Cause;
+    use crate::prevention::RedirectDestination;
+    use crate::zone::ZonePosition;
+    let mut state = state(2);
+    let source = creature(&mut state, B, 2, 2);
+    let target = creature(&mut state, A, 8, 8);
+    let to = state.source_identity(target).unwrap();
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(source).unwrap(),
+        &baylee_cards_dsl::Filter::Any,
+        A,
+        target,
+    )
+    .unwrap();
+    shield(
+        &mut state,
+        A,
+        ShieldKind::RedirectSource {
+            source: chosen,
+            to: RedirectDestination::Object(to),
+            next: false,
+        },
+    );
+    for _ in 0..2 {
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![assigned(source, DamageTarget::Player(A), 2)],
+        );
+        assert!(work.advance(&mut state).is_none());
+    }
+    assert_eq!(state.players[0].life, 20);
+    assert_eq!(state.object(target).unwrap().damage, 4);
+    assert_eq!(state.shields.len(), 1);
+    state
+        .move_object(
+            target,
+            ZoneLocation::Exile(A),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state
+        .move_object(
+            target,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![assigned(source, DamageTarget::Player(A), 2)],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(state.players[0].life, 18);
+    assert_eq!(state.object(target).unwrap().damage, 0);
+}
+
+#[test]
+fn reflection_retains_departed_spell_keywords_and_controller() {
+    use crate::event::Cause;
+    use crate::zone::ZonePosition;
+    let mut state = state(2);
+    let source = creature(&mut state, B, 3, 3);
+    let name = state.names.intern("Reflecting spell");
+    let eye = state.create_bare(A, ObjectKind::Spell, name, ZoneLocation::Stack);
+    state.object_mut(eye).unwrap().base_mut().types = TypeSet::INSTANT;
+    state.object_mut(eye).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
+    let reflection = state.source_identity(eye).unwrap();
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(source).unwrap(),
+        &baylee_cards_dsl::Filter::Any,
+        A,
+        eye,
+    )
+    .unwrap();
+    shield(
+        &mut state,
+        A,
+        ShieldKind::ReflectNextSource {
+            source: chosen,
+            reflection,
+        },
+    );
+    state
+        .move_object(
+            eye,
+            ZoneLocation::Graveyard(A),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state.object_mut(eye).unwrap().base_mut().keywords = KeywordSet::EMPTY;
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![assigned(source, DamageTarget::Player(A), 3)],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(state.players[0].life, 20);
+    assert_eq!(state.players[1].life, 17);
+}
+
+#[test]
+fn numeric_cap_counts_a_sources_simultaneous_parts_together() {
+    use baylee_cards_dsl::{DamageAmountReplacement, Filter, Modifier, PlayerRel};
+    let mut state = state(2);
+    let first = creature(&mut state, B, 4, 4);
+    let second = creature(&mut state, B, 4, 4);
+    replacement(
+        &mut state,
+        first,
+        Modifier::ReplacePlayerDamage {
+            sources: &Filter::Any,
+            recipients: PlayerRel::You,
+            combat: None,
+            replacement: DamageAmountReplacement::Cap(2),
+        },
+    );
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![
+            assigned(first, DamageTarget::Player(A), 2),
+            assigned(first, DamageTarget::Player(A), 2),
+            assigned(second, DamageTarget::Player(A), 3),
+        ],
+    );
+    assert!(work.advance(&mut state).is_none());
+    assert_eq!(work.dealt(), 4);
+    assert_eq!(state.players[0].life, 16);
+}
+
+#[test]
+fn reflection_is_new_damage_for_a_replacement_already_used_on_original() {
+    use baylee_cards_dsl::{DamageAmountReplacement as Amount, Filter, Modifier, PlayerRel};
+    let mut state = state(2);
+    let source = creature(&mut state, B, 4, 4);
+    let eye = creature(&mut state, A, 1, 1);
+    for (recipients, amount) in [
+        (PlayerRel::EachPlayer, Amount::Cap(2)),
+        (PlayerRel::You, Amount::FloorAtEffectSourcePower),
+    ] {
+        replacement(
+            &mut state,
+            source,
+            Modifier::ReplacePlayerDamage {
+                sources: &Filter::Any,
+                recipients,
+                combat: None,
+                replacement: amount,
+            },
+        );
+    }
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(source).unwrap(),
+        &Filter::Any,
+        A,
+        eye,
+    )
+    .unwrap();
+    let reflection = state.source_identity(eye).unwrap();
+    shield(
+        &mut state,
+        A,
+        ShieldKind::ReflectNextSource {
+            source: chosen,
+            reflection,
+        },
+    );
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![assigned(source, DamageTarget::Player(A), 3)],
+    );
+    let pending = work.advance(&mut state).expect("cap, floor, or reflection");
+    let answer = choose(&pending, |kind| {
+        matches!(kind, DamageEffectKind::ReplaceAmount { amount: 2 })
+    });
+    let pending = work
+        .answer(&mut state, &answer)
+        .expect("floor or reflection");
+    let answer = choose(&pending, |kind| {
+        matches!(kind, DamageEffectKind::ReplaceAmount { amount: 4 })
+    });
+    assert!(work.answer(&mut state, &answer).is_none());
+    // Original damage keeps its used cap: 3 -> 2 -> 4. Eye deals new
+    // damage of 4, to which the same global cap applies independently.
+    assert_eq!(state.players[0].life, 16);
+    assert_eq!(state.players[1].life, 18);
+    assert_eq!(work.dealt(), 6);
+}

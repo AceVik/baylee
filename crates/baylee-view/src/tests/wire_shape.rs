@@ -325,7 +325,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 75: explicit PayLife amount widens to u32 in the imported engine prompt.
     // 76: Bore counters and optional exact tap-group payment prompt.
     // 78: public speed totals on each seat.
-    const RECORDED: (u32, u64) = (78, 597_056_562_693_635_740);
+    // 79: Shield counter variant; imported damage and counter-replacement
+    // choices also require a reader that understands their new variants.
+    const RECORDED: (u32, u64) = (79, 4_217_870_854_424_574_859);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

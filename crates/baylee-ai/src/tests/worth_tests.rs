@@ -807,7 +807,13 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // its chosen-player optional control transfer is completed. The exact
     // chooser/reference context is unavailable, so it is deliberately unknown.
     // Arena of Glory and Chocobo Camp change only mana abilities, excluded here.
-    assert_eq!((read, of), (2522, 3003), "activated/loyalty reader census");
+    // Resumed batches 51/57/68 add four contextual nonmana activations:
+    // Nova Pentacle and Shimian Night Stalker redirect future damage,
+    // Temple of Power transforms its source, and Diamond City moves a
+    // shield counter. None has an empty-board valuation. Cuombajj Witches
+    // loses its previously readable first-damage-only row now that both
+    // independently chosen target instances are represented faithfully.
+    assert_eq!((read, of), (2521, 3007), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -1686,6 +1692,65 @@ fn resumed_batch55_contextual_rows_explain_the_activation_reader_census() {
             reader.effects_worth(&v, origin, effects, Aim::Source, 0),
             None,
             "{name} requires resolution context the empty-board reader does not have",
+        );
+    }
+}
+
+#[test]
+fn resumed_target_and_damage_rows_explain_the_activation_reader_census() {
+    use baylee_cards_dsl::{Amount, Effect, TargetSpec};
+    let v = view(0, &[20, 20], vec![]);
+    let origin = Origin {
+        id: obj(1),
+        object: None,
+    };
+    let reader = agent();
+    // The former Witches implementation valued only its first damage.
+    assert!(
+        reader
+            .effects_worth(
+                &v,
+                origin,
+                &[Effect::DealDamage {
+                    amount: Amount::Fixed(1),
+                    target: TargetSpec::AnyTarget,
+                }],
+                Aim::Source,
+                0,
+            )
+            .is_some()
+    );
+    for name in [
+        "Nova Pentacle",
+        "Ojer Axonil, Deepest Might",
+        "Shimian Night Stalker",
+        "Diamond City",
+        "Cuombajj Witches",
+    ] {
+        let card = baylee_cards::decks::by_name(name).unwrap();
+        let definition = baylee_cards::by_index(card).unwrap();
+        let rows: Vec<_> = (0..definition.faces.len())
+            .flat_map(|face| definition.abilities_for_face(face))
+            .filter_map(|ability| match ability {
+                AbilityDef::Activated {
+                    effects,
+                    mana_ability: false,
+                    ..
+                }
+                | AbilityDef::ActivatedConditional {
+                    effects,
+                    mana_ability: false,
+                    ..
+                }
+                | AbilityDef::Loyalty { effects, .. } => Some(*effects),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rows.len(), 1, "one counted activation on {name}");
+        assert_eq!(
+            reader.effects_worth(&v, origin, rows[0], Aim::Source, 0),
+            None,
+            "{name} needs context the empty-board reader does not carry",
         );
     }
 }

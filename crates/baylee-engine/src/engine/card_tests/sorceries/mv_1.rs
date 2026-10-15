@@ -36,3 +36,5 @@ mod winter_blast;
 
 mod disentomb;
 mod return_to_battle;
+
+mod chain_lightning;

@@ -1,24 +1,20 @@
 //! Commit all results only after every replacement decision has finished.
 
+use super::life_result::LifeLossBudgets;
 use super::{CounterKind, DamageTarget, DamageWork, GameState, KeywordSet, Part};
 use crate::event::Cause;
 use baylee_core::types::TypeSet;
 
 impl DamageWork {
     pub(super) fn commit(&mut self, state: &mut GameState) {
-        // Sources and recipients are read before any result changes the
-        // battlefield. The assignments themselves were already fixed before
-        // prevention could remove a counter and change someone's power.
-        state.refresh_characteristics();
+        // Sources were fixed before result replacements were chosen. Only
+        // a concession can have removed a recipient while that choice waited.
         for part in &mut self.parts {
-            if let Some(source) = state.damage_source(part.view.source, part.source_version) {
-                part.keywords = source.characteristics().keywords;
-                part.controller = source.controller;
-            }
             if !part.recipient_exists(state) {
                 part.view.amount = 0;
             }
         }
+        let mut life_loss = LifeLossBudgets::new(self, state);
         for part in &self.parts {
             if part.view.amount == 0 {
                 continue;
@@ -32,21 +28,18 @@ impl DamageWork {
                             CounterKind::Poison,
                             i32::try_from(part.view.amount).unwrap_or(i32::MAX),
                         );
-                        state.record_player_damage_result(
-                            part.view.source,
-                            player,
-                            part.view.amount,
-                            part.view.is_combat,
-                        );
                     } else {
-                        state.damage_player(
-                            part.view.source,
-                            player,
-                            part.view.amount,
-                            part.view.is_combat,
-                            Cause::Effect,
-                        );
+                        let loss = life_loss.loss(part.view.recipient, part.view.amount);
+                        if loss > 0 {
+                            state.change_life(player, -loss, Cause::Effect);
+                        }
                     }
+                    state.record_player_damage_result(
+                        part.view.source,
+                        player,
+                        part.view.amount,
+                        part.view.is_combat,
+                    );
                     if part.view.is_combat
                         && state
                             .commanders
@@ -67,6 +60,9 @@ impl DamageWork {
                 }
                 DamageTarget::Object(id) => part.commit_object(state, id),
             }
+        }
+        for plan in self.result_plans.take().expect("damage results planned") {
+            crate::replacement::counter_order::commit_plan(state, plan);
         }
         // Lifelink is a result of the same damage, before priority or SBAs.
         for part in &self.parts {
@@ -121,20 +117,8 @@ impl Part {
             .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
             && self.keywords.contains(KeywordSet::INFECT)
         {
-            // Combat damage is a turn-based action, so effect-only counter
-            // multipliers do not apply to its results.
-            let place = if self.view.is_combat {
-                crate::replacement::record_counters_by
-            } else {
-                crate::replacement::put_counters_by
-            };
-            place(
-                state,
-                self.controller,
-                target,
-                CounterKind::M1M1,
-                u16::try_from(n).unwrap_or(u16::MAX),
-            );
+            // Counter amounts were replaced before any damage result was
+            // committed, and are placed together after this damage pass.
             if let Some(obj) = state.object_mut(target) {
                 obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
             }

@@ -197,6 +197,30 @@ impl<L: CardLookup> Engine<L> {
                 Some(player),
             );
         }
+        if crate::replacement::counter_order::has_pending(&self.state) {
+            self.activation_payment = Some(super::payment::ActivationPayment::new(
+                super::payment::ActivationPaymentKind::Loyalty {
+                    player,
+                    source,
+                    ability_index,
+                    targets,
+                    wanted,
+                },
+            ));
+            self.offer_counter_order();
+            return Ok(());
+        }
+        self.complete_loyalty_payment(player, source, ability_index, targets, wanted)
+    }
+
+    pub(super) fn complete_loyalty_payment(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+        wanted: Option<baylee_cards_dsl::TargetReq>,
+    ) -> Result<(), EngineError> {
         self.loyalty_used_this_turn.push(source);
         // Targets first if required.
         if targets.is_empty()

@@ -138,6 +138,16 @@ pub fn effect_label(
     name: &impl Fn(DamageTarget) -> String,
 ) -> String {
     let meaning = match effect.kind {
+        DamageEffectKind::ReplaceAmount { amount } => {
+            Phrase::DamageReplaceAmount.fill(lang, &[&amount.to_string()])
+        }
+        // `name` resolves a live handle, not an exact historical incarnation.
+        // The origin already identifies the effect; do not relabel its source
+        // using a later object that might occupy the same handle.
+        DamageEffectKind::Reflect { to, .. } => {
+            Phrase::DamageReflect.fill(lang, &[&name(DamageTarget::Player(to))])
+        }
+        DamageEffectKind::RemoveShieldCounter => Phrase::DamageShieldCounter.text(lang).to_string(),
         DamageEffectKind::PreventNext { remaining } => {
             Phrase::DamageShield.fill(lang, &[&remaining.to_string()])
         }
@@ -207,4 +217,54 @@ pub fn allocation_headline(
             &u64::from(total).saturating_sub(used).to_string(),
         ],
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DamageEffectKind, DamageEffectOption, DamageTarget, Lang, effect_label};
+    use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
+
+    #[test]
+    fn replacement_reflection_and_shield_choices_name_their_actual_consequences() {
+        let source = ObjectId::new(9, 0);
+        let player = PlayerId::new(0);
+        for (kind, english, german) in [
+            (
+                DamageEffectKind::ReplaceAmount { amount: 4 },
+                "Set each indicated source's damage to each recipient to 4; this is not prevention",
+                "Setze den Schaden jeder angegebenen Quelle an jedem Empfänger auf 4",
+            ),
+            (
+                DamageEffectKind::Reflect {
+                    source: DamageSourceRef {
+                        object: source,
+                        version: 1,
+                    },
+                    to: player,
+                },
+                "This effect's source also deals the indicated damage to player",
+                "Die Quelle dieses Effekts fügt player zusätzlich den angegebenen Schaden zu",
+            ),
+            (
+                DamageEffectKind::RemoveShieldCounter,
+                "Remove one shield counter and prevent this event's damage",
+                "Entferne eine Schildmarke und verhindere den Schaden dieses Ereignisses",
+            ),
+        ] {
+            let option = DamageEffectOption {
+                id: 1,
+                source: Some(source),
+                ability: None,
+                controller: player,
+                kind,
+                parts: Vec::new(),
+            };
+            let name = |target| match target {
+                DamageTarget::Object(_) => "source".to_owned(),
+                DamageTarget::Player(_) => "player".to_owned(),
+            };
+            assert!(effect_label(Lang::En, &option, &[], "origin", &name).contains(english));
+            assert!(effect_label(Lang::De, &option, &[], "origin", &name).contains(german));
+        }
+    }
 }

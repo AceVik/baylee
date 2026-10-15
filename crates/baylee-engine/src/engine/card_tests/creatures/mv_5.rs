@@ -88,6 +88,7 @@ mod sengir_vampire;
 mod serpentine_kavu;
 mod serra_angel;
 mod sheoldred;
+mod shimian_night_stalker;
 mod shu_soldier_farmers;
 mod siege_gang_commander;
 mod skirge_familiar;

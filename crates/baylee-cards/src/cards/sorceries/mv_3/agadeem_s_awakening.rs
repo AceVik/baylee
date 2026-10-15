@@ -10,6 +10,7 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGETS: TargetReq = TargetReq {
     distinct_mana_values: true,
+    chooser: baylee_cards_dsl::TargetChooser::Controller,
     ..TargetReq::up_to(
         TargetSpec::CardInGraveyard(
             &Filter::And(&[Filter::CREATURE, Filter::CmcAtMostX]),

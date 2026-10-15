@@ -2,7 +2,8 @@
 //! Oracle: Lifelink
 //! Oracle: Whenever Brad Boimler becomes tapped, until end of turn, if one or more counters would be put on a permanent you control, that many plus one of each of those kinds of counters are put on that permanent instead.
 //! Set: TRK #5 — Star Trek | Scryfall ID: a6bf1525-2212-46d0-ad4d-1dbaa2e3b3cd | Oracle ID: 10af9cd9-1700-48f9-97e1-61e239536fef
-// PARTIAL — lifelink; the counter-incrementing replacement trigger on becoming tapped is not in the DSL.
+// IMPLEMENTED — lifelink and a separate temporary additive counter-placement
+// replacement for each tap trigger, ordered with other counter replacements.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,9 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Partial(
-        "counter-incrementing replacement effect on becoming tapped is not supported"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brad Boimler, Eager Ensign",
         mana_cost = mana!("{1}{W}"),
@@ -26,7 +25,15 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    abilities = &[
-        // NOT SUPPORTED: Whenever Brad Boimler becomes tapped, until end of turn, if one or more counters would be put on a permanent you control, that many plus one of each of those kinds of counters are put on that permanent instead.
-    ],
+    abilities = &[triggered!(
+        Trigger::BecomesTapped(&Filter::This),
+        &[Effect::continuous(
+            &Filter::And(&[
+                Filter::InZone(ZoneRef::Battlefield),
+                Filter::ControlledByYou
+            ]),
+            Modifier::AdditionalCounterPlacement { n: 1 },
+            Duration::UntilEndOfTurn,
+        )],
+    )],
 );

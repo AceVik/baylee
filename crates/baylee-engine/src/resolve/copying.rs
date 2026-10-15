@@ -240,3 +240,36 @@ pub(super) fn copy_spell(
     });
     Some(id)
 }
+
+/// Copy the currently resolving spell under the named participant's control.
+/// Retargeting belongs to the copy's controller; the original resolution
+/// retains its controller for all later instructions.
+pub(super) fn copy_resolving(
+    state: &mut GameState,
+    res: &mut Resolution,
+    controller: baylee_cards_dsl::PlayerRel,
+) -> Option<Pending> {
+    let player = super::players_of(controller, state, res.controller, res)
+        .into_iter()
+        .next()?;
+    if state.has_left(player) {
+        return None;
+    }
+    let original = super::subjects::source(state, res)?;
+    if state.source_object(original)?.kind != ObjectKind::Spell {
+        return None;
+    }
+    let copy = copy_spell(state, original, player, &[], res.text)?;
+    retarget::start_copy(state, res, copy)
+}
+
+/// Actual cast provenance belongs to this exact spell, never to its copies.
+pub(super) fn was_cast_from_graveyard(state: &GameState, res: &Resolution) -> bool {
+    super::subjects::source(state, res)
+        .and_then(|source| state.source_object(source))
+        .is_some_and(|object| {
+            object.kind == ObjectKind::Spell
+                && object.cast_history.was_from_graveyard()
+                && !object.riders.contains(&crate::object::Rider::SpellCopy)
+        })
+}

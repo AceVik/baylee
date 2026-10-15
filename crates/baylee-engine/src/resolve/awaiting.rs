@@ -6,6 +6,15 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Counter replacement order must finish before the next instruction.
+    CounterPlacementChoice,
+    /// Competing shield-counter and regeneration replacements.
+    ShieldCounterChoice,
+    /// A damage source chosen for a redirection or reflection shield.
+    DamageShieldSource {
+        /// The exact recipients and operation waiting for the choice.
+        kind: crate::resolve::life::batch57::ChosenShield,
+    },
     /// Hand selection accumulated before any cards are discarded.
     DiscardAny(Box<super::discard_any::Selection>),
     /// Exact simultaneous non-symbol tap payment.
@@ -59,6 +68,8 @@ pub enum AwaitingOp {
     Entry {
         /// Original instruction's suspended operation and question, if any.
         next: Option<Box<(AwaitingOp, Pending)>>,
+        /// Work that needs the newly entered permanents before completing this instruction.
+        after: Option<super::after_entry::AfterEntry>,
     },
     /// A non-targeted Army choice during amass.
     Amass {
@@ -877,6 +888,9 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::DamageShieldSource { kind } => {
+                crate::state::structural_fingerprint(&(21_u8, kind))
+            }
             Self::NewTargets(selection) => {
                 crate::state::structural_fingerprint(&(20_u8, selection))
             }
@@ -935,7 +949,11 @@ impl AwaitingOp {
                 asked,
                 remaining,
             )),
-            Self::Entry { next: Some(next) } => next.0.search_fingerprint(),
+            Self::Entry { next, after } => crate::state::structural_fingerprint(&(
+                22_u8,
+                next.as_ref().map(|next| next.0.search_fingerprint()),
+                after,
+            )),
             _ => 0,
         }
     }

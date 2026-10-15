@@ -13,13 +13,15 @@ mod grants;
 mod limits;
 mod loyalty;
 mod offers;
+mod payment;
+pub(crate) use payment::ActivationPayment;
 mod prepared;
 mod restrictions;
 mod stack;
 mod x_value;
 
 /// A determined activation price keeps source permissions beside its mana.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Hash)]
 pub(crate) struct ActivationPrice {
     pub cost: Cost,
     pub allowance: casting::SourceAllowance,

@@ -11,6 +11,7 @@ use baylee_core::ids::DamageSourceRef;
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
+    second_target_players: baylee_core::ids::SeatSet,
     followed: Vec<DamageSourceRef>,
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
@@ -23,9 +24,21 @@ pub struct SubjectContext {
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
+    /// Preserve the independent player targets of the second target instance.
+    pub(crate) fn with_second_players(mut self, players: baylee_core::ids::SeatSet) -> Self {
+        self.second_target_players = players;
+        self
+    }
+
+    /// Current second-instance player targets, already narrowed for legality.
+    pub(crate) fn second_players(&self) -> baylee_core::ids::SeatSet {
+        self.second_target_players
+    }
+
     /// A mana ability has no stack object to retain its cost record.
     pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
+            second_target_players: baylee_core::ids::SeatSet::new(),
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
@@ -63,7 +76,10 @@ impl SubjectContext {
     }
 
     pub(crate) fn fingerprint(&self) -> u64 {
-        let links = crate::state::structural_fingerprint(&self.reanimation_links);
+        let links = crate::state::structural_fingerprint(&(
+            &self.reanimation_links,
+            self.second_target_players,
+        ));
         let mut h = self
             .sacrificed
             .map_or(0, |lki| crate::state::structural_fingerprint(&lki));

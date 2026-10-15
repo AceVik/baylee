@@ -861,7 +861,8 @@ impl HeuristicAgent {
                 // this seat's own ability offered to cast (Conduit of
                 // Worlds): the activation was the choice, and a window it
                 // cannot fill casts nothing and costs nothing.
-                YesNoPrompt::UseRegenerationShield { .. } => PlayerAction::YesNo(false),
+                YesNoPrompt::UseRegenerationShield { .. }
+                | YesNoPrompt::UseShieldCounter { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
                 YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::CommanderZone { .. }
@@ -871,6 +872,10 @@ impl HeuristicAgent {
                 | YesNoPrompt::ManaAnyType
                 | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::Generic
+                // The prompt has no incoming counter kinds or other operators
+                // to value. Pick a stable legal order; this is not an estimate
+                // that additional counters always benefit the affected player.
+                | YesNoPrompt::ApplyAdditionalCountersNext { .. }
                 // A pact: attempt payment; the owed-mana planner handles the
                 // window.
                 | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),

@@ -125,19 +125,31 @@ fn advance(
             })
         })
         .collect();
-    for (object, kinds) in objects {
-        for kind in kinds {
-            crate::replacement::put_counters_by(state, res.controller, object, kind, 1);
-        }
-    }
-    for player in selection.chosen_players {
-        let kinds = state.players[usize::from(player.get())].counters();
-        for (kind, count) in kinds {
-            if count > 0 {
-                state.change_player_counters(player, kind, 1);
-            }
-        }
-    }
+    let plans = objects
+        .into_iter()
+        .filter_map(|(object, kinds)| {
+            crate::replacement::counter_order::plan(
+                state,
+                res.controller,
+                object,
+                kinds.into_iter().map(|kind| (kind, 1)).collect(),
+                true,
+                None,
+            )
+        })
+        .collect();
+    let players = selection
+        .chosen_players
+        .into_iter()
+        .flat_map(|player| {
+            state.players[usize::from(player.get())]
+                .counters()
+                .into_iter()
+                .filter(|(_, count)| *count > 0)
+                .map(move |(kind, _)| (player, kind, 1))
+        })
+        .collect();
+    crate::replacement::counter_order::enqueue_batch(state, plans, players);
     None
 }
 

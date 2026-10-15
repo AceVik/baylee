@@ -718,6 +718,8 @@ mod tests {
     /// makes a 4/4 Golem for `{4}, {T}` once the front face's fight and
     /// transform-on-death could be written, so the back could be reached.
     /// One card, no generator round.
+    /// Ojer Axonil adds Temple of Power's activated transform ability once
+    /// its noncombat damage condition can be tracked.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -756,6 +758,7 @@ mod tests {
                 "Brass's Tunnel-Grinder",
                 "Dowsing Device",
                 "Grasping Shadows",
+                "Ojer Axonil, Deepest Might",
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
                 "Ojer Taq, Deepest Foundation",

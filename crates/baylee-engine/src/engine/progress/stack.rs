@@ -23,6 +23,7 @@ pub(super) enum TargetLegality {
         /// The objects chosen for the second instance of the word that
         /// still are — a list of its own, narrowed by its own requirement.
         second: SmallVec<[ObjectId; 1]>,
+        second_players: SeatSet,
     },
     /// Every chosen target is now illegal: it does not resolve.
     AllIllegal,
@@ -220,20 +221,27 @@ impl<L: CardLookup> Engine<L> {
                     objects: SmallVec::new(),
                     players: SeatSet::new(),
                     second: SmallVec::new(),
+                    second_players: SeatSet::new(),
                 };
             }
             return TargetLegality::AllIllegal;
         }
         // An instance that was not asked keeps what it holds.
         let (objects, players) = first.unwrap_or_else(|| (obj.targets.clone(), obj.target_players));
-        let second = second.map_or_else(
-            || SmallVec::from_slice(obj.second_targets()),
-            |(objects, _)| objects.into_iter().collect(),
+        let (second, second_players) = second.map_or_else(
+            || {
+                (
+                    SmallVec::from_slice(obj.second_targets()),
+                    obj.second_target_players(),
+                )
+            },
+            |(objects, players)| (objects.into_iter().collect(), players),
         );
         TargetLegality::Kept {
             objects,
             players,
             second,
+            second_players,
         }
     }
 
@@ -271,7 +279,7 @@ impl<L: CardLookup> Engine<L> {
         let chosen_players = if players {
             eval::targeted_players(obj, &req.spec)
         } else {
-            SeatSet::new()
+            obj.second_target_players()
         };
         // CR 608.2b is about targets that were chosen. A requirement with a
         // minimum of zero, taken with nothing pointed at, has none to lose —
@@ -402,6 +410,7 @@ impl<L: CardLookup> Engine<L> {
                 objects,
                 players,
                 second,
+                second_players,
             } => {
                 let obj = &mut resolution_object;
                 if obj.targets.len() != objects.len() {
@@ -411,6 +420,7 @@ impl<L: CardLookup> Engine<L> {
                     let req = obj.second_target_req();
                     obj.set_second(second, req);
                 }
+                obj.set_second_players(second_players);
                 if obj.target_players != players {
                     obj.target_players = players;
                     // `chosen_player` is the same choice written twice
@@ -549,7 +559,8 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
-                    subject: crate::resolve::SubjectContext::default(),
+                    subject: crate::resolve::SubjectContext::default()
+                        .with_second_players(obj.second_target_players()),
                     text: crate::text_changes::TextChangeMap::IDENTITY,
                     event_mana: None,
                     retarget_left: None,
@@ -592,7 +603,8 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
-                subject: crate::resolve::SubjectContext::default(),
+                subject: crate::resolve::SubjectContext::default()
+                    .with_second_players(obj.second_target_players()),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 event_mana: None,
                 retarget_left: None,
@@ -657,7 +669,8 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
-                subject: crate::resolve::SubjectContext::default(),
+                subject: crate::resolve::SubjectContext::default()
+                    .with_second_players(obj.second_target_players()),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 retarget_left,
                 loot: None,

@@ -151,7 +151,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
-        Modifier::SpellsCostLess(_)
+        Modifier::ReplacePlayerDamage { .. }
+        | Modifier::DamageLifeLossFloor { .. }
+        | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
@@ -1373,6 +1376,17 @@ mod tests {
             Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
+            Modifier::ReplacePlayerDamage {
+                sources: &Filter::Any,
+                recipients: PlayerRel::You,
+                combat: None,
+                replacement: baylee_cards_dsl::DamageAmountReplacement::Cap(1),
+            },
+            Modifier::DamageLifeLossFloor {
+                players: PlayerRel::You,
+                minimum: 1,
+            },
+            Modifier::AdditionalCounterPlacement { n: 1 },
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CrewSaddlePowerBonus(2),
@@ -1473,7 +1487,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            135,
+            138,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1540,8 +1554,11 @@ mod tests {
         // 86 since `CantBeBlockedByPlayer` (The Black Gate), a rules
         // modifier registered on the one object it names; 88 since
         // `MustBeBlockedByAllAbleMatching` and `AssignsNoCombatDamage`; 89
-        // since `CantAttackPlayerIdleLastTurn` (Arboria).
-        assert_eq!((locking, all.len() - locking), (45, 90));
+        // since `CantAttackPlayerIdleLastTurn` (Arboria). The three new
+        // replacements (`ReplacePlayerDamage`, `DamageLifeLossFloor`, and
+        // `AdditionalCounterPlacement`) modify rules, not characteristics:
+        // the rules-only count rises from 90 to 93; locking remains 45.
+        assert_eq!((locking, all.len() - locking), (45, 93));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

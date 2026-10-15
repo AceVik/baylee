@@ -354,3 +354,102 @@ fn the_signature_ignores_identity_but_not_the_situation() {
         "a looping game never returned to an earlier situation"
     );
 }
+
+#[test]
+fn arrival_history_normalizes_only_proven_threshold_readers() {
+    use baylee_cards_dsl::{Amount, Condition};
+    static THRESHOLD: &[AbilityDef] = &[AbilityDef::Spell {
+        effects: &[],
+        targets: None,
+        second_targets: None,
+        condition: Some(Condition::AmountAtLeast(
+            Amount::CreaturesEnteredUnderYourControlThisTurn,
+            3,
+        )),
+    }];
+    static DYNAMIC: &[AbilityDef] = &[AbilityDef::Spell {
+        effects: &[Effect::DrawCards {
+            amount: Amount::CreaturesEnteredUnderYourControlThisTurn,
+        }],
+        targets: None,
+        second_targets: None,
+        condition: None,
+    }];
+    static UNRECOGNIZED: &[AbilityDef] = &[AbilityDef::Spell {
+        effects: &[Effect::DrawCards {
+            amount: Amount::Fixed(1),
+        }],
+        targets: None,
+        second_targets: None,
+        condition: None,
+    }];
+    let mut engine = looping_game(LoopPolicy::RunOnceThenBreak);
+    let object = engine.state.zones.list(ZoneLocation::Battlefield)[0];
+    engine.state.object_mut(object).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(THRESHOLD, None, None).into_bundle());
+    engine.state.per_turn.creatures_entered[0] = 2;
+    let below = engine.state.loop_signature();
+    engine.state.per_turn.creatures_entered[0] = 3;
+    let at = engine.state.loop_signature();
+    let snapshot_at = engine.state.snapshot_hash();
+    assert_ne!(below, at, "threshold changes available actions");
+    engine.state.per_turn.creatures_entered[0] = 4;
+    assert_eq!(at, engine.state.loop_signature());
+    assert_ne!(
+        snapshot_at,
+        engine.state.snapshot_hash(),
+        "snapshots retain exact history"
+    );
+
+    engine.state.object_mut(object).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(DYNAMIC, None, None).into_bundle());
+    let four = engine.state.loop_signature();
+    engine.state.per_turn.creatures_entered[0] = 5;
+    assert_ne!(
+        four,
+        engine.state.loop_signature(),
+        "dynamic readers need the exact count"
+    );
+    engine.state.object_mut(object).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(UNRECOGNIZED, None, None).into_bundle());
+    let five = engine.state.loop_signature();
+    engine.state.per_turn.creatures_entered[0] = 6;
+    assert_ne!(
+        five,
+        engine.state.loop_signature(),
+        "unrecognized vocabulary stays conservative"
+    );
+}
+
+#[test]
+fn arrival_history_defined_activation_x_keeps_exact_loop_counts() {
+    use baylee_cards_dsl::{ActivatedParts, ActivationX, Amount, Condition, Cost};
+    static DEFINED: &[AbilityDef] = &[ActivatedParts {
+        x_value: ActivationX::Defined(Amount::CreaturesEnteredUnderYourControlThisTurn),
+        ..ActivatedParts::new(Cost::FREE, &[])
+    }
+    .build()];
+    static CONDITIONAL: &[AbilityDef] = &[ActivatedParts {
+        x_value: ActivationX::Defined(Amount::CreaturesEnteredUnderYourControlThisTurn),
+        condition: Some(Condition::AmountAtLeast(
+            Amount::CreaturesEnteredUnderYourControlThisTurn,
+            3,
+        )),
+        ..ActivatedParts::new(Cost::FREE, &[])
+    }
+    .build()];
+    for abilities in [DEFINED, CONDITIONAL] {
+        let mut engine = looping_game(LoopPolicy::RunOnceThenBreak);
+        let object = engine.state.zones.list(ZoneLocation::Battlefield)[0];
+        engine.state.object_mut(object).unwrap().own_abilities =
+            Some(crate::object::AbilityList::from_static(abilities, None, None).into_bundle());
+        engine.state.per_turn.creatures_entered[0] = 4;
+        let four = engine.state.loop_signature();
+        engine.state.per_turn.creatures_entered[0] = 5;
+        assert_ne!(
+            four,
+            engine.state.loop_signature(),
+            "defined X distinguishes counts above a satisfied condition"
+        );
+    }
+}

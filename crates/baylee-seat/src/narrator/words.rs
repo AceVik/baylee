@@ -157,6 +157,7 @@ pub fn counter(kind: CounterKind) -> String {
         CounterKind::Stun => "stun".into(),
         CounterKind::Finality => "finality".into(),
         CounterKind::Bore => "bore".into(),
+        CounterKind::Shield => "shield".into(),
         CounterKind::Level => "level".into(),
         CounterKind::Custom(_) => "other".into(),
     }

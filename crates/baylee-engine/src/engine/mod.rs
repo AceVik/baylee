@@ -393,6 +393,7 @@ pub struct Engine<L: CardLookup> {
     /// second list through every caller of a function most of them pass
     /// nothing to buys nothing. It is taken at the top of that function, so
     /// an activation refused after `apply` set it cannot hand it on.
+    activation_payment: Option<abilities::ActivationPayment>,
     activation_target_players: Vec<PlayerId>,
     /// The objects named for a pending activation's *cost* (CR 601.2h).
     ///
@@ -417,6 +418,7 @@ pub struct Engine<L: CardLookup> {
     /// taken where the ability reaches the stack, so an activation refused
     /// in between cannot hand it to the next one.
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    activation_target_choice: targeting::ActivationTargetChoice,
     /// Incarnations fixed at target announcement, before cost payment.
     activation_target_references: crate::sources::TargetReferences,
     /// Whether a pending activation's **first** "target" question has its
@@ -932,8 +934,10 @@ impl<L: CardLookup> Engine<L> {
             agreed_draw: false,
             loyalty_player_choice: None,
             loyalty_paid: None,
+            activation_payment: None,
             activation_target_players: Vec::new(),
             activation_second_targets: None,
+            activation_target_choice: targeting::ActivationTargetChoice::default(),
             activation_target_references: crate::sources::TargetReferences::default(),
             activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
@@ -1260,6 +1264,12 @@ impl<L: CardLookup> Engine<L> {
                     .map_or(0, |value| u64::from(value) + 1),
             );
         }
+        extra = extra
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&(
+                &self.activation_target_choice,
+                &self.activation_payment,
+            )));
         if let Some(work) = &self.combat_damage {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
@@ -1435,9 +1445,11 @@ impl<L: CardLookup> Engine<L> {
             library_action_tops,
             loyalty_player_choice,
             loyalty_paid,
+            activation_payment,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
+            activation_target_choice,
             activation_target_references,
             activation_targets_answered,
             activation_x,
@@ -1494,7 +1506,7 @@ impl<L: CardLookup> Engine<L> {
             ),
             (
                 "activation_target_players",
-                format!("{activation_target_players:?}"),
+                format!("{activation_target_players:?} {activation_payment:?}"),
             ),
             (
                 "activation_cost_choices",
@@ -1502,7 +1514,7 @@ impl<L: CardLookup> Engine<L> {
             ),
             (
                 "activation_second_targets",
-                format!("{activation_second_targets:?}"),
+                format!("{activation_second_targets:?} {activation_target_choice:?}"),
             ),
             (
                 "activation_target_references",
@@ -1568,6 +1580,11 @@ impl<L: CardLookup> Engine<L> {
         if result.is_err() {
             checkpoint.restore(self);
         } else {
+            if let Some(payment) = &mut self.activation_payment
+                && payment.needs_rollback()
+            {
+                payment.retain_rollback(checkpoint);
+            }
             self.settle_question();
         }
         result
@@ -1878,6 +1895,8 @@ mod draw_skip_tests;
 mod draw_tests;
 #[cfg(test)]
 mod enter_tests;
+#[cfg(test)]
+mod entry_counter_transaction_tests;
 #[cfg(test)]
 mod fight_tests;
 #[cfg(test)]

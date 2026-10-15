@@ -105,6 +105,7 @@ impl<L: CardLookup> Engine<L> {
         // so that an activation refused further down cannot leave it
         // standing for the next one to inherit.
         let chosen_players = std::mem::take(&mut self.activation_target_players);
+        self.activation_target_choice.controller = Some(player);
         // Prepared cast (`choice::PREPARED_CAST`): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
         if ability_index == crate::choice::TURN_FACE_UP {
@@ -480,14 +481,19 @@ impl<L: CardLookup> Engine<L> {
                 // skips the same question the same way.
                 self.activation_targets_answered = true;
             } else {
-                self.pending_plan = Some(PlanKind::ActivateAbility {
+                let plan = PlanKind::ActivateAbility {
                     source,
                     ability_index,
-                });
+                };
+                let Some(chooser) = self.activation_target_chooser(req, player, plan.clone())?
+                else {
+                    return Ok(());
+                };
+                self.pending_plan = Some(plan);
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
-                    player,
+                    player: chooser,
                     options,
                     player_options,
                     min,
@@ -518,25 +524,32 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            if options.len() < req.min as usize {
+            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            if options.len() + player_options.len() < req.min as usize {
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
-            if options.is_empty() || req.max == 0 {
+            if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
                 self.activation_second_targets = Some(SmallVec::new());
             } else {
-                self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
+                let plan = PlanKind::ActivateAbilitySecondTargets {
                     source,
                     ability_index,
                     targets,
                     target_players: chosen_players,
-                });
+                };
+                let Some(chooser) = self.activation_target_chooser(req, player, plan.clone())?
+                else {
+                    return Ok(());
+                };
+                self.pending_plan = Some(plan);
                 let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
-                    player,
+                    player: chooser,
                     options,
-                    player_options: Vec::new(),
+                    player_options,
                     min,
                     max,
                     reason: TargetPrompt::Targets,
@@ -738,207 +751,42 @@ impl<L: CardLookup> Engine<L> {
                     |(_, list)| list.acquisition,
                 )
             });
-        let mut paid = self.pay_priced_cost(player, source, &cost, &answers, x)?;
-        paid.fixed_mana_cost = fixed_mana_cost;
-        // The life the Phyrexian symbols were paid with, beside the rest of
-        // the cost (CR 601.2h; CR 119.4 was asked above).
-        if activation_life > 0 {
-            self.state
-                .change_life(player, -activation_life, crate::event::Cause::Cost);
+        let completion = super::payment::ActivationCompletion {
+            player,
+            source,
+            ability_index,
+            targets,
+            chosen_players,
+            cost,
+            x,
+            fixed_mana_cost,
+            activation_life,
+            activated_source_version,
+            activated_text,
+            circled_colors,
+            acquisition,
+            cycling,
+            limit,
+            effects,
+            mana_ability,
+            granted,
+            second,
+        };
+        let mut work =
+            super::payment::CostPayment::new(&self.state, player, source, cost, answers, x);
+        if !self.begin_cost_payment(&mut work)? {
+            self.activation_payment = Some(super::payment::ActivationPayment::new(
+                super::payment::ActivationPaymentKind::Ordinary(Box::new(
+                    super::payment::OrdinaryPayment { work, completion },
+                )),
+            ));
+            self.offer_counter_order();
+            return Ok(());
         }
-        // "When you cycle this card" is "when you discard this card to pay
-        // an activation cost of a cycling ability" (CR 702.29c), and this is
-        // the one place that knows both halves: `pay_cost` sees a cost, not
-        // whose ability it is.
-        if cycling {
-            self.state.journal.record(GameEvent::Cycled {
-                object: source,
-                player,
-            });
-        }
-        // "Activate only once each turn" is spent *here* and not at the
-        // offer, because this is the line the rules count: CR 602.2 makes
-        // activating an ability putting it on the stack and paying its
-        // costs, and every path above this one still ends in a refusal or a
-        // question. An activation abandoned over a target choice has
-        // announced nothing. "If this ability has been activated four or
-        // more times this turn" (Dragon Whelp) reads the same count, so an
-        // ability whose effects ask it is counted too; no other is, which
-        // keeps a repeatable activation out of the loop signature.
-        if matches!(limit, ActivationLimit::PerTurn(_) | ActivationLimit::Boast)
-            || asks_its_activations(effects)
-        {
-            *self
-                .state
-                .ability_fires
-                .entry((
-                    baylee_core::ids::DamageSourceRef {
-                        object: source,
-                        version: activated_source_version.unwrap_or_else(|| {
-                            self.state
-                                .object(source)
-                                .expect("activation source")
-                                .version
-                        }),
-                    },
-                    ability_index,
-                ))
-                .or_insert(0) += 1;
-        }
-        if limit == ActivationLimit::Exhaust {
-            // Costs may have moved the source. Do not exhaust a new incarnation.
-            if let Some(object) = self.state.object_mut(source)
-                && Some(object.version) == activated_source_version
-            {
-                object
-                    .riders
-                    .push(crate::object::Rider::ExhaustedAbility(ability_index));
-            }
-        }
-        if mana_ability {
-            self.record_activation(player, source, activated_source_version, &cost, None);
-            // Mana abilities resolve immediately, without the stack
-            // (CR 605.3b). Choice-mana abilities (any-color lands, Command
-            // Tower) suspend on the color choice like any resolution.
-            let mut res = Resolution {
-                source,
-                on_stack: source,
-                controller: player,
-                effects: resolve::flatten(effects),
-                pc: 0,
-                targets,
-                // CR 605.1a: a mana ability has no target, so it has no
-                // second one either — `lints::mana_ability_fault` refuses
-                // either list on one.
-                second_targets: SmallVec::new(),
-                // The number this activation announced, which is what every
-                // `Amount::X` in its effects reads: "Add {W} for each storage
-                // counter removed this way" is the counters that just came
-                // off as a cost.
-                x: Some(x),
-                chosen_player: None,
-                target_players: baylee_core::ids::SeatSet::new(),
-                event_object: None,
-                targeted: false,
-                awaiting: None,
-                mana_ability: true,
-                countered_source: None,
-                target_lki: None,
-                subject: resolve::SubjectContext::after_cost(&paid)
-                    .with_mana_tap_source(cost.parts.contains(&CostPart::TapSelf).then_some(
-                        baylee_core::ids::DamageSourceRef {
-                            object: source,
-                            version: activated_source_version.expect("activated source"),
-                        },
-                    ))
-                    .with_circled_colors(circled_colors)
-                    .with_acquisition(acquisition),
-                text: activated_text,
-                event_mana: None,
-                retarget_left: None,
-                loot: None,
-                draw_watch: None,
-                this_way_from: None,
-            };
-            let flow = resolve::run(&mut self.state, &mut res);
-            #[cfg(test)]
-            crate::ability_log::mana_activated(
-                &self.state,
-                &self.lookup,
-                source,
-                ability_index,
-                matches!(flow, resolve::Flow::Complete),
-            );
-            match flow {
-                resolve::Flow::Complete => {}
-                resolve::Flow::Enter => {
-                    self.resolution = Some(res);
-                    self.awaiting_answer = false;
-                }
-                resolve::Flow::Wait(pending) => {
-                    self.resolution = Some(res);
-                    self.pending = pending;
-                    self.awaiting_answer = true;
-                    return Ok(());
-                }
-            }
-        } else {
-            let ability = if let Some(granted) = granted {
-                self.push_granted_ability(player, source, targets, &granted)
-            } else {
-                self.push_ability_to_stack(player, source, ability_index, targets)
-            };
-            if let Some(version) = activated_source_version
-                && let Some(obj) = self.state.object_mut(ability)
-            {
-                obj.riders
-                    .retain(|r| !matches!(r, crate::object::Rider::AbilitySourceVersion(_)));
-                obj.riders
-                    .push(crate::object::Rider::AbilitySourceVersion(version));
-            }
-            // The second instance's answer, taken so that it belongs to this
-            // activation and to no other.
-            if let Some(second_targets) = self.activation_second_targets.take()
-                && let Some(obj) = self.state.object_mut(ability)
-            {
-                obj.set_second(second_targets, second);
-            }
-            self.state
-                .bind_target_references(ability, &self.activation_target_references);
-            self.activation_target_references = crate::sources::TargetReferences::default();
-            // The number this activation announced, carried on the ability
-            // the way a spell carries its own X (CR 601.2b). No card in the
-            // pool prints a counter-X cost on an ability that uses the stack
-            // — all seventeen are mana abilities, which resolve without one
-            // — so this line has no card behind it and is here because the
-            // alternative is an ability that pays for X and resolves with
-            // nought. That is a claim about the pool rather than about this
-            // function, so it is held by a scan and not by this comment:
-            // `offer_tests::every_counter_x_cost_in_the_pool_is_on_a_mana_ability`.
-            if x > 0
-                && let Some(obj) = self.state.object_mut(ability)
-            {
-                obj.x_value = x;
-            }
-            // What the cost sacrificed or tapped, carried on the ability for
-            // the effect that asks (Birthing Pod's "1 plus the sacrificed
-            // creature's mana value", station's "the tapped creature's
-            // power"), the way a spell carries its own.
-            if paid != crate::object::PaidRecord::default()
-                && let Some(obj) = self.state.object_mut(ability)
-            {
-                obj.paid = Some(Box::new(paid));
-            }
-            self.apply_ability_spend_riders(player, ability);
-            // The seats that were targeted, written onto the ability now
-            // that there is one — the same two fields the trigger path
-            // writes, and for the same reason: `target_players` is the set
-            // that was named, `chosen_player` the single seat
-            // `PlayerRel::Chosen` reads back at resolution. It cannot wait
-            // until `apply` has this call's answer, because `after_action`
-            // below stacks whatever a sacrifice cost triggered, and that
-            // lands above this ability.
-            if !chosen_players.is_empty()
-                && let Some(obj) = self.state.object_mut(ability)
-            {
-                obj.target_players = chosen_players.iter().copied().collect();
-                if let [only] = chosen_players[..] {
-                    obj.chosen_player = Some(only);
-                }
-            }
-            self.record_activation(
-                player,
-                source,
-                activated_source_version,
-                &cost,
-                Some(ability),
-            );
-        }
-        self.activating_grant = None;
-        self.after_action(player);
+        self.complete_paid_activation(completion, work.paid);
         Ok(())
     }
-    fn record_activation(
+    pub(super) fn record_activation(
         &mut self,
         player: PlayerId,
         source: ObjectId,

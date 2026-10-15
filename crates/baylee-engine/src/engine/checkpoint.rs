@@ -7,6 +7,7 @@
 use super::*;
 
 #[allow(clippy::struct_excessive_bools)] // Exact snapshot of the driver's independent latches.
+#[derive(Clone)]
 pub(super) struct Checkpoint {
     /// The game without its journal, which only grows (`Journal`): its
     /// length is kept instead, and a restore cuts it back to that, as
@@ -35,6 +36,8 @@ pub(super) struct Checkpoint {
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     loyalty_player_choice: Option<PlayerId>,
     loyalty_paid: Option<crate::object::PaidRecord>,
+    activation_target_choice: targeting::ActivationTargetChoice,
+    activation_payment: Option<abilities::ActivationPayment>,
     activation_target_players: Vec<PlayerId>,
     activation_cost_choices: Vec<Vec<ObjectId>>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
@@ -61,6 +64,18 @@ pub(super) struct Checkpoint {
 }
 
 impl Checkpoint {
+    /// Saved game and the trigger prefix restored when a payment is cancelled.
+    pub(super) fn payment_fingerprint(&self) -> u64 {
+        crate::state::structural_fingerprint(&(
+            self.state.snapshot_hash(),
+            self.journal,
+            self.trigger_scan_seq,
+            self.trigger_queue.len(),
+            self.priority_holder,
+            self.passes,
+        ))
+    }
+
     pub(super) fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
         let Engine {
             lookup: _,
@@ -86,6 +101,8 @@ impl Checkpoint {
             library_action_tops,
             loyalty_player_choice,
             loyalty_paid,
+            activation_target_choice,
+            activation_payment,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -110,12 +127,8 @@ impl Checkpoint {
             action_loops,
             loops_broken,
         } = engine;
-        let mut kept = state.clone();
-        // Let go of the journal straight away: the engine's own journal is
-        // then the only holder again, and its next event appends in place.
-        drop(std::mem::take(&mut kept.journal));
         Self {
-            state: kept,
+            state: clone_without_journal(state),
             journal: state.journal.len(),
             pending: pending.clone(),
             house_rules: house_rules.clone(),
@@ -138,6 +151,8 @@ impl Checkpoint {
             library_action_tops: library_action_tops.clone(),
             loyalty_player_choice: *loyalty_player_choice,
             loyalty_paid: loyalty_paid.clone(),
+            activation_target_choice: activation_target_choice.clone(),
+            activation_payment: activation_payment.clone(),
             activation_target_players: activation_target_players.clone(),
             activation_cost_choices: activation_cost_choices.clone(),
             activation_second_targets: activation_second_targets.clone(),
@@ -189,6 +204,8 @@ impl Checkpoint {
             library_action_tops,
             loyalty_player_choice,
             loyalty_paid,
+            activation_target_choice,
+            activation_payment,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -238,6 +255,8 @@ impl Checkpoint {
         *library_action_tops = self.library_action_tops;
         *loyalty_player_choice = self.loyalty_player_choice;
         *loyalty_paid = self.loyalty_paid;
+        *activation_target_choice = self.activation_target_choice;
+        *activation_payment = self.activation_payment;
         *activation_target_players = self.activation_target_players;
         *activation_cost_choices = self.activation_cost_choices;
         *activation_second_targets = self.activation_second_targets;
@@ -262,4 +281,11 @@ impl Checkpoint {
         *action_loops = self.action_loops;
         *loops_broken = self.loops_broken;
     }
+}
+
+/// Release the shared journal immediately so the next event can append in place.
+fn clone_without_journal(state: &GameState) -> GameState {
+    let mut kept = state.clone();
+    drop(std::mem::take(&mut kept.journal));
+    kept
 }

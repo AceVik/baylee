@@ -2108,6 +2108,12 @@ messages! {
     DamagePart { en: "{0} → {1}: {2} ({3})", de: "{0} → {1}: {2} ({3})" },
     /// Damage decision: `DamageShield`.
     DamageShield { en: "Prevent the next damage; shield remaining: {0}", de: "Verhindere die nächsten Schadenspunkte; Schild übrig: {0}" },
+    /// Damage replacement changes each indicated amount without prevention.
+    DamageReplaceAmount { en: "Set each indicated source's damage to each recipient to {0}; this is not prevention", de: "Setze den Schaden jeder angegebenen Quelle an jedem Empfänger auf {0}; dies ist keine Schadensverhinderung" },
+    /// Reflection adds damage from an exact source to a named player.
+    DamageReflect { en: "This effect's source also deals the indicated damage to {0}", de: "Die Quelle dieses Effekts fügt {0} zusätzlich den angegebenen Schaden zu" },
+    /// A shield counter is spent to prevent this event's damage.
+    DamageShieldCounter { en: "Remove one shield counter and prevent this event's damage", de: "Entferne eine Schildmarke und verhindere den Schaden dieses Ereignisses" },
     /// Damage decision: `DamageEventShield`.
     DamageEventShield { en: "Prevent this event’s damage; remaining: {0}; excess expires", de: "Verhindere Schaden dieses Ereignisses; übrig: {0}; Rest verfällt" },
     /// Damage decision: `DamagePreventAll`.
@@ -2745,6 +2751,16 @@ messages! {
     UseRegenerationShield {
         en: "Use up a regeneration shield? No uses the permanent's own regeneration and keeps the shield.",
         de: "Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild.",
+    },
+    /// Choose a shield counter instead of an applicable regeneration replacement.
+    UseShieldCounter {
+        en: "Use a shield counter instead of regeneration?",
+        de: "Eine Schildmarke statt Regeneration einsetzen?",
+    },
+    /// Order an additive counter replacement; declining applies another replacement first.
+    ApplyAdditionalCountersNext {
+        en: "Apply {0} additional counters of each kind next? No applies another replacement first.",
+        de: "Als Nächstes {0} zusätzliche Marken jeder Art hinzufügen? Nein wendet zuerst einen anderen Ersatzeffekt an.",
     },
     /// Use the optional part of this ability? ("you may …")
     UseTheOptionalAbility {
@@ -4081,6 +4097,10 @@ messages! {
     LogCounterBore { en: "bore counter", de: "Bohrmarke" },
     /// Bore counters.
     LogCountersBore { en: "bore counters", de: "Bohrmarken" },
+    /// A shield counter.
+    LogCounterShield { en: "shield counter", de: "Schildmarke" },
+    /// Shield counters.
+    LogCountersShield { en: "shield counters", de: "Schildmarken" },
     /// One lore counter (CR 714.3).
     LogCounterLore { en: "lore counter", de: "Kapitelmarke" },
     /// Lore counters.

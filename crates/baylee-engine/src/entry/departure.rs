@@ -35,7 +35,19 @@ pub(crate) fn refresh_after_departure(state: &mut GameState) {
             _ => {}
         }
     }
-    state.entries.pending_objects = pending.iter().map(|entry| entry.object).collect();
+    let mut ready = std::mem::take(&mut state.entries.ready);
+    ready.retain(|entry| {
+        !state.has_left(entry.controller)
+            && state
+                .object(entry.object)
+                .is_some_and(|object| object.version == entry.version)
+    });
+    state.entries.pending_objects = pending
+        .iter()
+        .chain(&ready)
+        .map(|entry| entry.object)
+        .collect();
+    state.entries.ready = ready;
     state.entries.pending = pending;
     state.entries.order_prepared = false;
     state.entries.chosen_entry = None;

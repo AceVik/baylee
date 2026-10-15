@@ -302,8 +302,9 @@ fn a_shield_on_its_own_source_is_on_the_source() {
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.
 ///
-/// The spec is read by [`resolve::zones::spec_object`] and by nothing else,
-/// so a card writing it into any other effect compiles, claims
+/// The spec must reach an implicit-subject reader, such as
+/// [`resolve::zones::spec_object`]. A card writing it into an effect that
+/// only reads chosen targets compiles, claims
 /// `Coverage::Implemented`, resolves — and does nothing. That is the shape
 /// `xtask validate` and the pool lints cannot see, because such a card says
 /// exactly the right thing; it took playing the ability to find out that
@@ -319,7 +320,8 @@ fn a_shield_on_its_own_source_is_on_the_source() {
 /// never took. The floor below is the other half of that guard.
 #[test]
 fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
-    // Exactly the spellings `spec_object` is reached from. Written as the
+    // Exactly the spellings an implicit-subject reader is reached from.
+    // Written as the
     // `Debug` of the effect, so adding an arm there and forgetting this list
     // fails loudly on the next card rather than quietly on the next player.
     //
@@ -343,6 +345,19 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "RedirectNextDamage { target: ThisObject",
     ];
 
+    // Shimian's destination is `DamageRedirectTo::ThisObject`, not a
+    // `TargetSpec`. The batch57 resolver reads it through subjects::source,
+    // retaining the source's exact incarnation. Match the complete effect
+    // so another effect merely carrying a similarly named field cannot pass.
+    let redirect_to_self = format!(
+        "{:?}",
+        Effect::RedirectTargetSourceDamageThisTurn {
+            source: TargetSpec::Object(&Filter::ATTACKING_CREATURE),
+            only_to_you: true,
+            to: baylee_cards_dsl::DamageRedirectTo::ThisObject,
+        }
+    );
+
     let mut unread = Vec::new();
     let mut seen = 0_usize;
     for def in baylee_cards::all() {
@@ -351,7 +366,11 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         if total == 0 {
             continue;
         }
-        let read: usize = READ.iter().map(|shape| text.matches(shape).count()).sum();
+        let read: usize = READ
+            .iter()
+            .map(|shape| text.matches(shape).count())
+            .sum::<usize>()
+            + text.matches(&redirect_to_self).count();
         seen += total;
         if read < total {
             unread.push(format!(

@@ -9,6 +9,9 @@
 //! Face: Ojer Axonil, Deepest Might — {2}{R}{R} — Legendary Creature — God
 //! Face: Temple of Power —  — Land
 
+// IMPLEMENTED — red noncombat damage floor, trample, transformed death return,
+// and the Temple activation gated by recorded red noncombat damage.
+
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -18,10 +21,7 @@ card!(
     scryfall_id = "50f8e2b6-98c7-4f28-bb39-e1fbe841f1ee",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Partial(
-        "the noncombat damage-floor replacement, the damage-gated \
-         transform-back are not yet implemented"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Ojer Axonil, Deepest Might",
@@ -37,16 +37,48 @@ card!(
             name = "Temple of Power",
             castable_from_hand = false,
             types = TypeSet::LAND,
-            abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
+            abilities = &[
+                mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
+                activated!(
+                    cost!("{2}{R}", TapSelf),
+                    &[Effect::TransformSource],
+                    timing = ActivationTiming::SorcerySpeed,
+                    condition = Some(Condition::AmountAtLeast(
+                        Amount::DamageThisTurn {
+                            to: DamageTo::Anything,
+                            by: &Filter::And(&[
+                                Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
+                                Filter::ControlledByYou
+                            ]),
+                            combat: Some(false),
+                        },
+                        4
+                    )),
+                ),
+            ],
         ),
     ],
-    abilities = &[triggered!(
-        Trigger::Dies(&Filter::This),
-        &[Effect::ReturnSourceFromGraveyard {
-            face: Some(1),
-            tapped: true,
-            owner_control: true,
-            counters: None,
-        }]
-    )],
+    abilities = &[
+        static_ability!(
+            Filter::This,
+            Modifier::ReplacePlayerDamage {
+                sources: &Filter::And(&[
+                    Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
+                    Filter::ControlledByYou
+                ]),
+                recipients: PlayerRel::EachOpponent,
+                combat: Some(false),
+                replacement: DamageAmountReplacement::FloorAtEffectSourcePower,
+            }
+        ),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::ReturnSourceFromGraveyard {
+                face: Some(1),
+                tapped: true,
+                owner_control: true,
+                counters: None,
+            }]
+        ),
+    ],
 );

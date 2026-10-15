@@ -1452,6 +1452,11 @@ fn apply(
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
         | Modifier::CantBeAttackedExceptBy { .. }
+        // Damage results and counter placements consume these replacements;
+        // they do not alter a projected characteristic.
+        | Modifier::ReplacePlayerDamage { .. }
+        | Modifier::DamageLifeLossFloor { .. }
+        | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
             | Modifier::PreventAllDamageFromIt

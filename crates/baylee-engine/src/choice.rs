@@ -1105,6 +1105,18 @@ impl TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Use an intrinsic shield counter instead of regeneration.
+    UseShieldCounter {
+        /// Permanent facing destruction.
+        permanent: ObjectId,
+    },
+    /// Apply this additive counter replacement before other applicable replacements.
+    ApplyAdditionalCountersNext {
+        /// Permanent receiving counters.
+        permanent: ObjectId,
+        /// Additional counters of each kind in this placement.
+        additional: u16,
+    },
     /// Use a one-shot shield rather than a standing regeneration replacement.
     UseRegenerationShield {
         /// Permanent being regenerated.
@@ -1302,7 +1314,9 @@ impl YesNoPrompt {
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
             // question to answer by the clock.
-            Self::CommanderZone { .. }
+            Self::UseShieldCounter { .. }
+            | Self::ApplyAdditionalCountersNext { .. }
+            | Self::CommanderZone { .. }
             | Self::CommanderReplace { .. }
             | Self::PayPact { .. }
             | Self::TopOfLibrary { .. }
@@ -2926,6 +2940,8 @@ mod choice_tests {
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::ManaAnyType => 26,
                     YesNoPrompt::UseRegenerationShield { .. } => 27,
+                    YesNoPrompt::UseShieldCounter { .. } => 28,
+                    YesNoPrompt::ApplyAdditionalCountersNext { .. } => 29,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
                     YesNoPrompt::PayPact { .. } => 10,
@@ -3151,6 +3167,8 @@ mod choice_tests {
             match prompt {
                 YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
                 YesNoPrompt::UseRegenerationShield { .. }
+                | YesNoPrompt::UseShieldCounter { .. }
+                | YesNoPrompt::ApplyAdditionalCountersNext { .. }
                 | YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::EnterTappedForCounters { .. }
                 | YesNoPrompt::PayEnergy { .. }
@@ -3176,6 +3194,13 @@ mod choice_tests {
         for prompt in [
             YesNoPrompt::UseRegenerationShield {
                 permanent: object(),
+            },
+            YesNoPrompt::UseShieldCounter {
+                permanent: object(),
+            },
+            YesNoPrompt::ApplyAdditionalCountersNext {
+                permanent: object(),
+                additional: 1,
             },
             YesNoPrompt::SacrificeToEnter { count: 2 },
             YesNoPrompt::EnterTappedForCounters {

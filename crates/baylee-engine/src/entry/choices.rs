@@ -51,6 +51,9 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
         state.refresh_characteristics();
     }
     'entries: loop {
+        if let Some(pending) = crate::replacement::counter_order::pending(state) {
+            return Some(pending);
+        }
         if completed(state) {
             return None;
         }
@@ -140,12 +143,26 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                 continue 'entries;
             }
         }
-        if let Some((question, pending)) = super::auras::question(state, &mut entry) {
-            return Some(ask(state, entry, question, pending));
+        if let Some(pending) = finish_or_suspend(state, entry) {
+            return Some(pending);
         }
-        state.entries.chosen_entry = None;
+    }
+}
+
+fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pending> {
+    if let Some((question, pending)) = super::auras::question(state, &mut entry) {
+        return Some(ask(state, entry, question, pending));
+    }
+    if let Some(pending) = super::counters::question(state, &mut entry) {
+        return Some(ask(state, entry, Question::Counters, pending));
+    }
+    state.entries.chosen_entry = None;
+    if state.entries.counter_transaction {
+        state.entries.ready.push_back(entry);
+    } else {
         finish(state, entry);
     }
+    None
 }
 
 /// The engine validates the offered seat, cardinality and membership before entering here.
@@ -178,6 +195,9 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         .pop_front()
         .expect("entry continuation");
     match (question, action) {
+        (Question::Counters, PlayerAction::YesNo(apply)) => {
+            entry.counter_plans[entry.next_counter].answer(*apply);
+        }
         (Question::AuraHost, PlayerAction::ChooseObjects { objects }) => {
             state.attach(entry.object, objects[0]);
         }
@@ -233,23 +253,32 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
             }
         }
         (Question::DiscardDestination { card }, PlayerAction::Arrange { piles }) => {
-            let top = piles.get(1).map_or(&[][..], Vec::as_slice);
-            let graveyard = if top.contains(&card) {
-                &[][..]
-            } else {
-                std::slice::from_ref(&card)
-            };
-            state.record_discard_answers(graveyard, top, &BTreeSet::new());
-            state.discard_card(
-                card,
-                entry.controller,
-                Cause::Effect,
-                Some(entry.controller),
-            );
+            discard_to_destination(state, &entry, card, piles);
         }
         _ => unreachable!("entry answer shape was validated"),
     }
     state.entries.pending.push_front(entry);
+}
+
+fn discard_to_destination(
+    state: &mut GameState,
+    entry: &Attempt,
+    card: ObjectId,
+    piles: &[Vec<ObjectId>],
+) {
+    let top = piles.get(1).map_or(&[][..], Vec::as_slice);
+    let graveyard = if top.contains(&card) {
+        &[][..]
+    } else {
+        std::slice::from_ref(&card)
+    };
+    state.record_discard_answers(graveyard, top, &BTreeSet::new());
+    state.discard_card(
+        card,
+        entry.controller,
+        Cause::Effect,
+        Some(entry.controller),
+    );
 }
 
 pub(super) fn select(
@@ -325,6 +354,10 @@ fn completed(state: &mut GameState) -> bool {
     if !state.entries.pending.is_empty() {
         return false;
     }
+    while let Some(entry) = state.entries.ready.pop_front() {
+        finish(state, entry);
+    }
+    state.entries.counter_transaction = false;
     state.entries.pending_objects.clear();
     state.entries.order_prepared = false;
     state.entries.putter = None;

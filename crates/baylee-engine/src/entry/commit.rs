@@ -101,14 +101,11 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
                 .push(crate::object::Rider::EntrySacrifices(count));
             state.invalidate_projections();
         }
-        for (by, kind, count) in entry.counters {
-            let by = by.unwrap_or_else(|| {
-                state
-                    .object(entry.object)
-                    .expect("entered object")
-                    .controller
-            });
-            crate::replacement::put_counters_by(state, by, entry.object, kind, count);
-        }
+        state
+            .object_mut(entry.object)
+            .expect("successful entry")
+            .riders
+            .retain(|rider| !matches!(rider, crate::object::Rider::EntryP1P1(_)));
+        super::counters::commit(state, entry);
     }
 }

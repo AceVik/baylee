@@ -1783,8 +1783,10 @@ fn targeted_by_opponent(
                 .into_iter()
                 .filter(|t| state.targets_current_object(object, *t) && fits(*t))
                 .count();
-            let player =
-                counts_you && (obj.target_players.contains(you) || obj.chosen_player == Some(you));
+            let player = counts_you
+                && (obj.target_players.contains(you)
+                    || obj.second_target_players().contains(you)
+                    || obj.chosen_player == Some(you));
             u32::try_from(objects).unwrap_or(u32::MAX) + u32::from(player)
         }
         _ => 0,

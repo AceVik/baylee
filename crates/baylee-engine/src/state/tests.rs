@@ -1134,6 +1134,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         ("the second instance's requirement", |s, id| {
             fixture_object(s, id).second = Some(Box::new(SecondInstance {
                 targets: smallvec::SmallVec::new(),
+                players: baylee_core::ids::SeatSet::new(),
                 req: Some(REQ),
             }));
         }),
@@ -1175,6 +1176,16 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         })
         .collect();
     assert!(blind.is_empty(), "the snapshot hash cannot see {blind:?}");
+}
+
+/// Two identical pending abilities can resolve against different second players.
+#[test]
+fn second_target_player_changes_the_snapshot_hash() {
+    let (mut first, id) = hash_fixture();
+    fixture_object(&mut first, id).set_second_players([PlayerId::new(0)].into_iter().collect());
+    let mut second = first.clone();
+    fixture_object(&mut second, id).set_second_players([PlayerId::new(1)].into_iter().collect());
+    assert_ne!(first.snapshot_hash(), second.snapshot_hash());
 }
 
 /// A list of abilities no card prints (a token's, an emblem's) is

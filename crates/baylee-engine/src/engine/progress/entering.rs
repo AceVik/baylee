@@ -189,11 +189,14 @@ impl<L: CardLookup> Engine<L> {
                     },
                 });
             }
-            changed |= self.apply_mana_entry_counters(id, from_zone);
+            if !orientation_applied {
+                changed |= self.apply_mana_entry_counters(id, from_zone);
+            }
             // Entry lore is a replacement effect (CR 714.3a), so counter
             // multipliers apply. The CounterChanged event discovers every
             // crossed chapter, including multiple chapters at once.
-            if self.is_saga(id)
+            if !orientation_applied
+                && self.is_saga(id)
                 && let Some(old) = self
                     .state
                     .object(id)
@@ -211,7 +214,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
-            if self.put_starting_loyalty(id) {
+            if !orientation_applied && self.put_starting_loyalty(id) {
                 changed = true;
             }
             // Clone-on-enter, for every door that is not a permanent spell.
@@ -257,7 +260,10 @@ impl<L: CardLookup> Engine<L> {
             // Keep every question in order: Temple of the Dragon Queen
             // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
-                if orientation_applied && crate::entry::is_orientation_modifier(modifier) {
+                if orientation_applied
+                    && (crate::entry::is_orientation_modifier(modifier)
+                        || matches!(modifier, EnterModifier::WithCounters { .. }))
+                {
                     continue;
                 }
                 match modifier {

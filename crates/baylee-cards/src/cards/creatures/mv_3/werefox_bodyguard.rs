@@ -45,6 +45,7 @@ card!(
                 max: 1,
                 count_is_x: false,
                 distinct_mana_values: false,
+                chooser: baylee_cards_dsl::TargetChooser::Controller,
             })
         ),
         activated!(cost!("{1}{W}", SacrificeSelf), &[Effect::gain_life(2)]),

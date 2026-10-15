@@ -60,9 +60,41 @@ pub const LAYERS: [Layer; 11] = [
     Layer::PtSwitch,
 ];
 
+/// How a continuous replacement changes a damage amount.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageAmountReplacement {
+    /// Limit the damage to at most this amount.
+    Cap(u32),
+    /// Raise damage to at least the effect source's current power.
+    FloorAtEffectSourcePower,
+}
+
 /// What a continuous effect changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modifier {
+    /// Replace damage to the indicated players from matching sources.
+    ReplacePlayerDamage {
+        /// Sources whose damage is replaced.
+        sources: &'static Filter,
+        /// Players receiving that damage.
+        recipients: crate::effect::PlayerRel,
+        /// Restrict to combat/noncombat damage, or both when absent.
+        combat: Option<bool>,
+        /// The amount transformation.
+        replacement: DamageAmountReplacement,
+    },
+    /// Damage cannot reduce the indicated players below this life total.
+    DamageLifeLossFloor {
+        /// Players protected by the floor.
+        players: crate::effect::PlayerRel,
+        /// Minimum life total after damage's life-loss result.
+        minimum: i32,
+    },
+    /// Put this many additional counters of the same kind on each placement.
+    AdditionalCounterPlacement {
+        /// Additional counters per placement event.
+        n: u16,
+    },
     /// Generic cost increase for spells matching the static ability's filter.
     SpellsCostMore(u32),
     /// Matching spells cost this much less generic mana after all increases.
@@ -1001,6 +1033,9 @@ impl Modifier {
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
             | Self::CantBeAttackedExceptBy { .. }
+            | Self::ReplacePlayerDamage { .. }
+            | Self::DamageLifeLossFloor { .. }
+            | Self::AdditionalCounterPlacement { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
             | Self::PreventAllDamageFromIt
@@ -1525,6 +1560,17 @@ mod tests {
                 who: crate::effect::PlayerRel::You,
                 by: &Filter::CREATURE,
             },
+            Modifier::ReplacePlayerDamage {
+                sources: &Filter::Any,
+                recipients: crate::effect::PlayerRel::You,
+                combat: None,
+                replacement: DamageAmountReplacement::Cap(1),
+            },
+            Modifier::DamageLifeLossFloor {
+                players: crate::effect::PlayerRel::You,
+                minimum: 1,
+            },
+            Modifier::AdditionalCounterPlacement { n: 1 },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::PreventAllDamageFromIt,

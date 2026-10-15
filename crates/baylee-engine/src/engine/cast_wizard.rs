@@ -113,6 +113,8 @@ pub(crate) struct CastWizard {
     /// Targets chosen for the second instance of the word, kept apart for
     /// the reason `GameObject::second_targets` gives.
     pub second_targets: SmallVec<[ObjectId; 1]>,
+    /// Players named by the second target instance.
+    pub second_target_players: baylee_core::ids::SeatSet,
     /// Players chosen as targets, the other half of "any target".
     pub target_players: baylee_core::ids::SeatSet,
     /// Chosen target player, if any.
@@ -238,6 +240,11 @@ impl CastWizard {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&reduction.allowance));
         }
+        hash = hash
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(
+                &self.second_target_players,
+            ));
         for targets in [
             self.targets.as_slice(),
             self.second_targets.as_slice(),
@@ -391,6 +398,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -459,6 +467,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -576,6 +585,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -722,6 +732,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -791,6 +802,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -865,6 +877,7 @@ impl<L: CardLookup> Engine<L> {
             division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -1760,7 +1773,11 @@ fn wizard_total_before_reduction(
                 .chosen_player
                 .is_some_and(|p| !wizard.target_players.contains(p)),
         );
-    let extra = (wizard.targets.len() + wizard.second_targets.len() + players).saturating_sub(1);
+    let extra = (wizard.targets.len()
+        + wizard.second_targets.len()
+        + wizard.second_target_players.len()
+        + players)
+        .saturating_sub(1);
     total = total.with_more_generic(
         face.extra_target_cost
             .saturating_mul(u32::try_from(extra).unwrap_or(u32::MAX)),

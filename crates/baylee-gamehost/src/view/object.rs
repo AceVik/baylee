@@ -183,6 +183,7 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
                         .map(TargetRef::Object)
                 }),
         )
+        .chain(obj.second_target_players().iter().map(TargetRef::Player))
         .collect()
 }
 

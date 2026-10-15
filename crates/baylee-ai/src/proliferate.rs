@@ -25,6 +25,7 @@ fn engine_kind(kind: baylee_view::CounterKind) -> Option<CounterKind> {
         V::Stun => CounterKind::Stun,
         V::Finality => CounterKind::Finality,
         V::Bore => CounterKind::Bore,
+        V::Shield => CounterKind::Shield,
         V::Custom(id) => CounterKind::Custom(u16::try_from(id).ok()?),
     })
 }

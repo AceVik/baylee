@@ -1,7 +1,8 @@
 //! Eye for an Eye — {W}{W} — Instant
 //! Oracle: The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.
 //! Set: ME4 #12 — Masters Edition IV | Scryfall ID: 7b4b8de1-a548-4398-887e-f95b4c15590c | Oracle ID: 22647b1a-5a7c-41b5-b820-b2e9f49c7aad
-// PARTIAL — the redirection is off the card.
+// IMPLEMENTED — the next chosen-source damage event still deals its damage
+// to you and creates equal damage from this spell to that source's controller.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,20 +16,6 @@ card!(
         mana_cost = mana!("{W}{W}"),
         types = TypeSet::INSTANT,
     ),],
-    coverage = Coverage::Partial(
-        "nothing reflects the next damage from a chosen source back at that \
-         source's controller; the closest piece, \
-         Effect::PreventNextFromChosenSource, chooses the source but \
-         prevents the damage instead"
-    ),
-    // NOT SUPPORTED: "The next time a source of your choice would deal
-    // damage to you this turn, instead that source deals that much damage
-    // to you and Eye for an Eye deals that much damage to that source's
-    // controller." — `Effect::PreventNextFromChosenSource` does let the
-    // controller choose a source and wait for its next damage, but its
-    // shield prevents the damage rather than letting it be dealt again,
-    // and nothing adds the reflected damage: no `PlayerRel` names the
-    // controller of a replaced damage event's source, and
-    // `Modifier::RedirectDamageToYou` moves damage to a permanent instead
-    // of duplicating it. So the spell comes off the card.
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::ReflectNextChosenSourceDamage])],
 );
