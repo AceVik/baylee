@@ -3,21 +3,135 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod amaranthine_wall;
+mod ancestral_statue;
+mod anvilwrought_raptor;
+mod badgey_malicious_glitch;
+mod bladed_sentinel;
 mod clay_statue;
 mod cobalt_golem;
 mod crenellated_wall;
 mod dancing_scimitar;
+mod dinotomaton;
+mod dross_ripper;
+mod dukhara_peafowl;
 mod energizer;
+mod esper_cormorants;
+mod filigree_crawler;
+mod filigree_sages;
+mod forgotten_sentinel;
+mod gilded_sentinel;
 mod golden_guardian;
 mod grapeshot_catapult;
+mod guardian_automaton;
+mod hedron_rover;
 mod hematite_golem;
 mod juggernaut;
+mod lodestone_myr;
+mod machine_man_model_x_51;
+mod millennial_gargoyle;
+mod mindless_automaton;
 mod patagia_golem;
+mod peace_strider;
+mod pierce_strider;
 mod roaming_throne;
+mod rusted_sentinel;
 mod rustspore_ram;
+mod scornful_aether_lich;
+mod scrapyard_steelbreaker;
+mod signpost_scarecrow;
+mod snare_thopter;
 mod solemn_simulacrum;
 mod su_chi;
 mod surgical_metamorph;
 mod telethopter;
+mod the_vision_and_scarlet_witch;
+mod tower_gargoyle;
+mod venomcrawler;
 
 mod sentinel;
+
+/// Answers what the engine asks, the first legal way, and passes priority,
+/// until it is `seat`'s priority with an empty stack again.
+#[track_caller]
+fn answer_until_settled(engine: &mut Engine<RegistryLookup>) {
+    for _ in 0..60 {
+        if matches!(engine.pending(), Pending::Priority { .. }) && stack_is_empty(engine) {
+            return;
+        }
+        if let Pending::Priority { player, .. } = engine.pending().clone() {
+            engine
+                .apply(player, PlayerAction::PassPriority)
+                .expect("passing priority is always legal");
+            continue;
+        }
+        let (player, action) = answer_one(engine)
+            .unwrap_or_else(|rest| panic!("the game stopped on a question: {rest:?}"));
+        engine
+            .apply(player, action)
+            .expect("an answer out of the question that enumerated it");
+    }
+    panic!("never settled: {:?}", engine.pending());
+}
+
+/// Whether the Grizzly Bears across the table may block `attacker` when it
+/// attacks them: the question flying, fear and their relatives answer.
+#[track_caller]
+fn bears_may_block(attacker: CardIndex) -> bool {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[attacker])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let attacker = on_battlefield(&engine, p0, attacker).expect("seated");
+    attack_and_collect_blocks(&mut engine, attacker, p1)
+        .iter()
+        .any(|option| option.attackers.contains(&attacker))
+}
+
+/// Seat 1's `attacker` attacks seat 0, whose `blocker` blocks it, and combat
+/// is played out to the second main phase. Returns the engine, the blocker
+/// and the attacker.
+#[track_caller]
+fn they_attack_and_we_block(
+    attacker: CardIndex,
+    blocker: CardIndex,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[blocker])
+        .battlefield(1, &[attacker])
+        .start();
+    keep_mulligans(&mut engine);
+    let blocker_id = on_battlefield(&engine, p0, blocker).expect("seated");
+    let attacker_id = on_battlefield(&engine, p1, attacker).expect("seated");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker_id, Defender::Player(p0))],
+            },
+        )
+        .expect("the attacker is offered");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker_id, attacker_id)],
+            },
+        )
+        .expect("the block is offered");
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+    (engine, blocker_id, attacker_id)
+}
