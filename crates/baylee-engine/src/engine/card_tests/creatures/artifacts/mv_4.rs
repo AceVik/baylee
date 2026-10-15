@@ -6,6 +6,7 @@ use super::*;
 mod amaranthine_wall;
 mod ancestral_statue;
 mod anvilwrought_raptor;
+mod architects_of_will;
 mod badgey_malicious_glitch;
 mod bladed_sentinel;
 mod clay_statue;
@@ -13,6 +14,8 @@ mod cobalt_golem;
 mod crenellated_wall;
 mod dancing_scimitar;
 mod dinotomaton;
+mod dovin_s_automaton;
+mod dragonloft_idol;
 mod dross_ripper;
 mod dukhara_peafowl;
 mod energizer;
@@ -29,17 +32,28 @@ mod hematite_golem;
 mod juggernaut;
 mod lodestone_myr;
 mod machine_man_model_x_51;
+mod masticore;
 mod millennial_gargoyle;
 mod mindless_automaton;
+mod molten_tail_masticore;
+mod needlebug;
 mod patagia_golem;
 mod peace_strider;
 mod pierce_strider;
+mod plasmancer;
 mod roaming_throne;
 mod rusted_sentinel;
+mod rusted_slasher;
 mod rustspore_ram;
+mod saheeli_s_silverwing;
+mod sanctum_gargoyle;
+mod scampering_surveyor;
 mod scornful_aether_lich;
 mod scrapyard_steelbreaker;
+mod shell_skulkin;
+mod shield_wall_sentinel;
 mod signpost_scarecrow;
+mod skorpekh_destroyer;
 mod snare_thopter;
 mod solemn_simulacrum;
 mod su_chi;
@@ -48,11 +62,26 @@ mod telethopter;
 mod the_vision_and_scarlet_witch;
 mod tower_gargoyle;
 mod venomcrawler;
+mod wakandan_drone_flock;
+mod watchwing_scarecrow;
 
 mod sentinel;
 
+/// The top `n` cards of `seat`'s library, the topmost first.
+fn library_top(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(seat))
+        .iter()
+        .rev()
+        .take(n)
+        .copied()
+        .collect()
+}
+
 /// Answers what the engine asks, the first legal way, and passes priority,
-/// until it is `seat`'s priority with an empty stack again.
+/// until somebody holds priority with an empty stack again.
 #[track_caller]
 fn answer_until_settled(engine: &mut Engine<RegistryLookup>) {
     for _ in 0..60 {
