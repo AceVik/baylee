@@ -11,7 +11,7 @@ card!(
     oracle_id = "3cc48835-3ac0-4774-b380-f9b21d2dc974",
     scryfall_id = "9a26559c-0ac5-42a7-b6ac-b39938c31026",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Healing Hands",
         mana_cost = mana!("{2}{W}"),

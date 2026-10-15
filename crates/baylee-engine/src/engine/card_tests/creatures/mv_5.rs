@@ -122,3 +122,5 @@ mod aerathi_berserker;
 mod rubinia_soulsinger;
 
 mod windstorm_drake;
+
+mod spock_logical_choice;

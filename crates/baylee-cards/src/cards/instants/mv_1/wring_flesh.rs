@@ -10,7 +10,7 @@ card!(
     oracle_id = "45bb536c-c173-4b6e-a5a8-354c74fd93a1",
     scryfall_id = "d6b77692-08aa-40b6-b21b-c29a2dc87709",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wring Flesh",
         mana_cost = mana!("{B}"),

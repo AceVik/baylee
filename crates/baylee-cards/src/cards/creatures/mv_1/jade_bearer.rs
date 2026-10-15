@@ -17,7 +17,7 @@ card!(
     oracle_id = "72ddbc9b-f584-433f-9d2d-6e4c374129c4",
     scryfall_id = "696bb954-353e-488b-a1e8-0df75da6339b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jade Bearer",
         mana_cost = mana!("{G}"),

@@ -11,7 +11,7 @@ card!(
     index = index::WANDERER_S_TWIG,
     oracle_id = "fd15a4b0-abd7-4bae-8331-81b85c94fce8",
     scryfall_id = "8ea7b2c0-c641-478f-b8d9-17aa17fa1cbe",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderer's Twig",
         mana_cost = mana!("{1}"),

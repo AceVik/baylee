@@ -10,7 +10,7 @@ card!(
     oracle_id = "13228a22-d63a-4952-a482-4f84da696e88",
     scryfall_id = "8ee78a0d-8a76-4d21-b65c-03f27f1a96c5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Demon's Grasp",
         mana_cost = mana!("{4}{B}"),

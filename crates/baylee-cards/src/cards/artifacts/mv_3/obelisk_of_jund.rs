@@ -10,7 +10,7 @@ card!(
     oracle_id = "eb0be178-55f9-4743-8128-34bc86f134ec",
     scryfall_id = "1fe43306-f48f-4812-8d40-1903cc6f19d2",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obelisk of Jund",
         mana_cost = mana!("{3}"),

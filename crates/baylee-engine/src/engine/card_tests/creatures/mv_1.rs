@@ -111,3 +111,19 @@ mod wirewood_symbiote;
 mod young_wolf;
 
 mod acolyte_of_xathrid;
+
+mod bond_beetle;
+mod cathedral_sanctifier;
+mod galerider_sliver;
+mod gearsmith_prodigy;
+mod healer_of_the_glade;
+mod imperial_lancer;
+mod inventor_s_apprentice;
+mod jade_bearer;
+mod loam_lion;
+mod striking_sliver;
+mod toxic_iguanar;
+
+mod forge_devil;
+mod greenseeker;
+mod sunshower_druid;

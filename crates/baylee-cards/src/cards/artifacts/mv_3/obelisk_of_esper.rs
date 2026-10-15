@@ -10,7 +10,7 @@ card!(
     oracle_id = "9da963f6-734b-4d3c-a3be-dd5cca2c7b19",
     scryfall_id = "70b347b1-9277-4ad0-88c8-faacace08827",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obelisk of Esper",
         mana_cost = mana!("{3}"),

@@ -20,3 +20,5 @@ mod suppression_ray;
 mod tidings;
 
 mod angelic_edict;
+
+mod demon_s_grasp;

@@ -11,7 +11,7 @@ card!(
     oracle_id = "c9abbb90-e3ae-4e7c-87ca-06ebebf65edb",
     scryfall_id = "9ee59bd3-062b-428c-868c-d68d9009d966",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunrise Sovereign",
         mana_cost = mana!("{5}{R}"),

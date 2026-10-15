@@ -10,7 +10,7 @@ card!(
     oracle_id = "ff568a29-e31a-4bc3-b8a3-8fa56f91d52d",
     scryfall_id = "04e57fc1-1633-447f-ae32-ad7da25a4177",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weave Fate",
         mana_cost = mana!("{3}{U}"),

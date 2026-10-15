@@ -10,7 +10,7 @@ card!(
     oracle_id = "02e81bb8-ba80-4483-9b9f-973dcae0fc9d",
     scryfall_id = "df6317b0-15fd-4924-9302-41bed2354546",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obelisk of Naya",
         mana_cost = mana!("{3}"),

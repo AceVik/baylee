@@ -9,7 +9,7 @@ card!(
     index = index::CRYSTAL_BALL,
     oracle_id = "bd85fe4d-1d62-416f-ac2d-e287911c84e3",
     scryfall_id = "d344d88f-a63b-4593-990f-af6346cad91a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crystal Ball",
         mana_cost = mana!("{3}"),

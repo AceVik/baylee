@@ -41,3 +41,10 @@ mod winter_s_grasp;
 mod yawgmoth_s_will;
 
 mod jovial_evil;
+
+mod divination;
+mod healing_hands;
+
+mod ghostly_visit;
+mod precision_bolt;
+mod recover;

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1050f029-60d4-4769-b39f-9100c949a822",
     scryfall_id = "de3d0a45-3b3a-4718-9cb8-ff0c2464d634",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cathedral Sanctifier",
         mana_cost = mana!("{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "f1305d49-e543-49e9-9b36-e56f93f63bc3",
     scryfall_id = "dfffe235-98b1-43db-9461-1b2da5f0690e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teyo's Lightshield",
         mana_cost = mana!("{2}{W}"),

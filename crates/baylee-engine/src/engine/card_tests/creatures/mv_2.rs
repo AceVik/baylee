@@ -221,3 +221,13 @@ mod ravenous_rats;
 mod young_pyromancer;
 
 mod wizened_cenn;
+
+mod azure_mage;
+mod dusk_legion_zealot;
+mod merfolk_looter;
+mod novice_occultist;
+mod sigiled_starfish;
+mod sparkmage_apprentice;
+mod thought_courier;
+
+mod facet_reader;

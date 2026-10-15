@@ -16,7 +16,7 @@ card!(
     oracle_id = "b74d3768-74bb-413c-b7c7-41028ff48225",
     scryfall_id = "95e214df-93a2-4d21-8818-cc00bff1b318",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thoughtleech",
         mana_cost = mana!("{G}{G}"),

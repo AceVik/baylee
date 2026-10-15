@@ -11,7 +11,7 @@ card!(
     oracle_id = "484e8e49-e604-4721-95a4-dd69eb11d4c6",
     scryfall_id = "dd83d03a-4741-49d6-94be-64ed516679ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hag of Dark Duress",
         mana_cost = mana!("{2}{B}"),

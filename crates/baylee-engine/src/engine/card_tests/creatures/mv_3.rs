@@ -255,3 +255,24 @@ mod manic_vandal;
 mod witty_roastmaster;
 
 mod goblin_chieftain;
+
+mod aeronaut_tinkerer;
+mod benalish_marshal;
+mod blisterstick_shaman;
+mod centaur_healer;
+mod cephalid_looter;
+mod juniper_order_advocate;
+mod khenra_charioteer;
+mod lancer_sliver;
+mod rageblood_shaman;
+mod satyr_enchanter;
+mod spur_grappler;
+mod stromkirk_captain;
+mod teyo_s_lightshield;
+mod warded_battlements;
+
+mod adept_watershaper;
+mod blur_sliver;
+mod foundry_screecher;
+mod hag_of_dark_duress;
+mod woolly_mammoths;

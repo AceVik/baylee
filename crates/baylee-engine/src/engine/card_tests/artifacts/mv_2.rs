@@ -52,3 +52,10 @@ mod winter_orb;
 mod wishclaw_talisman;
 
 mod kry_shield;
+
+mod angel_s_feather;
+mod demon_s_horn;
+mod dragon_s_claw;
+mod golem_s_heart;
+mod kraken_s_eye;
+mod wurm_s_tooth;

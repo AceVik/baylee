@@ -38,3 +38,5 @@ mod craw_giant;
 mod gabriel_angelfire;
 
 mod hazezon_tamar;
+
+mod groundshaker_sliver;

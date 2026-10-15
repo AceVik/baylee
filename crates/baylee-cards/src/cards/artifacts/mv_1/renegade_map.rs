@@ -12,7 +12,7 @@ card!(
     index = index::RENEGADE_MAP,
     oracle_id = "f8506acb-3fc5-4fdf-8304-586843db6cfd",
     scryfall_id = "ac063445-d0e2-4015-96dc-97098433f30a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Renegade Map",
         mana_cost = mana!("{1}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "aa321138-b1a7-4b8e-a2ca-b9ce65704e92",
     scryfall_id = "df83d28d-bb0b-4f3d-a16f-8ee8bf452e10",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Satyr Enchanter",
         mana_cost = mana!("{1}{G}{W}"),

@@ -37,3 +37,5 @@ mod time_walk;
 mod vicious_hunger;
 mod volcanic_hammer;
 mod wielding_the_green_dragon;
+
+mod sign_in_blood;

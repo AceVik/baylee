@@ -11,7 +11,7 @@ card!(
     oracle_id = "2625fa9c-638c-46d3-966b-1166f440186f",
     scryfall_id = "55ab3f99-9541-4100-818c-5d9e916791e4",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Firebomb",
         mana_cost = mana!("{1}"),

@@ -42,3 +42,16 @@ mod urza_s_chalice;
 mod voltaic_key;
 mod wayfarer_s_bauble;
 mod wooden_sphere;
+
+mod bear_trap;
+mod explosive_apparatus;
+mod flamecast_wheel;
+mod renegade_map;
+mod scalding_cauldron;
+mod silent_dart;
+mod springjaw_trap;
+mod traveler_s_amulet;
+mod wanderer_s_twig;
+
+mod bloodtallow_candle;
+mod goblin_firebomb;

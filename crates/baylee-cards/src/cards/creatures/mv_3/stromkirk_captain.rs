@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2f053406-d2e4-4443-81f1-025e3b27c65a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stromkirk Captain",
         mana_cost = mana!("{1}{B}{R}"),

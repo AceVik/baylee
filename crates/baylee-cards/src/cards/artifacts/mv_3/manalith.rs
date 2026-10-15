@@ -9,7 +9,7 @@ card!(
     index = index::MANALITH,
     oracle_id = "bd9e416a-89b3-4912-be9b-49fce6a93dc9",
     scryfall_id = "f0d7d904-f29b-4524-9223-27910d748bdb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manalith",
         mana_cost = mana!("{3}"),

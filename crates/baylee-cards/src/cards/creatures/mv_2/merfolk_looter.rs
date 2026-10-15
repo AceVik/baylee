@@ -11,7 +11,7 @@ card!(
     oracle_id = "67362406-b1ca-49e2-800d-9050bfe8742a",
     scryfall_id = "6d740928-bf61-4420-a403-63097538b97d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk Looter",
         mana_cost = mana!("{1}{U}"),

@@ -196,3 +196,5 @@ mod akroan_mastiff;
 mod zarichi_tiger;
 
 mod aeronaut_admiral;
+
+mod tidepool_turtle;

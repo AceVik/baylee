@@ -11,7 +11,7 @@ card!(
     index = index::WURM_S_TOOTH,
     oracle_id = "69476326-fda5-48c8-a506-e71eb7c81c2f",
     scryfall_id = "da965767-a8b1-4725-ae20-65c18e37ad27",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wurm's Tooth",
         mana_cost = mana!("{2}"),

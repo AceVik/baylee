@@ -11,7 +11,7 @@ card!(
     oracle_id = "589d6b67-17ad-4ca7-9b0c-1b919bf03a27",
     scryfall_id = "77d9e666-d9c9-4ccd-89a5-83de79677fa6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gearsmith Prodigy",
         mana_cost = mana!("{U}"),

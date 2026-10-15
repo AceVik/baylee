@@ -15,7 +15,7 @@ card!(
     oracle_id = "d95aeeb0-b722-4f70-85fc-6866be4854bd",
     scryfall_id = "d7b032a1-6e43-4e22-9efa-43cfbf211e1c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havoc",
         mana_cost = mana!("{1}{R}"),

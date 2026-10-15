@@ -11,7 +11,7 @@ card!(
     oracle_id = "ea2dce18-195e-4681-a687-f9819edaf9fc",
     scryfall_id = "72048624-e3fd-4e9b-91a9-996ea3a1a74f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dusk Legion Zealot",
         mana_cost = mana!("{1}{B}"),

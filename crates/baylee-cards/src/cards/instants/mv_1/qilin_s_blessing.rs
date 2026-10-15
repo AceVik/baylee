@@ -10,7 +10,7 @@ card!(
     oracle_id = "31585036-cdc3-47f5-9fc7-913212826f2a",
     scryfall_id = "028ad74f-8366-4c14-b532-63fa892f5784",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Qilin's Blessing",
         mana_cost = mana!("{W}"),

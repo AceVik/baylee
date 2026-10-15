@@ -72,3 +72,18 @@ mod word_of_command;
 mod abrade;
 
 mod agony_warp;
+
+mod adamant_will;
+mod aegis_of_the_heavens;
+mod doom_blade;
+mod go_for_the_throat;
+mod last_gasp;
+mod lightning_strike;
+mod mighty_leap;
+mod revitalize;
+mod searing_spear;
+mod titanic_growth;
+mod wildwood_rebirth;
+mod zealous_strike;
+
+mod tread_upon;

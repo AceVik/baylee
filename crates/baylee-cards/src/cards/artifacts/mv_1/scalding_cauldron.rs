@@ -9,7 +9,7 @@ card!(
     index = index::SCALDING_CAULDRON,
     oracle_id = "dceb96a4-d3c5-43a2-93f6-50316e1e7a1b",
     scryfall_id = "710d2782-2b23-441f-9890-6fa9c923b701",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scalding Cauldron",
         mana_cost = mana!("{1}"),

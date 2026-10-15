@@ -10,7 +10,7 @@ card!(
     oracle_id = "7a4ddb8f-08ad-4bf9-82f6-72b073dd859a",
     scryfall_id = "713a93a1-4442-4d5b-ad7a-136b87b5f7ab",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildwood Rebirth",
         mana_cost = mana!("{1}{G}"),

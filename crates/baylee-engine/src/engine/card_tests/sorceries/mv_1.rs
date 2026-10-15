@@ -33,3 +33,6 @@ mod thoughtseize;
 
 mod winds_of_change;
 mod winter_blast;
+
+mod disentomb;
+mod return_to_battle;

@@ -109,3 +109,9 @@ mod glyph_of_destruction;
 mod rust;
 
 mod avoid_fate;
+
+mod brute_force;
+mod disfigure;
+mod wring_flesh;
+
+mod qilin_s_blessing;

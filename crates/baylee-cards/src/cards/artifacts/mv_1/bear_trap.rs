@@ -11,7 +11,7 @@ card!(
     oracle_id = "f7afb2c3-50ee-40f5-8b14-32f80c2bacd0",
     scryfall_id = "e27c27d6-dc3a-4420-bb35-d97dc216e002",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bear Trap",
         mana_cost = mana!("{1}"),

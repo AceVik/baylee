@@ -18,3 +18,5 @@ mod wall_of_spears;
 mod yotian_soldier;
 
 mod alloy_myr;
+
+mod watchful_automaton;

@@ -16,7 +16,7 @@ card!(
     oracle_id = "c0018eb9-6aae-4188-8f36-ab5fc69f5903",
     scryfall_id = "7ed3784a-2dc0-4626-aa6a-268c1e2ac83c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperial Lancer",
         mana_cost = mana!("{W}"),

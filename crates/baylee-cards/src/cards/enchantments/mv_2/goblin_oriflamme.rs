@@ -10,7 +10,7 @@ card!(
     oracle_id = "836bd011-2da5-443a-a814-19a664b98a1a",
     scryfall_id = "0259e4d8-849b-468e-a902-aa1d7f2d5b6a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Oriflamme",
         mana_cost = mana!("{1}{R}"),

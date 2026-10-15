@@ -11,7 +11,7 @@ card!(
     oracle_id = "106e343f-c6f4-4155-ad01-63e482d4d38e",
     scryfall_id = "712f0ce4-9189-4c75-9c2b-d370bce89052",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Groundshaker Sliver",
         mana_cost = mana!("{6}{G}"),

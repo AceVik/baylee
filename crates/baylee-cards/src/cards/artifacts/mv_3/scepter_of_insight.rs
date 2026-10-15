@@ -10,7 +10,7 @@ card!(
     oracle_id = "e2725411-a600-4ff3-94fb-5d52f5eda414",
     scryfall_id = "8ac51021-e66c-4cd1-b54f-031b69d9699f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scepter of Insight",
         mana_cost = mana!("{1}{U}{U}"),

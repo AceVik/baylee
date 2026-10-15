@@ -12,7 +12,7 @@ card!(
     oracle_id = "2f092562-9e17-43cd-aeb8-d0567f99363e",
     scryfall_id = "5446e1ba-c745-45b2-ad05-b22abf04daec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Go for the Throat",
         mana_cost = mana!("{1}{B}"),

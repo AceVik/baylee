@@ -9,7 +9,7 @@ card!(
     index = index::FLAMECAST_WHEEL,
     oracle_id = "58f70225-17b5-4aa6-a62a-89c57e31ecc1",
     scryfall_id = "5cfa31c9-5a11-4366-9063-056a659f3d0d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flamecast Wheel",
         mana_cost = mana!("{1}"),

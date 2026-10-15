@@ -17,7 +17,7 @@ card!(
     oracle_id = "ded2fc21-1a69-48f8-865a-467e21b2758b",
     scryfall_id = "4552650d-242e-4f8b-9359-d4aa19207fac",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Juniper Order Advocate",
         mana_cost = mana!("{2}{W}"),

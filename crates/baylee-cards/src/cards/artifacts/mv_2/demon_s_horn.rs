@@ -11,7 +11,7 @@ card!(
     index = index::DEMON_S_HORN,
     oracle_id = "ee38377f-8d3a-402e-a5d7-a01cfe3a5322",
     scryfall_id = "cd708b10-472f-44b1-9b62-668da6104ef5",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Demon's Horn",
         mana_cost = mana!("{2}"),

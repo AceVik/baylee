@@ -10,7 +10,7 @@ card!(
     oracle_id = "3f96dfd3-975a-4595-95c1-d2f04a86cb37",
     scryfall_id = "0cefe6ab-c018-4b87-8948-295a28f63cb1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obelisk of Bant",
         mana_cost = mana!("{3}"),

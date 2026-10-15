@@ -10,7 +10,7 @@ card!(
     oracle_id = "61105cb5-d7a1-4021-a006-dd1b947dfa68",
     scryfall_id = "66a09917-50ce-4b51-a5cf-e28e88a45762",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aether Sting",
         mana_cost = mana!("{3}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ac2668a3-7a26-47b1-9ad4-56e23643de80",
     scryfall_id = "d397fb84-8573-4b2c-be2c-f8fd820342f0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidepool Turtle",
         mana_cost = mana!("{3}{U}"),

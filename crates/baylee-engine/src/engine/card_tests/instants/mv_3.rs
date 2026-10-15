@@ -51,3 +51,8 @@ mod zap;
 mod aerial_predation;
 
 mod wildsize;
+
+mod dark_banishing;
+mod open_fire;
+mod quick_study;
+mod ritual_of_rejuvenation;

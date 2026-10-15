@@ -11,7 +11,7 @@ card!(
     oracle_id = "be7a38a3-c27f-4917-a59c-763d0b36e427",
     scryfall_id = "bd7308e6-4303-4f01-928b-f154b376e1a5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forge Devil",
         mana_cost = mana!("{R}"),

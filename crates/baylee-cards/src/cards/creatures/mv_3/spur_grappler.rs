@@ -13,7 +13,7 @@ card!(
     oracle_id = "42784364-719a-49ca-b515-64146a8f82e8",
     scryfall_id = "50bf91a7-4d04-437c-a290-6adb52f25312",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spur Grappler",
         mana_cost = mana!("{2}{R}"),

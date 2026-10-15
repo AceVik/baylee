@@ -11,7 +11,7 @@ card!(
     index = index::ANGEL_S_FEATHER,
     oracle_id = "3d0d4ba4-d5aa-4d9f-89ab-46687637fecf",
     scryfall_id = "69cf2f25-dc3e-457d-9d50-22a966a20d5e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel's Feather",
         mana_cost = mana!("{2}"),

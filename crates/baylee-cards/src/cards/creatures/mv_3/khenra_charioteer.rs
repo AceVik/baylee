@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8ab1454e-3c69-4450-bd4c-934af2ff2bcb",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Khenra Charioteer",
         mana_cost = mana!("{1}{R}{G}"),

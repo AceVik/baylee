@@ -10,7 +10,7 @@ card!(
     oracle_id = "593caa15-e1d1-477f-bbb4-124d7a7b81f3",
     scryfall_id = "b4c55b3a-0cca-4b4f-9915-61847b8f1455",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mighty Leap",
         mana_cost = mana!("{1}{W}"),

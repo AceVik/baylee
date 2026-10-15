@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f234999b-54e9-40f5-a537-7d6ce169c710",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warded Battlements",
         mana_cost = mana!("{2}{W}"),

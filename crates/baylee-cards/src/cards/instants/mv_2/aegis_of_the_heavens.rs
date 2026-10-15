@@ -10,7 +10,7 @@ card!(
     oracle_id = "f8e1b38a-2a77-4cf1-8bef-31acb61ede10",
     scryfall_id = "a94f356d-4714-4500-8fb0-1ac68ec5c1cf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aegis of the Heavens",
         mana_cost = mana!("{1}{W}"),

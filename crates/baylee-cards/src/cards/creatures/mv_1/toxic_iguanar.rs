@@ -16,7 +16,7 @@ card!(
     oracle_id = "87e148a0-4299-4771-b68a-6652a4c1c535",
     scryfall_id = "28fd2dce-b91f-441f-a3ea-af87cc925713",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toxic Iguanar",
         mana_cost = mana!("{R}"),

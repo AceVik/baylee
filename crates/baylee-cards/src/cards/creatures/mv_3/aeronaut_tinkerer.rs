@@ -11,7 +11,7 @@ card!(
     oracle_id = "a15bb807-ea31-4bff-b573-c249c4c78dd6",
     scryfall_id = "e145e85d-1eaa-4ec6-9208-ca6491577302",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aeronaut Tinkerer",
         mana_cost = mana!("{2}{U}"),

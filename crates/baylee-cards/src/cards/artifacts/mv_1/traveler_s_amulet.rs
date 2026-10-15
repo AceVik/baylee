@@ -11,7 +11,7 @@ card!(
     index = index::TRAVELER_S_AMULET,
     oracle_id = "48b561dd-f23d-409a-87c8-e49902b2477b",
     scryfall_id = "26a7e5f0-0d60-4118-ad10-b27c7382511a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Traveler's Amulet",
         mana_cost = mana!("{1}"),

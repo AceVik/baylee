@@ -11,7 +11,7 @@ card!(
     index = index::DRAGON_S_CLAW,
     oracle_id = "bd8d707d-1201-42c6-bce6-fbda12ce5ea8",
     scryfall_id = "0d732b87-08e5-41b6-8448-62dd6bf20d9c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon's Claw",
         mana_cost = mana!("{2}"),

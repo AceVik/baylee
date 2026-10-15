@@ -48,3 +48,10 @@ mod underworld_breach;
 mod ajani_s_mantra;
 
 mod favorable_winds;
+
+mod goblin_oriflamme;
+mod honor_of_the_pure;
+
+mod havoc;
+mod thoughtleech;
+mod warmth;

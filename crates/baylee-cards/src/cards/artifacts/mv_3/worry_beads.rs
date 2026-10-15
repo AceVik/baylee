@@ -9,7 +9,7 @@ card!(
     index = index::WORRY_BEADS,
     oracle_id = "ab050d55-a47d-4880-b65a-29f562773d7a",
     scryfall_id = "400edfe9-9efa-43f9-b713-13ad4eae2fa4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Worry Beads",
         mana_cost = mana!("{3}"),

@@ -29,3 +29,7 @@ mod spiritual_asylum;
 mod storm_the_vault;
 mod treasure_trove;
 mod vance_s_blasting_cannons;
+
+mod aether_sting;
+mod builder_s_blessing;
+mod crucible_of_fire;

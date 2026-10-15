@@ -11,7 +11,7 @@ card!(
     index = index::KRAKEN_S_EYE,
     oracle_id = "14a21d8a-2097-4150-8af5-8c155049477a",
     scryfall_id = "48052433-c4d3-434e-a609-e8400150a0f6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraken's Eye",
         mana_cost = mana!("{2}"),

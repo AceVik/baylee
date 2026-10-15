@@ -10,7 +10,7 @@ card!(
     index = index::MANA_GEODE,
     oracle_id = "0844f4e6-2b98-4d09-a5c5-92f0a3b6a517",
     scryfall_id = "f8c54d41-683e-42fd-8aa4-371dddf3bcb3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mana Geode",
         mana_cost = mana!("{3}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "61e09dd9-7870-48c2-9177-d6abc3162692",
     scryfall_id = "46917de3-5e98-4dd6-8950-fc10338515df",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Titanic Growth",
         mana_cost = mana!("{1}{G}"),

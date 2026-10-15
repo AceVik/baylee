@@ -235,21 +235,33 @@ Four tiers, from most to least (`baylee_cards_dsl::Coverage`):
   its own card test (`card_tests/<type>/<dir>/<slug>.rs`, the card's path
   under `cards/`).
 - `Generated`: every printed sentence was read in full by codegen
-  (`landgen` or `scriptgen`), but no card test plays it yet. Playable (the
+  (`landgen` or `scriptgen`), but its card tests have not been accepted yet. Playable (the
   deckbuilder offers it, marked "untested"; `is:playable` finds it,
   `is:generated` finds only these), and every pool-wide check of a complete
   card's claims asks it too (`CardDef::is_fully_read`). It is not
   `trustworthy()`: a deck holding one is still told it may not play as
   printed. Only codegen writes it: a card read in full is written
-  `Implemented` when its test file exists and `Generated` otherwise, so the
-  next codegen run after its test lands promotes it, and `codegen --check`
-  asks the same question. A hand-owned card never says `Generated`.
+  `Implemented` when its tests exist and no explicit acceptance hold applies,
+  and `Generated` otherwise. `codegen --check` asks the same question. A
+  hand-owned card never says `Generated`.
 - `Partial("reason")`: playable with a gap its author described.
 - `Unimplemented`: a stub (the default).
 
 A `Generated` card owes no card test (the `require-card-tests` hook exempts
-it), but one whose test already exists is one codegen run behind: the hook
-and `xtask`'s `no_generated_card_already_has_its_card_test` name it.
+it), but one whose test already exists without an acceptance hold is one
+codegen run behind: the hook and `xtask`'s
+`no_generated_card_already_has_its_card_test` name it.
+
+`data/card-test-holds.tsv` records reviewed Oracle IDs and concrete reasons
+why useful tests must not yet imply full acceptance, such as an unsupported
+engine branch. Codegen validates these identities against machine-owned,
+fully read cards; it rejects malformed, duplicate, unexplained and stale
+entries. Generation, the source invariant and the test-debt hook share the
+same hold policy. Keep tests enabled while held, resolve the documented gap,
+verify all printed clauses, then remove the hold and regenerate. A hold does
+not fix or disable a missing rule, and it is not permission to claim the
+card behaves correctly. Use public card-index constants for unrelated test
+fixtures: an Oracle-ID helper can otherwise count as coverage for the fixture.
 
 `FaceDef::DEFAULT.castable_from_hand` is `true`; disturb backs, adventure
 backs and the back face of a **transforming** double-faced card opt out. The

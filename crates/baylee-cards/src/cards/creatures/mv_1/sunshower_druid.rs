@@ -11,7 +11,7 @@ card!(
     oracle_id = "7a70faf5-cc04-402b-92e3-67746788f510",
     scryfall_id = "7740abc5-54e1-478d-966e-0fa64e727995",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunshower Druid",
         mana_cost = mana!("{G}"),

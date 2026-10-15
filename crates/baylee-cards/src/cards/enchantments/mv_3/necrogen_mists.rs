@@ -10,7 +10,7 @@ card!(
     oracle_id = "db25d48e-e5eb-4364-9d7a-f9757ee4ccbe",
     scryfall_id = "18291514-9ffb-4032-9c77-cec0200bf1b6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necrogen Mists",
         mana_cost = mana!("{2}{B}"),

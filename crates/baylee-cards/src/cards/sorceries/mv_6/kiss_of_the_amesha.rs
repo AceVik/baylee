@@ -10,7 +10,7 @@ card!(
     oracle_id = "779d3e58-de06-44be-98f8-f05f7711ecb2",
     scryfall_id = "82843400-2705-4ec3-b677-1027df6db62e",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kiss of the Amesha",
         mana_cost = mana!("{4}{W}{U}"),

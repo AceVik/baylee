@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2c342b0f-a8a5-4991-a0a2-fd75b54e1de2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oathsworn Giant",
         mana_cost = mana!("{4}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2cf2b6be-80a8-4464-a909-8cc658196a14",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nylea's Forerunner",
         mana_cost = mana!("{4}{G}"),

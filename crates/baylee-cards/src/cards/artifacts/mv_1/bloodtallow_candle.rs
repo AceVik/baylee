@@ -9,7 +9,7 @@ card!(
     index = index::BLOODTALLOW_CANDLE,
     oracle_id = "da9b3edc-bc2d-4ff5-b614-3626f504c4e9",
     scryfall_id = "5f8125b6-911e-4663-962a-d741984c927d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodtallow Candle",
         mana_cost = mana!("{1}"),

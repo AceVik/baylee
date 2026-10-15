@@ -15,7 +15,7 @@ card!(
     oracle_id = "0df450be-9bd2-45be-ae59-fa8d19f6a391",
     scryfall_id = "141dbd31-b813-46da-849e-e13d97dd2e17",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dark Banishing",
         mana_cost = mana!("{2}{B}"),

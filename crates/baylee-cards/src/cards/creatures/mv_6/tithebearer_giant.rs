@@ -11,7 +11,7 @@ card!(
     oracle_id = "475aaf7c-b0f8-40f3-ad91-3e7d414de933",
     scryfall_id = "4f1db7bc-30c5-45fd-9a45-ede37716736d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tithebearer Giant",
         mana_cost = mana!("{5}{B}"),

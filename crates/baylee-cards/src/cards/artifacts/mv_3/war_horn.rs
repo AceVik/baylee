@@ -9,7 +9,7 @@ card!(
     index = index::WAR_HORN,
     oracle_id = "99bc739e-c745-47d8-8401-2f34b6becd85",
     scryfall_id = "45c17671-7c4a-4114-b2b7-d34af4e2f8c1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "War Horn",
         mana_cost = mana!("{3}"),

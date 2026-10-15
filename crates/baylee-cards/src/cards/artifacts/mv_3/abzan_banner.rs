@@ -11,7 +11,7 @@ card!(
     oracle_id = "46535f8e-1bcd-4588-ac6c-a4bc89c379c8",
     scryfall_id = "7855528a-ede9-49a9-8749-795a004fd927",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abzan Banner",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ec43fb64-122d-4fc5-9fe0-b7913373f7a4",
     scryfall_id = "abe77862-516f-4eb2-9a41-0c6401d02843",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roughshod Mentor",
         mana_cost = mana!("{5}{G}"),

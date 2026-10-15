@@ -11,7 +11,7 @@ card!(
     oracle_id = "602cce3e-7033-47d6-aec1-d755f234f270",
     scryfall_id = "6e53f246-8347-4632-9d5b-4aeb12f7b762",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adept Watershaper",
         mana_cost = mana!("{2}{W}"),

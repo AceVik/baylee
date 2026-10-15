@@ -11,7 +11,7 @@ card!(
     oracle_id = "6f5e6799-cb0f-4403-9c2a-69abeac08b79",
     scryfall_id = "138b5fde-417d-4860-aca9-eae7f78b5768",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watchful Automaton",
         mana_cost = mana!("{3}"),

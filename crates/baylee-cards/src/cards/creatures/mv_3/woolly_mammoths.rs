@@ -17,7 +17,7 @@ card!(
     oracle_id = "6e5f1088-a5ab-48ec-be27-c88eb164cf63",
     scryfall_id = "69ec2c31-f8f1-4bfc-998c-f4e41c366ec0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woolly Mammoths",
         mana_cost = mana!("{1}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "7c9d8065-9ab0-4468-a11c-383bd036029f",
     scryfall_id = "691c0acb-1882-482f-9513-e7d010cc1d15",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ritual of Rejuvenation",
         mana_cost = mana!("{2}{W}"),

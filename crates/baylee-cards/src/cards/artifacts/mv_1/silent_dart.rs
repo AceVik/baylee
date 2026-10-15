@@ -9,7 +9,7 @@ card!(
     index = index::SILENT_DART,
     oracle_id = "912bc348-9ba3-4001-90a8-104d2bb17527",
     scryfall_id = "f59521a1-07c4-47a6-8b2f-8a2d8338a58c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silent Dart",
         mana_cost = mana!("{1}"),

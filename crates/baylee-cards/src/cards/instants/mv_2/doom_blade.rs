@@ -15,7 +15,7 @@ card!(
     oracle_id = "59e7f2ae-4535-4191-98be-3e65b6b2befa",
     scryfall_id = "5dcd0c4e-4047-47a2-8969-c62616d457c2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doom Blade",
         mana_cost = mana!("{1}{B}"),

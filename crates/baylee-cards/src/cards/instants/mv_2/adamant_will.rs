@@ -10,7 +10,7 @@ card!(
     oracle_id = "467e22c3-6107-40ff-afc7-5960710c970b",
     scryfall_id = "1fd2c9ab-b3dd-4f68-b91f-0f075a045757",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adamant Will",
         mana_cost = mana!("{1}{W}"),

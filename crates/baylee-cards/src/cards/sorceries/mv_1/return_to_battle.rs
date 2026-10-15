@@ -10,7 +10,7 @@ card!(
     oracle_id = "cf6676b7-b40a-46bd-b166-bd3cbb49d80d",
     scryfall_id = "1841e615-fdcd-4187-bd69-d07abde0e1ae",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Return to Battle",
         mana_cost = mana!("{B}"),

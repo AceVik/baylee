@@ -11,7 +11,7 @@ card!(
     oracle_id = "9353f6dd-9a08-4e55-9b07-3e68d7d97ef4",
     scryfall_id = "f341ed2c-353b-49a3-b200-94ae43cb8e24",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bond Beetle",
         mana_cost = mana!("{G}"),

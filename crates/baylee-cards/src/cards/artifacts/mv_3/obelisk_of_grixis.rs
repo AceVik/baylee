@@ -10,7 +10,7 @@ card!(
     oracle_id = "e193ae18-91a0-4870-b8a1-f8dedf744708",
     scryfall_id = "1bf29333-2fe4-4bd3-855b-8eef8d14c5d6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obelisk of Grixis",
         mana_cost = mana!("{3}"),

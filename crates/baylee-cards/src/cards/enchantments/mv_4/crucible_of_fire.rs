@@ -11,7 +11,7 @@ card!(
     oracle_id = "0c572396-4e53-4c86-9b04-f41341dcea05",
     scryfall_id = "d7a6f4dd-29c9-4084-a622-098b197a6eb7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crucible of Fire",
         mana_cost = mana!("{3}{R}"),

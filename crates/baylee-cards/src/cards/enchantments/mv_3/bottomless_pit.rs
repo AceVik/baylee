@@ -10,7 +10,7 @@ card!(
     oracle_id = "91e6fb47-59e4-4616-b8dd-3a7e30070074",
     scryfall_id = "91f05fc3-da6e-45d4-8566-f4e7bdce1fe5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bottomless Pit",
         mana_cost = mana!("{1}{B}{B}"),

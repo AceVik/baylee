@@ -10,7 +10,7 @@ card!(
     index = index::ARCANE_ENCYCLOPEDIA,
     oracle_id = "d91ea728-2d69-42cb-bb5d-e2b058f0d7b1",
     scryfall_id = "00ff4cb8-a0e0-4527-a77d-03394065ffe0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcane Encyclopedia",
         mana_cost = mana!("{3}"),

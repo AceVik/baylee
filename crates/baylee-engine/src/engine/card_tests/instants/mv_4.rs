@@ -24,3 +24,5 @@ mod rapid_fire;
 mod storm_seeker;
 
 mod wrecking_ball;
+
+mod weave_fate;

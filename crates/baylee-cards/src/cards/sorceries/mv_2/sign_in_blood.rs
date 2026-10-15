@@ -10,7 +10,7 @@ card!(
     oracle_id = "c6207f6a-a624-4754-88f5-dbe700c841ff",
     scryfall_id = "b89d9372-8682-4a61-a003-8bccfbb6cbb4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sign in Blood",
         mana_cost = mana!("{B}{B}"),

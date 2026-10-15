@@ -11,7 +11,7 @@ card!(
     oracle_id = "bbf9fd47-10e1-4749-b06f-4fe72200afc7",
     scryfall_id = "e5a7ed36-a552-4d46-929a-48f34ae9279a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Azure Mage",
         mana_cost = mana!("{1}{U}"),

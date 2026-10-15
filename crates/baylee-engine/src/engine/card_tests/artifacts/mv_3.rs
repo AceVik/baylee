@@ -44,3 +44,18 @@ mod troll_horn_cameo;
 mod war_chariot;
 mod whetstone;
 mod worn_powerstone;
+
+mod arcane_encyclopedia;
+mod crystal_ball;
+mod manalith;
+mod obelisk_of_bant;
+mod obelisk_of_esper;
+mod obelisk_of_grixis;
+mod obelisk_of_jund;
+mod obelisk_of_naya;
+mod scepter_of_insight;
+mod war_horn;
+mod worry_beads;
+
+mod abzan_banner;
+mod mana_geode;

@@ -7,3 +7,5 @@ mod desert_twister;
 mod farewell;
 mod icatian_town;
 mod zof_consumption;
+
+mod kiss_of_the_amesha;

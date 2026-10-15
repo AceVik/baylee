@@ -15,7 +15,7 @@ card!(
     oracle_id = "73b6694a-47d4-417a-af9b-470da14b5b0e",
     scryfall_id = "ab5ff1e3-f3d3-4811-841e-87a43f0ce58e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghostly Visit",
         mana_cost = mana!("{2}{B}"),

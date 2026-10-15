@@ -11,7 +11,7 @@ card!(
     oracle_id = "ff435f84-73ab-4a16-8af6-6576af4e4edb",
     scryfall_id = "e92b32f0-01bd-4501-b0ad-90d2c296077a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Centaur Healer",
         mana_cost = mana!("{1}{G}{W}"),

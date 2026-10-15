@@ -11,7 +11,7 @@ card!(
     oracle_id = "2701b912-b672-4764-97f7-51c444f754f2",
     scryfall_id = "cbe262f2-e35b-4c85-938d-3e9e9c764c1b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Healer of the Glade",
         mana_cost = mana!("{G}"),

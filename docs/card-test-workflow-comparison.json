@@ -1,0 +1,2964 @@
+{
+  "started_at": "2026-10-15T17:34:44.675Z",
+  "status": "complete",
+  "planned_cards": 128,
+  "seed": 20261015,
+  "arms": {
+    "A": "Luna authors; automated gates; independent Sol review",
+    "B": "Sol Oracle scenario matrix; Luna authors; automated gates; independent Sol review",
+    "C": "Sol authors; automated gates; independent Sol review",
+    "D": "GPT-6 Sol authors; automated gates; independent GPT-6.1 Sol review"
+  },
+  "allocation": "32 matched quartets, 8 per category; original A/B random assignments preserved; C and later D matched by Oracle complexity",
+  "acceptance": [
+    "Every Oracle clause assessed independently",
+    "Baseline compile and runtime pass",
+    "All applicable nonintrinsic abilities fire and whole-ability mutants are killed",
+    "Independent semantic review closes findings",
+    "Codegen and relevant repository gates pass"
+  ],
+  "metrics": [
+    "Input, cached input, uncached input and output tokens by agent/model/arm",
+    "Authoring, planning, repair and review costs included",
+    "Shared coordination/build/integration overhead reported separately",
+    "Compile and runtime failure rounds",
+    "Semantic findings and re-review rounds",
+    "Accepted cards and tokens per accepted card",
+    "Production defects separated from author defects",
+    "Wall time per stage; concurrent scheduling disclosed"
+  ],
+  "limits": [
+    "Whole-ability mutation does not prove complete clause coverage",
+    "Different matched cards are not identical tasks",
+    "Single experiment does not establish a universal winner",
+    "Telemetry is best-effort and not a bill",
+    "No hypothetical dollar savings inferred without applicable rates",
+    "Agent-work duration sums overlapping agent turns; it is not isolated wall-clock runtime.",
+    "Arm D starts later with warm build caches; compare model work and quality separately from build duration.",
+    "Tokens are measurable per agent turn, not reliably per individual card in a 16-card batch."
+  ],
+  "existing_original_progress": {
+    "implemented": 489,
+    "total": 540,
+    "partial": 48,
+    "excluded": 3
+  },
+  "completed": 119,
+  "sensitivity_exclusions": {
+    "weaker_matches": [
+      "activated-02",
+      "static-03"
+    ],
+    "cross_arm_test_exposure": [
+      "spells-04"
+    ],
+    "D_weaker_matches": [
+      "triggered-02",
+      "activated-07",
+      "static-03"
+    ]
+  },
+  "deviations": [
+    {
+      "agent": "trial96_b_first",
+      "event": "Broad rg exposed approximately20 lines of paired A Lightning Strike target/player damage test; no target implementation read; author stopped and disclosed. Retain measured cost and exclude entire spells-04 triple in sensitivity analysis."
+    },
+    {
+      "event": "Coordinator supplied unqualified fixture index path; one subsequent compile failure and qualification repair counted as shared coordination, not author quality."
+    },
+    {
+      "event": "D registration introduced one doc_markdown lint in a new parent registry; corrected by shared integrator, not charged as author defect."
+    }
+  ],
+  "production_gaps": [
+    {
+      "kind": "battle_damage_defense_counters_missing",
+      "cards": [
+        "Lightning Strike",
+        "Searing Spear",
+        "Akoum Boulderfoot",
+        "Blisterstick Shaman",
+        "Springjaw Trap",
+        "Open Fire",
+        "Sparkmage Apprentice",
+        "Explosive Apparatus",
+        "Precision Bolt"
+      ],
+      "discovered_by": "trial96_c_first; independently confirmed by astra_engine_owner",
+      "handling": "Keep useful supported-category tests; never assert marked damage as correct battle behavior; no fullyImplemented promotion; separate author quality from production defect."
+    }
+  ],
+  "baseline_commit": "9e6c3a3f2934b6ca2da35087fb6849f8ca742c3b",
+  "current_stage": "verified",
+  "automatic_gates": {
+    "tests_passed": 143,
+    "tests_failed": 0,
+    "recordable_abilities_fired": 99,
+    "whole_ability_mutants_killed": 99,
+    "whole_ability_mutants_total": 99
+  },
+  "first_review": {
+    "A": {
+      "accepted": 13,
+      "needs_revision": 19,
+      "separate_production_blockers": 2,
+      "calibration": "Goblin Oriflamme revised from accepted to needs_revision for consistent conditional-controller coverage."
+    },
+    "B": {
+      "accepted": 14,
+      "needs_revision": 18,
+      "separate_production_blockers": 3
+    },
+    "C": {
+      "accepted": 27,
+      "needs_revision": 2,
+      "accepted_tests_production_blocked": 3
+    },
+    "D": {
+      "accepted": 12,
+      "needs_revision": 19,
+      "accepted_tests_production_blocked": 1
+    }
+  },
+  "cards": [
+    {
+      "name": "Adamant Will",
+      "oracle_id": "467e22c3-6107-40ff-afc7-5960710c970b",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-01",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "One creature target, equal pump plus one temporary combat keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Zealous Strike",
+      "oracle_id": "d820ddf4-315d-470a-8d66-663a76a240c6",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-01",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "pumps_and_grants_first_strike_for_this_turn"
+        ],
+        "closure_evidence": "Lines 34\u201336 prove both stats and first strike expire after turn changes.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "One creature target, equal pump plus one temporary combat keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Aegis of the Heavens",
+      "oracle_id": "f8e1b38a-2a77-4cf1-8bef-31acb61ede10",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-02",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "One creature target; numeric temporary power/toughness modifier",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Titanic Growth",
+      "oracle_id": "61e09dd9-7870-48c2-9177-d6abc3162692",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-02",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "grants_exact_four_four_to_the_chosen_creature"
+        ],
+        "closure_evidence": "Lines 35\u201337 prove +4/+4 expires and bystander remains unchanged.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "One creature target; numeric temporary power/toughness modifier",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Healing Hands",
+      "oracle_id": "3cc48835-3ac0-4774-b380-f9b21d2dc974",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-03",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "gains_life_for_target_and_draws_for_caster"
+        ],
+        "closure_evidence": "Lines 32\u201336 combine library decrement with hand delta accounting for cast card, distinguishing draw from mill.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Fixed life gain plus one card draw; recipient restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Revitalize",
+      "oracle_id": "b1385b03-cb4b-4812-857f-7421f1df39af",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-03",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Fixed life gain plus one card draw; recipient restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Lightning Strike",
+      "oracle_id": "f34b9bc4-7bfe-47fd-ba23-4eeeb46026eb",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-04",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "any_target_deals_three_to_a_player_creature_or_planeswalker"
+        ],
+        "closure_evidence": "Lines 50,67,87\u201389 prove exact three damage to player, surviving creature, and planeswalker loyalty.",
+        "findings": [],
+        "production_blocked": [
+          {
+            "reason": "Known shared engine battle-defense damage gap: any-target includes battles. Hold Generated until production supports correct defense-counter damage. Do not accept ordinary marked damage as battle correctness; no impossible test API demanded.",
+            "oracle_rationale": "any target"
+          }
+        ],
+        "promotion_status": "held_generated_battle_blocker"
+      },
+      "matching_rationale": "Identical three damage to any target; several target categories",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Searing Spear",
+      "oracle_id": "aafd44c1-74a9-4aa7-a4a2-67eb39a07478",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-04",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": [
+          {
+            "issue": "Known shared battle-defense damage gap; hold Generated until production supports correct battle damage/defense-counter outcomes. Marked damage alone is not proof.",
+            "severity": "production_blocked",
+            "oracle_rationale": "Any target includes battles.",
+            "source": "Task-provided known limitation; not inferred from implementation."
+          }
+        ]
+      },
+      "matching_rationale": "Identical three damage to any target; several target categories",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Doom Blade",
+      "oracle_id": "59e7f2ae-4535-4191-98be-3e65b6b2befa",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-05",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "One destroy effect with a negative creature-type/color filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Go for the Throat",
+      "oracle_id": "2f092562-9e17-43cd-aeb8-d0567f99363e",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-05",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "destroys_one_creature"
+        ],
+        "closure_evidence": "Lines 28,34\u201337 provide artifact creature exclusion alongside legal creatures.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "One destroy effect with a negative creature-type/color filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Disfigure",
+      "oracle_id": "77eafe49-b9c5-461d-89c5-cec217dd2974",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-06",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "One temporary negative power/toughness modifier; lethal boundary",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Wring Flesh",
+      "oracle_id": "45bb536c-c173-4b6e-a5a8-354c74fd93a1",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-06",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "applies_minus_three_minus_one_to_target"
+        ],
+        "closure_evidence": "Lines 29\u201336 establish exact -3/-1 on surviving 3/3 and cleanup restoration.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "One temporary negative power/toughness modifier; lethal boundary",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Disentomb",
+      "oracle_id": "e4ab986d-662c-4879-b6f1-6887a2ec4d7c",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-07",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical own-graveyard creature-to-hand action",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Wildwood Rebirth",
+      "oracle_id": "7a4ddb8f-08ad-4bf9-82f6-72b073dd859a",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-07",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "returns_creature_card_from_graveyard_to_hand"
+        ],
+        "closure_evidence": "Lines 18\u201368 construct own creature/noncreature and opposing creature graveyard objects; exact singleton offer isolates filters.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical own-graveyard creature-to-hand action",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Divination",
+      "oracle_id": "273b339c-964b-4a18-8eb5-ceb8abcdfd9e",
+      "category": "spells",
+      "arm": "B",
+      "pair_id": "spells-08",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical fixed two-card draw; sorcery versus instant timing",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Quick Study",
+      "oracle_id": "7bff8d4a-1c7d-48b8-b3e3-737dd6f01823",
+      "category": "spells",
+      "arm": "A",
+      "pair_id": "spells-08",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "draws_two_cards"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical fixed two-card draw; sorcery versus instant timing",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Dragon's Claw",
+      "oracle_id": "bd8d707d-1201-42c6-bce6-fbda12ce5ea8",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-01",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "optional_life_trigger_tracks_red_spell_cast_by_any_player"
+        ],
+        "closure_evidence": "Lines 52\u201364 exclude nonred spell; lines 88\u201397 prove accepted trigger gain before red spell resolution.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Symmetric spell-color cast trigger with optional fixed life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Kraken's Eye",
+      "oracle_id": "14a21d8a-2097-4150-8af5-8c155049477a",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-01",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Symmetric spell-color cast trigger with optional fixed life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Angel's Feather",
+      "oracle_id": "3d0d4ba4-d5aa-4d9f-89ab-46687637fecf",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-02",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "optional_life_trigger_tracks_white_spell_cast_by_any_player"
+        ],
+        "closure_evidence": "Lines 39\u201363 exercise opponent white spell/controller choice/decline; lines 79\u201386 prove accepted gain before own white spell resolution.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Symmetric spell-color cast trigger with optional fixed life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Wurm's Tooth",
+      "oracle_id": "69476326-fda5-48c8-a506-e71eb7c81c2f",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-02",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Symmetric spell-color cast trigger with optional fixed life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Worry Beads",
+      "oracle_id": "ab050d55-a47d-4880-b65a-29f562773d7a",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-03",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "mills_active_player_at_both_upkeeps"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Each-player upkeep trigger with one card moved",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Necrogen Mists",
+      "oracle_id": "db25d48e-e5eb-4364-9d7a-f9757ee4ccbe",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-03",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Each-player upkeep trigger with one card moved",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Insight",
+      "oracle_id": "c77afbeb-cc9b-4770-9a48-e7460562895f",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-04",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Opponent-cast restricted trigger; one fixed card/life result",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Aether Sting",
+      "oracle_id": "61105cb5-d7a1-4021-a006-dd1b947dfa68",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-04",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "only_opponent_creature_spells_trigger_damage_before_resolution"
+        ],
+        "closure_evidence": "Lines 21\u201327 exclude own creature, 30\u201349 exclude opposing noncreature; 51\u201358 prove damage before creature resolves.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Opponent-cast restricted trigger; one fixed card/life result",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Dusk Legion Zealot",
+      "oracle_id": "ea2dce18-195e-4681-a687-f9819edaf9fc",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-05",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "entering_draws_one_and_costs_one_life"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical entry draw-one plus lose-one-life sequence",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Tithebearer Giant",
+      "oracle_id": "475aaf7c-b0f8-40f3-ad91-3e7d414de933",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-05",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical entry draw-one plus lose-one-life sequence",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Cathedral Sanctifier",
+      "oracle_id": "1050f029-60d4-4769-b39f-9100c949a822",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-06",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical entry fixed three-life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Healer of the Glade",
+      "oracle_id": "2701b912-b672-4764-97f7-51c444f754f2",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-06",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "entry_trigger_gains_three_life"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical entry fixed three-life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Bond Beetle",
+      "oracle_id": "9353f6dd-9a08-4e55-9b07-3e68d7d97ef4",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-07",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Entry target creature gains one counter; controller restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Teyo's Lightshield",
+      "oracle_id": "f1305d49-e543-49e9-9b36-e56f93f63bc3",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-07",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "counter_is_put_on_a_target_creature_you_control"
+        ],
+        "closure_evidence": "Line 50 verifies one actual +1/+1 counter, supplementing P/T and target filters.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Entry target creature gains one counter; controller restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Akoum Boulderfoot",
+      "oracle_id": "c16367eb-1c0a-4197-8e2f-2d74e4381024",
+      "category": "triggered",
+      "arm": "B",
+      "pair_id": "triggered-08",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": [
+          {
+            "issue": "Known shared battle-defense damage gap; hold Generated until production supports correct battle damage/defense-counter outcomes. Marked damage alone is not proof.",
+            "severity": "production_blocked",
+            "oracle_rationale": "Any target includes battles.",
+            "source": "Task-provided known limitation; not inferred from implementation."
+          }
+        ]
+      },
+      "matching_rationale": "Identical entry one damage to any target",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Blisterstick Shaman",
+      "oracle_id": "6f76fec2-6fd0-4d33-b39a-f1684922d478",
+      "category": "triggered",
+      "arm": "A",
+      "pair_id": "triggered-08",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "entry_trigger_can_deal_one_to_a_player",
+          "entry_trigger_can_damage_a_creature_or_reduce_planeswalker_loyalty"
+        ],
+        "closure_evidence": "Lines 77\u201390 establish both-player/object offers and exact surviving creature damage; 110\u2013114 prove planeswalker loyalty reduction.",
+        "findings": [],
+        "production_blocked": [
+          {
+            "reason": "Known shared engine battle-defense damage gap: any-target includes battles. Hold Generated until production supports correct defense-counter damage. Do not accept ordinary marked damage as battle correctness; no impossible test API demanded.",
+            "oracle_rationale": "any target"
+          }
+        ],
+        "promotion_status": "held_generated_battle_blocker"
+      },
+      "matching_rationale": "Identical entry one damage to any target",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Silent Dart",
+      "oracle_id": "912bc348-9ba3-4001-90a8-104d2bb17527",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-01",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Mana plus tap plus self-sacrifice; three damage to creature",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Scalding Cauldron",
+      "oracle_id": "dceb96a4-d3c5-43a2-93f6-50316e1e7a1b",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-01",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "cauldron_sacrifices_itself_and_deals_three_to_a_creature",
+          "insufficient_mana_and_a_tapped_cauldron_are_not_offered"
+        ],
+        "closure_evidence": "Negative fixtures now include opposing Gray Ogre (lines 69\u201372), providing a valid target in both two-mana/untapped and three-mana/tapped branches; cost restrictions are independently isolated.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Mana plus tap plus self-sacrifice; three damage to creature",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Bear Trap",
+      "oracle_id": "f7afb2c3-50ee-40f5-8b14-32f80c2bacd0",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-02",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "flash_trap_can_be_cast_on_the_opponents_turn_then_damages_a_creature",
+          "insufficient_mana_and_a_tapped_trap_are_not_offered"
+        ],
+        "closure_evidence": "Negative fixtures now include opposing Gray Ogre (lines 80\u201383), providing a valid target in both two-mana/untapped and three-mana/tapped branches; cost restrictions are independently isolated.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Flash artifact; mana/tap/sacrifice damage, creature versus any target",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Springjaw Trap",
+      "oracle_id": "3a635b73-692f-4345-9628-cb4f9f0cddad",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-02",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "line": 14,
+          "summary": "Tapped source, four available mana, and inherently legal player targets; no source activation offered. Positive untapped player/creature/walker cases preserved.",
+          "tests": [
+            "trap_cannot_activate_while_tapped_even_with_target_and_mana",
+            "flash_trap_can_be_cast_and_activated_during_the_opponents_turn",
+            "trap_damages_creatures_and_planeswalkers_for_three"
+          ]
+        },
+        "findings": [],
+        "production_blocked": [
+          {
+            "issue": "Known shared battle-defense damage gap; hold Generated until production supports correct battle damage/defense-counter outcomes. Marked damage alone is not proof.",
+            "severity": "production_blocked",
+            "oracle_rationale": "Any target includes battles.",
+            "source": "Task-provided known limitation; not inferred from implementation."
+          }
+        ]
+      },
+      "matching_rationale": "Flash artifact; mana/tap/sacrifice damage, creature versus any target",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Wanderer's Twig",
+      "oracle_id": "fd15a4b0-abd7-4bae-8331-81b85c94fce8",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-03",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "line": 25,
+          "summary": "Journal baseline recorded before activation; reveal and shuffle checked only after baseline.",
+          "tests": [
+            "twig_searches_for_a_basic_land_and_sacrifices_before_searching"
+          ]
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical mana/self-sacrifice basic land search and shuffle",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Traveler's Amulet",
+      "oracle_id": "48b561dd-f23d-409a-87c8-e49902b2477b",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-03",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "amulet_searches_and_puts_a_basic_land_into_hand",
+          "amulet_is_not_offered_without_its_one_mana_cost"
+        ],
+        "closure_evidence": "Lines 16\u201350 exclude nonbasic/nonland, 23\u201329 establish cost/sacrifice timing, 67\u201383 verify selected object reveal/hand and shuffle; 93\u2013104 isolate no-mana exclusion.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical mana/self-sacrifice basic land search and shuffle",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Arcane Encyclopedia",
+      "oracle_id": "d91ea728-2d69-42cb-bb5d-e2b058f0d7b1",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-04",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "encyclopedia_taps_and_draws_one_card"
+        ],
+        "closure_evidence": "Six-Forest fixture and exact three remaining mana assertion (lines 11\u201336) leave enough mana to reactivate; repeat exclusion at lines 41\u201347 now independently proves tapped-source restriction.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Repeatable mana activation drawing one; tap versus extra colored mana",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Azure Mage",
+      "oracle_id": "bbf9fd47-10e1-4749-b06f-4fe72200afc7",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-04",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Repeatable mana activation drawing one; tap versus extra colored mana",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Crystal Ball",
+      "oracle_id": "bd85fe4d-1d62-416f-ac2d-e287911c84e3",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-05",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "line": 136,
+          "summary": "Both-bottom prefix is [next,top], matching top-to-bottom Arrange contract versus bottom-to-top zone storage; full untouched suffix retained.",
+          "tests": [
+            "ball_scry_two_keeps_one_known_card_on_top_and_sends_the_other_to_bottom",
+            "ball_scry_two_allows_any_top_order_or_both_cards_on_bottom"
+          ]
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Tap activation with small scry count; extra generic mana differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Sigiled Starfish",
+      "oracle_id": "94a4f70a-8aac-412a-99f0-933e3ff87fe0",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-05",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "starfish_scry_one_can_keep_or_bottom_the_looked_card"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Tap activation with small scry count; extra generic mana differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Merfolk Looter",
+      "oracle_id": "67362406-b1ca-49e2-800d-9050bfe8742a",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-06",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "looter_draws_then_discards_one"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical tap activation draws then discards one",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Thought Courier",
+      "oracle_id": "06ea02f5-f296-4334-bb6f-9cb018e1e150",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-06",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical tap activation draws then discards one",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Obelisk of Esper",
+      "oracle_id": "9da963f6-734b-4d3c-a3be-dd5cca2c7b19",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-07",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "esper_obelisk_produces_each_listed_color"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Tap mana ability choosing one of three named colors",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Obelisk of Grixis",
+      "oracle_id": "e193ae18-91a0-4870-b8a1-f8dedf744708",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-07",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Tap mana ability choosing one of three named colors",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Obelisk of Jund",
+      "oracle_id": "eb0be178-55f9-4743-8128-34bc86f134ec",
+      "category": "activated",
+      "arm": "B",
+      "pair_id": "activated-08",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Tap mana ability choosing one of three named colors",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Obelisk of Bant",
+      "oracle_id": "3f96dfd3-975a-4595-95c1-d2f04a86cb37",
+      "category": "activated",
+      "arm": "A",
+      "pair_id": "activated-08",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "bant_obelisk_produces_each_listed_color"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Tap mana ability choosing one of three named colors",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "War Horn",
+      "oracle_id": "99bc739e-c745-47d8-8401-2f34b6becd85",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-01",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Identical own-attacking-creature power bonus",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Goblin Oriflamme",
+      "oracle_id": "836bd011-2da5-443a-a814-19a664b98a1a",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-01",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "oriflamme_buffs_only_its_controllers_attackers"
+        ],
+        "closure_evidence": "Lines 45\u201348 prove postcombat revocation; 49\u201369 test opposing attacker at unchanged P/T.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Identical own-attacking-creature power bonus",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Honor of the Pure",
+      "oracle_id": "eb4188bb-62df-4309-bde1-f66318fe2f05",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-02",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Own creature filtered anthem; color versus subtype, numeric amount differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Crucible of Fire",
+      "oracle_id": "0c572396-4e53-4c86-9b04-f41341dcea05",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-02",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "crucible_buffs_only_dragons_its_controller_controls"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Own creature filtered anthem; color versus subtype, numeric amount differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Builder's Blessing",
+      "oracle_id": "33a64de1-dc78-43d3-b89e-b4b13049e174",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-03",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Untapped-dependent own-creature anthem; recipient color restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Juniper Order Advocate",
+      "oracle_id": "ded2fc21-1a69-48f8-865a-467e21b2758b",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-03",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "advocate_buffs_controlled_green_creatures_only_while_untapped"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Untapped-dependent own-creature anthem; recipient color restriction differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Gearsmith Prodigy",
+      "oracle_id": "589d6b67-17ad-4ca7-9b0c-1b919bf03a27",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-04",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "prodigy_bonus_tracks_control_of_an_artifact"
+        ],
+        "closure_evidence": "Lines 34\u201336 prove own-artifact loss removes bonus despite opposing Sol Ring remaining.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Self power/toughness bonus conditional on controlling an artifact",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Inventor's Apprentice",
+      "oracle_id": "ed8d54fa-ec02-45d6-b70e-4c7e1c66efd6",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-04",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Self power/toughness bonus conditional on controlling an artifact",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Imperial Lancer",
+      "oracle_id": "c0018eb9-6aae-4188-8f36-ab5fc69f5903",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-05",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "only_a_controlled_dinosaur_grants_double_strike"
+        ],
+        "closure_evidence": "Lines 36\u201342 remove sole controlled Dinosaur while opposing Dinosaur remains and prove loss of double strike.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Self combat keyword conditional on a controlled permanent characteristic",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Toxic Iguanar",
+      "oracle_id": "87e148a0-4299-4771-b68a-6652a4c1c535",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-05",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Self combat keyword conditional on a controlled permanent characteristic",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Groundshaker Sliver",
+      "oracle_id": "106e343f-c6f4-4155-ad01-63e482d4d38e",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-06",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Own creature group gets trample; subtype versus color filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Roughshod Mentor",
+      "oracle_id": "ec43fb64-122d-4fc5-9fe0-b7913373f7a4",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-06",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "mentor_grants_trample_to_only_its_controllers_green_creatures"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Own creature group gets trample; subtype versus color filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Rageblood Shaman",
+      "oracle_id": "2608f905-a678-4e40-9e73-cf1c42ec880d",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-07",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Self keyword plus other own tribe gets +1/+1 and that keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Stromkirk Captain",
+      "oracle_id": "599c3fd6-3309-4b5d-adec-9c4062848ad5",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-07",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "captain_grants_stats_and_first_strike_to_other_controlled_vampires"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Self keyword plus other own tribe gets +1/+1 and that keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Galerider Sliver",
+      "oracle_id": "1ad78038-44f9-4599-84db-fc1a87d9ed45",
+      "category": "static",
+      "arm": "A",
+      "pair_id": "static-08",
+      "review": {
+        "test_verdict": "test_accepted",
+        "covered_evidence": [
+          "galerider_gives_flying_to_its_controllers_slivers"
+        ],
+        "closure_evidence": "Prior accepted verdict preserved; not rereviewed.",
+        "findings": [],
+        "production_blocked": [],
+        "promotion_status": "pending_runtime_gates"
+      },
+      "matching_rationale": "Own Slivers gain one combat keyword, including source",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Striking Sliver",
+      "oracle_id": "6a15599d-8b00-4e0f-ac0c-d05f07c1e50d",
+      "category": "static",
+      "arm": "B",
+      "pair_id": "static-08",
+      "review": {
+        "verdict": "test_accepted",
+        "closure_evidence": {
+          "summary": "Prior test acceptance preserved; not re-reviewed this round."
+        },
+        "findings": [],
+        "production_blocked": []
+      },
+      "matching_rationale": "Own Slivers gain one combat keyword, including source",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Mighty Leap",
+      "oracle_id": "593caa15-e1d1-477f-bbb4-124d7a7b81f3",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-01",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "creature_filter_exact_change_and_cleanup"
+          ],
+          "summary": "Own/opposing creature menus, exact +2/+2, target-only flying and next-turn expiration."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same targeted +2/+2 and one temporary keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Brute Force",
+      "oracle_id": "9880ba09-d5b8-4675-bfb4-2161d86d2d41",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-02",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "creature_filter_exact_change_and_cleanup"
+          ],
+          "summary": "Own/opposing creature menus, exact +3/+3, unchanged bystander and expiration."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same single temporary numeric power/toughness effect",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Ritual of Rejuvenation",
+      "oracle_id": "7c9d8065-9ab0-4468-a11c-383bd036029f",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-03",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "instant_draws_for_caster_on_opponents_turn"
+          ],
+          "summary": "Opponent-turn instant; caster alone gains four and draws one with exact hand/library deltas."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Fixed life gain plus draw one",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Open Fire",
+      "oracle_id": "8b218023-50b8-4d9d-b17b-9647479d3675",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-04",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept_tests_production_blocked",
+        "covered_evidence": {
+          "tests": [
+            "any_target_hits_both_players_and_only_the_named_recipient",
+            "any_target_creatures_and_planeswalkers_resolve_exact_damage",
+            "battle_is_offered_as_any_target"
+          ],
+          "summary": "Both players, own/opposing surviving and lethal creatures, planeswalker loyalty/death, noncreature exclusion; battle offer only."
+        },
+        "production_blocked": [
+          {
+            "reason": "Known engine battle-defense resolution gap: legal battle menu is proved, defense reduction and defeat are not. Keep Generated until engine support and resolution tests exist.",
+            "oracle_rationale": "Any target includes battles.",
+            "test_author_action": "No impossible API or marked-damage substitute requested."
+          }
+        ],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Three damage to any target",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Dark Banishing",
+      "oracle_id": "0df450be-9bd2-45be-ae59-fa8d19f6a391",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-05",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "nonblack_filter_destruction_and_indestructible",
+            "destroys_through_a_real_regeneration_shield"
+          ],
+          "summary": "Nonblack filter includes own creatures and excludes multicolor black; destruction, indestructible and purchased regeneration shield bypass."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same nonblack destroy filter plus extra no-regeneration clause",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Last Gasp",
+      "oracle_id": "a82c3860-4dd6-4ffd-aa8f-ab8df687db6c",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-06",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "creature_filter_exact_change_and_cleanup",
+            "zero_toughness_dies_but_four_toughness_survives"
+          ],
+          "summary": "Exact -3/-3 on either controller, filter, cleanup and zero-toughness death."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same one temporary negative power/toughness effect",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Return to Battle",
+      "oracle_id": "cf6676b7-b40a-46bd-b166-bd3cbb49d80d",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-07",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "returns_only_own_graveyard_creature_to_hand"
+          ],
+          "summary": "Only own graveyard creature selected; exact object returned to hand, excluded cards and bystanders remain."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same own-graveyard creature return to hand",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Weave Fate",
+      "oracle_id": "ff568a29-e31a-4bc3-b8a3-8fa56f91d52d",
+      "category": "spells",
+      "arm": "C",
+      "pair_id": "spells-08",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "instant_draws_for_caster_on_opponents_turn"
+          ],
+          "summary": "Opponent-turn instant draws exactly two for caster with hand/library deltas and no life change."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same draw two",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Demon's Horn",
+      "oracle_id": "ee38377f-8d3a-402e-a5d7-a01cfe3a5322",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-01",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "matching_cast_from_either_player_is_optional_and_benefits_controller",
+            "a_green_nonartifact_spell_does_not_trigger"
+          ],
+          "summary": "Either caster; explicit accept/decline by source controller before black spell resolves; nonblack negative."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same optional color-cast life trigger",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Golem's Heart",
+      "oracle_id": "650890bc-aba6-45fb-8096-3a36b0a015b3",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-02",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "matching_cast_from_either_player_is_optional_and_benefits_controller",
+            "a_green_nonartifact_spell_does_not_trigger"
+          ],
+          "summary": "Either caster; explicit accept/decline by source controller before artifact spell resolves; nonartifact negative."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same optional cast life trigger; artifact type instead of color",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Bottomless Pit",
+      "oracle_id": "91e6fb47-59e4-4616-b8dd-3a7e30070074",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-03",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "each_upkeep_discards_randomly_with_reproducible_seeded_choices",
+            "one_card_is_discarded_and_an_empty_hand_is_safe_next_upkeep"
+          ],
+          "summary": "Both upkeeps, correct player, exact one graveyard transfer; repeated seed consistency, seed variation; one/empty hand."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same each-player upkeep discard as one pair member, but random discard adds RNG coverage",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Satyr Enchanter",
+      "oracle_id": "aa321138-b1a7-4b8e-a2ca-b9ce65704e92",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-04",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "only_own_enchantment_cast_draws_and_it_draws_before_resolution"
+          ],
+          "summary": "Own enchantment draws exactly one before resolving; opponent enchantment and own creature excluded."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "One cast-filter trigger draws one; own enchantment rather than opponent green/creature",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Novice Occultist",
+      "oracle_id": "e51f5b41-5465-4b1d-b96a-544762657ca5",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-05",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "entry_does_nothing_but_death_draws_and_loses_one_for_last_controller",
+            "exile_does_not_trigger_death"
+          ],
+          "summary": "No ETB effect; death draws/loses exactly one for last controller including borrowed source; exile excluded."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same draw one/lose one sequence but death rather than entry trigger",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Centaur Healer",
+      "oracle_id": "ff435f84-73ab-4a16-8af6-6576af4e4edb",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-06",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "entry_gains_three_for_each_controller_and_death_does_not_repeat"
+          ],
+          "summary": "Both seats gain exactly three after entry; death does not repeat."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry gains exactly three life",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Jade Bearer",
+      "oracle_id": "72ddbc9b-f584-433f-9d2d-6e4c374129c4",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-07",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "entry_counters_only_another_merfolk_controlled_by_you",
+            "with_no_other_own_merfolk_no_counter_is_placed"
+          ],
+          "summary": "Other own Merfolk target filters, borrowed recipient, exact lasting counter/stats, no-legal-target branch."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry places one counter; extra other/Merfolk/controller filters",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Sparkmage Apprentice",
+      "oracle_id": "69003cbc-8e5a-41dc-ac53-18f6e776217b",
+      "category": "triggered",
+      "arm": "C",
+      "pair_id": "triggered-08",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept_tests_production_blocked",
+        "covered_evidence": {
+          "tests": [
+            "any_target_hits_both_players_and_only_the_named_recipient",
+            "any_target_creatures_and_planeswalkers_resolve_exact_damage",
+            "battle_is_offered_as_any_target"
+          ],
+          "summary": "ETB targets both players and own/opposing creatures/walkers; exact one damage, lethal boundary, battle offer only."
+        },
+        "production_blocked": [
+          {
+            "reason": "Known engine battle-defense resolution gap: legal battle menu is proved, defense reduction and defeat are not. Keep Generated until engine support and resolution tests exist.",
+            "oracle_rationale": "Any target includes battles.",
+            "test_author_action": "No impossible API or marked-damage substitute requested."
+          }
+        ],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry deals one to any target",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Flamecast Wheel",
+      "oracle_id": "58f70225-17b5-4aa6-a62a-89c57e31ecc1",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-01",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "damage_and_sacrifice_cost_are_exact",
+            "insufficient_mana_and_tapped_source_are_not_offered",
+            "target_leaving_in_response_prevents_damage_but_not_cost",
+            "surviving_creature_has_exactly_three_damage"
+          ],
+          "summary": "Mana boundary, tapped-source exclusion, own/opposing creature menus, self-sacrifice paid before resolution, lethal result and target departure. New surviving_creature_has_exactly_three_damage proves the 4/4 survives with exactly three marked damage, unchanged bystander and paid sacrifice."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Mana/tap/self-sacrifice deals three to creature; numeric mana differs",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Explosive Apparatus",
+      "oracle_id": "ab8301da-f9f7-4d90-afae-bd7e60834c22",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-02",
+      "match_quality": "weaker",
+      "review": {
+        "verdict": "accept_tests_production_blocked",
+        "covered_evidence": {
+          "tests": [
+            "damage_and_sacrifice_cost_are_exact",
+            "insufficient_mana_and_tapped_source_are_not_offered",
+            "any_target_includes_players_planeswalkers_and_battles",
+            "target_leaving_in_response_prevents_damage_but_not_cost"
+          ],
+          "summary": "Exact two creature damage, both players, walker loyalty, battle offer; exact mana sacrifice/tap restrictions; target departure."
+        },
+        "production_blocked": [
+          {
+            "reason": "Known engine battle-defense resolution gap: legal battle menu is proved, defense reduction and defeat are not. Keep Generated until engine support and resolution tests exist.",
+            "oracle_rationale": "Any target includes battles.",
+            "test_author_action": "No impossible API or marked-damage substitute requested."
+          }
+        ],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same mana/tap/self-sacrifice damage; two damage and no flash, so simpler than A/B pair",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Renegade Map",
+      "oracle_id": "f8506acb-3fc5-4fdf-8304-586843db6cfd",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-03",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "tapped_entry_then_basic_search_or_fail_and_shuffle"
+          ],
+          "summary": "Cast enters tapped, next own untap, paid sacrifice, basic-only search with nonbasic/nonland exclusions; choose/fail/no-basic paths; reveal, hand transfer, shuffle journal."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same basic search/reveal/hand/shuffle; tap/self-sacrifice and enters tapped replace mana cost",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Scepter of Insight",
+      "oracle_id": "e2725411-a600-4ff3-94fb-5d52f5eda414",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-04",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "one_card_costs_four_including_blue_and_a_tap"
+          ],
+          "summary": "Four mana including blue boundary, tapped state, exact one draw and other library unchanged."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Mana/tap draws one; additional colored mana",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Watchful Automaton",
+      "oracle_id": "6f5e6799-cb0f-4403-9c2a-69abeac08b79",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-05",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "scry_keeps_or_bottoms_one_and_can_repeat_without_tapping",
+            "scry_needs_three_mana_including_blue"
+          ],
+          "summary": "Freshly cast source repeatedly scries without tap; one-card keep/bottom ordering, no draw, exact total payment, wrong-color/short mana exclusions."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Small scry activated ability; no tap cost and colored mana",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Cephalid Looter",
+      "oracle_id": "412294bf-a25f-47c2-8043-12eb3e142b9e",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-06",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "target_player_draws_then_can_discard_the_drawn_card",
+            "freshly_cast_looter_cannot_tap_yet"
+          ],
+          "summary": "Both player recipients draw before chosen discard; newly drawn card discarded by recipient; tap and fresh-source restriction."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same tap draw then discard sequence, but target player adds recipient choice",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Obelisk of Naya",
+      "oracle_id": "02e81bb8-ba80-4483-9b9f-973dcae0fc9d",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-07",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "each_color_is_one_mana_and_tap_is_paid"
+          ],
+          "summary": "Every R/G/W choice produces exactly one immediately without stack; other colors absent; tapped source cannot repeat."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Tap chooses among three named colors",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Manalith",
+      "oracle_id": "bd9e416a-89b3-4912-be9b-49fce6a93dc9",
+      "category": "activated",
+      "arm": "C",
+      "pair_id": "activated-08",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "each_color_is_one_mana_and_tap_is_paid"
+          ],
+          "summary": "All five colors produce exactly one immediately without stack; colorless absent; tapped source cannot repeat."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Tap chooses any of five colors rather than three",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Warded Battlements",
+      "oracle_id": "7616dacf-44e2-4b03-b120-875cc2e50ea5",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-01",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "only_own_attackers_gain_power_and_wall_cannot_attack",
+            "opposing_attacker_keeps_its_printed_power_and_damage"
+          ],
+          "summary": "Defender omitted from attacker offer; own attacker +1/+0 with actual damage; idle creature/source unchanged and bonus ends after combat. New opposing_attacker_keeps_its_printed_power_and_damage proves opposing attacking 2/2 stays 2/2 and deals exactly two while the Wall remains."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same own attacking power bonus plus defender on source",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Benalish Marshal",
+      "oracle_id": "2cc439e8-d112-44e6-bc5a-6e99333c519a",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-02",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "grant_obeys_recipients_and_ends_when_source_leaves"
+          ],
+          "summary": "Exact +1/+1 to other own/borrowed creatures, self/opponent exclusion; source bounce removes bonus."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Own creature anthem with other exclusion replacing color/subtype filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Spur Grappler",
+      "oracle_id": "42784364-719a-49ca-b515-64146a8f82e8",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-03",
+      "match_quality": "weaker",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "no_untapped_lands_includes_zero_and_tracks_real_taps_and_untap"
+          ],
+          "summary": "Zero lands qualifies, own untapped land suppresses, opponent land irrelevant; real tap enables and untap removes exact self bonus."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Untapped-state conditional stats, but own lands condition/self-only effect instead of group anthem",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Loam Lion",
+      "oracle_id": "18961e25-3feb-4dba-a77f-240a4d664ecb",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-04",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "forest_condition_tracks_controller_and_last_forest"
+          ],
+          "summary": "No/one/two own Forests and opposing Forest; playing and bouncing last Forest updates exact +1/+2."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self stats bonus conditional on controlled permanent characteristic",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Aeronaut Tinkerer",
+      "oracle_id": "a15bb807-ea31-4bff-b573-c249c4c78dd6",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-05",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "artifact_condition_changes_actual_blocking_pairs"
+          ],
+          "summary": "Own artifact condition and source destruction; actual ground/flying/reach block-pair legality in all three states."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self combat keyword conditional on controlling an artifact",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Khenra Charioteer",
+      "oracle_id": "e75bc5df-f4a4-45af-a6fd-2711b98dd521",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-06",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "grant_obeys_recipients_and_ends_when_source_leaves",
+            "keyword_changes_blocked_combat"
+          ],
+          "summary": "Self and ally trample, enemy exclusion, source bounce removes ally grant; actual blocked excess damage for self and ally."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self trample plus other own creatures get trample, with fewer recipient restrictions",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Sunrise Sovereign",
+      "oracle_id": "c9abbb90-e3ae-4e7c-87ca-06ebebf65edb",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-07",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "grant_obeys_recipients_and_ends_when_source_leaves",
+            "keyword_changes_blocked_combat"
+          ],
+          "summary": "Other own Giant-only +2/+2/trample, self/enemy/non-Giant exclusion, bounce removes; actual blocked excess damage."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Other own tribe gets stats and trample; lacks separate self keyword and has larger numbers",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Lancer Sliver",
+      "oracle_id": "8ca33b31-4707-40d0-b4ed-cbe625793122",
+      "category": "static",
+      "arm": "C",
+      "pair_id": "static-08",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": {
+          "tests": [
+            "grant_obeys_recipients_and_ends_when_source_leaves",
+            "keyword_changes_blocked_combat"
+          ],
+          "summary": "Self/own Sliver first strike, opponent/non-Sliver exclusion, bounce removes ally grant; actual first-strike kills without return damage."
+        },
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same own Sliver first-strike grant as one pair member",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Tread Upon",
+      "oracle_id": "0b3bdbc6-cde7-4187-b13c-82fd02ae4037",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-01",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Creature target resolves +2/+2 and trample; artifact excluded; bystander unchanged; next opposing main verifies expiry.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same targeted +2/+2 and temporary combat keyword",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Qilin's Blessing",
+      "oracle_id": "31585036-cdc3-47f5-9fc7-913212826f2a",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-02",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Creature target resolves +2/+2; artifact excluded; bystander unchanged; next opposing main verifies expiry.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Single temporary numeric power/toughness modifier",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Kiss of the Amesha",
+      "oracle_id": "779d3e58-de06-44be-98f8-f05f7711ecb2",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-03",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Both self and opponent actually receive exactly seven life and two cards; other life unchanged.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Targeted fixed life gain plus draw; larger numeric life and draw counts",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Precision Bolt",
+      "oracle_id": "5f9ea6e4-f5be-4ea2-95b4-fbdc69685ac5",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-04",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept_tests_production_blocked",
+        "covered_evidence": "Player loses exactly three, creature marks exactly three, planeswalker loses three loyalty; noncreature artifact excluded.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [
+          {
+            "clause": "any target: battle",
+            "reason": "Known engine battle damage fails to remove defense counters; keep Generated until production repair and real battle outcome test. No fake marked-damage assertion."
+          }
+        ],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Three damage to any target; battle branch known blocked",
+      "coverage": "Generated"
+    },
+    {
+      "name": "Ghostly Visit",
+      "oracle_id": "73b6694a-47d4-417a-af9b-470da14b5b0e",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-05",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Nonblack opposing creature destroyed; own creature offered; black multicolor Troll and artifact excluded; bystander survives.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Destroy target nonblack creature",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Demon's Grasp",
+      "oracle_id": "13228a22-d63a-4952-a482-4f84da696e88",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-06",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Lethal shrink and exact surviving 6/6 to 1/1 shrink exercised; restoration at next opposing main.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Single temporary negative power/toughness modifier; larger magnitude",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Recover",
+      "oracle_id": "f4361602-63da-430b-adbb-36d74e987aa6",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-07",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Own graveyard creature returns to hand plus one draw; noncreature and opposing graveyard excluded.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Own graveyard creature return to hand plus an extra draw clause",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Sign in Blood",
+      "oracle_id": "c6207f6a-a624-4754-88f5-dbe700c841ff",
+      "category": "spells",
+      "arm": "D",
+      "pair_id": "spells-08",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Self and opponent each actually draw two and lose two; other life unchanged.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Draw two with target-player choice and extra fixed life loss",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Warmth",
+      "oracle_id": "cccc9664-0e3d-44c4-959c-abeaba25bbab",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-01",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Opposing red cast gains controller exactly two; own red and opposing white casts do not.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Opponent red-spell cast gains fixed life; mandatory rather than optional and changes recipient scope",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Thoughtleech",
+      "oracle_id": "b74d3768-74bb-413c-b7c7-41028ff48225",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-02",
+      "match_quality": "weaker",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Opposing Island taps exercise accept and decline for exactly one life; own Island tapped; recipient checked.",
+        "closure_evidence": "25\u201334: own tap traverses turn before life assertion; opposing Mountain tap asserts empty stack. 72\u2013108: verified owner/controller split Island taps for opponent and yields controller optional gain.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Optional gain one for opponent Island tap instead of spell-color cast",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Hag of Dark Duress",
+      "oracle_id": "484e8e49-e604-4721-95a4-dd69eb11d4c6",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-03",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Own upkeep prompts opposing player to discard exactly one; selected card reaches graveyard; controller hand retained.",
+        "closure_evidence": "40\u201343 asserts own active upkeep; 57\u201363 traverses opponent upkeep with both relevant hands nonempty and retained.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Upkeep discard one per opponent rather than active-player discard on each upkeep",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Havoc",
+      "oracle_id": "d95aeeb0-b722-4f70-85fc-6866be4854bd",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-04",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Opposing white cast loses exactly two; own white and opposing red casts do not.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Opponent color-restricted spell cast causes fixed life loss",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Dark Prophecy",
+      "oracle_id": "f47659b5-d834-4153-b9fc-6a0702c503d9",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-05",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Controlled creature death draws one and loses one; opposing death does neither.",
+        "closure_evidence": "41\u201379 verifies both cross-owned controlled creatures, exact death draw/life effects and owner graveyard destinations.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same draw-one/lose-one sequence on any own creature death rather than own entry/source death",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Hill Giant Herdgorger",
+      "oracle_id": "05c5752a-6ccb-45ff-bb85-5f89efd5944b",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-06",
+      "match_quality": "exact structure",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real cast/entry gains controller exactly three, opposing life unchanged.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry gains three life",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Sunshower Druid",
+      "oracle_id": "7a70faf5-cc04-402b-92e3-67746788f510",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-07",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real cast/entry adds exactly one counter to opposing creature and gains controller one; artifact excluded; own bystander unchanged.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry counter on one target creature plus an extra fixed life gain",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Forge Devil",
+      "oracle_id": "be7a38a3-c27f-4917-a59c-763d0b36e427",
+      "category": "triggered",
+      "arm": "D",
+      "pair_id": "triggered-08",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real entry deals exactly one to opposing creature and one to controller; players excluded as targets; opposing life unchanged.",
+        "closure_evidence": "Not re-reviewed: original verdict preserved as requested.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Entry deals one to creature plus one to self instead of one to any target",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Bloodtallow Candle",
+      "oracle_id": "da9b3edc-bc2d-4ff5-b614-3626f504c4e9",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-01",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Six mana spent and source sacrificed; exact surviving 7/6 to 2/1 shrink; creature targets only; expiry at opposing main.",
+        "closure_evidence": "66\u2013145: five-mana valid-target rejection; real Twiddle taps source with six floating mana, rejected activation preserves snapshot/source.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same mana/tap/self-sacrifice targeted creature removal; temporary shrink replaces damage",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Goblin Firebomb",
+      "oracle_id": "2625fa9c-638c-46d3-966b-1166f440186f",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-02",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real flash cast during opposing main; source sacrificed; land destroyed; creature/artifact offered and survive as bystanders.",
+        "closure_evidence": "66\u2013110 resolves destruction of Elf, Sol Ring, Luminarch Ascension and Jace into opponent owner graveyard. 114\u2013201 separately rejects six-mana and real-Twiddle-tapped seven-mana source.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Flash artifact with mana/tap/self-sacrifice; destroys permanent instead of damage",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Greenseeker",
+      "oracle_id": "693d8203-4405-4488-9067-cc1cd8041cb4",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-03",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Green mana spent, source tapped, chosen card discarded; library search chooses land into hand and reduces library one.",
+        "closure_evidence": "24\u201327 mixed library has basic Island, nonbasic Riptide Laboratory, nonland Bolt; 65\u201390 filters, exact destination, selected reveal and shuffle event. 94\u2013177 independently rejects no discard, wrong-color mana, real-tapped source with green mana and discard retained.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same basic search/reveal/hand/shuffle; adds colored mana, tap and discard cost in place of self-sacrifice",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Spock, Logical Choice",
+      "oracle_id": "a877820f-8999-4dfe-a50d-09f63c885ce3",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-04",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Actual attack leaves Spock untapped while elf taps; subsequent activation taps Spock and draws exactly one.",
+        "closure_evidence": "45\u201355 rejects repeat tapped activation with nonempty library; 59\u201382 real fresh cast rejects tap activation while preserving untapped state.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Tap draws one with no mana cost; separate vigilance clause adds operational keyword check",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Tidepool Turtle",
+      "oracle_id": "ac2668a3-7a26-47b1-9ad4-56e23643de80",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-05",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Two paid activations exercise top/bottom answers; one-card scry prompt, unchanged library size, no tap.",
+        "closure_evidence": "49\u201363 exact inspected ObjectId becomes library first for bottom or last for top (zone module documents top=end); 69\u201391 independently checks wrong color and two-mana cost failures.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Small scry activation with colored mana and no tap cost",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Facet Reader",
+      "oracle_id": "7aefe7a9-d696-4e2e-b1a5-d041d9e4e213",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-06",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "One mana and tap paid; draw precedes discard prompt; selected card discarded; exact library and hand deltas.",
+        "closure_evidence": "61\u201380 rejects zero-mana activation; 82\u2013116 real Twiddle leaves source tapped and one mana floating; activation refused and mana retained.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Tap draw then discard one with additional generic mana",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Abzan Banner",
+      "oracle_id": "46535f8e-1bcd-4588-ac6c-a4bc89c379c8",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-07",
+      "match_quality": "weaker",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "W/B/G mana alternatives each resolve immediately for one; second activation spends WBG, sacrifices and draws one.",
+        "closure_evidence": "30\u201341 rejects repeated tap mana activation; 68\u201391 three-mana WBB rejects WBG draw; 93\u2013130 real Twiddle consumes blue, leaves WBG and tapped source, draw rejected without mutation.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Same three-color tap mana ability plus extra colored-mana/tap/sacrifice draw ability",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Mana Geode",
+      "oracle_id": "0844f4e6-2b98-4d09-a5c5-92f0a3b6a517",
+      "category": "activated",
+      "arm": "D",
+      "pair_id": "activated-08",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real entry issues one-card scry prompt; bottom answer accepted; red mana activation taps source and adds red immediately.",
+        "closure_evidence": "13\u201388 resolves all five mana colors for exactly one total mana, alternating exact top/bottom ObjectId scry placement, and rejects repeated tapped mana activation.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Any-color tap mana ability plus entry scry one",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Ferocity of the Wilds",
+      "oracle_id": "c75bdc5f-22f2-4558-bb8f-5a53ff7ab1ac",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-01",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Actual own non-Human attack gains +1/+0 and trample; attacking Human and idle non-Human excluded.",
+        "closure_evidence": "50\u201354 own ending phase verifies attack-only modifier expires; 55\u201368 actual opposing non-Human attack remains 1/1 without trample.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Own attacking creature power bonus with extra non-Human restriction and trample",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Megantic Sliver",
+      "oracle_id": "52e8ec03-23ed-43a0-bce2-ad0cd5c4d737",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-02",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Own source pumps itself +3/+3; second real cast stacks to +6/+6; opponent source does not receive own boosts; non-Sliver unchanged.",
+        "closure_evidence": "46\u201362 real opposing Unsummon removes second friendly source; remaining own and opposing sources correctly 6/6, returned source in owner hand.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Own tribe anthem; includes source and larger numeric bonus",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Adept Watershaper",
+      "oracle_id": "602cce3e-7033-47d6-aec1-d755f234f270",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-03",
+      "match_quality": "weaker",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real own elf mana tap turns projected indestructible on; untapped friend excluded.",
+        "closure_evidence": "41\u201360 real Twiddle taps source and opposing Elf, both excluded; 61\u201371 real Doom Blade fails to destroy protected own Elf; 72\u201375 next own main untaps Elf and removes keyword.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Other own tapped creatures gain indestructible versus untapped-conditioned group stats",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Foundry Screecher",
+      "oracle_id": "0e0bef57-d977-48d1-be78-9a4f0aacd9c0",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-04",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Opposing artifact alone gives no power; casting own artifact gives exactly +1/+0; flying projected.",
+        "closure_evidence": "22\u201331 real cast verifies flying and own artifact power increase; 32\u201346 real opposing Nature\u2019s Claim removes own artifact while opposing Sol Ring remains, returning power to 2/1.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self artifact-conditioned power bonus plus separate flying",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Woolly Mammoths",
+      "oracle_id": "6e5f1088-a5ab-48ec-be27-c88eb164cf63",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-05",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Opposing snow and own ordinary land give no trample; playing own snow land turns projected trample on.",
+        "closure_evidence": "31\u201340 real cast and snow land play exercise projected keyword; 41\u201355 next own main Stone Rain destroys own snow land, opposing snow remains, trample disappears.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self combat keyword conditional on controlled land characteristic",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Nylea's Forerunner",
+      "oracle_id": "bf0948b7-f7af-4d99-a8aa-ea7e6a69232d",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-06",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real cast grants other own creature trample; source has trample; opponent excluded; P/T unchanged.",
+        "closure_evidence": "42\u201353 real opposing Unsummon removes source into owner hand; other own creature loses trample.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self trample plus other own creatures gain trample",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Oathsworn Giant",
+      "oracle_id": "d3828907-1321-40ca-9531-30401e82a6b8",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-07",
+      "match_quality": "moderate",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real cast grants other own creature +0/+2 and vigilance; source excluded from toughness; opponent excluded.",
+        "closure_evidence": "45\u201357 real opposing Unsummon removes source into owner hand; other own creature returns to 1/1 and loses vigilance.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Self vigilance plus other own creatures gain toughness and vigilance; no tribe filter",
+      "coverage": "Implemented"
+    },
+    {
+      "name": "Blur Sliver",
+      "oracle_id": "e0f05979-daba-43eb-b356-24284e7ca99c",
+      "category": "static",
+      "arm": "D",
+      "pair_id": "static-08",
+      "match_quality": "close",
+      "review": {
+        "verdict": "accept",
+        "covered_evidence": "Real cast grants projected haste to source and own Sliver; non-Sliver and opponent excluded; source offered as attacker.",
+        "closure_evidence": "35\u201350 source and allied Metallic Sliver freshly cast alongside fresh Human without haste; 57\u201368 fresh Human excluded and both fresh Slivers actually declared attacking and tap.",
+        "production_blocked": [],
+        "historical_review_findings": []
+      },
+      "matching_rationale": "Own Slivers gain one combat keyword, including source",
+      "coverage": "Implemented"
+    }
+  ],
+  "extension_requested_at": "2026-10-15T18:26:12.813Z",
+  "original96_final": {
+    "test_suites_accepted": 96,
+    "implemented": 88,
+    "production_held": 8,
+    "broad_engine": {
+      "passed": 7555,
+      "failed": 0,
+      "ignored": 2,
+      "filtered": 7,
+      "excluded": "Unfinished Secret Tunnel and Stardew Valley tests from an earlier batch"
+    },
+    "format_check": "passed",
+    "codegen_check": "passed in final combined reproducibility check",
+    "clippy": "passed in final combined workspace rerun",
+    "support_tests": {
+      "baylee_cards": 144,
+      "baylee_cards_codegen": 330,
+      "failed": 0,
+      "baylee_tools": 263,
+      "xtask_passed": 75,
+      "xtask_pending": 0,
+      "xtask_reason": "Resolved by accepted D promotion; final xtask suite76 passed",
+      "sandbox_note": "11 local HTTP tests required unrestricted loopback binding and passed on rerun"
+    }
+  },
+  "D_automatic_rounds": [
+    {
+      "stage": "compile",
+      "round": 1,
+      "errors": 2,
+      "warnings": 3,
+      "note": "Live loyalty API guessed; three unused locals."
+    },
+    {
+      "stage": "runtime",
+      "round": 1,
+      "passed": 31,
+      "failed": 9,
+      "cards_with_failures": 7
+    },
+    {
+      "stage": "runtime",
+      "round": 2,
+      "passed": 39,
+      "failed": 1,
+      "cards_with_failures": 1
+    },
+    {
+      "stage": "runtime",
+      "round": 3,
+      "passed": 40,
+      "failed": 0
+    },
+    {
+      "stage": "runtime_after_review",
+      "round": 4,
+      "passed": 46,
+      "failed": 3,
+      "cards_with_failures": 3
+    },
+    {
+      "stage": "runtime_after_review",
+      "round": 5,
+      "passed": 49,
+      "failed": 0
+    }
+  ],
+  "D_initial_gates": {
+    "tests_passed": 40,
+    "whole_ability_mutants_killed": 36,
+    "whole_ability_mutants_total": 36,
+    "recordable_abilities_fired": 36,
+    "clippy": "passed after one shared registry documentation fix"
+  },
+  "usage_by_model_and_role": [
+    {
+      "arm": "A",
+      "model": "gpt-6-astra",
+      "role": "author_failure_diagnosis",
+      "input_tokens": 587270,
+      "cached_input_tokens": 580224,
+      "output_tokens": 652,
+      "agent_work_ms": 64061,
+      "turns": 1,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 7046
+    },
+    {
+      "arm": "A",
+      "model": "gpt-6-luna",
+      "role": "author",
+      "input_tokens": 22050037,
+      "cached_input_tokens": 21611008,
+      "output_tokens": 107365,
+      "agent_work_ms": 1314986,
+      "turns": 17,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 439029
+    },
+    {
+      "arm": "A",
+      "model": "gpt-6.1-sol",
+      "role": "independent_review",
+      "input_tokens": 2227910,
+      "cached_input_tokens": 2156544,
+      "output_tokens": 6898,
+      "agent_work_ms": 239879,
+      "turns": 4,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 71366
+    },
+    {
+      "arm": "B",
+      "model": "gpt-6-luna",
+      "role": "author",
+      "input_tokens": 23605293,
+      "cached_input_tokens": 23089920,
+      "output_tokens": 137777,
+      "agent_work_ms": 1659911,
+      "turns": 15,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 515373
+    },
+    {
+      "arm": "B",
+      "model": "gpt-6.1-sol",
+      "role": "independent_review",
+      "input_tokens": 2813915,
+      "cached_input_tokens": 2710016,
+      "output_tokens": 8641,
+      "agent_work_ms": 298045,
+      "turns": 4,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 103899
+    },
+    {
+      "arm": "B",
+      "model": "gpt-6.1-sol",
+      "role": "upfront_plan",
+      "input_tokens": 356412,
+      "cached_input_tokens": 333440,
+      "output_tokens": 3017,
+      "agent_work_ms": 101029,
+      "turns": 1,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 22972
+    },
+    {
+      "arm": "C",
+      "model": "gpt-6.1-sol",
+      "role": "author",
+      "input_tokens": 8182308,
+      "cached_input_tokens": 8011520,
+      "output_tokens": 35431,
+      "agent_work_ms": 1106721,
+      "turns": 8,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 170788
+    },
+    {
+      "arm": "C",
+      "model": "gpt-6.1-sol",
+      "role": "independent_review",
+      "input_tokens": 1302354,
+      "cached_input_tokens": 1227776,
+      "output_tokens": 4033,
+      "agent_work_ms": 142209,
+      "turns": 2,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 74578
+    },
+    {
+      "arm": "D",
+      "model": "gpt-6-sol",
+      "role": "author",
+      "input_tokens": 17267612,
+      "cached_input_tokens": 16835584,
+      "output_tokens": 59742,
+      "agent_work_ms": 1551839,
+      "turns": 5,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 432028
+    },
+    {
+      "arm": "D",
+      "model": "gpt-6.1-sol",
+      "role": "independent_review",
+      "input_tokens": 2269001,
+      "cached_input_tokens": 2173824,
+      "output_tokens": 6962,
+      "agent_work_ms": 239166,
+      "turns": 2,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 95177
+    },
+    {
+      "arm": "shared",
+      "model": "codex-auto-review",
+      "role": "coordination",
+      "input_tokens": 91468,
+      "cached_input_tokens": 38144,
+      "output_tokens": 492,
+      "agent_work_ms": 11168,
+      "turns": 3,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 53324
+    },
+    {
+      "arm": "shared",
+      "model": "gpt-6-astra",
+      "role": "coordination",
+      "input_tokens": 36028403,
+      "cached_input_tokens": 35681024,
+      "output_tokens": 87747,
+      "agent_work_ms": 0,
+      "turns": 1,
+      "timing_missing_turns": 1,
+      "uncached_input_tokens": 347379
+    },
+    {
+      "arm": "shared",
+      "model": "gpt-6-astra",
+      "role": "production_gap_triage",
+      "input_tokens": 444435,
+      "cached_input_tokens": 428544,
+      "output_tokens": 946,
+      "agent_work_ms": 44236,
+      "turns": 1,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 15891
+    },
+    {
+      "arm": "shared",
+      "model": "gpt-6-luna",
+      "role": "coordination_caused_qualified_index_repair",
+      "input_tokens": 174387,
+      "cached_input_tokens": 171264,
+      "output_tokens": 202,
+      "agent_work_ms": 5863,
+      "turns": 1,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 3123
+    },
+    {
+      "arm": "shared",
+      "model": "gpt-6.1-sol",
+      "role": "selection_registration_acceptance_safeguard",
+      "input_tokens": 14821470,
+      "cached_input_tokens": 14653056,
+      "output_tokens": 26555,
+      "agent_work_ms": 990561,
+      "turns": 10,
+      "timing_missing_turns": 0,
+      "uncached_input_tokens": 168414
+    }
+  ],
+  "final_arm_summary": {
+    "A": {
+      "test_suites_accepted": 32,
+      "implemented": 30,
+      "production_held": 2,
+      "tests_passed": 36,
+      "first_compile_errors": 3,
+      "first_runtime_failures": 11,
+      "uncached_input_tokens": 517441,
+      "cached_input_tokens": 24347776,
+      "output_tokens": 114915,
+      "agent_work_ms": 1618926,
+      "timing_missing_turns": 0
+    },
+    "B": {
+      "test_suites_accepted": 32,
+      "implemented": 29,
+      "production_held": 3,
+      "tests_passed": 52,
+      "first_compile_errors": 6,
+      "first_runtime_failures": 11,
+      "uncached_input_tokens": 642244,
+      "cached_input_tokens": 26133376,
+      "output_tokens": 149435,
+      "agent_work_ms": 2058985,
+      "timing_missing_turns": 0
+    },
+    "C": {
+      "test_suites_accepted": 32,
+      "implemented": 29,
+      "production_held": 3,
+      "tests_passed": 55,
+      "first_compile_errors": 0,
+      "first_runtime_failures": 4,
+      "uncached_input_tokens": 245366,
+      "cached_input_tokens": 9239296,
+      "output_tokens": 39464,
+      "agent_work_ms": 1248930,
+      "timing_missing_turns": 0
+    },
+    "D": {
+      "test_suites_accepted": 32,
+      "implemented": 31,
+      "production_held": 1,
+      "tests_passed": 49,
+      "first_compile_errors": 2,
+      "first_runtime_failures": 9,
+      "uncached_input_tokens": 527205,
+      "cached_input_tokens": 19009408,
+      "output_tokens": 66704,
+      "agent_work_ms": 1791005,
+      "timing_missing_turns": 0
+    }
+  },
+  "final_card_gates": {
+    "tests_passed": 192,
+    "accepted_test_suites": 128,
+    "implemented": 119,
+    "held_generated": 9,
+    "whole_ability_mutants_killed": 135,
+    "whole_ability_mutants_total": 135,
+    "recordable_abilities_fired": 135
+  },
+  "measurement_note": "All author, repair, planning and independent-review turns completed. Shared root coordination is still active and its final turn duration is unavailable; shared usage is a snapshot, not zero overhead.",
+  "recommendation": "For the next comparable batches, prefer GPT-6.1 Sol direct authorship with independent semantic review. It had fewer first-review gaps and lower uncached input, cached input and output than every other arm in this sample. Do not infer monetary savings without the applicable rates, or unattended reliability from one experiment.",
+  "quality_sensitivity": {
+    "excluded_pair_ids": [
+      "activated-02",
+      "activated-07",
+      "spells-04",
+      "static-03",
+      "triggered-02",
+      "triggered-08"
+    ],
+    "reason": "Remove any weaker match, disclosed cross-arm exposure and battle-gap pair across all four arms; includes calibrated Goblin Oriflamme first-review finding. This is quality-only sensitivity, not invented per-card token allocation.",
+    "first_review": {
+      "A": {
+        "cards": 26,
+        "needed_semantic_revision": 15
+      },
+      "B": {
+        "cards": 26,
+        "needed_semantic_revision": 14
+      },
+      "C": {
+        "cards": 26,
+        "needed_semantic_revision": 2
+      },
+      "D": {
+        "cards": 26,
+        "needed_semantic_revision": 15
+      }
+    }
+  },
+  "final_repository_gates": {
+    "engine": {
+      "passed": 7604,
+      "failed": 0,
+      "ignored": 2,
+      "filtered_out": 7,
+      "excluded": "Pending batch51 Secret Tunnel and Stardew Valley tests, not part of this experiment"
+    },
+    "ai": 262,
+    "cards": 144,
+    "cards_codegen": 330,
+    "cards_dsl": 82,
+    "tools": 263,
+    "xtask": 76,
+    "additional_integration_and_binary_tests": 5,
+    "codegen_reproducibility": "passed",
+    "format": "passed",
+    "measurement_script_ruff": "passed",
+    "workspace_clippy": "passed: workspace/all-targets/client dev-control, warnings denied",
+    "mutation_killed": 135,
+    "mutation_total": 135,
+    "recordable_abilities_fired": 135
+  },
+  "completed_at": "2026-10-15T18:57:57.046367+00:00"
+}

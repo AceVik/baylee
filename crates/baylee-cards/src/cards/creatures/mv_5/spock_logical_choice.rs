@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spock, Logical Choice",
         mana_cost = mana!("{3}{U}{U}"),

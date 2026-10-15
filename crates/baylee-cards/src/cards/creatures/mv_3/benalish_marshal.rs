@@ -11,7 +11,7 @@ card!(
     oracle_id = "2cc439e8-d112-44e6-bc5a-6e99333c519a",
     scryfall_id = "fc395215-a2ec-49e1-9b1b-f8fcfe73e361",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benalish Marshal",
         mana_cost = mana!("{W}{W}{W}"),

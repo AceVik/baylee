@@ -11,7 +11,7 @@ card!(
     oracle_id = "05c5752a-6ccb-45ff-bb85-5f89efd5944b",
     scryfall_id = "b69315cc-c230-4704-9d66-411f624f3e49",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hill Giant Herdgorger",
         mana_cost = mana!("{4}{G}{G}"),

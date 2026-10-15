@@ -66,3 +66,12 @@ mod marhault_elsdragon;
 mod frost_giant;
 
 mod aggressive_mammoth;
+
+mod akoum_boulderfoot;
+mod roughshod_mentor;
+mod sunrise_sovereign;
+mod tithebearer_giant;
+
+mod hill_giant_herdgorger;
+mod megantic_sliver;
+mod oathsworn_giant;

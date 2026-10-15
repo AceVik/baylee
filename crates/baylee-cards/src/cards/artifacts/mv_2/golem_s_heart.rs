@@ -9,7 +9,7 @@ card!(
     index = index::GOLEM_S_HEART,
     oracle_id = "650890bc-aba6-45fb-8096-3a36b0a015b3",
     scryfall_id = "647ecb81-2d23-40f3-8570-0b86e2ed1c5e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golem's Heart",
         mana_cost = mana!("{2}"),

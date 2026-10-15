@@ -11,7 +11,7 @@ card!(
     oracle_id = "c75bdc5f-22f2-4558-bb8f-5a53ff7ab1ac",
     scryfall_id = "8f7005fd-5917-4f7d-9a7d-7ccc044d0f87",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ferocity of the Wilds",
         mana_cost = mana!("{2}{R}"),

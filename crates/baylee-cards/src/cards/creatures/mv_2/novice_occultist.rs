@@ -11,7 +11,7 @@ card!(
     oracle_id = "e51f5b41-5465-4b1d-b96a-544762657ca5",
     scryfall_id = "a541ac79-a969-42b4-b989-f6e37572ec90",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Novice Occultist",
         mana_cost = mana!("{1}{B}"),
