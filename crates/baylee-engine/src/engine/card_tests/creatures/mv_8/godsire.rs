@@ -57,7 +57,11 @@ fn godsire_taps_for_an_eight_eight_red_green_white_beast() {
         baylee_core::color::Color::Green,
         baylee_core::color::Color::White,
     ] {
-        assert!(printed.colors.contains(color), "{color:?} in {:?}", printed.colors);
+        assert!(
+            printed.colors.contains(color),
+            "{color:?} in {:?}",
+            printed.colors
+        );
     }
     assert!(!printed.colors.contains(baylee_core::color::Color::Blue));
 }

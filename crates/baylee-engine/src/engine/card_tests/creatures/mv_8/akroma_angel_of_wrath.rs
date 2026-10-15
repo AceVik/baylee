@@ -33,7 +33,10 @@ fn akroma_attacks_the_turn_she_is_cast_and_stays_untapped() {
     let mut engine = at_main(&[plains(); 8], &[akroma()]);
     let angel = cast_and_settle(&mut engine, akroma());
     attack_player(&mut engine, angel);
-    assert!(!is_tapped(&engine, angel), "vigilance: attacking did not tap her");
+    assert!(
+        !is_tapped(&engine, angel),
+        "vigilance: attacking did not tap her"
+    );
 }
 
 /// Protection from red and from black: the opponent's Lightning Bolt and

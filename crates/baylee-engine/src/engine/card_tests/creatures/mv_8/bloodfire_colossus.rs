@@ -47,7 +47,11 @@ fn bloodfire_colossus_sacrificed_hits_every_creature_and_every_player_for_six() 
         on_battlefield(&engine, p1, grizzly_bears()).is_none(),
         "so does the opponent's"
     );
-    assert_eq!(life_of(&engine, 0), mine - 6, "each player, the controller too");
+    assert_eq!(
+        life_of(&engine, 0),
+        mine - 6,
+        "each player, the controller too"
+    );
     assert_eq!(life_of(&engine, 1), theirs - 6);
 }
 

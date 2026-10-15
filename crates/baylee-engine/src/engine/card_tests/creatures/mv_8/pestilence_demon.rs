@@ -40,7 +40,11 @@ fn pestilence_demon_pings_every_creature_and_every_player() {
         "the 1/1 dies"
     );
     assert_eq!(engine.state().object(bear).unwrap().damage, 1);
-    assert_eq!(engine.state().object(demon).unwrap().damage, 1, "and itself");
+    assert_eq!(
+        engine.state().object(demon).unwrap().damage,
+        1,
+        "and itself"
+    );
     assert_eq!(life_of(&engine, 0), mine - 1, "its controller too");
     assert_eq!(life_of(&engine, 1), theirs - 1);
 

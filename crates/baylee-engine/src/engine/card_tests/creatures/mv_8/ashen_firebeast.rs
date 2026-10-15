@@ -8,7 +8,11 @@ fn ashen_firebeast() -> CardIndex {
 }
 
 fn damage_on(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
-    engine.state().object(id).expect("on the battlefield").damage as u16
+    engine
+        .state()
+        .object(id)
+        .expect("on the battlefield")
+        .damage
 }
 
 /// Ashen Firebeast is a 6/6 for {6}{R}{R}.
@@ -44,5 +48,9 @@ fn ashen_firebeast_pings_every_creature_without_flying() {
     assert_eq!(damage_on(&engine, bear), 1, "no flying: hit");
     assert_eq!(damage_on(&engine, beast), 1, "the Firebeast hits itself");
     assert_eq!(damage_on(&engine, angel), 0, "flying: spared");
-    assert_eq!((life_of(&engine, 0), life_of(&engine, 1)), life, "creatures only");
+    assert_eq!(
+        (life_of(&engine, 0), life_of(&engine, 1)),
+        life,
+        "creatures only"
+    );
 }
