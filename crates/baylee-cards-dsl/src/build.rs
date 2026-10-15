@@ -138,6 +138,36 @@ impl ActivatedParts {
         parts
     }
 
+    /// Build a choose-one modal activation with the same activation metadata.
+    ///
+    /// # Panics
+    ///
+    /// Modes must be nonempty and fit the mode index. Effects and targets
+    /// belong to each mode, and mode-specific spell costs are unsupported.
+    #[must_use]
+    pub const fn build_modal(self, modes: &'static [crate::SpellMode]) -> AbilityDef {
+        assert!(!modes.is_empty() && modes.len() <= u8::MAX as usize);
+        assert!(self.effects.is_empty());
+        assert!(self.target.is_none() && self.targets.is_none() && self.second_targets.is_none());
+        let mut index = 0;
+        while index < modes.len() {
+            assert!(modes[index].cost_override.is_none());
+            assert!(modes[index].additional_cost.is_none());
+            index += 1;
+        }
+        AbilityDef::ModalActivated {
+            cost: self.cost,
+            modes,
+            timing: self.timing,
+            mana_ability: self.mana_ability,
+            zone: self.zone,
+            condition: self.condition,
+            limit: self.limit,
+            x_value: self.x_value,
+            cost_reduction: self.cost_reduction,
+        }
+    }
+
     /// Turns the parts into the ability — conditional exactly when the card
     /// named a [`condition`](Self::condition).
     ///
@@ -717,6 +747,18 @@ macro_rules! activated {
     };
 }
 
+/// A choose-one activated ability; targets and effects belong to its modes.
+#[macro_export]
+macro_rules! modal_activated {
+    ($cost:expr, $modes:expr $(, $field:ident = $value:expr)* $(,)?) => {
+        $crate::ActivatedParts {
+            $($field: $value,)*
+            ..$crate::ActivatedParts::new($cost, &[])
+        }
+        .build_modal($modes)
+    };
+}
+
 /// A mana ability (CR 605.1): does not use the stack, has no target.
 ///
 /// The one-argument form is `{T}: Add …`, which is what almost every mana
@@ -1000,7 +1042,7 @@ pub mod prelude {
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{
         activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
-        modal_triggered, mode, saddle, spell, static_ability, triggered,
+        modal_activated, modal_triggered, mode, saddle, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.
@@ -1029,6 +1071,40 @@ mod tests {
     use crate::cost::CostPart;
     use crate::effect::{Amount, CounterKind};
     use crate::static_ability::Layer;
+
+    #[test]
+    fn modal_activation_preserves_announcement_metadata() {
+        const MODES: &[crate::SpellMode] = &[crate::mode!(&[])];
+        let parts = ActivatedParts {
+            condition: Some(Condition::CountersOnSelf(CounterKind::Charge, 2)),
+            timing: ActivationTiming::SorcerySpeed,
+            zone: ActivationZone::Graveyard,
+            limit: ActivationLimit::PerTurn(1),
+            x_value: crate::ActivationX::AtLeast(3),
+            ..ActivatedParts::new(Cost::TAP, &[])
+        };
+        let ability = parts.build_modal(MODES);
+        assert!(matches!(ability, AbilityDef::ModalActivated {
+            cost,
+            modes,
+            condition: Some(Condition::CountersOnSelf(CounterKind::Charge, 2)),
+            timing: ActivationTiming::SorcerySpeed,
+            zone: ActivationZone::Graveyard,
+            limit: ActivationLimit::PerTurn(1),
+            x_value: crate::ActivationX::AtLeast(3),
+            ..
+        } if cost == Cost::TAP && modes == MODES));
+    }
+
+    #[test]
+    #[should_panic(expected = "cost_override")]
+    fn modal_activation_rejects_spell_mode_cost_override() {
+        const MODES: &[crate::SpellMode] = &[crate::SpellMode {
+            cost_override: Some(baylee_core::mana::ManaCost::ZERO),
+            ..crate::mode!(&[])
+        }];
+        let _ = ActivatedParts::new(Cost::FREE, &[]).build_modal(MODES);
+    }
 
     /// Every macro here has to work in a `static` initializer, which is the
     /// one thing a unit test cannot assert at runtime: it either compiles or

@@ -1105,6 +1105,11 @@ impl TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Clear marked damage instead of applying another destruction replacement.
+    UseDamageClearingReplacement {
+        /// Permanent facing destruction.
+        permanent: ObjectId,
+    },
     /// Use an intrinsic shield counter instead of regeneration.
     UseShieldCounter {
         /// Permanent facing destruction.
@@ -1314,7 +1319,8 @@ impl YesNoPrompt {
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
             // question to answer by the clock.
-            Self::UseShieldCounter { .. }
+            Self::UseDamageClearingReplacement { .. }
+            | Self::UseShieldCounter { .. }
             | Self::ApplyAdditionalCountersNext { .. }
             | Self::CommanderZone { .. }
             | Self::CommanderReplace { .. }
@@ -2941,6 +2947,7 @@ mod choice_tests {
                     YesNoPrompt::ManaAnyType => 26,
                     YesNoPrompt::UseRegenerationShield { .. } => 27,
                     YesNoPrompt::UseShieldCounter { .. } => 28,
+                    YesNoPrompt::UseDamageClearingReplacement { .. } => 30,
                     YesNoPrompt::ApplyAdditionalCountersNext { .. } => 29,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
@@ -3167,6 +3174,7 @@ mod choice_tests {
             match prompt {
                 YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
                 YesNoPrompt::UseRegenerationShield { .. }
+                | YesNoPrompt::UseDamageClearingReplacement { .. }
                 | YesNoPrompt::UseShieldCounter { .. }
                 | YesNoPrompt::ApplyAdditionalCountersNext { .. }
                 | YesNoPrompt::SacrificeToEnter { .. }
@@ -3196,6 +3204,9 @@ mod choice_tests {
                 permanent: object(),
             },
             YesNoPrompt::UseShieldCounter {
+                permanent: object(),
+            },
+            YesNoPrompt::UseDamageClearingReplacement {
                 permanent: object(),
             },
             YesNoPrompt::ApplyAdditionalCountersNext {

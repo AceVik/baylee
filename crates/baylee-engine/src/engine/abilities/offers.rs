@@ -344,6 +344,10 @@ impl<L: CardLookup> Engine<L> {
                 .map(|(index, definition)| (index as u32, *definition))
                 .chain(granted)
             {
+                let Some(ability) = self.activation_offer_definition(player, id, i, &ability)
+                else {
+                    continue;
+                };
                 let ability = &ability;
                 if ability.is_intrinsic_mana_ability()
                     && casting::intrinsic_mana_colors(&self.state, id).is_empty()
@@ -504,7 +508,12 @@ impl<L: CardLookup> Engine<L> {
                     .iter()
                     .enumerate()
                 {
-                    match ability {
+                    let Some(ability) =
+                        self.activation_offer_definition(player, card, i as u32, ability)
+                    else {
+                        continue;
+                    };
+                    match &ability {
                         AbilityDef::Activated {
                             cost,
                             timing,

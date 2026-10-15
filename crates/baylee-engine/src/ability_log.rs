@@ -81,9 +81,13 @@ impl Kind {
             }
             | AbilityDef::ActivatedConditional {
                 mana_ability: true, ..
+            }
+            | AbilityDef::ModalActivated {
+                mana_ability: true, ..
             } => Self::Mana,
             AbilityDef::Activated { .. }
             | AbilityDef::ActivatedConditional { .. }
+            | AbilityDef::ModalActivated { .. }
             | AbilityDef::Loyalty { .. } => Self::Activated,
             AbilityDef::Triggered { .. }
             | AbilityDef::ModalTriggered { .. }

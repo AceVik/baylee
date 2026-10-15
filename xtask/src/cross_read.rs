@@ -79,7 +79,8 @@ impl Shape {
                 // metalcraft mana and a verge land's second colour read as
                 // activations.
                 A::Activated { mana_ability, .. }
-                | A::ActivatedConditional { mana_ability, .. } => {
+                | A::ActivatedConditional { mana_ability, .. }
+                | A::ModalActivated { mana_ability, .. } => {
                     if *mana_ability {
                         out.mana += 1;
                     } else {

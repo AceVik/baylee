@@ -154,6 +154,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         Modifier::ReplacePlayerDamage { .. }
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::ManaAbilitiesCostLife(_)
@@ -1387,6 +1388,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::NextDestructionClearsDamage,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CrewSaddlePowerBonus(2),
@@ -1487,7 +1489,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            138,
+            139,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1558,7 +1560,8 @@ mod tests {
         // replacements (`ReplacePlayerDamage`, `DamageLifeLossFloor`, and
         // `AdditionalCounterPlacement`) modify rules, not characteristics:
         // the rules-only count rises from 90 to 93; locking remains 45.
-        assert_eq!((locking, all.len() - locking), (45, 93));
+        // Pyramids' NextDestructionClearsDamage is another rules-only replacement.
+        assert_eq!((locking, all.len() - locking), (45, 94));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

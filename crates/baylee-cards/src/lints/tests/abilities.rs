@@ -112,7 +112,9 @@ fn mana_abilities_meet_all_current_activation_criteria() {
         for ability in def.abilities.iter().chain(faces) {
             if matches!(
                 ability,
-                AbilityDef::Activated { .. } | AbilityDef::ActivatedConditional { .. }
+                AbilityDef::Activated { .. }
+                    | AbilityDef::ActivatedConditional { .. }
+                    | AbilityDef::ModalActivated { .. }
             ) {
                 seen += 1;
             }

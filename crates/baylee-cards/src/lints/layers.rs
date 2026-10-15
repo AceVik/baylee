@@ -121,6 +121,17 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
         AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             lists.extend(modes.iter().map(|m| (m.effects, true, Door::Printed)));
         }
+        AbilityDef::ModalActivated {
+            modes,
+            mana_ability,
+            ..
+        } => {
+            lists.extend(
+                modes
+                    .iter()
+                    .map(|m| (m.effects, !*mana_ability, Door::Printed)),
+            );
+        }
         AbilityDef::Static(rule) => {
             if let Some((effects, stack)) = granted_list(&rule.modifier) {
                 lists.push((effects, stack, Door::Static));

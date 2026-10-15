@@ -9,6 +9,7 @@ impl<L: CardLookup> Engine<L> {
             ActivationX::Any,
             |ability| match ability {
                 AbilityDef::Activated { x_value, .. }
+                | AbilityDef::ModalActivated { x_value, .. }
                 | AbilityDef::ActivatedConditional { x_value, .. } => x_value,
                 _ => ActivationX::Any,
             },
@@ -117,6 +118,11 @@ impl<L: CardLookup> Engine<L> {
             let (printed, reduction) = match self.activation_definition(source, index) {
                 Some(
                     AbilityDef::Activated {
+                        cost,
+                        cost_reduction,
+                        ..
+                    }
+                    | AbilityDef::ModalActivated {
                         cost,
                         cost_reduction,
                         ..

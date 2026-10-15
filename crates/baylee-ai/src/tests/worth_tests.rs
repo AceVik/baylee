@@ -722,6 +722,35 @@ fn aminatou_does_not_flicker_what_gains_nothing_by_it() {
 
 // --- What the table reads ---------------------------------------------------
 
+#[test]
+fn modal_activation_value_is_unknown_until_a_mode_is_bound() {
+    use baylee_cards_dsl::{Amount, Effect};
+    let v = view(0, &[20, 20], vec![]);
+    let def = baylee_cards_dsl::modal_activated!(
+        baylee_cards_dsl::Cost::TAP,
+        &[baylee_cards_dsl::SpellMode {
+            effects: &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            targets: None,
+            second_targets: None,
+            cost_override: None,
+            additional_cost: None,
+        }]
+    );
+    assert_eq!(
+        agent().activation_worth(
+            &v,
+            Origin {
+                id: obj(1),
+                object: None
+            },
+            &def
+        ),
+        None
+    );
+}
+
 /// How many of the pool's activated and loyalty abilities the table reads,
 /// as `(read, of)`, on an empty board.
 ///
@@ -742,6 +771,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         for face in 0..def.faces.len() {
             for ability in def.abilities_for_face(face) {
                 let effects = match ability {
+                    AbilityDef::ModalActivated {
+                        mana_ability: false,
+                        ..
+                    } => {
+                        // Activation valuation refuses unbound mode semantics.
+                        of += 1;
+                        continue;
+                    }
                     AbilityDef::Activated {
                         effects,
                         mana_ability: false,
@@ -813,7 +850,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // shield counter. None has an empty-board valuation. Cuombajj Witches
     // loses its previously readable first-damage-only row now that both
     // independently chosen target instances are represented faithfully.
-    assert_eq!((read, of), (2521, 3007), "activated/loyalty reader census");
+    // Batch60 adds one modal activation each for Pyramids and Triassic Egg.
+    // Their unbound modes remain unread; Egg's existing hatchling activation
+    // is unchanged. Count both new rows without inventing a combined value.
+    assert_eq!((read, of), (2521, 3009), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -1692,6 +1732,41 @@ fn resumed_batch55_contextual_rows_explain_the_activation_reader_census() {
             reader.effects_worth(&v, origin, effects, Aim::Source, 0),
             None,
             "{name} requires resolution context the empty-board reader does not have",
+        );
+    }
+}
+
+#[test]
+fn batch60_adds_exactly_two_unread_modal_activations() {
+    let v = view(0, &[20, 20], vec![]);
+    let origin = Origin {
+        id: obj(1),
+        object: None,
+    };
+    for name in ["Pyramids", "Triassic Egg"] {
+        let card = baylee_cards::decks::by_name(name).unwrap();
+        let definition = baylee_cards::by_index(card).unwrap();
+        let rows: Vec<_> = (0..definition.faces.len())
+            .flat_map(|face| definition.abilities_for_face(face))
+            .filter(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::ModalActivated {
+                        mana_ability: false,
+                        ..
+                    }
+                )
+            })
+            .collect();
+        assert_eq!(rows.len(), 1, "one new modal activation on {name}");
+        let AbilityDef::ModalActivated { modes, .. } = rows[0] else {
+            unreachable!()
+        };
+        assert_eq!(modes.len(), 2, "choose one of two modes on {name}");
+        assert_eq!(
+            agent().activation_worth(&v, origin, rows[0]),
+            None,
+            "{name}'s unbound modes have no combined activation valuation"
         );
     }
 }

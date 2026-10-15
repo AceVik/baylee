@@ -28,7 +28,8 @@ pub mod tape;
 /// Aladdin's Lamp).
 /// Version 32 carries damage amount replacements, reflection, shield counters
 /// and shield/additional-counter replacement choices.
-pub const PROTOCOL_VERSION: u32 = 32;
+/// Version 33 adds the damage-clearing destruction replacement prompt.
+pub const PROTOCOL_VERSION: u32 = 33;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -222,6 +223,7 @@ mod tests {
     #[test]
     fn a_peer_of_another_protocol_is_told_both_numbers() {
         let newer = PROTOCOL_VERSION + 1;
+        assert!(super::version_refusal("This client", 32).is_some());
         let said = super::version_refusal("This agent", newer).expect("refused");
         assert!(said.starts_with("This agent"), "{said}");
         assert!(said.contains(&newer.to_string()), "{said}");
@@ -305,7 +307,8 @@ mod tests {
         // `ChoicePrompt::DrawReplacement`, variants an older client cannot
         // decode.
         // 32: additional `DamageEffectKind` variants an older client cannot decode.
-        assert_eq!(PROTOCOL_VERSION, 32);
+        // 33: damage-clearing destruction replacement prompt.
+        assert_eq!(PROTOCOL_VERSION, 33);
     }
 
     #[test]

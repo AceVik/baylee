@@ -70,7 +70,9 @@ fn effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [Effect] {
         | AbilityDef::Triggered { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => effects,
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => {
             mode.and_then(|i| modes.get(i)).map_or(&[], |m| m.effects)
         }
         _ => &[],
@@ -134,10 +136,19 @@ impl<L: CardLookup> Engine<L> {
                 ..
             }) => {
                 first = targets;
-                Some((*source, *ability_index, None))
+                Some((
+                    *source,
+                    *ability_index,
+                    self.activation_mode_index(*source, *ability_index)
+                        .map(usize::from),
+                ))
             }
             Some(
                 PlanKind::ActivateAbility {
+                    source,
+                    ability_index,
+                }
+                | PlanKind::ModalActivation {
                     source,
                     ability_index,
                 }
@@ -157,7 +168,12 @@ impl<L: CardLookup> Engine<L> {
                     source,
                     ability_index,
                 },
-            ) => Some((*source, *ability_index, None)),
+            ) => Some((
+                *source,
+                *ability_index,
+                self.activation_mode_index(*source, *ability_index)
+                    .map(usize::from),
+            )),
             Some(PlanKind::Trigger {
                 source,
                 ability_index,
@@ -174,7 +190,8 @@ impl<L: CardLookup> Engine<L> {
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => self.state.object(*on_stack).and_then(|o| {
                 first = &o.targets;
-                o.ability.map(|loc| (loc.source, loc.index, None))
+                o.ability
+                    .map(|loc| (loc.source, loc.index, o.mode_index.map(usize::from)))
             }),
             _ => None,
         };

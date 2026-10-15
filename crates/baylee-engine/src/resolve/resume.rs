@@ -1116,6 +1116,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ManaUnlessPaidColor { .. }
         | AwaitingOp::CounterPlacementChoice
         | AwaitingOp::ShieldCounterChoice
+        | AwaitingOp::DamageClearingChoice
         | AwaitingOp::RegenerationChoice
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }

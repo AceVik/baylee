@@ -1274,6 +1274,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
             Phrase::UseRegenerationShield.text(lang).to_string()
         }
         YesNoPrompt::UseShieldCounter { .. } => Phrase::UseShieldCounter.text(lang).to_string(),
+        YesNoPrompt::UseDamageClearingReplacement { .. } => {
+            Phrase::UseDamageClearingReplacement.text(lang).to_string()
+        }
         YesNoPrompt::ApplyAdditionalCountersNext { additional, .. } => {
             Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
         }

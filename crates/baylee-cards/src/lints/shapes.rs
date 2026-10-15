@@ -96,6 +96,15 @@ pub(super) const fn objects_only(spec: TargetSpec) -> bool {
 /// "target" twice itself (`SpellMode::second_targets`, Archdruid's Charm)
 /// takes both instances, so only a choose-one spell may print one.
 pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
+    if let AbilityDef::ModalActivated { modes, .. } = ability {
+        if modes.is_empty() || modes.len() > usize::from(u8::MAX) {
+            return Some("modal activation has no selectable mode or too many modes");
+        }
+        return modes
+            .iter()
+            .any(|mode| mode.cost_override.is_some() || mode.additional_cost.is_some())
+            .then_some("modal activation gives a mode an unsupported separate cost");
+    }
     let AbilityDef::ModalSpell { modes, choose } = ability else {
         return None;
     };
@@ -307,6 +316,16 @@ pub(super) fn as_granted_activated(
 /// Damage/life riders are permitted; Chromatic Sphere's draw is not.
 pub(super) fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
     match ability {
+        AbilityDef::ModalActivated {
+            cost,
+            modes,
+            mana_ability,
+            ..
+        } => {
+            let actual = crate::dsl::mana_rule::modal_activated_mana_ability(cost, modes);
+            (*mana_ability != actual)
+                .then_some("modal activation's mana flag disagrees with its modes (CR 605.1a)")
+        }
         AbilityDef::Activated {
             cost,
             mana_ability,

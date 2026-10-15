@@ -9,7 +9,11 @@ use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
+mod damage_clearing;
 mod destruction;
+pub(crate) use damage_clearing::{
+    DamageClearingChoices, answer_damage_clearing_choice, damage_clearing_choice,
+};
 mod regeneration;
 mod shield;
 pub(crate) use destruction::destruction_choice;
@@ -742,6 +746,27 @@ fn destroy_with(
     departure: Option<crate::damage_history::BattlefieldDeparture>,
     by_effect: bool,
 ) {
+    destroy_with_replacements(state, id, regeneratable, departure, by_effect, true);
+}
+
+fn destroy_without_damage_clearing(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    regeneratable: bool,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
+    by_effect: bool,
+) {
+    destroy_with_replacements(state, id, regeneratable, departure, by_effect, false);
+}
+
+fn destroy_with_replacements(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    regeneratable: bool,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
+    by_effect: bool,
+    allow_damage_clearing: bool,
+) {
     // Only a permanent is destroyed (CR 701.8a: "move it from the
     // battlefield"). A delayed "destroy that creature" whose creature went
     // back to its owner's hand names a card that stays there.
@@ -775,6 +800,18 @@ fn destroy_with(
             || state
                 .object(id)
                 .is_some_and(|object| object.regeneration_shields > 0));
+    if allow_damage_clearing
+        && damage_clearing::replace_destroy(
+            state,
+            id,
+            regeneration_available,
+            regeneratable,
+            by_effect,
+            departure.as_ref(),
+        )
+    {
+        return;
+    }
     // CR 122.1c: shield counters replace destruction by an effect, never lethal-damage SBAs.
     if by_effect && shield::replace_destroy(state, id, regeneration_available) {
         return;

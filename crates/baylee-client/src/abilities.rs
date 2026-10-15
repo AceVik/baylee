@@ -228,7 +228,9 @@ fn tap_only(view: &PlayerView, object: ObjectId, index: u32) -> bool {
     matches!(
         crate::manasources::ability_at(view, object, index),
         Some(
-            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }
+            AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. }
         ) if cost.mana == ManaCost::ZERO && cost.parts == [CostPart::TapSelf]
     )
 }
@@ -722,6 +724,9 @@ fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
             } | AbilityDef::ActivatedConditional {
                 mana_ability: true,
                 ..
+            } | AbilityDef::ModalActivated {
+                mana_ability: true,
+                ..
             }
         )
     )
@@ -782,6 +787,7 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
     };
     match def {
         AbilityDef::Loyalty { cost, .. } => manapip::loyalty_token(*cost),
+        AbilityDef::ModalActivated { cost, .. } => cost_key_of(cost).unwrap_or_else(unnamed),
         AbilityDef::Activated {
             cost,
             effects,
@@ -1052,9 +1058,9 @@ fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<Strin
 fn cost_key(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
     match crate::manasources::ability_at(view, object, index)? {
         AbilityDef::Loyalty { cost, .. } => Some(manapip::loyalty_token(*cost)),
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost_key_of(cost)
-        }
+        AbilityDef::Activated { cost, .. }
+        | AbilityDef::ActivatedConditional { cost, .. }
+        | AbilityDef::ModalActivated { cost, .. } => cost_key_of(cost),
         _ => None,
     }
 }
@@ -1234,7 +1240,9 @@ pub(crate) fn required_mana_label(
     };
     let cost = match crate::manasources::ability_at(view, option.source.object, index) {
         Some(
-            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+            AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. },
         ) => cost_key_of(cost).unwrap_or_default(),
         _ => String::new(),
     };

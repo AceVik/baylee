@@ -481,9 +481,9 @@ impl HeuristicAgent {
             .abilities_for_face(usize::from(rules.face))
             .iter()
             .filter_map(|ability| match ability {
-                AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
-                    Some(*modes)
-                }
+                AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::ModalTriggered { modes, .. }
+                | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
                 _ => None,
             });
         let only = found.next()?;

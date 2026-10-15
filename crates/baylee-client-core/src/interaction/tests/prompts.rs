@@ -1505,6 +1505,38 @@ fn tapped_entry_counter_choice_names_the_resource_and_amount_in_both_languages()
 }
 
 #[test]
+fn damage_clearing_choice_round_trips_and_names_both_outcomes() {
+    let pending = Pending::YesNo {
+        player: me(),
+        source: None,
+        prompt: YesNoPrompt::UseDamageClearingReplacement { permanent: obj(7) },
+    };
+    let decoded: Pending = serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+    let Pending::YesNo {
+        player,
+        source,
+        prompt,
+    } = &decoded
+    else {
+        panic!("round trip changed the prompt variant");
+    };
+    assert_eq!(*player, me());
+    assert_eq!(*source, None);
+    assert!(
+        matches!(prompt, YesNoPrompt::UseDamageClearingReplacement { permanent } if *permanent == obj(7))
+    );
+    let i = interaction(decoded);
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Replace destruction by removing all marked damage? No uses another applicable replacement."
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Zerstörung durch Entfernen allen markierten Schadens ersetzen? Nein nutzt einen anderen anwendbaren Ersatzeffekt."
+    );
+}
+
+#[test]
 fn regeneration_choice_explains_that_no_preserves_the_shield_and_still_regenerates() {
     let i = interaction(Pending::YesNo {
         player: me(),

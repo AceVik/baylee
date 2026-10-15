@@ -385,9 +385,9 @@ impl HeuristicAgent {
                 def.abilities_for_face(usize::from(face.face))
                     .iter()
                     .any(|ability| match ability {
-                        AbilityDef::Activated { .. } | AbilityDef::ActivatedConditional { .. } => {
-                            !ability.is_mana_ability()
-                        }
+                        AbilityDef::Activated { .. }
+                        | AbilityDef::ActivatedConditional { .. }
+                        | AbilityDef::ModalActivated { .. } => !ability.is_mana_ability(),
                         AbilityDef::Loyalty { .. } => true,
                         _ => false,
                     })

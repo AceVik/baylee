@@ -10,6 +10,8 @@ pub enum AwaitingOp {
     CounterPlacementChoice,
     /// Competing shield-counter and regeneration replacements.
     ShieldCounterChoice,
+    /// Destruction is waiting for its controller to order a damage-clearing replacement.
+    DamageClearingChoice,
     /// A damage source chosen for a redirection or reflection shield.
     DamageShieldSource {
         /// The exact recipients and operation waiting for the choice.

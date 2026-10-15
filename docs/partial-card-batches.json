@@ -3,7 +3,7 @@
   "original_partial_count": 540,
   "completed_before_plan": 284,
   "remaining_at_start": 256,
-  "note": "Mechanism-based work packages; order and boundaries may change with shared prerequisites. Completion requires every printed clause and behavioral validation. Original 540: 508 Implemented, 29 Partial, 3 owner-excluded. Exclusions never count as implementations.",
+  "note": "Mechanism-based work packages; order and boundaries may change with shared prerequisites. Completion requires every printed clause and behavioral validation. Original 540: 511 Implemented, 26 Partial, 3 owner-excluded. Exclusions never count as implementations.",
   "batches": [
     {
       "batch": 39,
@@ -1385,7 +1385,7 @@
     {
       "batch": 60,
       "title": "Attachment and selected object relations",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Remove Enchantments",
@@ -1420,11 +1420,15 @@
         "Remove Enchantments",
         "Enchantment Alteration",
         "Jihad",
-        "Invoke Prejudice"
+        "Invoke Prejudice",
+        "The Abyss",
+        "Pyramids",
+        "Triassic Egg"
       ],
       "partials_lane_notes": [
         "wave 2 (partials lane): Opus engine + Sonnet card/test pairs C and D, Opus-reviewed with mutation, 2026-10-13",
-        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13"
+        "wave 3 (partials lane): Opus engine + Sonnet pair E, Opus-reviewed with mutation; Equinox modal and Arboria putter fixed in the engine, 2026-10-13",
+        "2026-10-15: Sol6.1 authored remaining3cards and22canonicaltests; Astra implemented generic modal activation, event-player targeting and damage-clearing destruction. Independent card/engine reviews approved;4/4 abilities fired,4/4 mutants killed; fullengine7817passed,2ignored,nonefiltered. Integration gates recorded in llm-learnings."
       ]
     },
     {
@@ -1671,9 +1675,9 @@
       "wait for explicit Go before post-card test/build/performance phases or final main integration/push"
     ],
     "authorized_on": "2026-10-15",
-    "note": "Batch57 completed all ten damage/counter cards; Sevinne's Reclamation completed in batch68. All13 current card suites pass66 canonical tests;18 abilities fired and16 distinct whole-ability position mutants were killed (Ojer shares positions across faces). Original progress508 Implemented,29 Partial,3 excluded. Witches and Chain Lightning retain Battle correctness holds. GPT-6.1 Sol owns cards/tests/client/consumers; Astra exclusively owns production engine/DSL. Shared integration gates passed: engine7779, cards145, gamehost300, protocol34, seat262, view44; workspace Clippy and codegen reproducibility green. Stop at537 eligible originals and wait for explicit Go.",
+    "note": "Batch60 completed The Abyss, Pyramids and Triassic Egg:22canonicaltests,4abilityfirings and4distinct whole-ability mutants killed; independent reviews approved; fullengine7817passed,2ignored,nonefiltered. Original progress511 Implemented,26 Partial,3excluded. Consumer suites, seven host AI guards, three client row sweeps, workspace Clippy and codegen reproducibility passed; final acceptance rerun uses Cargo-reported rebuilt executable. Next prepared work: Battle lifecycle to clear Witches/Chain holds; batch62 plan ready. Sol6.1 owns cards/tests/client/consumers; Astra exclusively production engine/DSL. Stop at537eligible originals and wait for explicit Go.",
     "post_rebase_original_cards_complete": 486,
-    "current_original_cards_complete": 508,
-    "remaining_original_partial_cards": 29
+    "current_original_cards_complete": 511,
+    "remaining_original_partial_cards": 26
   }
 }

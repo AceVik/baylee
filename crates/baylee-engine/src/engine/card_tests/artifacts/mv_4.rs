@@ -43,6 +43,7 @@ mod tower_of_champions;
 mod tower_of_eons;
 mod tower_of_fortunes;
 mod tower_of_murmurs;
+mod triassic_egg;
 mod ur_golem_s_eye;
 mod wand_of_the_elements;
 mod weakstone;

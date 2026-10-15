@@ -418,33 +418,40 @@ fn update_intrinsic_mana_summary(
             .iter()
             .filter(|ability| ability.is_mana_ability())
         {
-            let (AbilityDef::Activated { effects, .. }
-            | AbilityDef::ActivatedConditional { effects, .. }) = ability
-            else {
-                continue;
-            };
-            for effect in *effects {
-                if let Effect::AddMana { source, .. } = effect {
-                    match source {
-                        ManaSource::Fixed(color) => keep(*color),
-                        ManaSource::Choice(colors) | ManaSource::ChosenOr(colors) => {
-                            for color in *colors {
-                                keep(*color);
+            let mut read = |effects: &[Effect]| {
+                for effect in effects {
+                    if let Effect::AddMana { source, .. } = effect {
+                        match source {
+                            ManaSource::Fixed(color) => keep(*color),
+                            ManaSource::Choice(colors) | ManaSource::ChosenOr(colors) => {
+                                for color in *colors {
+                                    keep(*color);
+                                }
                             }
-                        }
-                        ManaSource::CommanderIdentity => {
-                            for color in ManaColor::ALL {
-                                keep(color);
+                            ManaSource::CommanderIdentity => {
+                                for color in ManaColor::ALL {
+                                    keep(color);
+                                }
                             }
+                            ManaSource::IntrinsicBasicLandTypes
+                            | ManaSource::ColorsAmong { .. }
+                            | ManaSource::ExiledWithSource
+                            | ManaSource::CircledColors
+                            | ManaSource::LandColor { .. }
+                            | ManaSource::Chosen => {}
                         }
-                        ManaSource::IntrinsicBasicLandTypes
-                        | ManaSource::ColorsAmong { .. }
-                        | ManaSource::ExiledWithSource
-                        | ManaSource::CircledColors
-                        | ManaSource::LandColor { .. }
-                        | ManaSource::Chosen => {}
                     }
                 }
+            };
+            match ability {
+                AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. } => read(effects),
+                AbilityDef::ModalActivated { modes, .. } => {
+                    for mode in *modes {
+                        read(mode.effects);
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -1457,6 +1464,7 @@ fn apply(
         | Modifier::ReplacePlayerDamage { .. }
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::NextDestructionClearsDamage
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
             | Modifier::PreventAllDamageFromIt

@@ -1033,6 +1033,28 @@ pub enum AbilityDef {
         /// one of yours, one of theirs).
         second_targets: Option<crate::effect::TargetReq>,
     },
+    /// An activated ability whose controller chooses exactly one mode during
+    /// announcement, before selecting targets and paying the activation cost.
+    ModalActivated {
+        /// One activation cost shared by all modes.
+        cost: Cost,
+        /// Mode effects and target requirements; mode-specific costs are unsupported.
+        modes: &'static [SpellMode],
+        /// Timing restriction.
+        timing: ActivationTiming,
+        /// Whether the ability meets the mana-ability criteria.
+        mana_ability: bool,
+        /// Zone from which the ability can be activated.
+        zone: ActivationZone,
+        /// Activation precondition, evaluated before announcement.
+        condition: Option<Condition>,
+        /// Per-turn or per-game activation limit.
+        limit: ActivationLimit,
+        /// Printed announcement constraint for X.
+        x_value: ActivationX,
+        /// Generic activation-cost reduction.
+        cost_reduction: Option<crate::cost::CostReduction>,
+    },
     /// A triggered ability with modes: the controller chooses one when it
     /// triggers (Charming Prince, Aether Channeler).
     ModalTriggered {
@@ -1110,6 +1132,12 @@ impl AbilityDef {
     #[must_use]
     pub fn is_mana_ability(&self) -> bool {
         match self {
+            Self::ModalActivated {
+                cost,
+                modes,
+                mana_ability,
+                ..
+            } => *mana_ability && crate::mana_rule::modal_activated_mana_ability(cost, modes),
             Self::Activated {
                 cost,
                 effects,

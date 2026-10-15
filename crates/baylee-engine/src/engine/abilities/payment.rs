@@ -129,6 +129,8 @@ pub(crate) struct ActivationCompletion {
     pub mana_ability: bool,
     pub granted: Option<crate::effects::GrantedAbility>,
     pub second: Option<baylee_cards_dsl::TargetReq>,
+    pub first: Option<baylee_cards_dsl::TargetReq>,
+    pub mode_index: Option<u8>,
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -187,6 +189,7 @@ impl<L: CardLookup> Engine<L> {
     fn cancel_counter_payment(&mut self, rollback: PaymentRollback, player: PlayerId) {
         (*rollback.checkpoint).restore(self);
         self.activation_payment = None;
+        self.activation_mode = None;
         self.pending_plan = None;
         self.activation_cost_choices.clear();
         self.activation_target_players.clear();
@@ -228,6 +231,8 @@ impl<L: CardLookup> Engine<L> {
             mana_ability,
             granted,
             second,
+            first,
+            mode_index,
         } = completion;
         paid.fixed_mana_cost = fixed_mana_cost;
         // The life the Phyrexian symbols were paid with, beside the rest of
@@ -360,6 +365,14 @@ impl<L: CardLookup> Engine<L> {
             } else {
                 self.push_ability_to_stack(player, source, ability_index, targets)
             };
+            if let Some(obj) = self.state.object_mut(ability) {
+                obj.mode_index = mode_index;
+                obj.target_req = first;
+            }
+            if granted.is_some() && mode_index.is_some() {
+                self.synthetic_fx.insert(ability, effects);
+                self.state.capture_linked_references(ability, effects);
+            }
             if let Some(version) = activated_source_version
                 && let Some(obj) = self.state.object_mut(ability)
             {

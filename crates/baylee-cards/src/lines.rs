@@ -158,9 +158,9 @@ pub fn face_modes(
     abilities
         .iter()
         .find_map(|a| match a {
-            AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
-                Some(*modes)
-            }
+            AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::ModalTriggered { modes, .. }
+            | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
             _ => None,
         })
         .unwrap_or(&[])
@@ -373,9 +373,9 @@ pub fn grants_in(
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![*effects],
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
-            modes.iter().map(|m| m.effects).collect()
-        }
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => modes.iter().map(|m| m.effects).collect(),
         // Nothing here resolves through an effect list a card wrote: a
         // keyword the engine synthesises, a cost, a replacement, a choice
         // made as the permanent enters.
@@ -1185,7 +1185,8 @@ mod tests {
                     .iter()
                     .filter_map(|a| match a {
                         AbilityDef::ModalSpell { modes, .. }
-                        | AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
+                        | AbilityDef::ModalTriggered { modes, .. }
+                        | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
                         _ => None,
                     })
                     .collect();

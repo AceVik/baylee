@@ -394,6 +394,7 @@ pub struct Engine<L: CardLookup> {
     /// nothing to buys nothing. It is taken at the top of that function, so
     /// an activation refused after `apply` set it cannot hand it on.
     activation_payment: Option<abilities::ActivationPayment>,
+    activation_mode: Option<abilities::ActivationMode>,
     activation_target_players: Vec<PlayerId>,
     /// The objects named for a pending activation's *cost* (CR 601.2h).
     ///
@@ -808,6 +809,11 @@ enum PlanKind {
         /// The decision the offer interrupted, restored on a refusal.
         resume: Box<Pending>,
     },
+    /// An activation waiting for its single mode before targets or payment.
+    ModalActivation {
+        source: ObjectId,
+        ability_index: u32,
+    },
     /// A modal trigger waiting for its mode choice.
     ModalTrigger {
         /// The source permanent.
@@ -935,6 +941,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice: None,
             loyalty_paid: None,
             activation_payment: None,
+            activation_mode: None,
             activation_target_players: Vec::new(),
             activation_second_targets: None,
             activation_target_choice: targeting::ActivationTargetChoice::default(),
@@ -1269,6 +1276,7 @@ impl<L: CardLookup> Engine<L> {
             .wrapping_add(crate::state::structural_fingerprint(&(
                 &self.activation_target_choice,
                 &self.activation_payment,
+                &self.activation_mode,
             )));
         if let Some(work) = &self.combat_damage {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
@@ -1446,6 +1454,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice,
             loyalty_paid,
             activation_payment,
+            activation_mode,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -1506,7 +1515,7 @@ impl<L: CardLookup> Engine<L> {
             ),
             (
                 "activation_target_players",
-                format!("{activation_target_players:?} {activation_payment:?}"),
+                format!("{activation_target_players:?} {activation_payment:?} {activation_mode:?}"),
             ),
             (
                 "activation_cost_choices",
@@ -1749,7 +1758,8 @@ impl<L: CardLookup> Engine<L> {
             || matches!(
                 self.pending_plan,
                 Some(
-                    PlanKind::ActivateAbility { .. }
+                    PlanKind::ModalActivation { .. }
+                        | PlanKind::ActivateAbility { .. }
                         | PlanKind::ActivateAbilitySecondTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
                         | PlanKind::ChooseActivationGraveyard { .. }

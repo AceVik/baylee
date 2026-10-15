@@ -237,6 +237,7 @@ impl<L: CardLookup> Engine<L> {
             self.queue_end_of_combat_delayed();
         }
         self.state.journal.record(GameEvent::StepChanged {
+            active: self.state.turn.active,
             phase: next_phase,
             step: next_step,
         });

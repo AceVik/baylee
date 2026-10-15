@@ -39,6 +39,7 @@ impl GrantedAbility {
             AbilityDef::Activated { cost, effects, .. }
             | AbilityDef::ActivatedConditional { cost, effects, .. } => (cost, effects),
             AbilityDef::Loyalty { effects, .. } => (Cost::FREE, effects),
+            AbilityDef::ModalActivated { cost, .. } => (cost, &[] as &[_]),
             _ => return None,
         };
         Some(Self {

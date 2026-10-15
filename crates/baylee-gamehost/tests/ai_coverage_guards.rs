@@ -105,7 +105,9 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![effects],
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => {
             modes.iter().map(|mode| mode.effects).collect()
         }
         AbilityDef::Unimplemented
@@ -216,7 +218,9 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                 abilities(def).any(|a| {
                     matches!(
                         a,
-                        AbilityDef::ModalSpell { .. } | AbilityDef::ModalTriggered { .. }
+                        AbilityDef::ModalSpell { .. }
+                            | AbilityDef::ModalTriggered { .. }
+                            | AbilityDef::ModalActivated { .. }
                     )
                 })
             }),
@@ -470,7 +474,8 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             count(|def| {
                 abilities(def).any(|ability| {
                     let (AbilityDef::Activated { cost, .. }
-                    | AbilityDef::ActivatedConditional { cost, .. }) = ability
+                    | AbilityDef::ActivatedConditional { cost, .. }
+                    | AbilityDef::ModalActivated { cost, .. }) = ability
                     else {
                         return false;
                     };
@@ -835,7 +840,8 @@ fn no_pool_face_states_two_mode_lists() {
             let mut lists: Vec<&'static [baylee_cards::dsl::SpellMode]> = Vec::new();
             for ability in def.abilities_for_face(index) {
                 let (AbilityDef::ModalSpell { modes, .. }
-                | AbilityDef::ModalTriggered { modes, .. }) = ability
+                | AbilityDef::ModalTriggered { modes, .. }
+                | AbilityDef::ModalActivated { modes, .. }) = ability
                 else {
                     continue;
                 };

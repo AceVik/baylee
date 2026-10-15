@@ -1471,6 +1471,32 @@ fn identical_delayed_life_loss_offers_name_the_deadline_and_keep_independent_act
 }
 
 #[test]
+fn damage_clearing_menu_distinguishes_the_alternative_replacement() {
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: baylee_engine::choice::YesNoPrompt::UseDamageClearingReplacement {
+            permanent: ObjectId::new(1, 0),
+        },
+        source: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text
+            .contains("remove all marked damage instead of destroying it"),
+        "{}",
+        wake.text
+    );
+    assert!(
+        wake.text
+            .contains("use another applicable destruction replacement"),
+        "{}",
+        wake.text
+    );
+}
+
+#[test]
 fn large_life_payment_names_the_exact_cost_in_the_seat_menu() {
     let (view, log) = board();
     let pending = Pending::YesNo {

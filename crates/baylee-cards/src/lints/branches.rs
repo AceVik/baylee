@@ -111,9 +111,9 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
             target: targets.map(|req| req.spec),
             effects,
         }],
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
-            modal(modes)
-        }
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => modal(modes),
         // Nothing that resolves through an effect list of its own: a
         // keyword the engine synthesises, a cost, a continuous rule, or a
         // choice made as the permanent enters.

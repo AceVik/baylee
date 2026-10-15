@@ -2509,7 +2509,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Pyramids
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[Some(1), Some(2)],
+        alternatives: &[],
+    }],
     // Repentant Blacksmith
     &[FaceLines {
         sentences: 1,
@@ -5142,9 +5149,9 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Triassic Egg
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[Some(0)],
-        modes: &[],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[Some(2), Some(3)],
         alternatives: &[],
     }],
     // Tuknir Deathlock

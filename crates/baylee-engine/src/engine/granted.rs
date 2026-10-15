@@ -87,6 +87,8 @@ pub(super) struct ActivationPayment {
     second: Option<smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>>,
     references: crate::sources::TargetReferences,
     answered: bool,
+    mode: Option<super::abilities::ActivationMode>,
+    target_choice: super::targeting::ActivationTargetChoice,
     x: Option<u32>,
     graveyard: Option<PlayerId>,
     phyrexian: Vec<bool>,
@@ -98,7 +100,7 @@ pub(super) struct ActivationPayment {
     )>,
     pub(super) previous: Option<Box<PaymentWindow>>,
     /// Where the window began, to give back what it made if the
-    /// activation is not completed (CR 732.1).
+    /// activation is not completed (CR 733.1).
     opened: Box<super::WindowStart>,
 }
 impl ActivationPayment {
@@ -116,7 +118,7 @@ impl ActivationPayment {
             &self.references,
         ));
         let b = crate::state::structural_fingerprint(&(
-            self.answered,
+            (self.answered, self.mode, &self.target_choice),
             self.x,
             self.graveyard,
             &self.phyrexian,
@@ -221,6 +223,7 @@ impl<L: CardLookup> Engine<L> {
             self.activation_definition(source, index)
                 .is_none_or(|ability| match ability {
                     baylee_cards_dsl::AbilityDef::Activated { cost, .. }
+                    | baylee_cards_dsl::AbilityDef::ModalActivated { cost, .. }
                     | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, .. } => {
                         cost.parts.iter().any(|part| {
                             matches!(
@@ -284,6 +287,8 @@ impl<L: CardLookup> Engine<L> {
             second: self.activation_second_targets.take(),
             references: std::mem::take(&mut self.activation_target_references),
             answered: std::mem::take(&mut self.activation_targets_answered),
+            mode: self.activation_mode.take(),
+            target_choice: std::mem::take(&mut self.activation_target_choice),
             x: self.activation_x.take(),
             graveyard: self.activation_graveyard.take(),
             phyrexian: std::mem::take(&mut self.activation_phyrexian),
@@ -312,7 +317,7 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         self.mana_window = payment.previous.map(|window| *window);
         // An activation its window leaves short is reversed, and the mana
-        // abilities activated for it with it, as a cast's are (CR 732.1;
+        // abilities activated for it with it, as a cast's are (CR 733.1;
         // CR 602.2b follows CR 601.2h for the payment).
         if self.state.source_identity(payment.source.object) != Some(payment.source)
             || !self.can_pay_mana(
@@ -331,6 +336,8 @@ impl<L: CardLookup> Engine<L> {
         self.activation_second_targets = payment.second;
         self.activation_target_references = payment.references;
         self.activation_targets_answered = payment.answered;
+        self.activation_mode = payment.mode;
+        self.activation_target_choice = payment.target_choice;
         self.activation_x = payment.x;
         self.activation_graveyard = payment.graveyard;
         self.activation_phyrexian = payment.phyrexian;

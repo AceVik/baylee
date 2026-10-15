@@ -84,7 +84,8 @@ pub(crate) fn card_reads_order(card: &CardDef) -> bool {
             .iter()
             .any(|ability| match ability {
                 AbilityDef::Triggered { condition, .. }
-                | AbilityDef::ModalTriggered { condition, .. } => {
+                | AbilityDef::ModalTriggered { condition, .. }
+                | AbilityDef::ModalActivated { condition, .. } => {
                     condition.as_ref().is_some_and(reads_order)
                 }
                 AbilityDef::ActivatedConditional { condition, .. } => reads_order(condition),

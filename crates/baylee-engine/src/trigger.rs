@@ -1358,7 +1358,8 @@ fn event_damage_of(
 /// a draw leaves no object behind to ask.
 fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
     match event {
-        GameEvent::AbilityActivated { player, .. }
+        GameEvent::StepChanged { active: player, .. }
+        | GameEvent::AbilityActivated { player, .. }
         | GameEvent::CardsDrawn { player, .. }
         | GameEvent::SpellCast { player, .. }
         | GameEvent::SpellCopied { player, .. }
@@ -3009,31 +3010,35 @@ fn matches(
         (
             Trigger::StepBeginChosenOpponent { step },
             GameEvent::StepChanged {
-                step: began_step, ..
+                step: began_step,
+                active,
+                ..
             },
         ) => {
             begins_step(state, *began_step, *step)
                 && state
                     .object(source)
                     .and_then(crate::object::GameObject::chosen_opponent)
-                    == Some(state.turn.active)
+                    == Some(*active)
         }
         (
             Trigger::StepBegin { step, whose },
             GameEvent::StepChanged {
-                step: began_step, ..
+                step: began_step,
+                active,
+                ..
             },
         ) => {
             if !begins_step(state, *began_step, *step) {
                 return false;
             }
             match whose {
-                PlayerRel::You => state.turn.active == you,
-                PlayerRel::Opponent => state.is_opponent(state.turn.active, you),
+                PlayerRel::You => *active == you,
+                PlayerRel::Opponent => state.is_opponent(*active, you),
                 // "At the beginning of the upkeep of enchanted land's
                 // controller" (Cursed Land): that controller's step only.
                 PlayerRel::ControllerOfAttached => {
-                    crate::eval::controller_of_attached(state, source) == Some(state.turn.active)
+                    crate::eval::controller_of_attached(state, source) == Some(*active)
                 }
                 _ => true,
             }

@@ -181,6 +181,22 @@ fn read_ability(
                 production,
             );
         }
+        AbilityDef::ModalActivated { cost, modes, .. } => {
+            for mode in *modes {
+                read_effects(
+                    state,
+                    land,
+                    mode.effects,
+                    ProductionContext {
+                        rules: context,
+                        acquisition,
+                        tapped: ability.is_mana_ability()
+                            && cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+                    },
+                    production,
+                );
+            }
+        }
         AbilityDef::Triggered { effects, .. } => {
             read_effects(
                 state,

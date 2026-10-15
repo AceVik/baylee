@@ -79,7 +79,7 @@ fn exiled_during(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<(u
     for entry in engine.state().journal.entries() {
         match entry.event {
             GameEvent::TurnStarted { number, .. } => turn = number,
-            GameEvent::StepChanged { phase, step } => now = Some((phase, step)),
+            GameEvent::StepChanged { phase, step, .. } => now = Some((phase, step)),
             GameEvent::ZoneChanged {
                 object: moved,
                 cause: Cause::PlayerLeft,

@@ -36,8 +36,7 @@ pub(super) struct Checkpoint {
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     loyalty_player_choice: Option<PlayerId>,
     loyalty_paid: Option<crate::object::PaidRecord>,
-    activation_target_choice: targeting::ActivationTargetChoice,
-    activation_payment: Option<abilities::ActivationPayment>,
+    activation: ActivationContinuations,
     activation_target_players: Vec<PlayerId>,
     activation_cost_choices: Vec<Vec<ObjectId>>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
@@ -101,8 +100,9 @@ impl Checkpoint {
             library_action_tops,
             loyalty_player_choice,
             loyalty_paid,
-            activation_target_choice,
-            activation_payment,
+            activation_target_choice: _,
+            activation_payment: _,
+            activation_mode: _,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -151,8 +151,7 @@ impl Checkpoint {
             library_action_tops: library_action_tops.clone(),
             loyalty_player_choice: *loyalty_player_choice,
             loyalty_paid: loyalty_paid.clone(),
-            activation_target_choice: activation_target_choice.clone(),
-            activation_payment: activation_payment.clone(),
+            activation: ActivationContinuations::capture(engine),
             activation_target_players: activation_target_players.clone(),
             activation_cost_choices: activation_cost_choices.clone(),
             activation_second_targets: activation_second_targets.clone(),
@@ -204,8 +203,9 @@ impl Checkpoint {
             library_action_tops,
             loyalty_player_choice,
             loyalty_paid,
-            activation_target_choice,
-            activation_payment,
+            activation_target_choice: _,
+            activation_payment: _,
+            activation_mode: _,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -255,8 +255,6 @@ impl Checkpoint {
         *library_action_tops = self.library_action_tops;
         *loyalty_player_choice = self.loyalty_player_choice;
         *loyalty_paid = self.loyalty_paid;
-        *activation_target_choice = self.activation_target_choice;
-        *activation_payment = self.activation_payment;
         *activation_target_players = self.activation_target_players;
         *activation_cost_choices = self.activation_cost_choices;
         *activation_second_targets = self.activation_second_targets;
@@ -280,6 +278,7 @@ impl Checkpoint {
         *breaking_loop = self.breaking_loop;
         *action_loops = self.action_loops;
         *loops_broken = self.loops_broken;
+        self.activation.restore(engine);
     }
 }
 
@@ -288,4 +287,28 @@ fn clone_without_journal(state: &GameState) -> GameState {
     let mut kept = state.clone();
     drop(std::mem::take(&mut kept.journal));
     kept
+}
+
+/// The activation continuations retained across questions and suspended payment.
+#[derive(Clone)]
+struct ActivationContinuations {
+    target_choice: targeting::ActivationTargetChoice,
+    payment: Option<abilities::ActivationPayment>,
+    mode: Option<abilities::ActivationMode>,
+}
+
+impl ActivationContinuations {
+    fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
+        Self {
+            target_choice: engine.activation_target_choice.clone(),
+            payment: engine.activation_payment.clone(),
+            mode: engine.activation_mode,
+        }
+    }
+
+    fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
+        engine.activation_target_choice = self.target_choice;
+        engine.activation_payment = self.payment;
+        engine.activation_mode = self.mode;
+    }
 }

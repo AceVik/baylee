@@ -28,6 +28,7 @@ mod destruction_order;
 mod draw_replacements;
 mod effects;
 mod mana;
+mod modal_activated;
 mod powerstone;
 mod preparation;
 mod tokens;

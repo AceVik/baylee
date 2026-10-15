@@ -29,6 +29,15 @@ pub(crate) fn uses_links(abilities: impl Into<crate::copiable_abilities::Ability
                 Effect::MarkLandWithCounter { .. } | Effect::ScheduleLinkedCounterCleanup { .. }
             )
         }),
+        AbilityDef::ModalActivated { modes, .. } => modes.iter().any(|mode| {
+            mode.effects.iter().any(|effect| {
+                matches!(
+                    effect,
+                    Effect::MarkLandWithCounter { .. }
+                        | Effect::ScheduleLinkedCounterCleanup { .. }
+                )
+            })
+        }),
         _ => false,
     })
 }

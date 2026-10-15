@@ -211,6 +211,8 @@ pub enum GameEvent {
     },
     /// Phase/step changed.
     StepChanged {
+        /// Active player when this step began.
+        active: PlayerId,
         /// New phase.
         phase: Phase,
         /// New step.

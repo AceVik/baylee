@@ -1032,19 +1032,17 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
             return Flow::Wait(pending);
         }
         if let Some(pending) = crate::sba::destruction_choice(state) {
-            res.awaiting = Some(
-                if matches!(
-                    pending,
-                    Pending::YesNo {
-                        prompt: YesNoPrompt::UseShieldCounter { .. },
-                        ..
-                    }
-                ) {
-                    AwaitingOp::ShieldCounterChoice
-                } else {
-                    AwaitingOp::RegenerationChoice
-                },
-            );
+            res.awaiting = Some(match pending {
+                Pending::YesNo {
+                    prompt: YesNoPrompt::UseShieldCounter { .. },
+                    ..
+                } => AwaitingOp::ShieldCounterChoice,
+                Pending::YesNo {
+                    prompt: YesNoPrompt::UseDamageClearingReplacement { .. },
+                    ..
+                } => AwaitingOp::DamageClearingChoice,
+                _ => AwaitingOp::RegenerationChoice,
+            });
             return Flow::Wait(pending);
         }
         // A draw Island Sanctuary may replace, queued by the instruction

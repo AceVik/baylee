@@ -286,7 +286,7 @@ pub fn ability_target_req(
         | AbilityDef::Loyalty { targets, .. }
         | AbilityDef::Triggered { targets, .. }
         | AbilityDef::SagaChapter { targets, .. } => *targets,
-        AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalTriggered { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
             let idx = mode_index.expect("a modal trigger on the stack has its mode") as usize;
             modes.get(idx).and_then(|m| m.targets)
         }

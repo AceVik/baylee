@@ -25,6 +25,7 @@ pub(super) fn activated_source_matches(
                 matches!(
                     definition,
                     AbilityDef::Activated { .. }
+                        | AbilityDef::ModalActivated { .. }
                         | AbilityDef::ActivatedConditional { .. }
                         | AbilityDef::Loyalty { .. }
                 )

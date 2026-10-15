@@ -248,6 +248,9 @@ fn makes_mana(o: &PublicObject) -> bool {
                 } | AbilityDef::ActivatedConditional {
                     mana_ability: true,
                     ..
+                } | AbilityDef::ModalActivated {
+                    mana_ability: true,
+                    ..
                 }
             )
         })
@@ -347,6 +350,8 @@ impl HeuristicAgent {
                 }
                 Some(net)
             }
+            // This includes modal activations: their chosen mode is not bound
+            // yet, so valuing all modes as if they resolve together is wrong.
             _ => None,
         }
     }

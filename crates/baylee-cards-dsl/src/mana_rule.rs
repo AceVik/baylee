@@ -16,6 +16,18 @@ pub fn activated_mana_ability(cost: &Cost, effects: &[Effect], targets: bool) ->
         && !effects.iter().any(moves_library)
 }
 
+/// Apply the same criteria across the possible modes of one activated ability.
+#[must_use]
+pub fn modal_activated_mana_ability(cost: &Cost, modes: &[crate::SpellMode]) -> bool {
+    !cost.parts.iter().any(cost_moves_library)
+        && modes.iter().all(|mode| {
+            mode.targets.is_none()
+                && mode.second_targets.is_none()
+                && !mode.effects.iter().any(moves_library)
+        })
+        && modes.iter().any(|mode| could_add_mana(mode.effects))
+}
+
 /// Whether an immediate branch could add mana, independently of its targets
 /// or library movements. Triggered mana abilities use the different CR 605.1b.
 #[must_use]
@@ -159,6 +171,17 @@ mod tests {
     use crate::{Amount, ManaColor, PlayerRel};
 
     const ADD: Effect = Effect::mana(ManaColor::Blue, 1);
+
+    #[test]
+    fn modal_mana_classification_checks_all_modes() {
+        static DRAW: &[Effect] = &[Effect::draw(1)];
+        let mut modes = [crate::mode!(&[ADD]), crate::mode!(&[])];
+        assert!(modal_activated_mana_ability(&Cost::FREE, &modes));
+        modes[1].targets = Some(crate::TargetReq::one(crate::TargetSpec::AnyTarget));
+        assert!(!modal_activated_mana_ability(&Cost::FREE, &modes));
+        modes[1] = crate::mode!(DRAW);
+        assert!(!modal_activated_mana_ability(&Cost::FREE, &modes));
+    }
 
     #[test]
     fn direct_library_movement_excludes_printed_and_nested_mana_effects() {

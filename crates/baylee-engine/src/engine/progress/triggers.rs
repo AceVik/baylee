@@ -691,7 +691,15 @@ impl<L: CardLookup> Engine<L> {
                     let (min, max) = req.bounds(0);
                     let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
-                        player: t.controller,
+                        player: match req.chooser {
+                            baylee_cards_dsl::TargetChooser::EventPlayer => t.event_player.expect(
+                                "event-player target chooser requires a captured event player",
+                            ),
+                            baylee_cards_dsl::TargetChooser::Controller => t.controller,
+                            baylee_cards_dsl::TargetChooser::Opponent => {
+                                panic!("opponent chooser requires an activation announcement")
+                            }
+                        },
                         options,
                         player_options,
                         min,

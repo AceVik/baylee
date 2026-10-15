@@ -365,6 +365,13 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
         A::Loyalty { .. } => LineShape::Loyalty,
+        A::ModalActivated { .. } => {
+            if ability.is_mana_ability() {
+                LineShape::Mana
+            } else {
+                LineShape::Activated
+            }
+        }
         // The one trigger that is not a stack entry (CR 605.1b, 605.4a).
         A::Triggered { .. } if ability.is_triggered_mana_ability() => LineShape::Mana,
         A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } | A::Ward { .. } => {
@@ -423,7 +430,8 @@ fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cost> {
                 CopyMod::Grant(modifier) => cost(modifier),
                 CopyMod::GrantAbility(
                     AbilityDef::Activated { cost, .. }
-                    | AbilityDef::ActivatedConditional { cost, .. },
+                    | AbilityDef::ActivatedConditional { cost, .. }
+                    | AbilityDef::ModalActivated { cost, .. },
                 ) => Some(*cost),
                 _ => None,
             })
@@ -850,7 +858,9 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
             mana_ability: true,
             ..
         } => cost_fits(cost, line) && mana_fits(effects, line),
-        A::Activated { cost, .. } | A::ActivatedConditional { cost, .. } => cost_fits(cost, line),
+        A::Activated { cost, .. }
+        | A::ActivatedConditional { cost, .. }
+        | A::ModalActivated { cost, .. } => cost_fits(cost, line),
         A::SagaChapter { chapter, .. } => {
             chapter_head(line).is_some_and(|chapters| chapters.contains(chapter))
         }

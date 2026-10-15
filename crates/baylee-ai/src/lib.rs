@@ -876,6 +876,9 @@ impl HeuristicAgent {
                 // to value. Pick a stable legal order; this is not an estimate
                 // that additional counters always benefit the affected player.
                 | YesNoPrompt::ApplyAdditionalCountersNext { .. }
+                // Clear damage without tapping or removing the permanent from
+                // combat; preserve any competing regeneration/shield resource.
+                | YesNoPrompt::UseDamageClearingReplacement { .. }
                 // A pact: attempt payment; the owed-mana planner handles the
                 // window.
                 | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
@@ -1002,6 +1005,11 @@ pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool 
                 ..
             }
             | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                cost,
+                mana_ability: true,
+                ..
+            }
+            | baylee_cards_dsl::AbilityDef::ModalActivated {
                 cost,
                 mana_ability: true,
                 ..

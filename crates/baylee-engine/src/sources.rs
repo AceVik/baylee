@@ -424,7 +424,9 @@ impl GameState {
                     | A::Triggered { effects, .. }
                     | A::Loyalty { effects, .. }
                     | A::SagaChapter { effects, .. } => work.push((id, *effects)),
-                    A::ModalSpell { modes, .. } | A::ModalTriggered { modes, .. } => {
+                    A::ModalSpell { modes, .. }
+                    | A::ModalTriggered { modes, .. }
+                    | A::ModalActivated { modes, .. } => {
                         for (index, mode) in modes.iter().enumerate() {
                             if obj.mode_index == u8::try_from(index).ok()
                                 || (index < 8 && obj.modes & (1 << index) != 0)

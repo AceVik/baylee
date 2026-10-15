@@ -72,6 +72,9 @@ pub enum DamageAmountReplacement {
 /// What a continuous effect changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modifier {
+    /// Replace the affected incarnation's next destruction by clearing its damage.
+    /// The enclosing continuous effect supplies the lifetime and exact recipient.
+    NextDestructionClearsDamage,
     /// Replace damage to the indicated players from matching sources.
     ReplacePlayerDamage {
         /// Sources whose damage is replaced.
@@ -1036,6 +1039,7 @@ impl Modifier {
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
+            | Self::NextDestructionClearsDamage
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
             | Self::PreventAllDamageFromIt
@@ -1571,6 +1575,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::NextDestructionClearsDamage,
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::PreventAllDamageFromIt,

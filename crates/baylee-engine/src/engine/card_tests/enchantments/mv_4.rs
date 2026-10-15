@@ -27,6 +27,7 @@ mod reckless_assault;
 mod smothering_tithe;
 mod spiritual_asylum;
 mod storm_the_vault;
+mod the_abyss;
 mod treasure_trove;
 mod vance_s_blasting_cannons;
 

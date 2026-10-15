@@ -7,6 +7,7 @@ mod book_of_rass;
 mod hair_strung_koto;
 mod jandor_s_ring;
 mod planar_portal;
+mod pyramids;
 mod rakalite;
 mod sword_of_the_ages;
 

@@ -144,6 +144,9 @@ impl<L: CardLookup> Engine<L> {
         if let Some(cost) = self.loyalty_cost(source, ability_index) {
             return self.start_loyalty_activation(player, source, ability_index, targets, cost);
         }
+        if self.announce_activation_mode(player, source, ability_index)? {
+            return Ok(());
+        }
         let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
             let obj = self
                 .state
@@ -173,7 +176,16 @@ impl<L: CardLookup> Engine<L> {
             {
                 return Err(EngineError::IllegalAction("no basic land mana ability"));
             }
-            match ability {
+            let selected = match ability {
+                AbilityDef::ModalActivated { modes, .. } => {
+                    let mode = self
+                        .activation_mode_index(source, ability_index)
+                        .ok_or(EngineError::IllegalAction("activation mode not chosen"))?;
+                    super::modes::selected_definition(ability, &modes[usize::from(mode)])
+                }
+                _ => *ability,
+            };
+            match &selected {
                 AbilityDef::Activated {
                     cost,
                     effects,
@@ -235,6 +247,14 @@ impl<L: CardLookup> Engine<L> {
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
+        };
+        // Classification belongs to the whole ability, including when the chosen
+        // mode itself does not add mana.
+        let mana_ability = if self.activation_mode.is_some() {
+            self.activation_definition(source, ability_index)
+                .is_some_and(|a| a.is_mana_ability())
+        } else {
+            mana_ability
         };
         // The price, determined once and before anything is paid (CR 601.2f
         // through CR 602.2b): Boseiju's channel discards the very card whose
@@ -771,6 +791,8 @@ impl<L: CardLookup> Engine<L> {
             mana_ability,
             granted,
             second,
+            first,
+            mode_index: self.activation_mode.take().map(|mode| mode.mode),
         };
         let mut work =
             super::payment::CostPayment::new(&self.state, player, source, cost, answers, x);

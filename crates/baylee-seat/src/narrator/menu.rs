@@ -926,6 +926,9 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::ManaAnyType => north_star_words(),
         YesNoPrompt::UseRegenerationShield { .. } => regeneration_words(),
         YesNoPrompt::UseShieldCounter { permanent } => shield_counter_words(table, *permanent),
+        YesNoPrompt::UseDamageClearingReplacement { permanent } => {
+            damage_clearing_words(table, *permanent)
+        }
         YesNoPrompt::ApplyAdditionalCountersNext {
             permanent,
             additional,
@@ -945,11 +948,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {cost}"),
             "don't pay".into(),
         ),
-        YesNoPrompt::PayPact { cost } => (
-            format!("Pay {cost} for the pact? If you don't, you lose the game."),
-            format!("pay {cost}"),
-            "don't pay, and lose the game".into(),
-        ),
+        YesNoPrompt::PayPact { cost } => pact_words(cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
             "pay".into(),
@@ -1016,6 +1015,25 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn pact_words(cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
+    (
+        format!("Pay {cost} for the pact? If you don't, you lose the game."),
+        format!("pay {cost}"),
+        "don't pay, and lose the game".into(),
+    )
+}
+
+fn damage_clearing_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Replace destruction of {} by removing all marked damage?",
+            table.named(permanent)
+        ),
+        "remove all marked damage instead of destroying it".into(),
+        "use another applicable destruction replacement".into(),
+    )
 }
 
 fn miracle_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {

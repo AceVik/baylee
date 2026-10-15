@@ -2757,6 +2757,11 @@ messages! {
         en: "Use a shield counter instead of regeneration?",
         de: "Eine Schildmarke statt Regeneration einsetzen?",
     },
+    /// Choose damage clearing instead of another destruction replacement.
+    UseDamageClearingReplacement {
+        en: "Replace destruction by removing all marked damage? No uses another applicable replacement.",
+        de: "Zerstörung durch Entfernen allen markierten Schadens ersetzen? Nein nutzt einen anderen anwendbaren Ersatzeffekt.",
+    },
     /// Order an additive counter replacement; declining applies another replacement first.
     ApplyAdditionalCountersNext {
         en: "Apply {0} additional counters of each kind next? No applies another replacement first.",

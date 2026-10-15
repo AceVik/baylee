@@ -496,7 +496,10 @@ impl<L: CardLookup> Engine<L> {
                         | AbilityDef::Loyalty { effects, .. }
                         | AbilityDef::SagaChapter { effects, .. },
                     ) => *effects,
-                    Some(AbilityDef::ModalTriggered { modes, .. }) => {
+                    Some(
+                        AbilityDef::ModalTriggered { modes, .. }
+                        | AbilityDef::ModalActivated { modes, .. },
+                    ) => {
                         // `expect` and not "mode 0 if nobody said": the mode
                         // is announced as the ability is put on the stack
                         // (CR 603.3c), so an ability that reached resolution

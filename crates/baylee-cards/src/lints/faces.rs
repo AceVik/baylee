@@ -90,9 +90,9 @@ pub(super) fn mana_symbol_colors(effect: &Effect) -> ColorSet {
 /// and so has no color to find.
 pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
     let cost: ManaCost = match ability {
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost.mana
-        }
+        AbilityDef::Activated { cost, .. }
+        | AbilityDef::ActivatedConditional { cost, .. }
+        | AbilityDef::ModalActivated { cost, .. } => cost.mana,
         AbilityDef::Echo { cost } | AbilityDef::Suspend { cost, .. } => *cost,
         AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => modes
             .iter()

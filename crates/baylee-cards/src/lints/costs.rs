@@ -137,7 +137,9 @@ pub(super) fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
 /// to catch, and it would be blind to a second reader drifting from it.
 pub(super) fn costs(ability: &AbilityDef) -> Vec<Cost> {
     let own = match ability {
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+        AbilityDef::Activated { cost, .. }
+        | AbilityDef::ActivatedConditional { cost, .. }
+        | AbilityDef::ModalActivated { cost, .. } => {
             vec![*cost]
         }
         _ => Vec::new(),

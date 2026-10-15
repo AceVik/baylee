@@ -83,7 +83,10 @@ impl<L: CardLookup> Engine<L> {
         // lookup. Modal triggers bind theirs when their selected mode is stored.
         let target_req = if matches!(
             abilities.get(ability_index as usize),
-            Some(baylee_cards_dsl::AbilityDef::ModalTriggered { .. })
+            Some(
+                baylee_cards_dsl::AbilityDef::ModalTriggered { .. }
+                    | baylee_cards_dsl::AbilityDef::ModalActivated { .. }
+            )
         ) {
             None
         } else {

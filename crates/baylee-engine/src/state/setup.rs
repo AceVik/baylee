@@ -69,6 +69,7 @@ impl GameState {
             sba_legend_decisions: Vec::new(),
             regeneration_choices: crate::sba::RegenerationChoices::default(),
             shield_choices: crate::sba::ShieldChoices::default(),
+            damage_clearing_choices: crate::sba::DamageClearingChoices::default(),
             counter_choices: crate::replacement::counter_order::CounterChoices::default(),
             delayed: Vec::new(),
             counter_links: Vec::new(),

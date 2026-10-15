@@ -1048,6 +1048,8 @@ pub struct GameState {
     pub(crate) regeneration_choices: crate::sba::RegenerationChoices,
     /// Shield-counter replacement choices awaiting the affected controller.
     pub(crate) shield_choices: crate::sba::ShieldChoices,
+    /// Pending choices between damage clearing and other destruction replacements.
+    pub(crate) damage_clearing_choices: crate::sba::DamageClearingChoices,
     /// Counter-placement replacements awaiting their affected controller's order.
     pub(crate) counter_choices: crate::replacement::counter_order::CounterChoices,
     /// Seats in turn order.
@@ -1519,6 +1521,7 @@ impl GameState {
             sba_legend_decisions,
             regeneration_choices,
             shield_choices,
+            damage_clearing_choices,
             counter_choices,
             players,
             turn,
@@ -1620,6 +1623,10 @@ impl GameState {
                 format!("{regeneration_choices:?}"),
             ),
             ("state.shield_choices", format!("{shield_choices:?}")),
+            (
+                "state.damage_clearing_choices",
+                format!("{damage_clearing_choices:?}"),
+            ),
             ("state.counter_choices", format!("{counter_choices:?}")),
             ("state.players", format!("{players:?}")),
             ("state.turn", format!("{turn:?}")),

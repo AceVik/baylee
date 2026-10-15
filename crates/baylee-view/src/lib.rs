@@ -229,7 +229,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 79 adds shield counters, damage amount replacement/reflection
 /// choices, and shield/additional-counter replacement prompts. Older readers
 /// cannot decode these new counter and imported engine choice variants.
-pub const VIEW_VERSION: u32 = 79;
+/// Version 80 adds the imported damage-clearing destruction replacement prompt.
+pub const VIEW_VERSION: u32 = 80;
 
 // ------------------------------------------------------------------- targets
 

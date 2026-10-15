@@ -4,6 +4,25 @@ use baylee_cards_dsl::filter::Filter;
 use baylee_cards_dsl::loyalty;
 
 #[test]
+fn modal_activation_keeps_its_shared_cost_and_refuses_a_different_cost() {
+    let ability = baylee_cards_dsl::modal_activated!(
+        baylee_cards_dsl::cost!("{1}", TapSelf),
+        &[SpellMode {
+            effects: &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            targets: None,
+            second_targets: None,
+            cost_override: None,
+            additional_cost: None,
+        }]
+    );
+    assert_eq!(ability_shape(&ability), LineShape::Activated);
+    assert!(content_fits(&ability, "{1}, {T}: Choose one —"));
+    assert!(!content_fits(&ability, "{2}, {T}: Choose one —"));
+}
+
+#[test]
 fn crew_granted_by_a_type_change_keeps_its_printed_line_and_number() {
     use baylee_cards_dsl::{Modifier, cost, static_ability};
     let grant = static_ability!(

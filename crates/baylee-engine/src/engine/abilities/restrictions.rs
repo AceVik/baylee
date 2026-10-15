@@ -30,7 +30,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Narrowed here, where the offer is built, because `apply` refuses any
     /// activation the offer does not hold: one probe read from both sides,
-    /// for the reason [`Engine::ability_has_a_target`] gives. Every door
+    /// for the reason [`Engine::ability_has_targets`] gives. Every door
     /// onto `legal.abilities` is covered by it, printed, loyalty, granted and
     /// a card's in hand alike. What stays is what the sentence does not
     /// reach: a mana ability (CR 605.1a), turning a permanent face up and
@@ -218,7 +218,12 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|(_, list)| list.abilities.get(index as usize).copied());
         frozen
             .or_else(|| self.activation_definition(source, index))
-            .is_some_and(|definition| eval::target_domain::ability_walls(&definition, None))
+            .is_some_and(|definition| {
+                eval::target_domain::ability_walls(
+                    &definition,
+                    self.activation_mode_index(source, index),
+                )
+            })
     }
 
     /// Effective words captured for an activation, or live words before it starts.
@@ -280,17 +285,29 @@ impl<L: CardLookup> Engine<L> {
         first: Option<baylee_cards_dsl::TargetReq>,
         second: Option<baylee_cards_dsl::TargetReq>,
     ) -> bool {
-        if !self.ability_has_a_target(player, source, ability_index, first) {
+        let wall_only = eval::target_domain::walls(first, second);
+        if !self.ability_has_target_in_domain(player, source, ability_index, first, wall_only) {
             return false;
         }
         let (Some(first), Some(second_req)) = (first, second) else {
-            return self.ability_has_a_target(player, source, ability_index, second);
+            return self.ability_has_target_in_domain(
+                player,
+                source,
+                ability_index,
+                second,
+                wall_only,
+            );
         };
         if second_req.min == 0 || !crate::casting::spec_reads_reference(second_req.spec) {
-            return self.ability_has_a_target(player, source, ability_index, second);
+            return self.ability_has_target_in_domain(
+                player,
+                source,
+                ability_index,
+                second,
+                wall_only,
+            );
         }
         let context = self.ability_rule_context(source, ability_index);
-        let wall_only = self.activation_wall_only(source, ability_index);
         eval::target_options_in_domain(&first.spec, &self.state, player, context, None, wall_only)
             .into_iter()
             .any(|reference| {
@@ -310,16 +327,20 @@ impl<L: CardLookup> Engine<L> {
             })
     }
 
-    pub(super) fn ability_has_a_target(
+    fn ability_has_target_in_domain(
         &self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: Option<baylee_cards_dsl::TargetReq>,
+        wall_only: bool,
     ) -> bool {
         let Some(req) = targets else {
             return true;
         };
+        if req.chooser == baylee_cards_dsl::TargetChooser::EventPlayer {
+            return false;
+        }
         if req.chooser == baylee_cards_dsl::TargetChooser::Opponent
             && self.opponents_in_turn_order(player).is_empty()
         {
@@ -344,7 +365,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             self.ability_rule_context(source, ability_index),
             None,
-            self.activation_wall_only(source, ability_index),
+            wall_only,
         )
         .len();
         let players = eval::target_player_options(&self.state, &req.spec, player).len();
@@ -359,7 +380,7 @@ impl<L: CardLookup> Engine<L> {
     /// the table but Karn's controller's.
     ///
     /// One probe read from both sides, for the reason
-    /// [`Engine::ability_has_a_target`] gives. The lock lived only in `apply`,
+    /// [`Engine::ability_has_targets`] gives. The lock lived only in `apply`,
     /// which is invisible while the walker is yours — the abilities it stops
     /// are on the *other* seat's board, and that seat was still being offered
     /// every one of them.

@@ -367,6 +367,9 @@ impl<L: CardLookup> Engine<L> {
             }
             for ability in object.abilities(&self.lookup) {
                 match ability {
+                    AbilityDef::ModalActivated { .. } if ability.is_mana_ability() => {
+                        return true;
+                    }
                     AbilityDef::Activated {
                         cost,
                         effects,

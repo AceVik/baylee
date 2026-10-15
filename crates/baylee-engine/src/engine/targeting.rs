@@ -1,4 +1,6 @@
 //! Explicit shortcuts over an existing sequence of target decisions.
+#[cfg(test)]
+mod event_player_tests;
 use super::{
     CardLookup, Engine, EngineError, ObjectId, Pending, PerOpponent, PlanKind, PlayerAction,
     PlayerId, SmallVec,
@@ -25,6 +27,7 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
                 .as_ref()
                 .map(|v| (v.printed, v.acquisition, &v.abilities))
         && a.controller == b.controller
+        && a.event_player == b.event_player
         && a.chosen_mode == b.chosen_mode
         && a.implicit_target == b.implicit_target
         && !a.once_per_turn
@@ -159,7 +162,25 @@ impl<L: CardLookup> Engine<L> {
             return false;
         };
         req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
+        let event_player = obj.riders.iter().find_map(|rider| match rider {
+            crate::object::Rider::EventPlayer(player) => Some(*player),
+            _ => None,
+        });
+        if let (baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter), Some(player)) =
+            (req.spec, event_player)
+        {
+            req.spec = baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player);
+        }
         let controller = obj.controller;
+        let chooser = match req.chooser {
+            baylee_cards_dsl::TargetChooser::Controller => controller,
+            baylee_cards_dsl::TargetChooser::EventPlayer => {
+                event_player.expect("event-player target chooser requires a captured event player")
+            }
+            baylee_cards_dsl::TargetChooser::Opponent => {
+                panic!("opponent chooser requires an activation announcement")
+            }
+        };
         let reference = obj
             .targets
             .first()
@@ -187,7 +208,7 @@ impl<L: CardLookup> Engine<L> {
         let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
         self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
         self.pending = Pending::ChooseTargets {
-            player: controller,
+            player: chooser,
             options,
             player_options,
             min,
@@ -377,6 +398,7 @@ mod tests {
         });
         let from = engine.state.journal.last_seq();
         engine.state.journal.record(GameEvent::StepChanged {
+            active: engine.state.turn.active,
             phase: crate::turn::Phase::Beginning,
             step: crate::turn::Step::Upkeep,
         });
@@ -549,8 +571,14 @@ impl<L: CardLookup> Engine<L> {
         controller: PlayerId,
         plan: PlanKind,
     ) -> Result<Option<PlayerId>, EngineError> {
-        if req.chooser == baylee_cards_dsl::TargetChooser::Controller {
-            return Ok(Some(controller));
+        match req.chooser {
+            baylee_cards_dsl::TargetChooser::Controller => return Ok(Some(controller)),
+            baylee_cards_dsl::TargetChooser::EventPlayer => {
+                return Err(EngineError::IllegalAction(
+                    "an activation has no triggering event player",
+                ));
+            }
+            baylee_cards_dsl::TargetChooser::Opponent => {}
         }
         if let Some(opponent) = self.activation_target_choice.opponent {
             return Ok(Some(opponent));

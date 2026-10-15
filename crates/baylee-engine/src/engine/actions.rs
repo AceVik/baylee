@@ -127,7 +127,8 @@ impl<L: CardLookup> Engine<L> {
             self.pending,
             Pending::YesNo {
                 prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. }
-                    | crate::choice::YesNoPrompt::UseShieldCounter { .. },
+                    | crate::choice::YesNoPrompt::UseShieldCounter { .. }
+                    | crate::choice::YesNoPrompt::UseDamageClearingReplacement { .. },
                 ..
             }
         ) || (crate::replacement::counter_order::has_pending(&self.state)
@@ -143,6 +144,10 @@ impl<L: CardLookup> Engine<L> {
                 unreachable!("validated yes/no")
             };
             match self.pending {
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::UseDamageClearingReplacement { .. },
+                    ..
+                } => crate::sba::answer_damage_clearing_choice(&mut self.state, use_shield),
                 Pending::YesNo {
                     prompt: crate::choice::YesNoPrompt::UseShieldCounter { .. },
                     ..
@@ -402,6 +407,29 @@ impl<L: CardLookup> Engine<L> {
                 // names, and one fault was hiding the other.
                 let plan = self.pending_plan.take();
                 match plan {
+                    Some(PlanKind::ModalActivation {
+                        source,
+                        ability_index,
+                    }) => {
+                        let CastModeKind::Mode(mode) = kind else {
+                            return Err(EngineError::IllegalAction("not an activated mode"));
+                        };
+                        self.activation_mode = Some(super::abilities::ActivationMode {
+                            source: self
+                                .state
+                                .source_identity(source)
+                                .ok_or(EngineError::IllegalAction("activation source left"))?,
+                            ability_index,
+                            mode: u8::try_from(mode)
+                                .map_err(|_| EngineError::IllegalAction("invalid mode"))?,
+                        });
+                        return self.start_activation(
+                            player,
+                            source,
+                            ability_index,
+                            SmallVec::new(),
+                        );
+                    }
                     // MDFC land-face choice (pathways).
                     Some(PlanKind::PlayLandFace { card }) => {
                         let def = self
@@ -781,6 +809,7 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_phyrexian.clear();
                 self.activation_second_targets = None;
                 self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
+                self.activation_mode = None;
                 self.activation_target_references = crate::sources::TargetReferences::default();
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
@@ -1073,7 +1102,8 @@ impl<L: CardLookup> Engine<L> {
                             // put it beyond that gate.
                             return Ok(());
                         }
-                        let controller = self.state.object(source).map_or(player, |o| o.controller);
+                        let controller =
+                            queued.as_ref().map_or(player, |trigger| trigger.controller);
                         if let Some(t) = queued.as_ref() {
                             self.hand_over_trigger_abilities(t);
                         }
@@ -1128,7 +1158,7 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::DrawOffer { .. } => {
                         unreachable!("draw offers are answered via YesNo")
                     }
-                    PlanKind::ModalTrigger { .. } => {
+                    PlanKind::ModalTrigger { .. } | PlanKind::ModalActivation { .. } => {
                         unreachable!("modal-trigger plans are answered via ChooseMode")
                     }
                     PlanKind::CopyOnEnter {
@@ -2193,7 +2223,7 @@ impl<L: CardLookup> Engine<L> {
     /// with nothing behind it, and the next answer to it panicked the engine
     /// ("target plan set"), or reached for a resolution that was never there.
     /// An activation that can't legally be completed is reversed and the
-    /// player who had priority keeps it (CR 732.1, CR 732.2), so that is what
+    /// player who had priority keeps it (CR 733.1, CR 733.2), so that is what
     /// happens: the activation's answers so far are dropped, nothing reaches
     /// the stack, and its activator is asked for priority again. The answer
     /// itself is accepted, because it was a legal one and it did end the
@@ -2208,6 +2238,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_phyrexian.clear();
         self.activation_second_targets = None;
         self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
+        self.activation_mode = None;
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.activation_targets_answered = false;
         self.activation_target_players.clear();

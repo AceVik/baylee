@@ -73,6 +73,7 @@ fn graveyard_trigger_zone_uses_the_cards_owner_and_only_its_graveyard() {
             state.turn.active = active;
             let from = state.journal.len() as u64;
             state.journal.record(GameEvent::StepChanged {
+                active,
                 phase: crate::turn::Phase::Beginning,
                 step: crate::turn::Step::Upkeep,
             });
@@ -178,6 +179,7 @@ fn an_upkeep_of_the_enchanted_permanents_controller_is_theirs_alone() {
     let aura = permanent(&mut state, me(), "Cursed Land");
     state.object_mut(aura).expect("just made").attached_to = Some(land);
     let upkeep = GameEvent::StepChanged {
+        active: them(),
         phase: crate::turn::Phase::Beginning,
         step: crate::turn::Step::Upkeep,
     };
@@ -194,7 +196,18 @@ fn an_upkeep_of_the_enchanted_permanents_controller_is_theirs_alone() {
     );
     state.turn.active = me();
     assert_eq!(
-        hits(&cursed, &upkeep, &[], &state, aura, me()),
+        hits(
+            &cursed,
+            &GameEvent::StepChanged {
+                active: me(),
+                phase: crate::turn::Phase::Beginning,
+                step: crate::turn::Step::Upkeep
+            },
+            &[],
+            &state,
+            aura,
+            me()
+        ),
         0,
         "not the Aura controller's own"
     );

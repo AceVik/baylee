@@ -4,6 +4,7 @@
 use super::*;
 
 mod arrival_history;
+mod destruction;
 mod mana;
 
 impl GameState {
@@ -32,6 +33,7 @@ impl GameState {
             sba_legend_decisions,
             regeneration_choices,
             shield_choices,
+            damage_clearing_choices,
             counter_choices,
             players,
             turn,
@@ -136,6 +138,7 @@ impl GameState {
         sba_legend_decisions.hash(&mut h);
         regeneration_choices.hash(&mut h);
         shield_choices.hash(&mut h);
+        destruction::hash_choices(&mut h, damage_clearing_choices);
         counter_choices.hash(&mut h);
         hash_effects(&mut h, effects);
         text_changes.hash(&mut h);
@@ -181,17 +184,7 @@ impl GameState {
         ltb_versions.hash(&mut h);
         damage_deaths.len().hash(&mut h);
         for death in damage_deaths {
-            death.seq.hash(&mut h);
-            hash_object(&mut h, &death.victim);
-            hash_characteristics(&mut h, death.victim.characteristics());
-            death.sources.len().hash(&mut h);
-            for observer in &death.sources {
-                hash_object(&mut h, &observer.object);
-                hash_characteristics(&mut h, observer.object.characteristics());
-                observer.grants.hash(&mut h);
-                observer.text.hash(&mut h);
-                observer.times.hash(&mut h);
-            }
+            destruction::hash_death(&mut h, death);
         }
         pending_miracle.hash(&mut h);
         draws_to_offer.hash(&mut h);

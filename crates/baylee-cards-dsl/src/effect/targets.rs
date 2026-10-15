@@ -235,13 +235,15 @@ pub enum ColorSubject {
     Attached,
 }
 
-/// Who chooses an activated ability's targets without changing its controller.
+/// Who chooses targets without changing the spell or ability's controller.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum TargetChooser {
     /// The spell or ability's controller chooses.
     Controller,
     /// An opponent chosen by the controller chooses.
     Opponent,
+    /// The player captured by the triggering event chooses this trigger's targets.
+    EventPlayer,
 }
 
 /// How many targets an ability/spell requires.
@@ -249,7 +251,7 @@ pub enum TargetChooser {
 pub struct TargetReq {
     /// What may be targeted.
     pub spec: TargetSpec,
-    /// Who makes an activated ability's target choice; other abilities use the controller.
+    /// Who chooses targets; event-player selection belongs to triggered abilities.
     pub chooser: TargetChooser,
     /// Minimum number of targets (0 = may decline).
     pub min: u8,
@@ -266,6 +268,13 @@ impl TargetReq {
     #[must_use]
     pub const fn chosen_by_opponent(mut self) -> Self {
         self.chooser = TargetChooser::Opponent;
+        self
+    }
+
+    /// Have the captured event player choose this triggered ability's targets.
+    #[must_use]
+    pub const fn chosen_by_event_player(mut self) -> Self {
+        self.chooser = TargetChooser::EventPlayer;
         self
     }
 
