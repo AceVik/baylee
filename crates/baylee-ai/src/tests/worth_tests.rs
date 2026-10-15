@@ -738,7 +738,6 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         object: None,
     };
     let (mut read, mut of) = (0usize, 0usize);
-    let (mut generated_read, mut generated_of) = (0usize, 0usize);
     for def in baylee_cards::all() {
         for face in 0..def.faces.len() {
             for ability in def.abilities_for_face(face) {
@@ -757,14 +756,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
                     _ => continue,
                 };
                 of += 1;
-                let generated = def.coverage == baylee_cards::dsl::Coverage::Generated;
-                generated_of += usize::from(generated);
                 if agent()
                     .effects_worth(&v, origin, effects, Aim::Source, 0)
                     .is_some()
                 {
                     read += 1;
-                    generated_read += usize::from(generated);
                 }
             }
         }
@@ -793,24 +789,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Wave 3 of the partials lane (pairs E and F, 2026-10-13) adds four
     // activations and two read rows on top. Wave 4's Aladdin's Lamp adds one
     // activation whose worth (a better next draw) the table does not read.
-    assert_eq!(
-        (read - generated_read, of - generated_of),
-        (1034, 1311),
-        "existing activated/loyalty reader census"
-    );
-    // Corpus stage 2: 1995 Generated cards carry 784 activations, 645 readable.
-    // The 1495 additions contribute 579 rows, 476 readable; existing rows
-    // remain pinned separately and no reader implementation changed.
-    // Keep the original population independently pinned: new cards cannot
-    // compensate for a lost reader row among the existing cards.
-    // Full corpus (2026-10-14): the rest of the generated cards bring the
-    // Generated population to 1688 activations, 1487 readable; the existing
-    // census above is unchanged, so no reader row was lost.
-    assert_eq!(
-        (generated_read, generated_of),
-        (1487, 1688),
-        "generated activated/loyalty reader census"
-    );
+    // One census over the whole pool (15.10.2026). Until then it was split
+    // into the Generated cards and the rest, but a card test moves a card
+    // from one to the other (codegen promotes it), so each test landing
+    // broke both pins without any reader change. The total does not move
+    // when a card is promoted and still moves for every row a reader gains
+    // or loses: the full corpus brought it to 2999 activations, 2521 read
+    // (the old split was 1034/1311 + 1487/1688).
+    assert_eq!((read, of), (2521, 2999), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
