@@ -15,7 +15,7 @@ card!(
     index = index::PRYING_BLADE,
     oracle_id = "5fe86083-1009-4de2-b186-f817ad1cc4e4",
     scryfall_id = "ad45720e-2870-414d-8119-8e48c5600d3b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prying Blade",
         mana_cost = mana!("{1}"),

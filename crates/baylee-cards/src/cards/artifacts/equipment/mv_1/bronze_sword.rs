@@ -11,7 +11,7 @@ card!(
     index = index::BRONZE_SWORD,
     oracle_id = "14691783-1246-45ed-a439-c86d7b5eef62",
     scryfall_id = "0b33162d-8d8f-4312-b31e-04ce86e3b914",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bronze Sword",
         mana_cost = mana!("{1}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "c56ea5ce-c8de-46c2-a8dd-bdd41467a28c",
     scryfall_id = "5033a7b0-39b0-4c49-b332-7ea62d85455d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enchanted Evening",
         mana_cost = mana!("{3}{W/U}{W/U}"),

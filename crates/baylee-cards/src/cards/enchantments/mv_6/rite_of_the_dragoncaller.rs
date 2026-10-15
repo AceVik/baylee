@@ -16,7 +16,7 @@ card!(
     oracle_id = "5097f4e6-50af-4641-909f-db44abf0ce32",
     scryfall_id = "673e4561-8dfd-46db-b492-878009666ac7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rite of the Dragoncaller",
         mana_cost = mana!("{4}{R}{R}"),

@@ -11,7 +11,7 @@ card!(
     index = index::COLOSSUS_HAMMER,
     oracle_id = "8ec03b88-8d3a-4a32-8b7c-7da59b0c03d0",
     scryfall_id = "897a134e-7e61-4fe1-bbae-23ef1fe5c0cf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossus Hammer",
         mana_cost = mana!("{1}"),

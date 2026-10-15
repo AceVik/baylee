@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e2539ff7-2b7d-47e3-bd77-3138a6c42d2b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Godsire",
         mana_cost = mana!("{4}{R}{G}{G}{W}"),

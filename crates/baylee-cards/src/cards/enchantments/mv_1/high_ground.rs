@@ -10,7 +10,7 @@ card!(
     oracle_id = "b59053d5-b5f2-44aa-a29c-7f3908d86577",
     scryfall_id = "b79b3153-8874-458d-8e7e-cf97c6c1887c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "High Ground",
         mana_cost = mana!("{W}"),

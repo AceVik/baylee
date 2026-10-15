@@ -10,7 +10,7 @@ card!(
     index = index::CHRONOMATON,
     oracle_id = "610f25b0-770f-457a-b0eb-6deb832f71d4",
     scryfall_id = "787b6916-3fce-41dd-ab52-f17546fd04ed",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chronomaton",
         mana_cost = mana!("{1}"),

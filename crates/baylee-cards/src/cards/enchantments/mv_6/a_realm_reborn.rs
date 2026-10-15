@@ -10,7 +10,7 @@ card!(
     oracle_id = "fd230ab5-874e-4827-9b5c-6d39d079cee6",
     scryfall_id = "d1af74e4-38d5-44b5-85e1-4d13f6970453",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "A Realm Reborn",
         mana_cost = mana!("{4}{G}{G}"),

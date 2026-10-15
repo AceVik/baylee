@@ -12,7 +12,7 @@ card!(
     index = index::WELL_WORN_SPATULA,
     oracle_id = "3cc333a1-c854-4b7c-8002-910e48222371",
     scryfall_id = "659b687f-4068-496f-81b2-7b606bf07ec1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Well-Worn Spatula",
         mana_cost = mana!("{1}"),

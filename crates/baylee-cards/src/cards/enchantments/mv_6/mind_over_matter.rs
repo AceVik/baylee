@@ -12,7 +12,7 @@ card!(
     oracle_id = "656afde2-cdf3-4907-a0fc-7ac93f5d3e03",
     scryfall_id = "6e091dd6-149f-46ea-bae0-224e79e3aacb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Over Matter",
         mana_cost = mana!("{2}{U}{U}{U}{U}"),

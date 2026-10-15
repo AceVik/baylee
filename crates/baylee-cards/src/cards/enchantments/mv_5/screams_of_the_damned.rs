@@ -10,7 +10,7 @@ card!(
     oracle_id = "831bb507-aaf0-4e6a-98d9-f010f96aff96",
     scryfall_id = "66cc53cf-13eb-4028-944d-a670ad30dbca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screams of the Damned",
         mana_cost = mana!("{3}{B}{B}"),

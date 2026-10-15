@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hellkite Overlord",
         mana_cost = mana!("{4}{B}{R}{R}{G}"),

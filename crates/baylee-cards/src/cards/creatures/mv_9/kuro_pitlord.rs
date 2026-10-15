@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e1f9531a-7201-4dfc-beb1-4128ec41728c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kuro, Pitlord",
         mana_cost = mana!("{6}{B}{B}{B}"),

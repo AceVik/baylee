@@ -12,7 +12,7 @@ card!(
     oracle_id = "7fb6f960-38f6-45fa-bfec-d43fc174daa7",
     scryfall_id = "a8e85cd4-c116-42e2-a94b-2c04b06c4e2b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Font of Fertility",
         mana_cost = mana!("{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a9d329ad-6b19-4aa7-a53f-38c7b76c4c96",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cogwork Wrestler",
         mana_cost = mana!("{U}"),

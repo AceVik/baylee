@@ -17,7 +17,7 @@ card!(
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroma, Angel of Wrath",
         mana_cost = mana!("{5}{W}{W}{W}"),

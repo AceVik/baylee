@@ -11,7 +11,7 @@ card!(
     oracle_id = "cc59e28a-eda3-468c-a31b-73e4b615f953",
     scryfall_id = "088f00a5-95b5-4892-9572-9e022b0eb01f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodfire Colossus",
         mana_cost = mana!("{6}{R}{R}"),

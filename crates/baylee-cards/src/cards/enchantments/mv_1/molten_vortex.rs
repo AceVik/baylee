@@ -10,7 +10,7 @@ card!(
     oracle_id = "da5ee877-143e-4f53-ad20-1bc527a8fff8",
     scryfall_id = "d99fd073-c249-4cd2-9d71-be417c88c493",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten Vortex",
         mana_cost = mana!("{R}"),

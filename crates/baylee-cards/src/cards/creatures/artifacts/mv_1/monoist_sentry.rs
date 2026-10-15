@@ -12,7 +12,7 @@ card!(
     scryfall_id = "acc503e2-5c3a-4200-beb0-7d193d6c869e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monoist Sentry",
         mana_cost = mana!("{B}"),

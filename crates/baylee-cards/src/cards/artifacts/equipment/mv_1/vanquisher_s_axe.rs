@@ -11,7 +11,7 @@ card!(
     index = index::VANQUISHER_S_AXE,
     oracle_id = "fbdd3ba9-d799-476b-87bc-a689d8e3cff9",
     scryfall_id = "aef37244-deb9-464e-ab8c-4308369ae09b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vanquisher's Axe",
         mana_cost = mana!("{1}"),

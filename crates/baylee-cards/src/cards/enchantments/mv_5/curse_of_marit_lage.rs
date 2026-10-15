@@ -12,7 +12,7 @@ card!(
     oracle_id = "6fde4790-4186-4786-aa1a-b6a53bfadc1c",
     scryfall_id = "69b381c1-aa71-4d40-a320-70f58a440d51",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Curse of Marit Lage",
         mana_cost = mana!("{3}{R}{R}"),

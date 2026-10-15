@@ -11,7 +11,7 @@ card!(
     oracle_id = "9396546c-d067-4ce3-9c3d-b62cca970b4f",
     scryfall_id = "ec2b56b0-126c-411b-8c43-b690fc8c194b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Asceticism",
         mana_cost = mana!("{3}{G}{G}"),

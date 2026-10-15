@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Griselbrand",
         mana_cost = mana!("{4}{B}{B}{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "745be03c-69dc-4239-a5e7-38587b56eac0",
     scryfall_id = "39421ce8-86d5-4739-b6fd-78d63c0bb258",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancient Brontodon",
         mana_cost = mana!("{6}{G}{G}"),

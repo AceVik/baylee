@@ -11,7 +11,7 @@ card!(
     oracle_id = "0581b047-ffa1-42cc-a175-b7bf928e279e",
     scryfall_id = "2d688bda-fee2-496d-9793-794c2568b54e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Festering Evil",
         mana_cost = mana!("{3}{B}{B}"),

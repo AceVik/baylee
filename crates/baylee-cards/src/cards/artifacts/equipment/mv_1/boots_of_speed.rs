@@ -12,7 +12,7 @@ card!(
     oracle_id = "6f6601bc-cb12-4054-9027-e4a0ebdae1a3",
     scryfall_id = "db6d9913-3d4f-4f47-ba3a-6586a50ddbd7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boots of Speed",
         mana_cost = mana!("{R}"),

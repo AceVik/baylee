@@ -12,7 +12,7 @@ card!(
     oracle_id = "13b33a41-c22b-4e7a-8323-abadf7f80961",
     scryfall_id = "c6439222-de30-44cd-a53f-a7de0cb00b8f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Polluted Bonds",
         mana_cost = mana!("{3}{B}{B}"),

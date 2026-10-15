@@ -13,7 +13,7 @@ card!(
     scryfall_id = "037cb79c-163d-4b36-bd93-954eca8fe26e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clockwork Drawbridge",
         mana_cost = mana!("{W}"),

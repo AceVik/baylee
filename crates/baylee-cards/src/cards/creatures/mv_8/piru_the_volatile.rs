@@ -20,7 +20,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piru, the Volatile",
         mana_cost = mana!("{2}{R}{R}{W}{W}{B}{B}"),

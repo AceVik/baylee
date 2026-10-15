@@ -10,7 +10,7 @@ card!(
     index = index::LIGHTNING_CORE_EXCAVATOR,
     oracle_id = "cdaf3711-5bec-41bf-b333-c5f34ccb12ef",
     scryfall_id = "b1b959af-bb23-42e7-8848-7405ed597c8d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning-Core Excavator",
         mana_cost = mana!("{1}"),

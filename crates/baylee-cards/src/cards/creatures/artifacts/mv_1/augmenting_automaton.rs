@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ec0e58c-99b5-4ebf-8053-f59c30b86ef7",
     scryfall_id = "7d017798-8278-4f9c-a691-912935c10c20",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Augmenting Automaton",
         mana_cost = mana!("{1}"),

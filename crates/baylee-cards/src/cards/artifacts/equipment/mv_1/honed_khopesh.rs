@@ -11,7 +11,7 @@ card!(
     index = index::HONED_KHOPESH,
     oracle_id = "f2142c41-ff66-4276-b426-fd945ed9b0f6",
     scryfall_id = "c7d80b98-baa2-48ea-9611-96e64d7cb950",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Honed Khopesh",
         mana_cost = mana!("{1}"),

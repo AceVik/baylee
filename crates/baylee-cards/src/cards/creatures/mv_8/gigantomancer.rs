@@ -11,7 +11,7 @@ card!(
     oracle_id = "c4b5567a-f195-4638-94b5-0b933dba1850",
     scryfall_id = "af25e35c-d1a4-4c10-8574-82babaaac4fd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gigantomancer",
         mana_cost = mana!("{7}{G}"),

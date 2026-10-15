@@ -12,7 +12,7 @@ card!(
     index = index::SKATEBOARD,
     oracle_id = "decfde5e-ea53-4b15-8f69-51da7ef39d15",
     scryfall_id = "deadb6d8-3eea-4261-a07c-8536df89e85c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skateboard",
         mana_cost = mana!("{1}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "749d2994-44e7-40d3-8630-7bebed239e9e",
     scryfall_id = "6f813bc3-6d81-4555-8e4b-6ecd9a6757b7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haywire Mite",
         mana_cost = mana!("{1}"),

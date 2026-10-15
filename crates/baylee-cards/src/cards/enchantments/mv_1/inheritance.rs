@@ -10,7 +10,7 @@ card!(
     oracle_id = "742cb752-dd20-4b1f-8d96-7e9a8f864e75",
     scryfall_id = "f660a337-09f7-4ae9-b61b-f5ecbda4a4ca",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inheritance",
         mana_cost = mana!("{W}"),

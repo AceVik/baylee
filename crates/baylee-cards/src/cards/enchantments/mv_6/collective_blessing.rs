@@ -10,7 +10,7 @@ card!(
     oracle_id = "7f7049e8-49ed-46da-89f7-1e40aefb3b0c",
     scryfall_id = "53c84c4d-e6d6-4eac-9d14-5b6cba914c3d",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Collective Blessing",
         mana_cost = mana!("{3}{G}{G}{W}"),

@@ -17,7 +17,7 @@ card!(
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::INDESTRUCTIBLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zetalpa, Primal Dawn",
         mana_cost = mana!("{6}{W}{W}"),

@@ -11,7 +11,7 @@ card!(
     index = index::ADVENTURING_GEAR,
     oracle_id = "17042684-7af4-43a6-88c7-885032cfb27c",
     scryfall_id = "361f9b99-5b5d-40da-b4b9-5ad90f6280ee",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adventuring Gear",
         mana_cost = mana!("{1}"),

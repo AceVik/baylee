@@ -10,7 +10,7 @@ card!(
     index = index::LOCTHWAIN_GARGOYLE,
     oracle_id = "d8a04142-1d28-4c2e-b2d5-da88b2199678",
     scryfall_id = "02551bee-335c-4bf7-b38e-67dd71d1d567",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Locthwain Gargoyle",
         mana_cost = mana!("{1}"),

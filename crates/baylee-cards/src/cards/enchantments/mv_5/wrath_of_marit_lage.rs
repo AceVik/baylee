@@ -11,7 +11,7 @@ card!(
     oracle_id = "740cafc6-9521-403a-ab5f-11582bf55af0",
     scryfall_id = "a0111ef4-f0be-4af3-981f-aa19a17a3d7b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wrath of Marit Lage",
         mana_cost = mana!("{3}{U}{U}"),

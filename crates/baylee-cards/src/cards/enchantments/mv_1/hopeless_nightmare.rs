@@ -12,7 +12,7 @@ card!(
     oracle_id = "5e63b69c-d901-4a01-8dfa-88e044856239",
     scryfall_id = "2c2ee817-9ca9-4f09-bc71-7994c19a9470",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hopeless Nightmare",
         mana_cost = mana!("{B}"),

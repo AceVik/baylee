@@ -13,7 +13,7 @@ card!(
     oracle_id = "bd104c7e-311e-4b03-98d3-5f20f3a99d26",
     scryfall_id = "a92ee6ec-eebf-40b4-9dd9-c0551e33f5ff",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Liliana's Mastery",
         mana_cost = mana!("{3}{B}{B}"),

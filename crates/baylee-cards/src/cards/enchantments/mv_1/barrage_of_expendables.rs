@@ -10,7 +10,7 @@ card!(
     oracle_id = "da7600f6-5d4c-46bf-936a-9e0f0d508e19",
     scryfall_id = "8b94ff00-0821-4743-b693-2ba310466306",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrage of Expendables",
         mana_cost = mana!("{R}"),

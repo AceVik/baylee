@@ -19,7 +19,7 @@ card!(
     scryfall_id = "df459109-d6ab-4b1d-9570-c7677ff4a014",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Utvara Hellkite",
         mana_cost = mana!("{6}{R}{R}"),

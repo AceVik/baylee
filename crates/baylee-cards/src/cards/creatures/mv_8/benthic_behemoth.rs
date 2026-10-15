@@ -12,7 +12,7 @@ card!(
     scryfall_id = "19577bda-2728-40c8-a262-26051e6c226b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benthic Behemoth",
         mana_cost = mana!("{5}{U}{U}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "8170dcbb-9879-414c-819d-ea2658ff770c",
     scryfall_id = "dda6f965-cbdf-4dbc-b0b1-00c27e32f5f2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emergency Medical Hologram",
         mana_cost = mana!("{W}"),

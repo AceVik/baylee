@@ -11,7 +11,7 @@ card!(
     oracle_id = "0411aead-9f77-435d-a343-635f23221cf7",
     scryfall_id = "bad32b9f-0aa4-4036-90e6-c087cffd52e7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gravitational Shift",
         mana_cost = mana!("{3}{U}{U}"),

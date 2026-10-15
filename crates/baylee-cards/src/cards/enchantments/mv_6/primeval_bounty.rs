@@ -15,7 +15,7 @@ card!(
     oracle_id = "f633c16d-d943-421c-ad18-af35db9ec9fc",
     scryfall_id = "332c9742-dc3b-48e5-8736-7724fae1b4c4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primeval Bounty",
         mana_cost = mana!("{5}{G}"),

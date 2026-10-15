@@ -10,7 +10,7 @@ card!(
     index = index::MYR_SCRAPLING,
     oracle_id = "1a4ffc1e-2f5e-446a-b1e8-32385b3c083b",
     scryfall_id = "5b9072a5-bd7f-4007-a34a-ebe251c95356",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Myr Scrapling",
         mana_cost = mana!("{1}"),

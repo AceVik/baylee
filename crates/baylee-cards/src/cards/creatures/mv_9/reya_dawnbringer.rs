@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reya Dawnbringer",
         mana_cost = mana!("{6}{W}{W}{W}"),

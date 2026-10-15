@@ -12,7 +12,7 @@ card!(
     oracle_id = "c5f92560-dc82-4bd2-ae6b-4c3942d458b7",
     scryfall_id = "5972edbd-ffe8-46e8-9c3e-5399c7d6879b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quest for the Gravelord",
         mana_cost = mana!("{B}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "28778958-a1f9-4fea-b551-c193d1257f18",
     scryfall_id = "130978d1-0b20-4dfa-85f5-3ff2bc2cfda3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Open the Graves",
         mana_cost = mana!("{3}{B}{B}"),

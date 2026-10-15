@@ -16,7 +16,7 @@ card!(
     oracle_id = "fca2fcab-4f17-448d-bf6d-f6c913159df8",
     scryfall_id = "abf25a2a-961c-42ef-8d76-aa089720b12c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Where Ancients Tread",
         mana_cost = mana!("{4}{R}"),

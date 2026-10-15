@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Razaketh, the Foulblooded",
         mana_cost = mana!("{5}{B}{B}{B}"),

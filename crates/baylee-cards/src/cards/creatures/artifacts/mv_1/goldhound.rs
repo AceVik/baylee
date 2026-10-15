@@ -14,7 +14,7 @@ card!(
     scryfall_id = "c059e4b4-1542-4b5c-810a-9f0abac5792b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goldhound",
         mana_cost = mana!("{R}"),

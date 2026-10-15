@@ -10,7 +10,7 @@ card!(
     oracle_id = "51abc95c-bd92-46f7-a0a1-6e9f8e0dda87",
     scryfall_id = "989a68c1-3b76-4c2d-9db3-23c45be3f9ff",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Illness in the Ranks",
         mana_cost = mana!("{B}"),

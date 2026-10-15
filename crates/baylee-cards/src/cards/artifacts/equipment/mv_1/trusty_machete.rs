@@ -11,7 +11,7 @@ card!(
     index = index::TRUSTY_MACHETE,
     oracle_id = "394fae8f-3757-4e08-b97c-5d7c451f4e72",
     scryfall_id = "86c9838e-aa72-49fc-bae2-f880bcbc9313",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trusty Machete",
         mana_cost = mana!("{1}"),

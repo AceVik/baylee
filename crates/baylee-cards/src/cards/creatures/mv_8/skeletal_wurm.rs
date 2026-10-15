@@ -11,7 +11,7 @@ card!(
     oracle_id = "d988ed15-2927-421b-9a6e-01f0261272c2",
     scryfall_id = "2feedcf2-c443-4363-80cf-a90579a64342",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeletal Wurm",
         mana_cost = mana!("{7}{B}"),

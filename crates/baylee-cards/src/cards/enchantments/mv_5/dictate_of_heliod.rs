@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f964c561-96ac-4558-b46e-ba2c472d5807",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dictate of Heliod",
         mana_cost = mana!("{3}{W}{W}"),

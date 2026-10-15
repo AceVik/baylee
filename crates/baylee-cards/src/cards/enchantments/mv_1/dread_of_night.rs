@@ -10,7 +10,7 @@ card!(
     oracle_id = "b431a73b-cf4c-4154-810f-82b7c6099e66",
     scryfall_id = "a4105fb4-ab13-4a34-810b-1d294c5a6eee",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dread of Night",
         mana_cost = mana!("{B}"),

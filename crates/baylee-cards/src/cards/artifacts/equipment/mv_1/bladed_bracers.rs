@@ -12,7 +12,7 @@ card!(
     index = index::BLADED_BRACERS,
     oracle_id = "24d373cd-245a-4051-b187-ba8cc83b0c48",
     scryfall_id = "897a5116-043c-46aa-880e-be8dcb1618bc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bladed Bracers",
         mana_cost = mana!("{1}"),

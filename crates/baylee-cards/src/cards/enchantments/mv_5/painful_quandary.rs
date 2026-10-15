@@ -10,7 +10,7 @@ card!(
     oracle_id = "c37051cc-6683-4dbb-b5ff-5c3a5bdab1df",
     scryfall_id = "05757669-e8a6-4a2f-8479-d4e2ade822ca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Painful Quandary",
         mana_cost = mana!("{3}{B}{B}"),

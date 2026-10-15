@@ -12,7 +12,7 @@ card!(
     scryfall_id = "817b5b18-beb5-48c8-aa45-0515ff9ca5da",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hullcarver",
         mana_cost = mana!("{B}"),

@@ -18,7 +18,7 @@ card!(
     index = index::AVACYN_S_COLLAR,
     oracle_id = "842e3835-fff3-4684-bfd1-e7064a1fd2e6",
     scryfall_id = "972e9a78-204b-4012-b394-b40fd0edac4c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avacyn's Collar",
         mana_cost = mana!("{1}"),

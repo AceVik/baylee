@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5a37719a-2a87-4870-8f25-12544ca2f2cf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Network Disruptor",
         mana_cost = mana!("{U}"),

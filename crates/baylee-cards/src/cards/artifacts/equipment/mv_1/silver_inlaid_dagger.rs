@@ -12,7 +12,7 @@ card!(
     index = index::SILVER_INLAID_DAGGER,
     oracle_id = "93e9b0d6-97a8-4357-bcd4-f82d81bad232",
     scryfall_id = "f8b8162a-68f0-45df-bb25-8fd4487257a4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silver-Inlaid Dagger",
         mana_cost = mana!("{1}"),

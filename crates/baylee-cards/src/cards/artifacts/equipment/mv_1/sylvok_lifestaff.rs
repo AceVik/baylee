@@ -12,7 +12,7 @@ card!(
     index = index::SYLVOK_LIFESTAFF,
     oracle_id = "e69b8388-1311-427f-9300-42badd5338ff",
     scryfall_id = "abbc5ae5-8e8b-4106-844f-2d49d2a51ed9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvok Lifestaff",
         mana_cost = mana!("{1}"),

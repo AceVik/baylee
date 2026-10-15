@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit of the Night",
         mana_cost = mana!("{6}{B}{B}{B}"),

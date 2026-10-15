@@ -31,7 +31,7 @@ card!(
     oracle_id = "6452873b-1bb2-44b3-b630-88f15962b6e8",
     scryfall_id = "bd7e2501-2d36-41eb-a77a-747b62affc09",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx's Herald",
         mana_cost = mana!("{U}"),

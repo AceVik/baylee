@@ -10,7 +10,7 @@ card!(
     oracle_id = "fb3b365b-eb8c-4695-bfd6-88060ad20741",
     scryfall_id = "4cc6245f-c60f-4674-8c6d-24fe3b78e00e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thassa's Ire",
         mana_cost = mana!("{U}"),

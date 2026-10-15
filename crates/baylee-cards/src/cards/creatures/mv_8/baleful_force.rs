@@ -11,7 +11,7 @@ card!(
     oracle_id = "f26fa9e4-f528-4e22-8f7c-329fc3b633e4",
     scryfall_id = "a5e79f7b-0212-476b-9dea-bf1ada419e72",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Baleful Force",
         mana_cost = mana!("{5}{B}{B}{B}"),

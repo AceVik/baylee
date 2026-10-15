@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::INDESTRUCTIBLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avacyn, Angel of Hope",
         mana_cost = mana!("{5}{W}{W}{W}"),

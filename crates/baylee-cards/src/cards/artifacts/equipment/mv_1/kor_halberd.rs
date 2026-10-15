@@ -12,7 +12,7 @@ card!(
     oracle_id = "450e84c7-afbe-4b30-a3e9-1dff968a5200",
     scryfall_id = "a4705327-ada6-4575-82fc-351e183d060e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Halberd",
         mana_cost = mana!("{W}"),

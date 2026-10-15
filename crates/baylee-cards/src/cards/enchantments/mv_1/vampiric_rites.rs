@@ -10,7 +10,7 @@ card!(
     oracle_id = "660de988-b6fb-4f36-8006-42af3e7f908d",
     scryfall_id = "9ae0b1e0-a481-4a98-b67b-0cf8bac53fdd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampiric Rites",
         mana_cost = mana!("{B}"),

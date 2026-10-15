@@ -15,7 +15,7 @@ card!(
     index = index::JAWBONE_SKULKIN,
     oracle_id = "1cbcc073-1645-4d7f-98f4-7309d7b35692",
     scryfall_id = "3a88f807-96ce-432f-aaf5-d0097d234a4b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jawbone Skulkin",
         mana_cost = mana!("{1}"),

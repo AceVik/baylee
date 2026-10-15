@@ -23,7 +23,7 @@ card!(
     oracle_id = "7e523d42-c7d8-47d1-8874-230920f03345",
     scryfall_id = "fb0d4d3f-d3ad-4c70-b9af-9bfcdd9efd1f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hearthcage Giant",
         mana_cost = mana!("{6}{R}{R}"),

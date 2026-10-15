@@ -14,7 +14,7 @@ card!(
     index = index::ZEPHYR_BOOTS,
     oracle_id = "02f3b9c3-f611-4f05-ab3e-b296916efdad",
     scryfall_id = "4d0566fd-3775-48f1-ba22-6e659558c3d3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zephyr Boots",
         mana_cost = mana!("{1}"),

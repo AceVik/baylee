@@ -13,7 +13,7 @@ card!(
     scryfall_id = "058eb32f-2ae2-4276-ae1a-242bbb150418",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pestilence Demon",
         mana_cost = mana!("{5}{B}{B}{B}"),

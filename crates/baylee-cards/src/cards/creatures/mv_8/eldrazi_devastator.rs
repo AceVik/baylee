@@ -11,7 +11,7 @@ card!(
     oracle_id = "bc08ac66-969c-4905-a2d6-16ff565be475",
     scryfall_id = "04b13e32-01b9-4a86-a3df-ca8b784c6a6c",
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eldrazi Devastator",
         mana_cost = mana!("{8}"),

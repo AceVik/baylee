@@ -13,7 +13,7 @@ card!(
     scryfall_id = "db68f47b-f49a-4978-acdd-453ecfb948da",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidespout Tyrant",
         mana_cost = mana!("{5}{U}{U}{U}"),

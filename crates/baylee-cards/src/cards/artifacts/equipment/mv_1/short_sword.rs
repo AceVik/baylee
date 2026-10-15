@@ -11,7 +11,7 @@ card!(
     index = index::SHORT_SWORD,
     oracle_id = "e842a4e5-ea0b-43ae-9ed8-93e30f4e7b8a",
     scryfall_id = "973c166e-3e93-4ed5-b4c5-84dc158a8e4f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Short Sword",
         mana_cost = mana!("{1}"),

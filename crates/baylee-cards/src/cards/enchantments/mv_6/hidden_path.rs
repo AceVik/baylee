@@ -10,7 +10,7 @@ card!(
     oracle_id = "f1c9f5df-d36a-4e15-bae4-81190e4be477",
     scryfall_id = "cbc93c0b-0ac8-4b8f-b2f6-96887d1acd77",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hidden Path",
         mana_cost = mana!("{2}{G}{G}{G}{G}"),

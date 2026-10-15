@@ -10,7 +10,7 @@ card!(
     index = index::SPARRING_CONSTRUCT,
     oracle_id = "bc948e19-816b-4c13-a36b-73b3e0472dca",
     scryfall_id = "badc7db8-386e-4fb6-aefa-591e99747eb2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sparring Construct",
         mana_cost = mana!("{1}"),

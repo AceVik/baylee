@@ -11,7 +11,7 @@ card!(
     oracle_id = "0a356d04-2e86-435b-9766-27b93b468a61",
     scryfall_id = "ce7a8eec-a029-4ee1-b2d6-405d903d4640",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gene Pollinator",
         mana_cost = mana!("{G}"),

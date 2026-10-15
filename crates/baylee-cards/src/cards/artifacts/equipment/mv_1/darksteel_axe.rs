@@ -13,7 +13,7 @@ card!(
     oracle_id = "3b7ea3ac-ac0a-40aa-b743-d153e1c47d8c",
     scryfall_id = "4d6bfe57-872d-4f69-bff5-a3f2584d6e0a",
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darksteel Axe",
         mana_cost = mana!("{1}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "85d2948c-1a79-418d-80c4-bc1012a4d313",
     scryfall_id = "ee571a78-16b2-40ba-92b2-87c1bf4b39bc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Berserkers' Onslaught",
         mana_cost = mana!("{3}{R}{R}"),

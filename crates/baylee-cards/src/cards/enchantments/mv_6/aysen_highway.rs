@@ -10,7 +10,7 @@ card!(
     oracle_id = "415bc26d-60fb-41ac-8006-7dd861671c14",
     scryfall_id = "adfa87eb-9a11-459c-bff8-87bb09b61b87",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aysen Highway",
         mana_cost = mana!("{3}{W}{W}{W}"),

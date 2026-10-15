@@ -11,7 +11,7 @@ card!(
     oracle_id = "f5aeed95-24f8-4f28-9e7c-1e3502d013cd",
     scryfall_id = "b0811c4c-9e91-4785-b3d2-e4221c5d92d8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunspring Expedition",
         mana_cost = mana!("{W}"),

@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Unspeakable",
         mana_cost = mana!("{6}{U}{U}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "7246e3a0-f8b7-4c1b-ae75-a1eb8990a728",
     scryfall_id = "ebaef0bd-8288-49ba-a889-d897a4aae64c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashen Firebeast",
         mana_cost = mana!("{6}{R}{R}"),

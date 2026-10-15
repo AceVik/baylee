@@ -11,7 +11,7 @@ card!(
     oracle_id = "ea73153b-1ecb-4593-a9ec-ce4f54e69824",
     scryfall_id = "e98eb29b-af03-4a96-b84c-a0bd51f80f03",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magmatic Force",
         mana_cost = mana!("{5}{R}{R}{R}"),

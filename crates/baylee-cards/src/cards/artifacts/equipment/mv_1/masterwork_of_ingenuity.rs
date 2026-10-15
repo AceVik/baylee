@@ -12,7 +12,7 @@ card!(
     index = index::MASTERWORK_OF_INGENUITY,
     oracle_id = "35d458fb-dfdb-41e4-92e3-f0fd392e1c69",
     scryfall_id = "80b38b13-fc19-4ffc-8100-249f9eb8cca6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Masterwork of Ingenuity",
         mana_cost = mana!("{1}"),

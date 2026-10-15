@@ -12,7 +12,7 @@ card!(
     oracle_id = "69c69d69-3565-4d9c-82c0-a96d0fb80513",
     scryfall_id = "87504dd5-3f2f-411a-b966-c523b0ea1f9c",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roterothopter",
         mana_cost = mana!("{1}"),

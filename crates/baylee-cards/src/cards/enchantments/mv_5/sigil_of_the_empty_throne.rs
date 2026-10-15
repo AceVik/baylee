@@ -13,7 +13,7 @@ card!(
     oracle_id = "3b9b5b22-5a7d-4e37-a870-ca0f0efa4f36",
     scryfall_id = "6875be24-1515-488f-a899-929c8e480dfd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sigil of the Empty Throne",
         mana_cost = mana!("{3}{W}{W}"),

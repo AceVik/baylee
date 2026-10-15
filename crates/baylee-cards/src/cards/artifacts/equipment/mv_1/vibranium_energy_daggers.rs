@@ -13,7 +13,7 @@ card!(
     oracle_id = "be0b86fc-8450-41d4-9836-6de11cecb857",
     scryfall_id = "4fe5952d-f50f-443a-b960-657fc4bc1965",
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vibranium Energy Daggers",
         mana_cost = mana!("{1}"),

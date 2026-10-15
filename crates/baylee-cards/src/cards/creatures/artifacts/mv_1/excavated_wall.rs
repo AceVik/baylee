@@ -12,7 +12,7 @@ card!(
     oracle_id = "16e48b95-f030-400c-a2b7-c3f3111cc165",
     scryfall_id = "fed54d00-b11f-4529-864c-63a114617b36",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Excavated Wall",
         mana_cost = mana!("{1}"),

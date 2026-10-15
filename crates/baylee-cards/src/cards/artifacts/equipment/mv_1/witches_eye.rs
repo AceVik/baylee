@@ -11,7 +11,7 @@ card!(
     index = index::WITCHES_EYE,
     oracle_id = "c8d479b8-b96c-4382-97d3-68d85cf371ba",
     scryfall_id = "6d989daa-78eb-4120-81b5-7866a7b04590",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Witches' Eye",
         mana_cost = mana!("{1}"),

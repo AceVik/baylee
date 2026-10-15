@@ -15,7 +15,7 @@ card!(
     oracle_id = "c74f6a83-a280-450e-969d-6b3fa28c8744",
     scryfall_id = "97321072-1f7f-413b-9246-e6b3ec7a8c30",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hedgewitch's Mask",
         mana_cost = mana!("{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "68639a3d-2192-4921-8298-c76bb0cd6b02",
     scryfall_id = "f3e93085-ffcb-4f48-8649-3fcbc5e97699",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moldervine Reclamation",
         mana_cost = mana!("{3}{B}{G}"),

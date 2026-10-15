@@ -11,7 +11,7 @@ card!(
     oracle_id = "d50b1d2e-1825-432a-ab73-068fdc356f50",
     scryfall_id = "53c682e2-c90f-4f4b-9010-00b099e85518",
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Universal Automaton",
         mana_cost = mana!("{1}"),

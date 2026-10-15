@@ -10,7 +10,7 @@ card!(
     oracle_id = "647ca69e-cc01-4b2b-b376-bee2a98331e8",
     scryfall_id = "10c09b68-1d92-42da-8d4d-0d60453a6aa7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Reclamation",
         mana_cost = mana!("{B}"),

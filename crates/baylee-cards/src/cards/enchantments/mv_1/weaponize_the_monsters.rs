@@ -10,7 +10,7 @@ card!(
     oracle_id = "fa2154fb-6756-4cf8-85a6-68264fb7a0b2",
     scryfall_id = "68bba622-a0ab-4c0e-88b1-9120690ea5a0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weaponize the Monsters",
         mana_cost = mana!("{R}"),

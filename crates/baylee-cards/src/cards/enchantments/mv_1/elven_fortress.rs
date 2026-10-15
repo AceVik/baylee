@@ -12,7 +12,7 @@ card!(
     oracle_id = "29f34e18-2102-4ded-912f-4ac3e9e6744c",
     scryfall_id = "9387105d-46d0-4db0-8980-dd0fded15eef",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elven Fortress",
         mana_cost = mana!("{G}"),

@@ -9,7 +9,7 @@ card!(
     index = index::METALLIC_SLIVER,
     oracle_id = "2dfafd63-83fb-4783-8e12-30018680a905",
     scryfall_id = "0f302984-9bf6-4583-865a-5545711e7a27",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metallic Sliver",
         mana_cost = mana!("{1}"),

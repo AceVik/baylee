@@ -23,7 +23,7 @@ card!(
     oracle_id = "7545adab-b6f8-496d-8c25-416c7ec85fa2",
     scryfall_id = "8d6fb3b2-eef2-4699-ab5e-ff7d8de2a1de",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Undercurrents",
         mana_cost = mana!("{3}{U/B}{U/B}"),

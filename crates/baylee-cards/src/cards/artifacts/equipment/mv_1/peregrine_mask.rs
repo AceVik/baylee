@@ -11,7 +11,7 @@ card!(
     index = index::PEREGRINE_MASK,
     oracle_id = "a742308c-4047-487f-b95b-0fa5bec2f09a",
     scryfall_id = "9196f43e-f905-4e83-8e47-9d8fd53a4c9f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peregrine Mask",
         mana_cost = mana!("{1}"),

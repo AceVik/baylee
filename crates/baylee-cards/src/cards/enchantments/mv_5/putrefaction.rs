@@ -15,7 +15,7 @@ card!(
     oracle_id = "8c4545f8-10b6-4a62-9bce-8c9ffa8b8471",
     scryfall_id = "65104b23-58a6-41c0-b887-90a3fb959289",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Putrefaction",
         mana_cost = mana!("{4}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "97bdfbe0-7048-4157-8a58-5b17410750ab",
     scryfall_id = "f957b353-7765-4c16-9645-d41000154130",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tragic Poet",
         mana_cost = mana!("{W}"),

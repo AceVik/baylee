@@ -10,7 +10,7 @@ card!(
     oracle_id = "4a782bf9-4051-4613-8852-33b0d85a0edd",
     scryfall_id = "c9045fcb-b633-4c35-8058-6234311551ae",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ajani's Welcome",
         mana_cost = mana!("{W}"),

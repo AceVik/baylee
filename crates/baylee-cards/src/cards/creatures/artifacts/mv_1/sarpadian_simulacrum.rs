@@ -13,7 +13,7 @@ card!(
     scryfall_id = "099c65d5-9dd3-41d3-9102-3f6cb30c7b8e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sarpadian Simulacrum",
         mana_cost = mana!("{R}"),

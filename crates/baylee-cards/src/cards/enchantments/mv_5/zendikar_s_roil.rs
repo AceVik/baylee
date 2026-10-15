@@ -11,7 +11,7 @@ card!(
     oracle_id = "a842cc2b-52eb-4dc5-86c6-6575c2ed913d",
     scryfall_id = "60297593-2438-48d7-9414-48af114a93d2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zendikar's Roil",
         mana_cost = mana!("{3}{G}{G}"),

@@ -22,7 +22,7 @@ card!(
     oracle_id = "24fe8bc3-7e3a-435b-a232-7f80787aba1f",
     scryfall_id = "be364b69-aa59-420c-a613-b1d0b303a4e5",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fable of Wolf and Owl",
         mana_cost = mana!("{3}{G/U}{G/U}{G/U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "8add6996-6c5c-4aa2-93d4-a39efcfd22b2",
     scryfall_id = "0d51a3f0-2546-43c1-9a92-625997a24e9b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Celestial Force",
         mana_cost = mana!("{5}{W}{W}{W}"),

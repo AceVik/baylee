@@ -11,7 +11,7 @@ card!(
     index = index::GREATAXE,
     oracle_id = "843f3373-b8ef-416c-9163-aa1aa6b4a51d",
     scryfall_id = "e840aef6-eec4-40dd-bbc4-6fd0b2b57805",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greataxe",
         mana_cost = mana!("{1}"),

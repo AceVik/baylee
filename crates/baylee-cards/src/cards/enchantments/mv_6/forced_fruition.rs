@@ -10,7 +10,7 @@ card!(
     oracle_id = "448b27a5-7c0c-4ab6-bddf-bd62b920aacc",
     scryfall_id = "f7ea1c6e-c0af-40b0-b492-8d71f496903e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forced Fruition",
         mana_cost = mana!("{4}{U}{U}"),

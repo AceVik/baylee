@@ -14,7 +14,7 @@ card!(
     oracle_id = "ed2ef95e-8851-4226-9c63-4c19ea323b82",
     scryfall_id = "87f69249-c6e4-40c1-9870-b9c45ce24c39",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lead Pipe",
         mana_cost = mana!("{B}"),
