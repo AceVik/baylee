@@ -1174,3 +1174,8 @@ confirm that Myriad Pools copies casting decisions, retains the recipient's
 counters and other noncopy effects, and causes no new battlefield entry.
 The implementation therefore retains exact original spell incarnations for
 later copies and separately restores temporary copied rules and decisions.
+
+
+### Speed display and generated-card test pilot (2026-10-15)
+
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy) were reread: “Tell the Community it’s unofficial.” Existing unofficial notices, attribution and the owner decision on rules implementation above remain in place. The Raceway implementation and Destroy Evil / Nature's Claim tests introduce no copied implementation, imagery, recordings or fonts. The speed display uses ordinary text and numerals in the existing licensed font. Scryfall's API documentation returned HTTP 403 during this check; cached card data were used, and no new API consumption or image handling is introduced.

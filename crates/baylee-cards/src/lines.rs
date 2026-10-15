@@ -380,6 +380,7 @@ pub fn grants_in(
         // keyword the engine synthesises, a cost, a replacement, a choice
         // made as the permanent enters.
         AbilityDef::Unimplemented
+        | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }

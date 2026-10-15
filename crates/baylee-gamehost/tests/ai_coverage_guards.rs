@@ -109,6 +109,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
             modes.iter().map(|mode| mode.effects).collect()
         }
         AbilityDef::Unimplemented
+        | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }

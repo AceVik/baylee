@@ -522,7 +522,8 @@ impl GameLog {
         came: &BTreeMap<ObjectId, Zone>,
     ) {
         match event {
-            GameEvent::BecameTarget { .. }
+            GameEvent::SpeedTriggered { .. }
+            | GameEvent::BecameTarget { .. }
             | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }
             // Stack announcements already log nonmana abilities; this is

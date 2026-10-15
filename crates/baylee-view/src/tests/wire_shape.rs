@@ -324,7 +324,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 74: regeneration replacement choice prompt.
     // 75: explicit PayLife amount widens to u32 in the imported engine prompt.
     // 76: Bore counters and optional exact tap-group payment prompt.
-    const RECORDED: (u32, u64) = (77, 13_245_364_704_092_155_279);
+    // 78: public speed totals on each seat.
+    const RECORDED: (u32, u64) = (78, 597_056_562_693_635_740);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

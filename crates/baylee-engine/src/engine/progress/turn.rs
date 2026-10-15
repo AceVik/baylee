@@ -389,6 +389,8 @@ impl<L: CardLookup> Engine<L> {
         if source == ObjectId::NO_SOURCE {
             let name = if matches!(effects, [baylee_cards_dsl::Effect::Radiation]) {
                 "Radiation"
+            } else if matches!(effects, [baylee_cards_dsl::Effect::IncreaseSpeed]) {
+                "Speed"
             } else {
                 "Monarch"
             };

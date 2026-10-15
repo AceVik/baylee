@@ -1,49 +1,139 @@
-//! `cards/lands/utility/avishkar_raceway.rs`, played.
-
-#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
+//! Avishkar Raceway, with discard paid before its draw resolves.
+#[allow(clippy::wildcard_imports)] // Parent test vocabulary.
 use super::*;
 
-/// Avishkar Raceway prints `Start your engines!`, `{{T}}: Add {{C}}.`, and
-/// `Max speed — {{3}}, {{T}}, Discard a card: Draw a card.`
-///
-/// Under `Coverage::Partial`, the speed mechanic and Max speed gate are omitted due to
-/// lacking DSL vocabulary. With three green mana floating from `forest()` lands, Avishkar Raceway
-/// standing untapped, and a card in hand to discard, ability index 1 is not offered in
-/// `legal.abilities`. Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+/// Raise speed through opponent life loss on three separate own turns.
+fn reach_max_speed(engine: &mut Engine<RegistryLookup>, p0: PlayerId, raceway: ObjectId) {
+    let p1 = PlayerId::new(1);
+    assert_eq!(
+        engine.state().players[0].speed,
+        1,
+        "Start your engines starts speed before priority"
+    );
+    for turn in 0..3 {
+        if turn > 0 {
+            assert!(walk_to_own_main(engine, p1));
+            assert!(walk_to_own_main(engine, p0));
+        }
+        assert_eq!(
+            engine.state().turn.active,
+            p0,
+            "Bolt is cast on own turn {turn}"
+        );
+        assert_eq!(
+            engine.state().players[0].speed,
+            turn + 1,
+            "speed before Bolt on own turn {turn}"
+        );
+        // Float ordinary land mana while keeping the Raceway untapped.
+        tap_mana_except(engine, p0, raceway);
+        let Pending::Priority { legal, .. } = engine.pending() else {
+            panic!("priority")
+        };
+        assert!(
+            !legal.abilities.contains(&(raceway, 1)),
+            "max ability locked before third loss"
+        );
+        cast_with_floating(engine, p0, lightning_bolt());
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p1],
+                },
+            )
+            .unwrap();
+        pass_until(engine, stack_is_empty);
+        assert_eq!(
+            engine.state().players[0].speed,
+            turn + 2,
+            "speed after Bolt and inherent trigger on own turn {turn}; pending {:?}",
+            engine.pending()
+        );
+    }
+}
+
 #[test]
-fn avishkar_raceway_taps_for_colorless_and_omits_discard_draw_ability() {
+fn avishkar_raceway_unlocks_paid_discard_then_draw() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[avishkar_raceway(), forest(), forest(), forest()])
-        .hand(0, &[forest()])
+        .battlefield(
+            0,
+            &[avishkar_raceway(), mountain(), forest(), forest(), forest()],
+        )
+        .hand(
+            0,
+            &[
+                lightning_bolt(),
+                lightning_bolt(),
+                lightning_bolt(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let raceway =
-        on_battlefield(&engine, p0, avishkar_raceway()).expect("avishkar raceway on battlefield");
-
-    // Float {3} from the three Forests while keeping Avishkar Raceway untapped.
-    tap_mana_except(&mut engine, p0, raceway);
+    assert!(walk_to_own_main(&mut engine, p0));
+    let raceway = on_battlefield(&engine, p0, avishkar_raceway()).unwrap();
+    reach_max_speed(&mut engine, p0, raceway);
     assert_eq!(engine.state().players[0].mana_pool.total(), 3);
-    assert!(!is_tapped(&engine, raceway));
-
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+    let discarded = in_hand(&engine, p0, forest()).unwrap();
+    let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    activate(&mut engine, p0, avishkar_raceway(), 1);
+    let Pending::ChooseCards {
+        prompt, options, ..
+    } = engine.pending()
+    else {
+        panic!("discard cost")
     };
-    assert!(
-        legal.abilities.contains(&(raceway, 0)),
-        "ability 0 ({{T}}: Add {{C}}) is offered"
+    assert_eq!(*prompt, ChoicePrompt::CostDiscard);
+    assert!(options.contains(&discarded));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![discarded],
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, p0, forest()).is_some());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        before - 1
     );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert!(is_tapped(&engine, raceway));
     assert!(
-        !legal.abilities.contains(&(raceway, 1)),
-        "under `Coverage::Partial`, Max speed discard/draw ability is omitted despite floating {{3}} and card in hand"
+        !stack_is_empty(&engine),
+        "discard is a cost, drawing uses the stack"
     );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        before
+    );
+}
 
+#[test]
+fn avishkar_raceway_taps_for_one_colorless_below_max_speed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[avishkar_raceway()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    let raceway = on_battlefield(&engine, p0, avishkar_raceway()).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
+    };
+    assert!(legal.abilities.contains(&(raceway, 0)));
+    assert!(!legal.abilities.contains(&(raceway, 1)));
     activate(&mut engine, p0, avishkar_raceway(), 0);
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.available(ManaColor::Green), 3);
-    assert_eq!(pool.total(), 4);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
     assert!(is_tapped(&engine, raceway));
 }

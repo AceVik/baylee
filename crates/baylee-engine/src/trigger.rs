@@ -12,6 +12,7 @@ mod event_groups;
 mod radiation;
 mod return_keywords;
 mod sagas;
+mod speed;
 
 pub(crate) use return_keywords::return_keyword_counts;
 
@@ -259,6 +260,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     collect_emblems(state, lookup, events, &mut triggers);
     graveyard_triggers(state, lookup, events, &mut triggers);
     monarch_triggers(state, events, &mut triggers);
+    speed::collect(events, &mut triggers);
     radiation::collect(state, events, &mut triggers);
     sagas::collect(state, lookup, events, &mut triggers);
     cast_this_spell_triggers(state, lookup, events, &mut triggers);

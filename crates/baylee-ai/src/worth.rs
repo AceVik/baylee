@@ -1458,6 +1458,13 @@ impl HeuristicAgent {
                         .map(|p| self.proliferate_player(view, p.player).max(0))
                         .sum::<i64>()
             }
+            Effect::IncreaseSpeed => {
+                if view.seat(me).is_some_and(|seat| seat.speed < 4) {
+                    40
+                } else {
+                    0
+                }
+            }
             Effect::Energy { who, amount } => {
                 let n = count(*amount)?;
                 self.players(view, *who, aim)?

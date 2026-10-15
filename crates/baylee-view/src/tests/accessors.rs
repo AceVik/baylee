@@ -138,3 +138,18 @@ fn a_seat_with_no_identity_is_named_by_a_fallback_never_by_another_seat() {
     assert_eq!(game.seat_name(PlayerId::new(1)), "Alice");
     assert_eq!(game.seat_name(PlayerId::new(0)), "Unknown seat");
 }
+
+#[test]
+fn older_seats_default_to_unstarted_speed_and_current_speed_round_trips() {
+    let mut seat = view(1).seats.remove(0);
+    for speed in 1..=4 {
+        seat.speed = speed;
+        let encoded = serde_json::to_value(&seat).expect("seat serializes");
+        let decoded: SeatView = serde_json::from_value(encoded).expect("seat reads");
+        assert_eq!(decoded.speed, speed);
+    }
+    let mut older = serde_json::to_value(&seat).expect("seat serializes");
+    older.as_object_mut().expect("seat object").remove("speed");
+    let decoded: SeatView = serde_json::from_value(older).expect("older seat reads");
+    assert_eq!(decoded.speed, 0);
+}

@@ -54,6 +54,7 @@ mod malakir_rebirth;
 mod mental_note;
 mod mystical_tutor;
 mod natural_selection;
+mod nature_s_claim;
 mod opt;
 mod oxidize;
 mod path_to_exile;

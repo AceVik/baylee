@@ -99,6 +99,7 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
             .filter_map(|mode| mode.cost_override)
             .fold(ManaCost::ZERO, |all, mode| all.combine(&mode)),
         AbilityDef::Unimplemented
+        | AbilityDef::StartYourEngines
         | AbilityDef::Spell { .. }
         | AbilityDef::Triggered { .. }
         | AbilityDef::Ward { .. }

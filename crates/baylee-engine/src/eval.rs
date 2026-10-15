@@ -1465,6 +1465,10 @@ pub fn condition_holds_with_context(
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::MaxSpeed => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.speed == 4),
         Condition::CitysBlessing => state
             .players
             .get(usize::from(you.get()))

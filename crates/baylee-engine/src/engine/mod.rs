@@ -1998,6 +1998,8 @@ mod self_subject_tests;
 #[cfg(test)]
 mod sickness_tests;
 #[cfg(test)]
+mod speed_tests;
+#[cfg(test)]
 mod static_controller_tests;
 #[cfg(test)]
 pub(crate) mod synthetic;

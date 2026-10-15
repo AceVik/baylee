@@ -118,6 +118,7 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
         // keyword the engine synthesises, a cost, a continuous rule, or a
         // choice made as the permanent enters.
         AbilityDef::Unimplemented
+        | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }

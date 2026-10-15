@@ -796,7 +796,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // when a card is promoted and still moves for every row a reader gains
     // or loses: the full corpus brought it to 2999 activations, 2521 read
     // (the old split was 1034/1311 + 1487/1688).
-    assert_eq!((read, of), (2521, 2999), "activated/loyalty reader census");
+    // Batch63 adds Amonkhet Raceway's haste activation (PumpTarget) and
+    // Avishkar Raceway's draw activation: both use existing readable effects.
+    // Muraganda Raceway adds a mana ability, excluded from this census, and
+    // StartYourEngines is a synthesized keyword rather than an activation.
+    assert_eq!((read, of), (2523, 3001), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

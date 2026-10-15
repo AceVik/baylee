@@ -56,6 +56,7 @@ mod legends_ids;
 mod legends_kit;
 mod library_choices;
 mod library_followups;
+mod luna_oracle_pilot;
 mod planeswalkers;
 mod radiation;
 mod rules;

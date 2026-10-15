@@ -15,6 +15,7 @@ mod cabal_ritual;
 mod clear;
 mod consult_the_star_charts;
 mod counterspell;
+mod destroy_evil;
 mod disenchant;
 mod eladamri_s_call;
 mod evasive_action;

@@ -197,7 +197,13 @@ fn promised(
             })
             .ok_or(Unreadable::NoLoneBasicType),
         Route::Printed(i) => match &def.abilities_for_face(index)[i] {
-            AbilityDef::Activated { cost, effects, .. } => {
+            AbilityDef::Activated { cost, effects, .. }
+            | AbilityDef::ActivatedConditional {
+                cost,
+                effects,
+                condition: baylee_cards_dsl::Condition::MaxSpeed,
+                ..
+            } => {
                 if cost.parts != [CostPart::TapSelf] {
                     return Err(Unreadable::Cost);
                 }
@@ -292,6 +298,9 @@ fn read_printed(line: &str) -> Option<Printed> {
         .strip_suffix(')')
         .and_then(|l| l.rsplit_once(" ("))
         .map_or(body, |(ability, _)| ability);
+    // Max speed is a condition, supplied by `board` from the Oracle text;
+    // the rest of its line says what the enabled mana ability produces.
+    let body = body.strip_prefix("Max speed — ").unwrap_or(body);
     // An ability word has no rules meaning (CR 207.2c): "Metalcraft — {T}:
     // Add …" costs the tap and nothing else.
     let body = body
@@ -472,6 +481,18 @@ fn prints(def: &CardDef, index: usize) -> Result<Prints, String> {
 fn prints_mana(def: &CardDef, index: usize) -> bool {
     baylee_cards::oracle::face(def.index, index)
         .is_some_and(|text| text.lines().any(|line| read_printed(line).is_some()))
+}
+
+/// Max speed grants the printed ability only at speed four. Unlike an
+/// ability word, this prefix imposes a condition; the mana census supplies
+/// that condition from Oracle text independently of the card implementation.
+fn prints_max_speed_mana(def: &CardDef, index: usize) -> bool {
+    baylee_cards::oracle::face(def.index, index).is_some_and(|text| {
+        text.lines().any(|line| {
+            line.starts_with("Max speed — ")
+                && matches!(read_printed(line), Some(Printed::Promise(_)))
+        })
+    })
 }
 
 /// Wastes, `{T}: Add {C}.`
@@ -863,7 +884,39 @@ fn board(card: CardIndex, face: usize) -> Result<(Engine<RegistryLookup>, Object
             .set_tapped(land, false);
         engine.refresh_offer();
     }
+    if prints_max_speed_mana(def, face) {
+        engine
+            .dev_state_mut(PlayerId::new(0))
+            .ok_or("the harness was refused the board")?
+            .players[0]
+            .speed = 4;
+        engine.refresh_offer();
+    }
     Ok((engine, land, arrived_tapped))
+}
+
+#[test]
+fn max_speed_mana_census_supplies_the_printed_condition_and_presses_both_routes() {
+    let card = card_index("b5fa5651-d714-44d6-867b-be0e3224b7ed");
+    let def = baylee_cards::by_index(card).unwrap();
+    assert!(prints_max_speed_mana(def, 0));
+    let (mut engine, land, _) = board(card, 0).expect("Raceway census fixture");
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    assert!(legal.abilities.contains(&(land, 1)));
+    engine.dev_state_mut(PlayerId::new(0)).unwrap().players[0].speed = 3;
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    assert!(!legal.abilities.contains(&(land, 1)));
+    for (ability, amount) in [(0, 1), (1, 2)] {
+        let (made, tapped) = pressed(card, 0, Route::Printed(ability), ManaColor::Colorless)
+            .expect("printed mana route at max speed");
+        assert_eq!(made, vec![(ManaColor::Colorless, amount)]);
+        assert!(tapped);
+    }
 }
 
 /// Every face of `def` that is a land, by index.

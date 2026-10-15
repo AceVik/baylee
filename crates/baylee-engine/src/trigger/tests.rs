@@ -1,4 +1,5 @@
 use super::*;
+mod speed;
 use crate::object::ObjectKind;
 use crate::state::ReplacementEntry;
 use baylee_cards_dsl::{Filter, ReplacementRule, TriggerEventKind};

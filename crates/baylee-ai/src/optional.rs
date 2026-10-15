@@ -48,6 +48,7 @@ fn blocker_strength(o: &PublicObject) -> i64 {
 /// knows.
 fn closed(view: &PlayerView, condition: &Condition) -> bool {
     match condition {
+        Condition::MaxSpeed => view.seat(view.seat).is_none_or(|seat| seat.speed != 4),
         Condition::YourTurn => view.active != view.seat,
         Condition::DuringStep(step) => !during(view.step, *step),
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),

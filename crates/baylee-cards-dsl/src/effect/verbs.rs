@@ -1024,6 +1024,7 @@ impl Effect {
             | Effect::PayCostOrLoseLater { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
+            | Effect::IncreaseSpeed
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchLibraryOf { .. }
             | Effect::SearchLibraryUpTo { .. }

@@ -85,6 +85,9 @@ pub struct SeatView {
     pub poison: u16,
     /// Energy counters.
     pub energy: u16,
+    /// Speed: zero before starting engines, then one through four (max speed).
+    #[serde(default)]
+    pub speed: u8,
     /// Radiation counters.
     #[serde(default)]
     pub rad: u16,

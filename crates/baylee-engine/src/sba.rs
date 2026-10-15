@@ -10,6 +10,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 mod regeneration;
+mod speed;
 pub(crate) use regeneration::{
     RegenerationChoices, answer_regeneration_choice, regeneration_choice,
 };
@@ -115,6 +116,7 @@ pub(crate) fn run_with_sagas(
     let mut outcome = SbaOutcome::default();
     let excess_counters = crate::replacement::counter_limits::excess(state);
 
+    outcome.changed |= speed::start(state, lookup);
     // --- Player losses (CR 704.5a-c) -----------------------------------
     // Everybody Lives: no losses while the effect is active.
     let cant_lose = players_cant_lose(state);

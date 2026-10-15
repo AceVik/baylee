@@ -82120,8 +82120,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Amonkhet Raceway
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -82131,8 +82131,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Avishkar Raceway
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -82418,7 +82418,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[Some(1)],
+        lines: &[Some(1), Some(2), None],
         modes: &[],
         alternatives: &[],
     }],

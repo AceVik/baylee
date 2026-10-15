@@ -3227,6 +3227,10 @@ messages! {
     NounProliferatePermanent { en: "permanent to give one more counter of each kind", de: "bleibende Karte, die eine weitere Marke jeder Sorte erhält" },
     /// Plural proliferate selection.
     NounProliferatePermanents { en: "permanents to give one more counter of each kind", de: "bleibende Karten, die eine weitere Marke jeder Sorte erhalten" },
+    /// Public speed after starting engines.
+    PlateSpeed { en: "Speed {0}/4", de: "Tempo {0}/4" },
+    /// Four speed, enabling max-speed abilities.
+    PlateMaxSpeed { en: "Max speed (4/4)", de: "Maximaltempo (4/4)" },
     /// Public energy counter total.
     PlateEnergy { en: "{0} energy", de: "{0} Energie" },
     /// The most combat damage one commander has dealt a seat.

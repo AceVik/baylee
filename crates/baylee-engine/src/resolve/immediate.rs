@@ -1513,6 +1513,14 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::IncreaseSpeed => {
+            if let Some(player) = state.players.get_mut(usize::from(you.get()))
+                && (1..4).contains(&player.speed)
+            {
+                player.speed += 1;
+            }
+            None
+        }
         Effect::BecomeMonarch(rel) => {
             // One monarch at a time (CR 724.3), so one player at most.
             if let Some(&player) = players_of(rel, state, you, res).first() {

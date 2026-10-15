@@ -62,6 +62,8 @@ pub struct Player {
     pub poison: u16,
     /// Energy counters.
     pub energy: u16,
+    /// Persistent speed designation: zero means not started, four is maximum.
+    pub speed: u8,
     /// Radiation counters (CR 728).
     pub rad: u16,
     /// Persistent designation earned through storied (CR 702.195).
@@ -531,6 +533,8 @@ pub struct PerTurn {
     pub main_phases_begun: u32,
     /// A permanent card actually arrived in each owner’s graveyard this turn.
     pub descended: Vec<bool>,
+    /// Whether the inherent speed ability has triggered for each seat this turn.
+    pub speed_triggered: Vec<bool>,
     /// Actual sacrifices, counted once per projected subtype and sacrificing seat.
     pub sacrificed_subtypes:
         std::collections::BTreeMap<(PlayerId, baylee_core::ids::SubtypeId), u32>,
@@ -774,6 +778,7 @@ impl PerTurn {
             untapped_lands_at_start: 0,
             main_phases_begun: 0,
             descended: vec![false; players],
+            speed_triggered: vec![false; players],
             sacrificed_subtypes: std::collections::BTreeMap::new(),
             revolt: vec![false; players],
             put_nontoken_permanent: vec![false; players],
@@ -854,6 +859,7 @@ impl PerTurn {
         self.untapped_lands_at_start = 0;
         self.main_phases_begun = 0;
         self.descended.fill(false);
+        self.speed_triggered.fill(false);
         self.sacrificed_subtypes.clear();
         self.revolt.fill(false);
         self.put_nontoken_permanent.fill(false);
@@ -2283,6 +2289,18 @@ impl GameState {
             new,
             cause,
         });
+        let active = self.turn.active;
+        let index = usize::from(active.get());
+        if new < old
+            && self.is_opponent(active, player)
+            && (1..4).contains(&self.players[index].speed)
+            && !self.players[index].has_lost()
+            && !self.per_turn.speed_triggered[index]
+        {
+            self.per_turn.speed_triggered[index] = true;
+            self.journal
+                .record(GameEvent::SpeedTriggered { player: active });
+        }
     }
 
     /// Damage dealt to a player, after prevention: the life it costs

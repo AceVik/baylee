@@ -33,6 +33,13 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         if seat.poison > 0 {
             facts.push(format!("poison {}", seat.poison));
         }
+        if seat.speed > 0 {
+            facts.push(if seat.speed == 4 {
+                "max speed 4/4".to_string()
+            } else {
+                format!("speed {}/4", seat.speed)
+            });
+        }
         if seat.rad > 0 {
             facts.push(format!("radiation {}", seat.rad));
         }

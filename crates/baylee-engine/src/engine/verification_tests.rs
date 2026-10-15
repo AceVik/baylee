@@ -277,6 +277,7 @@ const fn variant(ability: &AbilityDef) -> &'static str {
         AbilityDef::CopyOnEnter { .. } => "CopyOnEnter",
         AbilityDef::Loyalty { .. } => "Loyalty",
         AbilityDef::ModalTriggered { .. } => "ModalTriggered",
+        AbilityDef::StartYourEngines => "StartYourEngines",
     }
 }
 

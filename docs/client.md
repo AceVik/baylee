@@ -10662,3 +10662,10 @@ uses `hud::scale::desktop_space`, table HUD placement uses `space`, and
 pointer coordinates are converted at placement/drag boundaries. Dev-control
 continues to report and accept logical **window** pixels, including below
 the floor and on Retina displays. Native mobile and web layouts are unchanged.
+
+Speed is public seat state (`SeatView::speed`, `VIEW_VERSION` 78): zero means
+engines have not started and adds no HUD detail. Once started, the seat plate
+and player chip show an S and the current speed; their accessible description
+says “Speed N/4”, or “Max speed (4/4)” at four, in the selected language.
+The agent narrator also names speed and max speed. Speed is not a counter
+and does not enter proliferate choices.

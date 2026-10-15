@@ -356,6 +356,8 @@ pub enum Condition {
     EnduringStory,
     /// The controller has the city's blessing (CR 702.131c).
     CitysBlessing,
+    /// The controller has speed 4.
+    MaxSpeed,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -808,6 +810,8 @@ impl Trigger {
 pub enum AbilityDef {
     /// Placeholder for unimplemented stubs.
     Unimplemented,
+    /// Starts the controller's speed as a state-based action.
+    StartYourEngines,
     /// The spell's own effect (instants/sorceries; permanent spells with
     /// cast/ETB-relevant spell text use triggered/static abilities).
     Spell {

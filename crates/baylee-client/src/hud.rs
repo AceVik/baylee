@@ -280,6 +280,9 @@ pub(crate) fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
 
 /// Picks the face for the audited table icon set.
 pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont {
+    if glyph.is_ascii_alphabetic() {
+        return tf(fonts, size);
+    }
     let mut font = icon_tf(fonts, size);
     if baylee_client_core::tableicons::is_mana(glyph) {
         font.font = bevy::text::FontSource::Handle(fonts.mana.clone());

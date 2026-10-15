@@ -2689,6 +2689,8 @@ pub enum Effect {
     /// the monarch", which the engine resolves with the creature that dealt
     /// the damage as its first object.
     BecomeMonarch(PlayerRel),
+    /// Resolves the inherent speed trigger, increasing speed below 4 by one.
+    IncreaseSpeed,
     /// A relative player may search their library for a basic land onto
     /// the battlefield tapped, then shuffle (Path to Exile).
     OptionalBasicLandSearchFor {

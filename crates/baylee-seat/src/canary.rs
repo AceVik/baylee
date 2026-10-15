@@ -94,6 +94,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
                 life: 20,
                 poison: 0,
                 energy: 0,
+                speed: 0,
                 rad: 0,
                 hand_count: 0,
                 no_max_hand_size: false,

@@ -1084,6 +1084,7 @@ pub(crate) const fn detail_glyph(detail: Detail) -> char {
         Detail::Poison(_) => POISON,
         Detail::Energy(_) => ENERGY,
         Detail::Rad(_) => 'R',
+        Detail::Speed(_) => 'S',
         Detail::Commander(_) => glyph::COMMANDER_DAMAGE,
     }
 }

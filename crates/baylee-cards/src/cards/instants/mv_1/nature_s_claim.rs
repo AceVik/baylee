@@ -10,7 +10,7 @@ card!(
     oracle_id = "6d4e558e-9109-4918-a082-fdcbaffd516b",
     scryfall_id = "d24b6640-ef2f-4c92-beb3-afdf78f9c2d5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Claim",
         mana_cost = mana!("{G}"),

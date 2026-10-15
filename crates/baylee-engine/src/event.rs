@@ -197,6 +197,11 @@ pub enum GameEvent {
         /// Why.
         cause: Cause,
     },
+    /// The inherent speed ability triggered; it has no permanent source.
+    SpeedTriggered {
+        /// The player whose speed can increase.
+        player: PlayerId,
+    },
     /// A turn began.
     TurnStarted {
         /// Turn number (1-based).

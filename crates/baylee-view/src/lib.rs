@@ -225,7 +225,8 @@ pub use turn::{DayNight, Phase, Step};
 /// ability was activated or triggered, its `Aimed` line (the modes and
 /// targets a spell or an ability on the stack was announced with), and the
 /// `ObjectStatus::NO_ABILITIES` bit.
-pub const VIEW_VERSION: u32 = 77;
+/// Version 78 adds public speed totals to each seat.
+pub const VIEW_VERSION: u32 = 78;
 
 // ------------------------------------------------------------------- targets
 

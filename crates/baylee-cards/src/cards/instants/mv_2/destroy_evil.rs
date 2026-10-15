@@ -14,7 +14,7 @@ card!(
     oracle_id = "b75e667a-1ceb-445a-acf4-ae1fd2dae9e7",
     scryfall_id = "af2498a2-3763-408a-9bd2-279034869285",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Destroy Evil",
         mana_cost = mana!("{1}{W}"),

@@ -3,7 +3,7 @@
   "original_partial_count": 540,
   "completed_before_plan": 284,
   "remaining_at_start": 256,
-  "note": "Mechanism-based work packages; order and boundaries may change when shared prerequisites are found. Completion requires every printed clause and behavioral validation.",
+  "note": "Mechanism-based work packages; order and boundaries may change when shared prerequisites are found. Completion requires every printed clause and behavioral validation. Reconciled on 2026-10-15 by Oracle ID against current source coverage: 486 of the original 540 Implemented, 51 Partial, 3 excluded Un-cards. completed_cards lists only Implemented cards; withdrawn_cards lists exclusions, never completions.",
   "batches": [
     {
       "batch": 39,
@@ -46,6 +46,17 @@
           "name": "Coral Helm",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_3/coral_helm.rs"
         }
+      ],
+      "completed_cards": [
+        "Nephalia Academy",
+        "Lake-town Lookout",
+        "Aclazotz, Deepest Betrayal // Temple of the Dead",
+        "Ledger Shredder",
+        "Spymaster's Vault",
+        "Villainous Hideout",
+        "Psychic Purge",
+        "Gamble",
+        "Coral Helm"
       ]
     },
     {
@@ -118,7 +129,7 @@
           "path": "crates/baylee-cards/src/cards/creatures/mv_2/liliana_the_repentant.rs"
         },
         {
-          "name": "Barad-d\u00fbr",
+          "name": "Barad-dûr",
           "path": "crates/baylee-cards/src/cards/lands/legendary/barad_dur.rs"
         },
         {
@@ -149,6 +160,17 @@
           "name": "Voodoo Doll",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_6/voodoo_doll.rs"
         }
+      ],
+      "completed_cards": [
+        "Liliana the Repentant",
+        "Barad-dûr",
+        "Lair of the Hydra",
+        "Tomb of Urami",
+        "Secluded Starforge",
+        "Springjack Pasture",
+        "War Room",
+        "Nykthos, Shrine to Nyx",
+        "Voodoo Doll"
       ]
     },
     {
@@ -208,6 +230,21 @@
           "name": "Land Equilibrium",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_4/land_equilibrium.rs"
         }
+      ],
+      "completed_cards": [
+        "Lotus Vale",
+        "Lake of the Dead",
+        "Scorched Ruins",
+        "Mold Demon",
+        "Wood Elemental",
+        "Serendib Djinn",
+        "Balduvian Trading Post",
+        "Heart of Yavimaya",
+        "Kjeldoran Outpost",
+        "Sheltered Valley",
+        "Soldevi Excavations",
+        "Mox Diamond",
+        "Land Equilibrium"
       ]
     },
     {
@@ -414,13 +451,29 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/north_star.rs"
         },
         {
-          "name": "Ring of Ma'r\u00fbf",
+          "name": "Ring of Ma'rûf",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_5/ring_of_ma_ruf.rs"
         },
         {
           "name": "Tarrian's Journal // The Tomb of Aclazotz",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_2/tarrian_s_journal.rs"
         }
+      ],
+      "completed_cards": [
+        "Kess, Dissident Mage",
+        "Ojer Pakpatiq, Deepest Epoch // Temple of Cyclical Time",
+        "Theorist's Proxy",
+        "Mistrise Village",
+        "Throne of Makindi",
+        "Bloodsoaked Insight // Sanguine Morass",
+        "Open Communications",
+        "Agadeem's Awakening // Agadeem, the Undercrypt",
+        "Mizzix's Mastery",
+        "Underworld Breach",
+        "Welcome to . . . // Jurassic Park",
+        "North Star",
+        "Ring of Ma'rûf",
+        "Tarrian's Journal // The Tomb of Aclazotz"
       ]
     },
     {
@@ -446,7 +499,7 @@
         {
           "name": "Underdome",
           "path": "crates/baylee-cards/src/cards/lands/underdome.rs",
-          "status": "partial"
+          "status": "completed"
         },
         {
           "name": "Cryptic Spires",
@@ -495,7 +548,22 @@
         }
       ],
       "validated_complete": 13,
-      "remaining_note": "All thirteen cards completed; Underdome uses shared source-scoped pricing, exact receipt allocation and actual-action validation."
+      "remaining_note": "All thirteen cards completed; Underdome uses shared source-scoped pricing, exact receipt allocation and actual-action validation.",
+      "completed_cards": [
+        "Watermarket",
+        "Brotherhood Headquarters",
+        "Secret Base",
+        "Underdome",
+        "Cryptic Spires",
+        "Pit of Offerings",
+        "Sunken Palace",
+        "Interplanar Beacon",
+        "Plaza of Harmony",
+        "Avengers Tower",
+        "The Everflowing Well // The Myriad Pools",
+        "Primal Amulet // Primal Wellspring",
+        "Agatha's Soul Cauldron"
+      ]
     },
     {
       "batch": 47,
@@ -513,7 +581,7 @@
           "status": "completed"
         },
         {
-          "name": "Ifh-B\u00edff Efreet",
+          "name": "Ifh-Bíff Efreet",
           "path": "crates/baylee-cards/src/cards/creatures/mv_4/ifh_biff_efreet.rs",
           "status": "completed"
         },
@@ -538,7 +606,16 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 7
+      "validated_complete": 7,
+      "completed_cards": [
+        "Clergy of the Holy Nimbus",
+        "Derevi, Empyrial Tactician",
+        "Ifh-Bíff Efreet",
+        "Rhystic Cave",
+        "Land's Edge",
+        "Armageddon Clock",
+        "Power Artifact"
+      ]
     },
     {
       "batch": 48,
@@ -617,7 +694,23 @@
         }
       ],
       "validated_complete": 14,
-      "remaining_note": "All fourteen cards completed after shared-engine and actual-action validation."
+      "remaining_note": "All fourteen cards completed after shared-engine and actual-action validation.",
+      "completed_cards": [
+        "Ichneumon Druid",
+        "Lilypad Village",
+        "Oscorp Industries",
+        "Havengul Laboratory // Havengul Mystery",
+        "Valakut, the Molten Pinnacle",
+        "Legion's Landing // Adanto, the First Fort",
+        "Storm the Vault // Vault of Catlacan",
+        "Haunting Wind",
+        "Powerleech",
+        "Imprison",
+        "Artifact Possession",
+        "Urza's Miter",
+        "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
+        "Thousand Moons Smithy // Barracks of the Thousand"
+      ]
     },
     {
       "batch": 49,
@@ -675,7 +768,19 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 10
+      "validated_complete": 10,
+      "completed_cards": [
+        "Undiscovered Paradise",
+        "Nafs Asp",
+        "Giant Turtle",
+        "Wall of Dust",
+        "Telekinesis",
+        "Frostwalk Bastion",
+        "Skyline Cascade",
+        "Mystifying Maze",
+        "Magosi, the Waterveil",
+        "Thawing Glaciers"
+      ]
     },
     {
       "batch": 50,
@@ -902,7 +1007,22 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 13
+      "validated_complete": 13,
+      "completed_cards": [
+        "Johan",
+        "Wall of Shadows",
+        "Archon of Emeria",
+        "Guardian Beast",
+        "Bronze Horse",
+        "Teferi's Protection",
+        "Prahv, Spires of Order",
+        "Glacial Chasm",
+        "Arcane Lighthouse",
+        "Hammerheim",
+        "Titania's Song",
+        "Kismet",
+        "The One Ring"
+      ]
     },
     {
       "batch": 53,
@@ -968,7 +1088,14 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 5
+      "validated_complete": 5,
+      "completed_cards": [
+        "Riftstone Portal",
+        "Quarum Trench Gnomes",
+        "Gond Gate",
+        "Thran Portal",
+        "Unstable Frontier"
+      ]
     },
     {
       "batch": 55,
@@ -1293,7 +1420,8 @@
           "name": "Gemrazer",
           "path": "crates/baylee-cards/src/cards/creatures/mv_4/gemrazer.rs"
         }
-      ]
+      ],
+      "completed_cards": []
     },
     {
       "batch": 62,
@@ -1344,7 +1472,7 @@
     {
       "batch": 63,
       "title": "Speed designation",
-      "status": "pending",
+      "status": "completed",
       "cards": [
         {
           "name": "Muraganda Raceway",
@@ -1358,7 +1486,14 @@
           "name": "Avishkar Raceway",
           "path": "crates/baylee-cards/src/cards/lands/utility/avishkar_raceway.rs"
         }
-      ]
+      ],
+      "completed_cards": [
+        "Muraganda Raceway",
+        "Amonkhet Raceway",
+        "Avishkar Raceway"
+      ],
+      "validated_complete": 3,
+      "validation_note": "2026-10-15: six actual-action card tests pass; all nine whole-ability mutants are killed. Speed mechanic, view and client-core tests pass; integration gate recorded separately."
     },
     {
       "batch": 64,
@@ -1396,7 +1531,7 @@
     {
       "batch": 65,
       "title": "Coin flips, die rolls, dungeons and explore",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Goblin Artisans",
@@ -1416,7 +1551,10 @@
         }
       ],
       "validated_complete": 1,
-      "remaining_note": "Goblin Artisans imported from origin/main at the restart checkpoint; no new batch work authorized before user Go."
+      "remaining_note": "Goblin Artisans imported from origin/main at the restart checkpoint; no new batch work authorized before user Go.",
+      "completed_cards": [
+        "Goblin Artisans"
+      ]
     },
     {
       "batch": 66,
@@ -1477,7 +1615,8 @@
       ],
       "partials_lane_notes": [
         "Un-cards listed in data/unplayable.tsv as un-set and removed from the pool (owner 13.10.2026)."
-      ]
+      ],
+      "completed_cards": []
     },
     {
       "batch": 68,
@@ -1492,26 +1631,26 @@
           "name": "Sevinne's Reclamation",
           "path": "crates/baylee-cards/src/cards/sorceries/mv_3/sevinne_s_reclamation.rs"
         }
-      ]
+      ],
+      "completed_cards": []
     }
   ],
   "stop_after_cards": "Owner instruction 2026-10-12: stop after all 540 original Partial cards are fully implemented and validated; save/compact context and wait for explicit Go before post-card test/build/performance phases or final main integration/push.",
   "current_session_scope": {
     "batches": [
-      46,
-      48,
-      52,
-      54
+      51,
+      63
     ],
-    "target_original_cards_complete": 427,
+    "target_original_cards_complete": 537,
     "then": [
-      "rebase on current main",
-      "push",
+      "complete and validate the remaining original Partial cards",
       "save compact handoff",
-      "wait for user after app restart"
+      "wait for explicit Go before post-card test/build/performance phases or final main integration/push"
     ],
-    "authorized_on": "2026-10-12",
-    "note": "Begun batches 46, 48, 52 and 54 complete at 427/540. Rebase additionally imports Goblin Artisans from main: 428/540, 112 remaining. Stop after validation and push; await explicit Go.",
-    "post_rebase_original_cards_complete": 428
+    "authorized_on": "2026-10-15",
+    "note": "Resumed on 2026-10-15 after rebase: 486 Implemented, 51 Partial, 3 previously excluded Un-cards. Batch 63 now adds three validated implementations: 489 Implemented, 48 Partial, 3 excluded. Batch 51 is active. Generated-card testing is separate from the original 540. Stop after eligible original cards are complete and await explicit Go before later optimization phases.",
+    "post_rebase_original_cards_complete": 486,
+    "current_original_cards_complete": 489,
+    "remaining_original_partial_cards": 48
   }
 }

@@ -47,6 +47,8 @@ pub enum Detail {
     Energy(u16),
     /// Radiation counters (only when nonzero).
     Rad(u16),
+    /// Speed after starting engines; four is max speed.
+    Speed(u8),
     /// The most combat damage one commander has dealt the seat (only when
     /// not zero): the number CR 903.10a's twenty-one is counted against.
     Commander(u16),
@@ -77,6 +79,7 @@ impl Detail {
             | Self::Library(count)
             | Self::Graveyard(count)
             | Self::Exile(count) => count.to_string(),
+            Self::Speed(n) => n.to_string(),
             Self::Poison(n) | Self::Energy(n) | Self::Rad(n) | Self::Commander(n) => n.to_string(),
         }
     }
@@ -100,6 +103,8 @@ impl Detail {
             Self::Poison(_) => Phrase::PlatePoison.fill(lang, &[&n]),
             Self::Rad(_) => Phrase::PlateRad.fill(lang, &[&n]),
             Self::Energy(_) => Phrase::PlateEnergy.fill(lang, &[&n]),
+            Self::Speed(4) => Phrase::PlateMaxSpeed.text(lang).to_string(),
+            Self::Speed(_) => Phrase::PlateSpeed.fill(lang, &[&n]),
             Self::Commander(_) => Phrase::PlateCommander.fill(lang, &[&n]),
         }
     }
@@ -157,6 +162,9 @@ impl SeatPlate {
             if n > 0 {
                 details.push(detail);
             }
+        }
+        if seat.speed > 0 {
+            details.push(Detail::Speed(seat.speed));
         }
         Some(Self {
             player,
@@ -225,6 +233,33 @@ const fn letter(color: baylee_core::mana::ManaColor) -> &'static str {
 mod tests {
     use super::*;
     use crate::test_support::ViewBuilder;
+
+    #[test]
+    fn speed_is_hidden_until_started_and_max_speed_is_explicit() {
+        let mut view = ViewBuilder::new(2).build();
+        let player = PlayerId::new(1);
+        assert!(
+            !SeatPlate::of(&view, player)
+                .unwrap()
+                .details
+                .iter()
+                .any(|d| matches!(d, Detail::Speed(_)))
+        );
+        for speed in 1..=4 {
+            view.seats[1].speed = speed;
+            let plate = SeatPlate::of(&view, player).unwrap();
+            assert!(plate.details.contains(&Detail::Speed(speed)));
+            let english = plate.describe(Lang::En, "Anna");
+            let german = plate.describe(Lang::De, "Anna");
+            if speed == 4 {
+                assert!(english.contains("Max speed (4/4)"));
+                assert!(german.contains("Maximaltempo (4/4)"));
+            } else {
+                assert!(english.contains(&format!("Speed {speed}/4")));
+                assert!(german.contains(&format!("Tempo {speed}/4")));
+            }
+        }
+    }
 
     #[test]
     fn the_hand_says_unlimited_only_when_the_view_does() {

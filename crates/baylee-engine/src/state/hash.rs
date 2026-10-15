@@ -442,6 +442,7 @@ impl GameState {
             h.u32(p.turns_to_skip);
             h.u16(p.poison);
             h.u16(p.energy);
+            h.u8(p.speed);
             h.u16(p.rad);
             h.boolean(p.enduring_story);
             h.boolean(p.citys_blessing);
@@ -506,6 +507,7 @@ impl GameState {
         self.per_turn.improvise_next_spell.hash(h);
         self.per_turn.main_phases_begun.hash(h);
         self.per_turn.descended.hash(h);
+        self.per_turn.speed_triggered.hash(h);
         self.per_turn.sacrificed_subtypes.hash(h);
         self.per_turn.instant_or_sorcery_cast.hash(h);
         self.per_turn.instants_cast.hash(h);
@@ -1338,6 +1340,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         life,
         poison,
         energy,
+        speed,
         rad,
         enduring_story,
         citys_blessing,
@@ -1360,6 +1363,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     life.hash(h);
     poison.hash(h);
     energy.hash(h);
+    speed.hash(h);
     rad.hash(h);
     enduring_story.hash(h);
     citys_blessing.hash(h);

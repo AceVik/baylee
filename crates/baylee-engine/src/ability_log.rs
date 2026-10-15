@@ -97,7 +97,8 @@ impl Kind {
             | AbilityDef::Toxic { .. }
             | AbilityDef::Prepared { .. }
             | AbilityDef::Echo { .. }
-            | AbilityDef::Suspend { .. } => return None,
+            | AbilityDef::Suspend { .. }
+            | AbilityDef::StartYourEngines => return None,
         })
     }
 }
