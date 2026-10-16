@@ -297,3 +297,6 @@ mod tests {
         assert!((app.world().resource::<UiScale>().0 - 1.0).abs() < 1e-6);
     }
 }
+
+#[cfg(test)]
+mod regressions;

@@ -35,7 +35,11 @@ fn type_into(panel: &mut SeatPanel, spot: Spot, text: &str) {
     assert_eq!(panel.focus(), Some(spot), "{spot:?} takes the caret");
     panel.edit(|buffer| {
         buffer.select_all();
-        buffer.insert(text);
+        if text.is_empty() {
+            buffer.replace_selection("");
+        } else {
+            buffer.insert(text);
+        }
     });
 }
 

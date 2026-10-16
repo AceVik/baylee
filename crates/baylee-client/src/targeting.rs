@@ -562,6 +562,7 @@ pub(crate) fn only_a_dearer_mode_is_left(
 #[cfg(test)]
 mod tests {
     mod attached;
+    mod boundaries;
     mod public_filters;
     use super::*;
     use baylee_client_core::test_support::{ViewBuilder, printed};

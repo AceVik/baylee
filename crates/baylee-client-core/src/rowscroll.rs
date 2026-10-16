@@ -50,6 +50,9 @@ impl RowScroll {
         row: RowKey,
         pixels: f32,
     ) -> bool {
+        if !pixels.is_finite() {
+            return false;
+        }
         let Some(packing) = packing_of(board, layout, row) else {
             return false;
         };

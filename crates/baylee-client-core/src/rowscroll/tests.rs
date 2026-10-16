@@ -160,3 +160,55 @@ fn the_cursor_brings_a_hidden_card_into_view_once() {
     scroll.follow(&board, &layout, Some(ObjectId::new(10_000 + 40 * 4 + 1, 0)));
     assert!(shown(&board, &layout, &scroll).contains(&39));
 }
+
+#[test]
+fn invalid_wheel_values_do_not_poison_subsequent_gestures() {
+    let (board, layout) = table(&[true; 40]);
+    for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        let mut scroll = RowScroll::default();
+        assert!(!scroll.wheel(&board, &layout, LANDS, ROW_STEP / 2.0));
+        assert!(!scroll.wheel(&board, &layout, LANDS, invalid));
+        assert_eq!(scroll.first(LANDS), 0);
+        assert!(scroll.wheel(&board, &layout, LANDS, ROW_STEP / 2.0));
+        assert_eq!(scroll.first(LANDS), 1);
+    }
+}
+
+#[test]
+fn reversing_partial_wheel_motion_cancels_before_moving_a_card() {
+    let (board, layout) = table(&[true; 40]);
+    let mut scroll = RowScroll::default();
+    for pixels in [ROW_STEP / 2.0, -ROW_STEP / 2.0, ROW_STEP / 2.0] {
+        assert!(!scroll.wheel(&board, &layout, LANDS, pixels));
+    }
+    assert!(scroll.wheel(&board, &layout, LANDS, ROW_STEP / 2.0));
+    assert_eq!(scroll.first(LANDS), 1);
+}
+
+#[test]
+fn a_removed_row_forgets_its_scroll_position() {
+    let (board, layout) = table(&[true; 40]);
+    let (empty, _) = table(&[]);
+    let mut scroll = RowScroll::default();
+    assert!(scroll.wheel(&board, &layout, LANDS, ROW_STEP * 10.0));
+    assert!(scroll.follow(&empty, &layout, None));
+    assert_eq!(scroll.first(LANDS), 0);
+    assert!(!scroll.follow(&empty, &layout, None));
+    assert!(scroll.wheel(&board, &layout, LANDS, ROW_STEP));
+    assert_eq!(scroll.first(LANDS), 1);
+}
+
+#[test]
+fn a_missing_row_does_not_consume_another_rows_partial_motion() {
+    let (board, layout) = table(&[true; 40]);
+    let mut scroll = RowScroll::default();
+    assert!(!scroll.wheel(&board, &layout, LANDS, ROW_STEP / 2.0));
+    assert!(!scroll.wheel(
+        &board,
+        &layout,
+        (PlayerId::new(7), LaneKind::Lands),
+        ROW_STEP
+    ));
+    assert!(scroll.wheel(&board, &layout, LANDS, ROW_STEP / 2.0));
+    assert_eq!(scroll.first(LANDS), 1);
+}

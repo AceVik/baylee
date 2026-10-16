@@ -3776,6 +3776,7 @@ messages! {
     LogAFaceDownCard { en: "a face-down card", de: "eine verdeckte Karte" },
     /// A planeswalker attacked that the reading seat's view no longer shows.
     LogAPlaneswalker { en: "a planeswalker", de: "einen Planeswalker" },
+    /// A battle attacked that the reading seat's view no longer shows.
     LogABattle { en: "a battle", de: "eine Schlacht" },
     /// Public designation, independent of a battle's controller.
     BattleProtectedBy { en: "Protected by {0}", de: "Beschützt von {0}" },

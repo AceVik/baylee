@@ -576,3 +576,6 @@ mod tests {
         assert_eq!(died.passage(), Some(Passage::Destroyed));
     }
 }
+
+#[cfg(test)]
+mod regressions;
