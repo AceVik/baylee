@@ -60,7 +60,6 @@
 //! account they belong to. A surrogate key on any of those would be a way to
 //! store the same thing twice.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod accounts;

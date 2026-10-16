@@ -18,10 +18,10 @@ to downgrade bevy and sea-orm to honour it.
 
 ## The rules this repo adds on top of the language
 
-- `#![forbid(unsafe_code)]` in every crate, and a line in `AGENTS.md` saying
-  so. A blanket "unsafe is allowed" from the user does not override a crate
-  attribute — if unsafe is genuinely wanted, that is a change to `AGENTS.md`
-  and to the crate, made deliberately and separately.
+- `unsafe_code = "allow"` workspace-wide: `unsafe`, intrinsics and assembler
+  (`core::arch`, `asm!` for `x86_64`, `aarch64`, and modern Wasm) are allowed
+  and explicitly encouraged wherever they deliver good performance gains,
+  backed by a `// SAFETY:` invariant comment and particularly thorough tests.
 - **Clippy pedantic with `-D warnings`**, CI-enforced. The two that bite most
   often are `missing_docs` on anything `pub` and `too_many_lines` (100). An
   `#[allow]` is acceptable when the lint is wrong for the case, but it needs a

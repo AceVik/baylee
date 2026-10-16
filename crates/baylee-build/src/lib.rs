@@ -19,8 +19,6 @@
 //! dependencies at all so that adding it to the client costs the wasm bundle
 //! nothing but the bytes of the strings themselves.
 
-#![forbid(unsafe_code)]
-
 /// The workspace version, from Cargo.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

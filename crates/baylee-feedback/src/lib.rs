@@ -25,7 +25,6 @@
 //! Nothing it stores names a player: a report carries the gateway's
 //! pseudonym for its reporter, and no request's address is kept or logged.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod admin;

@@ -20,12 +20,14 @@
 
 ## Conventions
 
-- `unsafe_code = "deny"` workspace-wide: safe Rust is the default everywhere.
-  `unsafe` is allowed where it buys measured performance or replaces markedly
-  more complex code, and then only with a local `#[allow(unsafe_code)]`, a
-  `// SAFETY:` comment naming the invariant that makes it sound, and tests
-  that fail if that invariant is broken. Never reach for it to silence a
-  borrow-check error. Clippy pedantic is enforced in CI.
+- `unsafe_code = "allow"` workspace-wide: `unsafe` code, intrinsics and
+  assembler (`core::arch`, `asm!` for `x86_64`, `aarch64`/ARM, and modern Wasm
+  when needed) are allowed and explicitly encouraged everywhere when they
+  deliver good performance or RAM gains, or replace markedly more complex code.
+  Every `unsafe` site must carry a `// SAFETY:` comment naming the invariant
+  that makes it sound, and must receive particularly thorough test coverage
+  that fails if that invariant is broken. Never reach for `unsafe` merely to
+  silence a borrow-check error. Clippy pedantic is enforced in CI.
 - Leave code better than you found it (owner, 06.10.2026): while doing a task,
   make the existing code you touch more efficient and cleaner — that is part of
   the task, not scope creep. Performance and RAM optimisations with `unsafe`,
