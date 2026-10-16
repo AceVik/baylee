@@ -6,6 +6,12 @@ fn groundshaker_sliver() -> CardIndex {
     card_index("106e343f-c6f4-4155-ad01-63e482d4d38e")
 }
 
+/// Galerider Sliver, the other Sliver on the board: a plain Sliver body for
+/// the anthem to reach.
+fn galerider_sliver() -> CardIndex {
+    card_index("1ad78038-44f9-4599-84db-fc1a87d9ed45")
+}
+
 #[test]
 fn groundshaker_grants_trample_to_your_slivers_and_pushes_excess_through_a_block() {
     let p0 = PlayerId::new(0);
@@ -73,4 +79,54 @@ fn groundshaker_grants_trample_to_your_slivers_and_pushes_excess_through_a_block
         "both Muscle Slivers give Groundshaker +2/+2, so it assigns four lethal and three excess"
     );
     assert!(in_graveyard(&e, p1, fangren_hunter()).is_some());
+}
+
+/// Groundshaker Sliver — a 5/5 for {6}{G} that gives Slivers you control
+/// trample. It is a Sliver itself, so it has it too; so has my other Sliver;
+/// the opposing Sliver and my Ogre have not.
+#[test]
+fn groundshaker_sliver_gives_trample_to_slivers_i_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let engine = table7(
+        &[groundshaker_sliver(), galerider_sliver(), gray_ogre()],
+        &[],
+        &[galerider_sliver()],
+    );
+    let ground = on_battlefield(&engine, p0, groundshaker_sliver()).expect("out");
+    let mine = on_battlefield(&engine, p0, galerider_sliver()).expect("out");
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("out");
+    let theirs = on_battlefield(&engine, p1, galerider_sliver()).expect("out");
+    assert_eq!(pt(&engine, ground), (5, 5));
+    assert!(
+        keywords(&engine, ground).contains(KeywordSet::TRAMPLE),
+        "itself"
+    );
+    assert!(
+        keywords(&engine, mine).contains(KeywordSet::TRAMPLE),
+        "my Sliver"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::TRAMPLE),
+        "their Sliver is not mine"
+    );
+    assert!(
+        !keywords(&engine, ogre).contains(KeywordSet::TRAMPLE),
+        "an Ogre is not a Sliver"
+    );
+}
+
+/// Cast off {6}{G}, a 5/5; and the trample is real in combat: 3 of its 5
+/// tramples over a 2/2.
+#[test]
+fn groundshaker_sliver_costs_seven() {
+    let mut engine = table7(&lots(forest(), 7), &[groundshaker_sliver()], &[]);
+    let sliver = cast_and_resolve(&mut engine, groundshaker_sliver());
+    assert_body(&engine, sliver, (5, 5), KeywordSet::TRAMPLE);
+}
+
+#[test]
+fn groundshaker_sliver_tramples_over_a_blocker() {
+    let (mut engine, sliver, ogre) = duel_vs_ogre(groundshaker_sliver(), &[]);
+    fight(&mut engine, &[sliver], &[(ogre, sliver)]);
+    assert_eq!(life_of(&engine, 1), 17);
 }
