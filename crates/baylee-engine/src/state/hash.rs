@@ -382,55 +382,7 @@ impl GameState {
                 hash_object_situation(&mut h, original, self, &position);
             }
         }
-        h.usize(self.combat.participants.len());
-        for &(id, version) in &self.combat.participants {
-            h.u32(position(id));
-            h.boolean(self.object(id).is_some_and(|o| o.version == version));
-        }
-        let mut contexts: Vec<_> = self.combat.defender_contexts().collect();
-        contexts.sort_unstable_by_key(|context| position(context.attacker.object));
-        h.usize(contexts.len());
-        for context in contexts {
-            h.u32(position(context.attacker.object));
-            h.u8(moves_since(
-                self.object_or_departed(context.attacker.object),
-                context.attacker.version,
-            ));
-            h.boolean(context.target.is_some());
-            if let Some(target) = context.target {
-                h.u32(position(target.object));
-                h.u8(moves_since(
-                    self.object_or_departed(target.object),
-                    target.version,
-                ));
-            }
-            context.defending_player.hash(&mut h);
-            context.controller.hash(&mut h);
-            context.types.hash(&mut h);
-            context.active.hash(&mut h);
-        }
-        h.usize(self.combat.attackers().len());
-        for a in self.combat.attackers() {
-            h.u32(position(a.creature));
-            hash_defender(&mut h, a.defending, position);
-            h.boolean(a.blocked);
-            let sole = self
-                .source_identity(a.creature)
-                .and_then(|attacker| self.combat.sole_blocker(attacker))
-                .filter(|blocker| {
-                    self.object(blocker.object)
-                        .is_some_and(|object| object.version == blocker.version)
-                });
-            h.boolean(sole.is_some());
-            if let Some(blocker) = sole {
-                h.u32(position(blocker.object));
-            }
-        }
-        h.usize(self.combat.blockers.len());
-        for b in &self.combat.blockers {
-            h.u32(position(b.blocker));
-            h.u32(position(b.attacker));
-        }
+        self.hash_loop_combat(&mut h, &position);
         // What has already been used this turn, which is rules-visible: an
         // ability that prints "activate only once each turn" is *offered* in
         // one of these states and not in the other, so two boards alike in
@@ -454,6 +406,58 @@ impl GameState {
         // even if the visible board and counter totals are identical.
         self.counter_links.hash(&mut h);
         h.finish()
+    }
+
+    fn hash_loop_combat(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        h.usize(self.combat.participants.len());
+        for &(id, version) in &self.combat.participants {
+            h.u32(position(id));
+            h.boolean(self.object(id).is_some_and(|o| o.version == version));
+        }
+        let mut contexts: Vec<_> = self.combat.defender_contexts().collect();
+        contexts.sort_unstable_by_key(|context| position(context.attacker.object));
+        h.usize(contexts.len());
+        for context in contexts {
+            h.u32(position(context.attacker.object));
+            h.u8(moves_since(
+                self.object_or_departed(context.attacker.object),
+                context.attacker.version,
+            ));
+            h.boolean(context.target.is_some());
+            if let Some(target) = context.target {
+                h.u32(position(target.object));
+                h.u8(moves_since(
+                    self.object_or_departed(target.object),
+                    target.version,
+                ));
+            }
+            context.defending_player.hash(h);
+            context.controller.hash(h);
+            context.types.hash(h);
+            context.active.hash(h);
+        }
+        h.usize(self.combat.attackers().len());
+        for a in self.combat.attackers() {
+            h.u32(position(a.creature));
+            hash_defender(h, a.defending, position);
+            h.boolean(a.blocked);
+            let sole = self
+                .source_identity(a.creature)
+                .and_then(|attacker| self.combat.sole_blocker(attacker))
+                .filter(|blocker| {
+                    self.object(blocker.object)
+                        .is_some_and(|object| object.version == blocker.version)
+                });
+            h.boolean(sole.is_some());
+            if let Some(blocker) = sole {
+                h.u32(position(blocker.object));
+            }
+        }
+        h.usize(self.combat.blockers.len());
+        for b in &self.combat.blockers {
+            h.u32(position(b.blocker));
+            h.u32(position(b.attacker));
+        }
     }
 
     fn hash_loop_players(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {

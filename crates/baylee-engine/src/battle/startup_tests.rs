@@ -56,6 +56,7 @@ impl CardLookup for Lookup {
         }
     }
 }
+#[allow(clippy::default_trait_access)]
 fn entry(index: u32) -> DeckEntry {
     DeckEntry {
         card: CardIndex::new(index),
@@ -64,6 +65,7 @@ fn entry(index: u32) -> DeckEntry {
         choices: Default::default(),
     }
 }
+#[allow(clippy::default_trait_access)]
 fn preset(seats: usize) -> GamePreset {
     GamePreset {
         rules: Default::default(),

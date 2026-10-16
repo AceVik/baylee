@@ -31,7 +31,7 @@ fn walking_archive_draws_the_upkeep_player_a_card_per_counter() {
     let mut engine = main_with(&[walking_archive()], &[forest(), forest(), forest()]);
     cast_and_settle(&mut engine, walking_archive());
     let archive = on_battlefield(&engine, p0, walking_archive()).expect("it resolved");
-    let counters = u16::try_from(counters_on(&engine, archive, CounterKind::P1P1)).unwrap();
+    let counters = counters_on(&engine, archive, CounterKind::P1P1);
     let before = library_of(&engine, PlayerId::new(1)).len();
 
     let after = p1_library_at_its_main(&mut engine);

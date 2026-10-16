@@ -543,7 +543,7 @@ pub fn encode(view: &PlayerView, pending: &Pending, picked: &crate::policy::Pick
                     }
                     match a.defending {
                         Defender::Player(p) => r[22] = rel(seat, p, seats),
-                        Defender::Planeswalker(pw) => r[23] = row_of(pw),
+                        Defender::Planeswalker(pw) | Defender::Battle(pw) => r[23] = row_of(pw),
                     }
                 }
                 if let Some(attacker) = blocking.get(id) {

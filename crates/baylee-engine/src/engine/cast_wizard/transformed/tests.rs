@@ -8,6 +8,14 @@ const B: PlayerId = PlayerId::new(1);
 const BATTLE: u32 = 98_291;
 
 fn game(back: FaceDef) -> (Engine<SyntheticLookup>, ObjectId) {
+    static COUNTER: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+        &[Effect::CounterTargetAbility],
+        targets = Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any)))
+    )];
+    static COPY: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+        &[Effect::CopyTargetAbility],
+        targets = Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any)))
+    )];
     let front = FaceDef {
         types: TypeSet::BATTLE,
         defense: Some(3),
@@ -19,10 +27,6 @@ fn game(back: FaceDef) -> (Engine<SyntheticLookup>, ObjectId) {
         faces: Box::leak(Box::new([front, back])),
         ..*synthetic::creature(BATTLE, "defeat probe", 1, 1, &[])
     }));
-    static COUNTER: &[AbilityDef] = &[baylee_cards_dsl::spell!(
-        &[Effect::CounterTargetAbility],
-        targets = Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any)))
-    )];
     let counter = Box::leak(Box::new(CardDef {
         faces: Box::leak(Box::new([FaceDef {
             types: TypeSet::INSTANT,
@@ -33,10 +37,6 @@ fn game(back: FaceDef) -> (Engine<SyntheticLookup>, ObjectId) {
         }])),
         ..*synthetic::creature(BATTLE + 1, "counter defeat probe", 1, 1, &[])
     }));
-    static COPY: &[AbilityDef] = &[baylee_cards_dsl::spell!(
-        &[Effect::CopyTargetAbility],
-        targets = Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any)))
-    )];
     let copier = Box::leak(Box::new(CardDef {
         faces: Box::leak(Box::new([FaceDef {
             types: TypeSet::INSTANT,
@@ -60,9 +60,9 @@ fn game(back: FaceDef) -> (Engine<SyntheticLookup>, ObjectId) {
         ..*def
     }));
     let mut preset = synthetic::preset(731, &[BATTLE]);
-    let mut hand = preset.seats[0].starting_battlefield[0].clone();
+    let mut hand = preset.seats[0].starting_battlefield[0];
     hand.card = baylee_core::ids::CardIndex::new(BATTLE + 1);
-    let mut copy_hand = hand.clone();
+    let mut copy_hand = hand;
     copy_hand.card = baylee_core::ids::CardIndex::new(BATTLE + 2);
     preset.seats[0].starting_hand = Some(vec![hand, copy_hand]);
     let mut engine = Engine::new(

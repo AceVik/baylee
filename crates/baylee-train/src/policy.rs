@@ -873,7 +873,9 @@ pub fn opt(
         Choice::Ability(id, i) => o(head::ABILITY, row_of(id)?, ability_slot(i)),
         Choice::Block(b, a) => o(head::PAIR, row_of(b)?, row_of(a)?),
         Choice::Attack(a, Defender::Player(p)) => o(head::ATTACK_PLAYER, row_of(a)?, rel(p)),
-        Choice::Attack(a, Defender::Planeswalker(pw)) => o(head::PAIR, row_of(a)?, row_of(pw)?),
+        Choice::Attack(a, Defender::Planeswalker(pw) | Defender::Battle(pw)) => {
+            o(head::PAIR, row_of(a)?, row_of(pw)?)
+        }
         Choice::Player(p) => o(head::PLAYER, rel(p), 0),
         Choice::Color(c) => o(head::COLOR, c, 0),
         Choice::Subtype(s) => o(head::SUBTYPE, s as i16, 0),

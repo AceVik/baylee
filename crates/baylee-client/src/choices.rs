@@ -1175,8 +1175,10 @@ pub(crate) fn preview_object(
     match interaction.attack_options().get(index) {
         Some(
             AttackOption::Toggle(id)
-            | AttackOption::Aim(baylee_core::ids::Defender::Planeswalker(id))
-            | AttackOption::Aim(baylee_core::ids::Defender::Battle(id)),
+            | AttackOption::Aim(
+                baylee_core::ids::Defender::Planeswalker(id)
+                | baylee_core::ids::Defender::Battle(id),
+            ),
         ) => Some(*id),
         _ => None,
     }

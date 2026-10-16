@@ -352,7 +352,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         ("token", |o| o.token = Some(3)),
         ("owner", |o| o.owner = PlayerId::new(1)),
         ("battle_protector", |o| {
-            o.battle_protector = Some(PlayerId::new(1))
+            o.battle_protector = Some(PlayerId::new(1));
         }),
         ("supertypes", |o| o.supertypes = SupertypeSet::LEGENDARY),
         ("subtypes", |o| {

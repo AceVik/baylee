@@ -103,6 +103,7 @@ fn begin(state: &mut GameState, id: ObjectId) -> Option<Pending> {
     );
     crate::entry::advance(state)
 }
+#[allow(clippy::needless_pass_by_value)]
 fn answer(state: &mut GameState, pending: &Pending, action: PlayerAction) -> Option<Pending> {
     assert_eq!(pending.answer_fault(&action), None);
     crate::entry::answer(state, &action);

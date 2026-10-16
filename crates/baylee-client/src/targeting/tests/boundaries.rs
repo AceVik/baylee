@@ -50,6 +50,7 @@ fn known_target_counts_respect_each_minimum_without_using_the_maximum() {
 
 #[test]
 fn hidden_fields_cannot_make_a_filter_or_its_negation_readable() {
+    static HIDDEN_TEST: Filter = Filter::Not(&Filter::CREATURE);
     let view = ViewBuilder::new(2).build();
     let mut object = printed(1, 0, "Sensitive name", 1);
     object.card = None;
@@ -64,12 +65,12 @@ fn hidden_fields_cannot_make_a_filter_or_its_negation_readable() {
     ] {
         assert_eq!(matches(&view, &object, &filter), None);
     }
-    static HIDDEN_TEST: Filter = Filter::Not(&Filter::CREATURE);
     assert_eq!(matches(&view, &object, &HIDDEN_TEST), None);
 }
 
 #[test]
 fn a_reused_attachment_host_slot_does_not_match_the_old_handle() {
+    static ATTACHED: Filter = Filter::AttachedTo(&Filter::CREATURE);
     let mut aura = printed(1, 0, "Aura", 1);
     aura.attached_to = Some(ObjectId::new(2, 0));
     let mut replacement = printed(2, 0, "New host", 2);
@@ -78,7 +79,6 @@ fn a_reused_attachment_host_slot_does_not_match_the_old_handle() {
     let view = ViewBuilder::new(2)
         .with_battlefield(0, vec![aura.clone(), replacement])
         .build();
-    static ATTACHED: Filter = Filter::AttachedTo(&Filter::CREATURE);
     assert_eq!(matches(&view, &aura, &ATTACHED), None);
     assert_eq!(matches(&view, &aura, &Filter::Not(&ATTACHED)), None);
 }

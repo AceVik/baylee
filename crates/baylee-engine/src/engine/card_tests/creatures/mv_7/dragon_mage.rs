@@ -29,8 +29,8 @@ fn dragon_mage_wheels_both_hands_on_combat_damage() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let mage = on_battlefield(&engine, p0, dragon_mage()).expect("out");
-    let old0 = engine.state().zones.list(ZoneLocation::Hand(p0)).to_vec();
-    let old1 = engine.state().zones.list(ZoneLocation::Hand(p1)).to_vec();
+    let old0 = engine.state().zones.list(ZoneLocation::Hand(p0)).clone();
+    let old1 = engine.state().zones.list(ZoneLocation::Hand(p1)).clone();
     assert!(!old0.is_empty() && !old1.is_empty());
 
     fight(&mut engine, &[mage], &[]);
@@ -41,12 +41,12 @@ fn dragon_mage_wheels_both_hands_on_combat_damage() {
         .state()
         .zones
         .list(ZoneLocation::Graveyard(p0))
-        .to_vec();
+        .clone();
     let gy1 = engine
         .state()
         .zones
         .list(ZoneLocation::Graveyard(p1))
-        .to_vec();
+        .clone();
     assert!(
         old0.iter().all(|c| gy0.contains(c)),
         "p0's old hand discarded"

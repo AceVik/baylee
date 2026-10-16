@@ -1889,9 +1889,9 @@ impl Interaction {
                 defenders,
                 ..
             } => {
-                !candidates.contains(&id)
-                    && !(defenders.contains(&Defender::Planeswalker(id))
-                        || defenders.contains(&Defender::Battle(id)))
+                !(candidates.contains(&id)
+                    || defenders.contains(&Defender::Planeswalker(id))
+                    || defenders.contains(&Defender::Battle(id)))
             }
             Mode::Blockers {
                 candidates,
@@ -2295,8 +2295,7 @@ impl Interaction {
         match &self.mode {
             Mode::Attackers { .. } | Mode::Blockers { .. } => match self.combat_focus() {
                 CombatFocus::Defender(Defender::Player(p)) => Some(Pick::Seat(p)),
-                CombatFocus::Defender(Defender::Planeswalker(id))
-                | CombatFocus::Defender(Defender::Battle(id))
+                CombatFocus::Defender(Defender::Planeswalker(id) | Defender::Battle(id))
                 | CombatFocus::Attacker(id) => Some(Pick::Object(id)),
                 CombatFocus::None => None,
             },
