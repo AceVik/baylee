@@ -19,7 +19,7 @@ fn live_or_die_returns_a_creature_card_from_your_graveyard() {
         925,
         &[live_or_die()],
         &[swamp(); 5],
-        &[gray_ogre()],
+        &[gray_ogre(), grizzly_bears()],
         &[llanowar_elves()],
     );
     let ogre = on_battlefield(&engine, me(), gray_ogre()).expect("my Ogre");
@@ -45,9 +45,11 @@ fn live_or_die_destroys_a_creature_in_its_other_mode() {
         926,
         &[live_or_die()],
         &[swamp(); 5],
-        &[],
+        &[gray_ogre()],
         &[llanowar_elves()],
     );
+    let ogre = on_battlefield(&engine, me(), gray_ogre()).expect("my Ogre");
+    bury(&mut engine, &[ogre]);
     let elf = on_battlefield(&engine, them(), llanowar_elves()).expect("their Elf");
     tap_all_mana(&mut engine, me());
     cast_in_mode(&mut engine, live_or_die(), 1);

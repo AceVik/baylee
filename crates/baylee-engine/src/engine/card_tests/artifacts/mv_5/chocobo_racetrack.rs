@@ -30,7 +30,7 @@ fn a_land_makes_a_bird_and_later_lands_pump_the_birds_already_there() {
     assert_eq!(pt(&engine, first), (2, 2), "a 2/2");
     let chars = engine.state().object(first).unwrap().characteristics().clone();
     assert!(chars.types.contains(TypeSet::CREATURE));
-    assert!(chars.colors.contains(baylee_core::mana::Color::Green));
+    assert!(chars.colors.contains(baylee_core::color::Color::Green));
     assert!(
         chars
             .subtypes

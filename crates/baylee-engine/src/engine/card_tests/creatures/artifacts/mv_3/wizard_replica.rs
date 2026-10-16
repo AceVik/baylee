@@ -31,6 +31,16 @@ fn wizard_replica_counters_a_spell_its_controller_cannot_pay_for() {
 
     activate(&mut engine, p0, wizard_replica(), 0);
     aim_at(&mut engine, p0, spell);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p0, wizard_replica()).is_some(), "sacrificed");

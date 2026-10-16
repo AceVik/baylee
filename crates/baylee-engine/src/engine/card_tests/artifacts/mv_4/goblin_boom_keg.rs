@@ -15,10 +15,13 @@ fn goblin_boom_keg() -> CardIndex {
 fn the_keg_is_sacrificed_on_its_controllers_upkeep_and_then_explodes() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[goblin_boom_keg()])
+        .battlefield(0, &[forest(); 4])
+        .hand(0, &[goblin_boom_keg()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, goblin_boom_keg());
+    pass_until(&mut engine, stack_is_empty);
 
     reach_their_main_phase(&mut engine, p1);
     assert!(

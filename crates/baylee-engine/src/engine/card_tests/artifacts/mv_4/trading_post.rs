@@ -82,12 +82,6 @@ fn sacrificing_a_creature_returns_an_artifact_card() {
     hand_to_graveyard(&mut engine, p0, plains());
     let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
     pay_one_and_press(&mut engine, 2);
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
-        panic!("the creature to sacrifice, got {:?}", engine.pending())
-    };
-    assert_eq!(options, vec![elf], "the only creature is the one on the menu");
-    choose(&mut engine, elf);
-    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("the artifact card, got {:?}", engine.pending())
     };
@@ -96,6 +90,12 @@ fn sacrificing_a_creature_returns_an_artifact_card() {
     assert!(options.contains(&rock), "{options:?}");
     assert!(!options.contains(&land), "an artifact card only: {options:?}");
     aim_at(&mut engine, p0, rock);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the creature to sacrifice, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![elf], "the only creature is the one on the menu");
+    choose(&mut engine, elf);
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
     pass_until(&mut engine, stack_is_empty);
     assert!(in_hand(&engine, p0, quiet_artifact()).is_some());
 }

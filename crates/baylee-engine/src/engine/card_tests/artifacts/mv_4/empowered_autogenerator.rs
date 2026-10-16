@@ -39,9 +39,7 @@ fn each_tap_adds_a_counter_and_then_that_many_mana_of_one_color() {
     assert_eq!(counters_on(&engine, card, CounterKind::Charge), 0);
 
     for (round, total) in [(1u16, 1u64), (2, 3)] {
-        engine
-            .apply(p0, PlayerAction::ActivateManaAbility { source: card })
-            .expect("the mana ability is offered");
+        activate(&mut engine, p0, empowered_autogenerator(), 0);
         while matches!(engine.pending(), Pending::ChooseColor { .. }) {
             engine
                 .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
@@ -49,7 +47,7 @@ fn each_tap_adds_a_counter_and_then_that_many_mana_of_one_color() {
         }
         assert_eq!(counters_on(&engine, card, CounterKind::Charge), round);
         assert_eq!(
-            engine.state().players[0].mana_pool.available(ManaColor::Red),
+            u64::from(engine.state().players[0].mana_pool.available(ManaColor::Red)),
             total,
             "after tap {round} the pool holds the running total of red"
         );

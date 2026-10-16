@@ -22,7 +22,7 @@ fn tapping_adds_two_mana_from_blue_black_and_red_only() {
     assert!(is_tapped(&engine, relic));
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.total(), 2, "two mana");
-    let outside: u64 = [ManaColor::White, ManaColor::Green, ManaColor::Colorless]
+    let outside: u32 = [ManaColor::White, ManaColor::Green, ManaColor::Colorless]
         .into_iter()
         .map(|c| pool.available(c))
         .sum();

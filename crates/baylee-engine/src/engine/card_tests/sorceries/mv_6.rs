@@ -151,30 +151,39 @@ fn cast_at_player(
     who: PlayerId,
 ) -> (Vec<ObjectId>, Vec<PlayerId>) {
     cast_from_hand(engine, me(), spell);
-    let Pending::ChooseTargets {
-        player,
-        options,
-        player_options,
-        min,
-        max,
-        ..
-    } = engine.pending().clone()
-    else {
-        panic!("expected a target choice, got {:?}", engine.pending())
-    };
-    assert_eq!(player, me(), "the caster names the target");
-    assert_eq!((min, max), (1, 1), "exactly one target");
-    engine
-        .apply(
-            me(),
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![who],
-            },
-        )
-        .expect("the named player was on the menu");
-    settle(engine);
-    (options, player_options)
+    match engine.pending().clone() {
+        Pending::ChooseTargets {
+            player,
+            options,
+            player_options,
+            min,
+            max,
+            ..
+        } => {
+            assert_eq!(player, me(), "the caster names the target");
+            assert_eq!((min, max), (1, 1), "exactly one target");
+            engine
+                .apply(
+                    me(),
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players: vec![who],
+                    },
+                )
+                .expect("the named player was on the menu");
+            settle(engine);
+            (options, player_options)
+        }
+        Pending::ChoosePlayer { player, options } => {
+            assert_eq!(player, me(), "the caster names the target");
+            engine
+                .apply(me(), PlayerAction::ChoosePlayer(who))
+                .expect("the named player was on the menu");
+            settle(engine);
+            (vec![], options)
+        }
+        other => panic!("expected a target choice, got {other:?}"),
+    }
 }
 
 /// Answers every question that comes up while the stack resolves with its
@@ -283,29 +292,37 @@ fn cast_at_player_asked(
     who: PlayerId,
 ) -> (Vec<ObjectId>, Vec<PlayerId>, Vec<Pending>) {
     cast_from_hand(engine, me(), spell);
-    let Pending::ChooseTargets {
-        player,
-        options,
-        player_options,
-        min,
-        max,
-        ..
-    } = engine.pending().clone()
-    else {
-        panic!("expected a target choice, got {:?}", engine.pending())
-    };
-    assert_eq!(player, me(), "the caster names the target");
-    assert_eq!((min, max), (1, 1), "exactly one target");
-    engine
-        .apply(
-            me(),
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![who],
-            },
-        )
-        .expect("the named player was on the menu");
-    (options, player_options, settle_asked(engine))
+    match engine.pending().clone() {
+        Pending::ChooseTargets {
+            player,
+            options,
+            player_options,
+            min,
+            max,
+            ..
+        } => {
+            assert_eq!(player, me(), "the caster names the target");
+            assert_eq!((min, max), (1, 1), "exactly one target");
+            engine
+                .apply(
+                    me(),
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players: vec![who],
+                    },
+                )
+                .expect("the named player was on the menu");
+            (options, player_options, settle_asked(engine))
+        }
+        Pending::ChoosePlayer { player, options } => {
+            assert_eq!(player, me(), "the caster names the target");
+            engine
+                .apply(me(), PlayerAction::ChoosePlayer(who))
+                .expect("the named player was on the menu");
+            (vec![], options, settle_asked(engine))
+        }
+        other => panic!("expected a target choice, got {other:?}"),
+    }
 }
 
 /// Walks to the scry or surveil question, checks it is seat 0's, and answers

@@ -13,7 +13,9 @@ fn spined_thopter_paid_with_blue_costs_no_life() {
     let p0 = PlayerId::new(0);
     let mut engine = main_with(&[spined_thopter()], &[island(), forest(), forest()]);
 
-    cast_and_settle(&mut engine, spined_thopter());
+    cast_from_hand(&mut engine, p0, spined_thopter());
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
 
     let id = on_battlefield(&engine, p0, spined_thopter()).expect("it resolved");
     assert_eq!(pt(&engine, id), (2, 1));

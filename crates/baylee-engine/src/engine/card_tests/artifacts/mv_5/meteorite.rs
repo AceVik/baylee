@@ -64,9 +64,7 @@ fn tapping_adds_one_mana_of_the_chosen_color() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let rock = on_battlefield(&engine, p0, meteorite()).unwrap();
-    engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: rock })
-        .expect("offered");
+    activate(&mut engine, p0, meteorite(), 1);
     while matches!(engine.pending(), Pending::ChooseColor { .. }) {
         engine
             .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))

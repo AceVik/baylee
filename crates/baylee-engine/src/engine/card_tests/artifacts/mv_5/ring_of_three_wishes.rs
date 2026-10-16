@@ -56,7 +56,7 @@ fn a_wish_fetches_a_card_of_my_choice_into_my_hand() {
     let Pending::ChooseCards { options, min, max, .. } = engine.pending().clone() else {
         unreachable!()
     };
-    assert_eq!((min, max), (0, 1), "a search may find nothing, but at most one card");
+    assert_eq!((min, max), (1, 1), "an unrestricted search must find a card when the library is non-empty");
     assert!(!options.is_empty(), "the library is searchable: {options:?}");
     engine
         .apply(
@@ -85,6 +85,7 @@ fn without_wish_counters_it_is_not_offered() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let ring = on_battlefield(&engine, p0, ring_of_three_wishes()).unwrap();
+    set_counters(&mut engine, ring, baylee_cards_dsl::counters::WISH, 0);
     tap_all_mana(&mut engine, p0);
     assert!(!priority_offer(&engine).abilities.contains(&(ring, 0)));
     set_counters(&mut engine, ring, baylee_cards_dsl::counters::WISH, 1);

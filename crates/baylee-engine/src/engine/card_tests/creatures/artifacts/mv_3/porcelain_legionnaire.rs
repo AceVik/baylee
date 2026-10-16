@@ -14,7 +14,9 @@ fn porcelain_legionnaire_paid_with_white_costs_no_life() {
     let p0 = PlayerId::new(0);
     let mut engine = main_with(&[porcelain_legionnaire()], &[plains(), forest(), forest()]);
 
-    cast_and_settle(&mut engine, porcelain_legionnaire());
+    cast_from_hand(&mut engine, p0, porcelain_legionnaire());
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
 
     let id = on_battlefield(&engine, p0, porcelain_legionnaire()).expect("it resolved");
     assert_eq!(pt(&engine, id), (3, 1));

@@ -74,11 +74,8 @@ fn sacrificing_the_diary_draws_a_card() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    tap_mana_except(
-        &mut engine,
-        p0,
-        on_battlefield(&engine, p0, five_hundred_year_diary()).unwrap(),
-    );
+    let diary = on_battlefield(&engine, p0, five_hundred_year_diary()).unwrap();
+    tap_mana_except(&mut engine, p0, diary);
     activate(&mut engine, p0, five_hundred_year_diary(), 1);
     assert!(in_graveyard(&engine, p0, five_hundred_year_diary()).is_some());
     pass_until(&mut engine, stack_is_empty);

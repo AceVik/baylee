@@ -33,11 +33,12 @@ fn two_blue_mana_add_a_charge_counter() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let trigon = on_battlefield(&engine, p0, trigon_of_thought()).unwrap();
+    let before = counters_on(&engine, trigon, CounterKind::Charge);
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, trigon_of_thought(), 0);
     assert!(is_tapped(&engine, trigon));
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(counters_on(&engine, trigon, CounterKind::Charge), 1);
+    assert_eq!(counters_on(&engine, trigon, CounterKind::Charge), before + 1);
 }
 
 /// Green cannot pay for the {U}{U}.

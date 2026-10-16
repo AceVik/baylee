@@ -25,15 +25,42 @@ fn opponent_casts_an_elf(spare: usize) -> Engine<RegistryLookup> {
 }
 
 #[test]
-fn an_opponent_who_cannot_pay_loses_two_life() {
+fn an_opponent_who_declines_to_pay_loses_two_life() {
     let p1 = PlayerId::new(1);
     let mut engine = opponent_casts_an_elf(0);
     let before = life_of(&engine, p1);
     cast_from_hand(&mut engine, p1, llanowar_elves());
     pass_until(&mut engine, |e| {
-        !matches!(e.pending(), Pending::Priority { .. }) || e.state().stack.len() > 1
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
     });
-    panic!("PROBE {:?}", engine.pending());
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(life_of(&engine, p1), before - 2);
+}
+
+#[test]
+fn an_opponent_who_pays_two_keeps_their_life() {
+    let p1 = PlayerId::new(1);
+    let mut engine = opponent_casts_an_elf(2);
+    let before = life_of(&engine, p1);
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, llanowar_elves());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p1), before);
 }

@@ -42,14 +42,12 @@ fn a_charge_counter_is_spent_for_one_mana_of_any_color() {
     let array = on_battlefield(&engine, p0, gemstone_array()).unwrap();
 
     assert!(
-        !priority_offer(&engine).mana_abilities.contains(&array),
+        !priority_offer(&engine).abilities.contains(&(array, 1)),
         "no counter, no mana"
     );
     set_counters(&mut engine, array, CounterKind::Charge, 2);
-    assert!(priority_offer(&engine).mana_abilities.contains(&array));
-    engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: array })
-        .expect("offered");
+    assert!(priority_offer(&engine).abilities.contains(&(array, 1)));
+    activate(&mut engine, p0, gemstone_array(), 1);
     while matches!(engine.pending(), Pending::ChooseColor { .. }) {
         engine
             .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
