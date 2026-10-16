@@ -23,7 +23,9 @@ fn esperzoa_returns_an_artifact_you_control_each_upkeep() {
     assert!(keywords(&engine, zoa).contains(KeywordSet::FLYING));
 
     // Seat 0's first upkeep is the first thing that happens.
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::ChooseCards { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
     assert_eq!(engine.state().turn.step, Step::Upkeep);
     let Pending::ChooseCards {
         player, options, ..
@@ -34,11 +36,19 @@ fn esperzoa_returns_an_artifact_you_control_each_upkeep() {
     assert_eq!(player, p0);
     assert!(options.contains(&zoa) && options.contains(&ring));
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![ring] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_hand(&engine, p0, quiet_artifact()).is_some(), "the other artifact went home");
+    assert!(
+        in_hand(&engine, p0, quiet_artifact()).is_some(),
+        "the other artifact went home"
+    );
     assert!(on_battlefield(&engine, p0, quiet_artifact()).is_none());
     assert!(on_battlefield(&engine, p0, esperzoa()).is_some());
 }

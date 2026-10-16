@@ -22,5 +22,9 @@ fn marble_gargoyle_gets_plus_zero_plus_one_for_white() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, gargoyle), (2, 3));
-    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "{{W}} was the price");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{W}} was the price"
+    );
 }

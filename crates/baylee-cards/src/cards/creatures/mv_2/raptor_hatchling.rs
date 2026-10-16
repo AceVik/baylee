@@ -12,7 +12,7 @@ card!(
     oracle_id = "91638137-06ba-4b21-b088-28d2b4d1d8da",
     scryfall_id = "8093e88d-fd3c-43d3-a025-9ebb9f02a84f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raptor Hatchling",
         mana_cost = mana!("{1}{R}"),

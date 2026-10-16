@@ -23,5 +23,9 @@ fn thoughtflare_draws_four_then_discards_two() {
     assert!(!discards.is_empty(), "a discard question: {asked:?}");
     assert_eq!(library_len(&engine, me()), library_before - 4, "four drawn");
     assert_eq!(hand_len(&engine, me()), 2, "four drawn, two discarded");
-    assert_eq!(graveyard_len(&engine, me()), 3, "the spell and two discards");
+    assert_eq!(
+        graveyard_len(&engine, me()),
+        3,
+        "the spell and two discards"
+    );
 }

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e04d4fa6-1fa3-4bfd-a462-47c23ccf9124",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diversion Unit",
         mana_cost = mana!("{1}{U}"),

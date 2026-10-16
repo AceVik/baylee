@@ -16,7 +16,7 @@ card!(
     oracle_id = "9610176a-dcd6-4117-89db-45f56b16cdd6",
     scryfall_id = "10474e9b-213c-4134-ad49-e3d17d7e0a8f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vigilante Justice",
         mana_cost = mana!("{3}{R}"),

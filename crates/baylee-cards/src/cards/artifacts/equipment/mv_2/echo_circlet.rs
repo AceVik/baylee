@@ -11,7 +11,7 @@ card!(
     index = index::ECHO_CIRCLET,
     oracle_id = "17134950-fdb3-48d0-b541-419db673f4c9",
     scryfall_id = "49e661c6-bc3e-45b4-ae1c-5002e381faf3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Echo Circlet",
         mana_cost = mana!("{2}"),

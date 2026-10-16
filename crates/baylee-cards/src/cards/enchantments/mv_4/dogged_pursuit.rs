@@ -10,7 +10,7 @@ card!(
     oracle_id = "987f8c13-0164-4536-b505-d9fa799222fb",
     scryfall_id = "60f6a159-b969-4767-802e-409f8bf286fe",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dogged Pursuit",
         mana_cost = mana!("{3}{B}"),

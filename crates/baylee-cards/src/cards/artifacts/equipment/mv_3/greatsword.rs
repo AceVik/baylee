@@ -11,7 +11,7 @@ card!(
     index = index::GREATSWORD,
     oracle_id = "51024f9a-6c6e-4555-a156-92b32255a0c9",
     scryfall_id = "63b4041d-7c95-4cb9-a18b-6568db05942b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greatsword",
         mana_cost = mana!("{3}"),

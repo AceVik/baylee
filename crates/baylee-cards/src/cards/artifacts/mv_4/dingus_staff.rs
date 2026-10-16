@@ -9,7 +9,7 @@ card!(
     index = index::DINGUS_STAFF,
     oracle_id = "7127fc35-600c-4397-8c01-5327d3c4944b",
     scryfall_id = "065b4358-5dee-4f13-bff9-8254bdb92069",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dingus Staff",
         mana_cost = mana!("{4}"),

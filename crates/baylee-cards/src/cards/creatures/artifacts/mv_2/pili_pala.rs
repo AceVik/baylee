@@ -12,7 +12,7 @@ card!(
     oracle_id = "ad97333e-733c-402f-8ca3-e836c96b843c",
     scryfall_id = "4892c152-1f4a-4616-8e7f-0ca4911e621a",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pili-Pala",
         mana_cost = mana!("{2}"),

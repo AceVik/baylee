@@ -13,7 +13,7 @@ card!(
     index = index::GLIMMERLIGHT,
     oracle_id = "8fd88b98-9899-4bc0-a4b7-7ef6fba36dfd",
     scryfall_id = "1071691c-5c65-42d4-ac96-d302185ca678",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimmerlight",
         mana_cost = mana!("{2}"),

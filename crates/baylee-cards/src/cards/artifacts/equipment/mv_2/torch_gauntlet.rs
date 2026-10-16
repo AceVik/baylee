@@ -11,7 +11,7 @@ card!(
     index = index::TORCH_GAUNTLET,
     oracle_id = "07fdc0b0-7131-411d-b0a8-f667165a64b8",
     scryfall_id = "dfcf9a88-c5f8-4c26-a2ee-d2827e9a31d8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Torch Gauntlet",
         mana_cost = mana!("{2}"),

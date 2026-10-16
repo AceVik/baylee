@@ -10,7 +10,7 @@ card!(
     oracle_id = "06eb8b90-aad8-41c1-bbc5-85ded2fe76bc",
     scryfall_id = "2bc4a9a8-1c00-4e37-9942-3c7bb7ff8307",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mystic Decree",
         mana_cost = mana!("{2}{U}{U}"),

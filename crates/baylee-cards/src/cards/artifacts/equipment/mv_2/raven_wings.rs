@@ -11,7 +11,7 @@ card!(
     index = index::RAVEN_WINGS,
     oracle_id = "2d668f67-7cde-447a-8eb3-35c0c5c5ab69",
     scryfall_id = "60916ebe-6d84-4873-bd91-351bbe219c57",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raven Wings",
         mana_cost = mana!("{2}"),

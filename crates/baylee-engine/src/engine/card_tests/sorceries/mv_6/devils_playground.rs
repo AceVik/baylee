@@ -15,7 +15,13 @@ fn devils_playground() -> CardIndex {
 /// either player or any creature is on the menu, and the one named takes one.
 #[test]
 fn devils_playground_makes_four_devils_whose_death_pings() {
-    let mut engine = table(955, &[devils_playground()], &[mountain(); 6], &[], &[gray_ogre()]);
+    let mut engine = table(
+        955,
+        &[devils_playground()],
+        &[mountain(); 6],
+        &[],
+        &[gray_ogre()],
+    );
     cast_plain(&mut engine, devils_playground());
     let devils = my_tokens(&engine);
     assert_eq!(devils.len(), 4, "four tokens");

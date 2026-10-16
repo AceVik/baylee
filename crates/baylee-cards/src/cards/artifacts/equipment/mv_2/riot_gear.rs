@@ -11,7 +11,7 @@ card!(
     index = index::RIOT_GEAR,
     oracle_id = "3e150025-51c2-4b92-970c-a89e83210e68",
     scryfall_id = "d3be1289-76f9-40b3-9387-b76a8b8d8797",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riot Gear",
         mana_cost = mana!("{2}"),

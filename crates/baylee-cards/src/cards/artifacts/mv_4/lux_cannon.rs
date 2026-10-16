@@ -10,7 +10,7 @@ card!(
     index = index::LUX_CANNON,
     oracle_id = "ebdf26a4-77ee-4635-8d52-926bdca623f7",
     scryfall_id = "d477db7e-d964-45b2-95ee-d6a382dd2aa9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lux Cannon",
         mana_cost = mana!("{4}"),

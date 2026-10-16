@@ -11,7 +11,7 @@ card!(
     index = index::LEERING_EMBLEM,
     oracle_id = "a5cfd1e4-cd14-454a-9734-b5f6952d6a50",
     scryfall_id = "d81bcabd-7bbe-463c-a35a-992c12c4e4bf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leering Emblem",
         mana_cost = mana!("{2}"),

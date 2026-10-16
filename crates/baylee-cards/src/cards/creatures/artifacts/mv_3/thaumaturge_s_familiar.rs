@@ -12,7 +12,7 @@ card!(
     oracle_id = "74a1a484-7c35-466a-b097-9aaf6fc2073b",
     scryfall_id = "7b497153-69a8-480e-b02f-88afec9d5053",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thaumaturge's Familiar",
         mana_cost = mana!("{3}"),

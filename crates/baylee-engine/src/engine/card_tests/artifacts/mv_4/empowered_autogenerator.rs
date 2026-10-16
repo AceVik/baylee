@@ -47,7 +47,11 @@ fn each_tap_adds_a_counter_and_then_that_many_mana_of_one_color() {
         }
         assert_eq!(counters_on(&engine, card, CounterKind::Charge), round);
         assert_eq!(
-            u64::from(engine.state().players[0].mana_pool.available(ManaColor::Red)),
+            u64::from(
+                engine.state().players[0]
+                    .mana_pool
+                    .available(ManaColor::Red)
+            ),
             total,
             "after tap {round} the pool holds the running total of red"
         );

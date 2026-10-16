@@ -12,7 +12,7 @@ card!(
     oracle_id = "a13f4095-300b-434f-aa9a-3608aaae5163",
     scryfall_id = "55d35442-5ca0-4fd7-8ff1-b7347b3e6690",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piggy Bank",
         mana_cost = mana!("{1}{R}"),

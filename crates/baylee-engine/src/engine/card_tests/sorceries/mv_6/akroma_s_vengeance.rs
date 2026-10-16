@@ -23,19 +23,34 @@ fn akroma_s_vengeance_destroys_artifacts_creatures_and_enchantments() {
     );
     cast_plain(&mut engine, akroma_s_vengeance());
 
-    assert!(in_graveyard(&engine, me(), llanowar_elves()).is_some(), "a creature of mine");
-    assert!(in_graveyard(&engine, me(), quiet_artifact()).is_some(), "an artifact of mine");
+    assert!(
+        in_graveyard(&engine, me(), llanowar_elves()).is_some(),
+        "a creature of mine"
+    );
+    assert!(
+        in_graveyard(&engine, me(), quiet_artifact()).is_some(),
+        "an artifact of mine"
+    );
     assert!(
         in_graveyard(&engine, me(), their_enchantment()).is_some(),
         "an enchantment of mine"
     );
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "a creature of theirs");
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "a creature of theirs"
+    );
     assert!(
         in_graveyard(&engine, them(), baleful_strix()).is_some(),
         "an artifact creature"
     );
-    assert!(on_battlefield(&engine, them(), forest()).is_some(), "their land stays");
-    assert!(on_battlefield(&engine, me(), plains()).is_some(), "my lands stay");
+    assert!(
+        on_battlefield(&engine, them(), forest()).is_some(),
+        "their land stays"
+    );
+    assert!(
+        on_battlefield(&engine, me(), plains()).is_some(),
+        "my lands stay"
+    );
 }
 
 /// Cycling {3}: from the hand, for three mana, the card is discarded and a card
@@ -63,9 +78,15 @@ fn akroma_s_vengeance_cycles_for_three_without_sweeping() {
         .expect("cycling is offered from the hand");
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), akroma_s_vengeance()).is_some(), "discarded");
+    assert!(
+        in_graveyard(&engine, me(), akroma_s_vengeance()).is_some(),
+        "discarded"
+    );
     assert_eq!(hand_len(&engine, me()), hand_before, "one out, one in");
     assert_eq!(library_len(&engine, me()), library_before - 1);
-    assert!(on_battlefield(&engine, them(), gray_ogre()).is_some(), "nothing was destroyed");
+    assert!(
+        on_battlefield(&engine, them(), gray_ogre()).is_some(),
+        "nothing was destroyed"
+    );
     assert!(on_battlefield(&engine, me(), llanowar_elves()).is_some());
 }

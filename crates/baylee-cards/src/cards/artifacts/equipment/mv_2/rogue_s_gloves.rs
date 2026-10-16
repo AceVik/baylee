@@ -13,7 +13,7 @@ card!(
     index = index::ROGUE_S_GLOVES,
     oracle_id = "308d7868-49f9-47a3-a7b1-4b0332d610f1",
     scryfall_id = "794fe9d4-2af4-40b0-bbb2-8015b6206972",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rogue's Gloves",
         mana_cost = mana!("{2}"),

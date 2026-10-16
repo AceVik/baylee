@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ea3f71d6-e333-4e50-9545-deb73749413c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rampaging Brontodon",
         mana_cost = mana!("{5}{G}{G}"),

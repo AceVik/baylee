@@ -12,7 +12,7 @@ card!(
     index = index::PREDATOR_FLAGSHIP,
     oracle_id = "647c1339-9508-4bb9-8e77-ebc3dfdf4069",
     scryfall_id = "4910ee8b-ec00-4a5e-859e-b865b23117da",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Predator, Flagship",
         mana_cost = mana!("{5}"),

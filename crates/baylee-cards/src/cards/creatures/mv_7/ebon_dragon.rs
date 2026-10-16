@@ -13,7 +13,7 @@ card!(
     scryfall_id = "63ec235b-7d9a-4600-89db-48b14beb1aa7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ebon Dragon",
         mana_cost = mana!("{5}{B}{B}"),

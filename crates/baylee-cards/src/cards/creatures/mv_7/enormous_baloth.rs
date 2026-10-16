@@ -10,7 +10,7 @@ card!(
     oracle_id = "6189cd17-61aa-420a-ba53-5ddaf2bbc2ba",
     scryfall_id = "54069e65-eef4-4fb8-bb0d-932a4c9889b3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enormous Baloth",
         mana_cost = mana!("{6}{G}"),

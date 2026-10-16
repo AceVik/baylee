@@ -41,8 +41,16 @@ fn each_player_draws_a_card_per_charge_counter() {
     activate(&mut engine, p0, otherworld_atlas(), 1);
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(library_size(&engine, p0), l0 - 2, "I draw two");
-    assert_eq!(library_size(&engine, p1), l1 - 2, "and so does the opponent");
-    assert_eq!(counters_on(&engine, atlas, CounterKind::Charge), 2, "none spent");
+    assert_eq!(
+        library_size(&engine, p1),
+        l1 - 2,
+        "and so does the opponent"
+    );
+    assert_eq!(
+        counters_on(&engine, atlas, CounterKind::Charge),
+        2,
+        "none spent"
+    );
 }
 
 /// With no counters the draw ability draws nothing.
@@ -57,5 +65,8 @@ fn an_uncharged_atlas_draws_nothing() {
     let (l0, l1) = (library_size(&engine, p0), library_size(&engine, p1));
     activate(&mut engine, p0, otherworld_atlas(), 1);
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!((library_size(&engine, p0), library_size(&engine, p1)), (l0, l1));
+    assert_eq!(
+        (library_size(&engine, p0), library_size(&engine, p1)),
+        (l0, l1)
+    );
 }

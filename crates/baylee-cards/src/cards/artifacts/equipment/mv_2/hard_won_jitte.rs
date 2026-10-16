@@ -12,7 +12,7 @@ card!(
     oracle_id = "ab433d41-e801-405c-81f7-06fa6640797d",
     scryfall_id = "5d3dc219-f024-49de-b88d-dc1e9e84184c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hard-Won Jitte",
         mana_cost = mana!("{1}{R}"),

@@ -33,8 +33,14 @@ fn defibrillating_current_deals_four_to_a_creature_and_gains_two() {
     let menu = aim_at(&mut engine, me(), ogre);
     assert!(menu.contains(&ogre) && menu.contains(&big), "{menu:?}");
     settle(&mut engine);
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "four damage on a 2/2");
-    assert!(on_battlefield(&engine, them(), earth_elemental()).is_some(), "not named");
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "four damage on a 2/2"
+    );
+    assert!(
+        on_battlefield(&engine, them(), earth_elemental()).is_some(),
+        "not named"
+    );
     assert_eq!(life_of(&engine, me()), 22);
     assert_eq!(life_of(&engine, them()), 20);
 }
@@ -65,7 +71,10 @@ fn defibrillating_current_kills_a_planeswalker() {
     tap_all_mana(&mut engine, me());
     cast_with_floating(&mut engine, me(), defibrillating_current());
     let menu = aim_at(&mut engine, me(), jace);
-    assert!(menu.contains(&jace), "a planeswalker is a legal target: {menu:?}");
+    assert!(
+        menu.contains(&jace),
+        "a planeswalker is a legal target: {menu:?}"
+    );
     settle(&mut engine);
     assert!(
         in_graveyard(&engine, me(), jace_the_mind_sculptor()).is_some(),

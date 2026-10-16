@@ -11,7 +11,7 @@ card!(
     index = index::OASIS_GARDENER,
     oracle_id = "210a130c-d5d3-43bf-8a80-d796c37242e8",
     scryfall_id = "ee0dc663-4bfb-46d4-af79-d0143c799487",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oasis Gardener",
         mana_cost = mana!("{3}"),

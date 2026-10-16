@@ -13,7 +13,7 @@ card!(
     scryfall_id = "79543a40-2943-41c0-8def-773dbf4ce196",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flora Colossus",
         mana_cost = mana!("{5}{G}{G}"),

@@ -26,7 +26,10 @@ fn fall_of_the_gavel_counters_a_spell_and_gains_five() {
     assert!(menu.contains(&ogre), "{menu:?}");
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), gray_ogre()).is_some(), "countered");
+    assert!(
+        in_graveyard(&engine, me(), gray_ogre()).is_some(),
+        "countered"
+    );
     assert!(on_battlefield(&engine, me(), gray_ogre()).is_none());
     assert_eq!(life_of(&engine, me()), 25, "five life");
 }

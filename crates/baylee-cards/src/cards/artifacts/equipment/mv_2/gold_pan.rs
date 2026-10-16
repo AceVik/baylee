@@ -13,7 +13,7 @@ card!(
     index = index::GOLD_PAN,
     oracle_id = "91415d12-b13d-4b5c-bb60-6ec6f4fdde6e",
     scryfall_id = "dc098aae-3d9b-453b-a37e-e102f81a8311",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gold Pan",
         mana_cost = mana!("{2}"),

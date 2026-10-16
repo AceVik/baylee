@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c9fa6d4c-78dc-4b40-9ce8-a0e593d4001f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonfolk Puzzlemaker",
         mana_cost = mana!("{2}{U}"),

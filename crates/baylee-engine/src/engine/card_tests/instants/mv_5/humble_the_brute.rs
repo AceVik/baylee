@@ -28,7 +28,10 @@ fn humble_the_brute_destroys_a_big_creature_and_investigates() {
     assert!(my_tokens(&engine).is_empty());
     let menu = cast_at(&mut engine, humble_the_brute(), big);
     assert!(menu.contains(&big), "power four: {menu:?}");
-    assert!(!menu.contains(&small) && !menu.contains(&elf), "power under four: {menu:?}");
+    assert!(
+        !menu.contains(&small) && !menu.contains(&elf),
+        "power under four: {menu:?}"
+    );
     assert!(in_graveyard(&engine, them(), earth_elemental()).is_some());
     let clues = my_tokens(&engine);
     assert_eq!(clues.len(), 1, "one Clue");

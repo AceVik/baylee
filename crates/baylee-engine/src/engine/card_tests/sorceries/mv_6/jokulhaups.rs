@@ -31,11 +31,26 @@ fn jokulhaups_destroys_artifacts_creatures_and_lands_through_a_shield() {
     cast_with_floating(&mut engine, me(), jokulhaups());
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), sedge_troll()).is_some(), "shield or not");
-    assert!(in_graveyard(&engine, me(), quiet_artifact()).is_some(), "an artifact");
-    assert!(in_graveyard(&engine, me(), mountain()).is_some(), "a land of mine");
-    assert!(in_graveyard(&engine, them(), forest()).is_some(), "a land of theirs");
-    assert!(in_graveyard(&engine, them(), llanowar_elves()).is_some(), "a creature of theirs");
+    assert!(
+        in_graveyard(&engine, me(), sedge_troll()).is_some(),
+        "shield or not"
+    );
+    assert!(
+        in_graveyard(&engine, me(), quiet_artifact()).is_some(),
+        "an artifact"
+    );
+    assert!(
+        in_graveyard(&engine, me(), mountain()).is_some(),
+        "a land of mine"
+    );
+    assert!(
+        in_graveyard(&engine, them(), forest()).is_some(),
+        "a land of theirs"
+    );
+    assert!(
+        in_graveyard(&engine, them(), llanowar_elves()).is_some(),
+        "a creature of theirs"
+    );
     assert_eq!(battlefield_len(&engine), 1, "only the enchantment is left");
     assert!(on_battlefield(&engine, them(), their_enchantment()).is_some());
 }

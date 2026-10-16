@@ -11,7 +11,7 @@ card!(
     oracle_id = "de8cdbd4-d8f7-4ce8-a69b-6d2020beff63",
     scryfall_id = "76114dda-811c-41b2-995b-9e80115cc8c8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neurok Replica",
         mana_cost = mana!("{3}"),

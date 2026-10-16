@@ -10,7 +10,7 @@ card!(
     index = index::ARCANE_SPYGLASS,
     oracle_id = "c2fbdc80-ad5d-4fe0-a860-3e4f452e6302",
     scryfall_id = "d10d85c9-859a-4ff5-9a41-bf20622a3ff5",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcane Spyglass",
         mana_cost = mana!("{4}"),

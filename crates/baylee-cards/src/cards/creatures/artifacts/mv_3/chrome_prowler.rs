@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a94378a2-cbde-4adf-b889-43e90fc6ba28",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chrome Prowler",
         mana_cost = mana!("{2}{U}"),

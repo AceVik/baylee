@@ -13,7 +13,7 @@ card!(
     scryfall_id = "46674bd4-5160-44b2-bd2a-2da85c1e2697",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rune-Sealed Wall",
         mana_cost = mana!("{2}{U}"),

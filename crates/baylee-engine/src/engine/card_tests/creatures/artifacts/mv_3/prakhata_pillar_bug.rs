@@ -25,7 +25,10 @@ fn prakhata_pillar_bug_gains_lifelink_for_black() {
 
     attack_to_blocks(&mut engine, &[bug]);
     engine
-        .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers: vec![] })
+        .apply(
+            PlayerId::new(1),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
         .unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

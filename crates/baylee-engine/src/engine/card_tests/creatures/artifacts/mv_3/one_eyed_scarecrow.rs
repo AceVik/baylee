@@ -30,9 +30,17 @@ fn one_eyed_scarecrow_shrinks_opposing_fliers_only() {
     let their_ground = on_battlefield(&engine, p1, quiet_creature()).expect("seated");
     let my_flier = on_battlefield(&engine, p0, bot).expect("seated");
     assert_eq!(pt(&engine, their_flier), (2, 1), "3/1 flier gets -1/-0");
-    assert_eq!(pt(&engine, their_ground), (1, 1), "a ground creature is untouched");
+    assert_eq!(
+        pt(&engine, their_ground),
+        (1, 1),
+        "a ground creature is untouched"
+    );
     assert_eq!(pt(&engine, my_flier), (2, 3), "and so is my own flier");
 
     kill(&mut engine, scarecrow);
-    assert_eq!(pt(&engine, their_flier), (3, 1), "the static ends with the Scarecrow");
+    assert_eq!(
+        pt(&engine, their_flier),
+        (3, 1),
+        "the static ends with the Scarecrow"
+    );
 }

@@ -10,7 +10,7 @@ card!(
     index = index::JOUSTING_DUMMY,
     oracle_id = "96eea161-8af0-452f-b992-576efdf58d88",
     scryfall_id = "3d0c95b0-7b63-40e8-92ad-5ae5ffd3c4c1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jousting Dummy",
         mana_cost = mana!("{2}"),

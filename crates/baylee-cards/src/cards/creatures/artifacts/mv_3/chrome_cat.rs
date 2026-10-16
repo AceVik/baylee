@@ -10,7 +10,7 @@ card!(
     index = index::CHROME_CAT,
     oracle_id = "0e2f8758-7457-4b54-ae61-a9c68cea4a23",
     scryfall_id = "85da50ba-2061-40f0-b3af-950b87f812cd",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chrome Cat",
         mana_cost = mana!("{3}"),

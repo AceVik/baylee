@@ -9,7 +9,7 @@ card!(
     index = index::MISHRA_S_GROUNDBREAKER,
     oracle_id = "84fecd54-c08a-4f5a-b2fa-b254069ccadb",
     scryfall_id = "e98cf559-b9f5-4287-9e05-137d84d27ce1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mishra's Groundbreaker",
         mana_cost = mana!("{4}"),

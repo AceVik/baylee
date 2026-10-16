@@ -17,7 +17,7 @@ card!(
     oracle_id = "c2223cdf-419d-4153-9551-705557461664",
     scryfall_id = "e8a1ffcb-40a7-423f-b28a-b5b4c1c9ffd0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Overlord",
         mana_cost = mana!("{4}{B}{B}{B}"),

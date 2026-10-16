@@ -12,7 +12,7 @@ card!(
     index = index::ENSOULED_SCIMITAR,
     oracle_id = "aa5865f5-aafc-4e46-995b-f005aeefde91",
     scryfall_id = "9d2a16e2-ea98-4bf2-9e5c-7612d2dd039b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ensouled Scimitar",
         mana_cost = mana!("{3}"),

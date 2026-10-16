@@ -13,7 +13,7 @@ card!(
     oracle_id = "1eb9e401-8975-447b-839d-f7cd23897465",
     scryfall_id = "1b49b009-e6f2-494a-9235-f5c25c2d70a9",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gleaming Barrier",
         mana_cost = mana!("{2}"),

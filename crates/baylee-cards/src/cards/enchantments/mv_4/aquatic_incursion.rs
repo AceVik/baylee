@@ -15,7 +15,7 @@ card!(
     oracle_id = "e4212b05-d397-49fb-af8b-9e52a60e6d1e",
     scryfall_id = "56cb8fa2-337b-4596-9c31-01f0c0b171b7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aquatic Incursion",
         mana_cost = mana!("{3}{U}"),

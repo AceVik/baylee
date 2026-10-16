@@ -13,7 +13,7 @@ card!(
     oracle_id = "e97870a3-855a-4701-8344-91a90095f70a",
     scryfall_id = "546b0a74-ebef-4596-b730-2190e20b2e66",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vagrant Plowbeasts",
         mana_cost = mana!("{5}{G}{W}"),

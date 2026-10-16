@@ -18,7 +18,7 @@ card!(
     oracle_id = "6ad1d8d0-06c0-4804-af5f-60ffb358f371",
     scryfall_id = "aba9a42c-6bb8-4f77-9d3a-e749713b2431",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boldwyr Intimidator",
         mana_cost = mana!("{5}{R}{R}"),

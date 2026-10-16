@@ -10,7 +10,7 @@ card!(
     index = index::STERLING_HOUND,
     oracle_id = "3178c1f9-f644-4926-ac9a-d40e4db79955",
     scryfall_id = "9e5bfcf5-6e5c-47fe-af6c-6b18938261c6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sterling Hound",
         mana_cost = mana!("{3}"),

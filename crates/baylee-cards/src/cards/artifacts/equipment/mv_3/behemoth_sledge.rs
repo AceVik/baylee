@@ -12,7 +12,7 @@ card!(
     oracle_id = "00573e77-8ff6-4acb-8683-8827d965288f",
     scryfall_id = "179461b8-0a6b-48c5-9d1f-db8bcfecc6f9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Behemoth Sledge",
         mana_cost = mana!("{1}{G}{W}"),

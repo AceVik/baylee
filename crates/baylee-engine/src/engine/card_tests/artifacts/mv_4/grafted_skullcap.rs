@@ -70,7 +70,11 @@ fn the_controller_draws_an_extra_card_in_their_own_draw_step() {
 
     let lib = library_size(&engine, p0);
     reach_their_main_phase(&mut engine, p1);
-    assert_eq!(library_size(&engine, p0), lib, "their draw step is not mine");
+    assert_eq!(
+        library_size(&engine, p0),
+        lib,
+        "their draw step is not mine"
+    );
     pass_until(&mut engine, |e| {
         e.state().turn.number >= 3 && matches!(e.state().turn.phase, Phase::FirstMain)
     });

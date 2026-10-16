@@ -12,7 +12,7 @@ card!(
     index = index::CHAMPION_S_HELM,
     oracle_id = "c01aafb8-3da5-4eb1-8731-2a223e747d63",
     scryfall_id = "c6548a30-577a-47e7-aa6e-8f6db1f7b78e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Champion's Helm",
         mana_cost = mana!("{3}"),

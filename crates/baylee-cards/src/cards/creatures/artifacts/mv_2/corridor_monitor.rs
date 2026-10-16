@@ -16,7 +16,7 @@ card!(
     oracle_id = "07b6ee55-a77e-4ba7-9ab7-8a8375c7acc9",
     scryfall_id = "df3f6598-18a7-472d-8d05-715203379089",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corridor Monitor",
         mana_cost = mana!("{1}{U}"),

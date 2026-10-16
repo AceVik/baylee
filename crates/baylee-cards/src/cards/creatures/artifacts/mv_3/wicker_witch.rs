@@ -9,7 +9,7 @@ card!(
     index = index::WICKER_WITCH,
     oracle_id = "cc2f945f-9048-4978-b61f-49eefb3d94d7",
     scryfall_id = "ae115587-012d-40ff-a20d-270fabf2f8c6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wicker Witch",
         mana_cost = mana!("{3}"),

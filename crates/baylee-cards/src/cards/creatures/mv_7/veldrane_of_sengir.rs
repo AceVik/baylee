@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fe0ce7d7-d370-4ef8-b1fa-aa70b2fd5ab1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Veldrane of Sengir",
         mana_cost = mana!("{5}{B}{B}"),

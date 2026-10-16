@@ -11,7 +11,7 @@ card!(
     oracle_id = "856d8eb4-3834-49f8-9696-579948590fd0",
     scryfall_id = "0338c6fe-54f6-4be0-a70d-b15e5403d842",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roaring Slagwurm",
         mana_cost = mana!("{5}{G}{G}"),

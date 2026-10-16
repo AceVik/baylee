@@ -17,7 +17,12 @@ fn austere_table(seed: u64) -> Engine<RegistryLookup> {
         &[austere_command()],
         &[plains(); 6],
         &[],
-        &[quiet_artifact(), their_enchantment(), gray_ogre(), earth_elemental()],
+        &[
+            quiet_artifact(),
+            their_enchantment(),
+            gray_ogre(),
+            earth_elemental(),
+        ],
     )
 }
 
@@ -35,10 +40,22 @@ fn austere_command_artifacts_and_big_creatures() {
     assert_eq!(offered.len(), 6, "choose two of four: six pairs");
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, them(), quiet_artifact()).is_some(), "mode 1");
-    assert!(in_graveyard(&engine, them(), earth_elemental()).is_some(), "mode 4");
-    assert!(on_battlefield(&engine, them(), their_enchantment()).is_some(), "not chosen");
-    assert!(on_battlefield(&engine, them(), gray_ogre()).is_some(), "mana value 3 is not 4 or greater");
+    assert!(
+        in_graveyard(&engine, them(), quiet_artifact()).is_some(),
+        "mode 1"
+    );
+    assert!(
+        in_graveyard(&engine, them(), earth_elemental()).is_some(),
+        "mode 4"
+    );
+    assert!(
+        on_battlefield(&engine, them(), their_enchantment()).is_some(),
+        "not chosen"
+    );
+    assert!(
+        on_battlefield(&engine, them(), gray_ogre()).is_some(),
+        "mana value 3 is not 4 or greater"
+    );
 }
 
 /// Enchantments and the small creatures: the other pair.
@@ -49,9 +66,18 @@ fn austere_command_enchantments_and_small_creatures() {
     choose_modes(&mut engine, me(), 0b0110);
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, them(), their_enchantment()).is_some(), "mode 2");
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "mode 3");
-    assert!(on_battlefield(&engine, them(), quiet_artifact()).is_some(), "not chosen");
+    assert!(
+        in_graveyard(&engine, them(), their_enchantment()).is_some(),
+        "mode 2"
+    );
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "mode 3"
+    );
+    assert!(
+        on_battlefield(&engine, them(), quiet_artifact()).is_some(),
+        "not chosen"
+    );
     assert!(
         on_battlefield(&engine, them(), earth_elemental()).is_some(),
         "mana value 5 is not 3 or less"

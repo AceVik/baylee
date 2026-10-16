@@ -33,7 +33,11 @@ fn another_artifact_dying_hurts_its_controller() {
 
     let mine_itself = on_battlefield(&engine, p0, magnetic_mine()).unwrap();
     kill(&mut engine, mine_itself);
-    assert_eq!(life_of(&engine, p0), 18, "\"another\": the Mine itself is free");
+    assert_eq!(
+        life_of(&engine, p0),
+        18,
+        "\"another\": the Mine itself is free"
+    );
 }
 
 /// A creature that is not an artifact does not set it off.

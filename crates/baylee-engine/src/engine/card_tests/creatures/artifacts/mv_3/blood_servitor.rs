@@ -63,7 +63,17 @@ fn blood_servitor_token_loots_for_one_mana() {
     let rest = drive_to_rest(&mut engine, p0);
     assert!(matches!(rest, Rest::Reached), "{rest:?}");
 
-    assert!(tokens_of(&engine, p0).is_empty(), "the Blood was sacrificed");
-    assert!(in_graveyard(&engine, p0, forest()).is_some(), "the Forest was discarded");
-    assert_eq!(library_of(&engine, p0).len(), library_before - 1, "and a card drawn");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "the Blood was sacrificed"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "the Forest was discarded"
+    );
+    assert_eq!(
+        library_of(&engine, p0).len(),
+        library_before - 1,
+        "and a card drawn"
+    );
 }

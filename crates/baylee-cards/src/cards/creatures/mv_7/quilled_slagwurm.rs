@@ -10,7 +10,7 @@ card!(
     oracle_id = "5114f3e0-339d-46d6-9d44-97fa0afbd7c5",
     scryfall_id = "12c597b9-5024-42bd-b500-5ef6a3accda6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quilled Slagwurm",
         mana_cost = mana!("{4}{G}{G}{G}"),

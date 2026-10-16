@@ -33,7 +33,17 @@ fn it_enters_with_three_wish_counters() {
 fn a_wish_fetches_a_card_of_my_choice_into_my_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[ring_of_three_wishes(), forest(), forest(), forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[
+                ring_of_three_wishes(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -53,11 +63,21 @@ fn a_wish_fetches_a_card_of_my_choice_into_my_hand() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
-    let Pending::ChooseCards { options, min, max, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
         unreachable!()
     };
-    assert_eq!((min, max), (1, 1), "an unrestricted search must find a card when the library is non-empty");
-    assert!(!options.is_empty(), "the library is searchable: {options:?}");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "an unrestricted search must find a card when the library is non-empty"
+    );
+    assert!(
+        !options.is_empty(),
+        "the library is searchable: {options:?}"
+    );
     engine
         .apply(
             p0,
@@ -80,7 +100,17 @@ fn a_wish_fetches_a_card_of_my_choice_into_my_hand() {
 fn without_wish_counters_it_is_not_offered() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[ring_of_three_wishes(), forest(), forest(), forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[
+                ring_of_three_wishes(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5f46870b-3d8d-4aae-8d59-6bd88a50b37c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jungle Weaver",
         mana_cost = mana!("{5}{G}{G}"),

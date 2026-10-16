@@ -11,7 +11,7 @@ card!(
     index = index::CLOAK_OF_THE_BAT,
     oracle_id = "ecd28e2a-e172-4f4c-8416-b9a0d97ee497",
     scryfall_id = "2f508a65-ff32-480a-b9c6-075074d0c3c3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloak of the Bat",
         mana_cost = mana!("{2}"),

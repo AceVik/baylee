@@ -11,7 +11,7 @@ card!(
     index = index::TENZA_GODO_S_MAUL,
     oracle_id = "f8180ed7-84e9-49f7-8256-dcc21f9d334b",
     scryfall_id = "3f918d2a-5769-43ce-a8e8-41db6c8f251d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tenza, Godo's Maul",
         mana_cost = mana!("{3}"),

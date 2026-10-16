@@ -18,7 +18,7 @@ card!(
     index = index::SLAYER_S_PLATE,
     oracle_id = "05004b4a-2e2c-4a88-a994-8576684fb64a",
     scryfall_id = "c0810651-0301-46d4-b9d7-c2283ef4031a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slayer's Plate",
         mana_cost = mana!("{3}"),

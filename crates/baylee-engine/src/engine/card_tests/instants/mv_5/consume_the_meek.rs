@@ -33,9 +33,18 @@ fn consume_the_meek_destroys_the_cheap_creatures_through_a_shield() {
     );
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), sedge_troll()).is_some(), "mana value 3, shield or not");
-    assert!(in_graveyard(&engine, me(), gray_ogre()).is_some(), "mana value 3");
-    assert!(in_graveyard(&engine, them(), llanowar_elves()).is_some(), "mana value 1");
+    assert!(
+        in_graveyard(&engine, me(), sedge_troll()).is_some(),
+        "mana value 3, shield or not"
+    );
+    assert!(
+        in_graveyard(&engine, me(), gray_ogre()).is_some(),
+        "mana value 3"
+    );
+    assert!(
+        in_graveyard(&engine, them(), llanowar_elves()).is_some(),
+        "mana value 1"
+    );
     assert!(
         on_battlefield(&engine, them(), earth_elemental()).is_some(),
         "mana value 5 is past the edge"

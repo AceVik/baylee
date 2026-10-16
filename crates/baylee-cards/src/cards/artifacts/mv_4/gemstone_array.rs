@@ -10,7 +10,7 @@ card!(
     index = index::GEMSTONE_ARRAY,
     oracle_id = "91303465-4b98-4ecc-82f4-cfd2f9a0f8a7",
     scryfall_id = "19ef37a3-4538-47b2-8f88-3fa0a4e32329",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gemstone Array",
         mana_cost = mana!("{4}"),

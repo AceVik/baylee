@@ -23,9 +23,10 @@ fn soldier_replica_deals_three_to_an_attacking_creature() {
     assert_eq!(pt(&engine, replica), (1, 3));
     let theirs = all_on_battlefield(&engine, p1, quiet_creature());
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
     engine
         .apply(
             p1,
@@ -44,10 +45,16 @@ fn soldier_replica_deals_three_to_an_attacking_creature() {
     activate(&mut engine, p0, soldier_replica(), 0);
     let options = aim_at(&mut engine, p0, theirs[0]);
     assert!(options.contains(&theirs[0]));
-    assert!(!options.contains(&theirs[1]), "not the creature that stayed home");
+    assert!(
+        !options.contains(&theirs[1]),
+        "not the creature that stayed home"
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_graveyard(&engine, p0, soldier_replica()).is_some(), "sacrificed");
+    assert!(
+        in_graveyard(&engine, p0, soldier_replica()).is_some(),
+        "sacrificed"
+    );
     assert!(
         in_graveyard(&engine, p1, quiet_creature()).is_some(),
         "3 damage killed the attacker"

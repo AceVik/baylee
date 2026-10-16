@@ -10,7 +10,7 @@ card!(
     index = index::WATCHER_OF_THE_WAYSIDE,
     oracle_id = "b30eafed-2755-4423-9592-c8b83c68804b",
     scryfall_id = "2dcafdac-a293-4adc-a540-3b3f469cf6f3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watcher of the Wayside",
         mana_cost = mana!("{3}"),

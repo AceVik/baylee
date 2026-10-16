@@ -49,7 +49,10 @@ fn it_deals_damage_equal_to_its_time_counters_to_every_creature_and_player() {
 
     tap_mana_except(&mut engine, p0, bomb);
     activate(&mut engine, p0, time_bomb(), 1);
-    assert!(in_graveyard(&engine, p0, time_bomb()).is_some(), "sacrificed as a cost");
+    assert!(
+        in_graveyard(&engine, p0, time_bomb()).is_some(),
+        "sacrificed as a cost"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(life_of(&engine, p0), l0 - 2, "each player: me");

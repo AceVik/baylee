@@ -13,7 +13,7 @@ card!(
     index = index::TRADING_POST,
     oracle_id = "63788566-e25a-44bb-bb55-197e1b93b3e8",
     scryfall_id = "03499a72-e865-46ff-bcb2-75e53e4b600e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trading Post",
         mana_cost = mana!("{4}"),

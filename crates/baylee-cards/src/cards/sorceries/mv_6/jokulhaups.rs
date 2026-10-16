@@ -10,7 +10,7 @@ card!(
     oracle_id = "7bdfe368-353c-4f8d-851f-05b7ea9f905d",
     scryfall_id = "99d26ff7-afff-40a0-b515-7928c2428809",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jokulhaups",
         mana_cost = mana!("{4}{R}{R}"),

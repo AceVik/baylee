@@ -11,7 +11,7 @@ card!(
     oracle_id = "2ac0d584-997b-4d11-aecf-f1494eebc94c",
     scryfall_id = "88bf1a67-61f7-4f03-b677-a874b64c989e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Narnam Cobra",
         mana_cost = mana!("{2}"),

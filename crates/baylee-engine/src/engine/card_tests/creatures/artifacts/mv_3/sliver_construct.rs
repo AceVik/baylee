@@ -21,5 +21,10 @@ fn sliver_construct_is_a_vanilla_two_two_artifact_creature() {
     let t = types(&engine, id);
     assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
     assert!(keywords(&engine, id).is_empty());
-    assert!(priority_offer(&engine).abilities.iter().all(|(s, _)| *s != id));
+    assert!(
+        priority_offer(&engine)
+            .abilities
+            .iter()
+            .all(|(s, _)| *s != id)
+    );
 }

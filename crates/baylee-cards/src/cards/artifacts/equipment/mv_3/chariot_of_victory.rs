@@ -11,7 +11,7 @@ card!(
     index = index::CHARIOT_OF_VICTORY,
     oracle_id = "5a40339d-7821-4f37-a957-1a6ebdd993e0",
     scryfall_id = "c2dd03d2-05ef-4929-b973-3dbe49fc7592",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chariot of Victory",
         mana_cost = mana!("{3}"),

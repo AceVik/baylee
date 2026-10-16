@@ -12,7 +12,7 @@ card!(
     oracle_id = "93fbf4a7-4283-4eec-afde-6780149b56df",
     scryfall_id = "c234a73c-4257-47af-a710-29ab765a7b2d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Minion of Tevesh Szat",
         mana_cost = mana!("{4}{B}{B}{B}"),

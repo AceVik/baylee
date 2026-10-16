@@ -13,7 +13,7 @@ card!(
     oracle_id = "b5b4cf54-ed5e-42d0-9d98-5fec76b0b0b8",
     scryfall_id = "3f99fb1e-99a6-4c83-98eb-7bff23996a7f",
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darksteel Plate",
         mana_cost = mana!("{3}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e2ac369a-f6d4-4b58-8695-a7c5b906e999",
     scryfall_id = "ba32cf1f-375c-4cc5-9963-c4f9510e3b39",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lash of the Whip",
         mana_cost = mana!("{4}{B}"),

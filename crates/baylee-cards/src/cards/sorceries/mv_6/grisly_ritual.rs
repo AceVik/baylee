@@ -11,7 +11,7 @@ card!(
     oracle_id = "56c78349-e4fa-48ba-ae8e-d2312ae6edc6",
     scryfall_id = "53cdf2ab-3acd-49bd-8273-84c1cfc92883",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grisly Ritual",
         mana_cost = mana!("{5}{B}"),

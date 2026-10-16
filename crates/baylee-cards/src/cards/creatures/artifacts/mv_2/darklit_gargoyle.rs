@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1e7162e5-8c56-457e-91eb-b8ae4d1b6adb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darklit Gargoyle",
         mana_cost = mana!("{1}{W}"),

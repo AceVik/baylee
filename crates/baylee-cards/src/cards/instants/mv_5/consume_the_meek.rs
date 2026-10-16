@@ -10,7 +10,7 @@ card!(
     oracle_id = "c2555c38-1bfc-48c1-85aa-7e40117db78b",
     scryfall_id = "c94dcaed-55da-41f4-a61f-2a79ef6c1459",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consume the Meek",
         mana_cost = mana!("{3}{B}{B}"),

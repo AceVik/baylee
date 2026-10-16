@@ -50,7 +50,12 @@ fn idol_after_casting(card: CardIndex, lands: &[CardIndex]) -> (Engine<RegistryL
 #[test]
 fn an_arcane_spell_animates_the_idol() {
     let (engine, idol) = idol_after_casting(reach_through_mists(), &[island()]);
-    let c = engine.state().object(idol).unwrap().characteristics().clone();
+    let c = engine
+        .state()
+        .object(idol)
+        .unwrap()
+        .characteristics()
+        .clone();
     assert!(c.types.contains(TypeSet::CREATURE));
     assert!(c.types.contains(TypeSet::ARTIFACT), "still an artifact");
     assert!(c.subtypes.contains(subtypes::creature::SPIRIT));

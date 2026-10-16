@@ -48,7 +48,10 @@ fn it_taps_a_nonland_permanent_for_two_mana_and_a_life() {
     aim_at(&mut engine, p0, ogre);
     assert_eq!(life_of(&engine, p0), life - 1, "the life is a cost");
     assert!(is_tapped(&engine, ring));
-    assert!(!is_tapped(&engine, ogre), "not yet: the ability is on the stack");
+    assert!(
+        !is_tapped(&engine, ogre),
+        "not yet: the ability is on the stack"
+    );
     pass_until(&mut engine, stack_is_empty);
     assert!(is_tapped(&engine, ogre));
     assert!(!is_tapped(&engine, land));

@@ -10,7 +10,7 @@ card!(
     oracle_id = "d73adc2e-c458-40a9-b10b-7d2133778717",
     scryfall_id = "dfcf6849-4fac-41b9-8e70-dc77c4562a42",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidy Conclusion",
         mana_cost = mana!("{3}{B}{B}"),

@@ -15,7 +15,9 @@ fn sterling_hound_surveils_two_on_entering() {
     let mut engine = main_with(&[sterling_hound()], &[forest(), forest(), forest()]);
     let before = library_of(&engine, p0);
     cast_from_hand(&mut engine, p0, sterling_hound());
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange {
         player,
         cards,
@@ -34,7 +36,11 @@ fn sterling_hound_surveils_two_on_entering() {
     engine.apply(p0, look_answer(&cards, &cards)).unwrap();
     pass_until(&mut engine, |e| at_rest(e, p0));
 
-    let graveyard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).clone();
+    let graveyard = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
     assert_eq!(graveyard.len(), 2);
     for card in &cards {
         assert!(graveyard.contains(card));
@@ -51,13 +57,21 @@ fn sterling_hound_may_keep_both_on_top() {
     let mut engine = main_with(&[sterling_hound()], &[forest(), forest(), forest()]);
     let before = library_of(&engine, p0);
     cast_from_hand(&mut engine, p0, sterling_hound());
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange { cards, .. } = engine.pending().clone() else {
         unreachable!("the predicate just matched")
     };
     engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, |e| at_rest(e, p0));
 
-    assert!(engine.state().zones.list(ZoneLocation::Graveyard(p0)).is_empty());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty()
+    );
     assert_eq!(library_of(&engine, p0), before);
 }

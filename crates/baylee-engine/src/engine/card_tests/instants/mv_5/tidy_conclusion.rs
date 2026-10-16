@@ -24,7 +24,10 @@ fn tidy_conclusion_gains_life_for_each_artifact_you_control() {
     );
     let ogre = on_battlefield(&engine, them(), gray_ogre()).expect("their Ogre");
     cast_at(&mut engine, tidy_conclusion(), ogre);
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "destroyed");
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "destroyed"
+    );
     assert_eq!(
         life_of(&engine, me()),
         22,

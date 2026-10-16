@@ -21,7 +21,7 @@ card!(
     scryfall_id = "0fd5b48c-6850-47d4-8106-297be6c8f708",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drowner of Hope",
         mana_cost = mana!("{5}{U}"),

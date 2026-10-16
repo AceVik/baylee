@@ -22,7 +22,10 @@ fn poison_arrow_destroys_a_nonblack_creature_and_gains_three() {
     let black = on_battlefield(&engine, them(), lotleth_troll()).expect("their Troll");
     let menu = cast_at(&mut engine, poison_arrow(), ogre);
     assert!(menu.contains(&ogre), "{menu:?}");
-    assert!(!menu.contains(&black), "a black creature is no target: {menu:?}");
+    assert!(
+        !menu.contains(&black),
+        "a black creature is no target: {menu:?}"
+    );
     assert!(in_graveyard(&engine, them(), gray_ogre()).is_some());
     assert_eq!(life_of(&engine, me()), 23);
 }

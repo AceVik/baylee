@@ -16,13 +16,7 @@ fn confirm_suspicions() -> CardIndex {
 #[test]
 fn confirm_suspicions_counters_a_spell_and_investigates_three_times() {
     let lands = [vec![mountain(); 3], vec![island(); 5]].concat();
-    let mut engine = table(
-        911,
-        &[gray_ogre(), confirm_suspicions()],
-        &lands,
-        &[],
-        &[],
-    );
+    let mut engine = table(911, &[gray_ogre(), confirm_suspicions()], &lands, &[], &[]);
     let ogre = ogre_on_the_stack(&mut engine);
     assert!(my_tokens(&engine).is_empty(), "no Clue before the counter");
 
@@ -32,7 +26,10 @@ fn confirm_suspicions_counters_a_spell_and_investigates_three_times() {
     assert!(menu.contains(&ogre), "the spell on the stack: {menu:?}");
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), gray_ogre()).is_some(), "countered");
+    assert!(
+        in_graveyard(&engine, me(), gray_ogre()).is_some(),
+        "countered"
+    );
     assert!(on_battlefield(&engine, me(), gray_ogre()).is_none());
     let clues = my_tokens(&engine);
     assert_eq!(clues.len(), 3, "investigate three times");

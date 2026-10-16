@@ -9,7 +9,7 @@ card!(
     index = index::SLIVER_CONSTRUCT,
     oracle_id = "7d592d5b-95cf-4416-9ade-1c23a8ba01d1",
     scryfall_id = "3129645a-221c-4eb5-88fd-12cc742a1dfe",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sliver Construct",
         mana_cost = mana!("{3}"),

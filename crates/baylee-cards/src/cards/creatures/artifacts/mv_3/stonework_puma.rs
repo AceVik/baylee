@@ -9,7 +9,7 @@ card!(
     index = index::STONEWORK_PUMA,
     oracle_id = "841b1010-a7d3-415e-b76d-7b50fea909cb",
     scryfall_id = "35155ed9-35f4-4b20-8885-c72b8372fa1d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonework Puma",
         mana_cost = mana!("{3}"),

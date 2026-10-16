@@ -13,7 +13,7 @@ card!(
     scryfall_id = "95a7e5ff-ba81-4b45-933e-0ac747525ab8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malcator's Watcher",
         mana_cost = mana!("{1}{U}"),

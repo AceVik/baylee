@@ -11,7 +11,7 @@ card!(
     index = index::SWORD_OF_VENGEANCE,
     oracle_id = "e366afb3-c447-4bde-b358-41c8568142d5",
     scryfall_id = "f21b5fc1-7611-44ac-ad8d-1f0c6d4fc9a3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sword of Vengeance",
         mana_cost = mana!("{3}"),

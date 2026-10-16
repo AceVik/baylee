@@ -10,7 +10,7 @@ card!(
     index = index::HEDRON_ARCHIVE,
     oracle_id = "32263baa-d3f0-463f-92b3-4e9938476add",
     scryfall_id = "535b9ac6-dba2-4162-86ed-df3e9fad0306",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hedron Archive",
         mana_cost = mana!("{4}"),

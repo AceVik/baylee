@@ -14,7 +14,7 @@ card!(
     oracle_id = "74e6dd0f-2866-4d45-a214-8b09b837bc02",
     scryfall_id = "68ce4a14-b003-4a61-8979-c400fe4392b8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slipstream Eel",
         mana_cost = mana!("{5}{U}{U}"),

@@ -11,7 +11,7 @@ card!(
     index = index::CANDY_TRAIL,
     oracle_id = "7c8e4f29-53e0-4242-8ef8-7a9476dce178",
     scryfall_id = "1a860925-d912-49e5-9ddc-41ab26916bb3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Candy Trail",
         mana_cost = mana!("{1}"),

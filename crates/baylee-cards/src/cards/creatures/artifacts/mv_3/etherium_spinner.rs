@@ -14,7 +14,7 @@ card!(
     oracle_id = "b501128b-2797-401b-8aec-923050081cae",
     scryfall_id = "cdc8056f-4c8e-4a2b-b32f-c50c2cb7601a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Etherium Spinner",
         mana_cost = mana!("{2}{U}"),

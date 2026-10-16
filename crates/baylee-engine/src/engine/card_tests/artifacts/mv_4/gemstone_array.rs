@@ -13,7 +13,10 @@ fn gemstone_array() -> CardIndex {
 fn two_mana_buys_a_charge_counter_as_often_as_it_is_paid() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[gemstone_array(), forest(), forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[gemstone_array(), forest(), forest(), forest(), forest()],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "229919ef-e39f-4bdc-bcc5-46224a3eb7b4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venerable Lammasu",
         mana_cost = mana!("{6}{W}"),

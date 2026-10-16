@@ -29,6 +29,10 @@ fn certain_death_aimed_at_my_own_creature_leaves_the_opponent_alone() {
     let ogre = on_battlefield(&engine, me(), gray_ogre()).expect("my Ogre");
     cast_at(&mut engine, certain_death(), ogre);
     assert!(in_graveyard(&engine, me(), gray_ogre()).is_some());
-    assert_eq!(life_of(&engine, them()), 20, "the opponent controls nothing here");
+    assert_eq!(
+        life_of(&engine, them()),
+        20,
+        "the opponent controls nothing here"
+    );
     assert_eq!(life_of(&engine, me()), 20, "minus two and plus two");
 }

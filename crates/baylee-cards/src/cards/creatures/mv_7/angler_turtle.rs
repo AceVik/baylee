@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9c8d57fc-9695-45df-8b88-0048330608bd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angler Turtle",
         mana_cost = mana!("{5}{U}{U}"),

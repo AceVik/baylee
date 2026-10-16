@@ -12,7 +12,7 @@ card!(
     index = index::TRUE_FAITH_CENSER,
     oracle_id = "330f2e60-810d-4fe0-9a35-b3f2b29e3e2a",
     scryfall_id = "815eb91c-06fa-4362-803e-e9bf7d374856",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "True-Faith Censer",
         mana_cost = mana!("{2}"),

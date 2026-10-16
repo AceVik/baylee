@@ -50,7 +50,10 @@ fn the_damage_can_go_to_a_creature_instead() {
     pass_until_targets(&mut engine, p0);
     aim_at(&mut engine, p0, ogre);
     pass_until(&mut engine, stack_is_empty);
-    assert!(in_graveyard(&engine, p1, gray_ogre()).is_some(), "2 damage kills a 2/2");
+    assert!(
+        in_graveyard(&engine, p1, gray_ogre()).is_some(),
+        "2 damage kills a 2/2"
+    );
     assert_eq!(life_of(&engine, p1), 20);
 }
 

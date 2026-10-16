@@ -12,7 +12,7 @@ card!(
     oracle_id = "6467cbb7-1e4e-482d-a20f-6cb9fc0f1ad1",
     scryfall_id = "e1de5fb8-7206-44a6-b827-5c6a21c25296",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirlwind of Thought",
         mana_cost = mana!("{1}{U}{R}{W}"),

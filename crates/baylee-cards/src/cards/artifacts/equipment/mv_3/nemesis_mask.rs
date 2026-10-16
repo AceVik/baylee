@@ -11,7 +11,7 @@ card!(
     index = index::NEMESIS_MASK,
     oracle_id = "34062d79-457f-4af3-b9c6-cab2e4d17581",
     scryfall_id = "d6fc3b76-bc51-49ce-8f3f-2314207be4a7",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nemesis Mask",
         mana_cost = mana!("{3}"),

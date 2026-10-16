@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7c375190-f81b-4ab1-a1b6-fe432796821f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Buzz Bots",
         mana_cost = mana!("{1}{U}"),

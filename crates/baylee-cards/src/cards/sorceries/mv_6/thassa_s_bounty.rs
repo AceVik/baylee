@@ -10,7 +10,7 @@ card!(
     oracle_id = "c43425c1-ad01-4088-a061-f691fa2f6c20",
     scryfall_id = "3ac987ac-3f81-4704-b42c-651f44670641",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thassa's Bounty",
         mana_cost = mana!("{5}{U}"),

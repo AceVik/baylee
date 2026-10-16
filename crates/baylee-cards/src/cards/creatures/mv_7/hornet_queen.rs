@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b2af9184-df81-413b-abcf-331c4471e6d4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hornet Queen",
         mana_cost = mana!("{4}{G}{G}{G}"),

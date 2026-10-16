@@ -10,7 +10,7 @@ card!(
     index = index::GOBLIN_BOOM_KEG,
     oracle_id = "8e819d68-3a6e-449a-8392-e072724b80f1",
     scryfall_id = "14343e23-83fb-4d2e-a272-20d7787ef2ca",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Boom Keg",
         mana_cost = mana!("{4}"),

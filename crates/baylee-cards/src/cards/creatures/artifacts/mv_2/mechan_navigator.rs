@@ -11,7 +11,7 @@ card!(
     oracle_id = "fa72c607-7eb4-41b7-9af1-f3d6c69abf09",
     scryfall_id = "a1fe1d39-42c8-41d0-8bf0-46973e4b07d4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mechan Navigator",
         mana_cost = mana!("{1}{U}"),

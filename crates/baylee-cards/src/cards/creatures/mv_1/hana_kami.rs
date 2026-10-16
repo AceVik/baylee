@@ -13,7 +13,7 @@ card!(
     oracle_id = "7ac433a7-c107-46de-b36b-d7419c9ec565",
     scryfall_id = "5afa824d-ad9b-44c1-9509-f9ecd34bde08",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hana Kami",
         mana_cost = mana!("{G}"),

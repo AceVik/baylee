@@ -10,7 +10,7 @@ card!(
     oracle_id = "a98c2d81-4add-4292-bbdd-e1b69ff936d4",
     scryfall_id = "5eddac86-947e-48c1-9f02-4634a7918c98",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Planar Cleansing",
         mana_cost = mana!("{3}{W}{W}{W}"),

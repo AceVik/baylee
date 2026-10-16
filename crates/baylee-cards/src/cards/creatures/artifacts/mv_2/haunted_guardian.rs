@@ -11,7 +11,7 @@ card!(
     oracle_id = "20b9bc53-7f6d-4616-a2df-5783ab577707",
     scryfall_id = "7d97f8b8-bdb0-4d4b-b077-9affe2f9cd91",
     keywords = KeywordSet::DEFENDER.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haunted Guardian",
         mana_cost = mana!("{2}"),

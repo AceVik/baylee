@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7bf663d3-850b-4a24-8e4b-08311adf4ed0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hellkite Punisher",
         mana_cost = mana!("{5}{R}{R}"),

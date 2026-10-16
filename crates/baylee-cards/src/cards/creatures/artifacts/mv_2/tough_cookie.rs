@@ -20,7 +20,7 @@ card!(
     oracle_id = "8a1a5862-c027-4c15-99a7-1795d0da96da",
     scryfall_id = "7aa37f85-5336-4372-97a2-9c8b00798c7a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tough Cookie",
         mana_cost = mana!("{1}{G}"),

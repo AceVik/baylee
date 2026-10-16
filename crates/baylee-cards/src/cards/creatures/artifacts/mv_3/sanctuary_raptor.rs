@@ -14,7 +14,7 @@ card!(
     oracle_id = "6af53351-ad10-4774-9b5c-7b58bea65bbc",
     scryfall_id = "ccbdb1eb-2546-4c1a-bfab-ef61bdadd364",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanctuary Raptor",
         mana_cost = mana!("{3}"),

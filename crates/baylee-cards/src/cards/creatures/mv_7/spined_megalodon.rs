@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6d42d3dd-29df-44a1-89b8-994761eda77d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spined Megalodon",
         mana_cost = mana!("{5}{U}{U}"),

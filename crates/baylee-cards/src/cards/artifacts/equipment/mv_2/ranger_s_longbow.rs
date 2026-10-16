@@ -12,7 +12,7 @@ card!(
     oracle_id = "4b9abe7f-050f-4d0a-bc01-f442164f95de",
     scryfall_id = "34c99b32-353c-4930-a6ee-3fb44cf70253",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ranger's Longbow",
         mana_cost = mana!("{1}{G}"),

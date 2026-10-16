@@ -22,8 +22,15 @@ fn contradict_counters_a_spell_and_draws_a_card() {
     assert!(menu.contains(&ogre), "{menu:?}");
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), gray_ogre()).is_some(), "countered");
+    assert!(
+        in_graveyard(&engine, me(), gray_ogre()).is_some(),
+        "countered"
+    );
     assert!(on_battlefield(&engine, me(), gray_ogre()).is_none());
-    assert_eq!(hand_len(&engine, me()), hand_before, "Contradict out, a card in");
+    assert_eq!(
+        hand_len(&engine, me()),
+        hand_before,
+        "Contradict out, a card in"
+    );
     assert_eq!(library_len(&engine, me()), library_before - 1);
 }

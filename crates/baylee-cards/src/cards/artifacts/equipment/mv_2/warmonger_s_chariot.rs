@@ -12,7 +12,7 @@ card!(
     index = index::WARMONGER_S_CHARIOT,
     oracle_id = "90f4ec87-d33d-46c1-8cc7-3e7ad3f8ad70",
     scryfall_id = "f7321473-5747-4430-86b2-b5029d9f6486",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warmonger's Chariot",
         mana_cost = mana!("{2}"),

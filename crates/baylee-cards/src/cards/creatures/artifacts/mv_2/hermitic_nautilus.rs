@@ -13,7 +13,7 @@ card!(
     scryfall_id = "545503f8-a8c6-4518-9ad6-76e4996397fc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hermitic Nautilus",
         mana_cost = mana!("{1}{U}"),

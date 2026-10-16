@@ -12,7 +12,7 @@ card!(
     oracle_id = "974f788a-039f-4310-a2fe-16b14a1e2d35",
     scryfall_id = "cab69fbd-0179-4b02-adba-71d2a0eeea5c",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyscanner",
         mana_cost = mana!("{3}"),

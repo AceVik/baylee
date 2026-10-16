@@ -14,7 +14,7 @@ card!(
     oracle_id = "d1dfed64-6e88-44c2-b479-9a2d072e4be7",
     scryfall_id = "d90c5650-7eb2-480a-856e-a04406096830",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greater Sandwurm",
         mana_cost = mana!("{5}{G}{G}"),

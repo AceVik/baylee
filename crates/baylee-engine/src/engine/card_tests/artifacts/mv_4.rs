@@ -67,16 +67,16 @@ fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: Counter
     state.invalidate_projections();
     engine.refresh_offer();
 }
-mod five_hundred_year_diary;
 mod empowered_autogenerator;
+mod erratic_portal;
+mod five_hundred_year_diary;
 mod font_of_mythos;
-mod goblin_boom_keg;
 mod gemstone_array;
+mod goblin_boom_keg;
+mod grafted_skullcap;
 mod gruul_war_plow;
 mod hedron_archive;
-mod grafted_skullcap;
 mod isolation_cell;
-mod erratic_portal;
 mod jade_idol;
 mod lux_cannon;
 mod magnetic_mine;

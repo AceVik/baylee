@@ -11,7 +11,7 @@ card!(
     oracle_id = "7522f7fd-6fda-4ed3-9131-21bf91616a73",
     scryfall_id = "1565813b-6912-42f4-bae0-22136a2d6a92",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chocobo Racetrack",
         mana_cost = mana!("{3}{G}{G}"),

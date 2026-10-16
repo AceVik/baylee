@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0ee509dd-9fba-4b6d-a9d4-cc8bf5822ddd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nebula Dragon",
         mana_cost = mana!("{6}{R}"),

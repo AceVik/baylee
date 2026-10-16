@@ -11,7 +11,7 @@ card!(
     index = index::BARBED_BATTLEGEAR,
     oracle_id = "b81fed36-07c4-4903-b5b4-24e62d2ce239",
     scryfall_id = "03b80b2f-8d07-4ad3-9b20-4ba0fe9f37a2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbed Battlegear",
         mana_cost = mana!("{3}"),

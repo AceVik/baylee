@@ -11,7 +11,7 @@ card!(
     index = index::FILIGREE_FAMILIAR,
     oracle_id = "b544f690-e4bf-4a5b-984d-9256518fd574",
     scryfall_id = "875df3ef-fab4-455f-bfdb-8f6361b27bf6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Filigree Familiar",
         mana_cost = mana!("{3}"),

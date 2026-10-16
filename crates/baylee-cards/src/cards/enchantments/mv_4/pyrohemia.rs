@@ -11,7 +11,7 @@ card!(
     oracle_id = "9ac57a10-3402-4656-9079-f713884cde35",
     scryfall_id = "ad840567-c3ac-4e14-b398-0d11c88931bc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyrohemia",
         mana_cost = mana!("{2}{R}{R}"),

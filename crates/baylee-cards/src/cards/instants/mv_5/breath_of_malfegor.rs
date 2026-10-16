@@ -10,7 +10,7 @@ card!(
     oracle_id = "81e6ade9-a38f-4655-b09c-9ca41a11face",
     scryfall_id = "7a12e4d0-8471-46ac-85e4-a2ea5be8bf8f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breath of Malfegor",
         mana_cost = mana!("{3}{B}{R}"),

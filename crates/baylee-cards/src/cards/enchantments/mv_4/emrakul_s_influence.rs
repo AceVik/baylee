@@ -18,7 +18,7 @@ card!(
     oracle_id = "92eb07ca-ec57-48c3-98ce-9e878bd968c1",
     scryfall_id = "112476e7-72ab-4ebc-9e6e-e96fbf5109c0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emrakul's Influence",
         mana_cost = mana!("{2}{G}{G}"),

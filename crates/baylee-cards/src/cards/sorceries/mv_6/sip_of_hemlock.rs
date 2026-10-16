@@ -10,7 +10,7 @@ card!(
     oracle_id = "861096be-dbb3-429e-820f-d82f6ed2aa24",
     scryfall_id = "22051427-9b2a-4571-8c9f-ee84d8d0e4d1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sip of Hemlock",
         mana_cost = mana!("{4}{B}{B}"),

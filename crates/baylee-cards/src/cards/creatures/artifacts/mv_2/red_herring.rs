@@ -14,7 +14,7 @@ card!(
     scryfall_id = "6c137a44-9ab6-4e59-8324-34d9dca8f5a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Red Herring",
         mana_cost = mana!("{1}{R}"),

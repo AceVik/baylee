@@ -10,7 +10,7 @@ card!(
     index = index::SALVAGED_MANAWORKER,
     oracle_id = "a96814fe-dc74-4d02-a44e-f7daa794b647",
     scryfall_id = "5fc22ecb-5d87-464e-8c7d-5d40a52e1e4f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salvaged Manaworker",
         mana_cost = mana!("{2}"),

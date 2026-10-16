@@ -15,7 +15,17 @@ fn twelve_damage_to_a_target_creature() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[tower_of_calamities(), forest(), forest(), forest(), forest(), forest(), forest(), forest(), forest()],
+            &[
+                tower_of_calamities(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
         )
         .battlefield(1, &[earth_elemental(), quiet_artifact()])
         .start();
@@ -48,7 +58,16 @@ fn seven_mana_do_not_pay_for_it() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[tower_of_calamities(), forest(), forest(), forest(), forest(), forest(), forest(), forest()],
+            &[
+                tower_of_calamities(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
         )
         .battlefield(1, &[gray_ogre()])
         .start();

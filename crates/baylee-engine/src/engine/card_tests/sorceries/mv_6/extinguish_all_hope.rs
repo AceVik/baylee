@@ -31,9 +31,15 @@ fn extinguish_all_hope_spares_enchantment_creatures() {
         on_battlefield(&engine, me(), nyx_fleece_ram()).is_some(),
         "an enchantment creature survives"
     );
-    assert!(in_graveyard(&engine, me(), llanowar_elves()).is_some(), "a plain creature dies");
+    assert!(
+        in_graveyard(&engine, me(), llanowar_elves()).is_some(),
+        "a plain creature dies"
+    );
     assert!(in_graveyard(&engine, them(), gray_ogre()).is_some());
-    assert!(in_graveyard(&engine, them(), baleful_strix()).is_some(), "so does an artifact creature");
+    assert!(
+        in_graveyard(&engine, them(), baleful_strix()).is_some(),
+        "so does an artifact creature"
+    );
     assert!(
         on_battlefield(&engine, them(), their_enchantment()).is_some(),
         "an enchantment that is no creature was never in it"

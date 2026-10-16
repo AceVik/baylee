@@ -177,9 +177,10 @@ fn attack_to_blocks(
     attackers: &[ObjectId],
 ) -> Vec<crate::choice::BlockOption> {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    pass_until(engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0)
-    });
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
     engine
         .apply(
             p0,
@@ -201,7 +202,11 @@ fn attack_to_blocks(
 }
 
 /// Whether `blocker` may block `attacker` according to the offered options.
-fn may_block(options: &[crate::choice::BlockOption], blocker: ObjectId, attacker: ObjectId) -> bool {
+fn may_block(
+    options: &[crate::choice::BlockOption],
+    blocker: ObjectId,
+    attacker: ObjectId,
+) -> bool {
     options
         .iter()
         .any(|o| o.blocker == blocker && o.attackers.contains(&attacker))
@@ -271,7 +276,9 @@ fn tap_for_any_color(engine: &mut Engine<RegistryLookup>, source: ObjectId, colo
             ability_index,
         }
     };
-    engine.apply(p0, action).expect("the mana ability activates");
+    engine
+        .apply(p0, action)
+        .expect("the mana ability activates");
     let Pending::ChooseColor { player, options } = engine.pending().clone() else {
         panic!("it asks which color, got {:?}", engine.pending())
     };
@@ -297,7 +304,11 @@ fn tap_for_any_color(engine: &mut Engine<RegistryLookup>, source: ObjectId, colo
 /// Answers the pending target choice with the one player `who`, returning the
 /// players the choice offered.
 #[track_caller]
-fn aim_at_player(engine: &mut Engine<RegistryLookup>, seat: PlayerId, who: PlayerId) -> Vec<PlayerId> {
+fn aim_at_player(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    who: PlayerId,
+) -> Vec<PlayerId> {
     let Pending::ChooseTargets {
         player,
         player_options,

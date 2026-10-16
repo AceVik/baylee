@@ -11,7 +11,7 @@ card!(
     index = index::MASK_OF_AVACYN,
     oracle_id = "ab66f8a8-eb3d-4c2d-95e9-26a53c66b237",
     scryfall_id = "0aa1b193-c80e-4026-bd82-f16314e14431",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mask of Avacyn",
         mana_cost = mana!("{2}"),

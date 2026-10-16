@@ -11,7 +11,7 @@ card!(
     index = index::CULTIST_S_STAFF,
     oracle_id = "3e211792-2656-4bee-80ac-60eac0c45c2d",
     scryfall_id = "8da8c523-44e8-43e7-8431-28dbed1015ac",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cultist's Staff",
         mana_cost = mana!("{2}"),

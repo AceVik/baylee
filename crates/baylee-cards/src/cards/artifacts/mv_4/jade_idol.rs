@@ -21,7 +21,7 @@ card!(
     index = index::JADE_IDOL,
     oracle_id = "36b4daf5-6568-402b-a4f9-fe3ffddc847c",
     scryfall_id = "a58f63c5-cdc5-4079-a727-cff45668d546",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jade Idol",
         mana_cost = mana!("{4}"),

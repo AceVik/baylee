@@ -13,7 +13,7 @@ card!(
     oracle_id = "727f4734-53cc-4279-ba51-dfa26c4ceb1d",
     scryfall_id = "e5f9fa2d-4bf4-4fcb-9b76-fd4a9ff5a58c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aegis Automaton",
         mana_cost = mana!("{2}"),

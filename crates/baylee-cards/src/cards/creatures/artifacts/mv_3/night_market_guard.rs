@@ -10,7 +10,7 @@ card!(
     index = index::NIGHT_MARKET_GUARD,
     oracle_id = "3a7a27fe-60f0-4a21-a1c1-5fef8a528391",
     scryfall_id = "2098bb0f-6ab5-407c-93f7-fee3b385926e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Night Market Guard",
         mana_cost = mana!("{3}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d0346326-6bdf-4385-ab41-7b06e9f66ffd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Windreader Sphinx",
         mana_cost = mana!("{5}{U}{U}"),

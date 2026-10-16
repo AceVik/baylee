@@ -27,10 +27,21 @@ fn assassin_s_strike_makes_the_creatures_controller_discard() {
     let mine = hand_len(&engine, me());
     let (_, asked) = cast_at_asked(&mut engine, assassin_s_strike(), ogre);
 
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "destroyed");
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "destroyed"
+    );
     assert_eq!(hand_len(&engine, them()), 1, "they discarded one of two");
-    assert_eq!(graveyard_len(&engine, them()), 2, "the creature and the discard");
-    assert_eq!(hand_len(&engine, me()), mine - 1, "mine lost only the spell");
+    assert_eq!(
+        graveyard_len(&engine, them()),
+        2,
+        "the creature and the discard"
+    );
+    assert_eq!(
+        hand_len(&engine, me()),
+        mine - 1,
+        "mine lost only the spell"
+    );
     for question in &asked {
         let Pending::ChooseCards { player, .. } = question else {
             panic!("only a discard is asked: {question:?}")

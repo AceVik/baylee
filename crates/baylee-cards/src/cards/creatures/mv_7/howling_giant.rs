@@ -14,7 +14,7 @@ card!(
     scryfall_id = "eb8434fd-5ee5-4be9-a28d-9e04b1b94327",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Howling Giant",
         mana_cost = mana!("{5}{G}{G}"),

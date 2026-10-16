@@ -18,22 +18,26 @@ fn farmstead_gleaner_stays_tapped_and_untaps_for_a_counter() {
     let gleaner = on_battlefield(&engine, p0, farmstead_gleaner()).expect("seated");
     tap_all_mana(&mut engine, p0);
     assert!(
-        !priority_offer(&engine)
-            .abilities
-            .contains(&(gleaner, 1)),
+        !priority_offer(&engine).abilities.contains(&(gleaner, 1)),
         "{{Q}} wants it tapped: an untapped Gleaner offers nothing"
     );
 
     attack_to_blocks(&mut engine, &[gleaner]);
     engine
-        .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers: vec![] })
+        .apply(
+            PlayerId::new(1),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
         .unwrap();
     assert!(is_tapped(&engine, gleaner), "attacking tapped it");
 
     // Seat 0's next turn: the untap step passes it by.
     pass_until(&mut engine, |e| e.state().turn.number > 1);
     reach_their_main_phase(&mut engine, p0);
-    assert!(is_tapped(&engine, gleaner), "it doesn't untap during its untap step");
+    assert!(
+        is_tapped(&engine, gleaner),
+        "it doesn't untap during its untap step"
+    );
 
     tap_all_mana(&mut engine, p0);
     assert_eq!(engine.state().players[0].mana_pool.total(), 2);

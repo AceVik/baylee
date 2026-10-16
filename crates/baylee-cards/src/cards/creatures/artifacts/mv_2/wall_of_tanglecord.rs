@@ -13,7 +13,7 @@ card!(
     scryfall_id = "792e2aed-ce6e-4fa1-a31c-a4574e5cf1f5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Tanglecord",
         mana_cost = mana!("{2}"),

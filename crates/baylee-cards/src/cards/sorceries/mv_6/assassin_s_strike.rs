@@ -10,7 +10,7 @@ card!(
     oracle_id = "1ad6339d-6206-49bf-bf97-05e6d3bcaab7",
     scryfall_id = "9aacb3ae-c889-4912-bc2d-2aa0adfd20bd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Assassin's Strike",
         mana_cost = mana!("{4}{B}{B}"),

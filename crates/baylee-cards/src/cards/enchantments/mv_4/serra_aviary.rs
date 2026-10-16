@@ -10,7 +10,7 @@ card!(
     oracle_id = "7a06483b-e71c-4d11-86ea-3b48e2a9cdaf",
     scryfall_id = "9173f55d-c4e4-4cd7-9d2f-5394216d2e35",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serra Aviary",
         mana_cost = mana!("{3}{W}"),

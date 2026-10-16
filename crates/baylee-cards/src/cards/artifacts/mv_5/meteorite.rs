@@ -10,7 +10,7 @@ card!(
     index = index::METEORITE,
     oracle_id = "0c3c3bcc-d485-4a01-92fe-8bf29c0fc926",
     scryfall_id = "33eb2032-50af-4fd6-bdc7-7cae2211956c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meteorite",
         mana_cost = mana!("{5}"),

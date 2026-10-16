@@ -11,7 +11,7 @@ card!(
     oracle_id = "e2bc064e-4739-4eb1-ba44-1fd92b2829d7",
     scryfall_id = "4616a548-269b-4530-97e8-c690ccc138f3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Etched Familiar",
         mana_cost = mana!("{2}{B}"),

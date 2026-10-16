@@ -11,14 +11,23 @@ fn fiery_finish() -> CardIndex {
 /// Fiery Finish: "deals 7 damage to target creature."
 #[test]
 fn fiery_finish_deals_seven_to_a_creature() {
-    let mut engine = table(958, &[fiery_finish()], &[mountain(); 6], &[], &[earth_elemental()]);
+    let mut engine = table(
+        958,
+        &[fiery_finish()],
+        &[mountain(); 6],
+        &[],
+        &[earth_elemental()],
+    );
     let big = on_battlefield(&engine, them(), earth_elemental()).expect("their Elemental");
     let journal = engine.journal().entries().len();
     cast_from_hand(&mut engine, me(), fiery_finish());
     let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
         panic!("a target choice, got {:?}", engine.pending())
     };
-    assert!(player_options.is_empty(), "creatures only: {player_options:?}");
+    assert!(
+        player_options.is_empty(),
+        "creatures only: {player_options:?}"
+    );
     aim_at(&mut engine, me(), big);
     settle(&mut engine);
     let hits: Vec<_> = damage_events(&engine, journal)

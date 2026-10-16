@@ -13,7 +13,7 @@ card!(
     scryfall_id = "aeff3db7-81ac-4c51-9954-bc1dbcb8c4e3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wreckage Wickerfolk",
         mana_cost = mana!("{1}{B}"),

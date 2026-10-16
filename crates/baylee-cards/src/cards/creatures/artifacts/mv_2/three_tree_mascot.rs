@@ -12,7 +12,7 @@ card!(
     oracle_id = "6cb9d153-4eaa-4f32-8930-bd68cd99c128",
     scryfall_id = "40b8bf3a-1cb5-4ce2-ac25-9410f17130de",
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Three Tree Mascot",
         mana_cost = mana!("{2}"),

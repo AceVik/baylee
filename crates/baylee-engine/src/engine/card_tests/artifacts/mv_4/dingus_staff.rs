@@ -24,7 +24,11 @@ fn a_dying_creature_costs_its_controller_two_life() {
     let ogre = on_battlefield(&engine, p1, gray_ogre()).unwrap();
     kill(&mut engine, ogre);
     assert_eq!(life_of(&engine, p1), l1 - 2, "the Ogre's controller is hit");
-    assert_eq!(life_of(&engine, p0), l0, "and the Staff's controller is not");
+    assert_eq!(
+        life_of(&engine, p0),
+        l0,
+        "and the Staff's controller is not"
+    );
 
     let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
     kill(&mut engine, elf);

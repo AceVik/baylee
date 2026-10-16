@@ -10,7 +10,7 @@ card!(
     oracle_id = "2f05f3ed-e3b7-4225-b3f2-c12eda335237",
     scryfall_id = "4fd4b0f6-fc67-48aa-9f17-21a79bd0c3d3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flesh to Dust",
         mana_cost = mana!("{3}{B}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "628cf9ab-8f8b-49b6-b761-2450088ad03b",
     scryfall_id = "4983177d-fbf4-47fa-997f-9d08294870f2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wretched Doll",
         mana_cost = mana!("{1}{B}"),

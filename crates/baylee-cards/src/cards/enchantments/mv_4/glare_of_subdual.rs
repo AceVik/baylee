@@ -10,7 +10,7 @@ card!(
     oracle_id = "bcfc112e-0482-4616-8ca9-32338a37fa82",
     scryfall_id = "e1b6e40f-02d6-498f-bb3b-6a9e19ed46f6",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glare of Subdual",
         mana_cost = mana!("{2}{G}{W}"),

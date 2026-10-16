@@ -13,7 +13,7 @@ card!(
     oracle_id = "c9db31d7-00cf-4200-a11f-74cc2d9e843e",
     scryfall_id = "0c65d26e-b529-43ba-9e6e-82aed27cbbfc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thundering Spineback",
         mana_cost = mana!("{5}{G}{G}"),

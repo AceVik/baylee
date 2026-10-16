@@ -15,7 +15,7 @@ card!(
     index = index::ASSEMBLY_WORKER,
     oracle_id = "751321ac-af07-4b7e-976f-5bf4e4281470",
     scryfall_id = "89a288d2-de94-4c49-a17e-5b0ed0281a5b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Assembly-Worker",
         mana_cost = mana!("{3}"),

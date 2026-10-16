@@ -11,7 +11,7 @@ card!(
     index = index::WARLORD_S_AXE,
     oracle_id = "ebe43cc6-42fe-44f6-b198-ef0212bf82cb",
     scryfall_id = "41ab6393-df29-475b-b56d-c56eb95de05d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warlord's Axe",
         mana_cost = mana!("{3}"),

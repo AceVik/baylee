@@ -18,7 +18,10 @@ fn moriok_replica_sacrifices_to_draw_two_and_lose_two() {
     tap_all_mana(&mut engine, p0);
 
     activate(&mut engine, p0, moriok_replica(), 0);
-    assert!(on_battlefield(&engine, p0, moriok_replica()).is_none(), "sacrificed as a cost");
+    assert!(
+        on_battlefield(&engine, p0, moriok_replica()).is_none(),
+        "sacrificed as a cost"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p0, moriok_replica()).is_some());

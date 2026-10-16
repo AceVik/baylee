@@ -11,7 +11,7 @@ card!(
     oracle_id = "5af48f87-7b94-44de-90e3-91f10ced00d3",
     scryfall_id = "af4d2f70-816c-4410-b3a3-9b9a4b69df52",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Efficient Construction",
         mana_cost = mana!("{3}{U}"),

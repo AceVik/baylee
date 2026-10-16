@@ -11,7 +11,7 @@ card!(
     oracle_id = "e132bba0-40c5-4095-99a3-02cad520ca99",
     scryfall_id = "c0198220-073f-4479-a1c4-1bd626891e28",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vectis Silencers",
         mana_cost = mana!("{2}{U}"),

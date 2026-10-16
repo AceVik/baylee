@@ -10,7 +10,7 @@ card!(
     index = index::SANITATION_AUTOMATON,
     oracle_id = "be2ab552-df82-49a0-8f0b-ee66de34e1a7",
     scryfall_id = "52608ba4-c47d-44e4-b624-dee2a3a42ae2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanitation Automaton",
         mana_cost = mana!("{2}"),

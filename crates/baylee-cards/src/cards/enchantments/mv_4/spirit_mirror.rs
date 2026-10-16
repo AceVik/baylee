@@ -20,7 +20,7 @@ card!(
     oracle_id = "42e041c0-ffbc-4bf8-a5aa-f0d14aad7112",
     scryfall_id = "6d7f0a38-6021-4f00-b486-db29997e3d06",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit Mirror",
         mana_cost = mana!("{2}{W}{W}"),

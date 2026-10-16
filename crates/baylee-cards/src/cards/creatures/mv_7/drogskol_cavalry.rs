@@ -21,7 +21,7 @@ card!(
     scryfall_id = "46c262c8-9daa-4ed8-b519-11b5895de89f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drogskol Cavalry",
         mana_cost = mana!("{5}{W}{W}"),

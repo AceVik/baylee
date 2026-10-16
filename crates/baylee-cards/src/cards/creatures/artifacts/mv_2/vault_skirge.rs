@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f254239c-c07a-4c41-98f7-8f4de539c73e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vault Skirge",
         mana_cost = mana!("{1}{B/P}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "562aaf81-e70a-401d-a638-bb7ce4f40626",
     scryfall_id = "4275a8dd-f777-4160-b773-9a868e743218",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ridge Rannet",
         mana_cost = mana!("{5}{R}{R}"),

@@ -23,14 +23,20 @@ fn dark_nourishment_hits_a_player_and_gains_three() {
     );
     let ogre = on_battlefield(&engine, them(), gray_ogre()).expect("their Ogre");
     let (objects, players) = cast_at_player(&mut engine, dark_nourishment(), them());
-    assert!(objects.contains(&ogre), "a creature is a legal target: {objects:?}");
+    assert!(
+        objects.contains(&ogre),
+        "a creature is a legal target: {objects:?}"
+    );
     assert!(
         players.contains(&me()) && players.contains(&them()),
         "and so is either player: {players:?}"
     );
     assert_eq!(life_of(&engine, them()), 17, "three damage");
     assert_eq!(life_of(&engine, me()), 23, "three life");
-    assert!(on_battlefield(&engine, them(), gray_ogre()).is_some(), "the Ogre was not named");
+    assert!(
+        on_battlefield(&engine, them(), gray_ogre()).is_some(),
+        "the Ogre was not named"
+    );
 }
 
 /// The same card pointed at a creature: three damage kills a 2/2 and the life
@@ -46,7 +52,10 @@ fn dark_nourishment_kills_a_creature_and_still_gains_three() {
     );
     let ogre = on_battlefield(&engine, them(), gray_ogre()).expect("their Ogre");
     cast_at(&mut engine, dark_nourishment(), ogre);
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "3 damage on a 2/2");
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "3 damage on a 2/2"
+    );
     assert_eq!(life_of(&engine, me()), 23);
     assert_eq!(life_of(&engine, them()), 20, "the player was not named");
 }

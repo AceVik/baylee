@@ -11,7 +11,7 @@ card!(
     index = index::MARAUDER_S_AXE,
     oracle_id = "5d0e49fa-5dfb-48c2-af97-fdfb788d5f40",
     scryfall_id = "49d8aa8a-3e87-42ac-9c79-2baec771c1ef",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marauder's Axe",
         mana_cost = mana!("{2}"),

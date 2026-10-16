@@ -35,7 +35,14 @@ fn boon_of_the_wish_giver_cycles_for_one() {
         )
         .expect("cycling is offered from the hand");
     settle(&mut engine);
-    assert!(in_graveyard(&engine, me(), boon_of_the_wish_giver()).is_some(), "discarded");
+    assert!(
+        in_graveyard(&engine, me(), boon_of_the_wish_giver()).is_some(),
+        "discarded"
+    );
     assert_eq!(hand_len(&engine, me()), hand_before, "one out, one in");
-    assert_eq!(library_len(&engine, me()), library_before - 1, "one card, not four");
+    assert_eq!(
+        library_len(&engine, me()),
+        library_before - 1,
+        "one card, not four"
+    );
 }

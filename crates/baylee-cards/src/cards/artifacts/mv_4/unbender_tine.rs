@@ -10,7 +10,7 @@ card!(
     oracle_id = "cdc0a1a5-d9e4-4923-b472-2fa78212167f",
     scryfall_id = "2b322b16-d288-4643-80b2-e1077e6d4869",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unbender Tine",
         mana_cost = mana!("{2}{W}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "17be4a4e-5f11-4c3e-b447-9feb5ccbc448",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidehollow Strix",
         mana_cost = mana!("{U}{B}"),

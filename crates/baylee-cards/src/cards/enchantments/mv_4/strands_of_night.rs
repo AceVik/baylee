@@ -16,7 +16,7 @@ card!(
     oracle_id = "0e8ae1f7-8926-414a-8434-db0b0f877505",
     scryfall_id = "d8f6685d-eb5d-403f-b89a-b8b67900b602",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strands of Night",
         mana_cost = mana!("{2}{B}{B}"),

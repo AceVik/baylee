@@ -12,7 +12,7 @@ card!(
     oracle_id = "874e0b54-bc24-4887-abe1-1ecfd3a3abae",
     scryfall_id = "eda757a0-067b-4eb9-badc-d86da5b40305",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trostani's Summoner",
         mana_cost = mana!("{5}{G}{W}"),

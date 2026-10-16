@@ -23,7 +23,6 @@
 //! reviewable: no item was rewritten, only re-filed.
 
 mod activation_cost_bounds;
-mod battle_damage_kit;
 mod alpha_completion_review;
 mod archon_kismet;
 mod artifacts;
@@ -41,6 +40,7 @@ mod batch49_untap;
 mod batch49_wall;
 mod batch52_horse_johan;
 mod batch52_protection;
+mod battle_damage_kit;
 mod battles;
 mod counted_activation_costs;
 mod counter_movement;

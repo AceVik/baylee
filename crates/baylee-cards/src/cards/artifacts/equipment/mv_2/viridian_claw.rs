@@ -11,7 +11,7 @@ card!(
     index = index::VIRIDIAN_CLAW,
     oracle_id = "11ba27f4-decf-4447-9808-0d58844655cf",
     scryfall_id = "79650c82-2364-441c-9df3-fe9d8255374b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viridian Claw",
         mana_cost = mana!("{2}"),

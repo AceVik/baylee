@@ -11,7 +11,7 @@ card!(
     oracle_id = "4a4a061d-bc4e-49da-8d20-90fcb571b025",
     scryfall_id = "3d6750dd-2303-493b-885d-1bfb5787b16c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperial Oath",
         mana_cost = mana!("{5}{W}"),

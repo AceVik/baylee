@@ -10,7 +10,7 @@ card!(
     index = index::RING_OF_THE_LUCII,
     oracle_id = "d37e595f-afe7-4ad9-87db-b9ceb3f435e8",
     scryfall_id = "75761f1e-9449-4c58-8265-8abac71dafc1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ring of the Lucii",
         mana_cost = mana!("{4}"),

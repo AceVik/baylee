@@ -12,7 +12,7 @@ card!(
     oracle_id = "f73d89ec-05c9-4998-a24b-bc675b04ec16",
     scryfall_id = "d74ba9fe-2dcb-4da7-ba64-cd932edb5b24",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jackhammer",
         mana_cost = mana!("{1}{R}"),

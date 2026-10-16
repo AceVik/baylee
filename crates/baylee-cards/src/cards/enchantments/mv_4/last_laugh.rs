@@ -13,7 +13,7 @@ card!(
     oracle_id = "5facb256-b993-43f8-b971-b3a59a7434bf",
     scryfall_id = "d4c05f2a-b844-42b3-af91-65694b4211dd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Last Laugh",
         mana_cost = mana!("{2}{B}{B}"),

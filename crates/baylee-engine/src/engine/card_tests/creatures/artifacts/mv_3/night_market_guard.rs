@@ -23,9 +23,10 @@ fn night_market_guard_blocks_two_attackers() {
     assert_eq!(pt(&engine, guard), (3, 1));
     let attackers = all_on_battlefield(&engine, p1, quiet_creature());
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
     engine
         .apply(
             p1,
@@ -44,7 +45,9 @@ fn night_market_guard_blocks_two_attackers() {
         unreachable!("the predicate just matched")
     };
     assert!(
-        capacity.iter().any(|c| c.blocker == guard && c.most == Some(2)),
+        capacity
+            .iter()
+            .any(|c| c.blocker == guard && c.most == Some(2)),
         "the guard is offered two blocks: {capacity:?}"
     );
     assert!(
@@ -73,9 +76,10 @@ fn an_ordinary_creature_cannot_block_two_attackers() {
     reach_main_phase(&mut engine, p0);
     let blocker = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
     let attackers = all_on_battlefield(&engine, p1, quiet_creature());
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
     engine
         .apply(
             p1,

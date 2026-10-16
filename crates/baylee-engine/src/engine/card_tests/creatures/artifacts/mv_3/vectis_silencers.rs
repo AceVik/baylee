@@ -42,7 +42,10 @@ fn vectis_silencers_kills_a_big_blocker_with_deathtouch() {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
-    assert!(in_graveyard(&engine, p1, wall).is_some(), "1 damage with deathtouch is lethal");
+    assert!(
+        in_graveyard(&engine, p1, wall).is_some(),
+        "1 damage with deathtouch is lethal"
+    );
     assert!(on_battlefield(&engine, p0, vectis_silencers()).is_some());
 }
 

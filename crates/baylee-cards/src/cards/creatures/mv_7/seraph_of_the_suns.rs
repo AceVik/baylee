@@ -13,7 +13,7 @@ card!(
     scryfall_id = "85dc4ed8-4674-44a1-8a06-ecce72c85e60",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::INDESTRUCTIBLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seraph of the Suns",
         mana_cost = mana!("{5}{W}{W}"),

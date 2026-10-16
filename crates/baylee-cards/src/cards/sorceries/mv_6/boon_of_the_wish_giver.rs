@@ -11,7 +11,7 @@ card!(
     oracle_id = "1720d38a-c3c1-4294-85c1-a91fc7179d6f",
     scryfall_id = "0e790851-f0f7-4f1a-80e6-94be649499b6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boon of the Wish-Giver",
         mana_cost = mana!("{4}{U}{U}"),

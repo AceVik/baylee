@@ -11,7 +11,7 @@ card!(
     index = index::UMBRAL_MANTLE,
     oracle_id = "44f3241f-af82-4f2e-b15d-7f279bf6e816",
     scryfall_id = "10e35711-aec9-4024-a2a6-9efff8c71df2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Umbral Mantle",
         mana_cost = mana!("{3}"),

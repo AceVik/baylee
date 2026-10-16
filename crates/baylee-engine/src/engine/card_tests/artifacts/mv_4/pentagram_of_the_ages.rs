@@ -44,12 +44,20 @@ fn pentagram_prevents_the_next_damage_from_the_chosen_source_to_you() {
             },
         )
         .unwrap();
-    let stack_bolt = *engine.state().zones.list(ZoneLocation::Stack).last().unwrap();
+    let stack_bolt = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .unwrap();
     activate(&mut engine, p0, pentagram_of_the_ages(), 0);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseDamageSource { choice, options, .. } = engine.pending().clone() else {
+    let Pending::ChooseDamageSource {
+        choice, options, ..
+    } = engine.pending().clone()
+    else {
         unreachable!()
     };
     let source_ref = *options
@@ -66,5 +74,9 @@ fn pentagram_prevents_the_next_damage_from_the_chosen_source_to_you() {
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(life_of(&engine, p0), 20, "the chosen source's damage was prevented");
+    assert_eq!(
+        life_of(&engine, p0),
+        20,
+        "the chosen source's damage was prevented"
+    );
 }

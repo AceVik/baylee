@@ -9,7 +9,7 @@ card!(
     index = index::TOWER_OF_CALAMITIES,
     oracle_id = "27618701-e8c9-4117-94f3-3836cf34990d",
     scryfall_id = "8a77391b-5727-4408-bb50-970f7a13a83c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tower of Calamities",
         mana_cost = mana!("{4}"),

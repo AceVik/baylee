@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a5f38436-9edf-42a1-83ba-0f5210b2cb86",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::HEXPROOF),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plated Crusher",
         mana_cost = mana!("{4}{G}{G}{G}"),

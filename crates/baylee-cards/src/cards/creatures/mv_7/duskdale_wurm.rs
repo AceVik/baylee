@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f6879321-9a61-4c4f-9513-81ad5684c99e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duskdale Wurm",
         mana_cost = mana!("{5}{G}{G}"),

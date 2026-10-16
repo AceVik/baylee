@@ -15,7 +15,14 @@ fn the_tome_draws_two_then_the_player_discards_one() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[emmessi_tome(), forest(), forest(), forest(), forest(), forest()],
+            &[
+                emmessi_tome(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
         )
         .hand(0, &[plains()])
         .start();

@@ -10,7 +10,7 @@ card!(
     oracle_id = "c7ca25f3-7a22-477b-8546-4c2597d5d1ff",
     scryfall_id = "1888ac60-a885-43a7-8e95-9523a0213644",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Extinguish All Hope",
         mana_cost = mana!("{4}{B}{B}"),

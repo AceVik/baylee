@@ -49,12 +49,18 @@ fn three_counters_destroy_a_target_permanent() {
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("a target is asked for, got {:?}", engine.pending())
     };
-    assert!(options.contains(&rock) && options.contains(&land), "{options:?}");
+    assert!(
+        options.contains(&rock) && options.contains(&land),
+        "{options:?}"
+    );
     assert!(options.contains(&cannon), "any permanent, even its own");
     aim_at(&mut engine, p0, rock);
     assert!(is_tapped(&engine, cannon));
     assert_eq!(counters_on(&engine, cannon, CounterKind::Charge), 0);
     pass_until(&mut engine, stack_is_empty);
     assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some());
-    assert!(on_battlefield(&engine, p1, forest()).is_some(), "only the target");
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "only the target"
+    );
 }

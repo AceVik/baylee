@@ -17,7 +17,13 @@ fn stonefury() -> CardIndex {
 #[test]
 fn stonefury_deals_damage_equal_to_the_lands_you_control() {
     let lands = [vec![mountain(); 5], vec![forest(); 2]].concat();
-    let mut engine = table(929, &[stonefury()], &lands, &[], &[earth_elemental(), forest()]);
+    let mut engine = table(
+        929,
+        &[stonefury()],
+        &lands,
+        &[],
+        &[earth_elemental(), forest()],
+    );
     let big = on_battlefield(&engine, them(), earth_elemental()).expect("their Elemental");
     let journal = engine.journal().entries().len();
     cast_at(&mut engine, stonefury(), big);

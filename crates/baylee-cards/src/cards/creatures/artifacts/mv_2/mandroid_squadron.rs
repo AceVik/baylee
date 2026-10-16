@@ -11,7 +11,7 @@ card!(
     oracle_id = "95ab1529-0de0-416a-82b4-c5ed9276a9b4",
     scryfall_id = "e8f79cb4-81f1-465a-a71b-d69a0185a304",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mandroid Squadron",
         mana_cost = mana!("{1}{W}"),

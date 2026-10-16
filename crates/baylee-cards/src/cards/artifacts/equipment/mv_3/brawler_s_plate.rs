@@ -11,7 +11,7 @@ card!(
     index = index::BRAWLER_S_PLATE,
     oracle_id = "9249adf2-8607-424f-a73b-fcddaf124af9",
     scryfall_id = "da0a017e-eb8e-4f92-91f7-7d980461e284",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brawler's Plate",
         mana_cost = mana!("{3}"),

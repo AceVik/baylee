@@ -12,7 +12,7 @@ card!(
     oracle_id = "3a940dfa-a026-4969-8981-ef90cdfbe9ef",
     scryfall_id = "18bbdc6c-b6c9-4f89-8f0a-6266e53c1fb9",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ornithopter of Paradise",
         mana_cost = mana!("{2}"),

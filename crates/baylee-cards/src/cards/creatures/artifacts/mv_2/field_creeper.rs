@@ -9,7 +9,7 @@ card!(
     index = index::FIELD_CREEPER,
     oracle_id = "e6584e39-099c-437f-9239-fa718cac85af",
     scryfall_id = "e148c1bf-84a2-48cd-882e-ad0fd74b8f0f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Field Creeper",
         mana_cost = mana!("{2}"),

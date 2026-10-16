@@ -10,7 +10,7 @@ card!(
     index = index::PERILOUS_MYR,
     oracle_id = "f1e8f746-1837-4ea8-9a07-e57946883353",
     scryfall_id = "5a15c8ef-04ad-4aab-a7f1-c7a90c10eb50",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Perilous Myr",
         mana_cost = mana!("{2}"),

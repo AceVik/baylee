@@ -10,7 +10,7 @@ card!(
     oracle_id = "8696eae4-3dc9-4572-aab9-aa4f7e8f53af",
     scryfall_id = "4af17ae0-1035-4cb2-8974-98b377bfaa48",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Syphon Fuel",
         mana_cost = mana!("{4}{B}"),

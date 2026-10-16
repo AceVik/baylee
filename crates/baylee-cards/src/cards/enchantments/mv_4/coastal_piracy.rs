@@ -10,7 +10,7 @@ card!(
     oracle_id = "8a05ec32-7b0c-4f23-a4f7-413301c2a70a",
     scryfall_id = "3c3d9916-76c4-425a-a215-6226d0921f0b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coastal Piracy",
         mana_cost = mana!("{2}{U}{U}"),

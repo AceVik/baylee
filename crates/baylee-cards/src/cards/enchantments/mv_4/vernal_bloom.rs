@@ -13,7 +13,7 @@ card!(
     oracle_id = "238b270c-152a-48e5-a955-65f5cb80c174",
     scryfall_id = "baabb73c-e3d9-4ba1-9963-986e09ef49a7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vernal Bloom",
         mana_cost = mana!("{3}{G}"),

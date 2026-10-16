@@ -14,7 +14,7 @@ card!(
     index = index::SPECTER_S_SHROUD,
     oracle_id = "dbc2b0f9-73e8-41b7-9d64-07f86fbc5d6c",
     scryfall_id = "9a6d2e20-3887-4996-adbe-304dff27dea6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Specter's Shroud",
         mana_cost = mana!("{2}"),

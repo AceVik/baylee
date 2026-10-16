@@ -15,7 +15,7 @@ card!(
     oracle_id = "6d920c99-8a85-4b20-97c2-7aa0c79ae70a",
     scryfall_id = "6b7b5f34-c250-484e-9bae-94789b2a87fb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poison Arrow",
         mana_cost = mana!("{4}{B}{B}"),

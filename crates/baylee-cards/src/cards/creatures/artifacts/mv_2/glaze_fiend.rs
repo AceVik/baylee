@@ -16,7 +16,7 @@ card!(
     scryfall_id = "07f9a946-f961-4e19-a30a-6e1a95683340",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glaze Fiend",
         mana_cost = mana!("{1}{B}"),

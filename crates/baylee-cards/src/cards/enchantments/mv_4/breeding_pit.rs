@@ -12,7 +12,7 @@ card!(
     oracle_id = "ddc83b35-cf7c-495b-bd30-e409b622e299",
     scryfall_id = "39abb31a-15af-4182-a33b-ecdb63e09e3e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breeding Pit",
         mana_cost = mana!("{3}{B}"),

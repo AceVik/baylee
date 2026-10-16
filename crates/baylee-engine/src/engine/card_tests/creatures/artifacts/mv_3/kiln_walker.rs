@@ -20,7 +20,10 @@ fn kiln_walker_gets_plus_three_power_until_end_of_turn_when_it_attacks() {
     attack_to_blocks(&mut engine, &[walker]);
     assert_eq!(pt(&engine, walker), (3, 3), "the attack trigger resolved");
     engine
-        .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers: vec![] })
+        .apply(
+            PlayerId::new(1),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
         .unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

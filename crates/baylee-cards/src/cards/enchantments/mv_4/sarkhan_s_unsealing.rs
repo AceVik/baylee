@@ -29,7 +29,7 @@ card!(
     oracle_id = "c27c9514-7b5a-461a-a109-f8abafd83523",
     scryfall_id = "bb9c6068-cfd8-4371-b549-e474d573e52e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sarkhan's Unsealing",
         mana_cost = mana!("{3}{R}"),

@@ -63,7 +63,12 @@ fn paying_a_life_makes_a_goat() {
     let goats = tokens_of(&engine, p0);
     assert_eq!(goats.len(), 1);
     assert_eq!(pt(&engine, goats[0]), (0, 1));
-    let chars = engine.state().object(goats[0]).unwrap().characteristics().clone();
+    let chars = engine
+        .state()
+        .object(goats[0])
+        .unwrap()
+        .characteristics()
+        .clone();
     assert!(chars.types.contains(TypeSet::CREATURE));
     assert!(
         chars
@@ -88,12 +93,19 @@ fn sacrificing_a_creature_returns_an_artifact_card() {
     let rock = in_graveyard(&engine, p0, quiet_artifact()).unwrap();
     let land = in_graveyard(&engine, p0, plains()).unwrap();
     assert!(options.contains(&rock), "{options:?}");
-    assert!(!options.contains(&land), "an artifact card only: {options:?}");
+    assert!(
+        !options.contains(&land),
+        "an artifact card only: {options:?}"
+    );
     aim_at(&mut engine, p0, rock);
     let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         panic!("the creature to sacrifice, got {:?}", engine.pending())
     };
-    assert_eq!(options, vec![elf], "the only creature is the one on the menu");
+    assert_eq!(
+        options,
+        vec![elf],
+        "the only creature is the one on the menu"
+    );
     choose(&mut engine, elf);
     assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
     pass_until(&mut engine, stack_is_empty);

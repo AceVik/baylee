@@ -12,7 +12,7 @@ card!(
     scryfall_id = "518bf281-80bc-4e85-9b8e-15577dfcdec7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "River Bear",
         mana_cost = mana!("{3}{G}"),

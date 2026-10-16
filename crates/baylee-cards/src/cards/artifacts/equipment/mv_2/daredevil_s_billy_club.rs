@@ -13,7 +13,7 @@ card!(
     oracle_id = "654db13d-c7e4-4ee0-a87a-3635467f2f19",
     scryfall_id = "7742bad6-cfba-4c06-b0a6-8c2a91a4ceb8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daredevil's Billy Club",
         mana_cost = mana!("{1}{R}"),

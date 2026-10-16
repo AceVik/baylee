@@ -22,7 +22,7 @@ card!(
     oracle_id = "115bd33d-4875-4014-ae9f-0052f5acdbb2",
     scryfall_id = "059a70a5-d4fb-445e-af98-e81821df2c59",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snake Pit",
         mana_cost = mana!("{3}{G}"),

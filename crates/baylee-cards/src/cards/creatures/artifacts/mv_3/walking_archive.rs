@@ -15,7 +15,7 @@ card!(
     scryfall_id = "c390e074-bd30-4564-a39a-176af7df79f4",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Walking Archive",
         mana_cost = mana!("{3}"),

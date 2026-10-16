@@ -11,7 +11,7 @@ card!(
     index = index::CHITINOUS_CLOAK,
     oracle_id = "d5487098-fd24-49af-9634-4827a5c2eac4",
     scryfall_id = "15e54603-af67-497f-afe0-88cfa4d00095",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chitinous Cloak",
         mana_cost = mana!("{3}"),

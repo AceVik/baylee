@@ -9,7 +9,7 @@ card!(
     index = index::ERRATIC_PORTAL,
     oracle_id = "4a85cd7e-625b-4043-b7f1-999def26eb36",
     scryfall_id = "d6a72bdb-102b-40a6-82ff-caa4dbfe1175",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Erratic Portal",
         mana_cost = mana!("{4}"),

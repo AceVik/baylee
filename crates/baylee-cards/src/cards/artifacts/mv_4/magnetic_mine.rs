@@ -11,7 +11,7 @@ card!(
     index = index::MAGNETIC_MINE,
     oracle_id = "bbb50cf5-cd07-4ae8-bfa8-d747e44fb1ef",
     scryfall_id = "5ed2f7dc-3ada-4490-8c1f-1d03bd4840f5",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magnetic Mine",
         mana_cost = mana!("{4}"),

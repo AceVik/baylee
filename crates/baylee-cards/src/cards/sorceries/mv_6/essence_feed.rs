@@ -11,7 +11,7 @@ card!(
     oracle_id = "c29b997a-5be6-4d51-a81b-d00677ef401d",
     scryfall_id = "b9cf2116-7ae5-4b6a-830a-919a55235690",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Feed",
         mana_cost = mana!("{5}{B}"),

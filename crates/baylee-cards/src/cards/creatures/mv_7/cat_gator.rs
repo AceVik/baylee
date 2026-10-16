@@ -18,7 +18,7 @@ card!(
     scryfall_id = "ec83a825-79e6-42a4-919c-3bc498ff4433",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cat-Gator",
         mana_cost = mana!("{6}{B}"),

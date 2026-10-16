@@ -25,10 +25,17 @@ fn imperial_oath_makes_three_vigilant_samurai_and_scries_three() {
     assert_eq!(samurai.len(), 3);
     for token in samurai {
         assert_eq!(pt(&engine, token), (2, 2));
-        assert!(keywords_of(&engine, token).contains(KeywordSet::VIGILANCE), "vigilance");
+        assert!(
+            keywords_of(&engine, token).contains(KeywordSet::VIGILANCE),
+            "vigilance"
+        );
     }
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Library(me())).first(),
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(me()))
+            .first(),
         Some(&cards[0]),
         "the card sent away is now the bottom of the library"
     );

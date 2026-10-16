@@ -42,10 +42,18 @@ fn discarding_a_card_gains_three_life() {
     let card = in_hand(&engine, p0, plains()).unwrap();
     assert_eq!(options, vec![card]);
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![card] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
         .expect("a listed card");
     assert!(is_tapped(&engine, cauldron));
-    assert!(in_graveyard(&engine, p0, plains()).is_some(), "discarded as a cost");
+    assert!(
+        in_graveyard(&engine, p0, plains()).is_some(),
+        "discarded as a cost"
+    );
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(life_of(&engine, p0), 23);
 }

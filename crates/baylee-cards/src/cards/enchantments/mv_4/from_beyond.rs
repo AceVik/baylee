@@ -17,7 +17,7 @@ card!(
     scryfall_id = "f5559960-e306-4992-b607-9654327c4507",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "From Beyond",
         mana_cost = mana!("{3}{G}"),

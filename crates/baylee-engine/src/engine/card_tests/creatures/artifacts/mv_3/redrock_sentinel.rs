@@ -24,7 +24,11 @@ fn redrock_sentinel_sacrifices_a_land_to_draw_and_make_a_treasure() {
     let rest = drive_to_rest(&mut engine, p0);
     assert!(matches!(rest, Rest::Reached), "{rest:?}");
 
-    assert_eq!(all_on_battlefield(&engine, p0, forest()).len(), 2, "one land sacrificed");
+    assert_eq!(
+        all_on_battlefield(&engine, p0, forest()).len(),
+        2,
+        "one land sacrificed"
+    );
     assert_eq!(library_of(&engine, p0).len(), library_before - 1);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "27d6b1fb-ce53-45d6-a601-9f5b9ee7ab2f",
     scryfall_id = "311c5f1d-7e3b-4397-b05b-f20bde2dc164",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian of Cloverdell",
         mana_cost = mana!("{5}{G}{G}"),

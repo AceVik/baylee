@@ -11,7 +11,7 @@ card!(
     index = index::COBBLED_WINGS,
     oracle_id = "8d8682f3-9ef3-4aa7-9ea6-8a2ce09bff6f",
     scryfall_id = "e8bb16f6-71b2-4338-a546-27f37f50e811",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cobbled Wings",
         mana_cost = mana!("{2}"),

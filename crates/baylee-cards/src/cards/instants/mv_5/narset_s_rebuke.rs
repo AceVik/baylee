@@ -10,7 +10,7 @@ card!(
     oracle_id = "247075c5-62f8-41a1-91b3-562ff0aabb30",
     scryfall_id = "5098bd73-d51c-4db4-bf06-fd4854089d37",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Narset's Rebuke",
         mana_cost = mana!("{4}{R}"),

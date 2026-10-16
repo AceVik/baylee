@@ -9,7 +9,7 @@ card!(
     index = index::RING_OF_RENEWAL,
     oracle_id = "45964368-ea9e-415f-9faf-870c7bf550d4",
     scryfall_id = "9fb24eec-0c3b-43fb-b159-518429a2f2f6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ring of Renewal",
         mana_cost = mana!("{5}"),

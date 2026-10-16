@@ -10,7 +10,7 @@ card!(
     oracle_id = "22188333-69b6-4685-b96b-b8a102ad5531",
     scryfall_id = "2c01ef93-f41a-406f-91fc-f015b6014575",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Mist",
         mana_cost = mana!("{3}{R}"),

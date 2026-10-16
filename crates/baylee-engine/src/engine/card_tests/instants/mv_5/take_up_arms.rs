@@ -20,5 +20,8 @@ fn take_up_arms_creates_three_warriors() {
         assert_eq!(pt(&engine, token), (1, 1));
         assert!(types(&engine, token).contains(TypeSet::CREATURE));
     }
-    assert!(tokens_of(&engine, them()).is_empty(), "the opponent gets none");
+    assert!(
+        tokens_of(&engine, them()).is_empty(),
+        "the opponent gets none"
+    );
 }

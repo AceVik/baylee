@@ -22,7 +22,10 @@ fn their_name_is_death_spares_artifact_creatures() {
         &[gray_ogre()],
     );
     cast_plain(&mut engine, their_name_is_death());
-    assert!(in_graveyard(&engine, me(), llanowar_elves()).is_some(), "mine dies too");
+    assert!(
+        in_graveyard(&engine, me(), llanowar_elves()).is_some(),
+        "mine dies too"
+    );
     assert!(in_graveyard(&engine, them(), gray_ogre()).is_some());
     assert!(
         on_battlefield(&engine, me(), baleful_strix()).is_some(),

@@ -19,10 +19,16 @@ fn rapturous_moment_loots_three_for_two_and_adds_five_mana() {
     let asked = settle_asked(&mut engine);
 
     assert!(
-        asked.iter().any(|q| matches!(q, Pending::ChooseCards { .. })),
+        asked
+            .iter()
+            .any(|q| matches!(q, Pending::ChooseCards { .. })),
         "a discard is asked: {asked:?}"
     );
-    assert_eq!(library_len(&engine, me()), library_before - 3, "three drawn");
+    assert_eq!(
+        library_len(&engine, me()),
+        library_before - 3,
+        "three drawn"
+    );
     assert_eq!(hand_len(&engine, me()), hand_before - 1 + 3 - 2);
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Blue), 2);

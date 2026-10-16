@@ -9,7 +9,7 @@ card!(
     index = index::ISOLATION_CELL,
     oracle_id = "56c558f3-535d-49aa-a2de-54e0bb598483",
     scryfall_id = "c5e72c64-cb0e-4a04-97d0-3537bb0420cd",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Isolation Cell",
         mana_cost = mana!("{4}"),

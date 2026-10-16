@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Terror of Serpent's Pass",
         mana_cost = mana!("{5}{U}{U}"),

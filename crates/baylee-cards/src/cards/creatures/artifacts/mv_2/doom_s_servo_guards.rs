@@ -11,7 +11,7 @@ card!(
     oracle_id = "296e79f9-57cb-4af7-9e18-48d2d655b537",
     scryfall_id = "f0f35123-a6c2-4887-aa1f-8812c599dc33",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doom's Servo-Guards",
         mana_cost = mana!("{1}{B}"),

@@ -9,7 +9,7 @@ card!(
     index = index::PENTAGRAM_OF_THE_AGES,
     oracle_id = "265204a9-0ce2-4a0a-a9ea-8537cd94b079",
     scryfall_id = "705b0bdf-c59b-4962-aee2-c6ffb295b582",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pentagram of the Ages",
         mana_cost = mana!("{4}"),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "449ed4b4-9e1e-4181-9090-af91802eba49",
     scryfall_id = "e24567f8-d195-4547-bba4-7a8131dc7889",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coastal Bulwark",
         mana_cost = mana!("{2}"),

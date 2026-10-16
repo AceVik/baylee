@@ -11,7 +11,7 @@ card!(
     index = index::FLEETFEATHER_SANDALS,
     oracle_id = "9811d1fa-1398-49a2-bcbe-0e40d9779ef1",
     scryfall_id = "2222f499-09f9-45a6-8255-9de79df76f1c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fleetfeather Sandals",
         mana_cost = mana!("{2}"),

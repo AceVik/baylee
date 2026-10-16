@@ -12,7 +12,7 @@ card!(
     index = index::BUTCHER_S_CLEAVER,
     oracle_id = "5cc5be7a-cbe6-4853-bb95-0390e25b4f2b",
     scryfall_id = "3c55bce1-8746-4554-9876-f443c37a125b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Butcher's Cleaver",
         mana_cost = mana!("{3}"),

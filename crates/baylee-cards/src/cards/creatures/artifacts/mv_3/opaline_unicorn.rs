@@ -10,7 +10,7 @@ card!(
     index = index::OPALINE_UNICORN,
     oracle_id = "ca5ca2c9-2ddd-4e70-b738-8de61aa82570",
     scryfall_id = "160d39b0-76c5-4218-97e5-5903f781dafc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Opaline Unicorn",
         mana_cost = mana!("{3}"),

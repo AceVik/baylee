@@ -12,7 +12,7 @@ card!(
     index = index::HERO_S_HEIRLOOM,
     oracle_id = "f707dfb5-dfa9-471b-ac29-5435c30069cc",
     scryfall_id = "5b7c0d2d-7107-4599-8d49-c7c57d21e467",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hero's Heirloom",
         mana_cost = mana!("{2}"),

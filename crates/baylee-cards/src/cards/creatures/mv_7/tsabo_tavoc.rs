@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tsabo Tavoc",
         mana_cost = mana!("{5}{B}{R}"),

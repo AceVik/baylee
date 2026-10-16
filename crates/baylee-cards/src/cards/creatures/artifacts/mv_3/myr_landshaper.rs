@@ -10,7 +10,7 @@ card!(
     index = index::MYR_LANDSHAPER,
     oracle_id = "7432fbe1-dce6-4b3c-a6b4-764f4612a6b6",
     scryfall_id = "0fb654ac-9bb0-465e-8878-5456c154274f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Myr Landshaper",
         mana_cost = mana!("{3}"),

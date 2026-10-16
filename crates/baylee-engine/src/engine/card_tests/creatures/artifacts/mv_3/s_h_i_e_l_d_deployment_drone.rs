@@ -12,7 +12,10 @@ fn s_h_i_e_l_d_deployment_drone() -> CardIndex {
 #[test]
 fn s_h_i_e_l_d_deployment_drone_creates_a_one_one_soldier_token() {
     let p0 = PlayerId::new(0);
-    let mut engine = main_with(&[s_h_i_e_l_d_deployment_drone()], &[island(), island(), island()]);
+    let mut engine = main_with(
+        &[s_h_i_e_l_d_deployment_drone()],
+        &[island(), island(), island()],
+    );
 
     cast_and_settle(&mut engine, s_h_i_e_l_d_deployment_drone());
 

@@ -10,7 +10,7 @@ card!(
     oracle_id = "5ad33099-0392-4f68-a4c5-7fa3ef2d473e",
     scryfall_id = "64f42848-963b-4b16-aeec-66d0f349758b",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fall of the Gavel",
         mana_cost = mana!("{3}{W}{U}"),

@@ -26,5 +26,9 @@ fn planar_cleansing_destroys_every_nonland_permanent() {
     assert!(in_graveyard(&engine, me(), quiet_artifact()).is_some());
     assert!(in_graveyard(&engine, them(), gray_ogre()).is_some());
     assert!(in_graveyard(&engine, them(), their_enchantment()).is_some());
-    assert_eq!(battlefield_len(&engine), 7, "six Plains of mine and their Forest");
+    assert_eq!(
+        battlefield_len(&engine),
+        7,
+        "six Plains of mine and their Forest"
+    );
 }

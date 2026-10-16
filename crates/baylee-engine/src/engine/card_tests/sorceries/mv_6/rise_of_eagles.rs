@@ -24,10 +24,17 @@ fn rise_of_eagles_makes_two_flying_birds_and_scries_one() {
         assert_eq!(pt(&engine, bird), (2, 2));
         let kinds = types(&engine, bird);
         assert!(kinds.contains(TypeSet::ENCHANTMENT) && kinds.contains(TypeSet::CREATURE));
-        assert!(keywords_of(&engine, bird).contains(KeywordSet::FLYING), "flying");
+        assert!(
+            keywords_of(&engine, bird).contains(KeywordSet::FLYING),
+            "flying"
+        );
     }
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Library(me())).last(),
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(me()))
+            .last(),
         Some(&cards[0]),
         "kept on top"
     );

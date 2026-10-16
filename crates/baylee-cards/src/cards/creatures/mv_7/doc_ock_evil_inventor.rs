@@ -18,7 +18,7 @@ card!(
     scryfall_id = "ad287357-9602-4090-8feb-6f658f2a47b0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doc Ock, Evil Inventor",
         mana_cost = mana!("{5}{U}{B}"),

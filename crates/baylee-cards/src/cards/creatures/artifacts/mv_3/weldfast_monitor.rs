@@ -11,7 +11,7 @@ card!(
     oracle_id = "5d604aff-ba60-4064-b025-b1f3d1c0254e",
     scryfall_id = "75720c1b-8b04-4e45-ab47-018c04576e83",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weldfast Monitor",
         mana_cost = mana!("{3}"),

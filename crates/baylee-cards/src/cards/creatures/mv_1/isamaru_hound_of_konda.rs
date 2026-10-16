@@ -11,7 +11,7 @@ card!(
     scryfall_id = "6afead32-3542-44c4-82d6-b6a81beb9f90",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Isamaru, Hound of Konda",
         mana_cost = mana!("{W}"),

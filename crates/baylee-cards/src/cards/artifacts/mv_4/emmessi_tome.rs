@@ -10,7 +10,7 @@ card!(
     index = index::EMMESSI_TOME,
     oracle_id = "9b7634bf-067b-4b5c-be72-ff1b80247969",
     scryfall_id = "decb78dd-03d7-43a0-8ff5-1b97c6f515c9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emmessi Tome",
         mana_cost = mana!("{4}"),

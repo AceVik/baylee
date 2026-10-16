@@ -11,7 +11,7 @@ card!(
     index = index::OGRE_S_CLEAVER,
     oracle_id = "e32c2ed2-be8b-497c-8b94-9c104f203b49",
     scryfall_id = "ec319380-bede-49e8-9d0c-473688033601",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre's Cleaver",
         mana_cost = mana!("{2}"),

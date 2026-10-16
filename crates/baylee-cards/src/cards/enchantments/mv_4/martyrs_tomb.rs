@@ -10,7 +10,7 @@ card!(
     oracle_id = "a0baa9eb-0b1e-4d90-a7a1-f7102f575467",
     scryfall_id = "a906a775-7c2d-47b7-a20e-a325dd28d0bd",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Martyrs' Tomb",
         mana_cost = mana!("{2}{W}{B}"),

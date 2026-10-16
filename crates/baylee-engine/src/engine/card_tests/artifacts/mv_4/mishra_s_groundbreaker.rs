@@ -26,7 +26,10 @@ fn the_target_land_becomes_a_3_3_artifact_creature_that_is_still_a_land() {
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("a land target, got {:?}", engine.pending())
     };
-    assert!(options.contains(&theirs) && options.contains(&mine), "{options:?}");
+    assert!(
+        options.contains(&theirs) && options.contains(&mine),
+        "{options:?}"
+    );
     aim_at(&mut engine, p0, theirs);
     assert!(
         in_graveyard(&engine, p0, mishra_s_groundbreaker()).is_some(),
@@ -34,12 +37,22 @@ fn the_target_land_becomes_a_3_3_artifact_creature_that_is_still_a_land() {
     );
     pass_until(&mut engine, stack_is_empty);
 
-    let c = engine.state().object(theirs).unwrap().characteristics().clone();
+    let c = engine
+        .state()
+        .object(theirs)
+        .unwrap()
+        .characteristics()
+        .clone();
     assert!(c.types.contains(TypeSet::LAND), "still a land");
     assert!(c.types.contains(TypeSet::CREATURE), "and a creature");
     assert!(c.types.contains(TypeSet::ARTIFACT), "and an artifact");
     assert_eq!(pt(&engine, theirs), (3, 3));
-    let other = engine.state().object(mine).unwrap().characteristics().clone();
+    let other = engine
+        .state()
+        .object(mine)
+        .unwrap()
+        .characteristics()
+        .clone();
     assert!(!other.types.contains(TypeSet::CREATURE), "only the target");
 
     reach_their_main_phase(&mut engine, p1);

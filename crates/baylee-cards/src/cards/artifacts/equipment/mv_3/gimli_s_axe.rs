@@ -13,7 +13,7 @@ card!(
     oracle_id = "773b40b1-72f0-48a0-b210-2afa5df5485e",
     scryfall_id = "d8999b6c-e501-48d0-ae51-a35b96f996ec",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gimli's Axe",
         mana_cost = mana!("{2}{R}"),

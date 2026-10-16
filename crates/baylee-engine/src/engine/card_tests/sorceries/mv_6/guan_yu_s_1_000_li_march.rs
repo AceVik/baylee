@@ -28,8 +28,14 @@ fn guan_yu_s_march_destroys_only_tapped_creatures() {
     cast_with_floating(&mut engine, me(), guan_yu_s_1_000_li_march());
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), llanowar_elves()).is_some(), "the tapped creature dies");
-    assert!(on_battlefield(&engine, me(), gray_ogre()).is_some(), "an untapped one stays");
+    assert!(
+        in_graveyard(&engine, me(), llanowar_elves()).is_some(),
+        "the tapped creature dies"
+    );
+    assert!(
+        on_battlefield(&engine, me(), gray_ogre()).is_some(),
+        "an untapped one stays"
+    );
     assert!(
         on_battlefield(&engine, them(), llanowar_elves()).is_some(),
         "so does an untapped creature of theirs"

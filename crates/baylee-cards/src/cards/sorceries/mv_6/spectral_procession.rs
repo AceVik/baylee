@@ -11,7 +11,7 @@ card!(
     oracle_id = "376271a6-80f0-47a6-990a-5ec5517aae42",
     scryfall_id = "9964629e-d79e-46e4-b3fd-e7d1759cbc60",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Procession",
         mana_cost = mana!("{2/W}{2/W}{2/W}"),

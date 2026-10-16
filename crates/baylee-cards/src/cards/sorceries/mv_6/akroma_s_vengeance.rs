@@ -11,7 +11,7 @@ card!(
     oracle_id = "ae19dce5-c9fc-4fbe-99b5-dc6a12124a68",
     scryfall_id = "e45b4cba-cd60-4491-a334-30976d0990b7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroma's Vengeance",
         mana_cost = mana!("{4}{W}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "2db8dda3-8136-4cf2-ba2d-ecc344a36725",
     scryfall_id = "2cb65388-dc6c-4e2a-93ac-49ea484849e9",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mechanized Ninja Cavalry",
         mana_cost = mana!("{1}{R/W}"),

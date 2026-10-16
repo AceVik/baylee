@@ -16,7 +16,7 @@ card!(
     scryfall_id = "802e663e-9529-46da-8af4-eb9ca07971b1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Machinesmith Automaton",
         mana_cost = mana!("{2}{R}"),

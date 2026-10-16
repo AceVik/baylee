@@ -14,7 +14,7 @@ card!(
     oracle_id = "af27761d-88df-4d4f-a366-d55ed62d1d33",
     scryfall_id = "deb2aa14-4b8d-4f33-856d-296bc59a0ade",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goggles of Night",
         mana_cost = mana!("{1}{U}"),

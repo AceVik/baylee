@@ -10,7 +10,7 @@ card!(
     oracle_id = "a9edb891-1a38-4b8a-8539-c459e8a52315",
     scryfall_id = "2003fb65-26ee-481f-a38d-7d3fe55878f3",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gruul War Chant",
         mana_cost = mana!("{2}{R}{G}"),

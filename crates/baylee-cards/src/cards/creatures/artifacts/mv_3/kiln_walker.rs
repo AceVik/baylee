@@ -10,7 +10,7 @@ card!(
     index = index::KILN_WALKER,
     oracle_id = "ca868ac4-6144-402e-ae23-629628d02883",
     scryfall_id = "91678632-ebe6-41b6-9250-cd3ffd63663b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kiln Walker",
         mana_cost = mana!("{3}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "4b9f6a6e-c168-4732-b454-2272d56636da",
     scryfall_id = "b60b4f2e-ff47-4762-a803-30e81b665c09",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shire Scarecrow",
         mana_cost = mana!("{2}"),

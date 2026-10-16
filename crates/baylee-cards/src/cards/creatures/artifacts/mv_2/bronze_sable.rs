@@ -9,7 +9,7 @@ card!(
     index = index::BRONZE_SABLE,
     oracle_id = "f27e5e11-0ad0-448b-8760-75ed1b97e7d8",
     scryfall_id = "a95f8df0-3490-47ad-b452-76fe60179242",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bronze Sable",
         mana_cost = mana!("{2}"),

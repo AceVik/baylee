@@ -10,7 +10,7 @@ card!(
     index = index::A_I_M_SYNTHOIDS,
     oracle_id = "10916f33-aaa6-43a1-9835-b60fd061161f",
     scryfall_id = "f29dee50-ea7e-4a54-bc91-99928a8405e3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "A.I.M. Synthoids",
         mana_cost = mana!("{2}"),

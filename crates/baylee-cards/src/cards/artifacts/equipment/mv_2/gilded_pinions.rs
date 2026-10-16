@@ -13,7 +13,7 @@ card!(
     index = index::GILDED_PINIONS,
     oracle_id = "8a7c3718-74a1-4f26-8e06-0e17db4b0077",
     scryfall_id = "dca8554a-f74c-4d2d-95b6-ef6e74431d7c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilded Pinions",
         mana_cost = mana!("{2}"),

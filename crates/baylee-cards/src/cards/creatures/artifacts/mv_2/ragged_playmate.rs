@@ -13,7 +13,7 @@ card!(
     oracle_id = "d0732ebf-91ad-4e3c-a09a-f410d20587fc",
     scryfall_id = "000499a4-3f39-4d25-a2a2-b2f014e30754",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ragged Playmate",
         mana_cost = mana!("{1}{R}"),

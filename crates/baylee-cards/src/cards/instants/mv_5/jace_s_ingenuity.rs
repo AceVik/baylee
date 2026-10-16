@@ -10,7 +10,7 @@ card!(
     oracle_id = "ce588fd3-642e-4df9-8061-6fcfc6e81270",
     scryfall_id = "ad4932ba-e272-4f22-89f5-a6153ca570b5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jace's Ingenuity",
         mana_cost = mana!("{3}{U}{U}"),

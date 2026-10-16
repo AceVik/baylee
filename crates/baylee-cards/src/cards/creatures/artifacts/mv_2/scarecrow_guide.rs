@@ -12,7 +12,7 @@ card!(
     oracle_id = "cf7bb5d4-c33f-4879-a793-6d6f2a4d94be",
     scryfall_id = "3dc08461-bec6-4a18-b782-da4c92abb789",
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarecrow Guide",
         mana_cost = mana!("{2}"),

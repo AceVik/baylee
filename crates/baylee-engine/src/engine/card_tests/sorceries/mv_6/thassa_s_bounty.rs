@@ -18,9 +18,16 @@ fn thassa_s_bounty_draws_three_and_mills_the_target_player() {
     let (hand_before, mine) = (hand_len(&engine, me()), library_len(&engine, me()));
     let theirs = library_len(&engine, them());
     let (_, players) = cast_at_player(&mut engine, thassa_s_bounty(), them());
-    assert!(players.contains(&me()) && players.contains(&them()), "any player: {players:?}");
+    assert!(
+        players.contains(&me()) && players.contains(&them()),
+        "any player: {players:?}"
+    );
     assert_eq!(hand_len(&engine, me()), hand_before - 1 + 3);
     assert_eq!(library_len(&engine, me()), mine - 3, "I only drew");
-    assert_eq!(library_len(&engine, them()), theirs - 3, "they milled three");
+    assert_eq!(
+        library_len(&engine, them()),
+        theirs - 3,
+        "they milled three"
+    );
     assert_eq!(graveyard_len(&engine, them()), 3);
 }

@@ -10,7 +10,7 @@ card!(
     oracle_id = "fe3c81b8-9bca-4760-b677-02bfa7e6137b",
     scryfall_id = "4a4393f6-54d7-4963-a3c0-b3a083c2440c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dampening Pulse",
         mana_cost = mana!("{3}{U}"),

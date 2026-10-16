@@ -26,7 +26,10 @@ fn watcher_of_the_wayside_mills_the_target_player_and_gains_two() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(library_of(&engine, p1).len(), theirs_before - 2);
-    assert_eq!(engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(), 2);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        2
+    );
     assert_eq!(library_of(&engine, p0).len(), mine_before);
     assert_eq!(life_of(&engine, 0), 22);
     assert_eq!(life_of(&engine, 1), 20);
@@ -49,6 +52,9 @@ fn watcher_of_the_wayside_may_mill_its_own_controller() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(library_of(&engine, p0).len(), mine_before - 2);
-    assert_eq!(engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(), 2);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        2
+    );
     assert_eq!(life_of(&engine, 0), 22);
 }

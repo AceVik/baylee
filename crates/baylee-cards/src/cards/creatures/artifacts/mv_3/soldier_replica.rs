@@ -16,7 +16,7 @@ card!(
     oracle_id = "702693f0-09f6-4f19-8dc9-6b31641e3347",
     scryfall_id = "e31761a8-1146-4003-9653-881233787ac4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soldier Replica",
         mana_cost = mana!("{3}"),

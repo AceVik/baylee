@@ -13,7 +13,7 @@ card!(
     scryfall_id = "10b936dd-fbec-4d03-8f6f-71e5e21029cb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charnelhoard Wurm",
         mana_cost = mana!("{4}{B}{R}{G}"),

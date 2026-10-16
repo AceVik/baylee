@@ -13,7 +13,7 @@ card!(
     scryfall_id = "73798b01-fcbc-4dc0-9fde-6a618da185f2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silent Sentinel",
         mana_cost = mana!("{5}{W}{W}"),

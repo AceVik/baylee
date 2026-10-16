@@ -37,7 +37,8 @@ fn it_becomes_a_4_4_juggernaut_until_end_of_turn() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let plow = on_battlefield(&engine, p0, gruul_war_plow()).unwrap();
-    let chars = |e: &Engine<RegistryLookup>| e.state().object(plow).unwrap().characteristics().clone();
+    let chars =
+        |e: &Engine<RegistryLookup>| e.state().object(plow).unwrap().characteristics().clone();
     assert!(!chars(&engine).types.contains(TypeSet::CREATURE));
 
     tap_all_mana(&mut engine, p0);

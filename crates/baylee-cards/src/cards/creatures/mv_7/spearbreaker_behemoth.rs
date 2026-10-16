@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d7f5cae6-5f1d-4537-9cc5-46d727d1beb1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spearbreaker Behemoth",
         mana_cost = mana!("{5}{G}{G}"),

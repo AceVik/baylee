@@ -11,7 +11,7 @@ card!(
     oracle_id = "814a30dc-14e4-45cb-9320-b043e686b8ba",
     scryfall_id = "d75a7314-39f2-4e32-a5b0-ac1761b6d238",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Outlander",
         mana_cost = mana!("{W}{U}"),

@@ -27,12 +27,14 @@ fn tezzeret_s_strider_has_no_menace_without_a_tezzeret() {
     let options = attack_to_blocks(&mut engine, &[strider]);
     let blocker = on_battlefield(&engine, p1, quiet_creature()).expect("seated");
     assert!(may_block(&options, blocker, strider));
-    assert!(engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(blocker, strider)],
-            },
-        )
-        .is_ok());
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(blocker, strider)],
+                },
+            )
+            .is_ok()
+    );
 }

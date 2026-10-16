@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d470e441-3520-4669-aaa5-f0c57829352a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghastbark Twins",
         mana_cost = mana!("{5}{G}{G}"),

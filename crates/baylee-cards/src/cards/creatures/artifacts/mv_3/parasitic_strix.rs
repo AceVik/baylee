@@ -18,7 +18,7 @@ card!(
     scryfall_id = "70017989-aaf1-4a70-98aa-e447d6ce793a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Parasitic Strix",
         mana_cost = mana!("{2}{U}"),

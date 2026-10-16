@@ -13,7 +13,7 @@ card!(
     oracle_id = "a50c55a7-4e7e-40f6-b76c-1e32598dc9b6",
     scryfall_id = "bf483e4c-4a6e-4b78-8e5d-c8b17f7bb433",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mask of Riddles",
         mana_cost = mana!("{U}{B}"),

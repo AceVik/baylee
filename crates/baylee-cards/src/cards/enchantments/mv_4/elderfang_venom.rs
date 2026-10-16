@@ -17,7 +17,7 @@ card!(
     oracle_id = "4741d842-12e6-4a8c-96b1-9e68c7074874",
     scryfall_id = "7d5bbb02-a04e-4add-ae9a-67819cffdb3a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elderfang Venom",
         mana_cost = mana!("{2}{B}{G}"),

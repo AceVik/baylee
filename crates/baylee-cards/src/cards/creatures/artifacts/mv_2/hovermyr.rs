@@ -11,7 +11,7 @@ card!(
     oracle_id = "b58722c5-84f2-43c2-be7e-3577c2f2a60a",
     scryfall_id = "95e4e445-8333-4cb4-b4fb-80957fae0b97",
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hovermyr",
         mana_cost = mana!("{2}"),

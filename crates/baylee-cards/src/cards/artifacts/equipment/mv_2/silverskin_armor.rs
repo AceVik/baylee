@@ -11,7 +11,7 @@ card!(
     index = index::SILVERSKIN_ARMOR,
     oracle_id = "4eb24ae3-da1a-4565-934f-e25f56036d71",
     scryfall_id = "d1dba839-bd1e-4ce8-ab90-005eb1f0102e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silverskin Armor",
         mana_cost = mana!("{2}"),

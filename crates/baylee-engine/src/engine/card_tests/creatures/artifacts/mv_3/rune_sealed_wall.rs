@@ -19,7 +19,9 @@ fn rune_sealed_wall_surveils_one() {
     let before = library_of(&engine, p0);
 
     activate(&mut engine, p0, rune_sealed_wall(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange {
         player,
         cards,
@@ -37,7 +39,11 @@ fn rune_sealed_wall_surveils_one() {
     pass_until(&mut engine, |e| at_rest(e, p0));
 
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Graveyard(p0)).clone(),
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .clone(),
         cards
     );
     assert_eq!(library_of(&engine, p0).len(), before.len() - 1);
@@ -52,7 +58,9 @@ fn rune_sealed_wall_may_keep_the_card_on_top() {
     let before = library_of(&engine, p0);
 
     activate(&mut engine, p0, rune_sealed_wall(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange { cards, .. } = engine.pending().clone() else {
         unreachable!("the predicate just matched")
     };
@@ -60,5 +68,11 @@ fn rune_sealed_wall_may_keep_the_card_on_top() {
     pass_until(&mut engine, |e| at_rest(e, p0));
 
     assert_eq!(library_of(&engine, p0), before);
-    assert!(engine.state().zones.list(ZoneLocation::Graveyard(p0)).is_empty());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty()
+    );
 }

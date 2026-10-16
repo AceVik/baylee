@@ -10,7 +10,7 @@ card!(
     index = index::PATCHWORK_GNOMES,
     oracle_id = "00ad27a1-9162-408d-ac75-970e45d7e06c",
     scryfall_id = "3002ccef-5322-4f99-9fce-3b4303347240",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patchwork Gnomes",
         mana_cost = mana!("{3}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "374cddb8-b360-4c7b-8911-a6a1b401ffdd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goliath Sphinx",
         mana_cost = mana!("{5}{U}{U}"),

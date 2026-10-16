@@ -10,7 +10,7 @@ card!(
     oracle_id = "c997afb7-82cb-4579-885e-3628cb1b51e4",
     scryfall_id = "21afe19d-881a-48cb-863e-22942bea5ebe",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rapturous Moment",
         mana_cost = mana!("{4}{U}{R}"),

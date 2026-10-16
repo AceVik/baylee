@@ -11,7 +11,7 @@ card!(
     oracle_id = "9e660f66-0a94-4694-95e0-25296799b193",
     scryfall_id = "0f288ee5-4bf9-476a-a89f-b6b8fa7e87dc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Parcel Myr",
         mana_cost = mana!("{1}{U}"),

@@ -9,7 +9,7 @@ card!(
     index = index::SEER_S_SUNDIAL,
     oracle_id = "9929d7ba-cdc5-4099-a0ee-3a15073336f3",
     scryfall_id = "491b8613-d5cd-4749-9c1b-d27a388c616a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seer's Sundial",
         mana_cost = mana!("{4}"),

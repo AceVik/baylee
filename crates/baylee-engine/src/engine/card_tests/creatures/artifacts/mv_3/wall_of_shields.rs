@@ -42,9 +42,10 @@ fn wall_of_shields_lets_its_controller_divide_the_attackers_damage() {
     let small = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
     let attacker = on_battlefield(&engine, p1, witch).expect("seated");
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
     engine
         .apply(
             p1,
@@ -80,15 +81,29 @@ fn wall_of_shields_lets_its_controller_divide_the_attackers_damage() {
         else {
             break;
         };
-        assert_eq!(player, p0, "the Wall's controller divides, not the attacker's");
+        assert_eq!(
+            player, p0,
+            "the Wall's controller divides, not the attacker's"
+        );
         let amount = if recipient == small { 0 } else { max };
-        engine.apply(p0, PlayerAction::ChooseNumber(amount)).unwrap();
+        engine
+            .apply(p0, PlayerAction::ChooseNumber(amount))
+            .unwrap();
     }
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
-    assert!(on_battlefield(&engine, p0, quiet_creature()).is_some(), "the 1/1 was spared");
-    assert!(on_battlefield(&engine, p0, wall_of_shields()).is_some(), "the 0/4 took 3");
-    assert!(on_battlefield(&engine, p1, witch).is_none(), "the 1/1 killed the 3/1");
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "the 1/1 was spared"
+    );
+    assert!(
+        on_battlefield(&engine, p0, wall_of_shields()).is_some(),
+        "the 0/4 took 3"
+    );
+    assert!(
+        on_battlefield(&engine, p1, witch).is_none(),
+        "the 1/1 killed the 3/1"
+    );
 }

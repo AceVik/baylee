@@ -11,7 +11,7 @@ card!(
     oracle_id = "97818ed4-3590-4a3b-92ce-716f9cfdc78e",
     scryfall_id = "7caa3ce3-15a9-40ca-ad45-baff0f276483",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvok Replica",
         mana_cost = mana!("{3}"),

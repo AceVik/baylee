@@ -11,7 +11,7 @@ card!(
     index = index::AERONAUT_S_WINGS,
     oracle_id = "e3bad2e2-1024-4261-b3d7-82a6998416fd",
     scryfall_id = "fcc65821-e4e7-471c-941c-9d3e25ae8bb9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aeronaut's Wings",
         mana_cost = mana!("{2}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "2551f383-7308-4670-9fda-406b20e372a5",
     scryfall_id = "2cac0076-8bd5-4fe2-bac8-fd102688fdcb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Esper Battlemage",
         mana_cost = mana!("{2}{U}"),

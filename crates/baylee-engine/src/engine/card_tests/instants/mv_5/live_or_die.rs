@@ -34,8 +34,14 @@ fn live_or_die_returns_a_creature_card_from_your_graveyard() {
     assert!(menu.contains(&mine), "my graveyard: {menu:?}");
     assert!(!menu.contains(&theirs), "not the opponent's: {menu:?}");
     settle(&mut engine);
-    assert!(on_battlefield(&engine, me(), gray_ogre()).is_some(), "back on the battlefield");
-    assert!(in_graveyard(&engine, them(), llanowar_elves()).is_some(), "theirs stays");
+    assert!(
+        on_battlefield(&engine, me(), gray_ogre()).is_some(),
+        "back on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, them(), llanowar_elves()).is_some(),
+        "theirs stays"
+    );
 }
 
 /// The second mode: a creature on the battlefield is destroyed.
@@ -55,5 +61,8 @@ fn live_or_die_destroys_a_creature_in_its_other_mode() {
     cast_in_mode(&mut engine, live_or_die(), 1);
     aim_at(&mut engine, me(), elf);
     settle(&mut engine);
-    assert!(in_graveyard(&engine, them(), llanowar_elves()).is_some(), "destroyed");
+    assert!(
+        in_graveyard(&engine, them(), llanowar_elves()).is_some(),
+        "destroyed"
+    );
 }

@@ -11,7 +11,7 @@ card!(
     oracle_id = "84e8ca5e-730e-468b-943c-7c6358ade95c",
     scryfall_id = "abf2a55e-3112-452c-ac6a-6a3b9986ca99",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ill-Gotten Inheritance",
         mana_cost = mana!("{3}{B}"),

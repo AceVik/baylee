@@ -10,7 +10,7 @@ card!(
     oracle_id = "50608184-90d3-43d2-a221-deb186c78323",
     scryfall_id = "083ec3e7-950c-4e9d-aba5-02ed13d723f0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Piker",
         mana_cost = mana!("{1}{R}"),

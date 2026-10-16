@@ -15,7 +15,7 @@ card!(
     index = index::GOLDVEIN_PICK,
     oracle_id = "c1624d10-8838-4af8-aea1-a96c0fe6fd6b",
     scryfall_id = "a241317d-2277-467e-a8f9-aa71c944e244",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goldvein Pick",
         mana_cost = mana!("{2}"),

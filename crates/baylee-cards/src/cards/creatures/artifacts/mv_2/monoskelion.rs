@@ -11,7 +11,7 @@ card!(
     index = index::MONOSKELION,
     oracle_id = "c16d79d9-c159-421f-90a2-13313a1de5f6",
     scryfall_id = "4736aae2-5136-4f8f-9283-baf6b542a6a8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monoskelion",
         mana_cost = mana!("{2}"),

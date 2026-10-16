@@ -20,10 +20,7 @@ fn erratic_portal_returns_target_creature_unless_controller_pays_one() {
         reach_main_phase(&mut engine, p0);
         let ogre = on_battlefield(&engine, p1, gray_ogre()).unwrap();
         if pay {
-            engine
-                .dev_state_mut(p1)
-                .unwrap()
-                .players[1]
+            engine.dev_state_mut(p1).unwrap().players[1]
                 .mana_pool
                 .add(ManaColor::Green, 1);
         }

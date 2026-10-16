@@ -14,7 +14,7 @@ card!(
     oracle_id = "bea6606c-ea9a-4199-a8cd-b35d7c47fd7b",
     scryfall_id = "7c105686-8b45-494a-b9ef-8aa267bb1b5a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Humble the Brute",
         mana_cost = mana!("{4}{W}"),

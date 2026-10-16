@@ -15,7 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kazarov, Sengir Pureblood",
         mana_cost = mana!("{5}{B}{B}"),

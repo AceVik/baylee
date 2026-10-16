@@ -12,7 +12,7 @@ card!(
     oracle_id = "8916b3d4-6a9a-420a-8ee7-be67b2f47201",
     scryfall_id = "437a91e7-f98e-4ed8-9ab7-f4db62979f5b",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reinforced Bulwark",
         mana_cost = mana!("{3}"),

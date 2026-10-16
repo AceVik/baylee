@@ -10,7 +10,7 @@ card!(
     index = index::AUTOMATIC_LIBRARIAN,
     oracle_id = "eb570331-35da-44b8-b711-ccf7444d8e39",
     scryfall_id = "6c3d7ece-0f57-4213-a0ab-a9d7c1536ebb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Automatic Librarian",
         mana_cost = mana!("{3}"),

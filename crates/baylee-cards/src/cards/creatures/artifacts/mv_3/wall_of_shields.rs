@@ -12,7 +12,7 @@ card!(
     oracle_id = "530514d9-7274-4835-a4b5-6dccef4da758",
     scryfall_id = "6376c7c4-aaca-4625-83d4-a49f01aec535",
     keywords = KeywordSet::DEFENDER.union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Shields",
         mana_cost = mana!("{3}"),

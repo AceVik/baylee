@@ -11,7 +11,7 @@ card!(
     index = index::OTHERWORLD_ATLAS,
     oracle_id = "8d907a1b-f301-46a3-aa1c-25fb7f29c949",
     scryfall_id = "46e4aa67-4643-42ff-8172-200498686494",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Otherworld Atlas",
         mana_cost = mana!("{4}"),

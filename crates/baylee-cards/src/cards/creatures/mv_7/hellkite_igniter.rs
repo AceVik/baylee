@@ -13,7 +13,7 @@ card!(
     scryfall_id = "dc03ad3e-8113-432c-bff6-3ced73af8728",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hellkite Igniter",
         mana_cost = mana!("{5}{R}{R}"),

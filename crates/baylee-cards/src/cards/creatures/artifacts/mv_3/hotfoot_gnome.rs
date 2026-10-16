@@ -13,7 +13,7 @@ card!(
     scryfall_id = "87468b6b-6f78-42e4-ab0d-6730aeecdc3f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hotfoot Gnome",
         mana_cost = mana!("{2}{R}"),

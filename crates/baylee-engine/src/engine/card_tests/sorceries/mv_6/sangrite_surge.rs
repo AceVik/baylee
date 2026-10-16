@@ -19,7 +19,10 @@ fn sangrite_surge_pumps_and_grants_double_strike_until_end_of_turn() {
     assert!(!keywords_of(&engine, ogre).contains(KeywordSet::DOUBLE_STRIKE));
     cast_at(&mut engine, sangrite_surge(), ogre);
     assert_eq!(pt(&engine, ogre), (5, 5), "+3/+3");
-    assert!(keywords_of(&engine, ogre).contains(KeywordSet::DOUBLE_STRIKE), "double strike");
+    assert!(
+        keywords_of(&engine, ogre).contains(KeywordSet::DOUBLE_STRIKE),
+        "double strike"
+    );
 
     pass_until(&mut engine, |e| e.state().turn.active == them());
     assert_eq!(pt(&engine, ogre), (2, 2), "until end of turn");

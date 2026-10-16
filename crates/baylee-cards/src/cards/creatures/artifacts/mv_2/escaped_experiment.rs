@@ -11,7 +11,7 @@ card!(
     oracle_id = "d1faaa3e-8e99-48e9-bb04-98bd46b7217c",
     scryfall_id = "611497d2-83df-4c69-bbeb-6a807c686bc4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Escaped Experiment",
         mana_cost = mana!("{1}{U}"),

@@ -11,7 +11,7 @@ card!(
     scryfall_id = "b2e5435c-52f3-42d7-bcee-5aa13afd6626",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sundial, Dawn Tyrant",
         mana_cost = mana!("{1}{W}"),

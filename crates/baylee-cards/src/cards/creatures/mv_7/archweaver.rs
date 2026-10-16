@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f99dc8ff-932c-4d56-9253-99ce9e145306",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archweaver",
         mana_cost = mana!("{5}{G}{G}"),

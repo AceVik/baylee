@@ -24,7 +24,11 @@ fn bad_deal_draws_two_discards_two_and_costs_everyone_two_life() {
     cast_from_hand(&mut engine, me(), bad_deal());
     let asked = settle_asked(&mut engine);
 
-    assert_eq!(hand_len(&engine, me()), hand_before - 1 + 2, "two drawn, the spell out");
+    assert_eq!(
+        hand_len(&engine, me()),
+        hand_before - 1 + 2,
+        "two drawn, the spell out"
+    );
     assert_eq!(library_len(&engine, me()), library_before - 2);
     assert_eq!(hand_len(&engine, them()), 1, "they discarded two of three");
     assert_eq!(graveyard_len(&engine, them()), 2);

@@ -10,7 +10,7 @@ card!(
     index = index::VOLTAIC_SERVANT,
     oracle_id = "d0c2703b-bd74-41ac-b516-c46c654de1bb",
     scryfall_id = "28564ac6-8b9b-4b99-9630-8fb3158d354c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voltaic Servant",
         mana_cost = mana!("{2}"),

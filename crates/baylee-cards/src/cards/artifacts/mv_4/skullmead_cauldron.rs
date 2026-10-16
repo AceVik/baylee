@@ -10,7 +10,7 @@ card!(
     index = index::SKULLMEAD_CAULDRON,
     oracle_id = "b6864a26-9c13-4c6d-b0e0-d5b5ed9864e8",
     scryfall_id = "1d8567c5-d068-42bb-a593-3849e65e29c0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skullmead Cauldron",
         mana_cost = mana!("{4}"),

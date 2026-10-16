@@ -27,7 +27,10 @@ fn neurok_replica_sacrifices_to_bounce_a_creature() {
     aim_at(&mut engine, p0, victim);
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_graveyard(&engine, p0, neurok_replica()).is_some(), "sacrificed");
+    assert!(
+        in_graveyard(&engine, p0, neurok_replica()).is_some(),
+        "sacrificed"
+    );
     assert!(on_battlefield(&engine, p1, quiet_creature()).is_none());
     assert!(
         in_hand(&engine, p1, quiet_creature()).is_some(),

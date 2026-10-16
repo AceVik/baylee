@@ -11,7 +11,7 @@ card!(
     index = index::BLADED_PINIONS,
     oracle_id = "c8cdc08a-975b-475f-8e30-85d61f6f3a9b",
     scryfall_id = "bf479c90-c791-4152-a8e6-fd3123f698df",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bladed Pinions",
         mana_cost = mana!("{2}"),

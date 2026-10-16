@@ -12,7 +12,7 @@ card!(
     oracle_id = "5f4834c7-cd63-420b-8492-ef127ffd4f45",
     scryfall_id = "44443ad2-ef8c-4106-ba1b-ee3fb6fd8b17",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anchovy & Banana Pizza",
         mana_cost = mana!("{2}{B}{B}"),

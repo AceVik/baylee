@@ -57,12 +57,14 @@ fn weldfast_monitor_without_menace_can_be_blocked_by_one() {
 
     attack_to_blocks(&mut engine, &[monitor]);
 
-    assert!(engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(blockers[0], monitor)],
-            },
-        )
-        .is_ok());
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(blockers[0], monitor)],
+                },
+            )
+            .is_ok()
+    );
 }

@@ -11,7 +11,7 @@ card!(
     oracle_id = "7549656b-359f-467e-90ab-6b21d93c26b9",
     scryfall_id = "db513835-af5a-4ff3-8cf8-31936732a4db",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sell-Sword Brute",
         mana_cost = mana!("{1}{R}"),

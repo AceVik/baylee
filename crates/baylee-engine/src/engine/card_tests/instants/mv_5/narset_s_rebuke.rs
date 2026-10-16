@@ -25,7 +25,10 @@ fn narset_s_rebuke_exiles_what_it_kills_and_adds_three_colours() {
     let big = on_battlefield(&engine, them(), earth_elemental()).expect("their Elemental");
     cast_at(&mut engine, narset_s_rebuke(), big);
 
-    assert!(exiled(&engine, them(), earth_elemental()), "exiled instead of dying");
+    assert!(
+        exiled(&engine, them(), earth_elemental()),
+        "exiled instead of dying"
+    );
     assert!(in_graveyard(&engine, them(), earth_elemental()).is_none());
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Blue), 1);

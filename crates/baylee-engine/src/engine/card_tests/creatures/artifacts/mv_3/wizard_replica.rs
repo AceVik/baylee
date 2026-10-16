@@ -43,7 +43,10 @@ fn wizard_replica_counters_a_spell_its_controller_cannot_pay_for() {
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_graveyard(&engine, p0, wizard_replica()).is_some(), "sacrificed");
+    assert!(
+        in_graveyard(&engine, p0, wizard_replica()).is_some(),
+        "sacrificed"
+    );
     assert!(on_battlefield(&engine, p1, onulet()).is_none(), "countered");
     assert!(in_graveyard(&engine, p1, onulet()).is_some());
 }

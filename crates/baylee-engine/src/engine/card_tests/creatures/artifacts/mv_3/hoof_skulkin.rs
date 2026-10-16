@@ -16,7 +16,13 @@ fn hoof_skulkin_pumps_a_green_creature() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[hoof_skulkin(), forest(), forest(), forest(), llanowar_elves()],
+            &[
+                hoof_skulkin(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
         )
         .battlefield(1, &[llanowar_elves()])
         .start();

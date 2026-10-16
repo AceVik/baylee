@@ -10,7 +10,7 @@ card!(
     oracle_id = "50fa6a63-e031-47cb-8fd5-a6c235203722",
     scryfall_id = "34a420d8-7e03-40a3-8132-10a566e12eb0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whiptail Wurm",
         mana_cost = mana!("{6}{G}"),

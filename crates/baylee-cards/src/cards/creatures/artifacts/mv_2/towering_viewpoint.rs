@@ -12,7 +12,7 @@ card!(
     oracle_id = "46c404c3-636a-4945-a61c-62f013a9c50f",
     scryfall_id = "d19115bf-562c-4bef-967d-52ec1e54c82e",
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Towering Viewpoint",
         mana_cost = mana!("{2}"),

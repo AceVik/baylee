@@ -10,7 +10,7 @@ card!(
     index = index::RUNED_SERVITOR,
     oracle_id = "4e5e81e1-ab47-4f08-9c42-dba0adc5cf9a",
     scryfall_id = "efedf97b-8901-4558-8bd0-3f488097f686",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runed Servitor",
         mana_cost = mana!("{2}"),

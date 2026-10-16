@@ -29,7 +29,10 @@ fn iron_bully_puts_a_counter_on_the_creature_it_targets() {
     let options = aim_at(&mut engine, p0, mine);
     let bully = on_battlefield(&engine, p0, iron_bully()).expect("it is out");
     assert!(options.contains(&mine) && options.contains(&theirs));
-    assert!(options.contains(&bully), "\"target creature\" includes itself");
+    assert!(
+        options.contains(&bully),
+        "\"target creature\" includes itself"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(counters_on(&engine, mine, CounterKind::P1P1), 1);

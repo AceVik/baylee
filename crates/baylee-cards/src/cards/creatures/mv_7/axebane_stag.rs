@@ -10,7 +10,7 @@ card!(
     oracle_id = "a45d7135-c042-40d9-818c-74fa1c7af8ad",
     scryfall_id = "bfce7c02-ccc3-44cd-8087-627eaa6a072e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axebane Stag",
         mana_cost = mana!("{6}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "0f85714b-e731-45a3-aa65-8cd59cd48280",
     scryfall_id = "ad1a0159-7f00-429c-9318-b028b1e03ba8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Attentive Sunscribe",
         mana_cost = mana!("{1}{W}"),

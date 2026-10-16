@@ -10,7 +10,7 @@ card!(
     oracle_id = "95650a60-6f1d-4594-8b53-7fd406212207",
     scryfall_id = "053c4cf0-992b-4f76-b8d1-cd67f894172c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dark Nourishment",
         mana_cost = mana!("{4}{B}"),

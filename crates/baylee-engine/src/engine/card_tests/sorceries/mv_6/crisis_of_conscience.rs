@@ -26,7 +26,11 @@ fn crisis_table(seed: u64) -> Engine<RegistryLookup> {
     tap_all_mana(&mut engine, me());
     cast_with_floating(&mut engine, me(), take_up_arms());
     settle(&mut engine);
-    assert_eq!(my_tokens(&engine).len(), 3, "three Warriors to destroy or keep");
+    assert_eq!(
+        my_tokens(&engine).len(),
+        3,
+        "three Warriors to destroy or keep"
+    );
     engine
 }
 
@@ -38,9 +42,18 @@ fn crisis_of_conscience_destroys_all_tokens() {
     settle(&mut engine);
 
     assert!(my_tokens(&engine).is_empty(), "no token is left");
-    assert!(on_battlefield(&engine, me(), llanowar_elves()).is_some(), "a card stays");
-    assert!(on_battlefield(&engine, me(), quiet_artifact()).is_some(), "so does an artifact");
-    assert!(on_battlefield(&engine, them(), gray_ogre()).is_some(), "and theirs");
+    assert!(
+        on_battlefield(&engine, me(), llanowar_elves()).is_some(),
+        "a card stays"
+    );
+    assert!(
+        on_battlefield(&engine, me(), quiet_artifact()).is_some(),
+        "so does an artifact"
+    );
+    assert!(
+        on_battlefield(&engine, them(), gray_ogre()).is_some(),
+        "and theirs"
+    );
 }
 
 /// Second mode: "Destroy all nonland, nontoken permanents."
@@ -50,9 +63,21 @@ fn crisis_of_conscience_destroys_nonland_nontoken_permanents() {
     cast_in_mode(&mut engine, crisis_of_conscience(), 1);
     settle(&mut engine);
 
-    assert!(in_graveyard(&engine, me(), llanowar_elves()).is_some(), "a creature");
-    assert!(in_graveyard(&engine, me(), quiet_artifact()).is_some(), "an artifact");
-    assert!(in_graveyard(&engine, them(), gray_ogre()).is_some(), "theirs too");
+    assert!(
+        in_graveyard(&engine, me(), llanowar_elves()).is_some(),
+        "a creature"
+    );
+    assert!(
+        in_graveyard(&engine, me(), quiet_artifact()).is_some(),
+        "an artifact"
+    );
+    assert!(
+        in_graveyard(&engine, them(), gray_ogre()).is_some(),
+        "theirs too"
+    );
     assert_eq!(my_tokens(&engine).len(), 3, "the tokens are spared");
-    assert!(on_battlefield(&engine, me(), plains()).is_some(), "and the lands");
+    assert!(
+        on_battlefield(&engine, me(), plains()).is_some(),
+        "and the lands"
+    );
 }

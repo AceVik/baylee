@@ -11,7 +11,7 @@ card!(
     index = index::ANGELIC_ARMAMENTS,
     oracle_id = "c2042b38-1f06-44d4-b56f-2cb4d9197712",
     scryfall_id = "92824de1-23f2-44c6-b8ab-46db94b8f79e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Armaments",
         mana_cost = mana!("{3}"),

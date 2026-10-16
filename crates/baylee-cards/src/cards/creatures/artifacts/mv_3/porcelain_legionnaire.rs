@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2616aa0e-8413-4e63-877c-bffd5263f552",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Porcelain Legionnaire",
         mana_cost = mana!("{2}{W/P}"),

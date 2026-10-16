@@ -11,7 +11,7 @@ card!(
     oracle_id = "b3a81bb1-cbd5-41a0-8dd4-faea06593f84",
     scryfall_id = "175b3d28-5c74-4972-9b5c-5e39762c78f4",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Relic of Sauron",
         mana_cost = mana!("{4}"),

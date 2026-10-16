@@ -12,7 +12,7 @@ card!(
     oracle_id = "671db0d7-b103-4c13-9914-a444f2ecf9d6",
     scryfall_id = "6d808a30-f1b5-484e-a90e-0a9f751ef597",
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consulate Skygate",
         mana_cost = mana!("{2}"),

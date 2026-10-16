@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a0b6c136-2bbe-48c1-ac53-2a8221b96936",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Risen Sanctuary",
         mana_cost = mana!("{5}{G}{W}"),

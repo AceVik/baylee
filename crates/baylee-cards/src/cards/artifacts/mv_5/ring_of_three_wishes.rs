@@ -10,7 +10,7 @@ card!(
     index = index::RING_OF_THREE_WISHES,
     oracle_id = "677c3616-295f-493a-8b60-1e22b0224cfa",
     scryfall_id = "219ab03a-2b3b-4eef-8a42-2cbe793d2f33",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ring of Three Wishes",
         mana_cost = mana!("{5}"),

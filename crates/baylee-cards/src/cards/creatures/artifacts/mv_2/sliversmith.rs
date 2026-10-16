@@ -11,7 +11,7 @@ card!(
     index = index::SLIVERSMITH,
     oracle_id = "244443f0-c92b-4640-88b6-308b0312c8be",
     scryfall_id = "83458352-9634-4cd7-bed1-6f7743c56c1f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sliversmith",
         mana_cost = mana!("{2}"),

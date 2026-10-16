@@ -13,7 +13,7 @@ card!(
     oracle_id = "eeaa03c9-533f-4067-a2c8-86f3b9e58583",
     scryfall_id = "b96e3f29-bb0d-49d0-9649-19c3c9b9f40d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "One-Clown Band",
         mana_cost = mana!("{1}{R}"),

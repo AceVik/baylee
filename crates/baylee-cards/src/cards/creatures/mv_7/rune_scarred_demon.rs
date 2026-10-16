@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1eae3165-554d-4759-8f18-794e2a7d8464",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rune-Scarred Demon",
         mana_cost = mana!("{5}{B}{B}"),

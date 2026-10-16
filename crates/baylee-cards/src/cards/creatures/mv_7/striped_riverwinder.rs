@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bbeef9ef-487c-400b-bcee-1c0e8ec94b6a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Striped Riverwinder",
         mana_cost = mana!("{6}{U}"),

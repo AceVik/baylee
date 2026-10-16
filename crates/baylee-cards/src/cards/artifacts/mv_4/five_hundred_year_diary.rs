@@ -18,7 +18,7 @@ card!(
     oracle_id = "9bdd6fea-d436-412b-a7b7-bbdba73dc986",
     scryfall_id = "89c1ebc5-6775-47f3-be43-e59b281eba55",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Five Hundred Year Diary",
         mana_cost = mana!("{3}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "61e2d557-f08d-489b-94c8-aff87e5189f9",
     scryfall_id = "e707c745-0bb1-4a85-83c1-be97131bf488",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Take Up Arms",
         mana_cost = mana!("{4}{W}"),

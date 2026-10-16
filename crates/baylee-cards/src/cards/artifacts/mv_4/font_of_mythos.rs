@@ -9,7 +9,7 @@ card!(
     index = index::FONT_OF_MYTHOS,
     oracle_id = "7194a262-5e7a-4c12-b271-2bc5e0799477",
     scryfall_id = "c198caf8-27ab-4300-841b-507e1b0ce9b3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Font of Mythos",
         mana_cost = mana!("{4}"),

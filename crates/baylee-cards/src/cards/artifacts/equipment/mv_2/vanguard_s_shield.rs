@@ -11,7 +11,7 @@ card!(
     index = index::VANGUARD_S_SHIELD,
     oracle_id = "bc628018-f5d0-4bd2-91e7-ee4e4a5af9aa",
     scryfall_id = "ce8d9db6-5737-4a1f-ae4e-75821a602784",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vanguard's Shield",
         mana_cost = mana!("{2}"),

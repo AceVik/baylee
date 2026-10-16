@@ -10,7 +10,7 @@ card!(
     index = index::FRIENDLY_TEDDY,
     oracle_id = "02a8b849-e708-427c-92fe-9a41bb0ec7fe",
     scryfall_id = "82b142be-4586-487a-8dd8-a55eff776458",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Friendly Teddy",
         mana_cost = mana!("{2}"),

@@ -10,7 +10,7 @@ card!(
     index = index::GRAFTED_SKULLCAP,
     oracle_id = "7694887a-2f3b-4ef1-b598-f3323f018ef4",
     scryfall_id = "3ff78a37-c321-4f02-bd10-e73823b954cf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grafted Skullcap",
         mana_cost = mana!("{4}"),

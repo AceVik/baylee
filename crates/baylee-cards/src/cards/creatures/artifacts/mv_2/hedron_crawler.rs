@@ -10,7 +10,7 @@ card!(
     index = index::HEDRON_CRAWLER,
     oracle_id = "0b9a4e06-b21d-4cbe-906f-9dbd08dbe5d3",
     scryfall_id = "9f827f92-1df6-4fd0-aa61-ec2e53476f9c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hedron Crawler",
         mana_cost = mana!("{2}"),

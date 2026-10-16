@@ -11,7 +11,7 @@ card!(
     oracle_id = "7604aac7-82ae-4f5b-888d-a008754f716a",
     scryfall_id = "2ff39de2-d071-4568-baac-25b505a2da56",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardians of Meletis",
         mana_cost = mana!("{3}"),

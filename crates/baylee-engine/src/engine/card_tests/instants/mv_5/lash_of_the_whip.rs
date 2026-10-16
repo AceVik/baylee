@@ -25,7 +25,10 @@ fn lash_of_the_whip_shrinks_until_end_of_turn() {
     assert_eq!(pt(&engine, big), (4, 5));
     cast_at(&mut engine, lash_of_the_whip(), big);
     assert_eq!(pt(&engine, big), (0, 1), "-4/-4");
-    assert!(on_battlefield(&engine, them(), earth_elemental()).is_some(), "it lives");
+    assert!(
+        on_battlefield(&engine, them(), earth_elemental()).is_some(),
+        "it lives"
+    );
 
     pass_until(&mut engine, |e| e.state().turn.active == them());
     assert_eq!(pt(&engine, big), (4, 5), "the turn is over");

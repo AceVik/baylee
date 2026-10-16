@@ -21,12 +21,20 @@ fn machinesmith_automaton_grows_for_another_artifact_only() {
     pass_until(&mut engine, stack_is_empty);
     let auto = on_battlefield(&engine, p0, machinesmith_automaton()).expect("it resolved");
     assert!(keywords(&engine, auto).contains(KeywordSet::TRAMPLE));
-    assert_eq!(counters_on(&engine, auto, CounterKind::P1P1), 0, "not for itself");
+    assert_eq!(
+        counters_on(&engine, auto, CounterKind::P1P1),
+        0,
+        "not for itself"
+    );
     assert_eq!(pt(&engine, auto), (2, 2));
 
     play_land(&mut engine, p0, forest());
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(counters_on(&engine, auto, CounterKind::P1P1), 0, "not for a land");
+    assert_eq!(
+        counters_on(&engine, auto, CounterKind::P1P1),
+        0,
+        "not for a land"
+    );
 
     cast_with_floating(&mut engine, p0, copper_myr());
     pass_until(&mut engine, stack_is_empty);

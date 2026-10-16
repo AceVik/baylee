@@ -16,7 +16,7 @@ card!(
     oracle_id = "32452ccf-88c7-41d6-93e5-15d31f29726d",
     scryfall_id = "e727bb9e-3510-4c8e-ac49-6d7217667a18",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frozen Aether",
         mana_cost = mana!("{3}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "a1a644e0-96e5-4b73-873f-1132948cb21f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Birthing Hulk",
         mana_cost = mana!("{6}{G}"),

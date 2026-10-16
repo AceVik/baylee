@@ -63,7 +63,10 @@ fn porcelain_legionnaire_kills_its_blocker_before_it_can_hurt_it() {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
-    assert!(on_battlefield(&engine, p1, quiet_creature()).is_none(), "the blocker died");
+    assert!(
+        on_battlefield(&engine, p1, quiet_creature()).is_none(),
+        "the blocker died"
+    );
     assert!(
         on_battlefield(&engine, p0, porcelain_legionnaire()).is_some(),
         "and dealt no damage back"

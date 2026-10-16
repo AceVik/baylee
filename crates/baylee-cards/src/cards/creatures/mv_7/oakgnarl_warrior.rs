@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7ee2eb87-d70e-49d7-b429-5df70a71c143",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oakgnarl Warrior",
         mana_cost = mana!("{5}{G}{G}"),

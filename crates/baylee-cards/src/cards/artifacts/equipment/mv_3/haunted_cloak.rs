@@ -11,7 +11,7 @@ card!(
     index = index::HAUNTED_CLOAK,
     oracle_id = "74fc88d5-19c3-4516-9a06-e9573d659caa",
     scryfall_id = "abffd0a3-ea7a-43cf-b92d-d9f436bef58e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haunted Cloak",
         mana_cost = mana!("{3}"),

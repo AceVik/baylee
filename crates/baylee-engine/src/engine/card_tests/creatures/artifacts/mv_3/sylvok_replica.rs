@@ -31,7 +31,13 @@ fn sylvok_replica_sacrifices_to_destroy_an_artifact() {
     assert!(!options.contains(&creature), "a plain creature is neither");
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_graveyard(&engine, p0, sylvok_replica()).is_some(), "sacrificed");
-    assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some(), "destroyed");
+    assert!(
+        in_graveyard(&engine, p0, sylvok_replica()).is_some(),
+        "sacrificed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "destroyed"
+    );
     assert!(on_battlefield(&engine, p1, quiet_creature()).is_some());
 }

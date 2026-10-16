@@ -11,7 +11,7 @@ card!(
     index = index::BLOOD_SERVITOR,
     oracle_id = "5a3f9c4d-20a8-46aa-9cf3-3916f56a7906",
     scryfall_id = "87845cc2-bf5d-491d-bfa2-b33b034557a4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Servitor",
         mana_cost = mana!("{3}"),

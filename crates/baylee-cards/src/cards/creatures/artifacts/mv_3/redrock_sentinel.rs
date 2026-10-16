@@ -13,7 +13,7 @@ card!(
     oracle_id = "51a6819d-c8fb-4f52-ab0c-4ae845728ed2",
     scryfall_id = "8eb98381-8418-4dfd-b7d1-4353570e611b",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Redrock Sentinel",
         mana_cost = mana!("{3}"),

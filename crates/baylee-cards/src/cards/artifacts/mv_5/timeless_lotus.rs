@@ -17,7 +17,7 @@ card!(
         Color::Blue,
         Color::White
     ]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Timeless Lotus",
         mana_cost = mana!("{5}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6273cd72-5330-4712-ae73-b058023f0435",
     scryfall_id = "480311ae-b9af-4fb7-881b-35566598cf07",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moriok Replica",
         mana_cost = mana!("{3}"),

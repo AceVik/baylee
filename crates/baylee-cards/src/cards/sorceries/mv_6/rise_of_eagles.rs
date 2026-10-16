@@ -11,7 +11,7 @@ card!(
     oracle_id = "8fc154ff-f2a2-4089-a504-f483f545606e",
     scryfall_id = "c3b5b278-b883-4703-9bfa-bab5a6da4660",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rise of Eagles",
         mana_cost = mana!("{4}{U}{U}"),

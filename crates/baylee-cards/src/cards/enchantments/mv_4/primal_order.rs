@@ -16,7 +16,7 @@ card!(
     oracle_id = "63136274-df97-49ae-9efe-1385410e744b",
     scryfall_id = "72c513dc-e884-4afc-9a20-ff21d14d61ba",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primal Order",
         mana_cost = mana!("{2}{G}{G}"),

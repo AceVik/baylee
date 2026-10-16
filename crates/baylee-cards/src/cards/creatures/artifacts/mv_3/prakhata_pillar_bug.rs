@@ -11,7 +11,7 @@ card!(
     oracle_id = "1ec95969-4a6f-49f3-af23-1680276e7da2",
     scryfall_id = "9c91b356-b5d8-4239-bb45-dec7f673868d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prakhata Pillar-Bug",
         mana_cost = mana!("{3}"),

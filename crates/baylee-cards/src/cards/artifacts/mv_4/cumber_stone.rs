@@ -10,7 +10,7 @@ card!(
     oracle_id = "49199997-65cd-4cb9-bdd6-74c93c1f6b5a",
     scryfall_id = "7963ff52-1897-4f62-a91d-b0eaf155fce9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cumber Stone",
         mana_cost = mana!("{3}{U}"),

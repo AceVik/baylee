@@ -13,19 +13,32 @@ fn flayed_one() -> CardIndex {
 fn flayed_one_mills_its_controller_three_on_entering() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = main_with(&[flayed_one()], &[swamp(), swamp(), swamp()]);
-    let top_three: Vec<ObjectId> = library_of(&engine, p0).iter().rev().take(3).copied().collect();
+    let top_three: Vec<ObjectId> = library_of(&engine, p0)
+        .iter()
+        .rev()
+        .take(3)
+        .copied()
+        .collect();
     let library_before = library_of(&engine, p0).len();
     let theirs_before = library_of(&engine, p1).len();
 
     cast_and_settle(&mut engine, flayed_one());
 
-    let graveyard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).clone();
+    let graveyard = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
     assert_eq!(graveyard.len(), 3);
     for card in top_three {
         assert!(graveyard.contains(&card), "the top three were milled");
     }
     assert_eq!(library_of(&engine, p0).len(), library_before - 3);
-    assert_eq!(library_of(&engine, p1).len(), theirs_before, "not the opponent's");
+    assert_eq!(
+        library_of(&engine, p1).len(),
+        theirs_before,
+        "not the opponent's"
+    );
     assert!(on_battlefield(&engine, p0, flayed_one()).is_some());
 }
 
@@ -41,7 +54,10 @@ fn flayed_one_gains_life_equal_to_the_damage_it_deals() {
 
     attack_to_blocks(&mut engine, &[one]);
     engine
-        .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers: vec![] })
+        .apply(
+            PlayerId::new(1),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
         .unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

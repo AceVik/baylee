@@ -10,7 +10,7 @@ card!(
     oracle_id = "b7523824-8c3e-4735-8fbc-6a5f99d1e1ac",
     scryfall_id = "0a27bbe4-5341-4b2b-9ae8-eb56585a9c3a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loamdragger Giant",
         mana_cost = mana!("{4}{R/G}{R/G}{R/G}"),

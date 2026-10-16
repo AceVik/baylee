@@ -16,7 +16,7 @@ card!(
     index = index::TEZZERET_S_STRIDER,
     oracle_id = "cac79a2b-1de3-4461-95ac-fa0f1129cd6b",
     scryfall_id = "8cf74535-31e3-4d2c-b42a-072580fa4ba0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tezzeret's Strider",
         mana_cost = mana!("{3}"),

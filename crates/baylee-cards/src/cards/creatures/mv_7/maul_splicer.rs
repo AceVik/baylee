@@ -13,7 +13,7 @@ card!(
     oracle_id = "b0d0c534-8bd2-4801-aadd-dcc9c92d6ec3",
     scryfall_id = "2d2c6a6d-5b59-47d7-b290-df3640d9555f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maul Splicer",
         mana_cost = mana!("{6}{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "d5862292-9ef9-4bf2-b468-45bfe0d70f7a",
     scryfall_id = "308d9672-58a7-4ec8-a20d-7054d76fde37",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crisis of Conscience",
         mana_cost = mana!("{4}{W}{W}"),

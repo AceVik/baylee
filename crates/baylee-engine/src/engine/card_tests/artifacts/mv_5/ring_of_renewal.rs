@@ -14,7 +14,17 @@ fn ring_of_renewal() -> CardIndex {
 fn it_discards_at_random_and_then_draws_two() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[ring_of_renewal(), forest(), forest(), forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[
+                ring_of_renewal(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .hand(0, &[plains()])
         .start();
     keep_mulligans(&mut engine);
@@ -27,7 +37,10 @@ fn it_discards_at_random_and_then_draws_two() {
     assert!(is_tapped(&engine, ring));
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(in_graveyard(&engine, p0, plains()).is_some(), "the only card was discarded");
+    assert!(
+        in_graveyard(&engine, p0, plains()).is_some(),
+        "the only card was discarded"
+    );
     assert!(in_hand(&engine, p0, plains()).is_none());
     assert_eq!(library_size(&engine, p0), lib - 2, "two drawn");
     assert_eq!(

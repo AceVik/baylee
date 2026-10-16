@@ -13,7 +13,7 @@ card!(
     scryfall_id = "de3218e3-4640-4f73-a52b-f11ea5ea23a9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashen Monstrosity",
         mana_cost = mana!("{5}{R}{R}"),

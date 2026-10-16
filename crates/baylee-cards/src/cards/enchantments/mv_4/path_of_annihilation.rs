@@ -22,7 +22,7 @@ card!(
     scryfall_id = "28493c98-a11c-4bcc-bf55-412c884ffa7a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Path of Annihilation",
         mana_cost = mana!("{3}{G}"),

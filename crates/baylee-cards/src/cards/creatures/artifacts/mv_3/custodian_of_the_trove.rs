@@ -12,7 +12,7 @@ card!(
     oracle_id = "0d060d19-9c8b-4831-a9be-aa2c98b6858a",
     scryfall_id = "eb14f061-9506-40fb-b10d-4bada38ca0f7",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Custodian of the Trove",
         mana_cost = mana!("{3}"),

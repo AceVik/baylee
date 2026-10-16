@@ -32,7 +32,10 @@ fn it_untaps_another_target_permanent() {
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("a target, got {:?}", engine.pending())
     };
-    assert!(options.contains(&mine) && options.contains(&theirs), "{options:?}");
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "{options:?}"
+    );
     assert!(!options.contains(&tine), "\"another\": {options:?}");
     aim_at(&mut engine, p0, theirs);
     assert!(is_tapped(&engine, tine), "{{T}} is the price");

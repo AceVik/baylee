@@ -13,7 +13,10 @@ fn assembly_worker() -> CardIndex {
 #[test]
 fn assembly_worker_pumps_another_assembly_worker() {
     let p0 = PlayerId::new(0);
-    let mut engine = main_with(&[], &[assembly_worker(), assembly_worker(), quiet_creature()]);
+    let mut engine = main_with(
+        &[],
+        &[assembly_worker(), assembly_worker(), quiet_creature()],
+    );
     let workers = all_on_battlefield(&engine, p0, assembly_worker());
     assert_eq!(workers.len(), 2);
     let plain = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
@@ -41,6 +44,10 @@ fn assembly_worker_pumps_another_assembly_worker() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, other), (3, 3));
-    assert_eq!(pt(&engine, source), (2, 2), "the source did not pump itself");
+    assert_eq!(
+        pt(&engine, source),
+        (2, 2),
+        "the source did not pump itself"
+    );
     assert!(is_tapped(&engine, source), "{{T}} is the cost");
 }

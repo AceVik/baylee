@@ -28,7 +28,10 @@ fn command_the_storm_deals_five_damage_to_a_creature_only() {
     let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
         panic!("a target choice, got {:?}", engine.pending())
     };
-    assert!(player_options.is_empty(), "creatures only: {player_options:?}");
+    assert!(
+        player_options.is_empty(),
+        "creatures only: {player_options:?}"
+    );
     aim_at(&mut engine, me(), big);
     settle(&mut engine);
     assert!(

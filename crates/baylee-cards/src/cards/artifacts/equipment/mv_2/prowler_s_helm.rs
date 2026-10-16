@@ -16,7 +16,7 @@ card!(
     index = index::PROWLER_S_HELM,
     oracle_id = "603ef53f-6191-4229-b85f-adad6f4503ce",
     scryfall_id = "c100a22c-bf34-42b7-9339-4733698c0935",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowler's Helm",
         mana_cost = mana!("{2}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "77064471-d0c1-4988-8c47-f767bf9635f3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SHROUD,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kalonian Behemoth",
         mana_cost = mana!("{5}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     index = index::VETERAN_S_SIDEARM,
     oracle_id = "f038c11e-b070-40fd-9d0f-e031f7bc2bd2",
     scryfall_id = "9c1b3e7d-0fd8-4324-be7b-382e75ae9c17",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Veteran's Sidearm",
         mana_cost = mana!("{2}"),

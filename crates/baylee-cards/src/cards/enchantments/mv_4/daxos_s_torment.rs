@@ -20,7 +20,7 @@ card!(
     oracle_id = "93ef3098-d1c0-4b05-9d28-1afa133bfc4f",
     scryfall_id = "885284bd-492e-4fc1-921a-a55a069c3fa9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daxos's Torment",
         mana_cost = mana!("{3}{B}"),

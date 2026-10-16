@@ -12,7 +12,7 @@ card!(
     oracle_id = "7d78155c-c63f-48a3-86e5-12b80400d8de",
     scryfall_id = "545521f8-ab61-4f18-b290-16cd2c2d505e",
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iron Bully",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     index = index::GORGON_FLAIL,
     oracle_id = "91dab3e2-039e-4db9-94e3-1146bced18ed",
     scryfall_id = "eefc48cb-79aa-4e28-a736-ae9e4e2bc97b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gorgon Flail",
         mana_cost = mana!("{2}"),

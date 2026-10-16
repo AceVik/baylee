@@ -11,7 +11,7 @@ card!(
     oracle_id = "1de2c216-0921-45eb-9613-a68d18fbee77",
     scryfall_id = "0f3044c9-865b-4869-a2c0-ed11a5841bf5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bright Reprisal",
         mana_cost = mana!("{4}{W}"),

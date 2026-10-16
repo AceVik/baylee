@@ -16,7 +16,7 @@ card!(
     scryfall_id = "544a707d-4090-4a74-91aa-60fbd8a4ae96",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mandible Justiciar",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "561a4bb5-285a-4d52-b372-d165e442cff3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havenwood Wurm",
         mana_cost = mana!("{6}{G}"),

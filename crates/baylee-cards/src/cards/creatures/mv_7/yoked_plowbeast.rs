@@ -11,7 +11,7 @@ card!(
     oracle_id = "07237694-b5d5-4c92-a429-55e343b8dd1c",
     scryfall_id = "ddbbc7dc-efdf-46e8-bf19-0daa4034f6ec",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yoked Plowbeast",
         mana_cost = mana!("{5}{W}{W}"),

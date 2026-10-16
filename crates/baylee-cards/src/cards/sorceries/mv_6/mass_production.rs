@@ -11,7 +11,7 @@ card!(
     oracle_id = "20150b58-a442-472c-8191-b44581322eeb",
     scryfall_id = "640a08b7-dd30-446e-a8a7-2e084bbb9586",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mass Production",
         mana_cost = mana!("{5}{W}"),

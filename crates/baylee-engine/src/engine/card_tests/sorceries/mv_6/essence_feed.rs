@@ -14,7 +14,10 @@ fn essence_feed() -> CardIndex {
 fn essence_feed_drains_three_and_makes_three_spawn() {
     let mut engine = table(956, &[essence_feed()], &[swamp(); 6], &[], &[]);
     let (_, players) = cast_at_player(&mut engine, essence_feed(), them());
-    assert!(players.contains(&me()) && players.contains(&them()), "any player: {players:?}");
+    assert!(
+        players.contains(&me()) && players.contains(&them()),
+        "any player: {players:?}"
+    );
     assert_eq!(life_of(&engine, them()), 17, "the target loses three");
     assert_eq!(life_of(&engine, me()), 23, "the caster gains three");
     let spawn = my_tokens(&engine);

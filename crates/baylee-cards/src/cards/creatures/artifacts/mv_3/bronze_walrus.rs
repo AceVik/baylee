@@ -11,7 +11,7 @@ card!(
     index = index::BRONZE_WALRUS,
     oracle_id = "3fdc76b0-450a-4fcb-8a64-113edce67f3d",
     scryfall_id = "b2cfd2c0-2110-47f1-809e-487b9b0a1043",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bronze Walrus",
         mana_cost = mana!("{3}"),

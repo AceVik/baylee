@@ -11,7 +11,7 @@ card!(
     oracle_id = "ab9e2045-860a-40ab-bec1-0dffced003ef",
     scryfall_id = "1207e6eb-15a7-4ec4-91b3-880375704bb6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devils' Playground",
         mana_cost = mana!("{4}{R}{R}"),

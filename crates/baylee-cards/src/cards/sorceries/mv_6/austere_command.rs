@@ -14,7 +14,7 @@ card!(
     oracle_id = "09cc8709-fe10-472a-b05c-e89f3523018d",
     scryfall_id = "a8bc7912-e201-468a-b251-140205cb741c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Austere Command",
         mana_cost = mana!("{4}{W}{W}"),

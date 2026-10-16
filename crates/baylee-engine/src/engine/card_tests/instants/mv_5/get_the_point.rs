@@ -31,7 +31,9 @@ fn get_the_point_destroys_a_creature_and_scries_one() {
 
     cast_from_hand(&mut engine, me(), get_the_point());
     aim_at(&mut engine, me(), ogre);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange { player, cards, .. } = engine.pending().clone() else {
         unreachable!("the pass waited for exactly this")
     };
@@ -46,7 +48,11 @@ fn get_the_point_destroys_a_creature_and_scries_one() {
         .expect("the card to the bottom");
     settle(&mut engine);
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Library(me())).first(),
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(me()))
+            .first(),
         Some(&top),
         "the scried card is now on the bottom"
     );

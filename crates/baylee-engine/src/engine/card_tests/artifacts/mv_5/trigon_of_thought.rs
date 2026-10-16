@@ -38,7 +38,10 @@ fn two_blue_mana_add_a_charge_counter() {
     activate(&mut engine, p0, trigon_of_thought(), 0);
     assert!(is_tapped(&engine, trigon));
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(counters_on(&engine, trigon, CounterKind::Charge), before + 1);
+    assert_eq!(
+        counters_on(&engine, trigon, CounterKind::Charge),
+        before + 1
+    );
 }
 
 /// Green cannot pay for the {U}{U}.

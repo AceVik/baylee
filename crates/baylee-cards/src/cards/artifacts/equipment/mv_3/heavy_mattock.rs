@@ -12,7 +12,7 @@ card!(
     index = index::HEAVY_MATTOCK,
     oracle_id = "f1f45310-d665-400d-934f-e48e7858ce8c",
     scryfall_id = "8b09df01-0b3e-463e-bf00-0a9f1822261a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heavy Mattock",
         mana_cost = mana!("{3}"),

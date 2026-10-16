@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1b65f96b-019b-40a9-9b4d-acd4abf4a0f9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Blue]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fungal Shambler",
         mana_cost = mana!("{4}{B}{G}{U}"),

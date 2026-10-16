@@ -20,7 +20,10 @@ fn spectral_procession_costs_three_white_and_makes_three_flying_spirits() {
     assert_eq!(spirits.len(), 3);
     for token in spirits {
         assert_eq!(pt(&engine, token), (1, 1));
-        assert!(keywords_of(&engine, token).contains(KeywordSet::FLYING), "flying");
+        assert!(
+            keywords_of(&engine, token).contains(KeywordSet::FLYING),
+            "flying"
+        );
     }
 }
 

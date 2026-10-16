@@ -15,7 +15,7 @@ card!(
     index = index::HOOF_SKULKIN,
     oracle_id = "7f60549f-7a0a-4009-a51a-d3f51214be11",
     scryfall_id = "ea91be37-aca0-484a-ab94-0186073269d2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hoof Skulkin",
         mana_cost = mana!("{3}"),

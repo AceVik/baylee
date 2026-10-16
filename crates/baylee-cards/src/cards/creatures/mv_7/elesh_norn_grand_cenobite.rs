@@ -15,7 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elesh Norn, Grand Cenobite",
         mana_cost = mana!("{5}{W}{W}"),

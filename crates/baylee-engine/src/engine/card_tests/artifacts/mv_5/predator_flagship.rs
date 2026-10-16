@@ -28,7 +28,10 @@ fn two_mana_give_a_creature_flying_until_end_of_turn() {
     activate(&mut engine, p0, predator_flagship(), 0);
     aim_at(&mut engine, p0, ogre);
     pass_until(&mut engine, stack_is_empty);
-    assert!(keywords(&engine, ogre).contains(KeywordSet::FLYING), "now flying");
+    assert!(
+        keywords(&engine, ogre).contains(KeywordSet::FLYING),
+        "now flying"
+    );
     assert_eq!(pt(&engine, ogre), (2, 2), "and nothing else changed");
 
     reach_their_main_phase(&mut engine, p1);
@@ -46,7 +49,14 @@ fn it_destroys_a_creature_with_flying_and_only_one_with_flying() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[predator_flagship(), forest(), forest(), forest(), forest(), forest()],
+            &[
+                predator_flagship(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
         )
         .battlefield(1, &[gray_ogre(), will_o_the_wisp()])
         .start();
@@ -61,7 +71,10 @@ fn it_destroys_a_creature_with_flying_and_only_one_with_flying() {
         panic!("a target, got {:?}", engine.pending())
     };
     assert!(options.contains(&flyer), "{options:?}");
-    assert!(!options.contains(&ogre), "no flying, no target: {options:?}");
+    assert!(
+        !options.contains(&ogre),
+        "no flying, no target: {options:?}"
+    );
     aim_at(&mut engine, p0, flyer);
     pass_until(&mut engine, stack_is_empty);
     assert!(in_graveyard(&engine, p1, will_o_the_wisp()).is_some());

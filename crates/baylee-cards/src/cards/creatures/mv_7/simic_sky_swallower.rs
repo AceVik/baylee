@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::SHROUD),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simic Sky Swallower",
         mana_cost = mana!("{5}{G}{U}"),

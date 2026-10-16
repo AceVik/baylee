@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a07809b2-dabe-4242-84c3-fd640d7d5998",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel of Despair",
         mana_cost = mana!("{3}{W}{W}{B}{B}"),

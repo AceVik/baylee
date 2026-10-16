@@ -20,7 +20,7 @@ card!(
     oracle_id = "a2558476-5506-4a09-93fc-b8ab33c98985",
     scryfall_id = "e3b23fff-7d3b-4341-b556-82136f8c113b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "HYDRA Assault Robot",
         mana_cost = mana!("{1}{R}"),

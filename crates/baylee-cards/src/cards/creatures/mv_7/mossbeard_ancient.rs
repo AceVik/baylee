@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7e528d36-cea6-4013-83d5-ba837d570713",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mossbeard Ancient",
         mana_cost = mana!("{5}{G}{G}"),

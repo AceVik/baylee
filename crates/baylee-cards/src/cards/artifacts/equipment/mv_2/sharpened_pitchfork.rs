@@ -12,7 +12,7 @@ card!(
     index = index::SHARPENED_PITCHFORK,
     oracle_id = "409b44fc-fae2-4804-83a7-78cf95038f58",
     scryfall_id = "36c8cdec-5ca9-40b0-ba90-48966e674546",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sharpened Pitchfork",
         mana_cost = mana!("{2}"),

@@ -10,7 +10,7 @@ card!(
     index = index::PALLADIUM_MYR,
     oracle_id = "7b0767b8-b504-456e-93bd-218502f73b3d",
     scryfall_id = "f7c6aba3-38c3-45d1-83e1-40829eb07862",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Palladium Myr",
         mana_cost = mana!("{3}"),

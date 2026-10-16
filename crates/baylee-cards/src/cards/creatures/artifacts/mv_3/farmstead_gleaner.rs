@@ -11,7 +11,7 @@ card!(
     index = index::FARMSTEAD_GLEANER,
     oracle_id = "e26f7255-8b18-47d6-aafa-22ca22c35d2e",
     scryfall_id = "edafd52f-2dda-4981-baee-404f47ee8969",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Farmstead Gleaner",
         mana_cost = mana!("{3}"),

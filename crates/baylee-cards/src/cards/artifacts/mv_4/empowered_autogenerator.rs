@@ -10,7 +10,7 @@ card!(
     index = index::EMPOWERED_AUTOGENERATOR,
     oracle_id = "6832f9e2-294a-44a2-8af9-eb16ccfdfc36",
     scryfall_id = "1b6abe5b-9bd3-43a0-b1bb-e6ebb64b443c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Empowered Autogenerator",
         mana_cost = mana!("{4}"),

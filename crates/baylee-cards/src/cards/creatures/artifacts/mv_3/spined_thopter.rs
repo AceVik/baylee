@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bd27f71a-cd22-4b5e-9536-3e160111875a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spined Thopter",
         mana_cost = mana!("{2}{U/P}"),

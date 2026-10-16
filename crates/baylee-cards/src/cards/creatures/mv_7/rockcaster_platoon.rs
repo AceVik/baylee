@@ -13,7 +13,7 @@ card!(
     oracle_id = "3bc82914-1524-4d57-8b38-9788867a4046",
     scryfall_id = "4ab62812-acc5-4b4b-97d3-106e399d69da",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rockcaster Platoon",
         mana_cost = mana!("{5}{W}{W}"),

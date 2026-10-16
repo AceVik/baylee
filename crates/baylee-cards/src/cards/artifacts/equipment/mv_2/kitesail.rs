@@ -11,7 +11,7 @@ card!(
     index = index::KITESAIL,
     oracle_id = "b079f9db-974d-4525-a894-57b754ba9dcc",
     scryfall_id = "fdc3bf6e-e011-4334-a142-c09941c6f213",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kitesail",
         mana_cost = mana!("{2}"),

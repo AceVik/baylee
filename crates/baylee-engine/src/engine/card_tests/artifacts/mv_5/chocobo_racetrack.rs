@@ -28,7 +28,12 @@ fn a_land_makes_a_bird_and_later_lands_pump_the_birds_already_there() {
     assert_eq!(birds.len(), 1, "one land, one Bird");
     let first = birds[0];
     assert_eq!(pt(&engine, first), (2, 2), "a 2/2");
-    let chars = engine.state().object(first).unwrap().characteristics().clone();
+    let chars = engine
+        .state()
+        .object(first)
+        .unwrap()
+        .characteristics()
+        .clone();
     assert!(chars.types.contains(TypeSet::CREATURE));
     assert!(chars.colors.contains(baylee_core::color::Color::Green));
     assert!(
@@ -48,6 +53,14 @@ fn a_land_makes_a_bird_and_later_lands_pump_the_birds_already_there() {
     let birds = tokens_of(&engine, p0);
     assert_eq!(birds.len(), 2, "a second Bird");
     let second = *birds.iter().find(|b| **b != first).unwrap();
-    assert_eq!(pt(&engine, first), (3, 2), "the old Bird saw the land: +1/+0");
-    assert_eq!(pt(&engine, second), (2, 2), "the new one was not there to see it");
+    assert_eq!(
+        pt(&engine, first),
+        (3, 2),
+        "the old Bird saw the land: +1/+0"
+    );
+    assert_eq!(
+        pt(&engine, second),
+        (2, 2),
+        "the new one was not there to see it"
+    );
 }

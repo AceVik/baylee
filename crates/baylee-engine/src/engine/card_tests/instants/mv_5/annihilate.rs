@@ -34,7 +34,10 @@ fn annihilate_destroys_a_nonblack_creature_through_a_shield_and_draws() {
 
     cast_with_floating(&mut engine, me(), annihilate());
     let menu = aim_at(&mut engine, me(), red);
-    assert!(menu.contains(&red), "a red creature is a legal target: {menu:?}");
+    assert!(
+        menu.contains(&red),
+        "a red creature is a legal target: {menu:?}"
+    );
     assert!(
         !menu.contains(&black),
         "\"nonblack\" keeps the black Troll off the menu: {menu:?}"

@@ -10,7 +10,7 @@ card!(
     index = index::TIME_BOMB,
     oracle_id = "29062094-594d-4557-9496-11a15d7e3bb0",
     scryfall_id = "90e34a29-7376-4258-9cac-54fe5b07c430",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Time Bomb",
         mana_cost = mana!("{4}"),

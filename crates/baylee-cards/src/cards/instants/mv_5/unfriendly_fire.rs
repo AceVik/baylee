@@ -10,7 +10,7 @@ card!(
     oracle_id = "ebb5b792-3906-4cb5-b8f9-063f94c9d135",
     scryfall_id = "7a61b274-0499-4cb6-a2e4-f5e18ad7fd2d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unfriendly Fire",
         mana_cost = mana!("{4}{R}"),

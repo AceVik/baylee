@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0c62efb9-11f2-4f82-af08-4587d58d6e3d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marble Gargoyle",
         mana_cost = mana!("{2}{W}"),

@@ -9,7 +9,7 @@ card!(
     index = index::OMEGA_MYR,
     oracle_id = "fd1b237a-7132-4875-b738-8ec65b85ea28",
     scryfall_id = "ddaa5c60-054f-4397-a110-21df58264caf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Omega Myr",
         mana_cost = mana!("{2}"),

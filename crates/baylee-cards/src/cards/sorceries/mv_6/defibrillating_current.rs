@@ -10,7 +10,7 @@ card!(
     oracle_id = "5a96b93b-bae6-48fb-87f5-05f3ffcf7ba9",
     scryfall_id = "bf3a18cf-03db-4eb0-8d53-0c1a71e184da",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defibrillating Current",
         mana_cost = mana!("{2/R}{2/W}{2/B}"),

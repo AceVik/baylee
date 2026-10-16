@@ -58,5 +58,8 @@ fn alloy_myr_taps_for_one_mana_of_the_color_named() {
 
     tap_for_any_color(&mut engine, myr, ManaColor::Red);
     assert_eq!(engine.state().players[0].mana_pool.total(), 1);
-    assert!(stack_is_empty(&engine), "a mana ability does not use the stack");
+    assert!(
+        stack_is_empty(&engine),
+        "a mana ability does not use the stack"
+    );
 }

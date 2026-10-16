@@ -11,7 +11,7 @@ card!(
     index = index::MYR_SIRE,
     oracle_id = "25794033-bd17-4056-b116-68d3acf52569",
     scryfall_id = "11ba43d1-e879-40e0-b49c-e009deb7e3aa",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Myr Sire",
         mana_cost = mana!("{2}"),

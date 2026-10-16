@@ -12,7 +12,7 @@ card!(
     scryfall_id = "46012ec9-9605-44fe-84a9-6aab0738737f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exocomp",
         mana_cost = mana!("{2}{U}"),

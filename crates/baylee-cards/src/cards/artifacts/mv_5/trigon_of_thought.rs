@@ -12,7 +12,7 @@ card!(
     oracle_id = "8a179d68-c9e6-4f46-99bf-11b2a2708990",
     scryfall_id = "f8da37ba-52e3-417e-8d7b-6c3e060552a4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trigon of Thought",
         mana_cost = mana!("{5}"),

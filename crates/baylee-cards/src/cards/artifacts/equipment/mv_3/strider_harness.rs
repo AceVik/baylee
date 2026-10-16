@@ -11,7 +11,7 @@ card!(
     index = index::STRIDER_HARNESS,
     oracle_id = "bd4ad383-8c40-4dda-bc9c-ba8a001d6882",
     scryfall_id = "5e94daa9-5b9b-4fd2-829e-081eed22c18f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strider Harness",
         mana_cost = mana!("{3}"),

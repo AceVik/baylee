@@ -19,7 +19,10 @@ fn grisly_ritual_destroys_a_creature_and_makes_two_blood() {
     let blood = my_tokens(&engine);
     assert_eq!(blood.len(), 2, "two Blood tokens");
     for token in blood {
-        assert!(types(&engine, token).contains(TypeSet::ARTIFACT), "Blood is an artifact");
+        assert!(
+            types(&engine, token).contains(TypeSet::ARTIFACT),
+            "Blood is an artifact"
+        );
     }
 }
 

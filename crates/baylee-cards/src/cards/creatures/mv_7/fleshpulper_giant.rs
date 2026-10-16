@@ -13,7 +13,7 @@ card!(
     oracle_id = "7cdeecb5-354a-4a6c-989f-d8c9554befb7",
     scryfall_id = "f2726d3c-c182-4d8a-a723-0de2c5c4b152",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fleshpulper Giant",
         mana_cost = mana!("{5}{R}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "ca611c90-7753-43dd-af91-81694d004eeb",
     scryfall_id = "09af9bc0-1c73-4d16-8116-b76ad23c6b8f",
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Suspicious Bookcase",
         mana_cost = mana!("{2}"),

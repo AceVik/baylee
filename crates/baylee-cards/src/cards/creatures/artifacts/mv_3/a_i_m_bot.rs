@@ -12,7 +12,7 @@ card!(
     scryfall_id = "52b09b2a-8876-4b7d-97bd-2f46fd96849a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "A.I.M. Bot",
         mana_cost = mana!("{2}{U}"),

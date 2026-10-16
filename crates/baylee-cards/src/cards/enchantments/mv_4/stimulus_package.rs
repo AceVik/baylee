@@ -18,7 +18,7 @@ card!(
     oracle_id = "ce76d17e-d536-46f0-98e2-3e1b1b4f61a4",
     scryfall_id = "ecbe7459-8613-4ab8-84dc-deab19c08511",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stimulus Package",
         mana_cost = mana!("{2}{R}{G}"),

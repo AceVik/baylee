@@ -14,7 +14,7 @@ card!(
     scryfall_id = "304c635c-de4d-46ee-8ab0-e5c4d55b61b3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pelakka Wurm",
         mana_cost = mana!("{4}{G}{G}{G}"),

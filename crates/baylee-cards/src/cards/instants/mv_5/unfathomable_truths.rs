@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f95b8eb1-4dbb-4bb9-aa31-b7a12e3b4618",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unfathomable Truths",
         mana_cost = mana!("{4}{U}"),

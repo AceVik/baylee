@@ -10,7 +10,7 @@ card!(
     index = index::PRISMITE,
     oracle_id = "feb4fcec-6f3a-4643-9ffb-69d3f5953322",
     scryfall_id = "eedce8ab-771a-4247-9504-72ae0629df83",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prismite",
         mana_cost = mana!("{2}"),

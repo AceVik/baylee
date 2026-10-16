@@ -18,7 +18,9 @@ fn muse_s_encouragement_makes_a_flier_and_surveils_two() {
     let mut engine = table(927, &[muse_s_encouragement()], &[island(); 5], &[], &[]);
     let library_before = library_len(&engine, me());
     cast_from_hand(&mut engine, me(), muse_s_encouragement());
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
     let Pending::Arrange { player, cards, .. } = engine.pending().clone() else {
         unreachable!("the pass waited for exactly this")
     };
@@ -33,7 +35,14 @@ fn muse_s_encouragement_makes_a_flier_and_surveils_two() {
     let tokens = my_tokens(&engine);
     assert_eq!(tokens.len(), 1, "one token");
     assert_eq!(pt(&engine, tokens[0]), (3, 3));
-    assert!(keywords_of(&engine, tokens[0]).contains(KeywordSet::FLYING), "flying");
-    assert_eq!(graveyard_len(&engine, me()), graveyard_before + 2, "one surveilled away, and the spell itself");
+    assert!(
+        keywords_of(&engine, tokens[0]).contains(KeywordSet::FLYING),
+        "flying"
+    );
+    assert_eq!(
+        graveyard_len(&engine, me()),
+        graveyard_before + 2,
+        "one surveilled away, and the spell itself"
+    );
     assert_eq!(library_len(&engine, me()), library_before - 1);
 }

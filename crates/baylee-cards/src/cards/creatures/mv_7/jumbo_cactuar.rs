@@ -11,7 +11,7 @@ card!(
     oracle_id = "e0bdfbb4-3060-4492-bd9b-0c47e719400a",
     scryfall_id = "db01c222-8795-47e9-a789-e7f749a3ee7d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jumbo Cactuar",
         mana_cost = mana!("{5}{G}{G}"),

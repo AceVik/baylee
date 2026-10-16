@@ -10,7 +10,7 @@ card!(
     oracle_id = "a1b87d5d-9493-4001-8c7e-553f40de61ea",
     scryfall_id = "cdb63900-b600-47ab-9f53-cd1441df31d2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guan Yu's 1,000-Li March",
         mana_cost = mana!("{4}{W}{W}"),
