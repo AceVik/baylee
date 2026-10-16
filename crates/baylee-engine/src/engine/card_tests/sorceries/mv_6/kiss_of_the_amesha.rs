@@ -1,6 +1,6 @@
-// Oracle checklist: Target player gains 7 life and draws two cards.
-// Exercise the named effect, target/trigger boundary, exact recipient and outcome.
-#[allow(clippy::wildcard_imports)] // Shared card-test vocabulary.
+//! `cards/sorceries/mv_6/kiss_of_the_amesha.rs`, played.
+
+#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
 fn subject() -> CardIndex {
