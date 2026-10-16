@@ -53,3 +53,41 @@ mod life_matrix;
 mod cursed_rack;
 
 mod alchor_s_tomb;
+
+mod anchovy_banana_pizza;
+mod arcane_spyglass;
+mod cumber_stone;
+mod dingus_staff;
+mod emmessi_tome;
+
+/// Sets the counters of `kind` on `id` (harness door) and refreshes the offer.
+fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: CounterKind, n: u16) {
+    let state = engine.dev_state_mut(PlayerId::new(0)).expect("harness");
+    state.object_mut(id).expect("object").counters.set(kind, n);
+    state.invalidate_projections();
+    engine.refresh_offer();
+}
+mod five_hundred_year_diary;
+mod empowered_autogenerator;
+mod font_of_mythos;
+mod goblin_boom_keg;
+mod gemstone_array;
+mod gruul_war_plow;
+mod hedron_archive;
+mod grafted_skullcap;
+mod isolation_cell;
+mod erratic_portal;
+mod jade_idol;
+mod lux_cannon;
+mod magnetic_mine;
+mod mishra_s_groundbreaker;
+mod otherworld_atlas;
+mod pentagram_of_the_ages;
+mod relic_of_sauron;
+mod ring_of_the_lucii;
+mod seer_s_sundial;
+mod skullmead_cauldron;
+mod time_bomb;
+mod tower_of_calamities;
+mod trading_post;
+mod unbender_tine;
