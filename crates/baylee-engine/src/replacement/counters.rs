@@ -225,6 +225,7 @@ pub fn remove_counters_by(
     n: u16,
     by: Option<baylee_core::ids::PlayerId>,
 ) -> u16 {
+    let defeat = crate::trigger::battles::removal_event(state, id, kind, n);
     let mut taken = 0;
     if let Some(obj) = state.object_mut(id) {
         let version = obj.version;
@@ -241,6 +242,9 @@ pub fn remove_counters_by(
             old,
             new,
         });
+    }
+    if let Some(event) = defeat {
+        state.journal.record(event);
     }
     state.invalidate_projections();
     crate::resolve::linked_counters::expire(state);

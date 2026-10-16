@@ -331,3 +331,82 @@ fn cuombajj_witches_controller_selects_the_opponent_independently_of_first_targe
     assert_eq!(e.state().players[1].life, 19);
     assert_eq!(e.state().players[2].life, 20);
 }
+
+#[test]
+fn cuombajj_witches_either_slot_and_both_slots_can_damage_a_real_siege() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for mode in 0..3 {
+        let (mut e, battle) = battle_kit::game(6910 + mode, &[cuombajj_witches()], &[]);
+        activate(&mut e, p0, cuombajj_witches(), 0);
+        let Pending::ChooseTargets { options, .. } = e.pending() else {
+            panic!("first target");
+        };
+        assert!(options.contains(&battle));
+        choose(
+            &mut e,
+            p0,
+            (mode != 1).then_some(battle),
+            (mode == 1).then_some(p1),
+        );
+        assert_eq!(e.pending().asked(), Some(p1));
+        let Pending::ChooseTargets { options, .. } = e.pending() else {
+            panic!("second target");
+        };
+        assert!(options.contains(&battle));
+        choose(
+            &mut e,
+            p1,
+            (mode != 0).then_some(battle),
+            (mode == 0).then_some(p1),
+        );
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            battle_kit::defense(&e, battle),
+            if mode == 2 { 3 } else { 4 }
+        );
+        assert_eq!(e.state().object(battle).unwrap().damage, 0);
+        assert_eq!(e.state().players[0].life, 20);
+        assert_eq!(e.state().players[1].life, if mode == 2 { 20 } else { 19 });
+        assert_eq!(
+            e.state()
+                .object(battle_kit::knight(&e).unwrap())
+                .unwrap()
+                .damage,
+            0
+        );
+    }
+}
+
+#[test]
+fn cuombajj_witches_same_siege_target_defeats_it_and_casts_its_actual_back() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for cast_back in [false, true] {
+        let (mut e, battle) = battle_kit::game(6913, &[cuombajj_witches()], &[lightning_bolt()]);
+        battle_kit::float(&mut e, ManaColor::Red, 1);
+        cast_with_floating(&mut e, p0, lightning_bolt());
+        aim_at(&mut e, p0, battle);
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(battle_kit::defense(&e, battle), 2);
+        activate(&mut e, p0, cuombajj_witches(), 0);
+        choose(&mut e, p0, Some(battle), None);
+        choose(&mut e, p1, Some(battle), None);
+        battle_kit::await_defeat_cast(&mut e, battle);
+        assert_eq!(battle_kit::defense(&e, battle), 0);
+        if cast_back {
+            battle_kit::accept_back(&mut e, battle);
+        } else {
+            e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+                .unwrap();
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().object(battle).unwrap().zone, Zone::Exile);
+        }
+        let witches = on_battlefield(&e, p0, cuombajj_witches()).unwrap();
+        assert_eq!(
+            pt(&e, witches),
+            if cast_back { (2, 4) } else { (1, 3) },
+            "only the actually cast back face supplies its anthem"
+        );
+    }
+}

@@ -319,7 +319,8 @@ pub fn describe(action: &PlayerAction) -> String {
                 .map(|(c, d)| {
                     let at = match d {
                         baylee_core::ids::Defender::Player(p) => player(*p),
-                        baylee_core::ids::Defender::Planeswalker(o) => tag(*o),
+                        baylee_core::ids::Defender::Planeswalker(o)
+                        | baylee_core::ids::Defender::Battle(o) => tag(*o),
                     };
                     format!("{} → {at}", tag(*c))
                 })

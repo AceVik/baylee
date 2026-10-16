@@ -258,7 +258,7 @@ impl LogBook {
         let new = tail.entries.get(skip..).unwrap_or_default();
         for entry in new {
             if let LogEvent::Attacked {
-                defending: Defender::Planeswalker(id),
+                defending: Defender::Planeswalker(id) | Defender::Battle(id),
                 ..
             } = entry.event
                 && let Some(object) = view.object(id)
@@ -864,6 +864,7 @@ impl Writer<'_> {
             CounterKind::Lore => (Phrase::LogCounterLore, Phrase::LogCountersLore, None),
             CounterKind::Bore => (Phrase::LogCounterBore, Phrase::LogCountersBore, None),
             CounterKind::Shield => (Phrase::LogCounterShield, Phrase::LogCountersShield, None),
+            CounterKind::Defense => (Phrase::LogCounterDefense, Phrase::LogCountersDefense, None),
             CounterKind::Time => (Phrase::LogCounterTime, Phrase::LogCountersTime, None),
             CounterKind::Charge => (Phrase::LogCounterCharge, Phrase::LogCountersCharge, None),
             CounterKind::Poison => (Phrase::LogCounterPoison, Phrase::LogCountersPoison, None),
@@ -904,6 +905,13 @@ impl Writer<'_> {
                 false,
                 self.defenders.get(&id).map_or_else(
                     || self.neutral(Phrase::LogAPlaneswalker),
+                    |named| self.known(id, named.card, None, &named.name),
+                ),
+            ),
+            Defender::Battle(id) => (
+                false,
+                self.defenders.get(&id).map_or_else(
+                    || self.neutral(Phrase::LogABattle),
                     |named| self.known(id, named.card, None, &named.name),
                 ),
             ),
@@ -1159,7 +1167,7 @@ impl Writer<'_> {
                 Piece {
                     subject: match defending {
                         Defender::Player(player) => Some(*player),
-                        Defender::Planeswalker(_) => None,
+                        Defender::Planeswalker(_) | Defender::Battle(_) => None,
                     },
                     ..self.phrase(phrase, &[defender, self.object(attacker)])
                 }
@@ -2596,7 +2604,7 @@ mod tests {
             }
             | LogEvent::Counters { .. }
             | LogEvent::Attacked {
-                defending: Defender::Planeswalker(_),
+                defending: Defender::Planeswalker(_) | Defender::Battle(_),
                 ..
             }
             | LogEvent::Blocked { .. }

@@ -199,6 +199,7 @@ fn a_treasure_carries_the_ability_printed_on_it() {
             power: None,
             toughness: None,
             loyalty: None,
+            defense: None,
             color_identity: baylee_core::color::ColorSet::EMPTY,
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,

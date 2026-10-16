@@ -75,6 +75,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         subtypes.insert(subtype);
     }
     Some(Cow::Owned(PublicObject {
+        battle_protector: None,
         id,
         card: Some(held.card),
         rules: None,

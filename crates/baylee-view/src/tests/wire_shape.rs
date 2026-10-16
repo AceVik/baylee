@@ -123,10 +123,11 @@ fn core_samples() -> Vec<(&'static str, String)> {
     let defenders = [
         Defender::Player(PlayerId::new(1)),
         Defender::Planeswalker(ObjectId::new(12, 3)),
+        Defender::Battle(ObjectId::new(13, 2)),
     ];
     for defender in defenders {
         match defender {
-            Defender::Player(_) | Defender::Planeswalker(_) => {}
+            Defender::Player(_) | Defender::Planeswalker(_) | Defender::Battle(_) => {}
         }
     }
     for color in ManaColor::ALL {
@@ -328,7 +329,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 79: Shield counter variant; imported damage and counter-replacement
     // choices also require a reader that understands their new variants.
     // 80: imported damage-clearing replacement prompt; local view shape unchanged.
-    const RECORDED: (u32, u64) = (80, 4_217_870_854_424_574_859);
+    // 81: Battle defender/Defense counter variants and public battle protector.
+    const RECORDED: (u32, u64) = (81, 6_787_793_169_872_021_519);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

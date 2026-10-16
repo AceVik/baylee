@@ -153,6 +153,11 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
     if let Some((question, pending)) = super::auras::question(state, &mut entry) {
         return Some(ask(state, entry, question, pending));
     }
+    if let Some((question, pending)) = super::battles::question(state, &mut entry) {
+        state.entries.counter_transaction = true;
+        return Some(ask(state, entry, question, pending));
+    }
+    state.entries.counter_transaction |= entry.battle_protector.is_some();
     if let Some(pending) = super::counters::question(state, &mut entry) {
         return Some(ask(state, entry, Question::Counters, pending));
     }
@@ -195,6 +200,9 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         .pop_front()
         .expect("entry continuation");
     match (question, action) {
+        (Question::BattleProtector, PlayerAction::ChoosePlayer(player)) => {
+            entry.battle_protector = Some(*player);
+        }
         (Question::Counters, PlayerAction::YesNo(apply)) => {
             entry.counter_plans[entry.next_counter].answer(*apply);
         }

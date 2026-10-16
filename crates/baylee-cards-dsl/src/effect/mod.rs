@@ -992,6 +992,11 @@ pub enum Effect {
     },
     /// Exile the source object (Temporal Mastery's self-exile rider).
     ExileSource,
+    /// Exile the exact defeated Siege, then offer to cast its transformed face for free.
+    ExileSourceThenCastTransformed {
+        /// Whether the source's underlying physical card can be cast transformed.
+        cast: bool,
+    },
     /// Remove each target from combat (CR 506.4): it stops being an
     /// attacking or blocking creature. With `unblock`, "creatures it was
     /// blocking that had become blocked by only that creature this combat

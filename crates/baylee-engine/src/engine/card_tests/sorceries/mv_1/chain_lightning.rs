@@ -316,3 +316,47 @@ fn the_targets_current_controller_decides_rather_than_its_owner() {
     assert_eq!(kit::life(&e, kit::P1), 17);
     assert_eq!(kit::pool_total(&e, kit::P1), 2);
 }
+
+#[test]
+fn battle_controller_pays_rather_than_protector_and_the_copy_can_defeat_it() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let (mut e, battle) = battle_kit::game(6914, &[], &[subject()]);
+    assert_eq!(e.state().object(battle).unwrap().controller, kit::P0);
+    assert_eq!(battle_kit::protector(&e, battle), kit::P1);
+    kit::float(&mut e, kit::P0, &[(ManaColor::Red, 3)]);
+    kit::float(&mut e, kit::P1, &[(ManaColor::Red, 2)]);
+    announce(&mut e, &[battle], &[]);
+    payment(&mut e, kit::P0);
+    assert_eq!(battle_kit::defense(&e, battle), 2);
+    assert_eq!(e.state().object(battle).unwrap().damage, 0);
+    accept_copy(&mut e, kit::P0);
+    assert!(
+        matches!(e.pending(), Pending::ChooseTargets { player, reason: TargetPrompt::Retarget { .. }, .. } if *player == kit::P0)
+    );
+    kit::aim(&mut e, &[], &[]);
+    assert_eq!(copies(&e), 1);
+    let copy = *e.state().zones.list(ZoneLocation::Stack).last().unwrap();
+    assert_eq!(e.state().object(copy).unwrap().controller, kit::P0);
+    payment(&mut e, kit::P0);
+    assert_eq!(battle_kit::defense(&e, battle), 0);
+    assert_eq!(
+        e.state().object(battle).unwrap().zone,
+        Zone::Battlefield,
+        "zero defense does not bypass the resolving spell's payment clause"
+    );
+    assert_eq!(
+        kit::pool_total(&e, kit::P1),
+        2,
+        "protector's mana was never used"
+    );
+    e.apply(kit::P0, PlayerAction::YesNo(false)).unwrap();
+    battle_kit::await_defeat_cast(&mut e, battle);
+    battle_kit::accept_back(&mut e, battle);
+    assert_eq!(
+        e.state().per_turn.spells_cast,
+        vec![3, 0],
+        "Battle front, Chain, and actual free back cast; copying adds no cast"
+    );
+    assert_eq!(kit::life(&e, kit::P0), 20);
+    assert_eq!(kit::life(&e, kit::P1), 20);
+}

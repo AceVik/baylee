@@ -59,6 +59,9 @@ impl GameState {
             .chain(indirect.iter().map(|&id| (id, true)));
         for (id, indirectly) in phasing.collect::<Vec<_>>() {
             self.remember_source_attachment(id);
+            if let Some(reference) = self.source_identity(id) {
+                self.combat.remove_defender_from_combat(reference);
+            }
             if let Some(obj) = self.object_mut(id) {
                 obj.status.insert(Status::PHASED_OUT);
                 if indirectly {

@@ -574,6 +574,15 @@ impl GameState {
         // Historical tallies remain available to that incarnation's pending
         // abilities. New incarnations have distinct keys (CR 400.7).
         let spell_version = self.object(id).map(|o| o.version);
+        if from_zone == Zone::Battlefield
+            && let Some(version) = spell_version
+        {
+            self.combat
+                .remove_defender_from_combat(baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version,
+                });
+        }
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -584,6 +593,8 @@ impl GameState {
             obj.timestamp = ts;
             obj.controlled_since = ts;
             obj.version = obj.version.wrapping_add(1);
+            obj.riders
+                .retain(|rider| !matches!(rider, crate::object::Rider::BattleProtector(_)));
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
             // battlefield and the stack, so a creature that died under an
@@ -629,6 +640,7 @@ impl GameState {
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
                             | crate::object::Rider::EntryCopyApplied
+                            | crate::object::Rider::BattleProtector(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent

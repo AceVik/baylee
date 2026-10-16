@@ -133,6 +133,12 @@ pub(crate) fn header_scryfall_id(content: &str) -> Option<&str> {
 /// next run repairs it. It is not written when nothing was stale, because
 /// then it is already there.
 pub(crate) fn refresh_payload_cache(names: &[String], agent: &ureq::Agent, cache: &Path) {
+    if let Err(error) = scryfall::migrate_defense_cache(agent, cache) {
+        eprintln!(
+            "scryfall: targeted defense migration failed: {error}; cache remains stale for retry"
+        );
+        return;
+    }
     let stale = scryfall::schema_stale(cache);
     if stale && cache.exists() {
         eprintln!(

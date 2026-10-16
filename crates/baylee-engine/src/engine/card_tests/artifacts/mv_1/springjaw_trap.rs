@@ -165,3 +165,25 @@ fn trap_damages_creatures_and_planeswalkers_for_three() {
     let loyalty_after = counters_on(&walker, jace_id, CounterKind::Loyalty);
     assert_eq!(loyalty_after, loyalty_before - 3);
 }
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6904, &[springjaw_trap()], &[]);
+    battle_kit::float(&mut e, ManaColor::Red, 4);
+    let source = on_battlefield(&e, p0, springjaw_trap()).unwrap();
+    activate(&mut e, p0, springjaw_trap(), 0);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    assert_eq!(
+        e.state().object(source).unwrap().zone,
+        Zone::Graveyard,
+        "the damage uses the sacrificed source's identity"
+    );
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 3);
+}

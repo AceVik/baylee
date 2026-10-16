@@ -827,6 +827,7 @@ impl Effect {
             | Effect::SkipNextTurn
             | Effect::TakeExtraTurn
             | Effect::ExileSource
+            | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TapTarget
             | Effect::TapEventObject
             | Effect::SuppressUntap { .. }

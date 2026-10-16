@@ -212,7 +212,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 CounterKind::Time | CounterKind::Lore => m.clock = Some(*kind),
                 // A custom counter is named by the card that prints it and
                 // means whatever that card says; there is no rule to read.
-                CounterKind::Bore | CounterKind::Custom(_) => {}
+                CounterKind::Bore | CounterKind::Defense | CounterKind::Custom(_) => {}
             },
             Effect::PumpTarget {
                 power,
@@ -351,7 +351,12 @@ pub(crate) fn damage_to_finish(o: &PublicObject) -> i64 {
     } else {
         0
     };
-    creature.max(walker).max(1)
+    let battle = if o.types.contains(TypeSet::BATTLE) {
+        i64::from(o.counter_count(baylee_view::CounterKind::Defense))
+    } else {
+        0
+    };
+    creature.max(walker).max(battle).max(1)
 }
 
 pub(crate) fn material(o: &PublicObject) -> i64 {

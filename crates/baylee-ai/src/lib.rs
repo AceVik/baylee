@@ -227,7 +227,7 @@ impl HeuristicAgent {
             .iter()
             .filter_map(|d| match d {
                 Defender::Player(p) => Some(*p),
-                Defender::Planeswalker(_) => None,
+                Defender::Planeswalker(_) | Defender::Battle(_) => None,
             })
             .collect();
         if squad.is_empty() || opponents.is_empty() {

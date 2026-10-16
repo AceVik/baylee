@@ -553,7 +553,24 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn run_state_based_actions(&mut self) -> sba::SbaOutcome {
         let finished_sagas = self.finished_sagas();
         let since = self.state.journal.last_seq();
-        let outcome = sba::run_with_sagas(&mut self.state, &self.lookup, &finished_sagas);
+        let queued_sources: SmallVec<[baylee_core::ids::DamageSourceRef; 4]> = self
+            .trigger_queue
+            .iter()
+            .filter_map(|trigger| {
+                trigger
+                    .source_version
+                    .map(|version| baylee_core::ids::DamageSourceRef {
+                        object: trigger.source,
+                        version,
+                    })
+            })
+            .collect();
+        let outcome = sba::run_with_context(
+            &mut self.state,
+            &self.lookup,
+            &finished_sagas,
+            &queued_sources,
+        );
         crate::graveyard_order::capture(&mut self.state, since);
         outcome
     }

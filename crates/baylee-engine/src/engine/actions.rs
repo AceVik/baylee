@@ -615,6 +615,32 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                if let Some(PlanKind::EntryBattleProtector { battle }) = self.pending_plan {
+                    let valid = self.state.object(battle.object).is_some_and(|object| {
+                        object.version == battle.version
+                            && object.zone == Zone::Battlefield
+                            && object.controller == player
+                            && object
+                                .characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::BATTLE)
+                            && crate::battle::eligible_protectors(&self.state, object)
+                                .contains(&chosen)
+                    });
+                    if !valid {
+                        return Err(EngineError::IllegalAction("invalid entry battle protector"));
+                    }
+                    crate::battle::set_protector(&mut self.state, battle, chosen);
+                    self.pending_plan = None;
+                    return Ok(());
+                }
+                if let Some(PlanKind::BattleProtector { battle }) = self.pending_plan {
+                    if !crate::battle::sba::answer(&mut self.state, battle, player, chosen) {
+                        return Err(EngineError::IllegalAction("invalid battle protector"));
+                    }
+                    self.pending_plan = None;
+                    return Ok(());
+                }
                 if let Some(PlanKind::ChooseOpponent { object }) = self.pending_plan {
                     self.pending_plan = None;
                     if let Some(obj) = self.state.object_mut(object) {
@@ -1191,6 +1217,9 @@ impl<L: CardLookup> Engine<L> {
                                 self.put_starting_loyalty(object);
                             }
                         }
+                        if !before_entry {
+                            self.initialize_battle_entry(object);
+                        }
                     }
                     PlanKind::EntryReveal { .. } => {
                         unreachable!("entry-reveal plans are answered beside Pending::ChooseCards")
@@ -1236,6 +1265,11 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::ChooseOpponent { .. } => {
                         unreachable!("opponent plans are answered via ChoosePlayer")
+                    }
+                    PlanKind::BattleProtector { .. } | PlanKind::EntryBattleProtector { .. } => {
+                        unreachable!(
+                            "mandatory battle protector plans are answered via ChoosePlayer"
+                        )
                     }
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
@@ -2338,9 +2372,7 @@ impl<L: CardLookup> Engine<L> {
                     .attacked
                     .push((creature, version, player));
                 self.state.combat.participants.push((creature, version));
-                self.state
-                    .combat
-                    .remember_defender(creature, version, defending);
+                crate::combat::remember_attack(&mut self.state, creature, defending);
             }
         }
         self.state

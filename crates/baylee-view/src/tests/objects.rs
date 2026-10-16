@@ -125,6 +125,29 @@ fn different_chosen_names_never_share_a_board_pile() {
 }
 
 #[test]
+fn battle_protectors_are_public_and_keep_different_designations_apart() {
+    let mut a = obj(1, 0);
+    let mut b = obj(2, 0);
+    a.battle_protector = Some(PlayerId::new(1));
+    assert_ne!(a.summary_key(), b.summary_key());
+    b.battle_protector = a.battle_protector;
+    assert_eq!(a.summary_key(), b.summary_key());
+    b.battle_protector = Some(PlayerId::new(2));
+    assert_ne!(a.summary_key(), b.summary_key());
+    let json = serde_json::to_value(&a).unwrap();
+    let decoded: PublicObject = serde_json::from_value(json).unwrap();
+    assert_eq!(decoded.battle_protector, Some(PlayerId::new(1)));
+    let json = serde_json::to_value(obj(1, 0)).unwrap();
+    assert!(json.get("battle_protector").is_none());
+    assert_eq!(
+        serde_json::from_value::<PublicObject>(json)
+            .unwrap()
+            .battle_protector,
+        None
+    );
+}
+
+#[test]
 fn chosen_opponents_are_public_and_keep_different_vises_apart() {
     let mut a = obj(1, 0);
     let mut b = obj(2, 0);
@@ -328,6 +351,9 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         ("summoning_sick", |o| o.summoning_sick = true),
         ("token", |o| o.token = Some(3)),
         ("owner", |o| o.owner = PlayerId::new(1)),
+        ("battle_protector", |o| {
+            o.battle_protector = Some(PlayerId::new(1))
+        }),
         ("supertypes", |o| o.supertypes = SupertypeSet::LEGENDARY),
         ("subtypes", |o| {
             o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));

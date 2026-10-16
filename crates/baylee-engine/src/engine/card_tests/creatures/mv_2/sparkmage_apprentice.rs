@@ -1,4 +1,4 @@
-// Oracle checklist: both players; own/opponent creature and planeswalker resolve; lethal boundary; exact damage/loyalty/life; noncreature exclusion; battle legal offer only (known defense-resolution gap).
+// Oracle checklist: both players; own/opponent creature and planeswalker resolve; lethal boundary; exact damage/loyalty/life; noncreature exclusion; actual Battle defense loss and unchanged bystanders.
 #[allow(clippy::wildcard_imports)] // Shared card-test harness.
 use super::*;
 
@@ -119,27 +119,21 @@ fn any_target_creatures_and_planeswalkers_resolve_exact_damage() {
     }
 }
 
-// Known engine gap: battles are legal targets, but defense counters/damage
-// resolution are not implemented. This test proves the legal offer only.
 #[test]
-fn battle_is_offered_as_any_target() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let battle = baylee_core::generated::index::INVASION_OF_IKORIA;
-    let mut game = Duel::new(SEED, forest())
-        .battlefield(0, &[mountain(), mountain()])
-        .battlefield(1, &[battle])
-        .hand(0, &[subject()])
-        .start();
-    keep_mulligans(&mut game);
-    reach_main_phase(&mut game, p0);
-    let target = on_battlefield(&game, p1, battle).unwrap();
-    cast_from_hand(&mut game, p0, subject());
-    pass_until(&mut game, |e| {
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6902, &[], &[subject()]);
+    battle_kit::float(&mut e, ManaColor::Red, 2);
+    cast_with_floating(&mut e, p0, subject());
+    pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-
-    let Pending::ChooseTargets { options, .. } = game.pending() else {
-        panic!("target menu")
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
     };
-    assert!(options.contains(&target));
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 1);
 }

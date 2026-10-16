@@ -22,6 +22,7 @@ use smallvec::SmallVec;
 
 mod after_entry;
 mod attachments;
+mod battle_defeat;
 mod behold;
 mod bird_entry;
 mod names;

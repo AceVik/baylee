@@ -22,6 +22,7 @@ card!(
             mana_cost = mana!("{X}{G}{G}"),
             types = TypeSet::BATTLE,
             subtypes = &[subtypes::battle::SIEGE],
+            defense = Some(6),
         ),
         face!(
             name = "Zilortha, Apex of Ikoria",

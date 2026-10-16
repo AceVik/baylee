@@ -281,6 +281,8 @@ pub enum Defender {
     Player(PlayerId),
     /// A planeswalker the defending player controls.
     Planeswalker(ObjectId),
+    /// A battle protected by the defending player.
+    Battle(ObjectId),
 }
 
 #[cfg(test)]

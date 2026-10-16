@@ -562,6 +562,7 @@ fn cycling_is_read_as_the_ability_the_rules_define() {
         power: None,
         toughness: None,
         loyalty: None,
+        defense: None,
         card_faces: None,
         image_uris: None,
         image_status: None,

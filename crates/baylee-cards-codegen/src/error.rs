@@ -5,6 +5,16 @@ use std::path::PathBuf;
 /// Everything that can go wrong during codegen.
 #[derive(Debug, thiserror::Error)]
 pub enum CodegenError {
+    /// A Battle omits numeric defense, or another card incorrectly supplies it.
+    #[error(
+        "invalid defense {value:?} on {card}; Battles require a u16 defense and other cards none"
+    )]
+    Defense {
+        /// Card whose metadata is invalid.
+        card: String,
+        /// Supplied printed value, absent for a stale or incomplete Battle payload.
+        value: Option<String>,
+    },
     /// Filesystem failure.
     #[error("io error at {path}: {source}")]
     Io {

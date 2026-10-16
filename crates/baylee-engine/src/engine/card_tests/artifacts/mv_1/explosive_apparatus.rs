@@ -91,10 +91,9 @@ fn insufficient_mana_and_tapped_source_are_not_offered() {
 }
 
 // Checklist: actually resolve both player recipients and planeswalker damage.
-// Battle target offer is covered, but defense-counter resolution has no engine
-// representation/API. This card cannot be promoted as fully covered yet.
+// The separate real-Siege scenario covers Battle damage through resolution.
 #[test]
-fn any_target_includes_players_planeswalkers_and_battles() {
+fn any_target_includes_players_and_planeswalkers() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     for category in 0..3 {
@@ -102,18 +101,12 @@ fn any_target_includes_players_planeswalkers_and_battles() {
             .battlefield(0, &[subject(), island(), island(), island()])
             .battlefield(
                 1,
-                &[
-                    jace_the_mind_sculptor(),
-                    index::INVASION_OF_IKORIA,
-                    index::HILL_GIANT,
-                    sol_ring(),
-                ],
+                &[jace_the_mind_sculptor(), index::HILL_GIANT, sol_ring()],
             )
             .start();
         keep_mulligans(&mut e);
         assert!(walk_to_own_main(&mut e, p0));
         let walker = on_battlefield(&e, p1, jace_the_mind_sculptor()).unwrap();
-        let battle = on_battlefield(&e, p1, index::INVASION_OF_IKORIA).unwrap();
         let before = [e.state().players[0].life, e.state().players[1].life];
         let loyalty = e
             .state()
@@ -132,7 +125,6 @@ fn any_target_includes_players_planeswalkers_and_battles() {
             panic!("any target")
         };
         assert!(options.contains(&walker));
-        assert!(options.contains(&battle));
         assert!(player_options.contains(&p0));
         assert!(player_options.contains(&p1));
         let recipient = if category == 0 { p0 } else { p1 };
@@ -197,4 +189,26 @@ fn target_leaving_in_response_prevents_damage_but_not_cost() {
     assert!(in_hand(&e, p1, index::HILL_GIANT).is_some());
     assert!(in_graveyard(&e, p0, subject()).is_some());
     assert_eq!(e.state().object(bystander).unwrap().damage, 0);
+}
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6903, &[subject()], &[]);
+    battle_kit::float(&mut e, ManaColor::Red, 3);
+    let source = on_battlefield(&e, p0, subject()).unwrap();
+    activate(&mut e, p0, subject(), 0);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    assert_eq!(
+        e.state().object(source).unwrap().zone,
+        Zone::Graveyard,
+        "the damage uses the sacrificed source's identity"
+    );
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 2);
 }

@@ -25,6 +25,7 @@ mod options;
 mod permissions;
 mod pricing;
 mod stages;
+mod transformed;
 use pricing::FrozenReduction;
 
 /// The current replicate-copy limit. Ordinary X choices are bounded by
@@ -96,6 +97,8 @@ pub(crate) struct CastWizard {
     pub option: Option<CastModeKind>,
     /// Public cost route before separating its face and modal choices.
     pub announced: Option<CastModeKind>,
+    /// An effect constrains this cast to a transforming back face.
+    pub forced_face: Option<u8>,
     /// Consumed only after this cast has successfully paid every cost.
     pub north_star: Option<baylee_core::ids::EffectId>,
     /// Permission captured before paying any costs; consumed only on success.
@@ -173,7 +176,10 @@ pub(crate) struct CastWizard {
 }
 
 impl CastWizard {
-    fn face_index(&self) -> usize {
+    pub(super) fn face_index(&self) -> usize {
+        if let Some(face) = self.forced_face {
+            return usize::from(face);
+        }
         match self.announced.or(self.option) {
             Some(CastModeKind::Face(face) | CastModeKind::EscapeGranted { face, .. }) => face,
             _ => 0,
@@ -209,6 +215,7 @@ impl CastWizard {
         let mut hash = crate::state::structural_fingerprint(&(
             self.permission,
             self.announced,
+            self.forced_face,
             self.returned,
             self.north_star,
         ))
@@ -390,6 +397,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: None,
             announced: None,
+            forced_face: None,
             north_star: None,
             permission: None,
             permissions: Vec::new(),
@@ -459,6 +467,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Normal),
             announced: None,
+            forced_face: None,
             north_star: None,
             permission: None,
             permissions: Vec::new(),
@@ -577,6 +586,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Miracle),
             announced: None,
+            forced_face: None,
             north_star: None,
             permission: None,
             permissions: Vec::new(),
@@ -704,7 +714,7 @@ impl<L: CardLookup> Engine<L> {
         if options.is_empty() {
             return Err(EngineError::IllegalAction("cannot pay spell cost increase"));
         }
-        self.start_free_cast_options(player, card, options, false)
+        self.start_free_cast_options(player, card, options, false, None)
     }
 
     fn start_free_cast_options(
@@ -713,6 +723,7 @@ impl<L: CardLookup> Engine<L> {
         card: ObjectId,
         options: Vec<CastModeDesc>,
         by_effect: bool,
+        forced_face: Option<u8>,
     ) -> Result<(), EngineError> {
         let (option, stage) = match options.as_slice() {
             [] => return Err(EngineError::IllegalAction("no legal free play")),
@@ -724,6 +735,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option,
             announced: None,
+            forced_face,
             north_star: None,
             permission: None,
             permissions: Vec::new(),
@@ -794,6 +806,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: if single { option } else { None },
             announced: None,
+            forced_face: None,
             north_star: None,
             permission: None,
             permissions: Vec::new(),
@@ -869,6 +882,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Normal),
             announced: None,
+            forced_face: None,
             north_star: None,
             permission: None,
             permissions: Vec::new(),

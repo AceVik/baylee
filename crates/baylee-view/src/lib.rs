@@ -230,7 +230,9 @@ pub use turn::{DayNight, Phase, Step};
 /// choices, and shield/additional-counter replacement prompts. Older readers
 /// cannot decode these new counter and imported engine choice variants.
 /// Version 80 adds the imported damage-clearing destruction replacement prompt.
-pub const VIEW_VERSION: u32 = 80;
+/// Version 81 adds battle defenders and defense counters. The defaulted
+/// optional battle protector field is an additive public designation.
+pub const VIEW_VERSION: u32 = 81;
 
 // ------------------------------------------------------------------- targets
 

@@ -331,6 +331,8 @@ pub struct FaceDef {
     pub toughness: Option<i16>,
     /// Loyalty (planeswalkers).
     pub loyalty: Option<u16>,
+    /// Printed starting defense of a battle.
+    pub defense: Option<u16>,
     /// Alternative costs (pitch, evoke, conditional free — CR 601.2b).
     pub alternative_costs: &'static [crate::cost::AlternativeCost],
     /// Optional additional costs offered at cast (kicker, CR 702.33).
@@ -452,6 +454,7 @@ impl FaceDef {
         power: None,
         toughness: None,
         loyalty: None,
+        defense: None,
         alternative_costs: &[],
         additional_costs: &[],
         kicked_targets: None,

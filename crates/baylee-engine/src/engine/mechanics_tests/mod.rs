@@ -16,6 +16,7 @@
 //! never the rule that is set.
 
 mod attacking_tokens;
+mod battle_sba;
 mod blocks;
 mod branches;
 mod combat_memory;

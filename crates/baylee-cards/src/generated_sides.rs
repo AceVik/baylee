@@ -24,7 +24,7 @@
 use baylee_core::ids::CardIndex;
 
 /// Cards whose pinned printing has a second picture.
-pub static BACK_IMAGE: [CardIndex; 110] = [
+pub static BACK_IMAGE: [CardIndex; 111] = [
     CardIndex::new(12269),
     CardIndex::new(15585),
     CardIndex::new(15830),
@@ -96,6 +96,7 @@ pub static BACK_IMAGE: [CardIndex; 110] = [
     CardIndex::new(22446),
     CardIndex::new(22522),
     CardIndex::new(22794),
+    CardIndex::new(25572),
     CardIndex::new(25578),
     CardIndex::new(25710),
     CardIndex::new(26816),
@@ -138,7 +139,7 @@ pub static BACK_IMAGE: [CardIndex; 110] = [
 ];
 
 /// Cards that are double-faced cards under CR 712.1.
-pub static DOUBLE_FACED: [CardIndex; 112] = [
+pub static DOUBLE_FACED: [CardIndex; 113] = [
     CardIndex::new(12269),
     CardIndex::new(15585),
     CardIndex::new(15830),
@@ -212,6 +213,7 @@ pub static DOUBLE_FACED: [CardIndex; 112] = [
     CardIndex::new(22522),
     CardIndex::new(22794),
     CardIndex::new(24715),
+    CardIndex::new(25572),
     CardIndex::new(25578),
     CardIndex::new(25710),
     CardIndex::new(26816),
@@ -258,6 +260,7 @@ pub static DOUBLE_FACED: [CardIndex; 112] = [
 /// (`ScryfallCard::quarter_turns`), sorted by card id.
 pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(4985), &[1, 1]),
+    (CardIndex::new(25572), &[1, 0]),
     (CardIndex::new(25578), &[1, 0]),
     (CardIndex::new(29314), &[1, 1]),
 ];
@@ -55624,6 +55627,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(25533),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25572),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
             is_un: false,
         },
     ),

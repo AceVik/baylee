@@ -47,6 +47,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 implicit_source && matches!(filter, Filter::This)
             }
             Effect::ReflectNextChosenSourceDamage
+            | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::PutSourceFromHandOntoBattlefield
             | Effect::SacrificeSelf
             | Effect::UntapSelf

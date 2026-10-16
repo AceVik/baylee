@@ -8976,3 +8976,6 @@ Warship Flight Crew
 Worf, Chief Tactical Officer
 Xenobotanist
 Xindi Surveyors
+
+# Battle rules regression fixture: a Siege with a token ETB and a back-face anthem.
+Invasion of Belenon // Belenon War Anthem

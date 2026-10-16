@@ -23,6 +23,7 @@
 //! reviewable: no item was rewritten, only re-filed.
 
 mod activation_cost_bounds;
+mod battle_damage_kit;
 mod alpha_completion_review;
 mod archon_kismet;
 mod artifacts;

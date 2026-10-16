@@ -101,33 +101,26 @@ impl DamageWork {
 impl Part {
     fn commit_object(&self, state: &mut GameState, target: baylee_core::ids::ObjectId) {
         let n = self.view.amount;
-        if state
+        let counters = u16::try_from(n).unwrap_or(u16::MAX);
+        let types = state
             .object(target)
-            .is_some_and(|o| o.characteristics().types.contains(TypeSet::PLANESWALKER))
-        {
-            crate::replacement::remove_counters(
-                state,
-                target,
-                CounterKind::Loyalty,
-                u16::try_from(n).unwrap_or(u16::MAX),
-            );
+            .map_or(TypeSet::EMPTY, |object| object.characteristics().types);
+        // CR 120.3h / 310.6: defense removal is a damage result, not a
+        // limit on the damage dealt. Hybrids receive every applicable result.
+        if types.contains(TypeSet::BATTLE) {
+            crate::replacement::remove_counters(state, target, CounterKind::Defense, counters);
         }
-        if state
-            .object(target)
-            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
-            && self.keywords.contains(KeywordSet::INFECT)
+        if types.contains(TypeSet::PLANESWALKER) {
+            crate::replacement::remove_counters(state, target, CounterKind::Loyalty, counters);
+        }
+        if types.contains(TypeSet::CREATURE)
+            && let Some(obj) = state.object_mut(target)
         {
-            // Counter amounts were replaced before any damage result was
-            // committed, and are placed together after this damage pass.
-            if let Some(obj) = state.object_mut(target) {
-                obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
+            if !self.keywords.contains(KeywordSet::INFECT) {
+                obj.damage = obj.damage.saturating_add(counters);
             }
-        } else if let Some(obj) = state.object_mut(target)
-            && obj.characteristics().types.contains(TypeSet::CREATURE)
-        {
-            obj.damage = obj
-                .damage
-                .saturating_add(u16::try_from(n).unwrap_or(u16::MAX));
+            // Infect counter amounts were replaced before any damage result
+            // committed, and are placed together after this damage pass.
             obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
         }
         state.record_permanent_damage(

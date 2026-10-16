@@ -149,3 +149,22 @@ fn akoum_boulderfoot_trigger_deals_one_to_a_creature() {
     assert!(on_battlefield(&game, p1, llanowar_elves()).is_none());
     assert!(in_graveyard(&game, p1, llanowar_elves()).is_some());
 }
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6900, &[], &[akoum_boulderfoot_card()]);
+    battle_kit::float(&mut e, ManaColor::Red, 6);
+    cast_with_floating(&mut e, p0, akoum_boulderfoot_card());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 1);
+}

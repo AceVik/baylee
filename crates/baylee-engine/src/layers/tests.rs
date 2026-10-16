@@ -4,6 +4,7 @@ use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::EffectId;
 use baylee_core::types::TypeSet;
 
+mod battle_characteristics;
 mod indexed;
 
 static ANY_F: Filter = Filter::Any;

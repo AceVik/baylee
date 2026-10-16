@@ -97,6 +97,7 @@ fn counter_index(kind: CounterKind) -> usize {
         CounterKind::Finality => 16,
         CounterKind::Bore => 18,
         CounterKind::Shield => 19,
+        CounterKind::Defense => 20,
     }
 }
 
@@ -132,13 +133,14 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         CounterKind::Custom(9),
         CounterKind::Bore,
         CounterKind::Shield,
+        CounterKind::Defense,
     ];
     let printed: Vec<String> = every.iter().map(|k| k.badge().into_owned()).collect();
     assert_eq!(
         printed,
         vec![
             "+1/+1", "-1/-1", "LOY", "LORE", "TIME", "CHG", "PSN", "NRG", "RAD", "LL", "LVL",
-            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE", "SHIELD",
+            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE", "SHIELD", "DEF",
         ]
     );
     assert_eq!(
@@ -151,7 +153,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
     );
     assert_eq!(
         every.iter().map(|k| counter_index(*k)).collect::<Vec<_>>(),
-        (0..20).collect::<Vec<_>>(),
+        (0..21).collect::<Vec<_>>(),
         "the list is every kind exactly once, in declaration order"
     );
 
@@ -214,6 +216,7 @@ fn only_a_counter_that_changes_a_body_is_drawn_on_the_body() {
         CounterKind::Custom(1),
         CounterKind::Bore,
         CounterKind::Shield,
+        CounterKind::Defense,
     ] {
         assert!(!kind.is_power_toughness(), "{kind:?}");
     }
@@ -274,6 +277,25 @@ fn the_top_of_the_stack_is_the_last_entry() {
         view.object(ObjectId::new(10, 0)).map(|o| o.id),
         Some(ObjectId::new(10, 0)),
         "and the one underneath is still findable"
+    );
+}
+
+#[test]
+fn battle_defender_and_defense_counter_keep_their_wire_identity() {
+    let battle = baylee_core::ids::Defender::Battle(ObjectId::new(13, 2));
+    let wire = serde_json::to_string(&battle).unwrap();
+    assert!(wire.contains("Battle"));
+    assert_eq!(
+        serde_json::from_str::<baylee_core::ids::Defender>(&wire).unwrap(),
+        battle
+    );
+    assert_eq!(
+        serde_json::to_string(&CounterKind::Defense).unwrap(),
+        r#""Defense""#
+    );
+    assert_eq!(
+        serde_json::from_str::<CounterKind>(r#""Defense""#).unwrap(),
+        CounterKind::Defense
     );
 }
 

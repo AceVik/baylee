@@ -530,6 +530,9 @@ impl GameLog {
     ) {
         match event {
             GameEvent::SpeedTriggered { .. }
+            // Counter removal and the resulting triggered stack ability are
+            // logged separately; this event freezes intrinsic Siege eligibility.
+            | GameEvent::BattleDefeated { .. }
             | GameEvent::BecameTarget { .. }
             | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }

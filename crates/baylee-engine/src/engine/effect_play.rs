@@ -54,6 +54,11 @@ impl<L: CardLookup> Engine<L> {
     ) -> Option<Result<(), EngineError>> {
         let awaiting = self.resolution.as_ref()?.awaiting.as_ref()?;
         let subject = match awaiting {
+            AwaitingOp::BattleDefeatCast { card } => {
+                let card = *card;
+                self.answer_battle_defeat(player, cards, card);
+                return Some(Ok(()));
+            }
             AwaitingOp::LinkedPlay { .. } => {
                 self.answer_linked_play(player, cards);
                 return Some(Ok(()));
@@ -97,6 +102,26 @@ impl<L: CardLookup> Engine<L> {
             self.finish_nested_cast();
         }
         Some(Ok(()))
+    }
+
+    fn answer_battle_defeat(
+        &mut self,
+        player: PlayerId,
+        cards: &[ObjectId],
+        card: baylee_core::ids::DamageSourceRef,
+    ) {
+        let resolution = self.resolution.take().expect("battle defeat resolution");
+        self.effect_plays.push(EffectPlay {
+            resolution: Box::new(resolution),
+            control: None,
+            linked: None,
+            awaiting_land_entry: false,
+        });
+        if cards.first() != Some(&card.object)
+            || self.start_transformed_free_cast(player, card).is_err()
+        {
+            self.finish_nested_cast();
+        }
     }
 
     fn answer_linked_play(&mut self, player: PlayerId, cards: &[ObjectId]) {

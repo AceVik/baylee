@@ -1160,7 +1160,9 @@ impl Builder<'_, '_> {
                 Defender::Player(p) => {
                     format!("  {} = {}", Table::player_id(p), self.player_label(p))
                 }
-                Defender::Planeswalker(id) => format!("  {}", self.describe(id)),
+                Defender::Planeswalker(id) | Defender::Battle(id) => {
+                    format!("  {}", self.describe(id))
+                }
             };
             self.line(line);
         }

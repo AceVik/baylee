@@ -248,6 +248,7 @@ impl SpellForm {
                 base.power = Some(2);
                 base.toughness = Some(2);
                 base.loyalty = None;
+                base.defense = None;
                 base.produced_colors = baylee_core::color::ColorSet::EMPTY;
                 base.produced_colorless = false;
                 base.produced_chosen = false;

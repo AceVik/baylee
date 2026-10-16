@@ -153,12 +153,17 @@ impl GameState {
         for (id, before) in was {
             if self.object(id).is_some_and(|o| o.controller != before) {
                 self.restart_summoning_sickness(id);
+                self.combat.remove_from_combat(id);
+                if let Some(reference) = self.source_identity(id) {
+                    self.combat.remove_defender_from_combat(reference);
+                }
             }
         }
         ids.clear();
         self.projection_ids = ids;
         self.projected_cross_zone = cross_zone;
         self.characteristics_generation = generation;
+        crate::combat::recheck_defenders(self);
     }
 
     /// One walk of the refresh: projects `ids` through every layer and

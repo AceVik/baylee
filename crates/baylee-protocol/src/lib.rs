@@ -29,7 +29,8 @@ pub mod tape;
 /// Version 32 carries damage amount replacements, reflection, shield counters
 /// and shield/additional-counter replacement choices.
 /// Version 33 adds the damage-clearing destruction replacement prompt.
-pub const PROTOCOL_VERSION: u32 = 33;
+/// Version 34 adds battle defenders and defense counters to serialized choices.
+pub const PROTOCOL_VERSION: u32 = 34;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -308,7 +309,8 @@ mod tests {
         // decode.
         // 32: additional `DamageEffectKind` variants an older client cannot decode.
         // 33: damage-clearing destruction replacement prompt.
-        assert_eq!(PROTOCOL_VERSION, 33);
+        // 34: Battle defender and Defense counter variants.
+        assert_eq!(PROTOCOL_VERSION, 34);
     }
 
     #[test]

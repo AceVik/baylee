@@ -501,6 +501,9 @@ pub(super) fn exec_immediate(
         Effect::CopyResolvingSpell { controller } => {
             super::copying::copy_resolving(state, res, controller)
         }
+        Effect::ExileSourceThenCastTransformed { cast } => {
+            super::battle_defeat::start(state, res, cast)
+        }
         Effect::RedirectTargetSourceDamageThisTurn { .. }
         | Effect::RedirectNextChosenSourceDamageToTarget { .. }
         | Effect::ReflectNextChosenSourceDamage
@@ -2237,7 +2240,10 @@ pub(super) fn exec_immediate(
                 .combat
                 .attackers()
                 .iter()
-                .filter(|a| crate::combat::blocking_player(state, a.defending) == Some(controller))
+                .filter(|a| {
+                    crate::combat::historical_defending_player(state, a.creature)
+                        == Some(controller)
+                })
                 .map(|a| a.creature)
                 .collect();
             if options.is_empty() {

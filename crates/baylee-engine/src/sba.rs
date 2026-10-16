@@ -30,6 +30,8 @@ pub struct SbaOutcome {
     pub changed: bool,
     /// A pending legend-rule choice interrupts the fixpoint.
     pub legend_choice: Option<(PlayerId, Vec<baylee_core::ids::ObjectId>)>,
+    /// A staged battle-protector decision, made before this pass commits.
+    pub battle_protector: Option<(PlayerId, baylee_core::ids::DamageSourceRef, Vec<PlayerId>)>,
     /// A commander in a graveyard or in exile whose owner may send it to
     /// the command zone instead (CR 903.9a) — also an interruption.
     ///
@@ -115,11 +117,21 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
 
 /// The engine supplies Saga decisions made against the same starting state,
 /// since its pending chapter triggers are engine continuation state.
-#[allow(clippy::too_many_lines)] // one simultaneous pass over the SBA list
 pub(crate) fn run_with_sagas(
     state: &mut GameState,
     lookup: &impl crate::state::CardLookup,
     finished_sagas: &[baylee_core::ids::ObjectId],
+) -> SbaOutcome {
+    run_with_context(state, lookup, finished_sagas, &[])
+}
+
+/// Engine-owned triggered abilities waiting to be put onto the stack.
+#[allow(clippy::too_many_lines)] // one simultaneous pass over the SBA list
+pub(crate) fn run_with_context(
+    state: &mut GameState,
+    lookup: &impl crate::state::CardLookup,
+    finished_sagas: &[baylee_core::ids::ObjectId],
+    queued_sources: &[baylee_core::ids::DamageSourceRef],
 ) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
     let excess_counters = crate::replacement::counter_limits::excess(state);
@@ -192,8 +204,24 @@ pub(crate) fn run_with_sagas(
             })
         })
         .collect();
-    if let Some(choice) = legend_choice(state) {
+    let mut battles = crate::battle::sba::plan(state, lookup, queued_sources);
+    let legend = legend_choice(state);
+    let battle_first = battles.choice.as_ref().is_some_and(|(player, _, _)| {
+        legend.as_ref().is_none_or(|(legend_player, _)| {
+            crate::battle::sba::apnap_distance(state, *player)
+                < crate::battle::sba::apnap_distance(state, *legend_player)
+        })
+    });
+    if battle_first {
+        outcome.battle_protector = battles.choice.take();
+        return outcome;
+    }
+    if let Some(choice) = legend {
         outcome.legend_choice = Some(choice);
+        return outcome;
+    }
+    if battles.choice.is_some() {
+        outcome.battle_protector = battles.choice.take();
         return outcome;
     }
 
@@ -219,6 +247,14 @@ pub(crate) fn run_with_sagas(
             .find(|(other, _)| *other == id)
             .and_then(|(_, snapshot)| snapshot.clone())
     };
+
+    // CR 704.5v-y candidates were captured with the same pre-action board.
+    for reference in &battles.graveyard {
+        if state.source_identity(reference.object) == Some(*reference) {
+            put_into_graveyard_with_departure(state, reference.object, departure(reference.object));
+            outcome.changed = true;
+        }
+    }
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
     for id in state.battlefield_view() {
@@ -344,6 +380,8 @@ pub(crate) fn run_with_sagas(
             outcome.changed = true;
         }
     }
+
+    outcome.changed |= crate::battle::sba::apply_protectors(state, battles);
 
     // --- Tokens outside the battlefield cease to exist (CR 704.5d) ------
     // "Card-less" is not the same as "token": an emblem, an ability on the
@@ -841,12 +879,25 @@ fn destroy_with_replacements(
         }
         obj.damage = 0;
         obj.deathtouched = false;
+        let reference = baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: obj.version,
+        };
+        let was_attacking_or_blocking = state.combat.is_attacking(id)
+            || state
+                .combat
+                .blockers
+                .iter()
+                .any(|block| block.blocker == id);
         // `set_tapped` and not the bit: tapping is what the layer
         // projection has to hear about, and
         // `rules::nothing_writes_the_tapped_bit_except_the_one_door` is the
         // test that says so — it caught this line writing the bit directly.
         state.set_tapped(id, true);
         state.combat.remove_from_combat(id);
+        if was_attacking_or_blocking {
+            state.combat.remove_defender_from_combat(reference);
+        }
         return;
     }
     put_into_graveyard_with_departure(state, id, departure);
@@ -1758,6 +1809,11 @@ mod tests {
             &[FORTIFICATION],
         );
         let battle = bare(&mut state, "Test Battle", TypeSet::BATTLE, &[]);
+        state
+            .object_mut(battle)
+            .unwrap()
+            .counters
+            .set(CounterKind::Defense, 1);
         for (what, to) in [
             (plain, host),
             (animated, host),

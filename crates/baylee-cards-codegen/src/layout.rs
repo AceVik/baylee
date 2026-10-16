@@ -499,6 +499,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            defense: None,
             card_faces: None,
             image_uris: None,
             image_status: None,
@@ -515,6 +516,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            defense: None,
             colors: None,
             image_uris: None,
         }

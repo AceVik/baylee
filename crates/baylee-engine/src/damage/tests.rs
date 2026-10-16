@@ -1,5 +1,7 @@
 //! Generic damage procedure tests, independent of card scripts.
 
+mod battle;
+
 use super::*;
 use crate::choice::AnswerFault;
 use crate::object::ObjectKind;

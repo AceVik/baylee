@@ -224,12 +224,12 @@ pub(super) fn combat_line(
                 || Phrase::ASeat.text(lang).to_string(),
                 |s| s.seat_name(p).to_string(),
             ),
-            CombatFocus::Defender(Defender::Planeswalker(o)) | CombatFocus::Attacker(o) => {
-                view.object(o).map_or_else(
-                    || Phrase::APermanent.text(lang).to_string(),
-                    |o| crate::face::name_of(o, view, texts),
-                )
-            }
+            CombatFocus::Defender(Defender::Planeswalker(o))
+            | CombatFocus::Defender(Defender::Battle(o))
+            | CombatFocus::Attacker(o) => view.object(o).map_or_else(
+                || Phrase::APermanent.text(lang).to_string(),
+                |o| crate::face::name_of(o, view, texts),
+            ),
             CombatFocus::None => Phrase::AimingAtNothing.text(lang).to_string(),
         };
         Phrase::AimedAt.fill(

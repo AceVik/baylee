@@ -37,6 +37,8 @@ pub enum CounterKind {
     },
     /// Loyalty.
     Loyalty,
+    /// Defense counters on battles.
+    Defense,
     /// Lore (sagas).
     Lore,
     /// Time (suspend, vanishing).
@@ -92,6 +94,7 @@ impl CounterKind {
     pub fn from_setup_name(name: &str) -> Option<Self> {
         match name.trim().to_ascii_lowercase().as_str() {
             "loyalty" => Some(Self::Loyalty),
+            "defense" => Some(Self::Defense),
             "lore" => Some(Self::Lore),
             "bore" => Some(Self::Bore),
             "time" => Some(Self::Time),
@@ -189,6 +192,8 @@ pub struct TokenDef {
     pub toughness: Option<i16>,
     /// Printed starting loyalty of a planeswalker token.
     pub loyalty: Option<u16>,
+    /// Printed starting defense of a battle token.
+    pub defense: Option<u16>,
     /// Keywords.
     pub keywords: KeywordSet,
     /// Activated and triggered abilities, read exactly like a card face's.
@@ -224,6 +229,7 @@ impl TokenDef {
         power: None,
         toughness: None,
         loyalty: None,
+        defense: None,
         keywords: KeywordSet::EMPTY,
         abilities: &[],
         scryfall_id: "",

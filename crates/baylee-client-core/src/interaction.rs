@@ -1154,6 +1154,7 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Lore => Phrase::LogCountersLore.text(lang).to_owned(),
         CounterKind::Bore => Phrase::LogCountersBore.text(lang).to_owned(),
         CounterKind::Shield => Phrase::LogCountersShield.text(lang).to_owned(),
+        CounterKind::Defense => Phrase::LogCountersDefense.text(lang).to_owned(),
         CounterKind::Time => Phrase::LogCountersTime.text(lang).to_owned(),
         CounterKind::Charge => Phrase::LogCountersCharge.text(lang).to_owned(),
         CounterKind::Poison => Phrase::LogCountersPoison.text(lang).to_owned(),
@@ -1833,7 +1834,11 @@ impl Interaction {
                 candidates,
                 defenders,
                 ..
-            } => candidates.contains(&id) || defenders.contains(&Defender::Planeswalker(id)),
+            } => {
+                candidates.contains(&id)
+                    || (defenders.contains(&Defender::Planeswalker(id))
+                        || defenders.contains(&Defender::Battle(id)))
+            }
             // Blocking is the one case where aiming changes what is offered.
             // `BlockOption` is per blocker, so a flier in the focus leaves the
             // ground unable to answer, and lighting every candidate there
@@ -1883,7 +1888,11 @@ impl Interaction {
                 candidates,
                 defenders,
                 ..
-            } => !candidates.contains(&id) && !defenders.contains(&Defender::Planeswalker(id)),
+            } => {
+                !candidates.contains(&id)
+                    && !(defenders.contains(&Defender::Planeswalker(id))
+                        || defenders.contains(&Defender::Battle(id)))
+            }
             Mode::Blockers {
                 candidates,
                 attackers,
@@ -1966,7 +1975,7 @@ impl Interaction {
                 // "send the next attacker at this", so that comes first.
                 if let Some(at) = defenders
                     .iter()
-                    .position(|d| *d == Defender::Planeswalker(id))
+                    .position(|d| matches!(d, Defender::Planeswalker(object) | Defender::Battle(object) if *object == id))
                 {
                     *focus = at;
                     return SelectionOutcome::Added;
@@ -2286,9 +2295,9 @@ impl Interaction {
         match &self.mode {
             Mode::Attackers { .. } | Mode::Blockers { .. } => match self.combat_focus() {
                 CombatFocus::Defender(Defender::Player(p)) => Some(Pick::Seat(p)),
-                CombatFocus::Defender(Defender::Planeswalker(id)) | CombatFocus::Attacker(id) => {
-                    Some(Pick::Object(id))
-                }
+                CombatFocus::Defender(Defender::Planeswalker(id))
+                | CombatFocus::Defender(Defender::Battle(id))
+                | CombatFocus::Attacker(id) => Some(Pick::Object(id)),
                 CombatFocus::None => None,
             },
             Mode::Objects {

@@ -53,7 +53,7 @@ impl LineEnd {
     pub const fn of(defender: Defender) -> Self {
         match defender {
             Defender::Player(p) => Self::Seat(p),
-            Defender::Planeswalker(o) => Self::Object(o),
+            Defender::Planeswalker(o) | Defender::Battle(o) => Self::Object(o),
         }
     }
 
@@ -375,6 +375,32 @@ mod tests {
                 kind: LineKind::Attack,
                 standing: true,
             }]
+        );
+    }
+
+    #[test]
+    fn a_battle_can_be_selected_and_drawn_as_an_object_defender() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(1, 0, "Bear", 2, 2)])
+            .build();
+        let battle = Defender::Battle(obj(2));
+        let mut i = Interaction::new(
+            Pending::ChooseAttackers {
+                player: seat(0),
+                attackers: vec![obj(1)],
+                defenders: vec![battle],
+                required: Vec::new(),
+                limits: Vec::new(),
+            },
+            seat(0),
+        );
+        assert!(!i.leaves_out(obj(2)));
+        assert!(i.leaves_out(obj(3)));
+        assert!(i.declare_attacker(obj(1), battle));
+        let combat = Combat::read(&view, Some(&i));
+        assert_eq!(combat.lines[0].to, LineEnd::Object(obj(2)));
+        assert!(
+            matches!(i.confirm(), Some(baylee_engine::choice::PlayerAction::DeclareAttackers { attackers }) if attackers == vec![(obj(1), battle)])
         );
     }
 

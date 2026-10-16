@@ -94,9 +94,16 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         .store(projection.characteristics, &prospective.base);
     prospective.controller = projection.controller;
     entry.controller = projection.controller;
-    entry.counter_caps = own_caps(state, &prospective);
+    if let Some(defense) = crate::battle::intrinsic_defense(&prospective) {
+        entry.counters.push((None, CounterKind::Defense, defense));
+    }
+    entry.counter_caps = prospective_caps(state, &prospective);
     let mut groups: Vec<(PlayerId, Vec<(CounterKind, u16)>)> = Vec::new();
     for (by, kind, count) in std::mem::take(&mut entry.counters) {
+        // A prohibition removes the placement before replacement ordering.
+        if entry.counter_caps.contains(&(kind, 0)) {
+            continue;
+        }
         let by = by.unwrap_or(entry.controller);
         if let Some((_, counters)) = groups.iter_mut().find(|(player, _)| *player == by) {
             if let Some((_, total)) = counters.iter_mut().find(|(existing, _)| *existing == kind) {
@@ -120,6 +127,20 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
             entry.counter_plans.push(plan);
         }
     }
+}
+
+fn prospective_caps(
+    state: &GameState,
+    object: &crate::object::GameObject,
+) -> Vec<(CounterKind, u16)> {
+    let mut caps = own_caps(state, object);
+    caps.extend(state.effects.iter().filter_map(|effect| {
+        let baylee_cards_dsl::Modifier::CounterMaximum { kind, maximum } = effect.modifier else {
+            return None;
+        };
+        crate::effects::applies_to(state, effect, object).then_some((kind, maximum))
+    }));
+    caps
 }
 
 // An entering permanent's own prohibitions apply to its prospective body;

@@ -88,7 +88,9 @@ pub(super) fn resume_walker(
 ) -> Option<Pending> {
     let player = tokens.player.take();
     let defender = match chosen.first() {
-        Some(&walker) => Defender::Planeswalker(walker),
+        Some(&object) => crate::combat::defender_options(state, res.controller).into_iter()
+            .find(|defender| matches!(defender, Defender::Planeswalker(id) | Defender::Battle(id) if *id == object))
+            .unwrap_or(Defender::Battle(object)),
         None => Defender::Player(player.unwrap_or(res.controller)),
     };
     tokens.placed.push(defender);
@@ -103,7 +105,7 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut tokens: Tokens) -> Optio
             .iter()
             .filter_map(|d| match d {
                 Defender::Player(p) => Some(*p),
-                Defender::Planeswalker(_) => None,
+                Defender::Planeswalker(_) | Defender::Battle(_) => None,
             })
             .collect();
         match options.as_slice() {
@@ -129,7 +131,7 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut tokens: Tokens) -> Optio
         let walkers: Vec<ObjectId> = options
             .iter()
             .filter_map(|d| match d {
-                Defender::Planeswalker(w)
+                Defender::Planeswalker(w) | Defender::Battle(w)
                     if crate::combat::blocking_player(state, *d) == Some(player) =>
                 {
                     Some(*w)
@@ -162,9 +164,20 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut tokens: Tokens) -> Optio
 fn join_combat(state: &mut GameState, tokens: &Tokens) {
     let mut infos = Vec::new();
     for (&token, &defender) in tokens.created.iter().zip(&tokens.placed) {
-        let Some(version) = state
+        let Some(_) = state
             .object(token)
-            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .filter(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && o.controller == state.turn.active
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && !o
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::BATTLE)
+                    && crate::combat::defender_options(state, o.controller).contains(&defender)
+            })
             .map(|o| o.version)
         else {
             continue;
@@ -175,7 +188,7 @@ fn join_combat(state: &mut GameState, tokens: &Tokens) {
             blocked: false,
             band: None,
         });
-        state.combat.remember_defender(token, version, defender);
+        crate::combat::remember_attack(state, token, defender);
     }
     if !infos.is_empty() {
         state.combat.declare_attackers(infos);

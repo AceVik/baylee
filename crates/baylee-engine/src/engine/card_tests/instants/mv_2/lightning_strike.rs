@@ -90,3 +90,19 @@ fn any_target_deals_three_to_a_player_creature_or_planeswalker() {
     );
     assert_eq!(g.state().players[1].life, 7);
 }
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6905, &[], &[lightning_strike()]);
+    battle_kit::float(&mut e, ManaColor::Red, 2);
+    cast_with_floating(&mut e, p0, lightning_strike());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 3);
+}

@@ -175,6 +175,17 @@ pub enum GameEvent {
         /// New amount.
         new: u16,
     },
+    /// A Siege's intrinsic last-defense-counter ability triggered.
+    BattleDefeated {
+        /// Exact battlefield incarnation whose last defense was removed.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Controller at the occurrence.
+        controller: PlayerId,
+        /// Source timestamp used for ordinary trigger ordering.
+        timestamp: u64,
+        /// Number of occurrences after event-time trigger modifications.
+        times: u32,
+    },
     /// A player gained or spent counters.
     PlayerCountersChanged {
         /// Recipient.

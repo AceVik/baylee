@@ -512,6 +512,7 @@ pub static JACE_PLANESWALKER_BLUE: TokenDef = TokenDef {
     types: TypeSet::PLANESWALKER,
     subtypes: &[baylee_core::generated::subtypes::planeswalker::JACE],
     loyalty: Some(0),
+    defense: None,
     abilities: &[
         baylee_cards_dsl::loyalty!(-1, &[Effect::surveil(1)]),
         baylee_cards_dsl::loyalty!(-3, &[Effect::draw(1)]),
@@ -604,5 +605,18 @@ pub static GNOME_SOLDIER_WHITE_DYNAMIC: TokenDef = TokenDef {
     subtypes: &[creature::GNOME, creature::SOLDIER],
     abilities: GNOME_SIZE,
     scryfall_id: "cbe7c36a-77b7-4418-9e2d-b6aeea61502e",
+    ..TokenDef::DEFAULT
+};
+
+/// Invasion of Belenon's white and blue Knight with vigilance (MOM token 10).
+pub static KNIGHT_2_2_WHITE_BLUE_VIGILANCE: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White, Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::VIGILANCE,
+    scryfall_id: "88439bfc-8942-473b-9e4f-863017788476",
     ..TokenDef::DEFAULT
 };

@@ -503,7 +503,7 @@ pub(crate) fn kicked_targets_reachable(
     requirements_are_reachable(Some(first), second, state, player, card)
 }
 
-fn requirement_is_reachable_for(
+pub(crate) fn requirement_is_reachable_for(
     req: Option<baylee_cards_dsl::TargetReq>,
     state: &GameState,
     player: PlayerId,

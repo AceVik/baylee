@@ -723,6 +723,50 @@ fn aminatou_does_not_flicker_what_gains_nothing_by_it() {
 // --- What the table reads ---------------------------------------------------
 
 #[test]
+fn battle_damage_is_unknown_rather_than_an_opponents_removal_value() {
+    use baylee_cards_dsl::{Effect, TargetSpec};
+    let definition = baylee_cards::by_oracle_id("e462e78d-2d26-4a2d-8d8f-5f31abe5c924")
+        .expect("Belenon is registered even while excluded from playable decks");
+    let mut battle = permanent(obj(1), THEM, 0);
+    battle.name = definition.name().into();
+    battle.types = TypeSet::BATTLE;
+    battle.power = None;
+    battle.toughness = None;
+    battle.card = Some(baylee_view::CardIdentity {
+        index: definition.index,
+        print: baylee_core::ids::PrintRef::new(0),
+        face: 0,
+    });
+    battle.rules = battle.card.map(baylee_view::RulesFace::from);
+    battle.battle_protector = Some(ME);
+    battle.counters = vec![baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::Defense,
+        count: 5,
+    }];
+    let v = view(0, &[20, 20], vec![battle]);
+    assert_eq!(
+        crate::tactics::damage_to_finish(v.object(obj(1)).unwrap()),
+        5
+    );
+    assert_eq!(
+        agent().effects_worth(
+            &v,
+            Origin {
+                id: obj(2),
+                object: None
+            },
+            &[Effect::DealDamage {
+                amount: baylee_cards_dsl::Amount::Fixed(5),
+                target: TargetSpec::AnyTarget
+            }],
+            Aim::Object(obj(1)),
+            0
+        ),
+        None
+    );
+}
+
+#[test]
 fn modal_activation_value_is_unknown_until_a_mode_is_bound() {
     use baylee_cards_dsl::{Amount, Effect};
     let v = view(0, &[20, 20], vec![]);

@@ -631,14 +631,17 @@ impl Menu {
             let defender = if let Some(p) = self.player(at) {
                 Defender::Player(p)
             } else {
-                let walkers: Vec<ObjectId> = defenders
+                let objects: Vec<ObjectId> = defenders
                     .iter()
                     .filter_map(|d| match d {
-                        Defender::Planeswalker(id) => Some(*id),
+                        Defender::Planeswalker(id) | Defender::Battle(id) => Some(*id),
                         Defender::Player(_) => None,
                     })
                     .collect();
-                Defender::Planeswalker(object(at, &walkers)?)
+                let id = object(at, &objects)?;
+                *defenders.iter().find(|defender| matches!(defender,
+                    Defender::Planeswalker(object) | Defender::Battle(object) if *object == id
+                )).expect("selected from the offered defenders")
             };
             if !defenders.contains(&defender) {
                 return Err(format!("{attacker} cannot attack {at}"));
@@ -839,7 +842,7 @@ fn ids(objects: &[ObjectId]) -> String {
 fn defender_id(defender: Defender) -> String {
     match defender {
         Defender::Player(p) => Table::player_id(p),
-        Defender::Planeswalker(id) => tag(id),
+        Defender::Planeswalker(id) | Defender::Battle(id) => tag(id),
     }
 }
 

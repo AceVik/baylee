@@ -3,6 +3,9 @@
 //! Responses are cached as committed JSON files so codegen stays
 //! reproducible and CI needs no network.
 
+mod defense_cache;
+pub use defense_cache::migrate_defense_cache;
+
 use crate::catalog::{SubtypeCatalogs, module_name};
 use crate::error::CodegenError;
 use crate::stubgen::slug;
@@ -70,6 +73,9 @@ pub struct ScryfallCard {
     pub toughness: Option<String>,
     /// Loyalty.
     pub loyalty: Option<String>,
+    /// Printed defense on a Battle face.
+    #[serde(default)]
+    pub defense: Option<String>,
     /// Faces for multi-face layouts.
     pub card_faces: Option<Vec<ScryfallFace>>,
     /// Art for the card as a whole, when the printing is one piece of card.
@@ -116,6 +122,9 @@ pub struct ScryfallFace {
     pub toughness: Option<String>,
     /// Loyalty.
     pub loyalty: Option<String>,
+    /// Printed defense on a Battle face.
+    #[serde(default)]
+    pub defense: Option<String>,
     /// This face's colors, where Scryfall gives them per face (a
     /// transforming or modal double-faced card); absent on split and
     /// Adventure faces, whose colors are the card's.
@@ -568,7 +577,8 @@ const BULK_THRESHOLD: usize = 50;
 /// |---|---|
 /// | 1 | `image_uris` / `image_status`, which [`ScryfallCard::sides`] reads |
 /// | 2 | Physical `watermark`, `border_color`, and `security_stamp` rules facts |
-pub const PAYLOAD_SCHEMA: u32 = 2;
+/// | 3 | Printed Battle `defense` on top-level cards and individual faces |
+pub const PAYLOAD_SCHEMA: u32 = 3;
 
 /// Where the stamp sits. A leading dot, because [`slug`] never writes one, so
 /// this name can never collide with a card called "Schema".
@@ -812,6 +822,28 @@ mod tests {
     /// field names this reader depends on are pinned here too.
     fn card(json: &str) -> ScryfallCard {
         serde_json::from_str(json).expect("a payload the reader understands")
+    }
+
+    #[test]
+    fn defense_round_trips_without_leaking_from_front_to_back() {
+        let dfc = card(
+            r#"{"id":"1","name":"Siege // Anthem","layout":"transform",
+            "card_faces":[{"name":"Siege","type_line":"Battle — Siege","defense":"5"},
+                          {"name":"Anthem","type_line":"Enchantment"}]}"#,
+        );
+        let faces = dfc.card_faces.as_ref().unwrap();
+        assert_eq!(faces[0].defense.as_deref(), Some("5"));
+        assert_eq!(faces[1].defense, None);
+        assert_eq!(dfc.defense, None);
+        let reread: ScryfallCard =
+            serde_json::from_str(&serde_json::to_string(&dfc).unwrap()).unwrap();
+        assert_eq!(
+            reread.card_faces.as_ref().unwrap()[0].defense.as_deref(),
+            Some("5")
+        );
+        assert_eq!(reread.card_faces.as_ref().unwrap()[1].defense, None);
+        let single = card(r#"{"id":"2","name":"Battle","type_line":"Battle","defense":"7"}"#);
+        assert_eq!(single.defense.as_deref(), Some("7"));
     }
 
     /// The two questions `sides` answers are asked of different authorities,

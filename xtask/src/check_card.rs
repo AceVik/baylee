@@ -52,13 +52,8 @@ pub(crate) fn color_letters(set: baylee_cards::dsl::ColorSet) -> String {
 /// fields, and the compiled `CardDef` is the only place they exist as one
 /// answer.
 ///
-/// Two of the five fields the plan named are not here, and both for the same
-/// reason: the cache holds `ScryfallCard`, a trimmed struct, not Scryfall's
-/// whole payload. It has no `keywords` array and no `produced_mana`, so both
-/// are read out of the printed text instead — which the cache does keep, and
-/// which is what a person checking the card would read anyway. `defense` is
-/// absent from all three: the cache, the DSL, and the pool, which has no
-/// battle in it.
+/// The cache omits the `keywords` and `produced_mana` arrays, so those
+/// characteristics are checked against the retained Oracle text instead.
 pub(crate) fn check_card_matches_the_printing(
     slug: &str,
     def: &baylee_cards::dsl::CardDef,
@@ -179,11 +174,38 @@ pub(crate) fn check_def_against_the_printing(
     check_scope_matches_the_text(slug, def.name(), def, payload, problems);
     check_card_matches_the_printing(slug, def, payload, tally, problems);
     check_type_line_matches_the_printing(slug, def, payload, tally, problems);
+    check_defense_matches_the_printing(slug, def, payload, problems);
     check_optional_clauses_are_offered(slug, def, payload, tally, problems);
     check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
     check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
     check_color_indicator_matches_the_printing(slug, def, payload, tally, problems);
     check_flashback_matches_the_printing(slug, def, payload, problems);
+}
+
+/// Defense is face-local, numeric, and mandatory on every Battle face.
+fn check_defense_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    problems: &mut usize,
+) {
+    let printed: Vec<&serde_json::Value> = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+        .map_or_else(|| vec![payload], |faces| faces.iter().collect());
+    for (at, (printed, face)) in printed.into_iter().zip(def.faces).enumerate() {
+        let raw = printed.get("defense").and_then(serde_json::Value::as_str);
+        let expected = raw.and_then(|n| n.parse::<u16>().ok());
+        let battle = face.types.contains(baylee_cards::dsl::TypeSet::BATTLE);
+        if (battle && expected.is_none()) || (!battle && raw.is_some()) || face.defense != expected
+        {
+            println!(
+                "{slug}: face {at} printed defense {raw:?} disagrees with coded {:?} (Battle={battle})",
+                face.defense
+            );
+            *problems += 1;
+        }
+    }
 }
 
 /// A face of a double-faced card that prints no mana cost and is still

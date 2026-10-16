@@ -28,7 +28,7 @@ pub(super) fn reading(
     };
     let defender = |d| match d {
         Defender::Player(p) => target_seat_name(duel, lang, view, p),
-        Defender::Planeswalker(id) => card(id),
+        Defender::Planeswalker(id) | Defender::Battle(id) => card(id),
     };
     let CombatFocus::Defender(aim) = i.combat_focus() else {
         return;

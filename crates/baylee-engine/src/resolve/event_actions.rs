@@ -21,6 +21,9 @@ pub(super) fn counter(state: &mut GameState, res: &mut Resolution) {
 
 pub(super) fn remove_from_combat(state: &mut GameState, target: ObjectId, unblock: bool) {
     let was_blocking = state.combat.blocked_by(target);
+    if let Some(reference) = state.source_identity(target) {
+        state.combat.remove_defender_from_combat(reference);
+    }
     state.combat.remove_from_combat(target);
     if unblock {
         for attacker in was_blocking {

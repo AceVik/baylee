@@ -65,7 +65,7 @@ pub fn between(before: Option<&PlayerView>, after: &PlayerView) -> Vec<Strike> {
                     source: attacker.creature,
                     target: match attacker.defending {
                         Defender::Player(id) => LineEnd::Seat(id),
-                        Defender::Planeswalker(id) => LineEnd::Object(id),
+                        Defender::Planeswalker(id) | Defender::Battle(id) => LineEnd::Object(id),
                     },
                     first,
                 });

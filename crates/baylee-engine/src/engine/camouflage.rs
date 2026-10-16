@@ -36,7 +36,9 @@ impl<L: CardLookup> Engine<L> {
             .combat
             .attackers()
             .iter()
-            .filter(|a| combat::blocking_player(&self.state, a.defending) == Some(defending))
+            .filter(|a| {
+                combat::historical_defending_player(&self.state, a.creature) == Some(defending)
+            })
             .map(|a| a.creature)
             .collect()
     }

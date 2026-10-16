@@ -189,6 +189,7 @@ struct FaceData {
     power: Option<String>,
     toughness: Option<String>,
     loyalty: Option<String>,
+    defense: Option<String>,
     /// Scryfall's colors for this face, when it gives them.
     colors: Option<Vec<String>>,
 }
@@ -203,6 +204,7 @@ impl FaceData {
             power: card.power.clone(),
             toughness: card.toughness.clone(),
             loyalty: card.loyalty.clone(),
+            defense: card.defense.clone(),
             colors: card.colors.clone(),
         }
     }
@@ -216,6 +218,7 @@ impl FaceData {
             power: face.power.clone(),
             toughness: face.toughness.clone(),
             loyalty: face.loyalty.clone(),
+            defense: face.defense.clone(),
             colors: face.colors.clone(),
         }
     }
@@ -372,6 +375,29 @@ fn loyalty_expr(value: Option<&str>) -> String {
     value
         .and_then(|v| v.parse::<u16>().ok())
         .map_or_else(|| "None".to_string(), |v| format!("Some({v})"))
+}
+
+fn defense_expr(card: &str, type_line: &str, value: Option<&str>) -> Result<String, CodegenError> {
+    let battle = type_line
+        .split('—')
+        .next()
+        .unwrap_or(type_line)
+        .split_whitespace()
+        .any(|word| word == "Battle");
+    match (battle, value) {
+        (false, None) => Ok("None".to_string()),
+        (true, Some(raw)) => raw
+            .parse::<u16>()
+            .map(|n| format!("Some({n})"))
+            .map_err(|_| CodegenError::Defense {
+                card: card.to_string(),
+                value: Some(raw.to_string()),
+            }),
+        (_, value) => Err(CodegenError::Defense {
+            card: card.to_string(),
+            value: value.map(str::to_string),
+        }),
+    }
 }
 
 fn color_identity_expr(identity: Option<&Vec<String>>) -> String {
@@ -563,6 +589,8 @@ fn render_face(
         &loyalty_expr(f.loyalty.as_deref()),
         "None",
     );
+    let defense = defense_expr(card_name, &f.type_line, f.defense.as_deref())?;
+    push_field(&mut fields, "defense", &defense, "None");
     push_field(
         &mut fields,
         "color_indicator",
@@ -1336,10 +1364,38 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            defense: None,
             card_faces: None,
             image_uris: None,
             image_status: None,
         }
+    }
+
+    #[test]
+    fn defense_is_numeric_face_local_and_never_invented_for_stale_battles() {
+        assert_eq!(
+            defense_expr("Siege", "Battle — Siege", Some("5")).unwrap(),
+            "Some(5)"
+        );
+        assert_eq!(defense_expr("Anthem", "Enchantment", None).unwrap(), "None");
+        for value in [None, Some("*"), Some("-1"), Some("65536")] {
+            assert!(defense_expr("Siege", "Battle — Siege", value).is_err());
+        }
+        assert!(defense_expr("Anthem", "Enchantment", Some("5")).is_err());
+        let mut card = bare_card("Siege", "Battle — Siege");
+        card.defense = Some("5".to_string());
+        let (_, text) = render_stub(
+            &card,
+            &row(7, "SIEGE"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            None,
+            None,
+            &LandCycles::default(),
+            &|_| false,
+        )
+        .unwrap();
+        assert!(text.contains("defense = Some(5),"));
     }
 
     /// A stub states only what is printed and inherits the rest, so a new
@@ -1409,6 +1465,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            defense: None,
             colors: None,
             image_uris: None,
         };

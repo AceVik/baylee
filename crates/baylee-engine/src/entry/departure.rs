@@ -42,6 +42,17 @@ pub(crate) fn refresh_after_departure(state: &mut GameState) {
                 .object(entry.object)
                 .is_some_and(|object| object.version == entry.version)
     });
+    // A chosen protector can leave or become ineligible while a co-arrival
+    // waits. Revalidate the designation before publishing that Battle.
+    let mut still_ready = VecDeque::new();
+    while let Some(entry) = ready.pop_front() {
+        if entry.battle_protector.is_some() || super::battles::needs_entry(state, entry.object) {
+            pending.push_back(entry);
+        } else {
+            still_ready.push_back(entry);
+        }
+    }
+    ready = still_ready;
     state.entries.pending_objects = pending
         .iter()
         .chain(&ready)

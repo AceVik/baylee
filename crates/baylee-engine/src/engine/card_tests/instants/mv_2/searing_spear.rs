@@ -145,3 +145,19 @@ fn searing_spear_marks_exactly_three_damage_on_a_surviving_creature() {
     assert_eq!(game.state().object(hunter).unwrap().damage, 3);
     assert_eq!(pt(&game, hunter), (4, 4));
 }
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6906, &[], &[searing_spear_card()]);
+    battle_kit::float(&mut e, ManaColor::Red, 2);
+    cast_with_floating(&mut e, p0, searing_spear_card());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 3);
+}

@@ -34,6 +34,7 @@ impl GameState {
             regeneration_choices,
             shield_choices,
             damage_clearing_choices,
+            battle_sba_decisions,
             counter_choices,
             players,
             turn,
@@ -139,6 +140,7 @@ impl GameState {
         regeneration_choices.hash(&mut h);
         shield_choices.hash(&mut h);
         destruction::hash_choices(&mut h, damage_clearing_choices);
+        battle_sba_decisions.hash(&mut h);
         counter_choices.hash(&mut h);
         hash_effects(&mut h, effects);
         text_changes.hash(&mut h);
@@ -384,6 +386,28 @@ impl GameState {
         for &(id, version) in &self.combat.participants {
             h.u32(position(id));
             h.boolean(self.object(id).is_some_and(|o| o.version == version));
+        }
+        let mut contexts: Vec<_> = self.combat.defender_contexts().collect();
+        contexts.sort_unstable_by_key(|context| position(context.attacker.object));
+        h.usize(contexts.len());
+        for context in contexts {
+            h.u32(position(context.attacker.object));
+            h.u8(moves_since(
+                self.object_or_departed(context.attacker.object),
+                context.attacker.version,
+            ));
+            h.boolean(context.target.is_some());
+            if let Some(target) = context.target {
+                h.u32(position(target.object));
+                h.u8(moves_since(
+                    self.object_or_departed(target.object),
+                    target.version,
+                ));
+            }
+            context.defending_player.hash(&mut h);
+            context.controller.hash(&mut h);
+            context.types.hash(&mut h);
+            context.active.hash(&mut h);
         }
         h.usize(self.combat.attackers().len());
         for a in self.combat.attackers() {
@@ -979,6 +1003,10 @@ fn hash_defender(h: &mut Hasher, defender: Defender, locate: impl Fn(ObjectId) -
             h.u8(1);
             h.u32(locate(id));
         }
+        Defender::Battle(id) => {
+            h.u8(2);
+            h.u32(locate(id));
+        }
     }
 }
 
@@ -1031,6 +1059,7 @@ fn hash_object_situation(
     h.option_u32(b.power.map(|v| v as u32));
     h.option_u32(b.toughness.map(|v| v as u32));
     h.option_u32(b.loyalty.map(u32::from));
+    h.option_u32(b.defense.map(u32::from));
     let counters: Vec<_> = obj.counters.iter().collect();
     h.usize(counters.len());
     for (kind, n) in counters {
@@ -1252,6 +1281,11 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             index.hash(h);
         }
         crate::object::Rider::GrantedActivated => h.u8(62),
+        crate::object::Rider::AbilityCopy => h.u8(80),
+        crate::object::Rider::BattleProtector(player) => {
+            h.u8(79);
+            player.hash(h);
+        }
         _ => {}
     }
 }
@@ -1437,6 +1471,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         power,
         toughness,
         loyalty,
+        defense,
         color_identity,
         produced_colors,
         produced_colorless,
@@ -1459,6 +1494,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     power.hash(h);
     toughness.hash(h);
     loyalty.hash(h);
+    defense.hash(h);
     color_identity.hash(h);
     produced_colors.hash(h);
     produced_colorless.hash(h);
@@ -1773,6 +1809,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 index.hash(h);
             }
             Rider::GrantedActivated => h.u8(62),
+            Rider::BattleProtector(player) => {
+                h.u8(79);
+                player.hash(h);
+            }
             Rider::AbilitySourceVersion(version) => {
                 h.u8(21);
                 version.hash(h);
@@ -1815,6 +1855,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(*face);
             }
             Rider::SpellCopy => h.u8(11),
+            Rider::AbilityCopy => h.u8(80),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
@@ -2111,6 +2152,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Stun => h.u8(17),
         CounterKind::Finality => h.u8(18),
         CounterKind::Shield => h.u8(20),
+        CounterKind::Defense => h.u8(21),
         // The id is hashed whole. Folding it modulo 100 was safe while every
         // tag was one byte and is not worth keeping now that the function
         // writes as many as it likes.

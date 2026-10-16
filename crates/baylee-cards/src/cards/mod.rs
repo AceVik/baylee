@@ -7721,6 +7721,8 @@ pub mod introduction_to_prophecy;
 pub mod intruding_soulrager;
 #[path = "instants/mv_3/intuition.rs"]
 pub mod intuition;
+#[path = "battles/mv_3/invasion_of_belenon.rs"]
+pub mod invasion_of_belenon;
 #[path = "battles/mv_2/invasion_of_ikoria.rs"]
 pub mod invasion_of_ikoria;
 #[path = "creatures/mv_2/invasion_reinforcements.rs"]

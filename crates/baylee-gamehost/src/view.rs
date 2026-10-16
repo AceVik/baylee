@@ -107,6 +107,7 @@ pub(crate) const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind 
         K::Finality => CounterKind::Finality,
         K::Bore => CounterKind::Bore,
         K::Shield => CounterKind::Shield,
+        K::Defense => CounterKind::Defense,
         K::Custom(id) => CounterKind::Custom(id as u32),
     }
 }

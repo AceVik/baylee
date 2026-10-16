@@ -83,8 +83,13 @@ fn effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [Effect] {
 /// targets are asked — the first of them that says "target", or at the
 /// second instance of the word the second (CR 700.2c) — and otherwise the
 /// first chosen.
-fn asked_mode(def: &baylee_cards_dsl::CardDef, set: u8, second: bool) -> Option<usize> {
-    def.abilities_for_face(0).iter().find_map(|a| match a {
+fn asked_mode(
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+    set: u8,
+    second: bool,
+) -> Option<usize> {
+    def.abilities_for_face(face).iter().find_map(|a| match a {
         AbilityDef::ModalSpell { modes, .. } => {
             let mut targeting = crate::casting::chosen_modes(modes, set)
                 .filter(|(_, mode)| mode.targets.is_some())
@@ -309,15 +314,12 @@ impl<L: CardLookup> Engine<L> {
         else {
             return DecisionContext::default();
         };
-        let face = match wizard.option {
-            Some(CastModeKind::Face(i)) => i,
-            _ => 0,
-        };
+        let face = wizard.face_index();
         let second_stage = wizard.stage == super::cast_wizard::WizardStage::SecondTargets;
         let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
         let mode = match wizard.option {
             Some(CastModeKind::Mode(i)) => Some(i),
-            Some(CastModeKind::Modes(set)) => asked_mode(def, set, second_stage),
+            Some(CastModeKind::Modes(set)) => asked_mode(def, face, set, second_stage),
             _ => None,
         };
         DecisionContext {

@@ -7,8 +7,7 @@ fn subject() -> CardIndex {
     card_index("5f9ea6e4-f5be-4ea2-95b4-fbdc69685ac5")
 }
 
-// Any target: player and creature resolve; battle defense damage is currently unsupported
-// by the shared engine, so no battle damage outcome is asserted here.
+// Any target includes players, creatures, planeswalkers and real Sieges.
 #[test]
 fn damages_a_player_for_three() {
     let p0 = PlayerId::new(0);
@@ -102,4 +101,20 @@ fn damages_a_planeswalker_by_three_loyalty() {
         2
     );
     assert_eq!(game.state().players[1].life, 20);
+}
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6908, &[], &[subject()]);
+    battle_kit::float(&mut e, ManaColor::Red, 3);
+    cast_with_floating(&mut e, p0, subject());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 3);
 }

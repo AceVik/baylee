@@ -83,10 +83,10 @@ impl<L: CardLookup> Engine<L> {
         for (index, option) in options.iter_mut().enumerate() {
             option.index = u32::try_from(index).expect("bounded cast options");
         }
-        self.start_free_cast_options(player, card, options, true)
+        self.start_free_cast_options(player, card, options, true, None)
     }
 
-    fn linked_spell_face_allowed(
+    pub(super) fn linked_spell_face_allowed(
         &self,
         player: PlayerId,
         card: ObjectId,

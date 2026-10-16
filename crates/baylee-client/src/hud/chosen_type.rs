@@ -27,6 +27,16 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
         parts.push(Phrase::NoAbilities.text(lang).to_string());
     }
     parts.extend(choice_words(object, lang));
+    if object.types.contains(baylee_core::types::TypeSet::BATTLE) {
+        parts.push(
+            Phrase::BattleDefense.fill(
+                lang,
+                &[&object
+                    .counter_count(baylee_view::CounterKind::Defense)
+                    .to_string()],
+            ),
+        );
+    }
     // A leveler's level (report 30: Hexdrinker), which nothing on the card
     // says; the plate shows the body it bought.
     for counter in &object.counters {
@@ -236,6 +246,16 @@ fn wanted_labels(duel: &Duel, lang: Lang) -> Vec<(ObjectId, String, bool)> {
                     counter.kind == baylee_view::CounterKind::Charge && counter.count > 0
                 });
             let mut parts: Vec<_> = words(object, lang, detail).into_iter().collect();
+            if let Some(protector) = object.battle_protector {
+                let called = super::seatbar::called(
+                    lang,
+                    view,
+                    duel.statics.as_ref(),
+                    protector,
+                    super::seatbar::role_of(duel, protector),
+                );
+                parts.push(Phrase::BattleProtectedBy.fill(lang, &[&called]));
+            }
             if let Some(opponent) = object.chosen_opponent {
                 parts.insert(
                     0,
@@ -336,6 +356,29 @@ fn place(node: &mut Node, at: Vec2) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn battle_label_distinguishes_defense_and_protector_from_controller() {
+        use baylee_client_core::test_support::{ViewBuilder, token};
+        let mut object = token(1, 0, "Battle", 0, 0);
+        object.types = baylee_core::types::TypeSet::BATTLE;
+        object.power = None;
+        object.toughness = None;
+        object.battle_protector = Some(baylee_core::ids::PlayerId::new(1));
+        object.counters = vec![baylee_view::CounterEntry {
+            kind: baylee_view::CounterKind::Defense,
+            count: 4,
+        }];
+        let mut duel = Duel::default();
+        duel.receive_view(ViewBuilder::new(2).with_battlefield(0, [object]).build());
+        let english = wanted_labels(&duel, Lang::En);
+        assert!(english[0].1.contains("Defense 4"));
+        assert!(english[0].1.contains("Protected by"));
+        assert!(english[0].1.contains('1'));
+        let german = wanted_labels(&duel, Lang::De);
+        assert!(german[0].1.contains("Verteidigung 4"));
+        assert!(german[0].1.contains("Beschützt von"));
+    }
 
     #[test]
     fn the_chosen_opponent_label_uses_the_actual_seat_name() {

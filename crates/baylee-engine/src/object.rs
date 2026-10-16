@@ -321,6 +321,8 @@ pub struct Characteristics {
     pub toughness: Option<i16>,
     /// Loyalty (planeswalkers).
     pub loyalty: Option<u16>,
+    /// Printed, copiable defense; distinct from defense counters on a permanent.
+    pub defense: Option<u16>,
     /// Color identity (commander rules: mana symbols in cost + rules text).
     /// Not a characteristic in the CR sense — never layer-modified.
     pub color_identity: ColorSet,
@@ -584,6 +586,7 @@ impl Characteristics {
             power: f.power,
             toughness: f.toughness,
             loyalty: f.loyalty,
+            defense: f.defense,
             color_identity: def.color_identity,
             produced_colors: produced,
             produced_chosen,
@@ -903,6 +906,8 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// This stack ability was copied rather than activated or triggered.
+    AbilityCopy,
     /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
     /// it becomes, which has haste while this is on it. Written by every
     /// cast, set or cleared, and given up by every zone change but the one
@@ -924,6 +929,8 @@ pub enum Rider {
     /// Opponent chosen as this permanent entered; not a target. Stored in
     /// the sparse rider list to preserve the per-object size budget.
     ChosenOpponent(PlayerId),
+    /// Noncopiable protector designation, retained through type and copy changes.
+    BattleProtector(PlayerId),
     /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
     /// permanent it becomes, "escaped". Kept and given up as
     /// [`Rider::Dashed`] is.
@@ -1058,7 +1065,9 @@ impl Rider {
             | Self::Prepared
             | Self::PrepareSpellFace(_)
             | Self::ChosenOpponent(_)
+            | Self::BattleProtector(_)
             | Self::SpellCopy
+            | Self::AbilityCopy
             // How the spell was cast, written before it moves to the stack:
             // a dashed spell cast out of exile (an impulse's permission)
             // carries its dash to the stack and the battlefield, and

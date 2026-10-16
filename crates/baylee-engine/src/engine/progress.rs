@@ -33,6 +33,8 @@ mod turn;
 /// replacements are on the board.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum EntryAsk {
+    /// The exact preset Battle still owes its entry designation.
+    BattleProtector(baylee_core::ids::DamageSourceRef),
     /// Which permanent it enters as a copy of (a clone put onto the
     /// battlefield by another card's effect; `check_copy_on_enter`).
     Copy,
@@ -556,9 +558,16 @@ impl<L: CardLookup> Engine<L> {
             let outcome = self.run_state_based_actions();
             if outcome.changed
                 || outcome.legend_choice.is_some()
+                || outcome.battle_protector.is_some()
                 || outcome.commander_zone.is_some()
             {
                 self.cleanup_check_acted();
+            }
+            if let Some((player, battle, options)) = outcome.battle_protector {
+                self.pending_plan = Some(PlanKind::BattleProtector { battle });
+                self.pending = Pending::ChoosePlayer { player, options };
+                self.awaiting_answer = true;
+                return;
             }
             if let Some((player, options)) = outcome.legend_choice {
                 self.pending = Pending::LegendChoice { player, options };
@@ -793,13 +802,12 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn next_defending_player(&self, after: Option<PlayerId>) -> Option<PlayerId> {
         let n = u8::try_from(self.state.players.len()).unwrap_or(u8::MAX);
         let active = self.state.turn.active.get();
-        let attacked = |seat: PlayerId| {
-            self.state
-                .combat
-                .attackers()
-                .iter()
-                .any(|a| combat::blocking_player(&self.state, a.defending) == Some(seat))
-        };
+        let attacked =
+            |seat: PlayerId| {
+                self.state.combat.attackers().iter().any(|a| {
+                    combat::historical_defending_player(&self.state, a.creature) == Some(seat)
+                })
+            };
         let from = after.map_or(1, |seat| (seat.get() + n - active) % n + 1);
         (from..n)
             .map(|offset| PlayerId::new((active + offset) % n))

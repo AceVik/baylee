@@ -567,6 +567,14 @@ struct PerOpponent {
 /// What a `Pending::ChooseTargets` is targeting for.
 #[derive(Clone, Debug)]
 enum PlanKind {
+    /// A preset Battle's entry designation, postponed until mulligans end.
+    EntryBattleProtector {
+        battle: baylee_core::ids::DamageSourceRef,
+    },
+    /// Choose a new protector for this exact battle during state-based actions.
+    BattleProtector {
+        battle: baylee_core::ids::DamageSourceRef,
+    },
     /// Activating an ability.
     ActivateAbility {
         /// Source permanent.
@@ -1209,6 +1217,16 @@ impl<L: CardLookup> Engine<L> {
             .iter()
             .skip(self.trigger_scan_seq as usize)
         {
+            // The intrinsic trigger retains event-time controller and ability
+            // facts until collection, even when the live source has changed.
+            if matches!(entry.event, GameEvent::BattleDefeated { .. }) {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(&(
+                        entry.seq,
+                        &entry.event,
+                    )));
+            }
             if let Some(departure) = &entry.departure {
                 extra = extra.wrapping_mul(31).wrapping_add(entry.seq);
                 extra = extra.wrapping_mul(31).wrapping_add(departure.fingerprint());

@@ -60,6 +60,8 @@ pub enum CounterKind {
     Bore,
     /// A shield counter replaces destruction or prevents one damage event.
     Shield,
+    /// Defense counters on battles.
+    Defense,
 }
 
 impl CounterKind {
@@ -112,6 +114,7 @@ impl CounterKind {
             Self::Custom(_) => Cow::Borrowed("•"),
             Self::Bore => Cow::Borrowed("BORE"),
             Self::Shield => Cow::Borrowed("SHIELD"),
+            Self::Defense => Cow::Borrowed("DEF"),
         }
     }
 }

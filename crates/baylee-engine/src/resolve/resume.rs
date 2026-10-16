@@ -1104,6 +1104,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseEffect { .. }
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast
+        | AwaitingOp::BattleDefeatCast { .. }
         | AwaitingOp::ControlledCard { .. }
         | AwaitingOp::LandMana { .. }
         | AwaitingOp::TextReplacement { .. }

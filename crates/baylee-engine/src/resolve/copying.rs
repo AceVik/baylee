@@ -47,6 +47,9 @@ fn copy_ability(
         .filter(|object| object.kind == ObjectKind::AbilityOnStack)?
         .clone();
     let loc = copy.ability?;
+    if !copy.riders.contains(&crate::object::Rider::AbilityCopy) {
+        copy.riders.push(crate::object::Rider::AbilityCopy);
+    }
     if copy.target_req.is_none()
         && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC
         && crate::choice::granted_slot(loc.index).is_none()

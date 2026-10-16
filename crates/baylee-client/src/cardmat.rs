@@ -1190,6 +1190,7 @@ pub(crate) mod tests {
         use baylee_core::ids::{ObjectId, PlayerId};
         use baylee_core::types::{SubtypeSet, SupertypeSet};
         baylee_view::PublicObject {
+            battle_protector: None,
             prepared_spell: None,
             word_changes: Vec::new(),
             mana_value: 0,

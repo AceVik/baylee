@@ -60,6 +60,7 @@ fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Finality => V::Finality,
         CounterKind::Bore => V::Bore,
         CounterKind::Shield => V::Shield,
+        CounterKind::Defense => V::Defense,
         CounterKind::Custom(id) => V::Custom(u32::from(id)),
     }
 }
@@ -1006,6 +1007,7 @@ impl HeuristicAgent {
             let victim = match attack.defending {
                 Defender::Player(p) => Some(p),
                 Defender::Planeswalker(w) => view.object(w).map(|w| w.controller),
+                Defender::Battle(_) => None,
             };
             let Some(victim) = victim else {
                 return 0;
@@ -1198,7 +1200,7 @@ impl HeuristicAgent {
             CounterKind::Poison | CounterKind::Rad => -sign * n * 50,
             // The counter alone does not identify a future damage/destruction
             // event to value; do not price it as an unconditional life gain.
-            CounterKind::Shield => return None,
+            CounterKind::Shield | CounterKind::Defense => return None,
             // A clock's sign is the card's under it (`tactics::clock_score`),
             // and a custom counter means what its card says.
             CounterKind::Time | CounterKind::Lore | CounterKind::Bore | CounterKind::Custom(_) => {
@@ -1556,6 +1558,13 @@ impl HeuristicAgent {
             Effect::DealDamage { amount, .. }
             | Effect::DealDamageEvenly { amount, .. }
             | Effect::DealDamageWithCappedLifeGain { amount } => {
+                // Defeating a battle may benefit its controller rather than
+                // remove their resource; its back-face value is not modelled.
+                if matches!(aim, Aim::Object(_))
+                    && subject.is_some_and(|o| o.types.contains(TypeSet::BATTLE))
+                {
+                    return None;
+                }
                 let n = count(*amount)?;
                 match aim {
                     Aim::Player(p) => {

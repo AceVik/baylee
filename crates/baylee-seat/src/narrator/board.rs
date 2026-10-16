@@ -281,6 +281,9 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.commander {
         out.push(format!("{} commander", table.whose(object.owner)));
     }
+    if let Some(protector) = object.battle_protector {
+        out.push(format!("protected by {}", table.player(protector)));
+    }
     for counter in &object.counters {
         if counter.kind == baylee_view::CounterKind::Loyalty {
             continue;
@@ -334,7 +337,7 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
 pub(super) fn defender(table: &Table<'_>, defending: Defender) -> String {
     match defending {
         Defender::Player(p) => table.player(p),
-        Defender::Planeswalker(id) => table.named(id),
+        Defender::Planeswalker(id) | Defender::Battle(id) => table.named(id),
     }
 }
 

@@ -315,6 +315,7 @@ pub(super) fn public_object(
         base_power: obj.base.power,
         base_toughness: obj.base.toughness,
         loyalty: loyalty_now(obj, chars.loyalty),
+        battle_protector: baylee_engine::battle::protector(state, obj.id),
         mana_value: chars.mana_value(),
         damage: obj.damage,
         counters: obj

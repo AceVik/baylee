@@ -209,6 +209,11 @@ pub enum AwaitingOp {
     },
     /// Optional face-down cast from the resolving ability controller's hand.
     MaskedCast,
+    /// Optional transformed-face cast from this exact exile incarnation.
+    BattleDefeatCast {
+        /// The physical card exiled by the defeat instruction.
+        card: baylee_core::ids::DamageSourceRef,
+    },
     /// An untargeted, optional new host for an Aura on the battlefield
     /// (`Effect::DestroyEventThenMayReattach`): none chosen leaves it where
     /// it is.
@@ -890,6 +895,7 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::BattleDefeatCast { card } => crate::state::structural_fingerprint(&(23_u8, card)),
             Self::DamageShieldSource { kind } => {
                 crate::state::structural_fingerprint(&(21_u8, kind))
             }

@@ -7,6 +7,7 @@
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
 mod activations;
+pub(crate) mod battles;
 pub(crate) mod bird_entry;
 mod discarded;
 mod event_groups;
@@ -264,6 +265,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     speed::collect(events, &mut triggers);
     radiation::collect(state, events, &mut triggers);
     sagas::collect(state, lookup, events, &mut triggers);
+    battles::collect(state, lookup, events, &mut triggers);
     cast_this_spell_triggers(state, lookup, events, &mut triggers);
     discarded::collect(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);

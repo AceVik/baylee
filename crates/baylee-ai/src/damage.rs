@@ -8,6 +8,12 @@ use baylee_engine::event::DamageTarget;
 use baylee_view::PlayerView;
 
 fn value(view: &PlayerView, target: DamageTarget, hostile: &dyn Fn(PlayerId) -> bool) -> i64 {
+    // Battle defeat can benefit the controller; do not treat defense as
+    // their life or as destruction of their permanent without reading the back.
+    if matches!(target, DamageTarget::Object(id) if view.object(id).is_some_and(|o| o.types.contains(baylee_core::types::TypeSet::BATTLE)))
+    {
+        return 0;
+    }
     let (owner, weight) = match target {
         DamageTarget::Player(player) => (player, 100),
         DamageTarget::Object(id) => view

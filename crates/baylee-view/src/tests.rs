@@ -13,6 +13,7 @@ mod wire_shape;
 
 fn obj(id: u32, controller: u8) -> PublicObject {
     PublicObject {
+        battle_protector: None,
         mana_value: 0,
         id: ObjectId::new(id, 0),
         card: None,

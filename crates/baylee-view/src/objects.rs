@@ -238,6 +238,9 @@ pub struct PublicObject {
     /// Owner — differs from the controller under control-changing effects, and
     /// clients mark that difference because it decides where the card returns.
     pub owner: PlayerId,
+    /// Designated protector of a live battle, independent of its controller.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub battle_protector: Option<PlayerId>,
     /// Whether this object is one of its owner's commanders (CR 903.3).
     ///
     /// Public information wherever the object itself is: a commander is
@@ -594,6 +597,7 @@ impl PublicObject {
             name: self.name.clone(),
             controller: self.controller,
             owner: self.owner,
+            battle_protector: self.battle_protector,
             commander: self.commander,
             status: self.status,
             types: self.types,
@@ -638,6 +642,7 @@ pub struct ObjectSummaryKey {
     /// Not drawn, but read: "a permanent you own" is a target filter, and a
     /// stolen token answers it differently from its twin.
     owner: PlayerId,
+    battle_protector: Option<PlayerId>,
     /// A commander is drawn with a marker on it, so it must not group with an
     /// ordinary copy of the same card — the token a clone effect makes is
     /// identical in every other field.
@@ -688,6 +693,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.token.hash(state);
         self.name.hash(state);
         self.controller.hash(state);
+        self.battle_protector.hash(state);
         self.commander.hash(state);
         self.status.hash(state);
         self.types.hash(state);

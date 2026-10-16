@@ -44,6 +44,7 @@ pub mod casting;
 pub mod mana_pay;
 pub mod mana_provenance;
 
+pub mod battle;
 /// Structured combat state machine.
 pub mod combat;
 

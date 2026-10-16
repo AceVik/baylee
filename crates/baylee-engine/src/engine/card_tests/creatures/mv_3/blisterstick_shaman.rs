@@ -113,3 +113,22 @@ fn entry_trigger_can_damage_a_creature_or_reduce_planeswalker_loyalty() {
     );
     assert_eq!(g.state().object(creature).unwrap().damage, 1);
 }
+
+#[test]
+fn battle_target_loses_exact_defense_without_harming_bystanders() {
+    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    let p0 = PlayerId::new(0);
+    let (mut e, battle) = battle_kit::game(6901, &[], &[blisterstick_shaman()]);
+    battle_kit::float(&mut e, ManaColor::Red, 3);
+    cast_with_floating(&mut e, p0, blisterstick_shaman());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("any-target Battle option: {:?}", e.pending());
+    };
+    assert!(options.contains(&battle));
+    aim_at(&mut e, p0, battle);
+    pass_until(&mut e, stack_is_empty);
+    battle_kit::assert_nonlethal(&e, battle, 1);
+}

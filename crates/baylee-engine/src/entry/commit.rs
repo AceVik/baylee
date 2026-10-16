@@ -88,6 +88,11 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         .object(entry.object)
         .is_some_and(|o| o.zone == Zone::Battlefield)
     {
+        if let Some(player) = entry.battle_protector
+            && let Some(reference) = state.source_identity(entry.object)
+        {
+            crate::battle::set_protector(state, reference, player);
+        }
         state
             .object_mut(entry.object)
             .expect("successful entry")

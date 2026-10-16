@@ -86,6 +86,7 @@ fn agent() -> HeuristicAgent {
 /// One permanent on the battlefield, as the seat sees it.
 fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
     PublicObject {
+        battle_protector: None,
         id,
         card: None,
         rules: None,

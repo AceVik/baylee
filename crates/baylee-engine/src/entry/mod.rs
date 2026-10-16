@@ -1,5 +1,6 @@
 //! Entry replacements which must finish before an object reaches the battlefield.
 mod auras;
+mod battles;
 mod choices;
 mod commit;
 mod copying;
@@ -78,6 +79,7 @@ struct Attempt {
     refusal: Option<Refusal>,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
+    battle_protector: Option<PlayerId>,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     counter_plans: Vec<crate::replacement::counter_order::CounterPlacementPlan>,
     counters_prepared: bool,
@@ -102,6 +104,7 @@ enum CopyStatus {
 
 #[derive(Clone, Debug, Hash)]
 enum Question {
+    BattleProtector,
     AuraHost,
     Counters,
     TapLife(u16),
@@ -300,7 +303,7 @@ pub(crate) fn defer(
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
     let aura = auras::needs_choice(state, id);
-    let counter_entry = counters::needs_entry(state, id);
+    let counter_entry = counters::needs_entry(state, id) || battles::needs_entry(state, id);
     state.entries.counter_transaction |= counter_entry;
     if !aura
         && !external
@@ -347,6 +350,7 @@ pub(crate) fn defer(
         refusal: None,
         sacrifices: None,
         chosen_number: None,
+        battle_protector: None,
         counters: Vec::new(),
         counter_plans: Vec::new(),
         counters_prepared: false,

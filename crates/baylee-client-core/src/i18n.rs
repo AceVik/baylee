@@ -3776,6 +3776,11 @@ messages! {
     LogAFaceDownCard { en: "a face-down card", de: "eine verdeckte Karte" },
     /// A planeswalker attacked that the reading seat's view no longer shows.
     LogAPlaneswalker { en: "a planeswalker", de: "einen Planeswalker" },
+    LogABattle { en: "a battle", de: "eine Schlacht" },
+    /// Public designation, independent of a battle's controller.
+    BattleProtectedBy { en: "Protected by {0}", de: "Beschützt von {0}" },
+    /// Current defense, including zero while its defeat trigger is pending.
+    BattleDefense { en: "Defense {0}", de: "Verteidigung {0}" },
     /// The last two names of a list, joined.
     LogAnd { en: "{0} and {1}", de: "{0} und {1}" },
     /// The reading seat inside a list of winners, never first.
@@ -4106,6 +4111,10 @@ messages! {
     LogCounterShield { en: "shield counter", de: "Schildmarke" },
     /// Shield counters.
     LogCountersShield { en: "shield counters", de: "Schildmarken" },
+    /// Defense counter, singular.
+    LogCounterDefense { en: "defense counter", de: "Verteidigungsmarke" },
+    /// Defense counters, plural.
+    LogCountersDefense { en: "defense counters", de: "Verteidigungsmarken" },
     /// One lore counter (CR 714.3).
     LogCounterLore { en: "lore counter", de: "Kapitelmarke" },
     /// Lore counters.

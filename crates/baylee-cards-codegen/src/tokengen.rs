@@ -145,6 +145,7 @@ const SUPERTYPES: &[(&str, &str)] = &[
 #[must_use]
 pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     let (mut name, mut colors, mut types, mut pt) = (None, None, None, None);
+    let mut defense = None;
     let mut keywords: Vec<&'static str> = Vec::new();
     for line in text.lines() {
         let line = line.trim_end();
@@ -157,6 +158,7 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
             "Colors" => colors = Some(rest.trim().to_string()),
             "Types" => types = Some(rest.trim().to_string()),
             "PT" => pt = Some(rest.trim().to_string()),
+            "Defense" => defense = Some(rest.trim().parse::<u16>().ok()?),
             "K" => keywords.push(crate::scriptgen::keyword_const_of(rest)?),
             _ if IGNORED.contains(&head) => {}
             _ if TRANSCODED.contains(&head) => {}
@@ -178,6 +180,9 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     // states, and the type line is the one field none of them can omit.
     let name = name?;
     let types = type_line(types.as_deref()?, cats)?;
+    if types.set.contains("TypeSet::BATTLE") != defense.is_some() {
+        return None;
+    }
     let (power, toughness) = match (pt.as_deref(), types.is_creature) {
         // `PT:*/*` is a token whose size is computed by the card that makes
         // it, which is a rule rather than a definition.
@@ -217,6 +222,9 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     if let (Some(p), Some(t)) = (power, toughness) {
         let _ = writeln!(literal, "    power: Some({p}),");
         let _ = writeln!(literal, "    toughness: Some({t}),");
+    }
+    if let Some(defense) = defense {
+        let _ = writeln!(literal, "    defense: Some({defense}),");
     }
     if !keywords.is_empty() {
         let _ = writeln!(literal, "    keywords: {},", union_of(&keywords));
@@ -741,6 +749,28 @@ mod tests {
         };
         cats.normalize();
         cats
+    }
+
+    #[test]
+    fn battle_token_preserves_defense_and_refuses_missing_or_invalid_values() {
+        let valid = "Name:Battle Token\nTypes:Battle\nDefense:5\nOracle:";
+        let body = read(valid, &cats()).expect("numeric Battle token");
+        assert!(body.literal.contains("defense: Some(5),"));
+        for text in [
+            "Name:Battle Token\nTypes:Battle\nOracle:",
+            "Name:Battle Token\nTypes:Battle\nDefense:*\nOracle:",
+            "Name:Battle Token\nTypes:Battle\nDefense:65536\nOracle:",
+            "Name:Rock Token\nTypes:Artifact\nDefense:5\nOracle:",
+        ] {
+            assert!(read(text, &cats()).is_none());
+        }
+        assert!(
+            read(
+                "Name:Battle Token\nTypes:Battle\nDefense:5\nAlternateMode:Back\nOracle:",
+                &cats()
+            )
+            .is_none()
+        );
     }
 
     /// The plainest token there is, and the shape 360 of the reference's 852

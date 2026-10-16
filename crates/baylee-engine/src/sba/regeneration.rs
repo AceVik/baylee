@@ -124,4 +124,91 @@ mod tests {
             assert_eq!(queue.pop(), None);
         }
     }
+    #[test]
+    fn regeneration_removes_incoming_combat_only_when_it_removes_the_creature() {
+        use crate::{
+            combat::{AttackerInfo, active_damage_recipient, remember_attack},
+            engine::synthetic::{SyntheticLookup, preset},
+            event::DamageTarget,
+            object::ObjectKind,
+            state::GameState,
+            zone::ZoneLocation,
+        };
+        use baylee_core::{
+            ids::{Defender, PlayerId},
+            types::TypeSet,
+        };
+        for (attacking, blocking) in [(false, false), (true, false), (false, true)] {
+            let mut state =
+                GameState::from_preset(&preset(601, &[]), &SyntheticLookup::new(vec![])).unwrap();
+            let name = state.names.intern("regenerating planeswalker creature");
+            let target = state.create_bare(
+                PlayerId::new(0),
+                ObjectKind::Permanent,
+                name,
+                ZoneLocation::Battlefield,
+            );
+            let incoming = state.create_bare(
+                PlayerId::new(1),
+                ObjectKind::Permanent,
+                name,
+                ZoneLocation::Battlefield,
+            );
+            for id in [target, incoming] {
+                let base = state.object_mut(id).unwrap().base_mut();
+                base.types = if id == target {
+                    TypeSet::CREATURE.union(TypeSet::PLANESWALKER)
+                } else {
+                    TypeSet::CREATURE
+                };
+                base.power = Some(3);
+                base.toughness = Some(3);
+            }
+            state.invalidate_projections();
+            state.refresh_characteristics();
+            let target_ref = state.source_identity(target).unwrap();
+            let incoming_ref = state.source_identity(incoming).unwrap();
+            state.combat.declare_attackers([AttackerInfo {
+                creature: incoming,
+                defending: Defender::Planeswalker(target),
+                blocked: false,
+                band: None,
+            }]);
+            remember_attack(&mut state, incoming, Defender::Planeswalker(target));
+            if attacking {
+                state.combat.declare_attackers([AttackerInfo {
+                    creature: target,
+                    defending: Defender::Player(PlayerId::new(1)),
+                    blocked: false,
+                    band: None,
+                }]);
+                remember_attack(&mut state, target, Defender::Player(PlayerId::new(1)));
+            }
+            if blocking {
+                state.combat.declare_block(target_ref, incoming_ref);
+            }
+            assert!(state.combat.is_being_attacked(target_ref));
+            state.object_mut(target).unwrap().regeneration_shields = 1;
+            super::super::destroy(&mut state, target);
+            assert_eq!(
+                state.combat.is_being_attacked(target_ref),
+                !attacking && !blocking
+            );
+            assert_eq!(
+                active_damage_recipient(&state, incoming),
+                if attacking || blocking {
+                    None
+                } else {
+                    Some(DamageTarget::Object(target))
+                }
+            );
+            assert!(
+                state.combat.is_attacking(incoming),
+                "removing its defender does not remove the attacker"
+            );
+            assert!(!state.combat.is_attacking(target));
+            assert!(!state.combat.is_blocking(target, incoming));
+            assert_eq!(state.object(target).unwrap().regeneration_shields, 0);
+        }
+    }
 }

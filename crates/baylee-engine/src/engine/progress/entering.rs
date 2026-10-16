@@ -237,6 +237,9 @@ impl<L: CardLookup> Engine<L> {
                 asks.push((id, controller, EntryAsk::Copy));
                 continue;
             }
+            if !orientation_applied {
+                changed |= self.initialize_battle_entry(id);
+            }
             let Some(face) = self
                 .state
                 .object(id)
@@ -393,8 +396,10 @@ impl<L: CardLookup> Engine<L> {
         // choose the order, which is not offered.
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
-        asks.sort_by_key(|(_, controller, _)| (controller.get() + seats - active) % seats);
         self.entry_questions.extend(asks);
+        self.entry_questions
+            .make_contiguous()
+            .sort_by_key(|(_, controller, _)| (controller.get() + seats - active) % seats);
         changed
     }
 
@@ -415,6 +420,7 @@ impl<L: CardLookup> Engine<L> {
             }
             let asked = match ask {
                 EntryAsk::Copy => self.check_copy_on_enter(id),
+                EntryAsk::BattleProtector(reference) => self.ask_battle_protector(reference),
                 EntryAsk::Modifier(modifier) => {
                     self.ask_entry_modifier(id, controller, modifier, changed)
                 }
@@ -424,6 +430,78 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         false
+    }
+
+    /// Preset arrivals already exist before mulligans. Forced intrinsic counters
+    /// are initialized now; genuine choices use the existing deferred queues.
+    pub(crate) fn initialize_battle_entry(&mut self, id: ObjectId) -> bool {
+        let Some(object) = self.state.object(id).filter(|object| {
+            object.zone == Zone::Battlefield
+                && object
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::BATTLE)
+        }) else {
+            return false;
+        };
+        let reference = baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: object.version,
+        };
+        let controller = object.controller;
+        let options = crate::battle::eligible_protectors(&self.state, object);
+        let defense = crate::battle::intrinsic_defense(object);
+        if let Some(defense) = defense {
+            crate::replacement::put_counters(
+                &mut self.state,
+                id,
+                baylee_cards_dsl::CounterKind::Defense,
+                defense,
+            );
+        }
+        if crate::battle::designated_protector(&self.state, id).is_none() {
+            match options.as_slice() {
+                [only] => crate::battle::set_protector(&mut self.state, reference, *only),
+                [] => {}
+                _ => self.entry_questions.push_back((
+                    id,
+                    controller,
+                    EntryAsk::BattleProtector(reference),
+                )),
+            }
+        }
+        true
+    }
+
+    fn ask_battle_protector(&mut self, reference: baylee_core::ids::DamageSourceRef) -> bool {
+        let Some(object) = self.state.object(reference.object).filter(|object| {
+            object.version == reference.version
+                && object.zone == Zone::Battlefield
+                && object
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::BATTLE)
+        }) else {
+            return false;
+        };
+        let controller = object.controller;
+        let options = crate::battle::eligible_protectors(&self.state, object);
+        match options.as_slice() {
+            [] => false,
+            [only] => {
+                crate::battle::set_protector(&mut self.state, reference, *only);
+                false
+            }
+            _ => {
+                self.pending_plan = Some(PlanKind::EntryBattleProtector { battle: reference });
+                self.pending = Pending::ChoosePlayer {
+                    player: controller,
+                    options,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+        }
     }
 
     /// The entry choice uses opponent relationships, never targeting restrictions.

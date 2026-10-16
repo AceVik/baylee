@@ -163,8 +163,8 @@ pub fn matches_projected_with_context(
         // three is the one it attacks); for anything else, any opponent of
         // the attacking player during combat, as before.
         Filter::ControlledByDefendingPlayer => {
-            if let Some(defender) = last_defender(state, this) {
-                crate::combat::blocking_player(state, defender) == Some(obj.controller)
+            if last_defender(state, this).is_some() {
+                crate::combat::historical_defending_player(state, this) == Some(obj.controller)
             } else {
                 state.turn.phase == crate::turn::Phase::Combat
                     && state.is_opponent(obj.controller, state.turn.active)
@@ -543,8 +543,9 @@ pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -
     // Attacking, or attacking earlier this combat and removed since (CR
     // 508.5: "the player that creature was attacking before it was removed
     // from combat").
-    if let Some(defender) = last_defender(state, source) {
-        return crate::combat::blocking_player(state, defender).filter(|p| !state.has_left(*p));
+    if last_defender(state, source).is_some() {
+        return crate::combat::historical_defending_player(state, source)
+            .filter(|p| !state.has_left(*p));
     }
     if state.turn.phase != crate::turn::Phase::Combat {
         return None;

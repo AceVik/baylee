@@ -16,7 +16,7 @@
 //! makes.
 //!
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
-//! and its loyalty comes off (CR 306.8). Battles are the remaining case.
+//! and its loyalty comes off (CR 306.8); battles use their protector and defense.
 //!
 //! Not yet: an attacker with trample blocked by creatures without banding
 //! is not asked how to assign its damage (CR 702.19b). The engine assigns
@@ -25,7 +25,12 @@
 //! chosen.
 
 use crate::event::DamageTarget;
+
+mod defenders;
 use crate::object::{GameObject, Status};
+pub(crate) use defenders::{
+    active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
+};
 
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
@@ -146,6 +151,7 @@ pub struct CombatState {
     /// onto the battlefield attacking; the latest entry for a creature
     /// wins. Cleared with the combat.
     defended: Vec<(ObjectId, u32, Defender)>,
+    defender_contexts: std::collections::BTreeMap<ObjectId, defenders::DefenderContext>,
 }
 
 /// The declared lists and the chosen divisions: `attacking` is derived
@@ -162,6 +168,7 @@ impl std::hash::Hash for CombatState {
         self.first_strikers.hash(state);
         self.prepared_damage.hash(state);
         self.defended.hash(state);
+        self.defender_contexts.hash(state);
     }
 }
 
@@ -478,6 +485,7 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
     obj.zone == crate::zone::Zone::Battlefield
         && obj.controller == player
         && obj.characteristics().types.contains(TypeSet::CREATURE)
+        && !obj.characteristics().types.contains(TypeSet::BATTLE)
         // Defender (CR 702.3b): can't attack, however untapped it is —
         // unless it can attack as though it didn't have defender.
         && (!obj.characteristics().keywords.contains(K::DEFENDER)
@@ -521,9 +529,19 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
                 state.object(*id).is_some_and(|o| {
                     opponents.contains(&o.controller)
                         && o.characteristics().types.contains(TypeSet::PLANESWALKER)
+                        && !o.characteristics().types.contains(TypeSet::BATTLE)
                 })
             })
             .map(Defender::Planeswalker),
+    );
+    options.extend(
+        state
+            .battlefield_seen()
+            .filter(|&id| {
+                crate::battle::protector(state, id)
+                    .is_some_and(|protector| opponents.contains(&protector))
+            })
+            .map(Defender::Battle),
     );
     options
 }
@@ -537,6 +555,7 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
 pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerId> {
     match defender {
         Defender::Player(p) => Some(p),
+        Defender::Battle(id) => crate::battle::protector(state, id),
         Defender::Planeswalker(id) => state
             .object(id)
             .filter(|o| {
@@ -560,6 +579,7 @@ pub fn blocking_player(state: &GameState, defender: Defender) -> Option<PlayerId
     match defender {
         Defender::Player(p) => Some(p),
         Defender::Planeswalker(id) => state.last_known_controller(id),
+        Defender::Battle(id) => crate::battle::designated_protector(state, id),
     }
 }
 
@@ -748,6 +768,7 @@ fn ready_to_block(b: &GameObject, defending: PlayerId) -> bool {
     b.zone == crate::zone::Zone::Battlefield
         && b.controller == defending
         && b.characteristics().types.contains(TypeSet::CREATURE)
+        && !b.characteristics().types.contains(TypeSet::BATTLE)
         && !b.status.contains(Status::TAPPED)
         && !b.status.contains(Status::PHASED_OUT)
 }
@@ -847,7 +868,7 @@ pub fn can_block(
     if state
         .combat
         .defender_of(attacker)
-        .is_some_and(|d| blocking_player(state, d) != Some(defending))
+        .is_some_and(|_| historical_defending_player(state, attacker) != Some(defending))
     {
         return false;
     }
@@ -1350,13 +1371,7 @@ pub(crate) fn prepare_damage_step(state: &mut GameState, first: bool) -> bool {
     let mut assignments = Vec::new();
     for attacker in state.combat.attackers() {
         if strikes_now(state, attacker.creature, first) {
-            assign_attacker_damage(
-                state,
-                attacker.creature,
-                attacker.defending,
-                attacker.blocked,
-                &mut assignments,
-            );
+            assign_attacker_damage(state, attacker.creature, attacker.blocked, &mut assignments);
         }
     }
     for blocker in blocking_creatures(state) {
@@ -1595,13 +1610,7 @@ pub(crate) fn collect_combat_damage(
         if strikes_now(state, info.creature, first_strike_step)
             && !assigns_no_combat_damage(state, info.creature)
         {
-            assign_attacker_damage(
-                state,
-                info.creature,
-                info.defending,
-                info.blocked,
-                &mut assignments,
-            );
+            assign_attacker_damage(state, info.creature, info.blocked, &mut assignments);
         }
     }
     for blocker in blocking_creatures(state) {
@@ -1640,7 +1649,6 @@ fn assigns_no_combat_damage(state: &GameState, creature: ObjectId) -> bool {
 fn assign_attacker_damage(
     state: &GameState,
     attacker: ObjectId,
-    defending: Defender,
     blocked: bool,
     out: &mut Vec<crate::damage::Assignment>,
 ) {
@@ -1664,9 +1672,9 @@ fn assign_attacker_damage(
             assign(out, attacker, DamageTarget::Object(*blocker), assigned);
             remaining -= assigned;
         }
-        assign_defender(state, out, attacker, defending, remaining);
+        assign_defender(state, out, attacker, remaining);
     } else {
-        assign_defender(state, out, attacker, defending, power);
+        assign_defender(state, out, attacker, power);
     }
 }
 
@@ -1674,17 +1682,10 @@ fn assign_defender(
     state: &GameState,
     out: &mut Vec<crate::damage::Assignment>,
     source: ObjectId,
-    defender: Defender,
     amount: i16,
 ) {
-    let to = match defender {
-        Defender::Player(player) => DamageTarget::Player(player),
-        Defender::Planeswalker(id) => {
-            if defending_player(state, defender).is_none() {
-                return;
-            }
-            DamageTarget::Object(id)
-        }
+    let Some(to) = active_damage_recipient(state, source) else {
+        return;
     };
     assign(out, source, to, amount);
 }
@@ -1816,6 +1817,7 @@ pub fn attack_taps(state: &GameState, creature: ObjectId) -> bool {
 
 #[cfg(test)]
 mod tests {
+    mod battle;
     mod history;
     use super::*;
     use crate::object::ObjectKind;
