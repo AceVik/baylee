@@ -1,8 +1,0 @@
-combat/attack_to_blocks_100
-                        time:   [109.64 µs 110.01 µs 110.49 µs]
-
-combat/attack_to_blocks_900
-                        time:   [1.2157 ms 1.2214 ms 1.2270 ms]
-Found 2 outliers among 30 measurements (6.67%)
-  2 (6.67%) high mild
-

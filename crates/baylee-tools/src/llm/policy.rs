@@ -279,7 +279,7 @@ pub(super) fn test_source(body: &str) -> Result<()> {
             bail!("test fragment may contain only functions");
         };
         ensure!(
-            function.sig.unsafety.is_none() && function.sig.abi.is_none(),
+            matches!(function.sig.safety, syn::Safety::Default) && function.sig.abi.is_none(),
             "test fragment may not declare unsafe or foreign functions"
         );
         ensure!(

@@ -113,12 +113,11 @@ fn text_size_arm<'a>(
         .iter()
         .find_map(|arm| match &arm.pat {
             syn::Pat::Path(path)
-                if arm.guard.is_none()
-                    && path
-                        .path
-                        .segments
-                        .last()
-                        .is_some_and(|part| &part.ident == variant) =>
+                if path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|part| &part.ident == variant) =>
             {
                 Some(arm.body.as_ref())
             }
