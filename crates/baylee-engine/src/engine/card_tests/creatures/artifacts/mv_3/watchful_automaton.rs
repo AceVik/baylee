@@ -6,6 +6,10 @@ fn subject() -> CardIndex {
     card_index("6f5e6799-cb0f-4403-9c2a-69abeac08b79")
 }
 
+fn watchful_automaton() -> CardIndex {
+    subject()
+}
+
 // Checklist: {2}{U} affordability; no tap/summoning restriction; scry exactly
 // one, keep and bottom alternatives, repeat for another three mana; no draw.
 #[test]
@@ -97,4 +101,20 @@ fn scry_needs_three_mana_including_blue() {
         };
         assert!(!legal.abilities.iter().any(|(id, _)| *id == source));
     }
+}
+
+/// Watchful Automaton — "{2}{U}: Scry 1."
+#[test]
+fn watchful_automaton_scries_one_for_two_and_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = main_with(&[], &[watchful_automaton(), island(), forest(), forest()]);
+    let automaton = on_battlefield(&engine, p0, watchful_automaton()).expect("seated");
+    assert_eq!(pt(&engine, automaton), (2, 2));
+    tap_all_mana(&mut engine, p0);
+
+    activate(&mut engine, p0, watchful_automaton(), 0);
+    let before = answer_scry(&mut engine, 1, true);
+
+    assert_scried(&engine, &before, 1, true);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
 }

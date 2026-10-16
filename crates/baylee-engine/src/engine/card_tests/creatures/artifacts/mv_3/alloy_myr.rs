@@ -1,6 +1,8 @@
-//! Oracle checklist: {T} cost; choose any of five colors; exactly one mana of chosen color is added; tapped Myr cannot activate again.
-#[allow(clippy::wildcard_imports)]
+//! `cards/creatures/artifacts/mv_3/alloy_myr.rs`, played.
+
+#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+
 fn alloy_myr() -> CardIndex {
     card_index("efb0394c-2a45-4dd8-bca3-08704056fa31")
 }
@@ -43,4 +45,18 @@ fn alloy_myr_taps_for_one_mana_of_each_chosen_color() {
         );
         assert_eq!(e.state().players[0].mana_pool.total(), 1);
     }
+}
+
+/// Alloy Myr — "{T}: Add one mana of any color": the ability asks which color
+/// and gives exactly one mana of it.
+#[test]
+fn alloy_myr_taps_for_one_mana_of_the_color_named() {
+    let p0 = PlayerId::new(0);
+    let mut engine = main_with(&[], &[alloy_myr()]);
+    let myr = on_battlefield(&engine, p0, alloy_myr()).expect("seated");
+    assert_eq!(pt(&engine, myr), (2, 2));
+
+    tap_for_any_color(&mut engine, myr, ManaColor::Red);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert!(stack_is_empty(&engine), "a mana ability does not use the stack");
 }
