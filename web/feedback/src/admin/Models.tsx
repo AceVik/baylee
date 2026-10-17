@@ -297,6 +297,99 @@ export function fallbackChoices(hosts: SeatHost[], host: string, id: string, ven
     .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
+/** Known API and CLI models with human-readable labels and supported thinking/effort levels. */
+interface ModelPreset {
+  provider: string;
+  tool?: string;
+  id: string;
+  label: string;
+  efforts: readonly string[];
+  defaultEffort?: string;
+}
+
+const MODEL_PRESETS: readonly ModelPreset[] = [
+  // Anthropic API
+  { provider: "anthropic", id: "claude-opus-4-7", label: "Claude Opus 4.7", efforts: ["low", "medium", "high", "xhigh", "max"], defaultEffort: "high" },
+  { provider: "anthropic", id: "claude-opus-4-6", label: "Claude Opus 4.6", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "anthropic", id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "anthropic", id: "claude-haiku-4-5", label: "Claude Haiku 4.5", efforts: [] },
+  // OpenAI API
+  { provider: "openai", id: "gpt-5.4", label: "GPT-5.4", efforts: ["none", "low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "openai", id: "gpt-5.4-mini", label: "GPT-5.4 Mini", efforts: ["none", "low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "openai", id: "gpt-5.4-nano", label: "GPT-5.4 Nano", efforts: ["none", "low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "openai", id: "gpt-5.4-pro", label: "GPT-5.4 Pro", efforts: ["medium", "high", "xhigh"], defaultEffort: "high" },
+  // Gemini API
+  { provider: "gemini", id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", efforts: ["low", "medium", "high"], defaultEffort: "high" },
+  { provider: "gemini", id: "gemini-3-flash-preview", label: "Gemini 3 Flash", efforts: ["minimal", "low", "medium", "high"], defaultEffort: "high" },
+  { provider: "gemini", id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash-Lite", efforts: ["minimal", "low", "medium", "high"], defaultEffort: "high" },
+  { provider: "gemini", id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", efforts: ["low", "medium", "high"], defaultEffort: "high" },
+  { provider: "gemini", id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", efforts: ["minimal", "low", "medium", "high"], defaultEffort: "medium" },
+  // OpenAI-compatible (DeepSeek)
+  { provider: "openai-compatible", id: "deepseek-reasoner", label: "DeepSeek Reasoner (R1)", efforts: [] },
+  { provider: "openai-compatible", id: "deepseek-chat", label: "DeepSeek Chat (V3)", efforts: [] },
+  // Claude Code CLI
+  { provider: "cli", tool: "claude", id: "claude:claude-opus-4-7", label: "Claude Opus 4.7", efforts: ["low", "medium", "high", "xhigh", "max"], defaultEffort: "xhigh" },
+  { provider: "cli", tool: "claude", id: "claude:claude-sonnet-4-6", label: "Claude Sonnet 4.6", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "cli", tool: "claude", id: "claude:claude-opus-4-6", label: "Claude Opus 4.6", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "cli", tool: "claude", id: "claude:claude-haiku-4-5", label: "Claude Haiku 4.5", efforts: [] },
+  { provider: "cli", tool: "claude", id: "claude:opus", label: "Claude Opus (Alias)", efforts: ["low", "medium", "high", "xhigh", "max"], defaultEffort: "xhigh" },
+  { provider: "cli", tool: "claude", id: "claude:sonnet", label: "Claude Sonnet (Alias)", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  // Antigravity CLI (agy)
+  { provider: "cli", tool: "agy", id: "agy:claude-opus-4-6-thinking", label: "Claude Opus 4.6 (Thinking)", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "cli", tool: "agy", id: "agy:claude-sonnet-4-6", label: "Claude Sonnet 4.6", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "cli", tool: "agy", id: "agy:gemini-3.1-pro-high", label: "Gemini 3.1 Pro (High)", efforts: [] },
+  { provider: "cli", tool: "agy", id: "agy:gemini-3.1-pro-low", label: "Gemini 3.1 Pro (Low)", efforts: [] },
+  { provider: "cli", tool: "agy", id: "agy:gemini-3-flash-agent", label: "Gemini 3 Flash (Agent)", efforts: ["minimal", "low", "medium", "high"], defaultEffort: "high" },
+  { provider: "cli", tool: "agy", id: "agy:gpt-oss-120b-medium", label: "GPT-OSS 120B (Medium)", efforts: [] },
+  // Codex CLI
+  { provider: "cli", tool: "codex", id: "codex:gpt-5.4", label: "GPT-5.4", efforts: ["low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "cli", tool: "codex", id: "codex:gpt-5.4-mini", label: "GPT-5.4 Mini", efforts: ["low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "cli", tool: "codex", id: "codex:gpt-5.3-codex", label: "GPT-5.3 Codex", efforts: ["low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "cli", tool: "codex", id: "codex:gpt-5.2-codex", label: "GPT-5.2 Codex", efforts: ["low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  // Opencode CLI
+  { provider: "cli", tool: "opencode", id: "opencode:anthropic/claude-sonnet-4-6", label: "Claude Sonnet 4.6 (Anthropic)", efforts: ["low", "medium", "high", "max"], defaultEffort: "high" },
+  { provider: "cli", tool: "opencode", id: "opencode:anthropic/claude-opus-4-7", label: "Claude Opus 4.7 (Anthropic)", efforts: ["low", "medium", "high", "xhigh", "max"], defaultEffort: "xhigh" },
+  { provider: "cli", tool: "opencode", id: "opencode:openai/gpt-5.4", label: "GPT-5.4 (OpenAI)", efforts: ["none", "minimal", "low", "medium", "high", "xhigh"], defaultEffort: "medium" },
+  { provider: "cli", tool: "opencode", id: "opencode:google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Google)", efforts: ["low", "medium", "high"], defaultEffort: "high" },
+  { provider: "cli", tool: "opencode", id: "opencode", label: "opencode (Default)", efforts: ["minimal", "low", "medium", "high", "max"] },
+  // Junie CLI
+  { provider: "cli", tool: "junie", id: "junie:opus", label: "Claude Opus 4.6 (Junie)", efforts: [] },
+  { provider: "cli", tool: "junie", id: "junie:sonnet", label: "Claude Sonnet 4.6 (Junie)", efforts: [] },
+  { provider: "cli", tool: "junie", id: "junie:gpt", label: "GPT-5.4 (Junie)", efforts: [] },
+  { provider: "cli", tool: "junie", id: "junie:gemini-pro", label: "Gemini 3.1 Pro (Junie)", efforts: [] },
+  { provider: "cli", tool: "junie", id: "junie:gemini-flash", label: "Gemini 3 Flash (Junie)", efforts: [] },
+];
+
+const CLI_TOOLS = [
+  { id: "claude", label: "Claude Code", defaultModel: "claude:claude-opus-4-7" },
+  { id: "agy", label: "agy (Antigravity)", defaultModel: "agy:claude-opus-4-6-thinking" },
+  { id: "codex", label: "Codex", defaultModel: "codex:gpt-5.4" },
+  { id: "opencode", label: "opencode", defaultModel: "opencode:anthropic/claude-sonnet-4-6" },
+  { id: "junie", label: "Junie", defaultModel: "junie:sonnet" },
+] as const;
+
+export function findModelPreset(modelId: string): ModelPreset | undefined {
+  return MODEL_PRESETS.find((m) => m.id === modelId);
+}
+
+/** Human-readable model label when known and distinct from the raw ID/profile label. */
+export function prettyModelName(modelId: string): string | null {
+  const preset = findModelPreset(modelId);
+  return preset !== undefined && preset.label !== modelId ? preset.label : null;
+}
+
+function parseProfileObject(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Hand-edited invalid JSON stays untouched.
+  }
+  return null;
+}
+
 function Editor({
   lang,
   hosts,
@@ -341,6 +434,24 @@ function Editor({
   }, []);
 
   const cli = playsCli(profile);
+  const parsedProfile = parseProfileObject(profile);
+  const currentProvider = typeof parsedProfile?.["provider"] === "string" ? parsedProfile["provider"] : "";
+  const currentModel = typeof parsedProfile?.["model"] === "string" ? parsedProfile["model"] : "";
+  const currentEffort = typeof parsedProfile?.["effort"] === "string" ? parsedProfile["effort"] : "";
+  const currentCliTool =
+    currentProvider === "cli"
+      ? (CLI_TOOLS.find((t) => currentModel === t.id || currentModel.startsWith(`${t.id}:`))?.id ?? "claude")
+      : null;
+  const activePreset = findModelPreset(currentModel);
+  const providerPresets = MODEL_PRESETS.filter((m) =>
+    currentProvider === "cli" ? m.provider === "cli" && m.tool === currentCliTool : m.provider === currentProvider,
+  );
+  const updateProfileJson = (mutate: (next: Record<string, unknown>) => void) => {
+    const base = parseProfileObject(profile) ?? {};
+    const next: Record<string, unknown> = { ...base };
+    mutate(next);
+    setProfile(JSON.stringify(next, null, 2));
+  };
   const choices = fallbackChoices(hosts, host, id, vendor);
   const missing = fallback !== "" && !choices.some((c) => c.id === fallback);
   const elsewhere = hosts.find((h) => h.name === host)?.profiles.some((other) => other.id === fallback) ?? false;
@@ -598,6 +709,99 @@ function Editor({
 
         <fieldset className="llm-section">
           <legend>{t(lang, "llm.section.model")}</legend>
+          {parsedProfile !== null && (
+            <div className="llm-presets">
+              <div className="row-actions">
+                {(["anthropic", "openai", "gemini", "openai-compatible", "cli"] as const).map((prov) => (
+                  <button
+                    key={prov}
+                    type="button"
+                    className={currentProvider === prov ? "primary" : "quiet"}
+                    onClick={() => {
+                      updateProfileJson((next) => {
+                        next["provider"] = prov;
+                        const firstForProv = MODEL_PRESETS.find((m) => m.provider === prov);
+                        if (firstForProv !== undefined) next["model"] = firstForProv.id;
+                        delete next["effort"];
+                      });
+                    }}
+                  >
+                    {prov}
+                  </button>
+                ))}
+              </div>
+              {currentProvider === "cli" && (
+                <div className="row-actions">
+                  {CLI_TOOLS.map((tool) => (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      className={currentCliTool === tool.id ? "primary" : "quiet"}
+                      onClick={() => {
+                        updateProfileJson((next) => {
+                          next["provider"] = "cli";
+                          next["model"] = tool.defaultModel;
+                          delete next["effort"];
+                        });
+                      }}
+                    >
+                      {tool.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {providerPresets.length > 0 && (
+                <div className="row-actions">
+                  {providerPresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={currentModel === preset.id ? "primary" : "quiet"}
+                      onClick={() => {
+                        updateProfileJson((next) => {
+                          next["model"] = preset.id;
+                          if (typeof next["effort"] === "string" && !preset.efforts.includes(next["effort"])) {
+                            delete next["effort"];
+                          }
+                        });
+                      }}
+                    >
+                      {preset.label} · {preset.id}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {activePreset !== undefined && activePreset.efforts.length > 0 && (
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className={currentEffort === "" ? "primary" : "quiet"}
+                    onClick={() => {
+                      updateProfileJson((next) => {
+                        delete next["effort"];
+                      });
+                    }}
+                  >
+                    {activePreset.defaultEffort === undefined ? "Default effort" : `Default effort (${activePreset.defaultEffort})`}
+                  </button>
+                  {activePreset.efforts.map((eff) => (
+                    <button
+                      key={eff}
+                      type="button"
+                      className={currentEffort === eff ? "primary" : "quiet"}
+                      onClick={() => {
+                        updateProfileJson((next) => {
+                          next["effort"] = eff;
+                        });
+                      }}
+                    >
+                      Effort: {eff}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {field(
             "llm-profile",
             "llm.profile",
@@ -1042,39 +1246,51 @@ export function Models({ lang }: { lang: Lang }) {
       <Panel id="llm-profiles-title" title={t(lang, "llm.profiles")}>
         {hosts !== null && groups.length === 0 && <p className="empty">{t(lang, "llm.noProfiles")}</p>}
         <ul className="llm-profiles">
-          {groups.map((g) => (
-            <li key={g.id} className="llm-profile card" data-testid="llm-profile">
-              <div className="llm-profile-head">
-                <div>
-                  <h3>{g.head.label}</h3>
-                  <p className="muted small">
-                    {g.head.vendor} · <span className="mono">{g.head.model}</span> · <span className="mono">{g.id}</span>
-                  </p>
+          {groups.map((g) => {
+            const pretty = prettyModelName(g.head.model);
+            const effort = typeof g.head.definition.profile["effort"] === "string" ? g.head.definition.profile["effort"] : null;
+            return (
+              <li key={g.id} className="llm-profile card" data-testid="llm-profile">
+                <div className="llm-profile-head">
+                  <div>
+                    <h3>{g.head.label}</h3>
+                    <p className="muted small">
+                      {g.head.vendor}
+                      {pretty !== null && pretty !== g.head.label && ` · ${pretty}`} · <span className="mono">{g.head.model}</span>
+                      {effort !== null && effort !== "" && (
+                        <>
+                          {" "}
+                          · <span className="mono">{effort}</span>
+                        </>
+                      )}{" "}
+                      · <span className="mono">{g.id}</span>
+                    </p>
+                  </div>
+                  <span className="llm-badges">
+                    <Badge tone="accent">{t(lang, `llm.kind.${g.head.kind}`)}</Badge>
+                    {g.on.some((o) => o.profile.canary) && <Badge tone="warn">{t(lang, "llm.canary")}</Badge>}
+                  </span>
                 </div>
-                <span className="llm-badges">
-                  <Badge tone="accent">{t(lang, `llm.kind.${g.head.kind}`)}</Badge>
-                  {g.on.some((o) => o.profile.canary) && <Badge tone="warn">{t(lang, "llm.canary")}</Badge>}
-                </span>
-              </div>
-              <ul className="llm-on-list">
-                {g.on.map(({ host, profile }) => (
-                  <HostRow
-                    key={host}
-                    lang={lang}
-                    host={host}
-                    profile={profile}
-                    now={now}
-                    busy={busy}
-                    act={act}
-                    ask={setAsking}
-                    edit={() => {
-                      setEditing({ host, id: profile.id, definition: profile.definition });
-                    }}
-                  />
-                ))}
-              </ul>
-            </li>
-          ))}
+                <ul className="llm-on-list">
+                  {g.on.map(({ host, profile }) => (
+                    <HostRow
+                      key={host}
+                      lang={lang}
+                      host={host}
+                      profile={profile}
+                      now={now}
+                      busy={busy}
+                      act={act}
+                      ask={setAsking}
+                      edit={() => {
+                        setEditing({ host, id: profile.id, definition: profile.definition });
+                      }}
+                    />
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       </Panel>
 

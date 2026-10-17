@@ -979,3 +979,60 @@ fn managed_sessions_are_explicit_preserved_and_validate_the_provider() {
     panel.act(Act::SessionApi(2, false));
     assert!(!panel.session_api(2));
 }
+
+#[test]
+fn cli_tools_models_and_efforts_can_be_picked_and_clear_incompatible_efforts() {
+    use crate::llmseat::CliTool;
+
+    let mut panel = SeatPanel::new(Disk::Missing);
+    panel.act(Act::AddPreset(Preset::Codex));
+    assert_eq!(panel.cli_tool(0), Some(CliTool::Codex));
+    panel.act(Act::PickEffort(0, Some("ultra")));
+    assert_eq!(
+        panel
+            .buffer(Spot::Profile(0, Slot::Effort))
+            .map(TextBuffer::text),
+        Some("ultra")
+    );
+    // Picking Luna (which only takes up to `max`) clears `ultra`.
+    let luna_idx = panel
+        .offered_models(0)
+        .iter()
+        .position(|m| m.id == "codex:gpt-6-luna")
+        .expect("luna offered");
+    panel.act(Act::PickModel(0, luna_idx));
+    assert_eq!(
+        panel
+            .buffer(Spot::Profile(0, Slot::Model))
+            .map(TextBuffer::text),
+        Some("codex:gpt-6-luna")
+    );
+    assert_eq!(
+        panel
+            .buffer(Spot::Profile(0, Slot::Effort))
+            .map(TextBuffer::text),
+        Some("")
+    );
+
+    // Live-discovered opencode models appear in offered_models without dirtying the form.
+    panel.act(Act::PickCliTool(0, CliTool::Opencode));
+    let saved = panel.to_save().expect("valid opencode profile");
+    panel.saved(saved);
+    assert!(!panel.changed());
+    assert!(panel.set_listed(
+        "cli:opencode",
+        vec![
+            "opencode:openai/gpt-6-astra\tGPT-6 Astra (openai)\tlow,medium,high,xhigh,max\t"
+                .to_string()
+        ]
+    ));
+    assert!(!panel.changed(), "live discovery does not dirty the form");
+    let offered = panel.offered_models(0);
+    assert_eq!(offered[0].id, "opencode:openai/gpt-6-astra");
+    panel.act(Act::PickModel(0, 0));
+    panel.act(Act::PickEffort(0, Some("high")));
+    assert_eq!(
+        panel.profile_summary(0),
+        "GPT-6 Astra (openai) \u{b7} opencode:openai/gpt-6-astra \u{b7} high"
+    );
+}

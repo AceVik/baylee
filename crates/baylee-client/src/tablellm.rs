@@ -218,8 +218,12 @@ fn chair_rows(
         .collect();
     chips(commands, fonts, root, chair, &models);
     if let Some(current) = &current {
+        let own_label = current.default_effort.map_or_else(
+            || Phrase::RoomLlmEffortOwn.text(lang).to_string(),
+            |def| format!("{} ({def})", Phrase::RoomLlmEffortOwn.text(lang)),
+        );
         let mut efforts = vec![(
-            Phrase::RoomLlmEffortOwn.text(lang).to_string(),
+            own_label,
             LlmPress::Effort(None),
             llm.lit(chair, LlmPress::Effort(None)),
         )];

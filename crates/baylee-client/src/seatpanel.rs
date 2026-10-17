@@ -60,7 +60,16 @@ pub(crate) struct SeatDesk {
     /// A paste into the key box the clipboard has not answered.
     #[cfg(not(target_arch = "wasm32"))]
     key_paste: Option<bevy::clipboard::ClipboardRead>,
+    /// CLI tools and local `/v1/models` endpoints already queried.
+    #[cfg(not(target_arch = "wasm32"))]
+    asked_listings: std::collections::BTreeSet<String>,
+    /// Completed model listings waiting to be applied to [`SeatPanel`].
+    #[cfg(not(target_arch = "wasm32"))]
+    listing_answers: ListingAnswers,
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+type ListingAnswers = std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<String>)>>>;
 
 /// A press on a profile's key box.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -187,6 +196,7 @@ impl SeatDesk {
     /// drawn changed. Runs every frame the settings screen is up and costs
     /// a lock when nothing is out; no job runs in a test, which may not
     /// touch the player's store ([`crate::settings::store_is_open`]).
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn pump(&mut self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -206,6 +216,85 @@ impl SeatDesk {
                     self.keys
                         .answered(&entry, Ok(KeyState::Unavailable("not in a test".into())));
                     changed = true;
+                }
+            }
+            let landed = std::mem::take(
+                &mut *self
+                    .listing_answers
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+            );
+            if !landed.is_empty()
+                && let Some(panel) = self.panel_mut()
+            {
+                for (key, ids) in landed {
+                    if panel.set_listed(key, ids) {
+                        changed = true;
+                    }
+                }
+            }
+            if crate::settings::store_is_open() {
+                let (cli_reqs, url_reqs) = if let Some(panel) = self.panel() {
+                    let mut cli_reqs = Vec::new();
+                    let mut url_reqs = Vec::new();
+                    for at in 0..panel.len() {
+                        if let Some(tool) = panel.cli_tool(at) {
+                            let key = format!("cli:{}", tool.name());
+                            let cmd = panel
+                                .buffer(Spot::Profile(at, Slot::Command))
+                                .map(|b| b.text().trim().to_string())
+                                .filter(|s| !s.is_empty());
+                            cli_reqs.push((key, tool, cmd));
+                        } else if panel.provider(at) == Some(Provider::OpenAi) {
+                            let base = panel
+                                .buffer(Spot::Profile(at, Slot::BaseUrl))
+                                .map(|b| b.text().trim())
+                                .filter(|s| !s.is_empty());
+                            let ep = baylee_client_core::llmseat::models::Endpoint::new(
+                                Provider::OpenAi,
+                                base,
+                            );
+                            if let Some(url) = baylee_client_core::llmseat::models::listing_url(ep)
+                            {
+                                url_reqs.push(url);
+                            }
+                        }
+                    }
+                    (cli_reqs, url_reqs)
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                for (key, tool, cmd) in cli_reqs {
+                    if self.asked_listings.insert(key.clone()) {
+                        let answers = std::sync::Arc::clone(&self.listing_answers);
+                        std::thread::spawn(move || {
+                            let ids = crate::seatbin::discover_cli_models(tool, cmd.as_deref());
+                            answers
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .push((key, ids));
+                        });
+                    }
+                }
+                for url in url_reqs {
+                    if self.asked_listings.insert(url.clone()) {
+                        let answers = std::sync::Arc::clone(&self.listing_answers);
+                        let request = ehttp::Request::get(&url);
+                        crate::transport::fetch(request, move |result| {
+                            let ids = result
+                                .ok()
+                                .filter(|r| r.ok)
+                                .and_then(|r| r.text().map(str::to_string))
+                                .and_then(|body| {
+                                    baylee_client_core::llmseat::models::parse_listing(&body).ok()
+                                })
+                                .unwrap_or_default();
+                            answers
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .push((url, ids));
+                        });
+                    }
                 }
             }
             changed
@@ -990,12 +1079,7 @@ impl Drawn<'_, '_, '_> {
         let line = row(self.commands, self.metrics, true);
         self.commands.entity(parent).add_child(line);
         let name = self.panel.name(at).unwrap_or_default();
-        let model = self
-            .panel
-            .buffer(Spot::Profile(at, Slot::Model))
-            .map(|b| b.text().trim().to_string())
-            .filter(|m| !m.is_empty())
-            .unwrap_or_else(|| "\u{2014}".to_string());
+        let summary = self.panel.profile_summary(at);
         let protocol = protocol_label(self.panel.provider(at).unwrap_or(Provider::Anthropic));
         let is_default = self.panel.default() == Some(at);
         let named = if is_default {
@@ -1007,7 +1091,7 @@ impl Drawn<'_, '_, '_> {
             self.commands,
             self.fonts,
             self.metrics,
-            &format!("{named} \u{b7} {protocol} \u{b7} {model}"),
+            &format!("{named} \u{b7} {protocol} \u{b7} {summary}"),
             Press::Settings(SettingsPress::OpenProfile(at)),
             palette::PANEL_LIT,
             true,
@@ -1059,26 +1143,77 @@ impl Drawn<'_, '_, '_> {
             .add_children(&[open, default, copy, remove]);
     }
 
-    /// The sheet's first fields: the name, the model (with the priced
-    /// suggestions), the key's variable and its sealed box, and the effort.
+    /// The sheet's first fields: the name, the model (with CLI tool chips,
+    /// priced suggestions, and discovered model chips), the key's variable
+    /// and its sealed box, and the thinking effort (with clickable effort chips).
+    #[allow(clippy::too_many_lines)] // one profile editor form laid out top-to-bottom
     fn basic(&mut self, parent: Entity, at: usize) {
         let lang = self.lang;
         let spot = |slot| Spot::Profile(at, slot);
         let first = self.cells(parent);
         self.field(first, spot(Slot::Name), Phrase::SeatName.text(lang));
         let cell = self.field(first, spot(Slot::Model), Phrase::SeatModel.text(lang));
+        let chosen = self
+            .panel
+            .buffer(spot(Slot::Model))
+            .map(|b| b.text().trim().to_string());
+        if let Some(resolved) = self.panel.resolved_model(at)
+            && resolved.label != resolved.id
+        {
+            self.line(cell, &resolved.caption(), palette::ACCENT);
+        }
+        if self.panel.provider(at) == Some(Provider::Cli) {
+            let active_tool = self.panel.cli_tool(at);
+            let tool_line = row(self.commands, self.metrics, true);
+            self.commands
+                .entity(tool_line)
+                .entry::<Node>()
+                .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
+            self.commands.entity(cell).add_child(tool_line);
+            for tool in baylee_client_core::llmseat::CliTool::ALL {
+                let id = chip(
+                    self.commands,
+                    self.fonts,
+                    self.metrics,
+                    baylee_client_core::llmseat::models::tool_label(tool),
+                    Press::Settings(SettingsPress::Seat(Act::PickCliTool(at, tool))),
+                    active_tool == Some(tool),
+                );
+                self.tab(id);
+                self.commands.entity(tool_line).add_child(id);
+            }
+        }
         let offered = self.panel.suggestions(at);
-        if !offered.is_empty() {
+        if offered.is_empty() {
+            let models = self.panel.offered_models(at);
+            if !models.is_empty() {
+                let line = row(self.commands, self.metrics, true);
+                self.commands
+                    .entity(line)
+                    .entry::<Node>()
+                    .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
+                self.commands.entity(cell).add_child(line);
+                for (index, model) in models.iter().enumerate().take(16) {
+                    let words = model.caption();
+                    let id = chip(
+                        self.commands,
+                        self.fonts,
+                        self.metrics,
+                        &words,
+                        Press::Settings(SettingsPress::Seat(Act::PickModel(at, index))),
+                        chosen.as_deref() == Some(model.id.as_str()),
+                    );
+                    self.tab(id);
+                    self.commands.entity(line).add_child(id);
+                }
+            }
+        } else {
             let line = row(self.commands, self.metrics, true);
             self.commands
                 .entity(line)
                 .entry::<Node>()
                 .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
             self.commands.entity(cell).add_child(line);
-            let chosen = self
-                .panel
-                .buffer(spot(Slot::Model))
-                .map(|b| b.text().trim().to_string());
             for (index, name, price) in offered {
                 let words = SeatPanel::suggestion(name, price, lang);
                 let id = chip(
@@ -1106,7 +1241,48 @@ impl Drawn<'_, '_, '_> {
             self.key_box(reach, at);
         }
         let play = self.cells(parent);
-        self.field(play, spot(Slot::Effort), Slot::Effort.label().text(lang));
+        let effort_cell = self.field(play, spot(Slot::Effort), Slot::Effort.label().text(lang));
+        if let Some(resolved) = self.panel.resolved_model(at)
+            && !resolved.efforts.is_empty()
+        {
+            let chosen_effort = self
+                .panel
+                .buffer(spot(Slot::Effort))
+                .map(|b| b.text().trim().to_string())
+                .unwrap_or_default();
+            let line = row(self.commands, self.metrics, true);
+            self.commands
+                .entity(line)
+                .entry::<Node>()
+                .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
+            self.commands.entity(effort_cell).add_child(line);
+            let default_label = resolved.default_effort.map_or_else(
+                || Phrase::RoomLlmEffortOwn.text(lang).to_string(),
+                |def| format!("{} ({def})", Phrase::RoomLlmEffortOwn.text(lang)),
+            );
+            let def_chip = chip(
+                self.commands,
+                self.fonts,
+                self.metrics,
+                &default_label,
+                Press::Settings(SettingsPress::Seat(Act::PickEffort(at, None))),
+                chosen_effort.is_empty(),
+            );
+            self.tab(def_chip);
+            self.commands.entity(line).add_child(def_chip);
+            for &effort in resolved.efforts {
+                let id = chip(
+                    self.commands,
+                    self.fonts,
+                    self.metrics,
+                    effort,
+                    Press::Settings(SettingsPress::Seat(Act::PickEffort(at, Some(effort)))),
+                    chosen_effort == effort,
+                );
+                self.tab(id);
+                self.commands.entity(line).add_child(id);
+            }
+        }
     }
 
     /// Behind Advanced: the protocol, how it answers, the reply's limits,

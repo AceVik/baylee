@@ -227,6 +227,12 @@ pub enum Act {
     Default(usize),
     /// Set a profile's provider.
     Provider(usize, Provider),
+    /// Switch a CLI profile to the given CLI tool and its default model.
+    PickCliTool(usize, super::CliTool),
+    /// Pick a model from [`SeatPanel::offered_models`] by index.
+    PickModel(usize, usize),
+    /// Pick a reasoning/thinking effort level (`None` for the model's default).
+    PickEffort(usize, Option<&'static str>),
     /// Set how a profile answers; `None` is the build's way.
     Answer(usize, Option<AnswerMode>),
     /// Enable or disable endpoint-managed sessions.
@@ -512,6 +518,9 @@ pub struct SeatPanel {
     book: Option<Result<Ledger, String>>,
     /// The moment the spend is shown at.
     now: Option<Moment>,
+    /// Dynamically discovered models by listing key (`http://.../v1/models`
+    /// or `cli:<tool>`).
+    listed: BTreeMap<String, Vec<String>>,
 }
 
 impl SeatPanel {
@@ -530,6 +539,7 @@ impl SeatPanel {
             saved: None,
             book: None,
             now: None,
+            listed: BTreeMap::new(),
         };
         panel.load(disk);
         panel
@@ -805,6 +815,7 @@ impl SeatPanel {
     }
 
     /// Does what a press asks, but for [`Act::Save`], which is the desk's.
+    #[allow(clippy::too_many_lines)] // one flat match over Act variants
     pub fn act(&mut self, act: Act) {
         if !self.editable() && !matches!(act, Act::Revert | Act::Select(_)) {
             return;
@@ -844,6 +855,46 @@ impl SeatPanel {
             }
             Act::Provider(at, provider) if at < self.drafts.len() => {
                 self.drafts[at].provider = provider;
+            }
+            Act::PickCliTool(at, tool) if at < self.drafts.len() => {
+                self.drafts[at].provider = Provider::Cli;
+                let choices = super::clis::choices(tool);
+                let listed = self
+                    .listed
+                    .get(&format!("cli:{}", tool.name()))
+                    .map_or(&[][..], Vec::as_slice);
+                let first_listed = listed
+                    .first()
+                    .and_then(|entry| super::models::decode_cli_listed(tool, entry))
+                    .map(|r| r.id);
+                let model_id = choices.models.first().map_or_else(
+                    || first_listed.unwrap_or_else(|| tool.name().to_string()),
+                    |m| format!("{}:{m}", tool.name()),
+                );
+                self.drafts[at].model = TextBuffer::new(&model_id);
+                let current_effort = self.drafts[at].effort.text().trim().to_string();
+                if !current_effort.is_empty()
+                    && self
+                        .resolved_model(at)
+                        .is_some_and(|r| !r.efforts.is_empty() && !r.takes(&current_effort))
+                {
+                    self.drafts[at].effort = TextBuffer::new("");
+                }
+            }
+            Act::PickModel(at, index) if at < self.drafts.len() => {
+                let offered = self.offered_models(at);
+                if let Some(chosen) = offered.get(index) {
+                    self.drafts[at].model = TextBuffer::new(&chosen.id);
+                    let current_effort = self.drafts[at].effort.text().trim().to_string();
+                    if !current_effort.is_empty()
+                        && (!chosen.efforts.is_empty() && !chosen.takes(&current_effort))
+                    {
+                        self.drafts[at].effort = TextBuffer::new("");
+                    }
+                }
+            }
+            Act::PickEffort(at, effort) if at < self.drafts.len() => {
+                self.drafts[at].effort = TextBuffer::new(effort.unwrap_or_default());
             }
             Act::Answer(at, answer) if at < self.drafts.len() => {
                 self.drafts[at].answer = answer;
@@ -1072,6 +1123,99 @@ impl SeatPanel {
     #[must_use]
     pub fn last_save(&self) -> Option<&Saved> {
         self.saved.as_ref()
+    }
+
+    /// Records dynamically discovered models under `key` (`http://.../v1/models`
+    /// or `cli:<tool>`). Returns `true` if the stored list changed.
+    pub fn set_listed(&mut self, key: impl Into<String>, models: Vec<String>) -> bool {
+        let key = key.into();
+        if self.listed.get(&key) == Some(&models) {
+            return false;
+        }
+        self.listed.insert(key, models);
+        true
+    }
+
+    /// The CLI tool named by the profile at `at`, if its provider is [`Provider::Cli`].
+    #[must_use]
+    pub fn cli_tool(&self, at: usize) -> Option<super::CliTool> {
+        let draft = self.drafts.get(at)?;
+        if draft.provider != Provider::Cli {
+            return None;
+        }
+        let model = draft.model.text().trim();
+        model.split(':').next().and_then(super::CliTool::named)
+    }
+
+    fn listed_for(&self, at: usize) -> &[String] {
+        let Some(draft) = self.drafts.get(at) else {
+            return &[];
+        };
+        if draft.provider == Provider::Cli {
+            return self
+                .cli_tool(at)
+                .and_then(|tool| self.listed.get(&format!("cli:{}", tool.name())))
+                .map_or(&[], Vec::as_slice);
+        }
+        let base = draft.base_url.text().trim();
+        let endpoint =
+            super::models::Endpoint::new(draft.provider, (!base.is_empty()).then_some(base));
+        super::models::listing_url(endpoint)
+            .and_then(|url| self.listed.get(&url))
+            .map_or(&[], Vec::as_slice)
+    }
+
+    /// The models this build and any local server or CLI tool offer for the
+    /// profile at `at`.
+    #[must_use]
+    pub fn offered_models(&self, at: usize) -> Vec<super::models::Resolved> {
+        let Some(draft) = self.drafts.get(at) else {
+            return Vec::new();
+        };
+        let endpoint = if draft.provider == Provider::Cli {
+            super::models::Endpoint::cli(draft.model.text().trim())
+        } else {
+            let base = draft.base_url.text().trim();
+            super::models::Endpoint::new(draft.provider, (!base.is_empty()).then_some(base))
+        };
+        super::models::offered(endpoint, self.listed_for(at))
+    }
+
+    /// The model currently in the profile's box, resolved with its human-readable
+    /// label and supported reasoning/thinking efforts.
+    #[must_use]
+    pub fn resolved_model(&self, at: usize) -> Option<super::models::Resolved> {
+        let draft = self.drafts.get(at)?;
+        let model = draft.model.text().trim();
+        if model.is_empty() {
+            return None;
+        }
+        let endpoint = if draft.provider == Provider::Cli {
+            super::models::Endpoint::cli(model)
+        } else {
+            let base = draft.base_url.text().trim();
+            super::models::Endpoint::new(draft.provider, (!base.is_empty()).then_some(base))
+        };
+        Some(super::models::resolve(endpoint, model, self.listed_for(at)))
+    }
+
+    /// A human-readable summary of what the profile at `at` plays: its model
+    /// caption (`Claude Opus 5.5 · claude-opus-5-5`) and, if set, its thinking
+    /// effort (`· high`).
+    #[must_use]
+    pub fn profile_summary(&self, at: usize) -> String {
+        let Some(draft) = self.drafts.get(at) else {
+            return "\u{2014}".to_string();
+        };
+        let caption = self
+            .resolved_model(at)
+            .map_or_else(|| "\u{2014}".to_string(), |r| r.caption());
+        let effort = draft.effort.text().trim();
+        if effort.is_empty() {
+            caption
+        } else {
+            format!("{caption} \u{b7} {effort}")
+        }
     }
 
     /// The models of a profile's provider this build has a price for, by

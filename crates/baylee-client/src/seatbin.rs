@@ -254,3 +254,93 @@ impl Drop for Bridge {
         });
     }
 }
+
+/// Discovers the models and per-model thinking/effort levels offered by
+/// `tool` on this machine, reading the tool's CLI output or local cache
+/// (`agy models`, `opencode models --verbose`, `~/.codex/models_cache.json`,
+/// `~/.junie/settings.json`, `~/.claude/settings.json`). Always called on a
+/// background thread, never in a frame, and skipped in unit tests where
+/// [`crate::settings::store_is_open`] is false.
+pub(crate) fn discover_cli_models(
+    tool: baylee_client_core::llmseat::CliTool,
+    custom_command: Option<&str>,
+) -> Vec<String> {
+    use baylee_client_core::llmseat::CliTool;
+    use baylee_client_core::llmseat::clis::{
+        parse_agy_models, parse_claude_settings, parse_codex_cache, parse_junie_settings,
+        parse_opencode_verbose,
+    };
+    if !crate::settings::store_is_open() {
+        return Vec::new();
+    }
+    let bin = custom_command
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| tool.name());
+    match tool {
+        CliTool::Agy => run_cli_stdout(bin, &["models"])
+            .map(|out| parse_agy_models(&out))
+            .unwrap_or_default(),
+        CliTool::Opencode => run_cli_stdout(bin, &["models", "--verbose"])
+            .map(|out| parse_opencode_verbose(&out))
+            .unwrap_or_default(),
+        CliTool::Codex => {
+            let path = std::env::var_os("CODEX_HOME")
+                .map(PathBuf::from)
+                .or_else(|| home_dir().map(|h| h.join(".codex")))
+                .map(|d| d.join("models_cache.json"));
+            path.and_then(|p| std::fs::read_to_string(p).ok())
+                .map(|json| parse_codex_cache(&json))
+                .unwrap_or_default()
+        }
+        CliTool::Junie => home_dir()
+            .map(|h| h.join(".junie").join("settings.json"))
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .map(|json| parse_junie_settings(&json))
+            .unwrap_or_default(),
+        CliTool::Claude => home_dir()
+            .map(|h| h.join(".claude").join("settings.json"))
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .map(|json| parse_claude_settings(&json))
+            .unwrap_or_default(),
+    }
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+}
+
+fn run_cli_stdout(bin: &str, args: &[&str]) -> Option<String> {
+    let mut child = command(PathBuf::from(bin))
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let stdout = child.stdout.take()?;
+    let reader_handle = std::thread::spawn(move || {
+        use std::io::Read as _;
+        let mut buf = String::new();
+        let _ = stdout.take(2 * 1024 * 1024).read_to_string(&mut buf);
+        buf
+    });
+    for _ in 0..40 {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
+                return reader_handle.join().ok();
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(100)),
+            Err(_) => break,
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    None
+}

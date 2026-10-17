@@ -340,7 +340,14 @@ impl TableSeats {
     }
 
     fn listed_for(&self, profile: &Profile, base: Option<&str>) -> &[String] {
-        listing_url(endpoint(profile, base))
+        let ep = endpoint(profile, base);
+        if profile.provider == baylee_client_core::llmseat::Provider::Cli {
+            return ep
+                .tool
+                .and_then(|tool| self.listed.get(&format!("cli:{}", tool.name())))
+                .map_or(&[], Vec::as_slice);
+        }
+        listing_url(ep)
             .and_then(|url| self.listed.get(&url))
             .map_or(&[], Vec::as_slice)
     }
@@ -545,6 +552,10 @@ impl TableSeats {
     /// panel: one more line, or its end, is a change to draw
     /// ([`Self::revision`]); a quiet bridge rebuilds nothing.
     pub(crate) fn listen(&mut self) {
+        self.land_listings();
+        if self.seating.room().is_some() {
+            self.ask_listings();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         {
             let heard: BTreeMap<u32, (usize, bool)> = self
@@ -732,8 +743,8 @@ impl TableSeats {
         }
     }
 
-    /// Asks each planned chair's server on this machine what it lists,
-    /// once per address.
+    /// Asks each planned chair's server or CLI tool on this machine what it
+    /// lists, once per address or CLI tool.
     fn ask_listings(&mut self) {
         let urls: Vec<String> = self
             .seating
@@ -761,6 +772,30 @@ impl TableSeats {
                     .unwrap_or_else(PoisonError::into_inner)
                     .push((url, ids));
             });
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if crate::settings::store_is_open() {
+            let cli_tools: Vec<(String, baylee_client_core::llmseat::CliTool, Option<String>)> =
+                self.seating
+                    .chairs()
+                    .filter_map(|(_, planned)| {
+                        let profile = self.profile(&planned.model.profile)?;
+                        let tool = endpoint(profile, None).tool?;
+                        let key = format!("cli:{}", tool.name());
+                        (!self.asked.contains(&key)).then(|| (key, tool, profile.command.clone()))
+                    })
+                    .collect();
+            for (key, tool, cmd) in cli_tools {
+                self.asked.insert(key.clone());
+                let answers = Arc::clone(&self.answers);
+                std::thread::spawn(move || {
+                    let ids = crate::seatbin::discover_cli_models(tool, cmd.as_deref());
+                    answers
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push((key, ids));
+                });
+            }
         }
     }
 

@@ -157,19 +157,20 @@ pub const fn tool_label(tool: CliTool) -> &'static str {
 /// The models a chair offers for an agent CLI, in order: each one the
 /// tool's table names ([`super::clis::choices`], the one place a CLI's
 /// models and efforts are read from), then the bare tool, which plays the
-/// tool's own default. Each takes the efforts the tool's effort flag takes.
+/// tool's own default. Each takes the efforts its [`super::clis::CliModelSpec`]
+/// names.
 #[must_use]
 pub fn cli_models(tool: CliTool) -> Vec<Resolved> {
     let choices = super::clis::choices(tool);
     let label = tool_label(tool);
     let mut out: Vec<Resolved> = choices
-        .models
+        .model_specs
         .iter()
-        .map(|model| Resolved {
-            id: format!("{}:{model}", tool.name()),
-            label: format!("{model} ({label})"),
-            efforts: choices.efforts,
-            default_effort: None,
+        .map(|spec| Resolved {
+            id: format!("{}:{}", tool.name(), spec.id),
+            label: spec.label.to_string(),
+            efforts: spec.efforts,
+            default_effort: spec.default_effort,
             source: Source::Known,
         })
         .collect();
@@ -177,13 +178,103 @@ pub fn cli_models(tool: CliTool) -> Vec<Resolved> {
         id: tool.name().to_string(),
         label: choices.default_model.map_or_else(
             || format!("{label}'s default model"),
-            |model| format!("{model} ({label}'s default)"),
+            |model| {
+                let model_name = choices
+                    .model_specs
+                    .iter()
+                    .find(|s| s.id == model)
+                    .map_or(model, |s| s.label);
+                format!("{model_name} ({label}'s default)")
+            },
         ),
         efforts: choices.efforts,
         default_effort: None,
         source: Source::Known,
     });
     out
+}
+
+/// Decodes a `listed` entry for a CLI tool (`<tool>:<id>\t<label>\t<efforts>\t<default>`
+/// or a plain model id) into a [`Resolved`] with [`Source::Listed`].
+#[must_use]
+pub fn decode_cli_listed(tool: CliTool, entry: &str) -> Option<Resolved> {
+    let prefix = format!("{}:", tool.name());
+    let mut cols = entry.split('\t');
+    let first = cols.next()?.trim();
+    let own_id = if let Some(stripped) = first.strip_prefix(&prefix) {
+        stripped
+    } else if !first.contains(':') {
+        first
+    } else {
+        return None;
+    };
+    if model_fault(own_id).is_some() {
+        return None;
+    }
+    let full_id = format!("{}:{own_id}", tool.name());
+    let label = cols
+        .next()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map_or_else(
+            || format!("{own_id} ({})", tool_label(tool)),
+            str::to_string,
+        );
+    let efforts = if let Some(csv) = cols.next() {
+        let parts: Vec<&str> = csv
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        super::clis::intern_efforts(&parts)
+    } else {
+        super::clis::choices(tool).efforts
+    };
+    let default_effort = cols
+        .next()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .and_then(super::clis::intern_effort)
+        .filter(|d| efforts.contains(d));
+    Some(Resolved {
+        id: full_id,
+        label,
+        efforts,
+        default_effort,
+        source: Source::Listed,
+    })
+}
+
+/// Resolves a human-readable display label for any model string (`claude-opus-5-5`,
+/// `claude:opus`, `codex:gpt-6-astra`, `agy:gemini-4-argon-high`, `deepseek-v4-pro`),
+/// without needing an explicit endpoint. Used by hosted gateway seat cards and the
+/// profile list.
+#[must_use]
+pub fn pretty_model_label(model_id: &str) -> String {
+    let trimmed = model_id.trim();
+    let stripped = trimmed.strip_prefix("cli:").unwrap_or(trimmed);
+    if let Ok((tool, _)) = super::cli_model(stripped) {
+        let resolved = resolve(Endpoint::cli(stripped), stripped, &[]);
+        if resolved.label != resolved.id {
+            return format!("{} ({})", resolved.label, tool_label(tool));
+        }
+        return format!("{} · {}", tool_label(tool), stripped);
+    }
+    for (_, table) in HOSTED {
+        if let Some(m) = table.iter().find(|m| m.id == stripped) {
+            return m.label.to_string();
+        }
+    }
+    for tool in CliTool::ALL {
+        if let Some(spec) = super::clis::choices(tool)
+            .model_specs
+            .iter()
+            .find(|s| s.id == stripped)
+        {
+            return spec.label.to_string();
+        }
+    }
+    trimmed.to_string()
 }
 
 /// Whom a profile plays through: what [`known`] and [`resolve`] look up.
@@ -273,7 +364,10 @@ fn find(endpoint: Endpoint<'_>, id: &str) -> Option<Resolved> {
             .iter()
             .find(|m| m.id == own)
             .filter(|_| tool == CliTool::Claude)
-            .map(|m| Resolved::from(*m));
+            .map(|m| Resolved {
+                id: id.to_string(),
+                ..Resolved::from(*m)
+            });
     }
     known(endpoint)
         .iter()
@@ -340,12 +434,26 @@ impl From<KnownModel> for Resolved {
     }
 }
 
-/// `model` at `endpoint`, labelled: known, else one the server on this
-/// machine `listed`, else as typed.
+/// `model` at `endpoint`, labelled: known, else one the server or CLI on
+/// this machine `listed`, else as typed.
 #[must_use]
 pub fn resolve(endpoint: Endpoint<'_>, model: &str, listed: &[String]) -> Resolved {
     if let Some(known) = find(endpoint, model) {
         return known;
+    }
+    if endpoint.provider == Provider::Cli {
+        let tool = endpoint
+            .tool
+            .or_else(|| model.split(':').next().and_then(CliTool::named));
+        if let Some(tool) = tool {
+            for entry in listed {
+                if let Some(decoded) = decode_cli_listed(tool, entry)
+                    && decoded.id == model
+                {
+                    return decoded;
+                }
+            }
+        }
     }
     let source = if listed.iter().any(|id| id == model) {
         Source::Listed
@@ -362,14 +470,31 @@ pub fn resolve(endpoint: Endpoint<'_>, model: &str, listed: &[String]) -> Resolv
 }
 
 /// Every model a chair offers at `endpoint`: this build's for it, then
-/// what the server on this machine `listed` that is not among them.
+/// what the server or CLI tool on this machine `listed` that is not among them.
 #[must_use]
 pub fn offered(endpoint: Endpoint<'_>, listed: &[String]) -> Vec<Resolved> {
-    let mut out: Vec<Resolved> = if endpoint.provider == Provider::Cli {
-        endpoint.tool.map(cli_models).unwrap_or_default()
-    } else {
-        known(endpoint).iter().copied().map(Into::into).collect()
-    };
+    if endpoint.provider == Provider::Cli {
+        let Some(tool) = endpoint.tool else {
+            return Vec::new();
+        };
+        let mut out = cli_models(tool);
+        if !listed.is_empty() {
+            // Keep the bare tool (`"claude"`, `"opencode"`, …) at the end.
+            let bare = out.pop();
+            for entry in listed {
+                if let Some(decoded) = decode_cli_listed(tool, entry)
+                    && !out.iter().any(|m| m.id == decoded.id)
+                {
+                    out.push(decoded);
+                }
+            }
+            if let Some(bare) = bare {
+                out.push(bare);
+            }
+        }
+        return out;
+    }
+    let mut out: Vec<Resolved> = known(endpoint).iter().copied().map(Into::into).collect();
     if endpoint.on_this_machine() {
         for id in listed {
             if !out.iter().any(|m| m.id == *id) {
@@ -453,14 +578,20 @@ mod tests {
             }
         }
         // A CLI model's tool is one this build speaks, and its own; each
-        // id once, each effort the tool's own (`clis::choices`).
+        // id once, each effort among the tool's own (`clis::choices`).
         for tool in CliTool::ALL {
             let models = cli_models(tool);
+            let tool_efforts = super::super::clis::choices(tool).efforts;
             for (at, m) in models.iter().enumerate() {
                 let named = super::super::cli_model(&m.id).map(|(t, _)| t);
                 assert_eq!(named, Ok(tool), "{}", m.id);
                 assert!(!models[..at].iter().any(|o| o.id == m.id), "{} twice", m.id);
-                assert_eq!(m.efforts, super::super::clis::choices(tool).efforts);
+                assert!(
+                    m.efforts.iter().all(|e| tool_efforts.contains(e)),
+                    "{}: {:?}",
+                    m.id,
+                    m.efforts
+                );
                 assert_eq!(m.source, Source::Known);
             }
             assert_eq!(
@@ -509,26 +640,45 @@ mod tests {
         // A Claude Code full id reads as Anthropic's model.
         let full = resolve(cli, "claude:claude-sonnet-4-6", &[]);
         assert_eq!(full.label, "Claude Sonnet 4.6");
+        assert_eq!(full.id, "claude:claude-sonnet-4-6");
         assert!(!full.takes("xhigh"));
         // agy's bare tool is its default model; its effort flag's levels
         // stand beside each model.
         let agy = Endpoint::cli("agy");
         assert_eq!(resolve(agy, "agy", &[]).source, Source::Known);
         assert!(resolve(agy, "agy:gemini-3.8-flash-high", &[]).takes("high"));
+        assert_eq!(
+            resolve(agy, "agy:gemini-4-argon-high", &[]).label,
+            "Gemini 4 Argon (High)"
+        );
         // A CLI profile is offered its own tool's models only.
         assert!(offered(cli, &[]).iter().all(|m| m.id.starts_with("claude")));
         assert!(offered(agy, &[]).iter().all(|m| m.id.starts_with("agy")));
-        // The newer dialects come from the same table: Codex its models and
-        // `ultra`, opencode only its own default (its ids are the player's
-        // providers'), each at the tool's efforts.
-        let codex = offered(Endpoint::cli("codex"), &[]);
-        assert!(codex.iter().any(|m| m.id == "codex:gpt-6-astra"));
-        assert!(codex.iter().all(|m| m.takes("ultra")));
+        // Codex models reflect per-model reasoning levels: Astra and Sol
+        // take `ultra`, while Luna stops at `max`.
+        let codex = Endpoint::cli("codex");
+        assert!(resolve(codex, "codex:gpt-6-astra", &[]).takes("ultra"));
+        assert!(resolve(codex, "codex:gpt-6.1-sol", &[]).takes("ultra"));
+        assert!(resolve(codex, "codex:gpt-6-luna", &[]).takes("max"));
+        assert!(!resolve(codex, "codex:gpt-6-luna", &[]).takes("ultra"));
         let opencode = offered(Endpoint::cli("opencode"), &[]);
         assert_eq!(
             opencode.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
             ["opencode"]
         );
+        // When opencode models are discovered at runtime, they are offered
+        // before the bare `opencode` default with their exact variant efforts.
+        let live_opencode = vec![
+            "opencode:openai/gpt-6-astra\tGPT-6 Astra (openai)\tlow,medium,high,xhigh,max\t"
+                .to_string(),
+        ];
+        let with_live = offered(Endpoint::cli("opencode"), &live_opencode);
+        assert_eq!(with_live.len(), 2);
+        assert_eq!(with_live[0].id, "opencode:openai/gpt-6-astra");
+        assert_eq!(with_live[0].label, "GPT-6 Astra (openai)");
+        assert_eq!(with_live[0].source, Source::Listed);
+        assert!(with_live[0].takes("xhigh") && !with_live[0].takes("ultra"));
+        assert_eq!(with_live[1].id, "opencode");
         assert!(resolve(Endpoint::cli("junie"), "junie:opus", &[]).takes("high"));
         // Unknown: labelled with itself, no effort offered.
         let typed = resolve(anthropic(), "claude-next-9", &[]);
@@ -570,7 +720,7 @@ mod tests {
                 .iter()
                 .all(|m| m.source == Source::Known)
         );
-        // Anthropic and a CLI are never listed.
+        // Anthropic and a CLI are never listed via HTTP URL.
         assert_eq!(listing_url(anthropic()), None);
         assert_eq!(listing_url(Endpoint::cli("claude")), None);
     }

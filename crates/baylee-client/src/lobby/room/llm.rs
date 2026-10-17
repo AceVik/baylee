@@ -126,8 +126,12 @@ pub(super) fn editor(
     );
 
     if let Some(current) = &current {
+        let own_label = current.default_effort.map_or_else(
+            || Phrase::RoomLlmEffortOwn.text(lang).to_string(),
+            |def| format!("{} ({def})", Phrase::RoomLlmEffortOwn.text(lang)),
+        );
         let mut efforts = vec![(
-            Phrase::RoomLlmEffortOwn.text(lang).to_string(),
+            own_label,
             Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Effort(None))),
             planned.effort.is_none(),
         )];
@@ -178,14 +182,16 @@ pub(super) fn editor(
                 )
             })
             .collect();
-        chips(
-            commands,
-            surface,
-            fonts,
-            m,
-            Phrase::RoomLlmDeck.text(lang),
-            &decks,
-        );
+        if !decks.is_empty() {
+            chips(
+                commands,
+                surface,
+                fonts,
+                m,
+                Phrase::RoomLlmDeck.text(lang),
+                &decks,
+            );
+        }
     }
 
     if seat.is_some_and(|seat| seat.deck.is_empty()) {

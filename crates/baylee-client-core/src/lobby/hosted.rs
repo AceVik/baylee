@@ -94,6 +94,26 @@ impl HostedChair {
     pub fn data_goes(&self, lang: Lang) -> String {
         Phrase::HostedDataGoesTo.fill(lang, &[&self.vendor])
     }
+
+    /// Human-readable model caption (`Claude Opus 5.5 · claude-opus-5-5`),
+    /// if the chair names a model.
+    #[must_use]
+    pub fn model_caption(&self) -> Option<String> {
+        format_hosted_model(&self.model)
+    }
+}
+
+fn format_hosted_model(model: &str) -> Option<String> {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let pretty = crate::llmseat::models::pretty_model_label(trimmed);
+    if pretty == trimmed {
+        Some(trimmed.to_string())
+    } else {
+        Some(format!("{pretty} \u{b7} {trimmed}"))
+    }
 }
 
 /// One line of the hosted-model sheet.
@@ -103,6 +123,10 @@ pub struct OfferRow {
     pub id: String,
     /// `label · vendor`.
     pub words: String,
+    /// Resolved human-readable model caption (`Claude Opus 5.5 · claude-opus-5-5`).
+    pub model_caption: Option<String>,
+    /// `"API"` or `"CLI"`, if known.
+    pub kind: Option<String>,
     /// Whether a press orders it.
     pub available: bool,
     /// Under an unavailable row: when it is back, or that it is not now.
@@ -161,6 +185,12 @@ impl Lobby {
             .map(|p| OfferRow {
                 id: p.id.clone(),
                 words: format!("{} · {}", p.label, p.vendor),
+                model_caption: format_hosted_model(&p.model),
+                kind: match p.kind.trim().to_ascii_lowercase().as_str() {
+                    "cli" => Some("CLI".to_string()),
+                    "api" => Some("API".to_string()),
+                    _ => None,
+                },
                 available: p.available,
                 why: (!p.available).then(|| {
                     p.until_unix.map_or_else(

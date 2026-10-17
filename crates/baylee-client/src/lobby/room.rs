@@ -971,7 +971,23 @@ fn seat_card(
         commands.entity(card).add_child(picks);
     }
     // A language model of this client's in this chair: what it plays.
-    if game.yours && state.llm.planned(seat.seat).is_some() {
+    if let Some(planned) = state.llm.planned(seat.seat).filter(|_| game.yours) {
+        let current = state.llm.current(seat.seat);
+        let caption = current.as_ref().map_or_else(
+            || planned.model.clone(),
+            baylee_client_core::llmseat::models::Resolved::caption,
+        );
+        let effort = planned
+            .effort
+            .clone()
+            .unwrap_or_else(|| Phrase::RoomLlmEffortOwn.text(lang).to_string());
+        let plays = super::parts::line(
+            commands,
+            kit,
+            &Phrase::RoomLlmPlays.fill(lang, &[&caption, &effort]),
+            kit.m.small,
+            tokens::INK,
+        );
         let said = state
             .llm
             .said(seat.seat)
@@ -987,7 +1003,7 @@ fn seat_card(
             Press::Room(RoomPress::OpenChair(index, seat.seat)),
         );
         let row_ = super::parts::row(commands, kit, true);
-        commands.entity(row_).add_children(&[status, edit]);
+        commands.entity(row_).add_children(&[plays, status, edit]);
         commands.entity(card).add_child(row_);
     }
     // A hosted model: its state and where the game's data goes, for
@@ -995,6 +1011,11 @@ fn seat_card(
     if let Some(hosted) = seat.hosted.as_ref().filter(|h| h.standing()) {
         let row_ = super::parts::row(commands, kit, true);
         let said = super::parts::line(commands, kit, &hosted.said(lang), kit.m.small, tokens::INK);
+        commands.entity(row_).add_child(said);
+        if let Some(caption) = hosted.model_caption() {
+            let model = super::parts::line(commands, kit, &caption, kit.m.small, tokens::MUTED);
+            commands.entity(row_).add_child(model);
+        }
         let goes = super::parts::line(
             commands,
             kit,
@@ -1002,7 +1023,7 @@ fn seat_card(
             kit.m.small,
             tokens::MUTED,
         );
-        commands.entity(row_).add_children(&[said, goes]);
+        commands.entity(row_).add_child(goes);
         if game.yours {
             let back = controls::button(
                 commands,
@@ -1248,6 +1269,20 @@ fn hosted_sheet(
         }
         super::orders::item(commands, button, &super::orders::CHAIR, "controls", at);
         commands.entity(item).add_child(button);
+        let details: Vec<&str> = [row.kind.as_deref(), row.model_caption.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect();
+        if !details.is_empty() {
+            let meta = super::parts::line(
+                commands,
+                kit,
+                &details.join(" · "),
+                kit.m.small,
+                tokens::MUTED,
+            );
+            commands.entity(item).add_child(meta);
+        }
         if let Some(why) = &row.why {
             let l = super::parts::line(commands, kit, why, kit.m.small, tokens::MUTED);
             commands.entity(item).add_child(l);
