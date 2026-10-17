@@ -37,9 +37,6 @@ const SUB_H: f32 = 24.0;
 const HEAD_BTN: f32 = 22.0;
 /// The lobby panel's width.
 const LOBBY_W: f32 = 560.0;
-/// The room the chat pill takes at the bottom-right, which the friends
-/// button stands left of.
-pub(crate) const LOBBY_PILL_ROOM: f32 = 120.0;
 /// How many chat lines a tab draws (older ones stay in the machine).
 const CHAT_ROWS: usize = 200;
 /// How many log lines the All tab merges in.
@@ -140,6 +137,7 @@ pub(crate) enum ChatPress {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FilterKind {
     Log,
+    Global,
     Table,
     Team,
     Whispers,
@@ -247,12 +245,17 @@ pub(crate) fn install(app: &mut App) {
             pop_the_lobby_chat,
             arrive,
             sync_lobby_window,
-            follow_in_the_lobby.run_if(in_state(DuelPhase::Closed)),
+            follow_in_the_lobby
+                .run_if(not(in_state(DuelPhase::Playing)))
+                .run_if(not(in_state(DuelPhase::Finished))),
             wheel_in_the_lobby
-                .run_if(in_state(DuelPhase::Closed))
+                .run_if(not(in_state(DuelPhase::Playing)))
+                .run_if(not(in_state(DuelPhase::Finished)))
                 .run_if(resource_exists::<Messages<bevy::picking::events::PointerScroll>>),
             hover_chat_links,
-            lobby_card_links.run_if(in_state(DuelPhase::Closed)),
+            lobby_card_links
+                .run_if(not(in_state(DuelPhase::Playing)))
+                .run_if(not(in_state(DuelPhase::Finished))),
             peek,
             filter_dialog,
         )
@@ -261,8 +264,9 @@ pub(crate) fn install(app: &mut App) {
     );
 }
 
-/// The tabs drawn, in order (§3.1): All; Log while a game is open; Table
-/// and Team while seated; Private; Group for a registered account.
+/// The tabs drawn, in order (§3.1): All; Log while a game is open; Lobby
+/// (everyone online); Table and Team while seated; Private; Group for a
+/// registered account.
 pub(crate) fn drawn_tabs(machine: &Social, game_open: bool) -> Vec<ChatTab> {
     let table = machine.table();
     let seated = table.is_some_and(|t| t.table_conv().is_some());
@@ -270,7 +274,7 @@ pub(crate) fn drawn_tabs(machine: &Social, game_open: bool) -> Vec<ChatTab> {
     ChatTab::ALL
         .into_iter()
         .filter(|tab| match tab {
-            ChatTab::All | ChatTab::Private => true,
+            ChatTab::All | ChatTab::Global | ChatTab::Private => true,
             ChatTab::Log => game_open,
             ChatTab::Table => seated,
             ChatTab::Team => team,
@@ -284,6 +288,7 @@ pub(crate) fn tab_name(tab: ChatTab, lang: Lang) -> &'static str {
     match tab {
         ChatTab::All => ChatPhrase::TabAll.text(lang),
         ChatTab::Log => ChatPhrase::TabLog.text(lang),
+        ChatTab::Global => ChatPhrase::TabGlobal.text(lang),
         ChatTab::Table => ChatPhrase::TabTable.text(lang),
         ChatTab::Team => ChatPhrase::TabTeam.text(lang),
         ChatTab::Private => ChatPhrase::TabPrivate.text(lang),
@@ -292,10 +297,11 @@ pub(crate) fn tab_name(tab: ChatTab, lang: Lang) -> &'static str {
 }
 
 /// The conversation a chat tab writes to and reads (§3.1's "Composer
-/// target"): the table's, the team's, the last whisper partner's, the
-/// shown group's.
+/// target"): the global lobby's, the table's, the team's, the last whisper
+/// partner's, the shown group's.
 pub(crate) fn tab_conv(machine: &Social, ui: &ChatUi, tab: ChatTab) -> Option<ConvId> {
     match tab {
+        ChatTab::Global => Some(Conv::Global),
         ChatTab::Table => machine.table().and_then(TableContext::table_conv),
         ChatTab::Team => machine.table().and_then(TableContext::team_conv),
         ChatTab::Private => {
@@ -717,6 +723,7 @@ fn toggle(filter: &mut TabFilter, kind: FilterKind) {
     use baylee_client_core::social::GroupPick;
     match kind {
         FilterKind::Log => filter.log = !filter.log,
+        FilterKind::Global => filter.global = !filter.global,
         FilterKind::Table => filter.table = !filter.table,
         FilterKind::Team => filter.team = !filter.team,
         FilterKind::Whispers => filter.whispers = !filter.whispers,
@@ -836,8 +843,9 @@ fn sync_table_window(
     );
 }
 
-/// The lobby's window: docked bottom-right, against the friends drawer;
-/// minimised to its tab row, or hidden to the chat pill.
+/// The lobby's window: docked bottom-left; minimised to its tab row, or
+/// hidden to the chat pill. Remains available on the loading screen
+/// (`Screen::Seated` / `DuelPhase::Opening`) before the 3D table opens.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each is what it draws from
 fn sync_lobby_window(
     mut commands: Commands,
@@ -852,11 +860,11 @@ fn sync_lobby_window(
     mut roots: Query<(Entity, &mut Node, &mut Visibility, &mut Pop), With<LobbyChat>>,
     mut lists: Query<&mut LogFollow, With<LogList>>,
     mut shape: Local<Option<LobbyShape>>,
-    slide: Res<super::drawer::DrawerSlide>,
     zoom: Res<super::zoom::Zoom>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
-    let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
+    let at_table =
+        phase.is_some_and(|p| matches!(*p.get(), DuelPhase::Playing | DuelPhase::Finished));
     let shell = lobby.is_some_and(|l| {
         !matches!(
             l.lobby.screen(),
@@ -885,7 +893,7 @@ fn sync_lobby_window(
                 Node {
                     position_type: PositionType::Absolute,
                     bottom: zpx(0.0),
-                    right: zpx(12.0),
+                    left: zpx(12.0),
                     width: zpx(LOBBY_W),
                     flex_direction: FlexDirection::Column,
                     ..default()
@@ -897,7 +905,6 @@ fn sync_lobby_window(
             .id()
     };
     let (unread, urgent) = machine.unread_where(&machine.prefs().filter(ChatTab::All));
-    let right: f32 = slide.room(1.0) + 12.0;
     // Only the pill shows the count: an open panel is not drawn again for
     // a line arriving (its list is), nor for the drawer moving it aside.
     let now = if ui.open {
@@ -935,9 +942,12 @@ fn sync_lobby_window(
         if node.width != want_w {
             node.width = want_w;
         }
-        let right = Val::Px(z(right));
-        if node.right != right {
-            node.right = right;
+        let left = zpx(12.0);
+        if node.left != left {
+            node.left = left;
+        }
+        if node.right != Val::Auto {
+            node.right = Val::Auto;
         }
     }
     let drawn = &mut windows.lobby;
@@ -989,7 +999,7 @@ fn sync_lobby_window(
 type LobbyShape = (bool, bool, bool, u32, u32);
 
 /// The lobby window's opening and closing, on [`crate::hud::motion`]'s
-/// curve: it grows from the bottom-right corner it hangs off, and shrinks
+/// curve: it grows from the bottom-left corner it hangs off, and shrinks
 /// back into it before the pill takes its place.
 #[derive(Component, Clone, Copy, PartialEq, Debug)]
 pub(crate) struct Pop {
@@ -1048,7 +1058,7 @@ pub(crate) fn pop_the_lobby_chat(
             scale
         };
         transform.scale = Vec2::splat(scale);
-        transform.translation = motion::from_bottom_right(scale);
+        transform.translation = motion::from_bottom_left(scale);
     }
 }
 
@@ -1058,7 +1068,8 @@ pub(crate) fn lobby_panel_height(window_h: f32) -> f32 {
     (window_h * 0.38).clamp(320.0, 520.0)
 }
 
-/// The lobby's chat pill: `Chat · 3` in the bottom-right corner.
+/// The lobby's chat pill: in the bottom-left corner, with a numbered badge
+/// dot (`1`..`99`, `99+`) when unread messages are waiting.
 fn chat_pill(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1066,17 +1077,13 @@ fn chat_pill(
     unread: u32,
     urgent: bool,
 ) -> Entity {
-    let label = if unread > 0 {
-        format!("{} · {}", ChatPhrase::ChatTitle.text(lang), unread.min(99))
-    } else {
-        ChatPhrase::ChatTitle.text(lang).to_string()
-    };
+    let label = ChatPhrase::ChatTitle.text(lang).to_string();
     let border = if urgent {
         rows::WHISPER_INK
     } else {
         LOBBY_INKS.line
     };
-    commands
+    let pill = commands
         .spawn((
             UiButton,
             ChatPress::Restore,
@@ -1108,7 +1115,12 @@ fn chat_pill(
                 ),
             ],
         ))
-        .id()
+        .id();
+    if unread > 0 {
+        let dot = count_pill(commands, fonts, unread, urgent, &LOBBY_INKS);
+        commands.entity(pill).add_child(dot);
+    }
+    pill
 }
 
 /// The four parts of a window, spawned empty.
@@ -1359,7 +1371,7 @@ fn fill(
         if key != drawn.note_key {
             drawn.note_key = key;
             commands.entity(note).despawn_children();
-            if conv.is_some() {
+            if conv.as_ref().is_some_and(|c| !matches!(c, Conv::Global)) {
                 // "End-to-end encrypted · Bob#0002 · 2 devices": a whisper
                 // names its partner, a group or table counts its people.
                 let partner = conv
@@ -2176,6 +2188,7 @@ fn empty_sentence(
         return ChatPhrase::EmptyFiltered.text(lang).to_string();
     }
     match tab {
+        ChatTab::Global => ChatPhrase::EmptyGlobal.text(lang).to_string(),
         ChatTab::Table => {
             if machine.table().is_some_and(|t| t.playing) {
                 ChatPhrase::EmptyTable.text(lang).to_string()
@@ -2214,6 +2227,11 @@ fn empty_line(commands: &mut Commands, fonts: &UiFonts, text: &str, inks: &Inks)
 pub(crate) fn target_label(machine: &Social, target: &Target, lang: Lang) -> (String, Color, Inks) {
     let inks = TABLE_INKS;
     match target {
+        Target::Global => (
+            ChatPhrase::TabGlobal.text(lang).to_string(),
+            rows::GLOBAL_INK,
+            inks,
+        ),
         Target::Table => (ChatPhrase::TabTable.text(lang).to_string(), inks.ink, inks),
         Target::Team => (
             ChatPhrase::TabTeam.text(lang).to_string(),
@@ -2760,7 +2778,8 @@ fn filter_dialog(
         commands.entity(root).despawn();
     }
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
+    let at_table =
+        phase.is_some_and(|p| matches!(*p.get(), DuelPhase::Playing | DuelPhase::Finished));
     let inks = if at_table { TABLE_INKS } else { LOBBY_INKS };
     let root = commands
         .spawn((
@@ -2769,7 +2788,8 @@ fn filter_dialog(
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
-                right: zpx(40.0),
+                left: if at_table { Val::Auto } else { zpx(40.0) },
+                right: if at_table { zpx(40.0) } else { Val::Auto },
                 bottom: zpx(if at_table { 300.0 } else { 120.0 }),
                 width: zpx(340.0),
                 flex_direction: FlexDirection::Column,
@@ -2795,6 +2815,7 @@ fn filter_dialog(
     commands.entity(root).add_child(title);
     let groups_on = filter.groups != baylee_client_core::social::GroupPick::None;
     let mut boxes = vec![
+        (FilterKind::Global, ChatPhrase::KindGlobal, filter.global),
         (FilterKind::Table, ChatPhrase::KindTable, filter.table),
         (FilterKind::Team, ChatPhrase::KindTeam, filter.team),
         (

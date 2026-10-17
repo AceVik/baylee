@@ -338,6 +338,11 @@ async fn serve(
             return;
         }
     }
+    for recent in state.social.recent_global() {
+        if !send(socket, &recent).await {
+            return;
+        }
+    }
     let mut window = Window::default();
     if !refill(state, device, &mut window, socket).await {
         return;
@@ -387,6 +392,19 @@ async fn serve(
                             guest,
                         };
                         let answer = route::send(state, &sending, req, &conv, sealed).await;
+                        if !send(socket, &answer).await {
+                            return;
+                        }
+                    }
+                    Up::Global { req, id, body } => {
+                        let sending = Sending {
+                            account,
+                            tag: &me.tag,
+                            handle: &me.handle,
+                            device,
+                            guest,
+                        };
+                        let answer = route::send_global(state, &sending, req, &id, body);
                         if !send(socket, &answer).await {
                             return;
                         }

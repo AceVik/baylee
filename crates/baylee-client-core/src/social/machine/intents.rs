@@ -599,6 +599,7 @@ impl Social {
     /// The conversation a target names here.
     pub(super) fn resolve(&self, target: &Target) -> Result<ConvId, CommandFault> {
         match target {
+            Target::Global => Ok(Conv::Global),
             Target::Table => self
                 .table
                 .as_ref()
@@ -757,6 +758,7 @@ impl Social {
         self.composer.restore_draft(id);
         self.active = Some(id.clone());
         let target = match id {
+            Conv::Global => Target::Global,
             Conv::Table { .. } => Target::Table,
             Conv::Team { .. } => Target::Team,
             Conv::Dm { .. } => id.partner(&self.me.tag).map_or(Target::Sticky, |t| {

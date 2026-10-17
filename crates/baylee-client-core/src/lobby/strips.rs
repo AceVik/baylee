@@ -188,6 +188,75 @@ pub fn pill_words(stats: Option<&LobbyStats>, lobby: &Lobby, lang: Lang) -> Stri
     }
 }
 
+/// Live breakdown of players and tables on the gateway.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GatewayBreakdown {
+    /// Total players online.
+    pub online: u32,
+    /// Players currently in the lobby (or waiting rooms).
+    pub in_lobby: u32,
+    /// Players currently playing a game.
+    pub playing: u32,
+    /// Waiting tables.
+    pub tables_waiting: u32,
+    /// Running games.
+    pub games_running: u32,
+}
+
+/// Computes the live breakdown of online players, lobby players, playing players,
+/// waiting tables, and running games from `stats` and `lobby`.
+#[must_use]
+pub fn gateway_breakdown(stats: Option<&LobbyStats>, lobby: &Lobby) -> GatewayBreakdown {
+    let waiting_listed = u32::try_from(
+        lobby
+            .games()
+            .iter()
+            .filter(|g| g.state == "waiting")
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    let running_listed = u32::try_from(
+        lobby
+            .games()
+            .iter()
+            .filter(|g| g.state == "playing")
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    let playing_humans = u32::try_from(
+        lobby
+            .games()
+            .iter()
+            .filter(|g| g.state == "playing")
+            .flat_map(|g| g.seats.iter())
+            .filter(|s| {
+                s.taken
+                    && s.kind == super::SeatKind::Human
+                    && s.hosted.is_none()
+                    && s.delegated_by.is_none()
+            })
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    let tables_waiting = stats.map_or(waiting_listed, |s| s.tables_waiting);
+    let games_running = stats.map_or(running_listed, |s| s.games_running);
+    let playing = if playing_humans > 0 {
+        playing_humans
+    } else {
+        games_running
+    };
+    let online = stats.map_or(playing, |s| s.players_online);
+    let playing = playing.min(online);
+    let in_lobby = online.saturating_sub(playing);
+    GatewayBreakdown {
+        online,
+        in_lobby,
+        playing,
+        tables_waiting,
+        games_running,
+    }
+}
+
 /// Something that happened which the player may have missed (§2.1 Bell):
 /// only the missable — a chair taken or given up at their table, the table
 /// filled.

@@ -4880,8 +4880,8 @@ messages! {
     // German label shortened to fit is chosen here, once.
     //
     // ---- the shell (WP0b): header, kit, keyboard, bell, strips -----------
-    /// Navigation: the play screen.
-    ShellPlay { en: "Play", de: "Spielen" },
+    /// Navigation: the play/lobby screen.
+    ShellPlay { en: "Lobby", de: "Lobby" },
     /// Navigation: the decks screen.
     ShellDecks { en: "Decks", de: "Decks" },
     /// A settings row kept on this device (`ClientSettings`).
@@ -6599,6 +6599,36 @@ messages! {
     ActReplayFaster { en: "Replay: faster", de: "Wiederholung: schneller" },
     /// Replays: the next perspective.
     ActReplayPerspective { en: "Replay: switch perspective", de: "Wiederholung: Perspektive wechseln" },
+    /// Notification title: general information.
+    ToastTitleInfo { en: "Notice", de: "Hinweis" },
+    /// Notification title: error or warning.
+    ToastTitleAlert { en: "Alert", de: "Meldung" },
+    /// Notification title: table event.
+    ToastTitleTable { en: "Table", de: "Tisch" },
+    /// Notification title: social / chat event.
+    ToastTitleSocial { en: "Social", de: "Kontakt & Chat" },
+    /// Gateway popover: players online.
+    GatewayOnlinePlayers { en: "Players online", de: "Spieler online" },
+    /// Gateway popover: players in lobby.
+    GatewayInLobby { en: "In lobby", de: "In der Lobby" },
+    /// Gateway popover: players in games.
+    GatewayInGames { en: "Playing", de: "Am Spielen" },
+    /// Gateway popover: waiting tables.
+    GatewayWaitingTables { en: "Open tables", de: "Offene Tische" },
+    /// Gateway popover: running games.
+    GatewayRunningGames { en: "Active games", de: "Laufende Spiele" },
+    /// Gateway popover: server version.
+    GatewayServerVersion { en: "Server version", de: "Server-Version" },
+    /// Gateway pill compact inline stats: `{0}` online, `{1}` in lobby, `{2}` playing, `{3}` tables.
+    ShellGatewayInlineStats { en: "{0} online ({1} lobby · {2} playing) · {3} tables", de: "{0} online ({1} Lobby · {2} spielen) · {3} Tische" },
+    /// Quick settings dropdown heading.
+    SettingsQuickTitle { en: "Quick settings", de: "Schnelleinstellungen" },
+    /// Quick settings audio section.
+    SettingsAudioSection { en: "Audio", de: "Audio" },
+    /// Quick settings display section.
+    SettingsDisplaySection { en: "Display & Motion", de: "Anzeige & Bewegung" },
+    /// Quick settings text size label.
+    SettingsTextSize { en: "Text size", de: "Textgr\u{f6}\u{df}e" },
 }
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ pub(crate) enum HeaderMenu {
 /// A press on the header or a strip.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum HeaderPress {
-    /// Nav pill `n`: Play, Decks, Settings.
+    /// Nav pill `n`: Lobby, Decks, Replays.
     Nav(u8),
     /// The gateway pill (or its dot).
     Gateway,
@@ -39,6 +39,10 @@ pub(crate) enum HeaderPress {
     Bell,
     /// The account pill (or its letter).
     Account,
+    /// Click outside an open header popover to close it.
+    CloseMenu,
+    /// Dismiss a toast by index in `ToastLane`.
+    DismissToast(usize),
     /// The seated strip's Return, and the Phone header's Return pill.
     Return,
     /// The seated strip's Leave (waiting tables only).
@@ -73,32 +77,28 @@ pub(crate) enum ShellAsk {
     Friends,
     /// The chat's privacy sheet.
     ChatPrivacy,
+    /// Dismiss a toast in `Toasts`.
+    DismissToast(usize),
 }
 
 /// One of the header's nav pills.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum NavTab {
-    /// Play.
+    /// Lobby (formerly Play).
     Play,
     /// Decks.
     Decks,
     /// Replays (desktop only).
     Replays,
-    /// Settings.
-    Settings,
 }
 
-/// The nav pills this build draws, in order: a desktop's four, the web's
-/// and a phone's three (no Replays tab, `replays::SHOWN`).
+/// The nav pills this build draws, in order: a desktop's three (Lobby,
+/// Decks, Replays), the web's and a phone's two (`replays::SHOWN`).
+/// Settings lives solely on the gear icon.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
-    &[
-        NavTab::Play,
-        NavTab::Decks,
-        NavTab::Replays,
-        NavTab::Settings,
-    ]
+    &[NavTab::Play, NavTab::Decks, NavTab::Replays]
 } else {
-    &[NavTab::Play, NavTab::Decks, NavTab::Settings]
+    &[NavTab::Play, NavTab::Decks]
 };
 
 /// The press of a nav pill.
@@ -109,17 +109,16 @@ pub(super) fn nav_press(tab: NavTab) -> Press {
 
 /// Which nav pill is the screen shown.
 fn active(state: &LobbyState) -> Option<usize> {
-    let tab = if state.settings.is_open() {
-        NavTab::Settings
-    } else {
-        match state.lobby.screen() {
-            Screen::Table => match state.hub {
-                Hub::Play => NavTab::Play,
-                Hub::Decks => NavTab::Decks,
-                Hub::Replays => NavTab::Replays,
-            },
-            _ => return None,
-        }
+    if state.settings.is_open() {
+        return None;
+    }
+    let tab = match state.lobby.screen() {
+        Screen::Table => match state.hub {
+            Hub::Play => NavTab::Play,
+            Hub::Decks => NavTab::Decks,
+            Hub::Replays => NavTab::Replays,
+        },
+        _ => return None,
     };
     NAV.iter().position(|t| *t == tab)
 }
@@ -222,7 +221,7 @@ fn bar(
                 commands,
                 kit,
                 crate::hud::glyph::CHAT,
-                Some(Phrase::ShellChat.text(lang)),
+                None,
                 crate::social::HeaderCount::Chat,
                 Press::Header(HeaderPress::Chat),
             ));
@@ -249,7 +248,6 @@ fn bar(
                     NavTab::Replays => {
                         baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
                     }
-                    NavTab::Settings => Phrase::Settings.text(lang),
                 })
                 .collect::<Vec<_>>(),
             active: active(state),
@@ -281,9 +279,9 @@ fn bar(
     }
 }
 
-/// A chat button in the header (the beta.8 chat window design §4.3): its
-/// glyph, its word, and a count the chat writes into
-/// ([`crate::social::HeaderCount`]) without a rebuild of the header.
+/// A social tool button in the header: its glyph, and for `HeaderCount::Chat`
+/// a notification-bell-style badge dot (`1`..`99+`), or for `Friends` the
+/// online count beside the icon.
 fn chat_tool(
     commands: &mut Commands,
     kit: crate::shellkit::controls::Kit,
@@ -292,12 +290,21 @@ fn chat_tool(
     count: crate::social::HeaderCount,
     action: Press,
 ) -> Entity {
+    let is_chat_badge = count == crate::social::HeaderCount::Chat;
     let face = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: kit.m.px(6.0),
+                align_items: if is_chat_badge {
+                    AlignItems::FlexStart
+                } else {
+                    AlignItems::Center
+                },
+                column_gap: if is_chat_badge {
+                    px_fixed(0.0)
+                } else {
+                    kit.m.px(6.0)
+                },
                 ..default()
             },
             Pickable::IGNORE,
@@ -323,16 +330,53 @@ fn chat_tool(
             .id();
         commands.entity(face).add_child(label);
     }
-    let n = commands
-        .spawn((
-            count,
-            Text::new(crate::social::header_count(count)),
-            crate::hud::tf_bold(kit.fonts, kit.m.text),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(face).add_child(n);
+    let initial = crate::social::header_count(count);
+    if is_chat_badge {
+        let badge = commands
+            .spawn((
+                crate::shellkit::role::Role::Count,
+                Node {
+                    min_width: px_fixed(16.0),
+                    min_height: px_fixed(16.0),
+                    padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
+                    margin: UiRect::left(kit.m.px(-6.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                    ..default()
+                },
+                BackgroundColor(tokens::GOLD),
+                if initial.is_empty() {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Inherited
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let n = commands
+            .spawn((
+                count,
+                Text::new(initial),
+                crate::hud::tf_bold(kit.fonts, kit.m.small * 0.85),
+                TextColor(tokens::OPAQUE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(badge).add_child(n);
+        commands.entity(face).add_child(badge);
+    } else {
+        let n = commands
+            .spawn((
+                count,
+                Text::new(initial),
+                crate::hud::tf_bold(kit.fonts, kit.m.small),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(n);
+    }
     crate::shellkit::controls::hit(commands, kit, face, action)
 }
 
@@ -348,24 +392,24 @@ fn strips(
     let lang = state.lobby.lang();
     let phone = kit.m.frame == ShellFrame::Phone;
     if let Some(strip) = seated.filter(|_| !phone) {
-        let back = controls::button(
+        let back = controls::button_compact(
             commands,
             kit,
+            Some('\u{f053}'),
             Phrase::ShellReturn.text(lang),
             Weight::Gold,
             Live::Yes,
-            None,
             Press::Header(HeaderPress::Return),
         );
         let mut actions = vec![back];
         if strip.can_leave() {
-            actions.push(controls::button(
+            actions.push(controls::button_compact(
                 commands,
                 kit,
+                Some(crate::hud::glyph::CLOSE),
                 Phrase::ShellLeave.text(lang),
                 Weight::Danger,
                 Live::Yes,
-                None,
                 Press::Header(HeaderPress::Leave),
             ));
         }
@@ -377,13 +421,13 @@ fn strips(
         commands.entity(root).add_child(bar);
     }
     if state.feed_down && !phone && matches!(state.lobby.screen(), Screen::Table) {
-        let retry = controls::button(
+        let retry = controls::button_compact(
             commands,
             kit,
+            None,
             Phrase::ShellRetryNow.text(lang),
             Weight::Secondary,
             Live::Yes,
-            None,
             Press::Header(HeaderPress::RetryNow),
         );
         let bar = kit_header::strip(
@@ -396,7 +440,149 @@ fn strips(
     }
 }
 
-/// An open header popover, under the header's right end.
+/// Builds the rich Gateway statistics & server info popover card.
+#[allow(clippy::too_many_lines)] // one popover: status badge, 5-cell breakdown grid, address & version rows
+fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
+    let name = state
+        .gateway_name()
+        .unwrap_or_else(|| state.gateway.clone());
+    let bd = strips::gateway_breakdown(state.lobby.stats(), &state.lobby);
+    let card = commands
+        .spawn((
+            crate::shellkit::role::Role::Opaque,
+            Node {
+                width: kit.m.px(300.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                row_gap: kit.m.px(10.0),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.16, 0.20, 0.26, 0.98).into(),
+                tokens::OPAQUE.with_alpha(0.95).into(),
+            ])),
+            BorderColor::all(tokens::BORDER),
+            GlobalZIndex(tokens::z::POPOVER),
+            Press::Shared(SharedPress::PickerNothing),
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(name),
+            crate::hud::tf_bold(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let addr = commands
+        .spawn((
+            Text::new(state.gateway.clone()),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let grid = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: kit.m.px(8.0),
+                row_gap: kit.m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let items = [
+        (
+            Phrase::GatewayOnlinePlayers.text(lang),
+            bd.online.to_string(),
+            tokens::ACCENT,
+        ),
+        (
+            Phrase::GatewayInLobby.text(lang),
+            bd.in_lobby.to_string(),
+            tokens::INK,
+        ),
+        (
+            Phrase::GatewayInGames.text(lang),
+            bd.playing.to_string(),
+            tokens::GOLD,
+        ),
+        (
+            Phrase::GatewayWaitingTables.text(lang),
+            bd.tables_waiting.to_string(),
+            tokens::INK,
+        ),
+        (
+            Phrase::GatewayRunningGames.text(lang),
+            bd.games_running.to_string(),
+            tokens::INK,
+        ),
+    ];
+    for (label_text, val_text, val_color) in items {
+        let cell = commands
+            .spawn((
+                Node {
+                    min_width: kit.m.px(82.0),
+                    flex_grow: 1.0,
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::axes(kit.m.px(8.0), kit.m.px(6.0)),
+                    row_gap: kit.m.px(2.0),
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                    ..default()
+                },
+                BackgroundColor(tokens::CONTROL.with_alpha(0.75)),
+                BorderColor::all(tokens::BORDER),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let val = commands
+            .spawn((
+                Text::new(val_text),
+                crate::hud::tf_bold(kit.fonts, kit.m.text),
+                TextColor(val_color),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let cap = commands
+            .spawn((
+                Text::new(label_text),
+                crate::hud::tf(kit.fonts, kit.m.small * 0.9),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(cell).add_children(&[val, cap]);
+        commands.entity(grid).add_child(cell);
+    }
+    let client_line = format!(
+        "{} {}",
+        Phrase::ShellThisClient.text(lang),
+        baylee_build::short()
+    );
+    let client = commands
+        .spawn((
+            Text::new(client_line),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(card)
+        .add_children(&[title, addr, grid, client]);
+    card
+}
+
+/// An open header popover, under the header's right end, with a full-screen
+/// transparent click-catcher so clicking anywhere outside closes it.
 fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMenu) -> Entity {
     let lang = state.lobby.lang();
     let surface = match menu {
@@ -412,31 +598,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 action: Press::Header(HeaderPress::SignOut),
             }],
         ),
-        HeaderMenu::Gateway => {
-            let name = state
-                .gateway_name()
-                .unwrap_or_else(|| state.gateway.clone());
-            let client = format!(
-                "{} {}",
-                Phrase::ShellThisClient.text(lang),
-                baylee_build::short()
-            );
-            let counts = state.lobby.stats().map_or_else(
-                || strips::pill_words(None, &state.lobby, lang),
-                |s| {
-                    Phrase::ShellStatsLine.fill(
-                        lang,
-                        &[
-                            &s.players_online.to_string(),
-                            &s.tables_waiting.to_string(),
-                            &s.games_running.to_string(),
-                        ],
-                    )
-                },
-            );
-            let lines = [name.as_str(), state.gateway.as_str(), &client, &counts];
-            surfaces::popover(commands, kit, &lines)
-        }
+        HeaderMenu::Gateway => gateway_popover(commands, state, kit),
         HeaderMenu::Bell => {
             let said: Vec<String> = state.bell.lines(lang);
             let lines: Vec<&str> = if said.is_empty() {
@@ -444,7 +606,11 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
             } else {
                 said.iter().map(String::as_str).collect()
             };
-            surfaces::popover(commands, kit, &lines)
+            let pop = surfaces::popover(commands, kit, &lines);
+            commands
+                .entity(pop)
+                .insert(Press::Shared(SharedPress::PickerNothing));
+            pop
         }
         HeaderMenu::Account => surfaces::menu(
             commands,
@@ -471,6 +637,34 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
             ],
         ),
     };
+    let root = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                right: px_fixed(0.0),
+                top: px_fixed(0.0),
+                bottom: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let veil = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(-4000.0),
+                right: px_fixed(-4000.0),
+                top: px_fixed(-4000.0),
+                bottom: px_fixed(-4000.0),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            GlobalZIndex(tokens::z::POPOVER - 1),
+            Press::Header(HeaderPress::CloseMenu),
+        ))
+        .id();
     let holder = commands
         .spawn((
             Node {
@@ -480,15 +674,12 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 ..default()
             },
             GlobalZIndex(tokens::z::POPOVER),
-            // The menu inside stands at the same global index, and a tie
-            // between the two put this bare holder on top for the pointer:
-            // every row's click landed on it, and Sign out, Shortcuts and
-            // Report did nothing (RC, 13.10.). The holder only places.
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(holder).add_child(surface);
-    holder
+    commands.entity(root).add_children(&[veil, holder]);
+    root
 }
 
 /// The kit's measures for the lobby's window, at the device's text step and
@@ -522,6 +713,16 @@ impl HeaderPress {
                     cx.state.bell.read_all();
                 }
             }
+            HeaderPress::CloseMenu => {
+                cx.state.header_menu = None;
+            }
+            HeaderPress::DismissToast(idx) => {
+                if idx == 0 && cx.state.undo.is_some() {
+                    cx.state.undo = None;
+                } else {
+                    cx.state.shell_asks.push(ShellAsk::DismissToast(idx));
+                }
+            }
             HeaderPress::Shortcuts => {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Shortcuts);
@@ -542,15 +743,6 @@ impl HeaderPress {
             HeaderPress::SignOut => {
                 cx.state.header_menu = None;
                 HubPress::SignOut.handle(cx);
-            }
-            HeaderPress::Nav(n) if NAV.get(usize::from(n)) == Some(&NavTab::Settings) => {
-                if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
-                    cx.state.room_away = true;
-                }
-                if cx.state.library_open() {
-                    cx.state.lobby.close_library();
-                }
-                SettingsPress::OpenSettings.handle(cx);
             }
             HeaderPress::Nav(n) => {
                 if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
@@ -584,6 +776,7 @@ impl HeaderPress {
 }
 
 fn toggle(state: &mut LobbyState, menu: HeaderMenu) {
+    state.front_menu = false;
     state.header_menu = if state.header_menu == Some(menu) {
         None
     } else {
@@ -794,21 +987,33 @@ pub(super) fn ring_the_bell(
     }
 }
 
-/// The toasts on show: each sentence and the seconds it has left.
-#[derive(Resource, Default)]
-pub(super) struct Toasts {
-    shown: Vec<(String, f32)>,
-    rung: u64,
-    drawn: Vec<String>,
+/// What kind of item stands in `ToastLane`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ToastKind {
+    /// A lobby status or error notice (`lobby.status()`).
+    Status(Tone),
+    /// A table notification from the bell.
+    Bell,
+    /// An undoable action toast.
+    Undo,
 }
 
-/// How long a toast stays (§2.4: 6 s), and how many show at once (≤ 3).
-const TOAST_SECS: f32 = 6.0;
-const TOASTS_AT_ONCE: usize = 3;
+/// The toasts on show: each sentence, its kind, and the seconds it has left.
+#[derive(Resource, Default)]
+pub(super) struct Toasts {
+    shown: Vec<(ToastKind, String, f32)>,
+    rung: u64,
+    last_status: String,
+    drawn: Vec<(ToastKind, String)>,
+}
 
-/// The toast lane: the bell's newest items for six seconds each, at most
-/// three, bottom-right (from the top on a Phone). Its own root, redrawn only
-/// when what it shows changes.
+/// How long a toast stays (15 s), and how many show at once (≤ 4).
+const TOAST_SECS: f32 = 15.0;
+const TOASTS_AT_ONCE: usize = 4;
+
+/// The unified toast lane at the top-left: lobby status/error notices and
+/// the bell's newest items for 15 seconds each, dismissible via `×`, narrow
+/// (290 px) with word-wrapping, gradient background, and `Sheen` animation.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system; one lane, read in order
 pub(super) fn toast_lane(
     mut commands: Commands,
@@ -823,18 +1028,41 @@ pub(super) fn toast_lane(
 ) {
     let toasts = &mut *toasts;
     let lang = state.lobby.lang();
+    let on_shell = matches!(state.lobby.screen(), Screen::Table | Screen::Build);
+    let current_status = if on_shell { state.lobby.status() } else { "" };
+    if current_status.is_empty() {
+        toasts.last_status.clear();
+        toasts
+            .shown
+            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+    } else if current_status != toasts.last_status {
+        toasts.last_status = current_status.to_string();
+        toasts
+            .shown
+            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+        toasts.shown.insert(
+            0,
+            (
+                ToastKind::Status(state.lobby.tone()),
+                toasts.last_status.clone(),
+                TOAST_SECS,
+            ),
+        );
+    }
     if state.bell.rung() > toasts.rung {
         let new = usize::try_from(state.bell.rung() - toasts.rung).unwrap_or(usize::MAX);
         for item in state.bell.latest(new.min(TOASTS_AT_ONCE)) {
-            toasts.shown.push((item.sentence(lang), TOAST_SECS));
+            toasts
+                .shown
+                .push((ToastKind::Bell, item.sentence(lang), TOAST_SECS));
         }
         toasts.rung = state.bell.rung();
     }
     let dt = time.delta_secs();
-    for (_, left) in &mut toasts.shown {
+    for (_, _, left) in &mut toasts.shown {
         *left -= dt;
     }
-    toasts.shown.retain(|(_, left)| *left > 0.0);
+    toasts.shown.retain(|(_, _, left)| *left > 0.0);
     while toasts.shown.len() > TOASTS_AT_ONCE {
         toasts.shown.remove(0);
     }
@@ -845,10 +1073,10 @@ pub(super) fn toast_lane(
         super::decks::UndoKind::ToursOff => Phrase::TourOffToast.text(lang).to_string(),
         super::decks::UndoKind::ToursRestarted => Phrase::TourRestartedToast.text(lang).to_string(),
     });
-    let now: Vec<String> = undo
+    let now: Vec<(ToastKind, String)> = undo
         .iter()
-        .cloned()
-        .chain(toasts.shown.iter().map(|(t, _)| t.clone()))
+        .map(|t| (ToastKind::Undo, t.clone()))
+        .chain(toasts.shown.iter().map(|(k, t, _)| (*k, t.clone())))
         .collect();
     if now == toasts.drawn && (now.is_empty() || !lanes.is_empty()) {
         return;
@@ -874,39 +1102,16 @@ pub(super) fn toast_lane(
         m: kit_metrics(width, height, step, *input),
         german: lang == Lang::De,
     };
-    let phone = kit.m.frame == ShellFrame::Phone;
     let lane = commands
         .spawn((
             ToastLane,
             Node {
                 position_type: PositionType::Absolute,
-                right: px_fixed(kit.m.body),
-                left: if phone {
-                    px_fixed(kit.m.body)
-                } else {
-                    Val::Auto
-                },
-                top: if phone {
-                    px_fixed(kit.m.header + kit.m.gap)
-                } else {
-                    Val::Auto
-                },
-                bottom: if phone {
-                    Val::Auto
-                } else {
-                    px_fixed(kit.m.body)
-                },
-                width: if phone {
-                    Val::Auto
-                } else {
-                    kit.m.px(
-                        if kit.m.frame == ShellFrame::Wide || kit.m.frame == ShellFrame::Vast {
-                            400.0
-                        } else {
-                            360.0
-                        },
-                    )
-                },
+                left: px_fixed(kit.m.body),
+                right: Val::Auto,
+                top: px_fixed(kit.m.header + kit.m.gap),
+                bottom: Val::Auto,
+                width: kit.m.px(290.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px_fixed(kit.m.gap),
                 ..default()
@@ -915,23 +1120,41 @@ pub(super) fn toast_lane(
             Pickable::IGNORE,
         ))
         .id();
-    for (i, text) in now.iter().enumerate() {
+    for (i, (kind, text)) in now.iter().enumerate() {
         let action = (i == 0 && undo.is_some()).then(|| {
-            controls::button(
+            controls::button_compact(
                 &mut commands,
                 kit,
+                None,
                 Phrase::ShellUndo.text(lang),
                 Weight::Ghost,
                 Live::Yes,
-                Some(if crate::shellkit::keys::mac() {
-                    "Cmd+Z"
-                } else {
-                    "Ctrl+Z"
-                }),
                 Press::Decks(super::decks::DecksPress::Undo),
             )
         });
-        let toast = surfaces::toast(&mut commands, kit, text, action);
+        let (icon, accent, title) = match kind {
+            ToastKind::Status(Tone::Refusal) => (
+                '\u{f071}',
+                tokens::DANGER,
+                Phrase::ToastTitleAlert.text(lang),
+            ),
+            ToastKind::Status(_) | ToastKind::Undo => (
+                '\u{f05a}',
+                tokens::ACCENT,
+                Phrase::ToastTitleInfo.text(lang),
+            ),
+            ToastKind::Bell => ('\u{f0f3}', tokens::GOLD, Phrase::ToastTitleTable.text(lang)),
+        };
+        let toast = surfaces::toast_card(
+            &mut commands,
+            kit,
+            icon,
+            accent,
+            title,
+            text,
+            Press::Header(HeaderPress::DismissToast(i)),
+            action,
+        );
         commands.entity(lane).add_child(toast);
     }
 }
@@ -941,9 +1164,11 @@ pub(super) fn toast_lane(
 pub(crate) struct ToastLane;
 
 /// Carries out what header presses asked of systems they cannot reach: the
-/// `?` overlay (through the shell keymap's own message) and the report form.
+/// `?` overlay (through the shell keymap's own message), the report form,
+/// and toast dismissal.
 pub(super) fn carry_out(
     mut state: ResMut<LobbyState>,
+    mut toasts: ResMut<Toasts>,
     mut fired: MessageWriter<crate::shellkit::keys::ShellFired>,
     desk: Option<ResMut<crate::report::ReportDesk>>,
     mut chat: Option<ResMut<crate::social::ChatUi>>,
@@ -953,6 +1178,7 @@ pub(super) fn carry_out(
         return;
     }
     let mut desk = desk;
+    let has_undo = state.undo.is_some();
     for ask in std::mem::take(&mut state.shell_asks) {
         match ask {
             ShellAsk::Shortcuts => {
@@ -963,6 +1189,14 @@ pub(super) fn carry_out(
             ShellAsk::Report => {
                 if let Some(desk) = desk.as_mut() {
                     desk.asked = true;
+                }
+            }
+            ShellAsk::DismissToast(idx) => {
+                let offset = usize::from(has_undo);
+                if let Some(pos) = idx.checked_sub(offset)
+                    && pos < toasts.shown.len()
+                {
+                    toasts.shown.remove(pos);
                 }
             }
             ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {

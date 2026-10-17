@@ -518,7 +518,7 @@ pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lob
         }
         ShellAsk::Friends => ui.drawer = !ui.drawer,
         ShellAsk::ChatPrivacy => ui.sheet = Some(sheet::Sheet::Privacy),
-        ShellAsk::Shortcuts | ShellAsk::Report => {}
+        ShellAsk::Shortcuts | ShellAsk::Report | ShellAsk::DismissToast(_) => {}
     }
 }
 
@@ -529,7 +529,8 @@ fn lobby_side(
     mut lobby: ResMut<LobbyState>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
-    mut counts: Query<(&HeaderCount, &mut Text)>,
+    mut counts: Query<(&HeaderCount, &mut Text, Option<&ChildOf>)>,
+    mut badges: Query<&mut Visibility, With<crate::shellkit::role::Role>>,
     mut fired: MessageReader<crate::shellkit::keys::ShellFired>,
     mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
     stack: Option<Res<crate::shellkit::keys::ShellStack>>,
@@ -546,7 +547,12 @@ fn lobby_side(
         }
         lobby.chat_header = header;
     }
-    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let at_table = phase.is_some_and(|p| {
+        matches!(
+            *p.get(),
+            crate::DuelPhase::Playing | crate::DuelPhase::Finished
+        )
+    });
     let asked: Vec<ShellAction> = fired.read().map(|f| f.0).collect();
     let entered = typed.read().any(|k| {
         k.state.is_pressed() && !k.repeat && k.logical_key == bevy::input::keyboard::Key::Enter
@@ -572,11 +578,7 @@ fn lobby_side(
         return;
     };
     let (unread, _) = machine.unread_where(&social::TabFilter::standard(ChatTab::All));
-    let chat = if unread > 0 {
-        format!("\u{b7} {}", unread.min(99))
-    } else {
-        String::new()
-    };
+    let chat = crate::shellkit::header::format_badge_count(unread as usize);
     let online = machine.contacts().online_count();
     let friends = if machine.contacts().waiting() {
         format!("{online} \u{2022}")
@@ -591,13 +593,23 @@ fn lobby_side(
             *stored = (chat.clone(), friends.clone());
         }
     }
-    for (count, mut text) in &mut counts {
+    for (count, mut text, parent) in &mut counts {
         let want = match count {
             HeaderCount::Chat => &chat,
             HeaderCount::Friends => &friends,
         };
         if text.0 != *want {
             text.0.clone_from(want);
+        }
+        if matches!(count, HeaderCount::Chat)
+            && let Some(parent) = parent
+            && let Ok(mut vis) = badges.get_mut(parent.parent())
+        {
+            vis.set_if_neq(if want.is_empty() {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            });
         }
     }
 }

@@ -19,6 +19,8 @@ use super::convs::{ChatLine, ConvId, LineKind};
 pub enum ChatTab {
     /// Everything the other tabs show, the game log included.
     All,
+    /// Global lobby chat for all online players.
+    Global,
     /// The game log.
     Log,
     /// The table's chat.
@@ -33,8 +35,9 @@ pub enum ChatTab {
 
 impl ChatTab {
     /// Every tab, in the order they are drawn.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::All,
+        Self::Global,
         Self::Log,
         Self::Table,
         Self::Team,
@@ -47,11 +50,12 @@ impl ChatTab {
     pub fn index(self) -> usize {
         match self {
             Self::All => 0,
-            Self::Log => 1,
-            Self::Table => 2,
-            Self::Team => 3,
-            Self::Private => 4,
-            Self::Group => 5,
+            Self::Global => 1,
+            Self::Log => 2,
+            Self::Table => 3,
+            Self::Team => 4,
+            Self::Private => 5,
+            Self::Group => 6,
         }
     }
 
@@ -66,6 +70,7 @@ impl ChatTab {
     pub fn name(self) -> &'static str {
         match self {
             Self::All => "all",
+            Self::Global => "global",
             Self::Log => "log",
             Self::Table => "table",
             Self::Team => "team",
@@ -78,6 +83,7 @@ impl ChatTab {
     #[must_use]
     pub fn of(conv: &ConvId) -> Self {
         match conv {
+            Conv::Global => Self::Global,
             Conv::Dm { .. } => Self::Private,
             Conv::Group { .. } => Self::Group,
             Conv::Table { .. } => Self::Table,
@@ -117,6 +123,8 @@ impl GroupPick {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TabFilter {
+    /// Global lobby chat.
+    pub global: bool,
     /// The game log's lines. Stored as `game_log`: a bare `log` key in the
     /// preferences a report carries read as the report's own log part.
     #[serde(rename = "game_log", alias = "log")]
@@ -148,6 +156,7 @@ impl TabFilter {
     #[must_use]
     pub const fn nothing() -> Self {
         Self {
+            global: false,
             log: false,
             table: false,
             team: false,
@@ -165,11 +174,17 @@ impl TabFilter {
         let base = Self::nothing();
         match tab {
             ChatTab::All => Self {
+                global: true,
                 log: true,
                 table: true,
                 team: true,
                 whispers: true,
                 groups: GroupPick::All,
+                notices: true,
+                ..base
+            },
+            ChatTab::Global => Self {
+                global: true,
                 notices: true,
                 ..base
             },
@@ -207,6 +222,7 @@ impl TabFilter {
     #[must_use]
     pub fn admits_conv(&self, conv: &ConvId) -> bool {
         match conv {
+            Conv::Global => self.global,
             Conv::Dm { .. } => self.whispers,
             Conv::Group { id } => self.groups.admits(id),
             Conv::Table { .. } => self.table,
@@ -232,7 +248,8 @@ impl TabFilter {
     /// Whether this filter admits nothing at all.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        !self.log
+        !self.global
+            && !self.log
             && !self.table
             && !self.team
             && !self.whispers

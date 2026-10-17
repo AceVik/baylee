@@ -147,6 +147,15 @@ pub(crate) fn from_bottom_right(scale: f32) -> Val2 {
     )
 }
 
+/// The same, for a node pinned at the window's **left** margin (the lobby's
+/// chat pill and window).
+pub(crate) fn from_bottom_left(scale: f32) -> Val2 {
+    Val2::new(
+        Val::Percent(-50.0 * (1.0 - scale)),
+        Val::Percent(50.0 * (1.0 - scale)),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

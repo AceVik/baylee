@@ -14,6 +14,8 @@ use bevy::prelude::*;
 use crate::hud::logpanel::{CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT};
 use crate::hud::{UiFonts, palette, tf, tf_bold, tf_italic};
 
+/// Sky cyan: the public Lobby chat for everyone online.
+pub(crate) const GLOBAL_INK: Color = Color::srgb(0.52, 0.82, 0.96);
 /// Sage: team chat (§7).
 pub(crate) const TEAM_INK: Color = Color::srgb(0.612, 0.796, 0.561);
 /// Rose: whispers, and the pill of a whisper or a mention.
@@ -75,6 +77,7 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
 /// The ink a conversation's lines are drawn in (the channel's colour).
 pub(crate) fn channel_ink(conv: &ConvId, inks: &Inks) -> Color {
     match conv {
+        Conv::Global => GLOBAL_INK,
         Conv::Table { .. } => inks.ink,
         Conv::Team { .. } => TEAM_INK,
         Conv::Dm { .. } => WHISPER_INK,
@@ -136,6 +139,7 @@ pub(crate) fn prefix(
     lang: Lang,
 ) -> Option<String> {
     match conv {
+        Conv::Global => Some(format!("[{}]", ChatPhrase::TabGlobal.text(lang))),
         Conv::Table { .. } => Some(format!("[{}]", ChatPhrase::TabTable.text(lang))),
         Conv::Team { .. } => Some(format!("[{}]", ChatPhrase::TabTeam.text(lang))),
         Conv::Group { id } => machine

@@ -103,7 +103,7 @@ impl Gateway {
         match conv.parse::<Conv>().ok()? {
             Conv::Dm { a, b } => self.may_write(&a, &b).then(|| vec![a, b]),
             Conv::Table { .. } | Conv::Team { .. } => self.tables.get(conv).cloned(),
-            Conv::Group { .. } => None,
+            Conv::Group { .. } | Conv::Global => None,
         }
     }
 
@@ -370,6 +370,27 @@ impl Gateway {
                     id: header.id,
                     at,
                 }]
+            }
+            Up::Global { req, id, body } => {
+                self.clock += 1;
+                let at = self.clock;
+                vec![
+                    Down::Sent {
+                        req,
+                        id: id.clone(),
+                        at,
+                    },
+                    Down::Global {
+                        id,
+                        at,
+                        from: Sender {
+                            tag: tag.to_string(),
+                            handle: self.handles[tag].clone(),
+                            device: dev.to_string(),
+                        },
+                        body,
+                    },
+                ]
             }
         }
     }

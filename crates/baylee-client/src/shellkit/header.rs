@@ -28,7 +28,7 @@ use super::controls::{self, Kit, Live, Weight, hit, label};
 use super::metrics::px_fixed;
 use super::role::Role;
 use super::{Frame, tokens};
-use crate::hud::{icon_tf, tf, tf_bold};
+use crate::hud::{icon_tf, tf_bold};
 
 /// Whether the gateway answers, as the pill's dot says it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -300,6 +300,7 @@ pub(super) fn install(app: &mut App) {
 /// the two labels share a bounded column: a long address clips inside its
 /// pill, leaving the account and navigation their full hit areas. The
 /// gateway popover still carries the complete address and counts.
+#[allow(clippy::too_many_lines)] // single-line gateway pill with dot, name, inline stats, and caret
 fn gateway_pill(
     commands: &mut Commands,
     kit: Kit,
@@ -311,7 +312,7 @@ fn gateway_pill(
         .spawn((
             Role::Pill,
             Node {
-                min_height: kit.m.px(36.0),
+                min_height: kit.m.px(34.0),
                 padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                 column_gap: kit.m.px(8.0),
                 align_items: AlignItems::Center,
@@ -321,6 +322,7 @@ fn gateway_pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            crate::ambience::Feel::new(tokens::CONTROL),
         ))
         .id();
     let dot = commands
@@ -346,10 +348,26 @@ fn gateway_pill(
         ))
         .id();
     if desktop {
+        commands
+            .entity(name)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_shrink = 1.0;
+                node.min_width = px_fixed(0.0);
+                node.overflow = Overflow::clip_x();
+            });
+        commands
+            .entity(counts)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_shrink = 0.0;
+            });
         let words = commands
             .spawn((
                 Node {
-                    flex_direction: FlexDirection::Column,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.px(8.0),
                     min_width: px_fixed(0.0),
                     overflow: Overflow::clip_x(),
                     ..default()
@@ -395,6 +413,18 @@ fn gateway_pill(
     wrapper
 }
 
+/// Formats an unread count for a header badge dot (`1`..`99`, then `99+`).
+#[must_use]
+pub fn format_badge_count(unread: usize) -> String {
+    if unread == 0 {
+        String::new()
+    } else if unread > 99 {
+        "99+".to_string()
+    } else {
+        unread.to_string()
+    }
+}
+
 /// The bell: its glyph, and the unread count on it when there is one.
 pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundle) -> Entity {
     let face = commands
@@ -437,7 +467,7 @@ pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundl
             .id();
         let n = commands
             .spawn((
-                Text::new(unread.min(99).to_string()),
+                Text::new(format_badge_count(unread)),
                 tf_bold(kit.fonts, kit.m.small * 0.85),
                 TextColor(tokens::OPAQUE),
                 Pickable::IGNORE,
@@ -479,7 +509,8 @@ pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bund
     hit(commands, kit, disc, action)
 }
 
-/// A strip below the header: a sentence, and its actions on the right.
+/// A contextual strip below the header: a distinct bar with a status badge,
+/// sentence, and compact actions on the right.
 pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entity]) -> Entity {
     let m = kit.m;
     let bar = commands
@@ -487,23 +518,40 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
             Role::Panel,
             Node {
                 width: Val::Percent(100.0),
-                min_height: px_fixed(m.hit),
+                min_height: kit.m.px(38.0),
                 padding: UiRect::axes(px_fixed(m.body), kit.m.px(4.0)),
-                column_gap: px_fixed(m.gap),
+                column_gap: kit.m.px(10.0),
                 align_items: AlignItems::Center,
                 flex_shrink: 0.0,
                 border: UiRect::bottom(px_fixed(1.0)),
                 ..default()
             },
             BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
+            BackgroundGradient::from(LinearGradient::to_right(vec![
+                tokens::GOLD.with_alpha(0.14).into(),
+                tokens::PANEL.into(),
+            ])),
+            BorderColor::all(tokens::GOLD.with_alpha(0.35)),
             SeatStrip,
+        ))
+        .id();
+    let dot = commands
+        .spawn((
+            Node {
+                width: kit.m.px(8.0),
+                height: kit.m.px(8.0),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(tokens::GOLD),
+            Pickable::IGNORE,
         ))
         .id();
     let words = commands
         .spawn((
             Text::new(sentence),
-            tf(kit.fonts, m.small),
+            tf_bold(kit.fonts, m.small),
             TextColor(tokens::INK),
             Node {
                 flex_grow: 1.0,
@@ -514,7 +562,7 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(bar).add_child(words);
+    commands.entity(bar).add_children(&[dot, words]);
     commands.entity(bar).add_children(actions);
     bar
 }

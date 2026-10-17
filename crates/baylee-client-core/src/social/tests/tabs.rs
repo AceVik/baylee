@@ -83,7 +83,10 @@ fn server() -> ChatLine {
 #[test]
 fn the_tabs_are_drawn_in_one_fixed_order_and_each_knows_its_place_and_name() {
     let names: Vec<&str> = ChatTab::ALL.iter().map(|t| t.name()).collect();
-    assert_eq!(names, ["all", "log", "table", "team", "private", "group"]);
+    assert_eq!(
+        names,
+        ["all", "global", "log", "table", "team", "private", "group"]
+    );
     for (place, tab) in ChatTab::ALL.iter().enumerate() {
         assert_eq!(tab.index(), place, "{tab:?}");
     }
@@ -91,6 +94,7 @@ fn the_tabs_are_drawn_in_one_fixed_order_and_each_knows_its_place_and_name() {
     assert_eq!(
         writable,
         [
+            ChatTab::Global,
             ChatTab::Table,
             ChatTab::Team,
             ChatTab::Private,
@@ -102,6 +106,7 @@ fn the_tabs_are_drawn_in_one_fixed_order_and_each_knows_its_place_and_name() {
 
 #[test]
 fn a_conversation_is_read_on_the_tab_of_its_kind() {
+    assert_eq!(ChatTab::of(&Conv::Global), ChatTab::Global);
     assert_eq!(ChatTab::of(&dm()), ChatTab::Private);
     assert_eq!(ChatTab::of(&group(GROUP)), ChatTab::Group);
     assert_eq!(ChatTab::of(&table()), ChatTab::Table);
@@ -123,9 +128,10 @@ fn a_group_pick_admits_all_some_or_none() {
 
 #[test]
 fn each_tabs_standard_filter_shows_what_the_design_says() {
-    // (log, table, team, whispers, groups, notices)
-    let expect = |tab, log, table, team, whispers, groups, notices| {
+    // (global, log, table, team, whispers, groups, notices)
+    let expect = |tab, global, log, table, team, whispers, groups, notices| {
         let want = TabFilter {
+            global,
             log,
             table,
             team,
@@ -137,9 +143,29 @@ fn each_tabs_standard_filter_shows_what_the_design_says() {
         };
         assert_eq!(TabFilter::standard(tab), want, "{tab:?}");
     };
-    expect(ChatTab::All, true, true, true, true, GroupPick::All, true);
+    expect(
+        ChatTab::All,
+        true,
+        true,
+        true,
+        true,
+        true,
+        GroupPick::All,
+        true,
+    );
+    expect(
+        ChatTab::Global,
+        true,
+        false,
+        false,
+        false,
+        false,
+        GroupPick::None,
+        true,
+    );
     expect(
         ChatTab::Log,
+        false,
         true,
         false,
         false,
@@ -150,6 +176,7 @@ fn each_tabs_standard_filter_shows_what_the_design_says() {
     expect(
         ChatTab::Table,
         false,
+        false,
         true,
         false,
         false,
@@ -158,6 +185,7 @@ fn each_tabs_standard_filter_shows_what_the_design_says() {
     );
     expect(
         ChatTab::Team,
+        false,
         false,
         false,
         true,
@@ -170,12 +198,14 @@ fn each_tabs_standard_filter_shows_what_the_design_says() {
         false,
         false,
         false,
+        false,
         true,
         GroupPick::None,
         true,
     );
     expect(
         ChatTab::Group,
+        false,
         false,
         false,
         false,
@@ -200,7 +230,8 @@ fn a_filter_that_admits_nothing_is_empty_whatever_its_timestamps_say() {
     only_time.timestamps = false;
     assert!(only_time.is_empty());
     // Any one box makes it non-empty, friends coming online included.
-    let boxes: [fn(&mut TabFilter); 7] = [
+    let boxes: [fn(&mut TabFilter); 8] = [
+        |f| f.global = true,
         |f| f.log = true,
         |f| f.table = true,
         |f| f.team = true,
@@ -244,6 +275,7 @@ fn a_conversation_shows_on_the_tabs_whose_filter_admits_its_kind() {
     };
     // dm, group, table, team
     assert_eq!(shown(ChatTab::All), [true, true, true, true]);
+    assert_eq!(shown(ChatTab::Global), [false, false, false, false]);
     assert_eq!(shown(ChatTab::Log), [false, false, false, false]);
     assert_eq!(shown(ChatTab::Table), [false, false, true, false]);
     assert_eq!(shown(ChatTab::Team), [false, false, false, true]);
@@ -331,7 +363,7 @@ fn a_stored_list_shorter_than_the_tabs_falls_back_to_the_standard_filter_for_the
     prefs.set_filter(ChatTab::Private, mine.clone());
     assert_eq!(prefs.tabs.len(), ChatTab::Private.index() + 1);
     assert_eq!(prefs.tabs[0], TabFilter::nothing(), "the stored one stays");
-    for tab in [ChatTab::Log, ChatTab::Table, ChatTab::Team] {
+    for tab in [ChatTab::Global, ChatTab::Log, ChatTab::Table, ChatTab::Team] {
         assert_eq!(prefs.tabs[tab.index()], TabFilter::standard(tab), "{tab:?}");
     }
     assert_eq!(prefs.filter(ChatTab::Private), mine);

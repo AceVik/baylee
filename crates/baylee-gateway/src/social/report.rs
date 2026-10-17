@@ -53,6 +53,7 @@ fn conv_kind(conv: &Conv) -> &'static str {
         Conv::Group { .. } => "group",
         Conv::Table { .. } => "table",
         Conv::Team { .. } => "team",
+        Conv::Global => "global",
     }
 }
 

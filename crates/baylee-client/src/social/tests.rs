@@ -526,6 +526,7 @@ fn a_seated_member_in_a_game_sees_every_tab_in_order() {
         window::drawn_tabs(&social, true),
         [
             ChatTab::All,
+            ChatTab::Global,
             ChatTab::Log,
             ChatTab::Table,
             ChatTab::Team,
@@ -548,7 +549,12 @@ fn off_a_table_only_all_private_and_group_are_drawn() {
     social.on_table(None);
     assert_eq!(
         window::drawn_tabs(&social, false),
-        [ChatTab::All, ChatTab::Private, ChatTab::Group]
+        [
+            ChatTab::All,
+            ChatTab::Global,
+            ChatTab::Private,
+            ChatTab::Group
+        ]
     );
 }
 
@@ -558,7 +564,7 @@ fn a_guest_has_no_group_tab() {
     social.on_table(None);
     assert_eq!(
         window::drawn_tabs(&social, false),
-        [ChatTab::All, ChatTab::Private]
+        [ChatTab::All, ChatTab::Global, ChatTab::Private]
     );
 }
 
@@ -596,7 +602,7 @@ fn a_watcher_has_no_table_or_team_tab() {
 
 #[test]
 fn every_tab_has_its_own_name_in_both_languages() {
-    let english = ["All", "Log", "Table", "Team", "Private", "Group"];
+    let english = ["All", "Lobby", "Log", "Table", "Team", "Private", "Group"];
     for (tab, name) in ChatTab::ALL.into_iter().zip(english) {
         assert_eq!(window::tab_name(tab, Lang::En), name);
     }

@@ -50,46 +50,10 @@ pub(super) fn table(
     commands.entity(root).add_child(frame);
     let root = frame;
 
-    // ---- the shell's header, its strips and popovers (WP0b-3)
+    // ---- the shell's header, its strips and popovers (WP0b-3);
+    // lobby.status() notices and refusals are rendered in the unified
+    // top-left ToastLane (`header::toast_lane`) with 15s auto-dismiss and X.
     super::header::draw(commands, root, state, kit, metrics);
-    // What the lobby last said, under the header: refusals land here.
-    if !lobby.status().is_empty() {
-        let line = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    justify_content: JustifyContent::FlexEnd,
-                    flex_shrink: 0.0,
-                    padding: UiRect::axes(px(metrics.pad), px(2)),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        // On a mist plate: no text stands on the painting bare (§2.2).
-        let plate = commands
-            .spawn((
-                Node {
-                    padding: UiRect::axes(px(8), px(2)),
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                BackgroundColor(crate::shellkit::tokens::MIST),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let status = commands
-            .spawn((
-                Text::new(lobby.status()),
-                tf(fonts, metrics.small),
-                TextColor(status_ink(lobby.tone())),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(plate).add_child(status);
-        commands.entity(line).add_child(plate);
-        commands.entity(root).add_child(line);
-    }
 
     if let Some(handover) = lobby.awaiting().filter(|_| !state.room_away)
         && let Some(index) = lobby

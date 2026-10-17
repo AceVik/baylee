@@ -824,6 +824,7 @@ fn card(
 ///
 /// A veil over the rest of the page closes it when pressed, as any press
 /// outside a menu does.
+#[allow(clippy::too_many_lines)] // header + language pills + audio card + primary settings action
 pub(super) fn gear_menu(
     commands: &mut Commands,
     state: &LobbyState,
@@ -864,24 +865,94 @@ pub(super) fn gear_menu(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: px(HEADER_TOP + HEADER_HEIGHT + 4.0),
+                top: px(HEADER_TOP + HEADER_HEIGHT + 6.0),
                 right: px(side - 6.0),
-                width: px_fixed(240.0),
+                width: px_fixed(296.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.pad * 0.8)),
+                padding: UiRect::all(px(metrics.pad * 0.9)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(10.0)),
+                border_radius: BorderRadius::all(px_fixed(12.0)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT.with_alpha(1.0)),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
+            BackgroundColor(palette::PANEL_LIT.with_alpha(0.97)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.17, 0.21, 0.27, 0.98).into(),
+                palette::PANEL_LIT.with_alpha(0.96).into(),
+            ])),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.55)),
             soft_shadow(),
             GlobalZIndex(600),
             // A press on the menu's own ground is not a press outside it.
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_left = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px_fixed(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_icon = commands
+        .spawn((
+            Text::new("\u{f013}"),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(crate::shellkit::tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_title = commands
+        .spawn((
+            Text::new(Phrase::SettingsQuickTitle.text(lang)),
+            crate::hud::tf_bold(fonts, metrics.text),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(head_left)
+        .add_children(&[head_icon, head_title]);
+    let close_btn = commands
+        .spawn((
+            Node {
+                width: px_fixed(26.0),
+                height: px_fixed(26.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(6.0)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            crate::ambience::Feel::rising_to(Color::NONE, crate::shellkit::tokens::HOVER),
+            Press::Front(FrontPress::FrontMenu),
+        ))
+        .id();
+    let close_icon = commands
+        .spawn((
+            Text::new("\u{f00d}"),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(close_btn).add_child(close_icon);
+    commands.entity(head).add_children(&[head_left, close_btn]);
+
     let caption = note(commands, fonts, metrics, Phrase::Language.text(lang));
     let mut chips = Vec::new();
     for offered in Lang::ALL {
@@ -897,30 +968,54 @@ pub(super) fn gear_menu(
         if offered == lang {
             commands.entity(chip).insert((
                 BackgroundColor(palette::PANEL_HOT),
+                BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.6)),
                 crate::ambience::Feel::new(palette::PANEL_HOT),
             ));
         }
         chips.push(chip);
     }
     let languages = halves(commands, metrics, &chips);
-    let rule = rule(commands);
+    let audio_box = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px_fixed(10.0)),
+                row_gap: px_fixed(6.0),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL.with_alpha(0.75)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
+            Pickable::IGNORE,
+        ))
+        .id();
     let music = crate::music::controls(commands, fonts, metrics, lang);
+    commands.entity(audio_box).add_child(music);
+
+    let rule = rule(commands);
     let all = button(
         commands,
         fonts,
         metrics,
         Phrase::AllSettings.text(lang),
         Press::Settings(SettingsPress::OpenSettings),
-        palette::PANEL,
+        crate::shellkit::tokens::PRIMARY,
         true,
     );
+    commands.entity(all).insert((
+        BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE),
+        crate::ambience::Feel::new(crate::shellkit::tokens::PRIMARY),
+        crate::shellkit::sheen::Sheen,
+    ));
     commands.entity(all).entry::<Node>().and_modify(|mut node| {
         node.justify_content = JustifyContent::Center;
     });
     let report = crate::report::button(commands, fonts, metrics, lang);
     commands
         .entity(menu)
-        .add_children(&[caption, languages, rule, music, report, all]);
+        .add_children(&[head, caption, languages, audio_box, rule, report, all]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
 }

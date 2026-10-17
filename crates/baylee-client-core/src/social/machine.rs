@@ -607,6 +607,13 @@ impl Social {
                     &mut out,
                 );
             }
+            Down::Global { id, at, from, body } => {
+                let person = Person {
+                    tag: from.tag,
+                    handle: from.handle,
+                };
+                self.receive_global(&id, at, person, &body, now_ms, rng, &mut out);
+            }
             Down::Sent { req, id, at } => self.sent(req, &id, at, rng, &mut out),
             Down::Refused {
                 req: Some(req),
@@ -1261,6 +1268,9 @@ impl Social {
     /// Who this conversation encrypts to: people and devices (§5.4).
     #[must_use]
     pub fn encrypted_to(&self, id: &ConvId) -> Option<(usize, usize)> {
+        if *id == Conv::Global {
+            return None;
+        }
         let tags = self.members(id)?;
         let people = tags.iter().filter(|t| **t != self.me.tag).count();
         let devices = tags
@@ -1396,6 +1406,7 @@ impl Social {
 
     fn title_of(&self, id: &ConvId) -> String {
         match id {
+            Conv::Global => "Lobby".into(),
             Conv::Dm { .. } => id
                 .partner(&self.me.tag)
                 .map(|t| self.shown_name(&self.person_of(t)))
@@ -1665,6 +1676,7 @@ impl Social {
     fn members(&self, id: &ConvId) -> Option<Vec<String>> {
         let me = self.me.tag.clone();
         let mut tags: Vec<String> = match id {
+            Conv::Global => vec![me.clone()],
             Conv::Dm { a, b } => {
                 if *a != me && *b != me {
                     return None;
@@ -1792,6 +1804,25 @@ impl Social {
                 continue;
             }
             let conv = self.outbox[i].key.conv.clone();
+            if conv == Conv::Global {
+                if self.link != Link::Welcomed {
+                    self.outbox[i].wait = Wait::Link;
+                    continue;
+                }
+                let p = &self.outbox[i];
+                match serde_json::to_string(&p.body) {
+                    Ok(body) if body.len() <= baylee_protocol::social::MAX_BODY_BYTES => {
+                        out.push(Effect::Up(Up::Global {
+                            req: p.req,
+                            id: p.key.id.clone(),
+                            body,
+                        }));
+                        self.outbox[i].wait = Wait::Answer;
+                    }
+                    _ => failed.push((i, ChatPhrase::SendTooLarge)),
+                }
+                continue;
+            }
             let Some(tags) = self.members(&conv) else {
                 failed.push((i, ChatPhrase::SendNotAllowed));
                 continue;
@@ -1951,6 +1982,102 @@ impl Social {
     }
 
     // ---- receiving ----
+
+    #[allow(clippy::too_many_arguments)] // matches Down::Global fields + machine clock/rng/out
+    fn receive_global(
+        &mut self,
+        id: &str,
+        at: u64,
+        from: Person,
+        raw_body: &str,
+        now_ms: u64,
+        rng: &mut dyn Entropy,
+        out: &mut Vec<Effect>,
+    ) {
+        if self.state.seen.contains_key(id)
+            || now_ms.saturating_sub(at) > MAX_AGE_MS
+            || sealing::uuid_ms(id).is_none()
+        {
+            return;
+        }
+        let Some(body) = serde_json::from_str::<Body>(raw_body)
+            .ok()
+            .and_then(Body::checked)
+        else {
+            return;
+        };
+        self.state.seen.insert(id.to_string(), now_ms);
+        self.dirty = true;
+        if self.contacts.is_blocked(&from.tag) {
+            return;
+        }
+        let conv = Conv::Global;
+        let mine = from.tag == self.me.tag;
+        let from = Person {
+            tag: from.tag,
+            handle: super::text::clean_name(&from.handle),
+        };
+        let mentions_me = !mine && body.mentions_tag(&self.me.tag);
+        let ignored = self.state.ignored.contains(&from.tag);
+        let key = LineKey {
+            conv: conv.clone(),
+            id: id.to_string(),
+        };
+        let reading = self.panel_open && self.active.as_ref() == Some(&conv);
+        let focused = self.focused;
+        let entry = self.conv_entry(&conv, now_ms);
+        entry.open = true;
+        let muted = entry.muted;
+        entry.insert(ChatLine {
+            key,
+            at,
+            kind: LineKind::Message {
+                from: from.clone(),
+                mine,
+                body: body.clone(),
+            },
+            state: LineState::Final,
+            hidden: ignored,
+            mentions_me,
+            failure: None,
+        });
+        if !(mine || (reading && focused) || ignored) {
+            entry.unread += 1;
+        }
+        let record = Record {
+            id: id.to_string(),
+            at,
+            from: from.clone(),
+            mine,
+            body,
+            evidence: None,
+        };
+        self.append_history(&conv, &record, rng, out);
+        if !mine {
+            let ctx = NotifyContext {
+                reading,
+                dnd: self.status == Status::Dnd,
+                focused: self.focused,
+                question_up: false,
+                mention: mentions_me,
+                at_table: self.table.is_some(),
+            };
+            let notify = notify::on_line(ConvKind::Global, muted, ignored, &self.prefs, ctx);
+            if notify.toast {
+                let name = self.shown_name(&from);
+                out.push(Effect::Toast(ChatToast {
+                    phrase: ChatPhrase::ToastMention,
+                    args: vec![name],
+                    conv: Some(conv),
+                    actions: Vec::new(),
+                    until_answered: false,
+                }));
+            }
+            if let Some(cue) = notify.sound {
+                out.push(Effect::Sound(cue));
+            }
+        }
+    }
 
     fn receive(
         &mut self,
@@ -2188,6 +2315,7 @@ impl Social {
     fn may_hear(&self, conv: &ConvId, from: &str, now_ms: u64) -> bool {
         let me = self.me.tag.as_str();
         match conv {
+            Conv::Global => true,
             Conv::Dm { a, b } => (a == me || b == me) && (a == from || b == from),
             Conv::Group { id } => self.contacts.group(id).is_some_and(|g| {
                 g.members.iter().any(|m| m.person.tag == from)

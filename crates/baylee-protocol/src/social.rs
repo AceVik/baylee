@@ -195,6 +195,8 @@ pub enum Conv {
         /// The team's number.
         team: u8,
     },
+    /// `global`: the public lobby chat for all online players.
+    Global,
 }
 
 /// Why a string is not a [`Conv`].
@@ -256,6 +258,7 @@ impl fmt::Display for Conv {
             Self::Group { id } => write!(f, "grp:{id}"),
             Self::Table { game } => write!(f, "tbl:{game}"),
             Self::Team { game, team } => write!(f, "team:{game}:{team}"),
+            Self::Global => f.write_str("global"),
         }
     }
 }
@@ -267,6 +270,9 @@ impl FromStr for Conv {
     /// whisper with its tags out of order, or a team number with a leading
     /// zero, is refused rather than read as another spelling of one id.
     fn from_str(text: &str) -> Result<Self, ConvFault> {
+        if text == "global" {
+            return Ok(Self::Global);
+        }
         let (kind, rest) = text.split_once(':').ok_or(ConvFault)?;
         let conv = match kind {
             "dm" => {
@@ -374,6 +380,15 @@ pub enum Up {
     },
     /// A new status or activity.
     Presence(PresenceSet),
+    /// A public message to all online players in the lobby chat (`Conv::Global`).
+    Global {
+        /// The client's number for this send, echoed in [`Down::Sent`] or [`Down::Refused`].
+        req: u32,
+        /// The message's id, a `UUIDv7` the sender makes.
+        id: String,
+        /// The JSON-encoded message body, at most [`MAX_BODY_BYTES`].
+        body: String,
+    },
 }
 
 /// The status a client sets for itself.
@@ -485,6 +500,17 @@ pub enum Down {
         from: Sender,
         /// The message.
         sealed: Delivered,
+    },
+    /// A public message in the global lobby chat (`Conv::Global`).
+    Global {
+        /// The message's id (`UUIDv7`).
+        id: String,
+        /// When the gateway received it, Unix milliseconds.
+        at: u64,
+        /// Who sent it, as the gateway attests.
+        from: Sender,
+        /// The JSON-encoded message body.
+        body: String,
     },
     /// A send was stored.
     Sent {

@@ -227,6 +227,8 @@ impl ChatLine {
 /// Which kind of conversation, for notifications and the tab's ink.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ConvKind {
+    /// Global lobby chat for all online players.
+    Global,
     /// A whisper.
     Whisper,
     /// A group.
@@ -242,6 +244,7 @@ impl ConvKind {
     #[must_use]
     pub fn of(id: &ConvId) -> Self {
         match id {
+            Conv::Global => Self::Global,
             Conv::Dm { .. } => Self::Whisper,
             Conv::Group { .. } => Self::Group,
             Conv::Table { .. } => Self::Table,

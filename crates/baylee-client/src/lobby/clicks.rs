@@ -194,6 +194,18 @@ pub(super) fn clicks(
             continue;
         }
         let Some(&press) = in_lineage(target, &presses, &parents) else {
+            if state.front_menu {
+                state.front_menu = false;
+            }
+            if state.header_menu.is_some() {
+                state.header_menu = None;
+            }
+            if state.menu.is_some() {
+                state.menu = None;
+            }
+            if state.build.menu.is_some() {
+                state.build.menu = None;
+            }
             continue;
         };
         let shift = codes
@@ -285,7 +297,12 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
             state.build.menu = None;
         }
         // Anything but the header's own controls closes a header popover.
-        if state.header_menu.is_some() && !matches!(*press, Press::Header(_)) {
+        if state.header_menu.is_some()
+            && !matches!(
+                *press,
+                Press::Header(_) | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
             state.header_menu = None;
         }
         // Anything but a menu's own opener closes the menu open; an item

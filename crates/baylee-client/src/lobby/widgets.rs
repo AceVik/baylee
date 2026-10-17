@@ -85,19 +85,6 @@ pub(crate) fn chip(
     id
 }
 
-/// What colour the line under a form is written in.
-///
-/// The only thing a [`Tone`] changes: a refusal is the one line a player has
-/// to do something about, and in the same grey as "signing in…" it was read
-/// straight past. `DANGER` is this palette's word for *this is what went
-/// wrong* — the same one the table writes lethal damage in.
-pub(super) fn status_ink(tone: Tone) -> Color {
-    match tone {
-        Tone::Note => palette::MUTED,
-        Tone::Refusal => palette::DANGER,
-    }
-}
-
 /// A button. A disabled one carries no [`Press`], so a click cannot find it.
 pub(crate) fn button(
     commands: &mut Commands,

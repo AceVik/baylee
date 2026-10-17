@@ -11,6 +11,8 @@ use super::words::ChatPhrase;
 /// Where a line goes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Target {
+    /// Global lobby chat for all online players.
+    Global,
     /// The table this player sits at.
     Table,
     /// This player's team at the table.
@@ -123,7 +125,9 @@ impl CommandFault {
             }
             Self::NotHere(Target::Group(GroupRef::Current)) => (ChatPhrase::NoGroup, Vec::new()),
             Self::NotHere(Target::Whisper(_)) => (ChatPhrase::NoReply, Vec::new()),
-            Self::NotHere(Target::Table | Target::Sticky) => (ChatPhrase::NoTable, Vec::new()),
+            Self::NotHere(Target::Global | Target::Table | Target::Sticky) => {
+                (ChatPhrase::NoTable, Vec::new())
+            }
         }
     }
 }
@@ -276,6 +280,7 @@ pub fn parse(line: &str) -> Result<Command, CommandFault> {
         }
     };
     Ok(match lower.as_str() {
+        "lobby" | "global" => say(Target::Global, &text),
         "t" | "s" | "say" | "table" => say(Target::Table, &text),
         "team" | "p" | "party" => say(Target::Team, &text),
         "g" | "group" => say(Target::Group(GroupRef::Current), &text),

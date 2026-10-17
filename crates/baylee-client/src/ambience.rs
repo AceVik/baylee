@@ -315,7 +315,9 @@ pub(crate) fn feel(
 
         let hot = feel.warmth.max(0.0);
         let cold = (-feel.warmth).max(0.0);
-        let scale = 1.0 + feel.lift * (hot - cold);
+        // Hover never grows a control's scale (preventing edge-hover flicker);
+        // only a press sinks the face slightly inward.
+        let scale = 1.0 - feel.lift * cold;
         if transform.scale != Vec2::splat(scale) {
             transform.scale = Vec2::splat(scale);
         }

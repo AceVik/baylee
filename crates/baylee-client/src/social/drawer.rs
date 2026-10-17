@@ -69,6 +69,10 @@ pub(crate) enum DrawerPress {
     EntryCancel,
 }
 
+/// The drawer's scrollbar track, shown only when `DrawerList` overflows.
+#[derive(Component)]
+struct DrawerScrollbar(Entity);
+
 /// Installs the drawer.
 pub(crate) fn install(app: &mut App) {
     crate::ui_button::install(app);
@@ -95,7 +99,30 @@ pub(crate) fn install(app: &mut App) {
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare)
                 .run_if(resource_exists::<UiFonts>),
+        )
+        .add_systems(
+            PostUpdate,
+            show_drawer_scrollbar
+                .after(bevy::ui::UiSystems::Layout)
+                .run_if(resource_exists::<UiFonts>),
         );
+}
+
+/// Shows the drawer's scrollbar track only when its list overflows vertically.
+fn show_drawer_scrollbar(
+    mut bars: Query<(&DrawerScrollbar, &mut Node)>,
+    lists: Query<&ComputedNode>,
+) {
+    for (bar, mut node) in &mut bars {
+        let Ok(list) = lists.get(bar.0) else {
+            continue;
+        };
+        let needed = list.content_size.y > list.size.y + 1.0;
+        let want = if needed { Display::Flex } else { Display::None };
+        if node.display != want {
+            node.display = want;
+        }
+    }
 }
 
 /// How far the drawer is in: 0 shut, 1 open (eased when drawn).
@@ -116,35 +143,55 @@ impl DrawerSlide {
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct Squeezed(pub Val);
 
-/// The friends list, open by default in the lobby, steps aside when a game
-/// opens (it would lie over the opponents' side of the table, RC 13.10.)
-/// and comes back with the lobby; opened at the table, it is the player's.
+/// The friends list, open by default in the lobby, steps aside as soon as a
+/// game starts (before the loading screen `Screen::Seated` / `DuelPhase::Opening`)
+/// and comes back with the lobby; if the player expands it during the loading
+/// screen, it stays open while loading and steps aside again when the 3D table
+/// (`DuelPhase::Playing`) opens.
 fn drawer_follows_the_room(
     phase: Option<Res<State<crate::DuelPhase>>>,
+    lobby: Option<Res<crate::lobby::LobbyState>>,
     mut ui: ResMut<ChatUi>,
-    mut was: Local<Option<bool>>,
+    mut was_starting: Local<Option<bool>>,
+    mut was_table: Local<Option<bool>>,
     mut reopen: Local<bool>,
 ) {
-    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
-    if *was == Some(at_table) {
-        return;
-    }
-    match (*was, at_table) {
-        (Some(false), true) => {
-            *reopen = ui.drawer;
-            if ui.drawer {
-                ui.drawer = false;
+    let seated = lobby.is_some_and(|l| {
+        matches!(
+            l.lobby.screen(),
+            baylee_client_core::lobby::Screen::Seated(_)
+        )
+    });
+    let phase_now = phase.map_or(crate::DuelPhase::Closed, |p| *p.get());
+    let starting_or_playing = seated || phase_now != crate::DuelPhase::Closed;
+    let on_table = matches!(
+        phase_now,
+        crate::DuelPhase::Playing | crate::DuelPhase::Finished
+    );
+    if *was_starting != Some(starting_or_playing) {
+        match (*was_starting, starting_or_playing) {
+            (Some(false), true) => {
+                *reopen = ui.drawer;
+                if ui.drawer {
+                    ui.drawer = false;
+                }
             }
-        }
-        (Some(true), false) => {
-            if *reopen && !ui.drawer {
-                ui.drawer = true;
+            (Some(true), false) => {
+                if *reopen && !ui.drawer {
+                    ui.drawer = true;
+                }
+                *reopen = false;
             }
-            *reopen = false;
+            _ => {}
         }
-        _ => {}
+        *was_starting = Some(starting_or_playing);
     }
-    *was = Some(at_table);
+    if *was_table != Some(on_table) {
+        if *was_table == Some(false) && on_table && ui.drawer {
+            ui.drawer = false;
+        }
+        *was_table = Some(on_table);
+    }
 }
 
 /// Where the shell's notice lane stood before the chat moved it.
@@ -210,15 +257,21 @@ const SLIDE_SECS: f32 = 0.18;
 
 /// The drawer slides in from the right edge under the header and the
 /// lobby's content gives it the room, reflowing as it comes (owner,
-/// 13.10.); out again, the content takes the room back. At the table it
-/// slides over the table, which does not reflow. `reduce_motion` cuts it.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a Bevy system: the drawer and what makes room for it
+/// 13.10.); out again, the content takes the room back. At the table (or
+/// over the loading screen) it slides over the screen, which does not
+/// reflow. `reduce_motion` cuts it.
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::too_many_lines
+)] // a Bevy system: the drawer and what makes room for it
 fn slide_the_drawer(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     ui: Res<ChatUi>,
     host: Res<SocialHost>,
     phase: Option<Res<State<crate::DuelPhase>>>,
+    lobby: Option<Res<crate::lobby::LobbyState>>,
     zoom: Res<super::zoom::Zoom>,
     mut slide: ResMut<DrawerSlide>,
     mut drawers: Query<(&mut Node, &mut Visibility), With<Drawer>>,
@@ -233,7 +286,13 @@ fn slide_the_drawer(
     mut commands: Commands,
     mut wide: Local<f32>,
 ) {
-    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let seated = lobby.is_some_and(|l| {
+        matches!(
+            l.lobby.screen(),
+            baylee_client_core::lobby::Screen::Seated(_)
+        )
+    });
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed) || seated;
     let open = ui.drawer && host.active();
     let target = if open { 1.0 } else { 0.0 };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
@@ -557,9 +616,10 @@ fn presses(
     }
 }
 
-/// The friends button beside the lobby's chat pill: online friends and a
-/// dot for anything waiting (requests, invites).
-#[allow(clippy::too_many_arguments)] // a Bevy system: what it reads
+/// The friends button in the bottom-right corner on screens without a top
+/// header (`Screen::Build`, `Screen::Seated`, `DuelPhase::Opening`): online
+/// friends and a dot for anything waiting (requests, invites).
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: what it reads
 fn sync_door(
     mut commands: Commands,
     host: Res<SocialHost>,
@@ -572,16 +632,34 @@ fn sync_door(
     zoom: Res<super::zoom::Zoom>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
-    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
-    // The header has the friends button; the deck builder keeps its own
-    // header (docs/client.md), so there the button floats bottom-right.
-    let shell =
-        lobby.is_some_and(|l| matches!(l.lobby.screen(), baylee_client_core::lobby::Screen::Build));
+    let on_table = phase.as_ref().is_some_and(|p| {
+        matches!(
+            *p.get(),
+            crate::DuelPhase::Playing | crate::DuelPhase::Finished
+        )
+    });
+    let loading = phase
+        .as_ref()
+        .is_some_and(|p| *p.get() == crate::DuelPhase::Opening)
+        || lobby.as_ref().is_some_and(|l| {
+            matches!(
+                l.lobby.screen(),
+                baylee_client_core::lobby::Screen::Seated(_)
+            )
+        });
+    // The header has the friends button; the deck builder and the loading
+    // screen do not, so there the button floats bottom-right.
+    let shell = lobby.as_ref().is_some_and(|l| {
+        matches!(
+            l.lobby.screen(),
+            baylee_client_core::lobby::Screen::Build | baylee_client_core::lobby::Screen::Seated(_)
+        )
+    }) || loading;
     // The panel's head has the friends button while the panel stands.
     let panel = ui.open && !ui.minimised;
     let machine = host
         .machine()
-        .filter(|m| shell && !at_table && !panel && !m.me().guest);
+        .filter(|m| shell && !on_table && !panel && !m.me().guest);
     let mut doors = doors;
     let Some(machine) = machine else {
         for (_, mut seen) in &mut doors {
@@ -607,7 +685,7 @@ fn sync_door(
                 Node {
                     position_type: PositionType::Absolute,
                     bottom: zpx(12.0),
-                    right: zpx(12.0 + super::window::LOBBY_PILL_ROOM),
+                    right: zpx(12.0),
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     column_gap: zpx(8.0),
@@ -662,30 +740,69 @@ fn sync_door(
     }
 }
 
-/// A presence dot: shape and colour (§11.2).
-fn dot(commands: &mut Commands, shown: Shown) -> Entity {
-    let (fill, ring) = match shown {
+/// A contact's circular avatar disc (`28×28`) with their initial and a
+/// presence-coloured status ring + indicator dot.
+fn person_avatar(commands: &mut Commands, fonts: &UiFonts, name: &str, shown: Shown) -> Entity {
+    let (ring, dot_fill) = match shown {
         Shown::Online => (
             Color::srgb(0.420, 0.816, 0.541),
             Color::srgb(0.420, 0.816, 0.541),
         ),
-        Shown::Away => (palette::CANDLE.with_alpha(0.5), palette::CANDLE),
-        Shown::Dnd => (Color::NONE, palette::DANGER),
-        Shown::Offline => (Color::NONE, tokens::MUTED),
+        Shown::Away => (palette::CANDLE, palette::CANDLE),
+        Shown::Dnd => (palette::DANGER, palette::DANGER),
+        Shown::Offline => (tokens::BORDER, tokens::MUTED),
+    };
+    let initial = name
+        .chars()
+        .find(|c| c.is_alphanumeric())
+        .map_or_else(|| "?".to_string(), |c| c.to_uppercase().to_string());
+    let disc_bg = if shown == Shown::Offline {
+        Color::srgba(0.08, 0.12, 0.16, 0.75)
+    } else {
+        Color::srgba(0.11, 0.19, 0.25, 0.95)
     };
     commands
         .spawn((
             Node {
-                width: zpx(9.0),
-                height: zpx(9.0),
+                width: zpx(28.0),
+                height: zpx(28.0),
                 border: UiRect::all(zpx(1.5)),
-                border_radius: BorderRadius::all(zpx(5.0)),
+                border_radius: BorderRadius::all(zpx(14.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(fill),
+            BackgroundColor(disc_bg),
             BorderColor::all(ring),
             Pickable::IGNORE,
+            children![
+                (
+                    Text::new(initial),
+                    tf_bold(fonts, z(12.0)),
+                    TextColor(if shown == Shown::Offline {
+                        tokens::MUTED
+                    } else {
+                        tokens::INK
+                    }),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Node {
+                        position_type: PositionType::Absolute,
+                        right: zpx(-2.0),
+                        bottom: zpx(-2.0),
+                        width: zpx(9.0),
+                        height: zpx(9.0),
+                        border: UiRect::all(zpx(1.5)),
+                        border_radius: BorderRadius::all(zpx(5.0)),
+                        ..default()
+                    },
+                    BackgroundColor(dot_fill),
+                    BorderColor::all(super::rows::LOBBY_GROUND),
+                    Pickable::IGNORE,
+                ),
+            ],
         ))
         .id()
 }
@@ -755,11 +872,11 @@ fn icon_button(
             UiButton,
             press,
             Node {
-                width: zpx(22.0),
-                height: zpx(22.0),
+                width: zpx(24.0),
+                height: zpx(24.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(zpx(4.0)),
+                border_radius: BorderRadius::all(zpx(5.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -767,8 +884,37 @@ fn icon_button(
             Feel::new(Color::NONE),
             children![(
                 Text::new(glyph.to_string()),
-                icon_tf(fonts, z(10.0)),
+                icon_tf(fonts, z(11.0)),
                 TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
+/// Larger close button (`30×30`) for the drawer's top-right header.
+fn close_button(commands: &mut Commands, fonts: &UiFonts) -> Entity {
+    commands
+        .spawn((
+            UiButton,
+            DrawerPress::Close,
+            Node {
+                width: zpx(30.0),
+                height: zpx(30.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(6.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.14, 0.19, 0.90)),
+            BorderColor::all(tokens::BORDER),
+            Feel::new(Color::srgba(0.08, 0.14, 0.19, 0.90)),
+            children![(
+                Text::new(glyph::CLOSE.to_string()),
+                icon_tf(fonts, z(13.5)),
+                TextColor(tokens::INK),
                 Pickable::IGNORE,
             )],
         ))
@@ -991,7 +1137,7 @@ fn sync_drawer(
             Pickable::IGNORE,
         ))
         .id();
-    let close = icon_button(&mut commands, &fonts, glyph::CLOSE, DrawerPress::Close);
+    let close = close_button(&mut commands, &fonts);
     commands.entity(head).add_children(&[title, close]);
     // The list.
     let list = commands
@@ -1087,6 +1233,7 @@ fn sync_drawer(
         ));
         for person in view.incoming {
             let line = row(&mut commands);
+            let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Online);
             let name = label(
                 &mut commands,
                 &fonts,
@@ -1106,11 +1253,12 @@ fn sync_drawer(
                 ChatPhrase::Decline.text(lang),
                 DrawerPress::Decline(person.tag.clone()),
             );
-            commands.entity(line).add_children(&[name, yes, no]);
+            commands.entity(line).add_children(&[avatar, name, yes, no]);
             kids.push(line);
         }
         for person in view.outgoing {
             let line = row(&mut commands);
+            let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Offline);
             let name = label(
                 &mut commands,
                 &fonts,
@@ -1128,7 +1276,7 @@ fn sync_drawer(
                 ChatPhrase::Withdraw.text(lang),
                 DrawerPress::Cancel(person.tag.clone()),
             );
-            commands.entity(line).add_children(&[name, undo]);
+            commands.entity(line).add_children(&[avatar, name, undo]);
             kids.push(line);
         }
     }
@@ -1213,40 +1361,52 @@ fn sync_drawer(
         for friend in friends {
             let tag = friend.person.tag.clone();
             let line = row(commands);
+            let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
             // The row lights under the pointer (its buttons are its own).
             commands.entity(line).insert((
                 UiButton,
-                Feel::new(Color::NONE),
-                BackgroundColor(Color::NONE),
+                Feel::new(card_bg),
+                BackgroundColor(card_bg),
+                BorderColor::all(tokens::BORDER.with_alpha(0.65)),
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    column_gap: zpx(6.0),
-                    padding: UiRect::axes(zpx(6.0), zpx(4.0)),
-                    border_radius: BorderRadius::all(zpx(5.0)),
+                    column_gap: zpx(8.0),
+                    padding: UiRect::axes(zpx(8.0), zpx(6.0)),
+                    margin: UiRect::vertical(zpx(2.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(8.0)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
             ));
-            let presence = dot(commands, friend.presence.status);
             let name = machine.shown_name(&friend.person);
             let shown_name = if name == friend.person.handle {
                 name
             } else {
                 format!("{name} ({})", friend.person.handle)
             };
+            let presence = person_avatar(commands, &fonts, &shown_name, friend.presence.status);
             let words = commands
                 .spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
                         flex_grow: 1.0,
                         min_width: zpx(0.0),
+                        row_gap: zpx(1.5),
                         ..default()
                     },
                     Pickable::IGNORE,
                 ))
                 .id();
-            let top = label(commands, &fonts, shown_name, tokens::INK, false);
+            let top = commands
+                .spawn((
+                    Text::new(shown_name),
+                    tf_bold(&fonts, z(12.0)),
+                    TextColor(tokens::INK),
+                    Pickable::IGNORE,
+                ))
+                .id();
             let place = commands
                 .spawn((
                     Text::new(place_words(
@@ -1476,6 +1636,7 @@ fn sync_drawer(
         ));
         for player in recent {
             let line = row(&mut commands);
+            let avatar = person_avatar(&mut commands, &fonts, &player.handle, Shown::Offline);
             let name = label(
                 &mut commands,
                 &fonts,
@@ -1489,7 +1650,7 @@ fn sync_drawer(
                 ChatPhrase::AddFriendButton.text(lang),
                 DrawerPress::AddRecent(player.handle.clone()),
             );
-            commands.entity(line).add_children(&[name, add]);
+            commands.entity(line).add_children(&[avatar, name, add]);
             kids.push(line);
         }
     }
@@ -1520,7 +1681,7 @@ fn sync_drawer(
         }
     }
     commands.entity(list).add_children(&kids);
-    // A visible scrollbar beside the list (owner, 13.10.).
+    // A scrollbar beside the list, visible only when content overflows.
     let track = crate::hud::logpanel::scrollbar(
         &mut commands,
         list,
@@ -1530,6 +1691,10 @@ fn sync_drawer(
         ),
         crate::hud::logpanel::at_rest,
     );
+    commands.entity(track).insert((
+        DrawerScrollbar(list),
+        crate::lobby::scrollbars::OnlyWhenNeeded,
+    ));
     let middle = commands
         .spawn((
             Node {

@@ -264,7 +264,7 @@ fn shaped(
             crate::ambience::Feel::new(ground)
         };
         commands.entity(face).insert(feel);
-        if weight == Weight::Primary {
+        if matches!(weight, Weight::Primary | Weight::Gold | Weight::Danger) {
             commands.entity(face).insert(super::sheen::Sheen);
         }
         let wrapper = hit(commands, kit, face, action);
@@ -304,6 +304,75 @@ fn shaped(
     let tip = tooltip(commands, kit, reason);
     commands.entity(wrapper).add_child(tip).insert(Tooltip(tip));
     wrapper
+}
+
+/// A compact button for contextual strips (such as the seated-at-table bar):
+/// smaller visual height and tighter padding than a primary screen button,
+/// while preserving hover, press, and shader sheen animations.
+pub fn button_compact(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: Option<char>,
+    text: &str,
+    weight: Weight,
+    live: Live,
+    action: impl Bundle,
+) -> Entity {
+    let dead = matches!(live, Live::No(_));
+    let ink = if dead { tokens::DISABLED } else { weight.ink() };
+    let ground = if dead {
+        tokens::CONTROL.with_alpha(0.6)
+    } else {
+        weight.ground()
+    };
+    let face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                min_height: kit.m.px(28.0),
+                padding: UiRect::axes(kit.m.px(10.0), px_fixed(0.0)),
+                column_gap: kit.m.px(6.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(if dead { tokens::BORDER } else { weight.rim() }),
+        ))
+        .id();
+    if let Some(glyph) = icon {
+        let mark = commands
+            .spawn((
+                Text::new(glyph.to_string()),
+                icon_tf(kit.fonts, kit.m.small * 0.9),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(mark);
+    }
+    let words = commands
+        .spawn((
+            Text::new(text),
+            tf_bold(kit.fonts, kit.m.small),
+            TextColor(ink),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_child(words);
+    if !dead {
+        let feel = if ground.alpha() < 0.01 {
+            crate::ambience::Feel::rising_to(ground, tokens::HOVER)
+        } else {
+            crate::ambience::Feel::new(ground)
+        };
+        commands.entity(face).insert((feel, super::sheen::Sheen));
+        return hit(commands, kit, face, action);
+    }
+    hit(commands, kit, face, (action, Disabled))
 }
 
 /// A tooltip's box, hidden until the pointer rests on its owner.
@@ -404,7 +473,18 @@ pub fn pill(
     hit(commands, kit, face, action)
 }
 
-/// A navigation pill in the header: filled when it is the screen shown.
+/// Prefix glyph for a top-level header navigation item.
+fn nav_glyph(text: &str) -> Option<char> {
+    match text {
+        "Lobby" | "Play" | "Spielen" => Some(crate::hud::glyph::VIEW_GRID),
+        "Decks" => Some(crate::hud::glyph::LIBRARY),
+        "Replays" | "Wiederholungen" => Some(crate::hud::glyph::CLOCK),
+        _ => None,
+    }
+}
+
+/// A navigation pill in the header: filled when it is the screen shown, with
+/// a prefix icon for Lobby, Decks, and Replays.
 pub fn nav(
     commands: &mut Commands,
     kit: Kit,
@@ -412,12 +492,15 @@ pub fn nav(
     active: bool,
     action: impl Bundle,
 ) -> Entity {
+    let icon = nav_glyph(text);
+    let pad_x = if icon.is_some() { 11.0 } else { 14.0 };
     let face = commands
         .spawn((
             Role::Nav,
             Node {
                 min_height: kit.m.px(34.0),
-                padding: UiRect::axes(kit.m.px(14.0), px_fixed(0.0)),
+                padding: UiRect::axes(kit.m.px(pad_x), px_fixed(0.0)),
+                column_gap: kit.m.px(6.0),
                 align_items: AlignItems::Center,
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
                 ..default()
@@ -434,13 +517,19 @@ pub fn nav(
             },
         ))
         .id();
-    let words = label(
-        commands,
-        kit,
-        text,
-        kit.m.text,
-        if active { tokens::INK } else { tokens::MUTED },
-    );
+    let ink = if active { tokens::INK } else { tokens::MUTED };
+    if let Some(glyph) = icon {
+        let mark = commands
+            .spawn((
+                Text::new(glyph.to_string()),
+                icon_tf(kit.fonts, kit.m.small * 0.9),
+                TextColor(if active { tokens::ACCENT } else { ink }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(mark);
+    }
+    let words = label(commands, kit, text, kit.m.text, ink);
     commands.entity(face).add_child(words);
     hit(commands, kit, face, action)
 }
@@ -1325,21 +1414,24 @@ mod tests {
             point(&mut app, wrapper, PickingInteraction::Hovered);
             app.update();
             app.update();
-            let early = scale(&app, face);
+            let early_ground = ground(&app, face);
             for _ in 0..40 {
                 app.update();
             }
             let lit = ground(&app, face);
             assert_ne!(lit, rest, "{what} lights under a hover");
+            assert_ne!(
+                early_ground, lit,
+                "{what} eases into the hover, it does not jump"
+            );
             assert!(
                 lit.to_srgba().red > rest.to_srgba().red || lit.alpha() > rest.alpha(),
                 "{what}"
             );
             let hovered = scale(&app, face);
-            assert!(hovered > 1.0, "{what} lifts under a hover");
             assert!(
-                early < hovered,
-                "{what} eases into the hover, it does not jump"
+                (hovered - 1.0).abs() < 1e-6,
+                "{what} never enlarges on hover"
             );
             point(&mut app, wrapper, PickingInteraction::Pressed);
             for _ in 0..40 {
@@ -1368,7 +1460,7 @@ mod tests {
             app.update();
         }
         assert_ne!(ground(&app, face), rest, "an unchosen segment lights");
-        assert!(scale(&app, face) > 1.0);
+        assert!((scale(&app, face) - 1.0).abs() < 1e-6);
         point(&mut app, wrapper, PickingInteraction::Pressed);
         for _ in 0..40 {
             app.update();
@@ -1377,7 +1469,7 @@ mod tests {
     }
 
     /// Under `reduce_motion` the states change at once: the first frame of a
-    /// hover is the whole of it.
+    /// hover or press is the whole of it.
     #[test]
     fn reduce_motion_changes_the_state_at_once() {
         let mut app = moving(true);
@@ -1386,11 +1478,18 @@ mod tests {
         });
         let face = face_of(&app, wrapper);
         app.update();
+        let rest = ground(&app, face);
         point(&mut app, wrapper, PickingInteraction::Hovered);
         app.update();
-        let first = scale(&app, face);
+        let first_lit = ground(&app, face);
         app.update();
-        assert!(first > 1.0 && (scale(&app, face) - first).abs() < 1e-6);
+        assert_ne!(first_lit, rest);
+        assert_eq!(ground(&app, face), first_lit);
+        point(&mut app, wrapper, PickingInteraction::Pressed);
+        app.update();
+        let first_press = scale(&app, face);
+        app.update();
+        assert!(first_press < 1.0 && (scale(&app, face) - first_press).abs() < 1e-6);
     }
 
     fn knob_left_of(app: &App, track: Entity) -> f32 {

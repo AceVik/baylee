@@ -116,6 +116,46 @@ pub(crate) async fn send(
     }
 }
 
+/// Handles one `Up::Global` public lobby chat send, answering `Sent` or
+/// `Refused` and broadcasting `Down::Global` to all other open social sockets.
+pub(crate) fn send_global(
+    state: &Shared,
+    from: &Sending<'_>,
+    req: u32,
+    id: &str,
+    body: String,
+) -> Down {
+    if uuid_v7(id).is_none() {
+        return refused(req, Why::BadSealed);
+    }
+    if body.is_empty() || body.len() > wire::MAX_BODY_BYTES {
+        return refused(req, Why::TooLarge);
+    }
+    if !state
+        .social
+        .admit_send(from.account, from.guest, std::time::Instant::now())
+    {
+        return refused(req, Why::Rate);
+    }
+    let at = now_millis();
+    let frame = Down::Global {
+        id: id.to_owned(),
+        at,
+        from: Sender {
+            tag: from.tag.to_owned(),
+            handle: from.handle.to_owned(),
+            device: from.device.to_owned(),
+        },
+        body,
+    };
+    state.social.broadcast_global(from.device, &frame);
+    Down::Sent {
+        req,
+        id: id.to_owned(),
+        at,
+    }
+}
+
 #[allow(clippy::too_many_lines)] // the checks, in their order, read top to bottom
 async fn try_send(
     state: &Shared,

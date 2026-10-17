@@ -20,7 +20,7 @@ use crate::hud::{UiFonts, glyph, icon_tf, tf, tf_bold};
 use crate::shellkit::tokens;
 
 /// How long a toast without buttons stands.
-const STANDS: f32 = 6.0;
+const STANDS: f32 = 15.0;
 
 /// How many stand at once.
 const AT_ONCE: usize = 3;
@@ -136,8 +136,8 @@ fn button_words(button: ToastButton, lang: Lang) -> &'static str {
     }
 }
 
-/// Draws the column: bottom-right above the pills in the lobby, under the
-/// report corner at the table.
+/// Draws the column at the top-left corner of the screen: narrow, with title,
+/// icon, gradient, shader sheen, and 15-second auto-dismiss.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a toast is drawn top to bottom
 fn sync(
     mut commands: Commands,
@@ -146,10 +146,10 @@ fn sync(
     settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut columns: Query<(Entity, &mut Node), With<ToastColumn>>,
-    ui: Res<super::ChatUi>,
-    (windows, scale): (Query<&Window>, Option<Res<UiScale>>),
+    _ui: Res<super::ChatUi>,
+    (_windows, _scale): (Query<&Window>, Option<Res<UiScale>>),
     zoom: Res<super::zoom::Zoom>,
-    slide: Res<super::drawer::DrawerSlide>,
+    _slide: Res<super::drawer::DrawerSlide>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
@@ -161,34 +161,19 @@ fn sync(
         .map(|(n, _, _)| *n)
         .collect();
     let column = if let Some((column, mut node)) = columns.iter_mut().next() {
-        // In the lobby, above the chat panel while it stands.
-        let window_h = windows.iter().next().map_or(720.0, |w| {
-            crate::hud::scale::desktop_space(w, scale.as_deref()).y
-        });
-        let lobby_bottom = if ui.open && !ui.minimised {
-            super::window::lobby_panel_height(window_h) + 16.0
-        } else {
-            64.0
-        };
-        let (top, bottom) = if at_table {
-            (zpx(60.0), Val::Auto)
-        } else {
-            (Val::Auto, Val::Px(lobby_bottom))
-        };
+        let top = if at_table { zpx(60.0) } else { zpx(62.0) };
         if node.top != top {
             node.top = top;
         }
-        if node.bottom != bottom {
-            node.bottom = bottom;
+        if node.bottom != Val::Auto {
+            node.bottom = Val::Auto;
         }
-        // Beside the friends drawer in the lobby, as the chat window is.
-        let right = if at_table {
-            zpx(12.0)
-        } else {
-            Val::Px(z(slide.room(1.0) + 12.0))
-        };
-        if node.right != right {
-            node.right = right;
+        let left = zpx(12.0);
+        if node.left != left {
+            node.left = left;
+        }
+        if node.right != Val::Auto {
+            node.right = Val::Auto;
         }
         column
     } else {
@@ -200,10 +185,12 @@ fn sync(
                 RelativeCursorPosition::default(),
                 Node {
                     position_type: PositionType::Absolute,
-                    right: zpx(12.0),
-                    bottom: zpx(64.0),
-                    width: zpx(340.0),
-                    flex_direction: FlexDirection::ColumnReverse,
+                    left: zpx(12.0),
+                    right: Val::Auto,
+                    top: zpx(if at_table { 60.0 } else { 62.0 }),
+                    bottom: Val::Auto,
+                    width: zpx(290.0),
+                    flex_direction: FlexDirection::Column,
                     row_gap: zpx(8.0),
                     ..default()
                 },
@@ -227,42 +214,74 @@ fn sync(
         let card = commands
             .spawn((
                 Node {
+                    width: Val::Percent(100.0),
+                    max_width: zpx(290.0),
                     flex_direction: FlexDirection::Column,
                     row_gap: zpx(6.0),
-                    padding: UiRect::all(zpx(10.0)),
+                    padding: UiRect::axes(zpx(12.0), zpx(10.0)),
                     border: UiRect::all(zpx(1.0)),
-                    border_radius: BorderRadius::all(zpx(8.0)),
+                    border_radius: BorderRadius::all(zpx(10.0)),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
-                BackgroundColor(super::rows::LOBBY_GROUND),
-                BorderColor::all(super::rows::WHISPER_INK.with_alpha(0.6)),
+                BackgroundColor(Color::srgba(0.05, 0.095, 0.135, 0.88)),
+                BackgroundGradient::from(LinearGradient::new(
+                    135.0_f32.to_radians(),
+                    vec![
+                        ColorStop::auto(Color::srgba(0.11, 0.20, 0.27, 0.92)),
+                        ColorStop::auto(Color::srgba(0.035, 0.07, 0.10, 0.88)),
+                    ],
+                )),
+                BorderColor::all(super::rows::WHISPER_INK.with_alpha(0.65)),
                 BoxShadow::default(),
+                crate::shellkit::sheen::Sheen,
             ))
             .id();
         let top = commands
             .spawn((Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
                 column_gap: zpx(8.0),
                 ..default()
             },))
             .id();
-        let text = commands
+        let badge = commands
             .spawn((
-                UiButton,
-                ToastPress::Open(id),
+                Node {
+                    width: zpx(22.0),
+                    height: zpx(22.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(zpx(6.0)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                BackgroundColor(super::rows::WHISPER_INK.with_alpha(0.18)),
+                Pickable::IGNORE,
+                children![(
+                    Text::new(glyph::CHAT.to_string()),
+                    icon_tf(&fonts, z(11.0)),
+                    TextColor(super::rows::WHISPER_INK),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        let title = commands
+            .spawn((
                 Node {
                     flex_grow: 1.0,
                     min_width: zpx(0.0),
                     ..default()
                 },
-                BackgroundColor(Color::NONE),
-                children![(
-                    Text::new(words),
-                    tf(&fonts, z(12.5)),
-                    TextColor(tokens::INK),
-                    Pickable::IGNORE,
-                )],
+                Text::new(
+                    baylee_client_core::social::ChatPhrase::ChatTitle
+                        .text(lang)
+                        .to_string(),
+                ),
+                tf_bold(&fonts, z(12.0)),
+                TextColor(tokens::INK),
+                Pickable::IGNORE,
             ))
             .id();
         let close = commands
@@ -270,24 +289,45 @@ fn sync(
                 UiButton,
                 ToastPress::Close(id),
                 Node {
-                    width: zpx(20.0),
-                    height: zpx(20.0),
+                    width: zpx(24.0),
+                    height: zpx(24.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(zpx(5.0)),
+                    flex_shrink: 0.0,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Feel::new(Color::NONE),
                 children![(
                     Text::new(glyph::CLOSE.to_string()),
-                    icon_tf(&fonts, z(9.0)),
+                    icon_tf(&fonts, z(11.0)),
                     TextColor(tokens::MUTED),
                     Pickable::IGNORE,
                 )],
             ))
             .id();
-        commands.entity(top).add_children(&[text, close]);
-        commands.entity(card).add_child(top);
+        commands.entity(top).add_children(&[badge, title, close]);
+        let text = commands
+            .spawn((
+                UiButton,
+                ToastPress::Open(id),
+                Node {
+                    width: Val::Percent(100.0),
+                    min_width: zpx(0.0),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                children![(
+                    Text::new(words),
+                    tf(&fonts, z(12.0)),
+                    TextColor(tokens::INK),
+                    TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(card).add_children(&[top, text]);
         if !toast.actions.is_empty() {
             let buttons = commands
                 .spawn((Node {

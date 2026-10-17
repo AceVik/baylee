@@ -184,6 +184,8 @@ messages! {
     PlaceHouse { en: "Playing the house AI", de: "Spielt gegen die Haus-KI" },
     /// The All tab.
     TabAll { en: "All", de: "Alle" },
+    /// The Global Lobby tab.
+    TabGlobal { en: "Lobby", de: "Lobby" },
     /// The Table tab.
     TabTable { en: "Table", de: "Tisch" },
     /// The Team tab.
@@ -327,6 +329,8 @@ messages! {
     /// The filter dialog's title.
     FilterTitle { en: "{0} · what this tab shows", de: "{0} · was dieser Tab zeigt" },
     /// A filter kind.
+    KindGlobal { en: "Lobby chat", de: "Lobby-Chat" },
+    /// A filter kind.
     KindLog { en: "Game log", de: "Spielprotokoll" },
     /// A filter kind.
     KindTable { en: "Table chat", de: "Tischchat" },
@@ -344,6 +348,8 @@ messages! {
     KindTimestamps { en: "Timestamps", de: "Uhrzeiten" },
     /// Under the filter dialog's boxes.
     FilterNote { en: "A line is shown on every tab that ticks its kind. The tab's name and where you write stay.", de: "Eine Zeile erscheint in jedem Tab, der ihre Art ankreuzt. Name des Tabs und Ziel beim Schreiben bleiben." },
+    /// The Global Lobby tab, empty.
+    EmptyGlobal { en: "Say hello to everyone online in the lobby!", de: "Sag hallo an alle Spieler, die gerade online sind!" },
     /// The Table tab, empty, in a game.
     EmptyTable { en: "Nothing said yet. What you write here goes to the players at this table, encrypted.", de: "Noch nichts gesagt. Was du hier schreibst, geht verschlüsselt an die Personen an diesem Tisch." },
     /// The Table tab, empty, in a waiting room.

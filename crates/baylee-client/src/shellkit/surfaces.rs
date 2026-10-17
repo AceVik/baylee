@@ -235,7 +235,7 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
     scrim
 }
 
-/// A popover: a read-only summary in an opaque box.
+/// A popover: a read-only summary in an opaque box with a subtle vertical gradient.
 pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
     let surface = commands
         .spawn((
@@ -245,10 +245,14 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
                 padding: UiRect::all(px_fixed(kit.m.pad)),
                 row_gap: kit.m.px(4.0),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.16, 0.19, 0.24, 0.98).into(),
+                tokens::OPAQUE.with_alpha(0.95).into(),
+            ])),
             BorderColor::all(tokens::BORDER),
             GlobalZIndex(tokens::z::POPOVER),
         ))
@@ -257,7 +261,11 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
         let words = commands
             .spawn((
                 Text::new(*line),
-                tf(kit.fonts, kit.m.small),
+                if i == 0 {
+                    tf_bold(kit.fonts, kit.m.small)
+                } else {
+                    tf(kit.fonts, kit.m.small)
+                },
                 TextColor(if i == 0 { tokens::INK } else { tokens::MUTED }),
                 Pickable::IGNORE,
             ))
@@ -292,13 +300,17 @@ pub fn menu<'a, B: Bundle>(
             Role::Opaque,
             Node {
                 flex_direction: FlexDirection::Column,
-                min_width: kit.m.px(200.0),
-                padding: UiRect::axes(px_fixed(0.0), kit.m.px(4.0)),
+                min_width: kit.m.px(210.0),
+                padding: UiRect::axes(kit.m.px(4.0), kit.m.px(6.0)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.16, 0.19, 0.24, 0.98).into(),
+                tokens::OPAQUE.with_alpha(0.95).into(),
+            ])),
             BorderColor::all(tokens::BORDER),
             GlobalZIndex(tokens::z::POPOVER),
         ))
@@ -311,7 +323,7 @@ pub fn menu<'a, B: Bundle>(
                 .spawn((
                     Node {
                         height: px_fixed(1.0),
-                        margin: UiRect::axes(px_fixed(0.0), kit.m.px(4.0)),
+                        margin: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
                         ..default()
                     },
                     BackgroundColor(tokens::BORDER),
@@ -325,12 +337,15 @@ pub fn menu<'a, B: Bundle>(
                 Role::MenuItem,
                 Node {
                     min_height: px_fixed(kit.m.hit),
-                    padding: UiRect::axes(kit.m.px(14.0), px_fixed(0.0)),
+                    padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
                     column_gap: kit.m.px(16.0),
+                    border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                     ..default()
                 },
+                BackgroundColor(Color::NONE),
+                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
                 item.action,
             ))
             .id();
@@ -409,9 +424,9 @@ pub fn toast(commands: &mut Commands, kit: Kit, text: &str, action: Option<Entit
         .spawn((
             Role::Toast,
             Node {
-                width: kit.m.px(400.0),
+                width: kit.m.px(290.0),
                 max_width: Val::Percent(100.0),
-                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(10.0)),
+                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(10.0)),
                 column_gap: px_fixed(kit.m.gap),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
@@ -419,15 +434,25 @@ pub fn toast(commands: &mut Commands, kit: Kit, text: &str, action: Option<Entit
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.90)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.16, 0.20, 0.26, 0.94).into(),
+                tokens::OPAQUE.with_alpha(0.90).into(),
+            ])),
             BorderColor::all(tokens::BORDER),
+            super::sheen::Sheen,
+            crate::ambience::Feel {
+                warmth: 0.35,
+                ..crate::ambience::Feel::new(tokens::OPAQUE.with_alpha(0.90))
+            },
         ))
         .id();
     let words = commands
         .spawn((
             Text::new(text),
-            tf(kit.fonts, kit.m.text),
+            tf(kit.fonts, kit.m.small),
             TextColor(tokens::INK),
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::WordOrCharacter),
             Node {
                 flex_shrink: 1.0,
                 ..default()
@@ -437,6 +462,153 @@ pub fn toast(commands: &mut Commands, kit: Kit, text: &str, action: Option<Entit
         .id();
     commands.entity(surface).add_child(words);
     if let Some(action) = action {
+        commands.entity(surface).add_child(action);
+    }
+    surface
+}
+
+/// A rich notification / status toast card at the top-left:
+/// narrow (290 px) with word-wrapping, a header row (icon + title + `×` close
+/// button), semi-transparent gradient ground, and `Sheen` shader animation.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one toast card: header, body, and optional action
+pub fn toast_card(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: char,
+    accent: Color,
+    title: &str,
+    text: &str,
+    close_action: impl Bundle,
+    extra_action: Option<Entity>,
+) -> Entity {
+    let base = tokens::OPAQUE.with_alpha(0.90);
+    let surface = commands
+        .spawn((
+            Role::Toast,
+            Node {
+                width: kit.m.px(290.0),
+                max_width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(10.0)),
+                row_gap: kit.m.px(6.0),
+                border: UiRect::new(px_fixed(3.0), px_fixed(1.0), px_fixed(1.0), px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(base),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                accent.with_alpha(0.18).into(),
+                base.into(),
+            ])),
+            BorderColor::all(accent.with_alpha(0.55)),
+            super::sheen::Sheen,
+            crate::ambience::Feel {
+                warmth: 0.35,
+                ..crate::ambience::Feel::new(base)
+            },
+        ))
+        .id();
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: kit.m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title_group = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mark = commands
+        .spawn((
+            Text::new(icon.to_string()),
+            icon_tf(kit.fonts, kit.m.small),
+            TextColor(accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let heading = commands
+        .spawn((
+            Text::new(title),
+            tf_bold(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(title_group).add_children(&[mark, heading]);
+    let close_face = commands
+        .spawn((
+            Node {
+                width: kit.m.px(22.0),
+                height: kit.m.px(22.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let close_glyph = commands
+        .spawn((
+            Text::new("\u{f00d}"),
+            icon_tf(kit.fonts, kit.m.small * 0.85),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(close_face).add_child(close_glyph);
+    let close_btn = commands
+        .spawn((
+            Role::Hit,
+            Node {
+                width: kit.m.px(24.0),
+                height: kit.m.px(24.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            close_action,
+        ))
+        .id();
+    commands.entity(close_btn).add_child(close_face);
+    commands
+        .entity(head)
+        .add_children(&[title_group, close_btn]);
+    let body = commands
+        .spawn((
+            Text::new(text),
+            tf(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::WordOrCharacter),
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(surface).add_children(&[head, body]);
+    if let Some(action) = extra_action {
         commands.entity(surface).add_child(action);
     }
     surface

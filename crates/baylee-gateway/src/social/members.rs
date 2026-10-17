@@ -100,6 +100,7 @@ pub(crate) async fn members(
         }
         Conv::Table { game } => Ok(table(state, game, None, sender)),
         Conv::Team { game, team } => Ok(table(state, game, Some(*team), sender)),
+        Conv::Global => Ok(None),
     }
 }
 

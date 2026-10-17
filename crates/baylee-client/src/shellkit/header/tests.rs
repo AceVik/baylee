@@ -297,8 +297,9 @@ fn long_gateway_labels_yield_to_actions_across_desktop_sizes() {
     }
 }
 
-/// The gateway's secondary line remains separate and entirely readable at
-/// the reported viewport; its full name is retained even while clipped.
+/// The gateway's status sits beside its name on a single line and stays
+/// entirely readable at the reported viewport; its full name is retained
+/// even while clipped.
 #[test]
 fn desktop_gateway_stacks_status_and_bounds_the_address() {
     let (mut app, fonts) = layout_app();
@@ -315,13 +316,13 @@ fn desktop_gateway_stacks_status_and_bounds_the_address() {
         .find(|(_, text, _)| text.0 == "0 tables · 2 online")
         .map(|(entity, _, parent)| (entity, parent.parent()))
         .filter(|(_, p)| *p == parent)
-        .expect("status shares the address column");
-    let column = app.world().get::<Node>(parent).expect("gateway column");
-    assert_eq!(column.flex_direction, FlexDirection::Column);
-    assert_eq!(column.overflow, Overflow::clip_x());
+        .expect("status shares the address row");
+    let row = app.world().get::<Node>(parent).expect("gateway row");
+    assert_eq!(row.flex_direction, FlexDirection::Row);
+    assert_eq!(row.overflow, Overflow::clip_x());
     let name_rect = bounds(app.world(), name);
     let counts_rect = bounds(app.world(), counts);
-    assert!(name_rect.max.y <= counts_rect.min.y + 0.5);
+    assert!(name_rect.max.x <= counts_rect.min.x + 0.5);
     let laid = app
         .world()
         .get::<bevy::text::TextLayoutInfo>(counts)
@@ -335,7 +336,7 @@ fn desktop_gateway_stacks_status_and_bounds_the_address() {
         .get::<bevy::text::TextLayoutInfo>(name)
         .expect("address glyphs");
     assert!(
-        address.size.x > bounds(app.world(), parent).width(),
+        address.size.x > bounds(app.world(), name).width(),
         "a long address is actually clipped"
     );
 }

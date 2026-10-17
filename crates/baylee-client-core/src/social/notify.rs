@@ -85,6 +85,7 @@ pub fn on_line(
         (true, prefs.sounds.mention.then_some(ChatCue::Mention))
     } else {
         match kind {
+            ConvKind::Global => (false, None),
             ConvKind::Whisper => (true, prefs.sounds.whisper.then_some(ChatCue::Whisper)),
             ConvKind::Group => (
                 false,

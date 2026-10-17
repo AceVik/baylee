@@ -110,10 +110,14 @@ pub(crate) struct Social {
     pub(crate) registrations: RateLimiter,
     /// Message reports, per account: 10 an hour.
     pub(crate) reports: RateLimiter,
+    /// Recent messages in the public lobby chat (`Conv::Global`), kept in
+    /// memory (up to 50) for newly joining sockets.
+    global_history: Mutex<std::collections::VecDeque<Down>>,
 }
 
 const HOUR: Duration = Duration::from_hours(1);
 const DAY: Duration = Duration::from_hours(24);
+const GLOBAL_HISTORY_CAP: usize = 50;
 
 impl Social {
     /// From `BAYLEE_SOCIAL` and `BAYLEE_SOCIAL_KEEP_DAYS`.
@@ -162,6 +166,9 @@ impl Social {
             new_groups: RateLimiter::new(DAY, 10),
             registrations: RateLimiter::new(DAY, 5),
             reports: RateLimiter::new(HOUR, 10),
+            global_history: Mutex::new(std::collections::VecDeque::with_capacity(
+                GLOBAL_HISTORY_CAP,
+            )),
         }
     }
 
@@ -308,6 +315,33 @@ impl Social {
         for device in devices {
             Self::to_device(&mut hub, &device, Out::Frame(Box::new(frame.clone())));
         }
+    }
+
+    /// Broadcasts a `Down::Global` frame to all connected social sockets
+    /// except `sender_device`, and appends it to the in-memory global history.
+    pub(crate) fn broadcast_global(&self, sender_device: &str, frame: &Down) {
+        {
+            let mut history = self.global_history.lock();
+            if history.len() >= GLOBAL_HISTORY_CAP {
+                history.pop_front();
+            }
+            history.push_back(frame.clone());
+        }
+        let mut hub = self.hub.lock();
+        let devices: Vec<String> = hub
+            .conns
+            .keys()
+            .filter(|d| d.as_str() != sender_device)
+            .cloned()
+            .collect();
+        for device in devices {
+            Self::to_device(&mut hub, &device, Out::Frame(Box::new(frame.clone())));
+        }
+    }
+
+    /// Recent `Down::Global` frames kept in memory.
+    pub(crate) fn recent_global(&self) -> Vec<Down> {
+        self.global_history.lock().iter().cloned().collect()
     }
 
     /// `account` opened a watch socket on `game`.
