@@ -17,7 +17,15 @@ use baylee_core::ids::{ObjectId, PlayerId};
 /// Printed rules use the live source's words; captured stack rules use an
 /// explicit [`RuleContext`] instead.
 #[must_use]
+#[inline]
 pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
+    if state.text_changes.is_empty() {
+        return RuleContext {
+            source,
+            text: TextChangeMap::IDENTITY,
+            reference: None,
+        };
+    }
     RuleContext {
         source,
         text: state

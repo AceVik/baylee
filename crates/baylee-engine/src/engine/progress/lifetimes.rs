@@ -52,7 +52,10 @@ pub(super) fn emblem_statics(
 /// for the rest of the game.
 pub(super) fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
     use baylee_cards_dsl::Duration;
-    let stale: Vec<(ObjectId, u32)> = state
+    if !state.effects.may_have_indefinite_object() {
+        return;
+    }
+    let stale: smallvec::SmallVec<[(ObjectId, u32); 4]> = state
         .effects
         .iter()
         .filter(|fx| matches!(fx.duration, Duration::Indefinitely))

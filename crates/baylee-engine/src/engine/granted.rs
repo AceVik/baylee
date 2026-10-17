@@ -183,6 +183,10 @@ impl<L: CardLookup> Engine<L> {
         ) {
             return false;
         }
+        let mana = cost.mana.with_x(self.activation_x.unwrap_or(0));
+        if mana.symbols().next().is_none() {
+            return true;
+        }
         let planned = crate::casting::planning_pool(&self.state, player, what, reserved);
         let pool = planned
             .as_ref()
@@ -192,7 +196,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             what,
             pool,
-            &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+            &mana,
             &[],
             Some(cost.allowance),
         )

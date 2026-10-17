@@ -41,14 +41,21 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> ActivationPrice {
-        let off = casting::reduction_amount(&self.state, reduction, player, source);
         let (eligible, ordinary) = casting::activation_increases(&self.state, source);
         let increase = eligible.saturating_add(ordinary);
         let full = cost.mana.with_more_generic(increase);
         let mut mana = full;
+        let off = if full.generic_total() > 0 {
+            casting::reduction_amount(&self.state, reduction, player, source)
+        } else {
+            0
+        };
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards.
-        if let Some(object) = self.state.object(source) {
+        if full.generic_total() > 0
+            && self.state.effects.may_change_or_forbid_abilities()
+            && let Some(object) = self.state.object(source)
+        {
             for effect in self.state.effects.iter() {
                 if let baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum } =
                     effect.modifier
@@ -60,7 +67,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        let mana = mana.with_less_generic(off);
+        mana = mana.with_less_generic(off);
         ActivationPrice {
             cost: Cost {
                 mana,
@@ -190,6 +197,19 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    pub(super) fn source_cost_parts_ready(&self, source: ObjectId, cost: &Cost) -> bool {
+        cost.parts.iter().all(|part| match part {
+            CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
+                self.can_pay_source_action(source, part)
+            }
+            CostPart::RemoveCounterSelf { kind, n } => self
+                .state
+                .object(source)
+                .is_some_and(|obj| obj.counters.get(*kind) >= *n),
+            _ => true,
+        })
+    }
+
     pub(crate) fn can_afford(
         &self,
         player: PlayerId,
@@ -197,16 +217,14 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         what: casting::SpendFor,
     ) -> bool {
+        if !self.source_cost_parts_ready(source, cost) {
+            return false;
+        }
         if !self.can_pay_mana(player, what, &cost.mana) {
             return false;
         }
         for part in cost.parts {
             match part {
-                CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
-                    if !self.can_pay_source_action(source, part) {
-                        return false;
-                    }
-                }
                 CostPart::PayEnergy(_) => {
                     if u32::from(self.state.players[usize::from(player.get())].energy)
                         < cost.energy_payment(0)
@@ -301,19 +319,6 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                // Arithmetic on the source, and nobody is asked anything:
-                // 39 of the pool's 40 counter costs take the counters off
-                // the permanent whose ability it is, so there is exactly one
-                // legal answer and it is not a question. See
-                // `CostPart::RemoveCounterSelf`.
-                CostPart::RemoveCounterSelf { kind, n } => {
-                    let Some(obj) = self.state.object(source) else {
-                        return false;
-                    };
-                    if obj.counters.get(*kind) < *n {
-                        return false;
-                    }
-                }
                 // The first four are paid off the source alone, so there is
                 // nothing about the board to ask. `PayLifeX` is
                 // [`paid_by_the_casting_wizard`]: accepted here and skipped
@@ -339,7 +344,11 @@ impl<L: CardLookup> Engine<L> {
                 // Devoted Druid's second -1/-1 leaves a 0/0 that CR 704.5f
                 // puts in the graveyard, and a permanent in a graveyard is
                 // offered nothing.
-                CostPart::DiscardHand
+                CostPart::TapSelf
+                | CostPart::UntapSelf
+                | CostPart::ExertSelf
+                | CostPart::RemoveCounterSelf { .. }
+                | CostPart::DiscardHand
                 | CostPart::SacrificeAll(_)
                 | CostPart::SacrificeSelf
                 | CostPart::DiscardSelf

@@ -62,6 +62,9 @@ impl<L: CardLookup> Engine<L> {
     /// interned. A source that has no chosen name locks nothing either.
     pub(super) fn names_locked_from_activating(&self) -> SmallVec<[NameRef; 2]> {
         let mut locked = SmallVec::new();
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return locked;
+        }
         for fx in self.state.effects.iter() {
             if !matches!(
                 fx.modifier,
@@ -385,7 +388,8 @@ impl<L: CardLookup> Engine<L> {
     /// are on the *other* seat's board, and that seat was still being offered
     /// every one of them.
     pub(crate) fn artifact_activations_are_locked(&self, id: ObjectId) -> bool {
-        self.activations_are_locked_by(id, self.state.effects.iter())
+        self.state.effects.may_change_or_forbid_abilities()
+            && self.activations_are_locked_by(id, self.state.effects.iter())
     }
 
     pub(super) fn activations_are_locked_by<'a>(

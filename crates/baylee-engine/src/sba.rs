@@ -58,10 +58,11 @@ fn legend_choice(state: &GameState) -> Option<(PlayerId, Vec<baylee_core::ids::O
         let player = PlayerId::new(seat as u8);
         // Sakashima-style suppression: the legend rule doesn't apply to
         // permanents this player controls.
-        let legend_off = state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
-                && fx.controller == player
-        });
+        let legend_off = state.effects.may_change_player_or_sba_rules()
+            && state.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
+                    && fx.controller == player
+            });
         if legend_off {
             continue;
         }
@@ -69,8 +70,10 @@ fn legend_choice(state: &GameState) -> Option<(PlayerId, Vec<baylee_core::ids::O
         // iteration order is build/platform-dependent, and this loop
         // decides WHICH choice a player sees first when two legend pairs
         // coexist, so it is part of the determinism contract.
-        let mut names: Vec<u32> = Vec::new();
-        let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
+        let mut first_seen: smallvec::SmallVec<[(u32, baylee_core::ids::ObjectId); 16]> =
+            smallvec::SmallVec::new();
+        let mut groups: smallvec::SmallVec<[(usize, Vec<baylee_core::ids::ObjectId>); 2]> =
+            smallvec::SmallVec::new();
         for id in state.battlefield_seen() {
             let Some(obj) = state.object(id) else {
                 continue;
@@ -83,16 +86,20 @@ fn legend_choice(state: &GameState) -> Option<(PlayerId, Vec<baylee_core::ids::O
                 && obj.kind == ObjectKind::Permanent
             {
                 let name = obj.characteristics().name.get();
-                if let Some(i) = names.iter().position(|&n| n == name) {
-                    groups[i].push(id);
+                if let Some(i) = first_seen.iter().position(|&(n, _)| n == name) {
+                    if let Some((_, group)) = groups.iter_mut().find(|(idx, _)| *idx == i) {
+                        group.push(id);
+                    } else {
+                        groups.push((i, vec![first_seen[i].1, id]));
+                    }
                 } else {
-                    names.push(name);
-                    groups.push(vec![id]);
+                    first_seen.push((name, id));
                 }
             }
         }
-        for mut group in groups {
-            if group.len() > 1 {
+        if !groups.is_empty() {
+            groups.sort_by_key(|&(i, _)| i);
+            for (_, mut group) in groups {
                 group.sort(); // deterministic option order (oldest slot first)
                 if !state
                     .sba_legend_decisions
@@ -194,16 +201,16 @@ pub(crate) fn run_with_context(
 
     // Conceding while another choice is pending can remove an owner and
     // their cards. Such a group must be asked again if it still exists.
-    state.sba_legend_decisions = core::mem::take(&mut state.sba_legend_decisions)
-        .into_iter()
-        .filter(|decision| {
+    if !state.sba_legend_decisions.is_empty() {
+        let arena = &state.arena;
+        state.sba_legend_decisions.retain(|decision| {
             decision.options.iter().all(|id| {
-                state.object(*id).is_some_and(|o| {
+                arena.get(*id).is_some_and(|o| {
                     o.zone == crate::zone::Zone::Battlefield && o.controller == decision.player
                 })
             })
-        })
-        .collect();
+        });
+    }
     let mut battles = crate::battle::sba::plan(state, lookup, queued_sources);
     let legend = legend_choice(state);
     let battle_first = battles.choice.as_ref().is_some_and(|(player, _, _)| {
@@ -235,8 +242,7 @@ pub(crate) fn run_with_context(
         Vec::new()
     } else {
         state
-            .battlefield_view()
-            .into_iter()
+            .battlefield_seen()
             .filter(|id| state.has_damage_history(*id))
             .map(|id| (id, state.departure_snapshot(id)))
             .collect()
@@ -257,7 +263,9 @@ pub(crate) fn run_with_context(
     }
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
-    for id in state.battlefield_view() {
+    let mut dying: smallvec::SmallVec<[(baylee_core::ids::ObjectId, bool); 8]> =
+        smallvec::SmallVec::new();
+    for id in state.battlefield_seen() {
         let Some(obj) = state.object(id) else {
             continue;
         };
@@ -267,8 +275,7 @@ pub(crate) fn run_with_context(
             && obj.counters.get(CounterKind::Loyalty) == 0
             && obj.kind == ObjectKind::Permanent
         {
-            put_into_graveyard_with_departure(state, id, departure(id));
-            outcome.changed = true;
+            dying.push((id, false));
             continue;
         }
         if !obj.characteristics().types.contains(TypeSet::CREATURE) {
@@ -278,8 +285,7 @@ pub(crate) fn run_with_context(
         // CR 704.5f: zero or less toughness puts it in the graveyard. This
         // is not destruction, so indestructible does not save it.
         if toughness <= 0 {
-            put_into_graveyard_with_departure(state, id, departure(id));
-            outcome.changed = true;
+            dying.push((id, false));
             continue;
         }
         // Indestructible permanents can't be destroyed (CR 702.12b), which
@@ -294,16 +300,24 @@ pub(crate) fn run_with_context(
         // CR 704.5g lethal damage, CR 704.5h deathtouch — one point from a
         // deathtouch source is lethal however big the creature is.
         if obj.damage >= toughness as u16 || obj.deathtouched {
-            destroy_with(state, id, true, departure(id), false);
-            outcome.changed = true;
+            dying.push((id, true));
         }
+    }
+    for (id, is_destroy) in dying {
+        if is_destroy {
+            destroy_with(state, id, true, departure(id), false);
+        } else {
+            put_into_graveyard_with_departure(state, id, departure(id));
+        }
+        outcome.changed = true;
     }
     // The deathtouch window is "since the last time state-based actions
     // were checked" (CR 704.5h), so this pass — which has now judged every
     // marked creature — closes it.
     // phasing: for a phased-out one too, which was not judged and must not
     // be when it phases in.
-    for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+    for i in 0..state.zones.list(ZoneLocation::Battlefield).len() {
+        let id = state.zones.list(ZoneLocation::Battlefield)[i];
         if state.object(id).is_some_and(|obj| obj.deathtouched)
             && let Some(obj) = state.object_mut(id)
         {
@@ -330,10 +344,15 @@ pub(crate) fn run_with_context(
     // variant now, so it would be an easy and wrong generalisation to cancel
     // a -0/-1 against a +1/+1: the rule names the two counters by their
     // printed words, and a Wall of Roots wearing both keeps both.
-    for id in state.battlefield_view() {
+    // phasing: skips PHASED_OUT below before mutating counters in place.
+    for i in 0..state.zones.list(ZoneLocation::Battlefield).len() {
+        let id = state.zones.list(ZoneLocation::Battlefield)[i];
         let Some(obj) = state.object(id) else {
             continue;
         };
+        if obj.status.contains(crate::object::Status::PHASED_OUT) {
+            continue;
+        }
         let (plus, minus) = (
             obj.counters.get(CounterKind::P1P1),
             obj.counters.get(CounterKind::M1M1),
@@ -566,17 +585,24 @@ fn attachment_sbas(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
 ) -> (
-    Vec<baylee_core::ids::ObjectId>,
-    Vec<baylee_core::ids::ObjectId>,
+    smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]>,
+    smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]>,
 ) {
     use baylee_core::types::TypeSet as T;
-    let mut falling_off = Vec::new();
-    let mut unattaching = Vec::new();
+    let mut falling_off = smallvec::SmallVec::new();
+    let mut unattaching = smallvec::SmallVec::new();
     for id in state.battlefield_seen() {
         let Some(obj) = state.object(id) else {
             continue;
         };
         if obj.kind != ObjectKind::Permanent {
+            continue;
+        }
+        let is_aura = obj
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::enchantment::AURA);
+        if obj.attached_to.is_none() && !is_aura {
             continue;
         }
         let types = obj.characteristics().types;
@@ -588,10 +614,6 @@ fn attachment_sbas(
             unattaching.push(id);
             continue;
         }
-        let is_aura = obj
-            .characteristics()
-            .subtypes
-            .contains(baylee_core::generated::subtypes::enchantment::AURA);
         let is_equipment = obj
             .characteristics()
             .subtypes
@@ -686,8 +708,8 @@ fn attachment_sbas(
 fn apply_attachment_sbas(
     state: &mut GameState,
     (falling_off, unattaching): (
-        Vec<baylee_core::ids::ObjectId>,
-        Vec<baylee_core::ids::ObjectId>,
+        smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]>,
+        smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]>,
     ),
 ) -> bool {
     let mut changed = false;
@@ -829,12 +851,13 @@ fn destroy_with_replacements(
         && state
             .object(id)
             .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
-    let standing_regeneration = state.object(id).is_some_and(|object| {
-        state.effects.iter().any(|effect| {
-            effect.modifier == baylee_cards_dsl::Modifier::RegenerateInsteadOfDestroy
-                && crate::effects::applies_to(state, effect, object)
-        })
-    });
+    let standing_regeneration = state.effects.may_change_player_or_sba_rules()
+        && state.object(id).is_some_and(|object| {
+            state.effects.iter().any(|effect| {
+                effect.modifier == baylee_cards_dsl::Modifier::RegenerateInsteadOfDestroy
+                    && crate::effects::applies_to(state, effect, object)
+            })
+        });
     let regeneration_available = regeneratable
         && (standing_regeneration
             || state
@@ -933,8 +956,8 @@ pub(crate) fn destroy_all(
 /// pool prints the supertype, and nothing grants it. Permanents that enter
 /// at once get timestamps in APNAP order (CR 613.7m) here, so the tie of
 /// the rule's second sentence is two equal timestamps.
-fn world_rule(state: &GameState) -> Vec<baylee_core::ids::ObjectId> {
-    let worlds: Vec<(baylee_core::ids::ObjectId, u64)> = state
+fn world_rule(state: &GameState) -> smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]> {
+    let worlds: smallvec::SmallVec<[(baylee_core::ids::ObjectId, u64); 4]> = state
         .battlefield_seen()
         .filter_map(|id| {
             let obj = state.object(id)?;
@@ -947,7 +970,7 @@ fn world_rule(state: &GameState) -> Vec<baylee_core::ids::ObjectId> {
         })
         .collect();
     if worlds.len() < 2 {
-        return Vec::new();
+        return smallvec::SmallVec::new();
     }
     let newest = worlds.iter().map(|&(_, at)| at).max().unwrap_or(0);
     let tied = worlds.iter().filter(|&&(_, at)| at == newest).count() > 1;
@@ -1001,10 +1024,11 @@ fn put_into_graveyard_with_departure(
 /// ignore it (#237).
 #[must_use]
 pub fn players_cant_lose(state: &GameState) -> bool {
-    state
-        .effects
-        .iter()
-        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose))
+    state.effects.may_change_player_or_sba_rules()
+        && state
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose))
 }
 
 /// An effect says `player` loses the game (CR 104.3e), such as a pact left

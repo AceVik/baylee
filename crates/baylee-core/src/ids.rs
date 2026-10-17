@@ -250,6 +250,141 @@ impl ObjectId {
     pub const fn bumped(self) -> Self {
         Self::new(self.slot(), self.generation().wrapping_add(1))
     }
+
+    /// Portable reference linear scan for [`Self::position_in`].
+    #[inline]
+    #[must_use]
+    pub const fn position_in_scalar(haystack: &[Self], needle: Self) -> Option<usize> {
+        let mut i = 0;
+        while i < haystack.len() {
+            if haystack[i].0 == needle.0 {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// Returns the index of the first occurrence of `needle` in `haystack`.
+    ///
+    /// Uses 128-bit SIMD (`aarch64` NEON, `x86_64` SSE2, `wasm32` `simd128`)
+    /// to compare four [`ObjectId`]s per cycle before finishing any `< 4`
+    /// remainder with the scalar loop.
+    #[inline]
+    #[must_use]
+    pub fn position_in(haystack: &[Self], needle: Self) -> Option<usize> {
+        position_in_u32_slice(haystack, needle)
+    }
+
+    /// Whether `needle` appears anywhere in `haystack`.
+    #[inline]
+    #[must_use]
+    pub fn contained_in(haystack: &[Self], needle: Self) -> bool {
+        Self::position_in(haystack, needle).is_some()
+    }
+}
+
+#[inline]
+fn position_in_u32_slice(haystack: &[ObjectId], needle: ObjectId) -> Option<usize> {
+    #[cfg(target_arch = "aarch64")]
+    {
+        use core::arch::aarch64::{vceqq_u32, vdupq_n_u32, vld1q_u32, vmaxvq_u32};
+        let len = haystack.len();
+        let ptr = haystack.as_ptr().cast::<u32>();
+        let mut i = 0;
+        // SAFETY: `ObjectId` is `#[repr(transparent)]` over `u32`, so `haystack`
+        // has the exact layout and alignment of `[u32]`. Each iteration reads
+        // 4 `u32`s (`16` bytes) starting at `i` while `i + 4 <= len`.
+        unsafe {
+            let splat = vdupq_n_u32(needle.0);
+            while i + 4 <= len {
+                let chunk = vld1q_u32(ptr.add(i));
+                if vmaxvq_u32(vceqq_u32(chunk, splat)) != 0 {
+                    for lane in 0..4 {
+                        if *ptr.add(i + lane) == needle.0 {
+                            return Some(i + lane);
+                        }
+                    }
+                }
+                i += 4;
+            }
+        }
+        while i < len {
+            if haystack[i].0 == needle.0 {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+    #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    {
+        use core::arch::x86_64::{
+            __m128i, _mm_cmpeq_epi32, _mm_loadu_si128, _mm_movemask_epi8, _mm_set1_epi32,
+        };
+        let len = haystack.len();
+        let ptr = haystack.as_ptr().cast::<u32>();
+        let mut i = 0;
+        // SAFETY: `ObjectId` is `#[repr(transparent)]` over `u32`. Each iteration
+        // performs an unaligned 16-byte load (`4 * u32`) in bounds while `i + 4 <= len`.
+        unsafe {
+            #[allow(clippy::cast_possible_wrap)]
+            let splat = _mm_set1_epi32(needle.0 as i32);
+            while i + 4 <= len {
+                let chunk = _mm_loadu_si128(ptr.add(i).cast::<__m128i>());
+                let mask = _mm_movemask_epi8(_mm_cmpeq_epi32(chunk, splat));
+                if mask != 0 {
+                    return Some(i + (mask.trailing_zeros() as usize >> 2));
+                }
+                i += 4;
+            }
+        }
+        while i < len {
+            if haystack[i].0 == needle.0 {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    {
+        use core::arch::wasm32::{u32x4_eq, u32x4_splat, v128, v128_any_true, v128_load};
+        let len = haystack.len();
+        let ptr = haystack.as_ptr().cast::<u32>();
+        let mut i = 0;
+        // SAFETY: `ObjectId` is `#[repr(transparent)]` over `u32`. Each iteration
+        // reads 16 bytes (`4 * u32`) in bounds while `i + 4 <= len`.
+        unsafe {
+            let splat = u32x4_splat(needle.0);
+            while i + 4 <= len {
+                let chunk = v128_load(ptr.add(i).cast::<v128>());
+                if v128_any_true(u32x4_eq(chunk, splat)) {
+                    for lane in 0..4 {
+                        if *ptr.add(i + lane) == needle.0 {
+                            return Some(i + lane);
+                        }
+                    }
+                }
+                i += 4;
+            }
+        }
+        while i < len {
+            if haystack[i].0 == needle.0 {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+    #[cfg(not(any(
+        target_arch = "aarch64",
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "wasm32", target_feature = "simd128")
+    )))]
+    {
+        ObjectId::position_in_scalar(haystack, needle)
+    }
 }
 
 impl core::fmt::Debug for ObjectId {
@@ -519,5 +654,50 @@ mod handle_tests {
     fn the_unknown_print_is_the_last_reference_a_table_can_name() {
         assert_eq!(PrintRef::UNKNOWN.get(), u16::MAX);
         assert_ne!(PrintRef::UNKNOWN, PrintRef::new(0));
+    }
+
+    #[test]
+    fn object_id_position_in_matches_scalar_across_lengths_and_duplicates() {
+        for len in 0..=37u32 {
+            let haystack: Vec<ObjectId> = (0..len)
+                .map(|i| ObjectId::new(i * 13 + 1, (i % 7) as u8))
+                .collect();
+            let missing = ObjectId::new(999_999, 250);
+            assert_eq!(
+                ObjectId::position_in(&haystack, missing),
+                ObjectId::position_in_scalar(&haystack, missing)
+            );
+            assert!(!ObjectId::contained_in(&haystack, missing));
+
+            for pos in 0..len as usize {
+                let needle = haystack[pos];
+                assert_eq!(
+                    ObjectId::position_in(&haystack, needle),
+                    Some(pos),
+                    "len={len}, pos={pos}"
+                );
+                assert_eq!(
+                    ObjectId::position_in(&haystack, needle),
+                    ObjectId::position_in_scalar(&haystack, needle)
+                );
+                assert!(ObjectId::contained_in(&haystack, needle));
+            }
+        }
+
+        // Duplicate entries in the same 4-lane vector must still return the lowest index.
+        let dup = ObjectId::new(77, 3);
+        let other = ObjectId::new(88, 4);
+        for first in 0..8 {
+            for second in (first + 1)..8 {
+                let mut v = vec![other; 9];
+                v[first] = dup;
+                v[second] = dup;
+                assert_eq!(
+                    ObjectId::position_in(&v, dup),
+                    ObjectId::position_in_scalar(&v, dup)
+                );
+                assert_eq!(ObjectId::position_in(&v, dup), Some(first));
+            }
+        }
     }
 }

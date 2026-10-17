@@ -229,7 +229,7 @@ pub(crate) fn payment_with_generic_credits(
         }
         remaining = cost.with_less_generic(amount);
     }
-    let mut symbols: Vec<_> = remaining.symbols().collect();
+    let mut symbols: SmallVec<[ManaSymbol; 16]> = remaining.symbols().collect();
     symbols.sort_by_key(|s| match s {
         ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => {
             (1, 0)
@@ -430,7 +430,7 @@ pub(crate) fn paid_subset_can_pay(
     fixed: &ManaCost,
     fixed_spending: ManaSpending,
 ) -> bool {
-    let mut symbols: Vec<_> = subset
+    let mut symbols: SmallVec<[(ManaSymbol, bool); 16]> = subset
         .symbols()
         .map(|symbol| (symbol, true))
         .chain(fixed.symbols().map(|symbol| (symbol, false)))

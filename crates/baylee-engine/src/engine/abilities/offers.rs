@@ -4,12 +4,14 @@ use super::*;
 
 impl<L: CardLookup> Engine<L> {
     pub(super) fn activation_increases(&self, player: PlayerId) -> Vec<(ObjectId, u32)> {
-        if !self.state.effects.iter().any(|fx| {
-            matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::AbilitiesCostMore(_)
-            )
-        }) {
+        if !self.state.effects.may_change_or_forbid_abilities()
+            || !self.state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::AbilitiesCostMore(_)
+                )
+            })
+        {
             return Vec::new();
         }
         self.state
@@ -31,11 +33,12 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
     ) -> Vec<(ObjectId, crate::choice::CastModeKind, u32)> {
         use crate::choice::CastModeKind;
-        if !self
-            .state
-            .effects
-            .iter()
-            .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
+        if !self.state.effects.may_change_spell_costs()
+            || !self
+                .state
+                .effects
+                .iter()
+                .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
         {
             return Vec::new();
         }
@@ -383,7 +386,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
-                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
+                        if !self.source_cost_parts_ready(id, cost) {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
@@ -394,7 +397,16 @@ impl<L: CardLookup> Engine<L> {
                             &[],
                             self.mana_activation_life(id, i),
                         );
-                        self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
+                        self.offer_activation_payment(
+                            player,
+                            id,
+                            i,
+                            &cost,
+                            payable,
+                            *targets,
+                            *second_targets,
+                            &mut legal,
+                        );
                     }
                     AbilityDef::ActivatedConditional {
                         cost,
@@ -424,15 +436,15 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
+                        if !self.source_cost_parts_ready(id, cost) {
+                            continue;
+                        }
                         if !crate::eval::condition_holds_with_context(
                             &self.state,
                             player,
                             self.ability_rule_context(id, i),
                             *condition,
                         ) {
-                            continue;
-                        }
-                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
@@ -443,7 +455,16 @@ impl<L: CardLookup> Engine<L> {
                             &[],
                             self.mana_activation_life(id, i),
                         );
-                        self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
+                        self.offer_activation_payment(
+                            player,
+                            id,
+                            i,
+                            &cost,
+                            payable,
+                            *targets,
+                            *second_targets,
+                            &mut legal,
+                        );
                     }
                     AbilityDef::Loyalty {
                         cost,
@@ -541,15 +562,6 @@ impl<L: CardLookup> Engine<L> {
                             // with no creature and then refused with "no legal
                             // targets". The source is the card in hand, so a
                             // filter saying "another" still reads it right.
-                            if !self.ability_has_targets(
-                                player,
-                                card,
-                                i as u32,
-                                *targets,
-                                *second_targets,
-                            ) {
-                                continue;
-                            }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
                             if self.activation_affordable(
                                 player,
@@ -557,6 +569,12 @@ impl<L: CardLookup> Engine<L> {
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
+                            ) && self.ability_has_targets(
+                                player,
+                                card,
+                                i as u32,
+                                *targets,
+                                *second_targets,
                             ) {
                                 legal.abilities.push((card, i as u32));
                             }
@@ -596,15 +614,6 @@ impl<L: CardLookup> Engine<L> {
                             ) {
                                 continue;
                             }
-                            if !self.ability_has_targets(
-                                player,
-                                card,
-                                i as u32,
-                                *targets,
-                                *second_targets,
-                            ) {
-                                continue;
-                            }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
                             if self.activation_affordable(
                                 player,
@@ -612,6 +621,12 @@ impl<L: CardLookup> Engine<L> {
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
+                            ) && self.ability_has_targets(
+                                player,
+                                card,
+                                i as u32,
+                                *targets,
+                                *second_targets,
                             ) {
                                 legal.abilities.push((card, i as u32));
                             }
@@ -695,6 +710,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Check non-mana costs with the same reader as activation. An unpaid
     /// hint does not grant permission to activate or manufacture any mana.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn offer_activation_payment(
         &self,
         player: PlayerId,
@@ -702,6 +718,8 @@ impl<L: CardLookup> Engine<L> {
         index: u32,
         cost: &ActivationPrice,
         payable: bool,
+        targets: Option<baylee_cards_dsl::TargetReq>,
+        second_targets: Option<baylee_cards_dsl::TargetReq>,
         legal: &mut LegalActions,
     ) {
         let minimum = self.activation_x_minimum(player, source, index);
@@ -722,7 +740,9 @@ impl<L: CardLookup> Engine<L> {
                     self.mana_activation_life(source, index),
                 ));
         if payable {
-            legal.abilities.push((source, index));
+            if self.ability_has_targets(player, source, index, targets, second_targets) {
+                legal.abilities.push((source, index));
+            }
         } else if cost.mana != baylee_core::mana::ManaCost::ZERO
             && self.activation_affordable(
                 player,
@@ -731,6 +751,7 @@ impl<L: CardLookup> Engine<L> {
                 &[],
                 self.mana_activation_life(source, index),
             )
+            && self.ability_has_targets(player, source, index, targets, second_targets)
         {
             legal.abilities.push((source, index));
             legal.unpaid_abilities.push((source, index, cost.mana));

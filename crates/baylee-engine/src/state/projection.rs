@@ -189,21 +189,34 @@ impl GameState {
             if crate::layers::needs_projection(self, plan, obj)
                 || self.defines_pt_off_battlefield(obj)
             {
-                let projection = crate::layers::recompute_with(self, obj, plan);
-                if projection.read_board {
+                let (characteristics, controller, read_board) =
+                    crate::layers::recompute_cow(self, obj, plan);
+                if read_board {
                     readers.push(id);
                 }
-                if obj.controller == projection.controller
-                    && obj.cache.holds(&projection.characteristics, &obj.base)
-                {
-                    continue;
+                match characteristics {
+                    std::borrow::Cow::Borrowed(_) => {
+                        if obj.controller == controller && obj.cache.is_clear() {
+                            continue;
+                        }
+                        let obj = self.object_mut(id).expect("zone object exists");
+                        moved |= settle_controller(obj, controller, was);
+                        obj.cache.clear();
+                    }
+                    std::borrow::Cow::Owned(characteristics) => {
+                        if obj.controller == controller
+                            && obj.cache.holds(&characteristics, &obj.base)
+                        {
+                            continue;
+                        }
+                        let obj = self.object_mut(id).expect("zone object exists");
+                        moved |= settle_controller(obj, controller, was);
+                        // `cache` and `base` are disjoint fields, so this is one
+                        // mutable borrow and one shared borrow of the same object.
+                        let crate::object::GameObject { cache, base, .. } = obj;
+                        cache.store(characteristics, base);
+                    }
                 }
-                let obj = self.object_mut(id).expect("zone object exists");
-                moved |= settle_controller(obj, projection.controller, was);
-                // `cache` and `base` are disjoint fields, so this is one
-                // mutable borrow and one shared borrow of the same object.
-                let crate::object::GameObject { cache, base, .. } = obj;
-                cache.store(projection.characteristics, base);
             } else {
                 // Nothing can change this object's characteristics, so the
                 // base is the projection. Dropping the cache is not just
@@ -238,18 +251,30 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            let projection = crate::layers::recompute_with(self, obj, plan);
-            // As in `project_all`: nothing moved, nothing written.
-            if obj.controller == projection.controller
-                && obj.cache.holds(&projection.characteristics, &obj.base)
-            {
-                continue;
+            let (characteristics, controller, _) = crate::layers::recompute_cow(self, obj, plan);
+            match characteristics {
+                std::borrow::Cow::Borrowed(_) => {
+                    if obj.controller == controller && obj.cache.is_clear() {
+                        continue;
+                    }
+                    let obj = self.object_mut(id).expect("zone object exists");
+                    changed |= settle_controller(obj, controller, was);
+                    changed |= !obj.cache.is_clear();
+                    obj.cache.clear();
+                }
+                std::borrow::Cow::Owned(characteristics) => {
+                    // As in `project_all`: nothing moved, nothing written.
+                    if obj.controller == controller && obj.cache.holds(&characteristics, &obj.base)
+                    {
+                        continue;
+                    }
+                    let obj = self.object_mut(id).expect("zone object exists");
+                    changed |= settle_controller(obj, controller, was);
+                    changed |= *obj.characteristics() != characteristics;
+                    let crate::object::GameObject { cache, base, .. } = obj;
+                    cache.store(characteristics, base);
+                }
             }
-            let obj = self.object_mut(id).expect("zone object exists");
-            changed |= settle_controller(obj, projection.controller, was);
-            changed |= *obj.characteristics() != projection.characteristics;
-            let crate::object::GameObject { cache, base, .. } = obj;
-            cache.store(projection.characteristics, base);
         }
         changed
     }

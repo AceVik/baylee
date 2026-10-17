@@ -17,6 +17,9 @@ use super::*;
 /// would be wrong.
 #[must_use]
 pub fn land_drops_allowed(state: &GameState, player: PlayerId) -> u8 {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return 1;
+    }
     state
         .effects
         .iter()
@@ -150,6 +153,9 @@ pub fn graveyard_cast_permissions(
     obj: &crate::object::GameObject,
 ) -> Vec<GraveyardPermission> {
     use baylee_cards_dsl::Modifier;
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return Vec::new();
+    }
     let types = obj.characteristics().types;
     if obj.zone != Zone::Graveyard
         || obj.zone_owner != Some(player)
@@ -226,6 +232,9 @@ pub(crate) fn graveyard_face_permissions(
     card: ObjectId,
     face: usize,
 ) -> Vec<GraveyardPermission> {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return Vec::new();
+    }
     let what = if face == 0 {
         SpendFor::Spell(card)
     } else {
@@ -288,6 +297,9 @@ pub fn graveyard_land_permission(
     state: &GameState,
     player: PlayerId,
 ) -> Option<GraveyardPermission> {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return None;
+    }
     if state.effects.iter().any(|fx| {
         fx.controller == player
             && matches!(
@@ -349,13 +361,16 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     match zone {
         Zone::Hand => true,
         Zone::Graveyard => graveyard_land_permission(state, player).is_some(),
-        Zone::Library => state.effects.iter().any(|fx| {
-            fx.controller == player
-                && matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::PlayLandsFromLibraryTop
-                )
-        }),
+        Zone::Library => {
+            state.effects.may_grant_graveyard_or_top_play()
+                && state.effects.iter().any(|fx| {
+                    fx.controller == player
+                        && matches!(
+                            fx.modifier,
+                            baylee_cards_dsl::Modifier::PlayLandsFromLibraryTop
+                        )
+                })
+        }
         _ => false,
     }
 }

@@ -146,6 +146,29 @@ impl AbilityDefs {
             next: 0,
         }
     }
+
+    /// Token-defined static abilities in their original order.
+    #[must_use]
+    pub fn runtime_statics(&self) -> &[RuntimeStatic] {
+        match self {
+            Self::Shared(bundle) => &bundle.runtime_statics,
+            Self::Static(_) => &[],
+        }
+    }
+
+    /// Copiable wording defined by a token's creating instruction.
+    #[must_use]
+    pub fn base_text(&self, index: usize) -> crate::text_changes::TextChangeMap {
+        match self {
+            Self::Shared(bundle) => bundle
+                .entries
+                .get(index)
+                .map_or(crate::text_changes::TextChangeMap::IDENTITY, |entry| {
+                    entry.base_text
+                }),
+            Self::Static(_) => crate::text_changes::TextChangeMap::IDENTITY,
+        }
+    }
 }
 
 impl From<&'static [AbilityDef]> for AbilityDefs {

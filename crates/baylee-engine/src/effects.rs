@@ -347,22 +347,35 @@ pub struct EffectTable {
 }
 
 #[derive(Clone, Debug, Default)]
-struct RuleHints(u8);
+struct RuleHints(u32);
 
 impl RuleHints {
-    const COUNTER_DURATION: u8 = 1;
-    const SOURCE_DURATION: u8 = 2;
-    const ATTACK_PROHIBITION: u8 = 4;
-    const ATTACK_TAPPING: u8 = 8;
-    const MANA_LIFE: u8 = 16;
-    const MANA_REPLACEMENT: u8 = 32;
-    const PERMANENT_GUARD: u8 = 64;
-    const SONG: u8 = 128;
+    const COUNTER_DURATION: u32 = 1 << 0;
+    const SOURCE_DURATION: u32 = 1 << 1;
+    const ATTACK_PROHIBITION: u32 = 1 << 2;
+    const ATTACK_TAPPING: u32 = 1 << 3;
+    const MANA_LIFE: u32 = 1 << 4;
+    const MANA_REPLACEMENT: u32 = 1 << 5;
+    const PERMANENT_GUARD: u32 = 1 << 6;
+    const SONG: u32 = 1 << 7;
+    const GRANT_STATIC: u32 = 1 << 8;
+    const GRANT_LINKED_EXILE: u32 = 1 << 9;
+    const GRANT_ACTIVATED: u32 = 1 << 10;
+    const INDEFINITE_OBJECT: u32 = 1 << 11;
+    const MANA_SPENDING: u32 = 1 << 12;
+    const SPELL_COST: u32 = 1 << 13;
+    const ABILITY_COST_OR_FORBID: u32 = 1 << 14;
+    const CAST_TIMING_OR_LOCK: u32 = 1 << 15;
+    const REVEAL_OR_HAND_SIZE: u32 = 1 << 16;
+    const GRAVEYARD_OR_TOP_PLAY: u32 = 1 << 17;
+    const BOARD_STATE_FILTER: u32 = 1 << 18;
+    const PLAYER_OR_SBA_RULE: u32 = 1 << 19;
+    const GRANT_TRIGGERED: u32 = 1 << 20;
 
-    fn contains(&self, bit: u8) -> bool {
+    const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
     }
-    fn insert_if(&mut self, bit: u8, applies: bool) {
+    const fn insert_if(&mut self, bit: u32, applies: bool) {
         if applies {
             self.0 |= bit;
         }
@@ -370,32 +383,100 @@ impl RuleHints {
 }
 
 impl EffectTable {
-    pub(crate) fn may_continue_song(&self) -> bool {
+    pub(crate) const fn may_continue_song(&self) -> bool {
         self.hints.contains(RuleHints::SONG)
     }
-    pub(crate) fn may_guard_permanents(&self) -> bool {
+    pub(crate) const fn may_guard_permanents(&self) -> bool {
         self.hints.contains(RuleHints::PERMANENT_GUARD)
     }
-    pub(crate) fn may_tax_mana_life(&self) -> bool {
+    pub(crate) const fn may_tax_mana_life(&self) -> bool {
         self.hints.contains(RuleHints::MANA_LIFE)
     }
-    pub(crate) fn may_replace_mana(&self) -> bool {
+    pub(crate) const fn may_replace_mana(&self) -> bool {
         self.hints.contains(RuleHints::MANA_REPLACEMENT)
     }
-    pub(crate) fn may_change_attack_tapping(&self) -> bool {
+    pub(crate) const fn may_change_attack_tapping(&self) -> bool {
         self.hints.contains(RuleHints::ATTACK_TAPPING)
     }
 
-    pub(crate) fn may_forbid_attacking(&self) -> bool {
+    pub(crate) const fn may_forbid_attacking(&self) -> bool {
         self.hints.contains(RuleHints::ATTACK_PROHIBITION)
     }
 
-    pub(crate) fn may_have_source_duration(&self) -> bool {
+    pub(crate) const fn may_have_source_duration(&self) -> bool {
         self.hints.contains(RuleHints::SOURCE_DURATION)
     }
 
-    pub(crate) fn may_have_counter_duration(&self) -> bool {
+    pub(crate) const fn may_have_counter_duration(&self) -> bool {
         self.hints.contains(RuleHints::COUNTER_DURATION)
+    }
+
+    pub(crate) const fn may_grant_statics(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_STATIC)
+    }
+
+    pub(crate) const fn may_grant_from_linked_exile(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_LINKED_EXILE)
+    }
+
+    pub(crate) const fn may_grant_activated(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_ACTIVATED)
+    }
+
+    pub(crate) const fn may_grant_triggered(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_TRIGGERED)
+    }
+
+    pub(crate) const fn may_have_indefinite_object(&self) -> bool {
+        self.hints.contains(RuleHints::INDEFINITE_OBJECT)
+    }
+
+    /// Whether any effect in this game has registered a mana-spending modifier.
+    #[must_use]
+    pub const fn may_change_mana_spending(&self) -> bool {
+        self.hints.contains(RuleHints::MANA_SPENDING)
+    }
+
+    /// Whether any effect in this game has registered a spell-cost modifier.
+    #[must_use]
+    pub const fn may_change_spell_costs(&self) -> bool {
+        self.hints.contains(RuleHints::SPELL_COST)
+    }
+
+    /// Whether any effect in this game has registered an ability-cost or ability-lock modifier.
+    #[must_use]
+    pub const fn may_change_or_forbid_abilities(&self) -> bool {
+        self.hints.contains(RuleHints::ABILITY_COST_OR_FORBID)
+    }
+
+    /// Whether any effect in this game has registered a cast-timing or cast-lock modifier.
+    #[must_use]
+    pub const fn may_change_cast_timing_or_lock(&self) -> bool {
+        self.hints.contains(RuleHints::CAST_TIMING_OR_LOCK)
+    }
+
+    /// Whether any effect in this game has registered a library/hand reveal or max-hand-size modifier.
+    #[must_use]
+    pub const fn may_reveal_or_change_hand_size(&self) -> bool {
+        self.hints.contains(RuleHints::REVEAL_OR_HAND_SIZE)
+    }
+
+    /// Whether any effect in this game has registered a graveyard/top-of-library play or extra-land-drop modifier.
+    #[must_use]
+    pub const fn may_grant_graveyard_or_top_play(&self) -> bool {
+        self.hints.contains(RuleHints::GRAVEYARD_OR_TOP_PLAY)
+    }
+
+    pub(crate) const fn may_read_board_state(&self) -> bool {
+        self.hints.contains(RuleHints::BOARD_STATE_FILTER)
+    }
+
+    pub(crate) const fn may_change_player_or_sba_rules(&self) -> bool {
+        self.hints.contains(RuleHints::PLAYER_OR_SBA_RULE)
+    }
+
+    pub(crate) fn has_parked(&self) -> bool {
+        !self.parked.is_empty()
     }
 
     pub(crate) fn has_counter_limits(&self) -> bool {
@@ -407,6 +488,7 @@ impl EffectTable {
     }
 
     /// Registers an effect; bumps the generation.
+    #[allow(clippy::too_many_lines)]
     pub fn register(&mut self, mut fx: ContinuousEffect) -> EffectId {
         let id = EffectId::new(self.next_id);
         self.next_id += 1;
@@ -457,6 +539,121 @@ impl EffectTable {
         self.hints.insert_if(
             RuleHints::SONG,
             crate::artifact_animation::contains_song(fx.modifier),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_STATIC,
+            matches!(fx.modifier, Modifier::GrantStatic { .. }),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_LINKED_EXILE,
+            matches!(fx.modifier, Modifier::GrantActivatedFromLinkedExile(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_ACTIVATED,
+            matches!(
+                fx.modifier,
+                Modifier::GrantActivated { .. }
+                    | Modifier::GrantActivatedDefinition(_)
+                    | Modifier::GrantActivatedFromLinkedExile(_)
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_TRIGGERED,
+            matches!(fx.modifier, Modifier::GrantTriggered { .. }),
+        );
+        self.hints.insert_if(
+            RuleHints::INDEFINITE_OBJECT,
+            matches!(fx.duration, Duration::Indefinitely)
+                && matches!(fx.filter, EffectFilter::ObjectIs(..)),
+        );
+        self.hints.insert_if(
+            RuleHints::MANA_SPENDING,
+            matches!(
+                fx.modifier,
+                Modifier::ManaIsAnyColor
+                    | Modifier::SpendManaAs { .. }
+                    | Modifier::CreatureAbilityManaAnyColor
+                    | Modifier::OneSpellManaAnyType
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::SPELL_COST,
+            matches!(
+                fx.modifier,
+                Modifier::SpellsCostMore(_) | Modifier::SpellsCostLess(_)
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::ABILITY_COST_OR_FORBID,
+            matches!(
+                fx.modifier,
+                Modifier::AbilitiesCostMore(_)
+                    | Modifier::AbilitiesCostLess { .. }
+                    | Modifier::CantActivate
+                    | Modifier::CantActivateArtifacts
+                    | Modifier::ChosenNameCantActivate
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::CAST_TIMING_OR_LOCK,
+            matches!(
+                fx.modifier,
+                Modifier::OpponentsCastAsSorcery
+                    | Modifier::SorceriesHaveFlash
+                    | Modifier::SpellsHaveFlash(_)
+                    | Modifier::SpellCastLimitPerTurn { .. }
+                    | Modifier::OpponentsCantCast(_)
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::REVEAL_OR_HAND_SIZE,
+            matches!(
+                fx.modifier,
+                Modifier::RevealAllLibraryTops
+                    | Modifier::RevealLibraryTop
+                    | Modifier::RevealAllHands
+                    | Modifier::NoMaxHandSize
+                    | Modifier::ChosenPlayerMaxHandSize(_)
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::GRAVEYARD_OR_TOP_PLAY,
+            matches!(
+                fx.modifier,
+                Modifier::GrantsFlashback
+                    | Modifier::GrantsEscape(_)
+                    | Modifier::PlayLandsFromGraveyard
+                    | Modifier::CastPermanentSpellsFromGraveyard
+                    | Modifier::PermanentOfEachTypeFromGraveyard
+                    | Modifier::PlayLandsFromLibraryTop
+                    | Modifier::CastSpellsFromGraveyard
+                    | Modifier::GraveyardInstantSorceryOnce
+                    | Modifier::GraveyardVampireOnce
+                    | Modifier::ExtraLandDrops(_)
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::BOARD_STATE_FILTER,
+            matches!(
+                fx.filter,
+                EffectFilter::Dsl(f) | EffectFilter::DslAbout(f, ..)
+                    if crate::state::filter_reads_board_state(f)
+            ) || crate::state::modifier_reads_combat(fx.modifier),
+        );
+        self.hints.insert_if(
+            RuleHints::PLAYER_OR_SBA_RULE,
+            matches!(
+                fx.modifier,
+                Modifier::LifeTotalCantChange { .. }
+                    | Modifier::CantLoseLife { .. }
+                    | Modifier::NoLossForZeroLife { .. }
+                    | Modifier::LifeGainDrawsInstead { .. }
+                    | Modifier::PlayersCantLose
+                    | Modifier::DrawLimitPerTurn { .. }
+                    | Modifier::SkipUntapStep { .. }
+                    | Modifier::LegendRuleOff
+                    | Modifier::RegenerateInsteadOfDestroy
+            ),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -695,7 +892,7 @@ pub fn granted_activated(
     state: &crate::state::GameState,
     source: ObjectId,
 ) -> impl Iterator<Item = GrantedAbility> {
-    granted_activated_among(state, state.effects.iter(), source)
+    granted_activated_among(state, grants(state), source)
 }
 
 /// The effects that grant an activated ability, in registration order: the
@@ -709,7 +906,12 @@ pub fn granted_activated(
 /// thousands of them, and not one grants anything. Walked once and handed
 /// to [`granted_activated_among`], it costs `effects + permanents × grants`.
 pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &ContinuousEffect> {
-    state.effects.iter().filter(|fx| {
+    let slice = if state.effects.may_grant_activated() {
+        state.effects.as_slice()
+    } else {
+        &[]
+    };
+    slice.iter().filter(|fx| {
         matches!(
             fx.modifier,
             Modifier::GrantActivated { .. }
@@ -730,7 +932,11 @@ pub fn granted_activated_among<'a>(
     effects: impl Iterator<Item = &'a ContinuousEffect> + 'a,
     source: ObjectId,
 ) -> impl Iterator<Item = GrantedAbility> + 'a {
-    let obj = state.object(source);
+    let obj = state
+        .effects
+        .may_grant_activated()
+        .then(|| state.object(source))
+        .flatten();
     effects.flat_map(move |fx| {
         state
             .effects
@@ -774,6 +980,9 @@ pub fn applies_to(
     fx: &ContinuousEffect,
     obj: &crate::object::GameObject,
 ) -> bool {
+    if matches!(fx.filter, EffectFilter::ObjectIs(..)) && !fx.filter.names(obj) {
+        return false;
+    }
     source_is_present(state, fx) && applies_to_snapshot(state, fx, obj)
 }
 
@@ -814,6 +1023,9 @@ pub(crate) fn applies_to_snapshot(
     fx: &ContinuousEffect,
     obj: &crate::object::GameObject,
 ) -> bool {
+    if matches!(fx.filter, EffectFilter::ObjectIs(..)) && !fx.filter.names(obj) {
+        return false;
+    }
     // An ability granted before the object lost all its abilities is lost
     // with them; one granted after lands (CR 613.7, timestamp order within
     // layer 6). Keywords get the same ordering inside the projection.
@@ -911,6 +1123,9 @@ pub(crate) fn granted_static_for(
 /// recipient. Keep their filters live (CR 611.3a) and their timestamp at
 /// the later of the grant and recipient timestamps (CR 613.7a).
 pub(crate) fn sync_granted_statics(state: &mut crate::state::GameState) {
+    if !state.effects.may_grant_statics() {
+        return;
+    }
     let mut wanted = Vec::new();
     for grant in state.effects.iter() {
         if !matches!(grant.modifier, Modifier::GrantStatic { .. }) {

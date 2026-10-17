@@ -257,7 +257,7 @@ impl Zones {
     /// Whether the object is in the given zone.
     #[must_use]
     pub fn contains(&self, id: ObjectId, loc: ZoneLocation) -> bool {
-        self.list(loc).contains(&id)
+        ObjectId::contained_in(self.list(loc), id)
     }
 
     /// Whether the stack is empty (timing rules need this constantly).
@@ -274,7 +274,7 @@ fn remove_ordered(list: &mut Vec<ObjectId>, id: ObjectId) -> bool {
     if list.last() == Some(&id) {
         list.pop();
         true
-    } else if let Some(pos) = list.iter().position(|&x| x == id) {
+    } else if let Some(pos) = ObjectId::position_in(list, id) {
         list.remove(pos);
         true
     } else {

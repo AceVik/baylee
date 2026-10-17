@@ -574,14 +574,20 @@ pub fn player_view(
         casting: None,
         sorcery_lock: state
             .effects
-            .iter()
-            .find(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-                ) && state.is_opponent(fx.controller, seat)
+            .may_change_cast_timing_or_lock()
+            .then(|| {
+                state
+                    .effects
+                    .iter()
+                    .find(|fx| {
+                        matches!(
+                            fx.modifier,
+                            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+                        ) && state.is_opponent(fx.controller, seat)
+                    })
+                    .and_then(|fx| fx.source)
             })
-            .and_then(|fx| fx.source),
+            .flatten(),
         sorceries_have_flash: sorceries_have_flash(state, seat),
     }
 }
@@ -695,10 +701,11 @@ fn revealed_hands(state: &GameState, exclude: Option<PlayerId>) -> Vec<baylee_vi
 /// they had flash. The same reading `casting::timing_allows` makes, an
 /// effect the seat controls; an opponent's +1 is not this seat's.
 fn sorceries_have_flash(state: &GameState, seat: PlayerId) -> bool {
-    state.effects.iter().any(|fx| {
-        matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
-            && fx.controller == seat
-    })
+    state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
+                && fx.controller == seat
+        })
 }
 
 /// Reads the house rules' spelling of *no limit* into the view's.

@@ -254,7 +254,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     collect_for_objects(
         state,
         lookup,
-        &state.battlefield_view(),
+        state.battlefield_seen(),
         events,
         true,
         &mut triggers,
@@ -399,7 +399,7 @@ fn collect_departed(
     // CR 603.10a looks back after *every* departure, including hand, library,
     // and command zone. Collect just this event batch's sources instead of
     // repeatedly scanning every accumulated graveyard and exile card.
-    let mut departed: Vec<_> = events
+    let mut departed: smallvec::SmallVec<[ObjectId; 4]> = events
         .iter()
         .filter_map(|entry| match entry.event {
             GameEvent::ZoneChanged {
@@ -416,9 +416,12 @@ fn collect_departed(
                 .is_none_or(|object| object.zone != Zone::Battlefield)
         })
         .collect();
+    if departed.is_empty() {
+        return;
+    }
     departed.sort_unstable();
     departed.dedup();
-    collect_for_objects(state, lookup, &departed, events, false, triggers);
+    collect_for_objects(state, lookup, departed, events, false, triggers);
 }
 
 /// Printed graveyard abilities read the card as it exists there, never its
@@ -433,7 +436,7 @@ fn graveyard_triggers(
     let batch_has_zone_changes = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
-    for object in graveyard_observers(state, events, batch_has_zone_changes) {
+    for object in graveyard_observers(state, lookup, events, batch_has_zone_changes) {
         let source = object.id;
         let owner = object.owner;
         let current = state.object_or_departed(source).unwrap_or(object);
@@ -508,23 +511,31 @@ fn graveyard_triggers(
     }
 }
 
+fn has_graveyard_trigger(object: &crate::object::GameObject, lookup: &impl CardLookup) -> bool {
+    object.abilities(lookup).iter().any(|ability| {
+        triggered_parts(ability).is_some_and(|firing| firing.zone == TriggerZone::Graveyard)
+    })
+}
+
 /// Include graveyard incarnations which left later in this mutation batch.
 /// A card moved to the graveyard after an event must not observe that earlier event.
 fn graveyard_observers<'a>(
     state: &'a GameState,
+    lookup: &impl CardLookup,
     events: &[crate::event::JournalEntry],
     batch_has_zone_changes: bool,
-) -> Vec<&'a crate::object::GameObject> {
-    let mut objects: Vec<_> = (0..state.players.len())
-        .flat_map(|seat| {
-            state
-                .zones
-                .list(ZoneLocation::Graveyard(PlayerId::new(seat as u8)))
-                .iter()
-        })
-        .filter_map(|id| state.object(*id))
-        .filter(|object| object.is_card())
-        .collect();
+) -> smallvec::SmallVec<[&'a crate::object::GameObject; 4]> {
+    let mut objects: smallvec::SmallVec<[&'a crate::object::GameObject; 4]> =
+        (0..state.players.len())
+            .flat_map(|seat| {
+                state
+                    .zones
+                    .list(ZoneLocation::Graveyard(PlayerId::new(seat as u8)))
+                    .iter()
+            })
+            .filter_map(|id| state.object(*id))
+            .filter(|object| object.is_card() && has_graveyard_trigger(object, lookup))
+            .collect();
     if batch_has_zone_changes {
         for entry in events {
             let GameEvent::ZoneChanged {
@@ -544,13 +555,16 @@ fn graveyard_observers<'a>(
                 version: after.version.wrapping_sub(1),
             }) && before.zone == Zone::Graveyard
                 && before.is_card()
+                && has_graveyard_trigger(before, lookup)
             {
                 objects.push(before);
             }
         }
     }
-    objects.sort_unstable_by_key(|object| (object.id, object.version));
-    objects.dedup_by_key(|object| (object.id, object.version));
+    if objects.len() > 1 {
+        objects.sort_unstable_by_key(|object| (object.id, object.version));
+        objects.dedup_by_key(|object| (object.id, object.version));
+    }
     objects
 }
 
@@ -1914,30 +1928,35 @@ fn source_at_event_with_moves<'a>(
 fn collect_for_objects(
     state: &GameState,
     lookup: &impl CardLookup,
-    objects: &[ObjectId],
+    objects: impl IntoIterator<Item = ObjectId>,
     events: &[crate::event::JournalEntry],
     all_kinds: bool,
     triggers: &mut Vec<PendingTrigger>,
 ) {
     // Most temporary effects only change stats or keywords. Select grants
     // once per scan, not once for every permanent in a token army.
-    let granted: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> = state
-        .effects
-        .iter()
-        .filter(|fx| {
-            matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::GrantTriggered { .. }
-            )
-        })
-        .collect();
+    let granted: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
+        if state.effects.may_grant_triggered() {
+            state
+                .effects
+                .iter()
+                .filter(|fx| {
+                    matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::GrantTriggered { .. }
+                    )
+                })
+                .collect()
+        } else {
+            smallvec::SmallVec::new()
+        };
     let batch_has_zone_changes = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
     let batch_has_spells_cast = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }));
-    for &permanent in objects {
+    for permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
         // ability to observe a later death. Keep the whole batch so a
@@ -1966,42 +1985,6 @@ fn collect_for_objects(
             continue;
         };
         let moves = object_moves(events, batch_has_zone_changes, obj.id);
-        let current_text = object_text(state, obj);
-        // CR 603.10a: the look-back scan asks an object that has already
-        // arrived somewhere else, and what it must see is the abilities that
-        // existed "immediately prior to the event". A copy gives its rules
-        // text back on the way out (CR 400.7), so `abilities` would answer
-        // with the printed card — which is how a Phyrexian Metamorph that had
-        // copied Solemn Simulacrum died without drawing anybody a card.
-        let looked_back = if all_kinds {
-            None
-        } else {
-            // Read the departing incarnation before a raw copied list: a
-            // back face resets in its new zone, and lost abilities stay lost.
-            state
-                .ltb_versions
-                .iter()
-                .find(|(id, _)| *id == permanent)
-                .and_then(|(_, version)| {
-                    state.source_object(baylee_core::ids::DamageSourceRef {
-                        object: permanent,
-                        version: *version,
-                    })
-                })
-                .map(|departed| departed.ability_list(lookup))
-                .or_else(|| {
-                    state
-                        .ltb_abilities
-                        .iter()
-                        .find(|(id, _)| *id == permanent)
-                        .map(|(_, list)| list.clone())
-                })
-        };
-        // Not `obj.card`: a token has none, and bailing out here is how every
-        // token on the battlefield used to be invisible to triggers —
-        // including its own.
-        let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
-        let abilities = list.abilities.clone();
         // Prowess (engine-level keyword trigger, CR 702.108).
         if batch_has_spells_cast
             && obj
@@ -2155,9 +2138,53 @@ fn collect_for_objects(
                 }
             }
         }
+        if all_kinds
+            && !obj.abilities(lookup).iter().any(|ability| {
+                matches!(ability, AbilityDef::Ward { .. })
+                    || triggered_parts(ability)
+                        .is_some_and(|firing| firing.zone == TriggerZone::Battlefield)
+            })
+        {
+            continue;
+        }
+        let current_text = object_text(state, obj);
+        // CR 603.10a: the look-back scan asks an object that has already
+        // arrived somewhere else, and what it must see is the abilities that
+        // existed "immediately prior to the event". A copy gives its rules
+        // text back on the way out (CR 400.7), so `abilities` would answer
+        // with the printed card — which is how a Phyrexian Metamorph that had
+        // copied Solemn Simulacrum died without drawing anybody a card.
+        let looked_back = if all_kinds {
+            None
+        } else {
+            // Read the departing incarnation before a raw copied list: a
+            // back face resets in its new zone, and lost abilities stay lost.
+            state
+                .ltb_versions
+                .iter()
+                .find(|(id, _)| *id == permanent)
+                .and_then(|(_, version)| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: permanent,
+                        version: *version,
+                    })
+                })
+                .map(|departed| departed.ability_list(lookup))
+                .or_else(|| {
+                    state
+                        .ltb_abilities
+                        .iter()
+                        .find(|(id, _)| *id == permanent)
+                        .map(|(_, list)| list.clone())
+                })
+        };
+        // Not `obj.card`: a token has none, and bailing out here is how every
+        // token on the battlefield used to be invisible to triggers —
+        // including its own.
+        let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
-        for ability in &abilities {
+        for ability in &list.abilities {
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
@@ -2207,8 +2234,8 @@ fn collect_for_objects(
                 }
             }
         }
-        let uses_counter_links = crate::resolve::linked_counters::uses_links(&abilities);
-        for (index, ability) in abilities.iter().enumerate() {
+        let uses_counter_links = crate::resolve::linked_counters::uses_links(&list.abilities);
+        for (index, ability) in list.abilities.iter().enumerate() {
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };

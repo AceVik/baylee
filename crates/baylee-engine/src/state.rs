@@ -1834,26 +1834,29 @@ impl GameState {
     #[must_use]
     pub fn maximum_hand_size(&self, player: PlayerId) -> Option<usize> {
         use baylee_cards_dsl::Modifier;
-        let setting = self
-            .effects
-            .iter()
-            .filter_map(|fx| {
-                let value = match fx.modifier {
-                    Modifier::NoMaxHandSize if fx.controller == player => None,
-                    Modifier::ChosenPlayerMaxHandSize(size)
-                        if fx
-                            .source
-                            .and_then(|id| self.object(id))
-                            .and_then(crate::object::GameObject::chosen_opponent)
-                            == Some(player) =>
-                    {
-                        Some(usize::from(size))
-                    }
-                    _ => return None,
-                };
-                Some((fx.timestamp, fx.id, value))
-            })
-            .max_by_key(|(timestamp, id, _)| (*timestamp, *id));
+        let setting = if self.effects.may_reveal_or_change_hand_size() {
+            self.effects
+                .iter()
+                .filter_map(|fx| {
+                    let value = match fx.modifier {
+                        Modifier::NoMaxHandSize if fx.controller == player => None,
+                        Modifier::ChosenPlayerMaxHandSize(size)
+                            if fx
+                                .source
+                                .and_then(|id| self.object(id))
+                                .and_then(crate::object::GameObject::chosen_opponent)
+                                == Some(player) =>
+                        {
+                            Some(usize::from(size))
+                        }
+                        _ => return None,
+                    };
+                    Some((fx.timestamp, fx.id, value))
+                })
+                .max_by_key(|(timestamp, id, _)| (*timestamp, *id))
+        } else {
+            None
+        };
         setting.map_or_else(
             || {
                 Some(
@@ -1938,13 +1941,15 @@ impl GameState {
     /// Whether a continuous rule forbids any change to this player's life total.
     #[must_use]
     pub fn life_total_cant_change(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|effect| {
-            let baylee_cards_dsl::Modifier::LifeTotalCantChange { who } = effect.modifier else {
-                return false;
-            };
-            crate::eval::players(who, self, effect.controller)
-                .is_some_and(|players| players.contains(&player))
-        })
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|effect| {
+                let baylee_cards_dsl::Modifier::LifeTotalCantChange { who } = effect.modifier
+                else {
+                    return false;
+                };
+                crate::eval::players(who, self, effect.controller)
+                    .is_some_and(|players| players.contains(&player))
+            })
     }
 
     /// Whether an effect says `player` can't lose life (Everybody Lives!).
@@ -1956,12 +1961,13 @@ impl GameState {
     /// the pool from printing one.
     #[must_use]
     pub fn cant_lose_life(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            let baylee_cards_dsl::Modifier::CantLoseLife { who } = fx.modifier else {
-                return false;
-            };
-            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
-        })
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::CantLoseLife { who } = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+            })
     }
 
     /// Whether an effect says `player` doesn't lose the game for having 0 or
@@ -1970,12 +1976,13 @@ impl GameState {
     /// the exception with it.
     #[must_use]
     pub fn no_loss_for_zero_life(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            let baylee_cards_dsl::Modifier::NoLossForZeroLife { who } = fx.modifier else {
-                return false;
-            };
-            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
-        })
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::NoLossForZeroLife { who } = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+            })
     }
 
     /// Whether `player`'s life gains are replaced by draws
@@ -1983,12 +1990,13 @@ impl GameState {
     /// [`Self::cant_lose_life`] reads its own.
     #[must_use]
     pub fn life_gain_draws_instead(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            let baylee_cards_dsl::Modifier::LifeGainDrawsInstead { who } = fx.modifier else {
-                return false;
-            };
-            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
-        })
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::LifeGainDrawsInstead { who } = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+            })
     }
 
     /// Whether an effect has `player` skip their untap steps
@@ -1996,12 +2004,13 @@ impl GameState {
     /// its own controller, as [`Self::cant_lose_life`] reads its own.
     #[must_use]
     pub fn skips_untap_step(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
-                return false;
-            };
-            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
-        })
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+            })
     }
 
     /// The game's one clock, monotonic: every object timestamp
@@ -2502,11 +2511,13 @@ impl GameState {
     /// board where no effect reads tap or attack status — nearly every board
     /// — this is one walk of a short table and nothing else.
     pub fn board_state_changed(&mut self) {
-        if self.effects.iter().any(|fx| {
-            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f)
-                | crate::effects::EffectFilter::DslAbout(f, ..) if filter_reads_board_state(f))
-                || modifier_reads_combat(fx.modifier)
-        }) {
+        if self.effects.may_read_board_state()
+            && self.effects.iter().any(|fx| {
+                matches!(fx.filter, crate::effects::EffectFilter::Dsl(f)
+                    | crate::effects::EffectFilter::DslAbout(f, ..) if filter_reads_board_state(f))
+                    || modifier_reads_combat(fx.modifier)
+            })
+        {
             self.invalidate_projections();
         }
     }
@@ -2581,7 +2592,7 @@ impl GameState {
             return changed;
         }
         object
-            .printed_ability_list(self.bases.as_ref())
+            .printed_abilities(self.bases.as_ref())
             .base_text(index as usize)
             .then(changed)
     }
@@ -2819,6 +2830,9 @@ impl GameState {
     /// played it.
     #[must_use]
     pub fn draw_limit(&self, player: PlayerId) -> Option<u32> {
+        if !self.effects.may_change_player_or_sba_rules() {
+            return None;
+        }
         self.effects
             .iter()
             .filter_map(|fx| {
@@ -2918,7 +2932,7 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
 /// changes as an attack is declared and as combat ends while no effect
 /// begins or ends — the input [`filter_reads_board_state`] announces for a
 /// filter, here in the modifier.
-fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
+pub(crate) fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
     use baylee_cards_dsl::Modifier;
     if let Modifier::CharacteristicPTSeparate { power, toughness } = modifier {
         return pt_count_reads_combat(power) || pt_count_reads_combat(toughness);

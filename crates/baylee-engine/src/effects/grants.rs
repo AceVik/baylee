@@ -146,9 +146,12 @@ impl GrantRegistry {
 /// Panics if one donor has more than `u32::MAX` ability clauses or the
 /// registry exhausts the action-identity domain.
 pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
+    if !state.effects.may_grant_activated() {
+        return;
+    }
     // Even a lone granted clause cannot borrow the recipient's original
     // linked choices (CR 607.5a). Assign its family on the same clock as copies.
-    let mut discovered: Vec<_> = state
+    let mut discovered: smallvec::SmallVec<[(Key, GrantedAbility); 4]> = state
         .effects
         .grants
         .entries
@@ -156,6 +159,9 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
         .filter(|entry| entry.key.donor.is_none() && entry.ability.acquisition.is_none())
         .map(|entry| (entry.key, entry.ability))
         .collect();
+    if !state.effects.may_grant_from_linked_exile() && discovered.is_empty() {
+        return;
+    }
     for effect in state.effects.iter() {
         let Modifier::GrantActivatedFromLinkedExile(filter) = effect.modifier else {
             continue;

@@ -328,18 +328,19 @@ impl GameState {
     /// Whether a static permission makes this player's library top public.
     #[must_use]
     pub fn library_top_revealed(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            (matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::RevealAllLibraryTops
-            ) || (fx.controller == player
-                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealLibraryTop)))
-                && fx.source.is_none_or(|source| {
-                    self.object(source).is_some_and(|o| {
-                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+        self.effects.may_reveal_or_change_hand_size()
+            && self.effects.iter().any(|fx| {
+                (matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::RevealAllLibraryTops
+                ) || (fx.controller == player
+                    && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealLibraryTop)))
+                    && fx.source.is_none_or(|source| {
+                        self.object(source).is_some_and(|o| {
+                            o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                        })
                     })
-                })
-        })
+            })
     }
 
     /// Whether continuous rules reveal this player's entire hand publicly.
@@ -351,14 +352,15 @@ impl GameState {
     /// Whether a continuous rule makes every player's hand public.
     #[must_use]
     pub fn hands_revealed(&self) -> bool {
-        self.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealAllHands)
-                && fx.source.is_none_or(|source| {
-                    self.object(source).is_some_and(|o| {
-                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+        self.effects.may_reveal_or_change_hand_size()
+            && self.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealAllHands)
+                    && fx.source.is_none_or(|source| {
+                        self.object(source).is_some_and(|o| {
+                            o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                        })
                     })
-                })
-        })
+            })
     }
 
     /// Battlefield information before a simultaneous destruction starts.

@@ -10,6 +10,9 @@ pub(crate) fn escape_grants(
     _face: usize,
 ) -> SmallVec<[u8; 2]> {
     let mut grants = SmallVec::new();
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return grants;
+    }
     // The ability belongs to the card before casting begins. Jurassic Park's
     // Dinosaur may therefore choose its non-Dinosaur Adventure when escaping.
     let Some(object) = state.object(card) else {

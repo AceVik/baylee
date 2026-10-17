@@ -82,6 +82,10 @@ pub struct LayerPlan {
     /// A conditional animation needs actual, changing type-layer matches
     /// rather than the conservative order shared by other projections.
     conditional_animation: bool,
+    /// Whether any effect in `ordered` uses a DSL filter rather than `ObjectIs`.
+    has_global: bool,
+    /// Exact-object ids when `index` is not built and `has_global` is false.
+    named: SmallVec<[ObjectId; 8]>,
     /// Exact-object effects are visited only by the object they name.
     index: Option<index::EffectIndex>,
 }
@@ -112,6 +116,8 @@ impl LayerPlan {
             conditional_animation: effects
                 .iter()
                 .any(|fx| crate::artifact_animation::animates(fx.modifier)),
+            has_global: false,
+            named: SmallVec::new(),
             index: None,
         };
         if effects.is_empty() {
@@ -140,6 +146,22 @@ impl LayerPlan {
             plan.spans[layer as usize] = (start, end);
         }
         plan.index = index::EffectIndex::build(effects, &plan.ordered);
+        if plan.index.is_none() {
+            for &at in &plan.ordered {
+                match all[at as usize].filter {
+                    EffectFilter::ObjectIs(id, _) => {
+                        if !plan.named.contains(&id) {
+                            plan.named.push(id);
+                        }
+                    }
+                    EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => {
+                        plan.has_global = true;
+                        plan.named.clear();
+                        break;
+                    }
+                }
+            }
+        }
         plan
     }
 
@@ -194,9 +216,11 @@ impl LayerPlan {
     }
 
     fn may_affect(&self, id: ObjectId) -> bool {
-        self.index
-            .as_ref()
-            .map_or_else(|| !self.is_empty(), |index| index.may_affect(id))
+        if let Some(index) = &self.index {
+            index.may_affect(id)
+        } else {
+            self.has_global || self.named.contains(&id)
+        }
     }
 }
 
@@ -232,33 +256,47 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
+    let (characteristics, controller, read_board) = recompute_cow(state, obj, plan);
+    Projection {
+        characteristics: characteristics.into_owned(),
+        controller,
+        read_board,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn recompute_cow<'a>(
+    state: &GameState,
+    obj: &'a GameObject,
+    plan: &LayerPlan,
+) -> (std::borrow::Cow<'a, Characteristics>, PlayerId, bool) {
     // CR 406.3a: a face-down card in exile has no characteristics, including
     // its printed characteristic-defining abilities.
     if obj.zone == crate::zone::Zone::Exile && obj.status.contains(crate::object::Status::FACE_DOWN)
     {
-        return Projection {
-            characteristics: (*obj.base).clone(),
-            controller: obj.base_controller,
-            read_board: false,
-        };
+        return (
+            std::borrow::Cow::Borrowed(&obj.base),
+            obj.base_controller,
+            false,
+        );
     }
-    recompute_visible(state, obj, plan)
-}
-
-fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
-    let mut c = (*obj.base).clone();
+    let mut c: std::borrow::Cow<'a, Characteristics> = std::borrow::Cow::Borrowed(&obj.base);
     // CR 202.3e: on the stack, X is the number chosen for it.
-    c.x_on_stack = if obj.zone == crate::zone::Zone::Stack {
+    let want_x = if obj.zone == crate::zone::Zone::Stack {
         obj.x_value
     } else {
         0
     };
+    if c.x_on_stack != want_x {
+        c.to_mut().x_on_stack = want_x;
+    }
     // "As long as this permanent's dash cost was paid, it has haste"
     // (CR 702.109a): an ability of the permanent itself, so it is there
     // before any effect applies and an effect that removes abilities
     // (layer 6) removes it too.
-    if obj.riders.contains(&crate::object::Rider::Dashed) {
-        c.keywords = c.keywords.union(KeywordSet::HASTE);
+    if obj.riders.contains(&crate::object::Rider::Dashed) && !c.keywords.contains(KeywordSet::HASTE)
+    {
+        c.to_mut().keywords = c.keywords.union(KeywordSet::HASTE);
     }
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
@@ -276,54 +314,65 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
             // Text changes affect the type line and printed/copied keywords
             // here, before type-setting effects and later ability grants.
             let text = eval::live_context(state, obj.id).text;
-            let old_types = c.subtypes;
-            c.subtypes = text.land_types(c.subtypes);
-            if c.subtypes != old_types {
-                update_intrinsic_mana_summary(state, obj, &mut c, old_types);
-            }
-            c.keywords = text.keywords(c.keywords);
-        }
-        let dynamic_types = layer == Layer::Type && plan.conditional_animation;
-        let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {
-            plan.layer(layer).into()
-        } else {
-            SmallVec::new()
-        };
-        for ordered_idx in plan.candidates(layer, obj.id) {
-            let idx = if dynamic_types {
-                next_type_effect(state, obj, &c, all, &mut remaining)
-            } else {
-                ordered_idx
-            };
-            let fx = &all[idx as usize];
-            // CR 613.1: each layer sees the characteristics as modified by
-            // every earlier layer, so the filter is evaluated against the
-            // in-progress projection — an "all creatures get +1/+1" anthem
-            // has to see a land that layer 4 just animated.
-            let animation = crate::artifact_animation::animates(fx.modifier);
-            let applies_now = if animation && layer != Layer::Type {
-                animations.contains(&idx)
-            } else {
-                applies(state, fx, obj, &c) && (!animation || !c.types.contains(TypeSet::CREATURE))
-            };
-            if applies_now {
-                prohibited = prohibited.union(prohibited_keywords(&fx.modifier));
-                if animation && layer == Layer::Type {
-                    animations.push(idx);
+            if text != crate::text_changes::TextChangeMap::IDENTITY {
+                let old_types = c.subtypes;
+                let new_types = text.land_types(old_types);
+                let new_keywords = text.keywords(c.keywords);
+                if new_types != old_types || new_keywords != c.keywords {
+                    let c_mut = c.to_mut();
+                    c_mut.subtypes = new_types;
+                    if new_types != old_types {
+                        update_intrinsic_mana_summary(state, obj, c_mut, old_types);
+                    }
+                    c_mut.keywords = new_keywords;
                 }
-                #[cfg(test)]
-                crate::ability_log::static_applied(fx);
-                apply(
-                    &mut c,
-                    &mut controller,
-                    fx,
-                    state,
-                    obj,
-                    &mut read_board,
-                    layer,
-                );
-                // A prohibited grant must not be visible to later filters either.
-                c.keywords = c.keywords.difference(prohibited);
+            }
+        }
+        if !plan.layer(layer).is_empty() {
+            let dynamic_types = layer == Layer::Type && plan.conditional_animation;
+            let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {
+                plan.layer(layer).into()
+            } else {
+                SmallVec::new()
+            };
+            for ordered_idx in plan.candidates(layer, obj.id) {
+                let idx = if dynamic_types {
+                    next_type_effect(state, obj, &c, all, &mut remaining)
+                } else {
+                    ordered_idx
+                };
+                let fx = &all[idx as usize];
+                // CR 613.1: each layer sees the characteristics as modified by
+                // every earlier layer, so the filter is evaluated against the
+                // in-progress projection — an "all creatures get +1/+1" anthem
+                // has to see a land that layer 4 just animated.
+                let animation = crate::artifact_animation::animates(fx.modifier);
+                let applies_now = if animation && layer != Layer::Type {
+                    animations.contains(&idx)
+                } else {
+                    applies(state, fx, obj, &c)
+                        && (!animation || !c.types.contains(TypeSet::CREATURE))
+                };
+                if applies_now {
+                    prohibited = prohibited.union(prohibited_keywords(&fx.modifier));
+                    if animation && layer == Layer::Type {
+                        animations.push(idx);
+                    }
+                    #[cfg(test)]
+                    crate::ability_log::static_applied(fx);
+                    let c_mut = c.to_mut();
+                    apply(
+                        c_mut,
+                        &mut controller,
+                        fx,
+                        state,
+                        obj,
+                        &mut read_board,
+                        layer,
+                    );
+                    // A prohibited grant must not be visible to later filters either.
+                    c_mut.keywords = c_mut.keywords.difference(prohibited);
+                }
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On
@@ -339,8 +388,9 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
                     toughness_plus,
                 } => {
                     let n = pt_count(state, obj, &c, controller, count, context, &mut read_board);
-                    c.power = Some(n);
-                    c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+                    let c_mut = c.to_mut();
+                    c_mut.power = Some(n);
+                    c_mut.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
                 }
                 Modifier::CharacteristicPTSeparate { power, toughness } => {
                     let p = pt_count(state, obj, &c, controller, power, context, &mut read_board);
@@ -353,39 +403,28 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
                         context,
                         &mut read_board,
                     );
-                    c.power = Some(p);
-                    c.toughness = Some(t);
+                    let c_mut = c.to_mut();
+                    c_mut.power = Some(p);
+                    c_mut.toughness = Some(t);
                 }
                 _ => unreachable!("registered characteristic definition"),
             }
         }
-        if layer == Layer::PtCounters {
+        if layer == Layer::PtCounters && !obj.counters.is_empty() {
             apply_pt_counters(&mut c, obj);
         }
     }
-    finish_projection(state, obj, c, controller, read_board)
-}
-
-fn finish_projection(
-    state: &GameState,
-    obj: &GameObject,
-    mut c: Characteristics,
-    mut controller: PlayerId,
-    mut read_board: bool,
-) -> Projection {
     // Changeling (CR 702.73): every creature type, in eight word ORs.
-    if c.keywords.contains(KeywordSet::CHANGELING) {
-        c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE);
+    if c.keywords.contains(KeywordSet::CHANGELING)
+        && !c.subtypes.contains_all(SubtypeSet::ALL_CREATURE)
+    {
+        c.to_mut().subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE);
     }
     if state.effects.may_guard_permanents() {
         controller = crate::permanent_guards::permitted_controller(state, obj, &c, controller);
         read_board = true;
     }
-    Projection {
-        characteristics: c,
-        controller,
-        read_board,
-    }
+    (c, controller, read_board)
 }
 
 /// Replace only the type-derived portion of the production summary. A printed
@@ -483,7 +522,7 @@ fn update_intrinsic_mana_summary(
 /// toughness are therefore summed apart — one shared delta is right only
 /// while every counter is symmetric, which was true of +1/+1 and -1/-1 and
 /// is true of nothing else.
-fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
+fn apply_pt_counters(c: &mut std::borrow::Cow<'_, Characteristics>, obj: &GameObject) {
     if !c.types.contains(baylee_core::types::TypeSet::CREATURE) {
         return;
     }
@@ -499,6 +538,7 @@ fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
     if dp == 0 && dt == 0 {
         return;
     }
+    let c = c.to_mut();
     if let Some(p) = &mut c.power {
         *p = p.saturating_add(dp);
     }
@@ -592,6 +632,9 @@ fn applies(
     obj: &GameObject,
     projected: &Characteristics,
 ) -> bool {
+    if matches!(fx.filter, EffectFilter::ObjectIs(..)) && !fx.filter.names(obj) {
+        return false;
+    }
     if !crate::effects::source_is_present(state, fx) {
         return false;
     }

@@ -188,6 +188,9 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
 }
 
 fn word_changes(state: &GameState, id: ObjectId) -> Vec<baylee_view::WordChange> {
+    if state.text_changes.is_empty() {
+        return Vec::new();
+    }
     let Some(object) = state.object(id) else {
         return Vec::new();
     };
@@ -196,6 +199,9 @@ fn word_changes(state: &GameState, id: ObjectId) -> Vec<baylee_view::WordChange>
         version: object.version,
     };
     let map = state.text_changes.get(source);
+    if map == baylee_engine::text_changes::TextChangeMap::IDENTITY {
+        return Vec::new();
+    }
     let colors = baylee_core::color::Color::ALL
         .iter()
         .enumerate()
@@ -315,7 +321,11 @@ pub(super) fn public_object(
         base_power: obj.base.power,
         base_toughness: obj.base.toughness,
         loyalty: loyalty_now(obj, chars.loyalty),
-        battle_protector: baylee_engine::battle::protector(state, obj.id),
+        battle_protector: chars
+            .types
+            .contains(baylee_core::types::TypeSet::BATTLE)
+            .then(|| baylee_engine::battle::protector(state, obj.id))
+            .flatten(),
         mana_value: chars.mana_value(),
         damage: obj.damage,
         counters: obj

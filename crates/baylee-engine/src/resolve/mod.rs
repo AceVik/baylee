@@ -1303,24 +1303,26 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         _ => exec_immediate(state, res, op),
     };
     subjects::after(state, res, &before);
-    let created: Vec<_> = state
-        .effects
-        .iter()
-        .filter(|effect| {
-            effect.id.get() >= next_effect
-                && effect.origin == crate::effects::EffectOrigin::Resolution
-        })
-        .map(|effect| effect.id)
-        .collect();
-    for id in created {
-        if !state
-            .effect_text_overrides
+    if state.effects.hashed_parts().2 > next_effect {
+        let created: smallvec::SmallVec<[baylee_core::ids::EffectId; 4]> = state
+            .effects
             .iter()
-            .any(|(known, _)| *known == id)
-        {
-            state
+            .filter(|effect| {
+                effect.id.get() >= next_effect
+                    && effect.origin == crate::effects::EffectOrigin::Resolution
+            })
+            .map(|effect| effect.id)
+            .collect();
+        for id in created {
+            if !state
                 .effect_text_overrides
-                .push((id, crate::text_changes::TextOrigin::Frozen(res.text)));
+                .iter()
+                .any(|(known, _)| *known == id)
+            {
+                state
+                    .effect_text_overrides
+                    .push((id, crate::text_changes::TextOrigin::Frozen(res.text)));
+            }
         }
     }
     pending

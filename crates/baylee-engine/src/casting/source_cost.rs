@@ -106,6 +106,9 @@ pub(crate) fn live_allowance(
 }
 
 pub(crate) fn activation_increases(state: &GameState, source: ObjectId) -> (u32, u32) {
+    if !state.effects.may_change_or_forbid_abilities() {
+        return (0, 0);
+    }
     let Some(object) = state.object(source) else {
         return (0, 0);
     };

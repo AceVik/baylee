@@ -26,8 +26,8 @@ pub(crate) struct ReceiptRequirement {
 }
 
 struct Assignment {
-    symbols: Vec<ManaSymbol>,
-    minimum: Vec<u64>,
+    symbols: SmallVec<[ManaSymbol; 16]>,
+    minimum: SmallVec<[u64; 17]>,
     original: [[u32; 6]; 2],
     original_pools: [ManaPool; 2],
     receipts: [ReceiptRequirement; 2],
@@ -75,7 +75,7 @@ pub(crate) fn payment_with_source_receipts(
     if (0..2).any(|class| (0..6).any(|color| required[class][color] > original[class][color])) {
         return None;
     }
-    let mut symbols: Vec<_> = cost.symbols().collect();
+    let mut symbols: SmallVec<[ManaSymbol; 16]> = cost.symbols().collect();
     symbols.sort_by_key(|symbol| match symbol {
         ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => {
             (1, 0)
@@ -84,7 +84,7 @@ pub(crate) fn payment_with_source_receipts(
         ManaSymbol::Colorless | ManaSymbol::Snow => (0, 0),
         _ => (0, 1),
     });
-    let mut minimum = vec![0; symbols.len() + 1];
+    let mut minimum: SmallVec<[u64; 17]> = smallvec![0; symbols.len() + 1];
     for (i, symbol) in symbols.iter().enumerate().rev() {
         minimum[i] = minimum[i + 1]
             + match symbol {

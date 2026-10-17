@@ -22,7 +22,7 @@ impl crate::state::GameState {
         // drops what a source that left while phased out had set aside.
         // phasing: this walk is the one looking for phased-out permanents.
         let battlefield = self.zones.list(ZoneLocation::Battlefield);
-        let phased_out: Vec<ObjectId> = battlefield
+        let phased_out: smallvec::SmallVec<[ObjectId; 4]> = battlefield
             .iter()
             .copied()
             .filter(|&id| {
@@ -30,50 +30,58 @@ impl crate::state::GameState {
                     .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
             })
             .collect();
-        self.effects
-            .follow_phasing(|source| phased_out.contains(&source));
+        if !phased_out.is_empty() || self.effects.has_parked() {
+            self.effects
+                .follow_phasing(|source| phased_out.contains(&source));
+        }
         // Explicit source-zone statics stop at the actual zone change, including
         // graveyard removal before the next registration sweep.
-        let gone: Vec<_> = self
+        let gone: smallvec::SmallVec<[baylee_core::ids::EffectId; 8]> = self
             .effects
             .iter()
             .filter(|fx| !crate::effects::source_is_present(self, fx))
             .map(|fx| fx.id)
             .collect();
-        self.effects.remove_where(|fx| gone.contains(&fx.id));
+        if !gone.is_empty() {
+            self.effects.remove_where(|fx| gone.contains(&fx.id));
+        }
         // A blink can leave the same arena object on the battlefield with
         // a new rules identity. Its former printed/copied static must end
         // before the replacement registration affects the projection.
-        let stale: Vec<_> = self
-            .effects
-            .iter()
-            .filter_map(|effect| {
-                if effect.origin != crate::effects::EffectOrigin::Static
-                    || !matches!(
-                        effect.duration,
-                        Duration::WhileSourceOnBattlefield | Duration::WhileSourceInZone(_)
-                    )
-                {
-                    return None;
-                }
-                let (_, origin) = self
-                    .effect_text_overrides
-                    .iter()
-                    .find(|(id, _)| *id == effect.id)?;
-                let reference = match *origin {
-                    crate::text_changes::TextOrigin::Live(source)
-                    | crate::text_changes::TextOrigin::Ability { source, .. } => source,
-                    crate::text_changes::TextOrigin::Frozen(_) => return None,
-                };
-                // A gained static may instead quote a different grantor: that
-                // identity cannot be compared with the recipient's incarnation.
-                (effect.source == Some(reference.object)
-                    && self.source_identity(reference.object) != Some(reference))
-                .then_some(effect.id)
-            })
-            .collect();
-        self.effects
-            .remove_where(|effect| stale.contains(&effect.id));
+        if !self.effect_text_overrides.is_empty() {
+            let stale: smallvec::SmallVec<[baylee_core::ids::EffectId; 8]> = self
+                .effects
+                .iter()
+                .filter_map(|effect| {
+                    if effect.origin != crate::effects::EffectOrigin::Static
+                        || !matches!(
+                            effect.duration,
+                            Duration::WhileSourceOnBattlefield | Duration::WhileSourceInZone(_)
+                        )
+                    {
+                        return None;
+                    }
+                    let (_, origin) = self
+                        .effect_text_overrides
+                        .iter()
+                        .find(|(id, _)| *id == effect.id)?;
+                    let reference = match *origin {
+                        crate::text_changes::TextOrigin::Live(source)
+                        | crate::text_changes::TextOrigin::Ability { source, .. } => source,
+                        crate::text_changes::TextOrigin::Frozen(_) => return None,
+                    };
+                    // A gained static may instead quote a different grantor: that
+                    // identity cannot be compared with the recipient's incarnation.
+                    (effect.source == Some(reference.object)
+                        && self.source_identity(reference.object) != Some(reference))
+                    .then_some(effect.id)
+                })
+                .collect();
+            if !stale.is_empty() {
+                self.effects
+                    .remove_where(|effect| stale.contains(&effect.id));
+            }
+        }
         forget_effects_on_moved_objects(self);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
@@ -146,27 +154,29 @@ impl crate::state::GameState {
         self.refresh_characteristics();
         // Not a phased-out permanent: its statics wait parked for it, and a
         // condition on it is not asked while it does not exist.
-        let mut ids: Vec<ObjectId> = self.battlefield_view();
-        ids.extend(
-            self.offboard_static_candidates
-                .iter()
-                .copied()
-                .filter(|id| {
-                    self.object(*id).is_some_and(|object| {
-                        !matches!(object.zone, Zone::Battlefield | Zone::OutsideGame)
-                    })
-                }),
-        );
+        let ids =
+            self.battlefield_seen()
+                .chain(
+                    self.offboard_static_candidates
+                        .iter()
+                        .copied()
+                        .filter(|id| {
+                            self.object(*id).is_some_and(|object| {
+                                !matches!(object.zone, Zone::Battlefield | Zone::OutsideGame)
+                            })
+                        }),
+                );
         let mut to_register = Vec::new();
-        let mut lapsed = Vec::new();
+        let mut lapsed: smallvec::SmallVec<[baylee_core::ids::EffectId; 8]> =
+            smallvec::SmallVec::new();
         for id in ids {
             let Some(obj) = self.object(id) else {
                 continue;
             };
             let lost = obj.characteristics().abilities_lost.is_some();
             let text_lost = obj.characteristics().rules_text_lost;
-            let list = obj.printed_ability_list(lookup);
-            for (index, ability) in list.abilities.iter().enumerate() {
+            let abilities = obj.printed_abilities(lookup);
+            for (index, ability) in abilities.iter().enumerate() {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
@@ -185,7 +195,7 @@ impl crate::state::GameState {
                 let origin = crate::text_changes::TextOrigin::Ability {
                     source: identity,
                     index: index as u32,
-                    base: list.base_text(index),
+                    base: abilities.base_text(index),
                 };
                 let context = crate::text_changes::RuleContext {
                     source: id,
@@ -254,15 +264,14 @@ impl crate::state::GameState {
             if obj.zone != Zone::Battlefield {
                 continue;
             }
-            for (offset, ability) in list.runtime_statics().iter().enumerate() {
+            for (offset, ability) in abilities.runtime_statics().iter().enumerate() {
                 let layer = ability.modifier.layer();
                 let origin = crate::text_changes::TextOrigin::Ability {
                     source: baylee_core::ids::DamageSourceRef {
                         object: id,
                         version: obj.version,
                     },
-                    index: u32::try_from(list.abilities.len() + offset)
-                        .expect("ability index fits u32"),
+                    index: u32::try_from(abilities.len() + offset).expect("ability index fits u32"),
                     base: ability.base_text,
                 };
                 let registered = self
@@ -305,8 +314,10 @@ impl crate::state::GameState {
                 }
             }
         }
-        self.effects
-            .remove_where(|effect| lapsed.contains(&effect.id));
+        if !lapsed.is_empty() {
+            self.effects
+                .remove_where(|effect| lapsed.contains(&effect.id));
+        }
         to_register.extend(
             emblem_statics(self)
                 .into_iter()
@@ -330,23 +341,20 @@ impl crate::state::GameState {
     /// registers the new ones. A permanent that phases in is scanned again
     /// like one that arrived, so its rules come back from its abilities.
     fn sync_replacement_rules(&mut self, lookup: &impl CardLookup) {
-        let gone_rules: Vec<ObjectId> = self
-            .replacement_rules
-            .iter()
-            .map(|r| r.source)
-            .filter(|s| {
-                self.object(*s).is_none_or(|o| {
-                    o.zone != Zone::Battlefield
-                        || o.status.contains(crate::object::Status::PHASED_OUT)
-                        || o.characteristics().abilities_lost.is_some()
-                        || o.characteristics().rules_text_lost
+        if !self.replacement_rules.is_empty() {
+            let arena = &self.arena;
+            self.replacement_rules.retain(|r| {
+                arena.get(r.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && !o.status.contains(crate::object::Status::PHASED_OUT)
+                        && o.characteristics().abilities_lost.is_none()
+                        && !o.characteristics().rules_text_lost
                 })
-            })
-            .collect();
-        self.replacement_rules
-            .retain(|r| !gone_rules.contains(&r.source));
-        let mut rules_to_add = Vec::new();
-        for id in self.battlefield_view() {
+            });
+        }
+        let mut rules_to_add: smallvec::SmallVec<[crate::state::ReplacementEntry; 4]> =
+            smallvec::SmallVec::new();
+        for id in self.battlefield_seen() {
             let Some(obj) = self.object(id) else {
                 continue;
             };

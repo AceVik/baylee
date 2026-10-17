@@ -11,10 +11,11 @@ use super::*;
 /// payable was never offered as castable in the first place.
 #[must_use]
 pub fn mana_is_wild(state: &GameState) -> bool {
-    state
-        .effects
-        .iter()
-        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
+    state.effects.may_change_mana_spending()
+        && state
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
 }
 
 /// The live permissions for `player` to spend actual mana as another type.
@@ -22,6 +23,9 @@ pub fn mana_is_wild(state: &GameState) -> bool {
 /// and removes effects whose source left, phased out or lost its ability.
 #[must_use]
 pub fn mana_spending(state: &GameState, player: PlayerId) -> ManaSpending {
+    if !state.effects.may_change_mana_spending() {
+        return ManaSpending::EXACT;
+    }
     let mut spending = if mana_is_wild(state) {
         ManaSpending::ANY_COLOR
     } else {
@@ -43,6 +47,9 @@ pub fn ability_mana_spending(
     player: PlayerId,
     source: ObjectId,
 ) -> ManaSpending {
+    if !state.effects.may_change_mana_spending() {
+        return ManaSpending::EXACT;
+    }
     let mut spending = mana_spending(state, player);
     let creature = state.object(source).is_some_and(|object| {
         object.zone == Zone::Battlefield
@@ -334,13 +341,14 @@ impl SpellAdjustment {
 }
 
 fn has_spell_adjustments(state: &GameState) -> bool {
-    state.effects.iter().any(|fx| {
-        matches!(
-            fx.modifier,
-            baylee_cards_dsl::Modifier::SpellsCostMore(_)
-                | baylee_cards_dsl::Modifier::SpellsCostLess(_)
-        )
-    })
+    state.effects.may_change_spell_costs()
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostLess(_)
+            )
+        })
 }
 
 /// Match the projected stack characteristics, including alternative faces.
@@ -444,6 +452,9 @@ pub(crate) fn face_increase(
 /// filter's normal zone boundary deliberately excludes white enchantment
 /// *cards* cycling in hand; Gloom names enchantments, i.e. permanents.
 pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
+    if !state.effects.may_change_or_forbid_abilities() {
+        return 0;
+    }
     let Some(object) = state.object(source) else {
         return 0;
     };
@@ -466,6 +477,9 @@ pub(crate) fn north_star_effect(
     state: &GameState,
     player: PlayerId,
 ) -> Option<baylee_core::ids::EffectId> {
+    if !state.effects.may_change_mana_spending() {
+        return None;
+    }
     state
         .effects
         .iter()

@@ -115,6 +115,9 @@ impl TextChangeMap {
     /// Map every color word in a filter or an explicit color-setting effect.
     #[must_use]
     pub fn color_words(self, colors: ColorSet) -> ColorSet {
+        if self == Self::IDENTITY || colors.is_colorless() {
+            return colors;
+        }
         Color::ALL
             .into_iter()
             .fold(ColorSet::EMPTY, |mapped, color| {
@@ -129,6 +132,9 @@ impl TextChangeMap {
     /// Map a basic land type word; other subtypes retain their identity.
     #[must_use]
     pub fn land_type(self, subtype: SubtypeId) -> SubtypeId {
+        if self == Self::IDENTITY {
+            return subtype;
+        }
         BASIC_LAND_TYPES
             .iter()
             .position(|original| *original == subtype)
@@ -140,6 +146,9 @@ impl TextChangeMap {
     /// Map the type line or token-defined subtype words simultaneously.
     #[must_use]
     pub fn land_types(self, subtypes: SubtypeSet) -> SubtypeSet {
+        if self == Self::IDENTITY {
+            return subtypes;
+        }
         let mut mapped = subtypes;
         for original in BASIC_LAND_TYPES {
             mapped.remove(original);
@@ -156,6 +165,9 @@ impl TextChangeMap {
     /// Other keyword reminder text is not rules text to be substituted.
     #[must_use]
     pub fn keywords(self, keywords: KeywordSet) -> KeywordSet {
+        if self == Self::IDENTITY || keywords.is_empty() {
+            return keywords;
+        }
         let all = LANDWALK
             .into_iter()
             .fold(KeywordSet::EMPTY, KeywordSet::union);
@@ -172,6 +184,9 @@ impl TextChangeMap {
     /// Names and the semantics hidden inside a keyword are deliberately intact.
     #[must_use]
     pub fn filter_leaf(self, filter: Filter) -> Filter {
+        if self == Self::IDENTITY {
+            return filter;
+        }
         match filter {
             Filter::HasColor(colors) => Filter::HasColor(self.color_words(colors)),
             Filter::HasSubtype(subtype) => Filter::HasSubtype(self.land_type(subtype)),
@@ -186,6 +201,9 @@ impl TextChangeMap {
     #[must_use]
     pub fn effect_immediate(self, effect: baylee_cards_dsl::Effect) -> baylee_cards_dsl::Effect {
         use baylee_cards_dsl::Effect;
+        if self == Self::IDENTITY {
+            return effect;
+        }
         match effect {
             Effect::GrantSubtype { subtype } => Effect::GrantSubtype {
                 subtype: self.land_type(subtype),
@@ -206,6 +224,9 @@ impl TextChangeMap {
     /// Direct typed operands; nested filters use this same map when evaluated.
     #[must_use]
     pub fn modifier(self, modifier: Modifier) -> Modifier {
+        if self == Self::IDENTITY {
+            return modifier;
+        }
         match modifier {
             Modifier::AddColor(colors) => Modifier::AddColor(self.color_words(colors)),
             Modifier::SetColor(colors) => Modifier::SetColor(self.color_words(colors)),
@@ -267,6 +288,13 @@ pub struct TextChanges {
 }
 
 impl TextChanges {
+    /// Whether any object currently has a non-identity text change.
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     /// Deterministic insertion order, suitable for snapshots and fingerprints.
     #[must_use]
     pub fn entries(&self) -> &[TextChangeEntry] {
@@ -276,6 +304,9 @@ impl TextChanges {
     /// Unchanged text when this incarnation has no entry.
     #[must_use]
     pub fn get(&self, object: DamageSourceRef) -> TextChangeMap {
+        if self.entries.is_empty() {
+            return TextChangeMap::IDENTITY;
+        }
         self.entries
             .iter()
             .find(|entry| entry.object == object)
@@ -363,7 +394,13 @@ impl TextOrigin {
     pub fn resolve(self, changes: &TextChanges) -> TextChangeMap {
         match self {
             Self::Live(object) => changes.get(object),
-            Self::Ability { source, base, .. } => base.then(changes.get(source)),
+            Self::Ability { source, base, .. } => {
+                if changes.is_empty() {
+                    base
+                } else {
+                    base.then(changes.get(source))
+                }
+            }
             Self::Frozen(map) => map,
         }
     }

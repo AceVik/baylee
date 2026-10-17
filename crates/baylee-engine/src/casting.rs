@@ -586,26 +586,31 @@ pub(crate) fn timing_allows(
 ) -> bool {
     // Teferi's restriction forces sorcery-speed timing on everything for
     // opponents.
-    let teferi_lock = state.effects.iter().any(|fx| {
-        matches!(
-            fx.modifier,
-            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-        ) && state.is_opponent(fx.controller, player)
-    });
+    let teferi_lock = state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+            ) && state.is_opponent(fx.controller, player)
+        });
     // Flash (CR 702.8a) makes a card castable whenever an instant could be
     // — Snapcaster Mage, Restoration Angel, the whole free-spell cycle.
     let is_instant =
         types.contains(TypeSet::INSTANT) || keywords.contains(baylee_cards_dsl::KeywordSet::FLASH);
-    let granted_flash = state.effects.iter().any(|fx| {
-        fx.controller == player
-            && match fx.modifier {
-                baylee_cards_dsl::Modifier::SorceriesHaveFlash => types.contains(TypeSet::SORCERY),
-                baylee_cards_dsl::Modifier::SpellsHaveFlash(allowed) => {
-                    allowed.is_none_or(|mask| types.intersects(mask))
+    let granted_flash = !is_instant
+        && state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            fx.controller == player
+                && match fx.modifier {
+                    baylee_cards_dsl::Modifier::SorceriesHaveFlash => {
+                        types.contains(TypeSet::SORCERY)
+                    }
+                    baylee_cards_dsl::Modifier::SpellsHaveFlash(allowed) => {
+                        allowed.is_none_or(|mask| types.intersects(mask))
+                    }
+                    _ => false,
                 }
-                _ => false,
-            }
-    });
+        });
     if teferi_lock || (!is_instant && !granted_flash) {
         let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
         return main_phase && state.turn.active == player && state.zones.stack_is_empty();
@@ -674,24 +679,25 @@ pub(crate) fn cast_is_forbidden(
     player: PlayerId,
     obj: &crate::object::GameObject,
 ) -> bool {
-    state.effects.iter().any(|fx| {
-        if let baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } = fx.modifier {
-            return crate::eval::players(who, state, fx.controller)
-                .is_some_and(|players| players.contains(&player))
-                && state.per_turn.spells_cast_by(player) >= limit;
-        }
-        let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
-            return false;
-        };
-        state.is_opponent(fx.controller, player)
-            && crate::eval::matches(
-                filter,
-                state,
-                obj,
-                fx.controller,
-                fx.source.unwrap_or(obj.id),
-            )
-    })
+    state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            if let baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } = fx.modifier {
+                return crate::eval::players(who, state, fx.controller)
+                    .is_some_and(|players| players.contains(&player))
+                    && state.per_turn.spells_cast_by(player) >= limit;
+            }
+            let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
+                return false;
+            };
+            state.is_opponent(fx.controller, player)
+                && crate::eval::matches(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    fx.source.unwrap_or(obj.id),
+                )
+        })
 }
 
 /// Whether a continuous effect grants `card` flashback (CR 702.34) right now.
@@ -703,6 +709,9 @@ pub(crate) fn cast_is_forbidden(
 /// Static grants may remain dynamic. Both use the shared effect matcher.
 #[must_use]
 pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return false;
+    }
     let Some(obj) = state.object(card) else {
         return false;
     };
