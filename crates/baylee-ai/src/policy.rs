@@ -1782,6 +1782,46 @@ pub(crate) fn pays_tax(
     if !refusal_costs_a_card {
         return false;
     }
+    let is_upkeep_sacrifice = context.effects.iter().any(|effect| {
+        matches!(
+            effect,
+            Effect::PlayerMayPayOr {
+                effect: Effect::SacrificeSelf,
+                ..
+            } | Effect::PlayerMayPayManaOr {
+                effect: Effect::SacrificeSelf,
+                ..
+            }
+        )
+    });
+    if is_upkeep_sacrifice {
+        let is_cumulative = context.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::PlayerMayPayOr {
+                    mana: baylee_cards_dsl::Amount::CountersOnSource(
+                        baylee_cards_dsl::counters::AGE
+                    ),
+                    effect: Effect::SacrificeSelf,
+                    ..
+                }
+            )
+        });
+        if is_cumulative && !hand(view).is_empty() && price.cmc() >= 3 {
+            return false;
+        }
+        let castable_spells: Vec<ManaCost> = hand(view)
+            .iter()
+            .filter(|c| !c.types.contains(TypeSet::LAND))
+            .filter_map(|c| face(c.card).map(|f| f.mana_cost))
+            .filter(|cost| can_pay(view, cost))
+            .collect();
+        if !castable_spells.is_empty() {
+            return castable_spells
+                .iter()
+                .any(|spell| can_pay(view, &price.combine(spell)));
+        }
+    }
     can_pay(view, &price)
 }
 

@@ -567,6 +567,14 @@ fn a_warded_spell_is_paid_for_instead_of_being_countered() {
         PlayerAction::YesNo(false),
         "and let go when they do not"
     );
+
+    let mut with_spell = v.clone();
+    with_spell.hand = vec![hand_card(10, "Llanowar Elves")];
+    assert_eq!(
+        agent().act_with_context(&with_spell, &pending, &upkeep),
+        PlayerAction::YesNo(false),
+        "upkeep that would consume all mana needed for a castable spell in hand is declined"
+    );
 }
 
 #[test]
