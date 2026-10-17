@@ -234,7 +234,7 @@ fn historical_source_projection_retains_a_ceased_tokens_registry_identity() {
         player,
         Some(&pending),
         &SeatContext::default(),
-        &state.stack_source_references(),
+        &mut None,
     )
     .into_iter()
     .find(|r| r.source == source)
@@ -320,7 +320,7 @@ fn historical_source_projection_uses_its_own_visibility_not_the_returned_cards_i
             viewer,
             Some(&pending),
             &SeatContext::default(),
-            &state.stack_source_references(),
+            &mut None,
         );
         let row = rows.iter().find(|row| row.source == source).unwrap();
         assert!(!row.is_current);
@@ -335,7 +335,7 @@ fn historical_source_projection_uses_its_own_visibility_not_the_returned_cards_i
                 controller,
                 Some(&pending),
                 &SeatContext::default(),
-                &state.stack_source_references()
+                &mut None,
             )
             .is_empty()
         );

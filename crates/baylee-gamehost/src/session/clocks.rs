@@ -68,6 +68,9 @@ impl Session {
     /// because the seat asked before them had one.
     #[must_use]
     pub fn decision_remaining_ms(&self, seat: PlayerId) -> Option<u32> {
+        if self.needs_pump() {
+            return None;
+        }
         let asked_at = self.asked_at(seat)?;
         if let Some(Some((seq, reading))) = self.clock.get(seat.get() as usize)
             && *seq == asked_at

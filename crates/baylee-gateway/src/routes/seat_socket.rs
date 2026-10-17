@@ -258,6 +258,35 @@ async fn attach(state: &Shared, game_id: &str, seat: usize) -> Option<Attached> 
     to_engine(&link, attach).then_some(Attached { rx, changed, link })
 }
 
+/// Sends `first` and up to 64 immediately queued frames from `rx` in a single
+/// WebSocket flush. Returns `Ok(Some(n))` if `rx` reported lagging by `n`
+/// messages after the batch, `Ok(None)` if flushed normally, or `Err(())` if
+/// the socket failed.
+pub(crate) async fn send_broadcast_batch(
+    socket: &mut WebSocket,
+    first: bytes::Bytes,
+    rx: &mut tokio::sync::broadcast::Receiver<bytes::Bytes>,
+) -> Result<Option<u64>, ()> {
+    use futures_util::SinkExt as _;
+    use tokio::sync::broadcast::error::TryRecvError;
+    socket.feed(Message::Binary(first)).await.map_err(|_| ())?;
+    let mut lagged = None;
+    for _ in 0..64 {
+        match rx.try_recv() {
+            Ok(more) => {
+                socket.feed(Message::Binary(more)).await.map_err(|_| ())?;
+            }
+            Err(TryRecvError::Lagged(n)) => {
+                lagged = Some(n);
+                break;
+            }
+            Err(TryRecvError::Empty | TryRecvError::Closed) => break,
+        }
+    }
+    socket.flush().await.map_err(|_| ())?;
+    Ok(lagged)
+}
+
 /// One seat's socket: everything it says goes to the engine tagged with its
 /// seat, and everything the engine addresses to that seat comes back.
 ///
@@ -326,29 +355,29 @@ pub(crate) async fn run_game_socket(
                 }
             }
             update = rx.recv() => {
-                match update {
+                let lagged = match update {
                     Ok(bytes) => {
-                        if futures_util::SinkExt::send(&mut socket, Message::Binary(bytes))
-                            .await
-                            .is_err()
-                        {
+                        let Ok(lagged) = send_broadcast_batch(&mut socket, bytes, &mut rx).await
+                        else {
                             break;
-                        }
+                        };
+                        lagged
                     }
-                    Err(RecvError::Lagged(n)) => {
-                        // Dropping the player was the old answer. Now that a
-                        // seat's whole state can be rebuilt on demand, ask for
-                        // it instead: the gap in the stream stops mattering.
-                        tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
-                        let resync = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
-                            seat: seat as u32,
-                            resync: true,
-                        });
-                        if !to_engine(&link, resync) {
-                            break;
-                        }
-                    }
+                    Err(RecvError::Lagged(n)) => Some(n),
                     Err(RecvError::Closed) => break,
+                };
+                if let Some(n) = lagged {
+                    // Dropping the player was the old answer. Now that a
+                    // seat's whole state can be rebuilt on demand, ask for
+                    // it instead: the gap in the stream stops mattering.
+                    tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
+                    let resync = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                        seat: seat as u32,
+                        resync: true,
+                    });
+                    if !to_engine(&link, resync) {
+                        break;
+                    }
                 }
             }
             // Its player's account was deleted (#292): the chair is the

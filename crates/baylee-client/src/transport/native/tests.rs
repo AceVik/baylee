@@ -180,3 +180,31 @@ fn socket_sends_after_idle_reads_for_all_timeout_options() {
         assert!(matches!(peer.read().unwrap(), Message::Close(None)));
     }
 }
+
+#[test]
+fn socket_batches_queued_outbound_burst_without_read_timeout_stalls() {
+    let read_timeout = Duration::from_millis(250);
+    let (mut sender, _receiver, mut peer) = loopback(ewebsock::Options {
+        read_timeout: Some(read_timeout),
+        ..Default::default()
+    });
+    // Wait for the worker thread to enter its blocking `socket.read()`.
+    std::thread::sleep(Duration::from_millis(40));
+
+    // Queue a burst of 8 frames while the worker is in `socket.read()`.
+    // Once the single read timeout expires, all 8 frames must be drained
+    // and flushed in one cycle rather than stalling 250ms per frame.
+    for i in 0..8_u8 {
+        sender.send(WsMessage::Binary(vec![i; 64]));
+    }
+    assert_eq!(peer.read().unwrap(), Message::binary(vec![0_u8; 64]));
+    let after_first = Instant::now();
+    for i in 1..8_u8 {
+        assert_eq!(peer.read().unwrap(), Message::binary(vec![i; 64]));
+    }
+    assert!(
+        after_first.elapsed() < Duration::from_millis(150),
+        "remaining 7 frames of the burst took {:?}, expected a single batched flush",
+        after_first.elapsed()
+    );
+}

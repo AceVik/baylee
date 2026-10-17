@@ -170,10 +170,22 @@ where
     let writer = tokio::spawn(async move {
         while let Some(envelope) = outbox.recv().await {
             if sink
-                .send(Message::Binary(envelope.encode_to_vec().into()))
+                .feed(Message::Binary(envelope.encode_to_vec().into()))
                 .await
                 .is_err()
             {
+                break;
+            }
+            while let Ok(next) = outbox.try_recv() {
+                if sink
+                    .feed(Message::Binary(next.encode_to_vec().into()))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            if sink.flush().await.is_err() {
                 break;
             }
         }

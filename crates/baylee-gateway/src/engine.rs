@@ -272,7 +272,7 @@ async fn pump_agent(
         tokio::select! {
             order = rx.recv() => {
                 let Some(order) = order else { return };
-                if send(socket, &order).await.is_err() {
+                if send_queued(socket, &order, rx).await.is_err() {
                     return;
                 }
             }
@@ -486,14 +486,16 @@ async fn pump_engine(
     rx: &mut mpsc::UnboundedReceiver<Envelope>,
     record: &mut crate::record::Sink,
 ) {
-    // Each seat's channel, looked up under the lobby lock once and kept:
-    // a frame the engine sends then takes no lock at all on its way out.
+    // Each seat's channel (and the public spectator channel), looked up under
+    // the lobby lock once and kept: a frame the engine sends then takes no
+    // lock at all on its way out.
     let mut outboxes = Vec::new();
+    let mut spectator_outbox = None;
     loop {
         tokio::select! {
             outbound = rx.recv() => {
                 let Some(outbound) = outbound else { return };
-                if send(socket, &outbound).await.is_err() {
+                if send_queued(socket, &outbound, rx).await.is_err() {
                     return;
                 }
             }
@@ -510,14 +512,8 @@ async fn pump_engine(
                     // The public table, to every spectator at once
                     // (`docs/protocol.md` §"Spectators").
                     Incoming::Msg(v1::envelope::Msg::SpectatorFrame(frame)) => {
-                        let outbox = state
-                            .lobby
-                            .lock()
-                            .games
-                            .get(game_id)
-                            .map(|g| g.spectator_outbox.clone());
-                        if let Some(outbox) = outbox {
-                            let _ = outbox.send(frame.envelope.into());
+                        if let Some(outbox) = spectator_outbox_of(state, game_id, &mut spectator_outbox) {
+                            let _ = outbox.send(frame.envelope);
                         }
                     }
                     // Never forwarded: the record is omniscient (#315).
@@ -617,6 +613,23 @@ fn outbox_of<'a>(
     cache[seat].as_ref()
 }
 
+/// The public spectator channel in `game_id`, from `cache` or the lobby.
+fn spectator_outbox_of<'a>(
+    state: &Shared,
+    game_id: &str,
+    cache: &'a mut Option<broadcast::Sender<Bytes>>,
+) -> Option<&'a broadcast::Sender<Bytes>> {
+    if cache.is_none() {
+        *cache = state
+            .lobby
+            .lock()
+            .games
+            .get(game_id)
+            .map(|g| g.spectator_outbox.clone());
+    }
+    cache.as_ref()
+}
+
 /// The one frame a refused agent or engine is sent before its socket closes.
 fn refusal(why: &str) -> Envelope {
     Envelope {
@@ -689,6 +702,27 @@ async fn send(socket: &mut WebSocket, envelope: &Envelope) -> Result<(), ()> {
     futures_util::SinkExt::send(socket, Message::Binary(envelope.encode_to_vec().into()))
         .await
         .map_err(|_| ())
+}
+
+/// Sends `first` and any queued envelopes on `rx` in one flush, or reports
+/// that the socket is gone.
+async fn send_queued(
+    socket: &mut WebSocket,
+    first: &Envelope,
+    rx: &mut mpsc::UnboundedReceiver<Envelope>,
+) -> Result<(), ()> {
+    use futures_util::SinkExt as _;
+    socket
+        .feed(Message::Binary(first.encode_to_vec().into()))
+        .await
+        .map_err(|_| ())?;
+    while let Ok(next) = rx.try_recv() {
+        socket
+            .feed(Message::Binary(next.encode_to_vec().into()))
+            .await
+            .map_err(|_| ())?;
+    }
+    socket.flush().await.map_err(|_| ())
 }
 
 #[cfg(test)]

@@ -264,26 +264,34 @@ mod native {
             return socket.close(None).map_err(|err| err.to_string());
         }
         loop {
-            match rx.try_recv() {
-                Ok(message) => {
-                    let message = match message {
-                        WsMessage::Text(text) => tungstenite::Message::Text(text.into()),
-                        WsMessage::Binary(data) => tungstenite::Message::Binary(data.into()),
-                        WsMessage::Ping(data) => tungstenite::Message::Ping(data.into()),
-                        WsMessage::Pong(data) => tungstenite::Message::Pong(data.into()),
-                        WsMessage::Unknown(_) => continue,
-                    };
-                    if let Err(err) = socket.send(message) {
-                        socket.close(None).ok();
-                        return Err(format!("send: {err}"));
+            let mut wrote = false;
+            loop {
+                match rx.try_recv() {
+                    Ok(message) => {
+                        let message = match message {
+                            WsMessage::Text(text) => tungstenite::Message::Text(text.into()),
+                            WsMessage::Binary(data) => tungstenite::Message::Binary(data.into()),
+                            WsMessage::Ping(data) => tungstenite::Message::Ping(data.into()),
+                            WsMessage::Pong(data) => tungstenite::Message::Pong(data.into()),
+                            WsMessage::Unknown(_) => continue,
+                        };
+                        if let Err(err) = socket.write(message) {
+                            socket.close(None).ok();
+                            return Err(format!("send: {err}"));
+                        }
+                        wrote = true;
                     }
+                    Err(TryRecvError::Disconnected) => {
+                        socket.close(None).ok();
+                        socket.flush().ok();
+                        return Ok(());
+                    }
+                    Err(TryRecvError::Empty) => break,
                 }
-                Err(TryRecvError::Disconnected) => {
-                    socket.close(None).ok();
-                    socket.flush().ok();
-                    return Ok(());
-                }
-                Err(TryRecvError::Empty) => {}
+            }
+            if wrote && let Err(err) = socket.flush() {
+                socket.close(None).ok();
+                return Err(format!("flush: {err}"));
             }
             let control = match socket.read() {
                 Ok(tungstenite::Message::Text(text)) => {

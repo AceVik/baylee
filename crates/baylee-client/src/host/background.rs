@@ -11,6 +11,7 @@ struct Reply {
     messages: Vec<HostMessage>,
     record: Vec<u8>,
     resume: Option<ResumePoint>,
+    done: bool,
 }
 
 pub(super) struct BackgroundHost {
@@ -43,9 +44,26 @@ impl BackgroundHost {
                 let mut recorded = 0;
                 loop {
                     let mut messages = host.poll();
-                    // A session bounds one pump. Reaching its limit is more
-                    // work, not a new human question; finish on this worker.
+                    // A session bounds one pump slice. If the slice produced
+                    // intermediate progress while the house still has more
+                    // steps to run, stream it to the UI so long turns update
+                    // live; only mark the operation done once `host.busy()`
+                    // clears.
                     while host.busy() {
+                        if !messages.is_empty() {
+                            let record = host.local_record().unwrap_or_default();
+                            let fresh = record[recorded..].to_vec();
+                            recorded = record.len();
+                            let progress = Reply {
+                                messages: std::mem::take(&mut messages),
+                                record: fresh,
+                                resume: None,
+                                done: false,
+                            };
+                            if output.send(progress).is_err() {
+                                return;
+                            }
+                        }
                         messages.extend(host.poll());
                     }
                     let record = host.local_record().unwrap_or_default();
@@ -55,6 +73,7 @@ impl BackgroundHost {
                         messages,
                         record: fresh,
                         resume: host.resume_point(),
+                        done: true,
                     };
                     if output.send(reply).is_err() {
                         break;
@@ -85,8 +104,8 @@ impl DuelHost for BackgroundHost {
         if self.failed {
             return Vec::new();
         }
-        // One completed operation per frame. Never drain a producer that can
-        // refill the queue faster than the renderer consumes it.
+        // One slice or completed operation per frame. Never drain a producer
+        // that can refill the queue faster than the renderer consumes it.
         match self
             .replies
             .get_mut()
@@ -94,9 +113,11 @@ impl DuelHost for BackgroundHost {
             .try_recv()
         {
             Ok(reply) => {
-                self.outstanding = self.outstanding.saturating_sub(1);
                 self.record.extend(reply.record);
-                self.resume = reply.resume;
+                if reply.done {
+                    self.outstanding = self.outstanding.saturating_sub(1);
+                    self.resume = reply.resume;
+                }
                 reply.messages
             }
             Err(mpsc::TryRecvError::Empty) => Vec::new(),

@@ -184,3 +184,93 @@ fn polling_continues_a_budget_exhausted_house_turn() {
     assert!(messages.iter().any(|m| matches!(m, HostMessage::Choice(_))));
     assert!(messages.iter().any(|m| matches!(m, HostMessage::View(..))));
 }
+
+#[test]
+fn sliced_background_worker_streams_live_views_while_busy_and_matches_synchronous_play() {
+    let preset = crate::host::tests::duel_preset();
+    let seat = PlayerId::new(0);
+    let names = ["You", "House"];
+    let mut reference = LocalHost::new(&preset, seat, &names).unwrap();
+    let mut worker = BackgroundHost::new(
+        LocalHost::new(&preset, seat, &names)
+            .unwrap()
+            .with_pump_budget(1),
+    );
+    reference.poll();
+    let mut opening = next(&mut worker);
+    while worker.busy() {
+        opening.extend(next(&mut worker));
+    }
+    assert!(
+        opening.iter().any(|m| matches!(m, HostMessage::Static(_))),
+        "opening poll delivers GameStatic"
+    );
+
+    let mut saw_streaming_slices = false;
+    for _ in 0..24 {
+        assert_eq!(worker.resume_point().unwrap().hash, reference.hash());
+        let Some(action) = reference.session.house_action(seat) else {
+            break;
+        };
+        worker.submit(action.clone());
+        reference.submit(action);
+        reference.poll();
+
+        let mut slices = 0usize;
+        let mut all_messages = Vec::new();
+        loop {
+            let batch = next(&mut worker);
+            slices += 1;
+            let still_busy = worker.busy();
+            if still_busy {
+                saw_streaming_slices = true;
+                assert!(
+                    worker.resume_point().is_none(),
+                    "resume_point must remain None while the house turn is still in flight"
+                );
+                assert!(
+                    !batch.iter().any(|m| matches!(m, HostMessage::Choice(_))),
+                    "intermediate slice must not deliver a premature Choice"
+                );
+                assert!(
+                    batch.iter().any(|m| matches!(m, HostMessage::View(..))),
+                    "intermediate slice must stream a live View update"
+                );
+            }
+            all_messages.extend(batch);
+            if !still_busy {
+                break;
+            }
+            assert!(slices < 500, "background worker must finish house turn");
+        }
+        assert!(
+            all_messages
+                .iter()
+                .any(|m| matches!(m, HostMessage::View(..))),
+            "turn produced at least one View"
+        );
+        assert_eq!(
+            worker.resume_point().unwrap().hash,
+            reference.hash(),
+            "sliced background worker matches synchronous reference after turn completion"
+        );
+    }
+    assert!(
+        saw_streaming_slices,
+        "duel must stream multiple slices through BackgroundHost when pump_budget=1"
+    );
+    let point = worker.resume_point().unwrap();
+    assert_eq!(point.hash, reference.hash());
+    let resumed = LocalHost::resume(
+        worker.local_record().unwrap().to_vec(),
+        &point.record,
+        seat,
+        &point.names,
+    )
+    .unwrap();
+    assert_eq!(resumed.hash(), point.hash);
+    assert_eq!(
+        format!("{:?}", resumed.session.pending()),
+        format!("{:?}", reference.session.pending())
+    );
+}

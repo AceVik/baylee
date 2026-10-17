@@ -38,7 +38,19 @@ pub mod projection;
 
 pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};
 pub use frames::{curtain, seat_frame};
-use frames::{ended, error};
+use frames::{ended, error, seat_frames};
+
+/// Default maximum house steps answered in one synchronous call to
+/// [`EngineRunner`]; [`EngineRunner::with_pump_budget`] lowers this on an
+/// event loop so incoming control frames and incremental state deltas are
+/// interleaved without blocking the link.
+pub const DEFAULT_PUMP_BUDGET: usize = 4096;
+
+/// Slice budget for an attached engine's async event loop: small enough that
+/// `ClockProbe`, `FlushRecord`, `SeatAttached`, `SeatSetting` and priority
+/// holds are answered within milliseconds even under maximum AI/combo load,
+/// while streaming live `StateDelta` progress after each slice.
+pub const ATTACHED_PUMP_SLICE: usize = 128;
 
 /// How long a table waits for preparation before failing explicitly.
 /// A slow or missing seat never causes an unready table to open.
@@ -89,7 +101,6 @@ impl Barrier {
 }
 
 /// A game, and everything the gateway can ask of it.
-#[derive(Default)]
 pub struct EngineRunner {
     /// The game this process was started for.
     game_id: String,
@@ -132,6 +143,30 @@ pub struct EngineRunner {
     now: u64,
     /// Shared portal departure, cancelled if a prepared socket drops.
     enter_at: Option<u64>,
+    /// Maximum house steps answered per synchronous call before yielding
+    /// intermediate views back to the caller's event loop.
+    pump_budget: usize,
+}
+
+impl Default for EngineRunner {
+    fn default() -> Self {
+        Self {
+            game_id: String::new(),
+            session: None,
+            attached: Vec::new(),
+            spectators: 0,
+            lost: Vec::new(),
+            ended: false,
+            record_seq: 0,
+            record_waiting_since: None,
+            record_sent_at: 0,
+            curtain: None,
+            readings: Vec::new(),
+            now: 0,
+            enter_at: None,
+            pump_budget: DEFAULT_PUMP_BUDGET,
+        }
+    }
 }
 
 impl EngineRunner {
@@ -139,6 +174,57 @@ impl EngineRunner {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Sets the maximum number of house steps answered per call before
+    /// yielding intermediate state deltas to the event loop.
+    #[must_use]
+    pub const fn with_pump_budget(mut self, budget: usize) -> Self {
+        self.pump_budget = if budget == 0 { 1 } else { budget };
+        self
+    }
+
+    /// Updates the house step budget per slice.
+    pub fn set_pump_budget(&mut self, budget: usize) {
+        self.pump_budget = if budget == 0 { 1 } else { budget };
+    }
+
+    /// Whether the open table still owes house AI steps that should be
+    /// advanced on the next event-loop tick via [`Self::pump_slice`].
+    #[must_use]
+    pub fn needs_pump(&self) -> bool {
+        !self.ended
+            && self.curtain.is_none()
+            && self.session.as_ref().is_some_and(Session::needs_pump)
+    }
+
+    /// Advances the house AI by one slice (`self.pump_budget` steps) and
+    /// returns the routed envelopes (intermediate [`v1::StateDelta`] frames
+    /// while `needs_pump()` remains true, or the final view and
+    /// [`v1::ChoiceRequest`] once a socket seat is reached).
+    pub fn pump_slice(&mut self, remaining: &[(Clock, u32)]) -> Vec<Envelope> {
+        if !self.needs_pump() {
+            return Vec::new();
+        }
+        self.set_readings(remaining);
+        self.absorb_clock();
+        let budget = self.pump_budget;
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
+        let routed = session.pump_slice(budget);
+        let mut out = self.route(&routed);
+        out.extend(self.ending());
+        out
+    }
+
+    fn set_readings(&mut self, remaining: &[(Clock, u32)]) {
+        if remaining.is_empty() {
+            self.readings.clear();
+        } else {
+            self.readings.clear();
+            self.readings.extend_from_slice(remaining);
+        }
     }
 
     /// Tells the game the wall time, in milliseconds since the Unix epoch,
@@ -203,6 +289,9 @@ impl EngineRunner {
         let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
+        if session.needs_pump() {
+            return Vec::new();
+        }
         let mut clocks: Vec<Clock> = session
             .awaited()
             .iter()
@@ -318,6 +407,7 @@ impl EngineRunner {
         if clock.what == Deadline::Hold {
             return self.hold_expired();
         }
+        let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
@@ -329,15 +419,17 @@ impl EngineRunner {
             // over this question.
             // Through the session's clock door rather than `apply`, so the
             // views sent on the way out say the clock answered this one.
-            Deadline::Decide => match session.answer_by_clock(clock.seat, clock.seq) {
-                None => Vec::new(),
-                Some(Ok(routed)) => {
-                    let mut out = self.route(&routed);
-                    out.extend(self.ending());
-                    out
+            Deadline::Decide => {
+                match session.answer_by_clock_slice(clock.seat, clock.seq, budget) {
+                    None => Vec::new(),
+                    Some(Ok(routed)) => {
+                        let mut out = self.route(&routed);
+                        out.extend(self.ending());
+                        out
+                    }
+                    Some(Err(reason)) => self.refused(clock.seat, &reason),
                 }
-                Some(Err(reason)) => self.refused(clock.seat, &reason),
-            },
+            }
             // A change of who answers, because the seat is not there at all.
             // The same race as above, in the other direction: the socket may
             // have come back between the timer firing and this being called,
@@ -350,7 +442,7 @@ impl EngineRunner {
                 if !session.stand_in(clock.seat) {
                     return Vec::new();
                 }
-                let routed = session.pump();
+                let routed = session.pump_slice(budget);
                 let mut out = self.route(&routed);
                 out.extend(self.ending());
                 out
@@ -419,7 +511,7 @@ impl EngineRunner {
     /// moves the game — in which case the question is new and the allowance
     /// is whole — or is answered the same way by both.
     pub fn handle(&mut self, envelope: Envelope, remaining: &[(Clock, u32)]) -> Vec<Envelope> {
-        self.readings = remaining.to_vec();
+        self.set_readings(remaining);
         self.absorb_clock();
         match envelope.msg {
             Some(v1::envelope::Msg::GameSetup(setup)) => self.setup(&setup),
@@ -449,11 +541,7 @@ impl EngineRunner {
                 reason: reason.to_owned(),
             })),
         };
-        let mut out: Vec<Envelope> = self
-            .attached
-            .iter()
-            .map(|&seat| seat_frame(seat, &closed))
-            .collect();
+        let mut out: Vec<Envelope> = seat_frames(self.attached.iter().copied(), &closed).collect();
         if self.spectators > 0 {
             out.push(frames::spectator_frame(&closed));
         }
@@ -580,16 +668,13 @@ impl EngineRunner {
         // The clocks exist from here on, and the views below are the first
         // to carry them.
         self.absorb_clock();
+        let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
-        let routed = session.pump();
+        let routed = session.pump_slice(budget);
         let mut out = self.route(&routed);
-        out.extend(
-            self.attached
-                .iter()
-                .map(|&seat| seat_frame(seat, &curtain())),
-        );
+        out.extend(seat_frames(self.attached.iter().copied(), &curtain()));
         out.extend(self.ending());
         out
     }
@@ -617,11 +702,7 @@ impl EngineRunner {
         }
         self.ended = true;
         let reason = "The table could not start: not every player finished loading. Return to the lobby and try again.";
-        let mut out: Vec<_> = self
-            .attached
-            .iter()
-            .map(|&seat| seat_frame(seat, &error(reason)))
-            .collect();
+        let mut out: Vec<_> = seat_frames(self.attached.iter().copied(), &error(reason)).collect();
         out.push(ended(&self.game_id, reason));
         out
     }
@@ -637,10 +718,7 @@ impl EngineRunner {
                 enter_at_ms: self.enter_at.unwrap_or(0),
             })),
         };
-        self.attached
-            .iter()
-            .map(|&seat| seat_frame(seat, &status))
-            .collect()
+        seat_frames(self.attached.iter().copied(), &status).collect()
     }
 
     /// Count only attached human seats, once. All ready schedules a flight;
@@ -694,6 +772,7 @@ impl EngineRunner {
         // one view in the whole system that exists to tell a returning seat
         // where it stands.
         self.absorb_clock();
+        let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
@@ -749,7 +828,7 @@ impl EngineRunner {
             // A socket that just opened holds none of the game log, and whatever
             // went to this seat while nobody was on it was dropped in `route`.
             session.retell_log(player);
-            let routed = session.pump();
+            let routed = session.pump_slice(budget);
             out.extend(self.route(&routed));
         }
         // The table is open, and has been since before this seat arrived:
@@ -769,11 +848,11 @@ impl EngineRunner {
             return Vec::new();
         };
         session.set_spectators(changed.count);
-        let mut out: Vec<Envelope> = self
-            .attached
-            .iter()
-            .map(|&seat| seat_frame(seat, &frames::spectators(changed.count)))
-            .collect();
+        let mut out: Vec<Envelope> = seat_frames(
+            self.attached.iter().copied(),
+            &frames::spectators(changed.count),
+        )
+        .collect();
         if changed.joined {
             out.extend(
                 session
@@ -812,6 +891,7 @@ impl EngineRunner {
         }
         let player = PlayerId::new(seat);
         let here = self.another_player_here_now(player);
+        let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
@@ -833,7 +913,7 @@ impl EngineRunner {
                 if self.curtain.is_some() {
                     return self.loading_status();
                 }
-                session.pump()
+                session.pump_slice(budget)
             } else {
                 // Nobody's own chair is left: the house concedes for every
                 // player it is holding, and the game ends.
@@ -863,7 +943,7 @@ impl EngineRunner {
             self.lost.push(seat);
         }
         // Nothing moves: every seat still here is shown the line.
-        let routed = session.pump();
+        let routed = session.pump_slice(budget);
         self.route(&routed)
     }
 
@@ -1045,20 +1125,23 @@ impl EngineRunner {
         let envelope = Envelope {
             msg: Some(v1::envelope::Msg::AiLog(said)),
         };
-        self.attached
-            .iter()
-            .copied()
-            .filter(|&seat| seat != from.get())
-            .map(|seat| seat_frame(seat, &envelope))
-            .collect()
+        seat_frames(
+            self.attached
+                .iter()
+                .copied()
+                .filter(|&seat| seat != from.get()),
+            &envelope,
+        )
+        .collect()
     }
 
     /// Applies one action and routes everything it produced.
     fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Vec<Envelope> {
+        let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
-        match session.act(player, action) {
+        match session.act_slice(player, action, budget) {
             Ok(routed) => {
                 let mut out = self.route(&routed);
                 out.extend(self.ending());

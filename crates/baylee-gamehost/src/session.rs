@@ -494,7 +494,7 @@ fn frames_of(seq: u64, view_json: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
 /// A view as the wire carries it, written into a buffer sized for a busy
 /// table up front: growing one from empty copied it a dozen times on the
 /// way to a four-seat board's tens of kilobytes.
-fn view_json(view: &PlayerView) -> Vec<u8> {
+fn view_json<T: serde::Serialize + ?Sized>(view: &T) -> Vec<u8> {
     let mut json = Vec::with_capacity(VIEW_JSON_HINT);
     if serde_json::to_writer(&mut json, view).is_err() {
         json.clear();

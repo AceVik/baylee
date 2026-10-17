@@ -308,6 +308,9 @@ pub struct LocalHost {
     /// needs to rebuild this game ([`DuelHost::resume_point`]).
     record_name: String,
     names: Vec<String>,
+    /// Maximum house AI steps answered in one `poll` or `submit` slice before
+    /// yielding intermediate `HostMessage::View` updates to the UI.
+    pump_budget: usize,
 }
 
 impl LocalHost {
@@ -321,6 +324,14 @@ impl LocalHost {
         #[cfg(target_arch = "wasm32")]
         let host: Box<dyn DuelHost> = Box::new(self);
         crate::InstalledHost(host)
+    }
+
+    /// Sets the maximum number of house AI steps answered per slice before
+    /// streaming intermediate views.
+    #[must_use]
+    pub const fn with_pump_budget(mut self, budget: usize) -> Self {
+        self.pump_budget = if budget == 0 { 1 } else { budget };
+        self
     }
 
     /// Starts a game from a preset, with the local player on `seat`.
@@ -352,6 +363,7 @@ impl LocalHost {
             deck: own_deck(&preset, seat),
             record_name,
             names: seat_names.iter().map(|n| (*n).to_string()).collect(),
+            pump_budget: 4096,
         };
         host.take_the_record();
         Some(host)
@@ -395,6 +407,7 @@ impl LocalHost {
             deck: own_deck(&preset, seat),
             record_name: record_name.to_string(),
             names: seat_names.to_vec(),
+            pump_budget: 4096,
         })
     }
 
@@ -504,9 +517,9 @@ impl DuelHost for LocalHost {
         if let Some(statics) = opening {
             out.extend(host_message(statics));
         }
-        if opens || self.session.needs_pump() {
+        if opens || (self.pending_out.is_empty() && self.session.needs_pump()) {
             self.session.tell_time(wall_ms());
-            let routed = self.session.pump();
+            let routed = self.session.pump_slice(self.pump_budget);
             self.absorb(routed);
         }
         out.append(&mut self.pending_out);
@@ -522,7 +535,7 @@ impl DuelHost for LocalHost {
 
     fn submit(&mut self, action: PlayerAction) {
         self.session.tell_time(wall_ms());
-        match self.session.act(self.seat, action) {
+        match self.session.act_slice(self.seat, action, self.pump_budget) {
             Ok(routed) => self.absorb(routed),
             // A refusal must cost the seat the action and nothing else. The
             // client drops its `Interaction` the moment it submits, so a

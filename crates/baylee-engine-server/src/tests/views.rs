@@ -489,3 +489,145 @@ fn in_a_release_build_nobody_is_sent_a_seats_reasoning() {
         assert_eq!(said(&out), [], "seat {from}'s reasoning sent something");
     }
 }
+
+/// Verifies that control frames (`ClockProbe`, `FlushRecord`, `SeatAttached`
+/// resync) are answered immediately while `runner.needs_pump()` is `true`.
+fn assert_responsive_during_pump(runner: &mut EngineRunner) {
+    let probe_inner = Envelope {
+        msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+            client_time_ms: 42,
+            server_time_ms: 0,
+        })),
+    };
+    let probe_out = runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                seat: 0,
+                envelope: prost::Message::encode_to_vec(&probe_inner).into(),
+            })),
+        },
+        &[],
+    );
+    assert!(
+        matches!(
+            frames(&probe_out).as_slice(),
+            [(0, v1::envelope::Msg::ClockProbe(ack))] if ack.client_time_ms == 42
+        ),
+        "ClockProbe must be answered immediately while needs_pump is true"
+    );
+
+    let flush_out = runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
+                game_id: "g1".to_string(),
+                nonce: 99,
+            })),
+        },
+        &[],
+    );
+    assert!(
+        flush_out.iter().any(|env| matches!(
+            &env.msg,
+            Some(v1::envelope::Msg::RecordFlushed(ack)) if ack.nonce == 99
+        )),
+        "FlushRecord must be answered immediately while needs_pump is true"
+    );
+
+    let resync_out = runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                seat: 0,
+                resync: true,
+            })),
+        },
+        &[],
+    );
+    assert!(
+        last_view(&resync_out, 0).is_some(),
+        "reconnecting seat must receive a snapshot immediately even while needs_pump is true"
+    );
+}
+
+/// Under maximum engine load (simulated by `with_pump_budget(1)`), the engine
+/// streams incremental `StateDelta`s to seats and spectators, withholds
+/// human decision clocks until the house turn finishes, and answers control
+/// frames (`ClockProbe`, `FlushRecord`, `SeatAttached` resync) immediately
+/// between slices without losing determinism.
+#[test]
+fn under_heavy_engine_load_sliced_pumping_streams_live_views_and_answers_control_frames() {
+    let preset = duel(600);
+    let mut reference = EngineRunner::new();
+    setup(&mut reference, &preset);
+    sit(&mut reference, 0);
+
+    let mut runner = EngineRunner::new().with_pump_budget(1);
+    setup(&mut runner, &preset);
+    sit(&mut runner, 0);
+    runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::SpectatorsChanged(
+                v1::SpectatorsChanged {
+                    count: 1,
+                    joined: true,
+                },
+            )),
+        },
+        &[],
+    );
+
+    let mut saw_multi_slice = false;
+    for _ in 0..40 {
+        let action = reference
+            .session()
+            .and_then(|s| s.timeout_action(PlayerId::new(0)))
+            .expect("human owes an action");
+        let ref_out = act(&mut reference, 0, &action);
+        let mut slice_out = act(&mut runner, 0, &action);
+
+        while runner.needs_pump() {
+            saw_multi_slice = true;
+            assert!(
+                runner.clocks().is_empty(),
+                "no human decision clock may run while the house still owes steps"
+            );
+            let view = last_view(&slice_out, 0).expect("intermediate slice sends a live view");
+            assert_eq!(
+                view.decision_remaining_ms, None,
+                "intermediate view during house turn must not show a ticking human countdown"
+            );
+            assert!(
+                !frames(&slice_out)
+                    .iter()
+                    .any(|(_, msg)| matches!(msg, v1::envelope::Msg::ChoiceRequest(_))),
+                "intermediate slice must not send a ChoiceRequest before the house finishes"
+            );
+            assert!(
+                slice_out
+                    .iter()
+                    .any(|env| matches!(env.msg, Some(v1::envelope::Msg::SpectatorFrame(_)))),
+                "spectators must receive live SpectatorFrame updates during heavy house turns"
+            );
+            assert_responsive_during_pump(&mut runner);
+            slice_out = runner.pump_slice(&[]);
+        }
+
+        assert_eq!(
+            runner.session().unwrap().snapshot_hash(),
+            reference.session().unwrap().snapshot_hash(),
+            "sliced EngineRunner must reach the exact same state hash as un-sliced EngineRunner"
+        );
+        let final_view = last_view(&slice_out, 0).expect("final slice sends a view");
+        let ref_view = last_view(&ref_out, 0).expect("reference sends a view");
+        assert_eq!(
+            final_view.decision_remaining_ms, ref_view.decision_remaining_ms,
+            "once the house finishes, the human seat gets its full decision clock allowance"
+        );
+        if saw_multi_slice {
+            break;
+        }
+    }
+    assert!(
+        saw_multi_slice,
+        "duel must exercise multi-slice house turns under pump_budget=1"
+    );
+}

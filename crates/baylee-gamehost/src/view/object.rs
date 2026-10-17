@@ -95,7 +95,7 @@ pub(super) fn target_objects(
     seat: PlayerId,
     pending: Option<&Pending>,
     ctx: &SeatContext,
-    references: &SourceReferences,
+    references: &mut Option<SourceReferences>,
 ) -> Vec<baylee_view::DamageSourceView> {
     let mut targets = std::collections::BTreeSet::new();
     for grant in state
@@ -150,10 +150,14 @@ pub(super) fn target_objects(
     {
         targets.insert(*target);
     }
+    if targets.is_empty() {
+        return Vec::new();
+    }
+    let refs = references.get_or_insert_with(|| state.stack_source_references());
     targets
         .into_iter()
         .filter_map(|source| {
-            exact_object_view_with_access(state, seat, source, ctx.controlled_players, references)
+            exact_object_view_with_access(state, seat, source, ctx.controlled_players, refs)
         })
         .collect()
 }

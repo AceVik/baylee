@@ -161,3 +161,134 @@ fn the_card_being_cast_is_named_to_its_caster_alone() {
         &vec![bolt]
     );
 }
+
+/// When `pump_at_most(N)` finishes the house's work on the exact `N`-th step,
+/// it must emit the waiting human seat's view and question immediately rather
+/// than returning an empty batch with `needs_pump() == false`.
+#[test]
+fn pump_at_most_emits_envelopes_when_the_exact_budget_step_reaches_a_human() {
+    let mut probe = Session::new(&test_preset()).expect("probe session");
+    let mut exact_steps = 0usize;
+    while probe.needs_pump() {
+        exact_steps += 1;
+        let _ = probe.pump_at_most(1);
+    }
+    assert!(exact_steps >= 1, "house owes at least one opening step");
+
+    let mut session = Session::new(&test_preset()).expect("session");
+    let human = session.human_seats()[0];
+    assert!(
+        session.needs_pump(),
+        "seat 1 is the house and owes its opening mulligan decisions"
+    );
+    assert!(
+        session.pump_at_most(0).is_empty(),
+        "a zero budget does no house work and sends no premature frame"
+    );
+    if exact_steps > 1 {
+        let mut partial = Session::new(&test_preset()).expect("partial session");
+        assert!(
+            partial.pump_at_most(exact_steps - 1).is_empty(),
+            "exhausting the budget while the house still owes a step returns no envelopes"
+        );
+        assert!(partial.needs_pump());
+    }
+
+    // Running with a budget equal to `exact_steps` finishes the house's work
+    // on the exact budget boundary (`answered == answers`) and must emit the
+    // human seat's frames immediately.
+    let routed = session.pump_at_most(exact_steps);
+    assert!(
+        !session.needs_pump(),
+        "after {exact_steps} house steps, only the human seat is deciding"
+    );
+    assert!(
+        !routed.is_empty(),
+        "completing the house's work on the budget boundary must emit the human seat's frames"
+    );
+    assert!(
+        routed
+            .iter()
+            .any(|(s, e)| *s == human && matches!(e.msg, Some(v1::envelope::Msg::StateDelta(_)))),
+        "human seat must receive its StateDelta"
+    );
+    assert_eq!(
+        asked(&routed)
+            .into_iter()
+            .map(|(s, _)| s)
+            .collect::<Vec<_>>(),
+        [human.get()],
+        "human seat must receive its ChoiceRequest"
+    );
+}
+
+/// Under heavy house turns, `act_slice` and `pump_slice` stream intermediate
+/// `StateDelta` updates (and spectator views) after each slice without
+/// sending premature `ChoiceRequest`s, and reach the exact same state and
+/// log sequence as an un-sliced `act`.
+#[test]
+fn pump_slice_streams_incremental_views_without_premature_questions_and_matches_full_pump() {
+    let mut reference = Session::new(&test_preset()).expect("reference session");
+    let mut sliced = Session::new(&test_preset()).expect("sliced session");
+    sliced.set_spectators(1);
+    let human = reference.human_seats()[0];
+
+    reference.pump();
+    sliced.pump();
+    reference
+        .act(human, PlayerAction::MulliganKeep)
+        .expect("keep");
+    sliced.act(human, PlayerAction::MulliganKeep).expect("keep");
+
+    // Advance until passing priority hands a multi-step turn to the house AI.
+    let mut multi_slice_seen = false;
+    for _ in 0..40 {
+        let Some((seat, action)) = house(&reference) else {
+            break;
+        };
+        assert_eq!(seat, human);
+        let ref_out = reference.act(human, action.clone()).expect("reference act");
+
+        let mut slice_out = sliced.act_slice(human, action, 1).expect("sliced act");
+        let mut slices = 1usize;
+        let mut last_seq = 0u64;
+        while sliced.needs_pump() {
+            multi_slice_seen = true;
+            assert!(
+                asked(&slice_out).is_empty(),
+                "intermediate slice must not ask a human question while the house is still pumping"
+            );
+            let view = routed_view(&slice_out, human);
+            assert!(
+                view.seq > last_seq,
+                "each intermediate slice advances the view sequence"
+            );
+            last_seq = view.seq;
+            assert!(
+                !sliced.spectator_envelopes().is_empty(),
+                "spectators receive live progress deltas during sliced pumping"
+            );
+            slice_out = sliced.pump_slice(1);
+            slices += 1;
+            assert!(slices < 500, "house turn must terminate");
+        }
+
+        assert_eq!(
+            format!("{:?}", asked(&slice_out)),
+            format!("{:?}", asked(&ref_out)),
+            "final slice asks the exact same question as a full pump"
+        );
+        assert_eq!(
+            sliced.snapshot_hash(),
+            reference.snapshot_hash(),
+            "sliced pumping is bit-identical to full pumping"
+        );
+        if multi_slice_seen {
+            break;
+        }
+    }
+    assert!(
+        multi_slice_seen,
+        "fixture must exercise a multi-step house turn across multiple slices"
+    );
+}

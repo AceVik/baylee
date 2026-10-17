@@ -188,7 +188,22 @@ impl Session {
         player: PlayerId,
         action: PlayerAction,
     ) -> Result<Vec<(PlayerId, Envelope)>, String> {
-        self.answer(player, action, None)
+        self.answer(player, action, None, 4096)
+    }
+
+    /// [`Session::act`], running at most `answers` house steps before returning
+    /// and emitting intermediate progress views if [`Session::needs_pump`]
+    /// remains true.
+    ///
+    /// # Errors
+    /// When the action isn't the acting seat's legal answer.
+    pub fn act_slice(
+        &mut self,
+        player: PlayerId,
+        action: PlayerAction,
+        answers: usize,
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        self.answer(player, action, None, answers)
     }
 
     /// The decision clock ran out on `seat`: the house answers this one
@@ -211,6 +226,18 @@ impl Session {
         seat: PlayerId,
         asked_at: u64,
     ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
+        self.answer_by_clock_slice(seat, asked_at, 4096)
+    }
+
+    /// [`Session::answer_by_clock`], running at most `answers` house steps
+    /// before returning and emitting intermediate progress views if
+    /// [`Session::needs_pump`] remains true.
+    pub fn answer_by_clock_slice(
+        &mut self,
+        seat: PlayerId,
+        asked_at: u64,
+        answers: usize,
+    ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
         if self.asked_at(seat)? != asked_at {
             return None;
         }
@@ -218,7 +245,7 @@ impl Session {
         by_clock(
             self,
             &pending,
-            |session, action| session.answer(seat, action, Some(HouseAnswer::Clock)),
+            |session, action| session.answer(seat, action, Some(HouseAnswer::Clock), answers),
             |session| session.house_action(seat),
         )
     }
@@ -229,6 +256,7 @@ impl Session {
         player: PlayerId,
         action: PlayerAction,
         by: Option<HouseAnswer>,
+        answers: usize,
     ) -> Result<Vec<(PlayerId, Envelope)>, String> {
         let Some(kind) = self.seats.get(player.get() as usize) else {
             return Err("not a human seat".to_string());
@@ -272,6 +300,6 @@ impl Session {
             self.moved(player, deciding);
             self.house_answered[player.get() as usize] = by;
         }
-        Ok(self.pump())
+        Ok(self.pump_slice(answers))
     }
 }

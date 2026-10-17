@@ -13,13 +13,28 @@ pub fn seat_frame(seat: u8, envelope: &Envelope) -> Envelope {
     }
 }
 
+/// Wraps one shared player-facing envelope for several seats, encoding the
+/// inner envelope once and sharing the [`bytes::Bytes`] buffer across them.
+pub(crate) fn seat_frames<'a>(
+    seats: impl IntoIterator<Item = u8> + 'a,
+    envelope: &Envelope,
+) -> impl Iterator<Item = Envelope> + 'a {
+    let encoded: prost::bytes::Bytes = prost::Message::encode_to_vec(envelope).into();
+    seats.into_iter().map(move |seat| Envelope {
+        msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+            seat: u32::from(seat),
+            envelope: encoded.clone(),
+        })),
+    })
+}
+
 /// One frame for every spectator of the game (`docs/protocol.md`
 /// §"Spectators"): the gateway hands it to each watching socket.
 #[must_use]
 pub fn spectator_frame(envelope: &Envelope) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::SpectatorFrame(v1::SpectatorFrame {
-            envelope: prost::Message::encode_to_vec(envelope),
+            envelope: prost::Message::encode_to_vec(envelope).into(),
         })),
     }
 }

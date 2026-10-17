@@ -302,6 +302,9 @@ struct Sitting {
     driving: bool,
     /// Its end of the table's fan, once it is at a table.
     rx: Option<tokio::sync::broadcast::Receiver<(u8, Envelope)>>,
+    /// Whether the table's session still owes house AI steps after the last
+    /// slice on this connection.
+    pumping: bool,
 }
 
 /// Why the connection task woke up.
@@ -314,6 +317,8 @@ enum Wake {
     ),
     /// The table sent something to one of its seats.
     Fan(Result<(u8, Envelope), tokio::sync::broadcast::error::RecvError>),
+    /// The table still owes house AI steps after a bounded slice.
+    Pump,
 }
 
 /// Waits on the fan, or forever when this connection is not at a table yet.
@@ -341,6 +346,7 @@ async fn handle_connection(
         seat: SEAT,
         driving: false,
         rx: None,
+        pumping: false,
     };
     let served = serve(&mut ws, &games, &mut state).await;
     // The chair goes back whichever way the socket ended, including the
@@ -354,7 +360,9 @@ async fn handle_connection(
         if let Some(table) = games.get_mut(id) {
             table.session.tell_time(wall_ms());
             table.session.release(state.seat);
-            let out = table.session.pump();
+            let out = table
+                .session
+                .pump_slice(baylee_engine_server::ATTACHED_PUMP_SLICE);
             publish(table, out);
             tracing::info!(seat = state.seat.get(), "seat handed back to the house AI");
         }
@@ -370,14 +378,30 @@ async fn serve(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         let wake = tokio::select! {
+            biased;
             frame = ws.next() => Wake::Frame(frame),
             got = fanned(state.rx.as_mut()) => Wake::Fan(got),
+            () = tokio::task::yield_now(), if state.pumping => Wake::Pump,
         };
         let replies: Vec<Envelope> = match wake {
             // The socket hung up, or the table is gone — and on this server
             // the table only goes when the process does.
             Wake::Frame(None)
             | Wake::Fan(Err(tokio::sync::broadcast::error::RecvError::Closed)) => break,
+            Wake::Pump => {
+                let mut games = games.lock().await;
+                if let Some(table) = state.game_id.as_ref().and_then(|id| games.get_mut(id)) {
+                    table.session.tell_time(wall_ms());
+                    let out = table
+                        .session
+                        .pump_slice(baylee_engine_server::ATTACHED_PUMP_SLICE);
+                    state.pumping = table.session.needs_pump();
+                    publish(table, out);
+                } else {
+                    state.pumping = false;
+                }
+                Vec::new()
+            }
             Wake::Frame(Some(frame)) => {
                 let frame = frame?;
                 if !frame.is_binary() {
@@ -431,7 +455,10 @@ async fn serve(
                                 table.session.tell_time(wall_ms());
                                 table.session.describe(id.clone(), seat_names());
                                 out.push(table.session.game_static_envelope(SEAT));
-                                let pumped = table.session.pump();
+                                let pumped = table
+                                    .session
+                                    .pump_slice(baylee_engine_server::ATTACHED_PUMP_SLICE);
+                                state.pumping = table.session.needs_pump();
                                 publish(table, pumped);
                                 publish_curtain(table, SEAT);
                                 state.game_id = Some(id);
@@ -459,7 +486,10 @@ async fn serve(
                                     // A fresh client holds none of the log.
                                     table.session.retell_log(seat);
                                     table.session.tell_time(wall_ms());
-                                    let pumped = table.session.pump();
+                                    let pumped = table
+                                        .session
+                                        .pump_slice(baylee_engine_server::ATTACHED_PUMP_SLICE);
+                                    state.pumping = table.session.needs_pump();
                                     publish(table, pumped);
                                     publish_curtain(table, seat);
                                     out
@@ -483,6 +513,7 @@ async fn serve(
                                     state.seat = seat;
                                     state.driving = driving;
                                     state.game_id = Some(resume.game_id.clone());
+                                    state.pumping = table.session.needs_pump();
                                     // A resume follows a dropped socket, so
                                     // the payload that only ever arrives at
                                     // connect time is repeated. It cannot have
@@ -512,8 +543,13 @@ async fn serve(
                             table.session.tell_time(wall_ms());
                         }
                         match games.get_mut(&id) {
-                            Some(table) => match table.session.act(state.seat, action) {
+                            Some(table) => match table.session.act_slice(
+                                state.seat,
+                                action,
+                                baylee_engine_server::ATTACHED_PUMP_SLICE,
+                            ) {
                                 Ok(out) => {
+                                    state.pumping = table.session.needs_pump();
                                     publish(table, out);
                                     Vec::new()
                                 }
@@ -560,11 +596,18 @@ async fn serve(
                 }
             }
             Wake::Fan(Ok((seat, envelope))) => {
+                let mut batch = Vec::new();
                 if seat == state.seat.get() {
-                    vec![envelope]
-                } else {
-                    Vec::new()
+                    batch.push(envelope);
                 }
+                if let Some(rx) = state.rx.as_mut() {
+                    while let Ok((next_seat, next_env)) = rx.try_recv() {
+                        if next_seat == state.seat.get() {
+                            batch.push(next_env);
+                        }
+                    }
+                }
+                batch
             }
             Wake::Fan(Err(tokio::sync::broadcast::error::RecvError::Lagged(missed))) => {
                 tracing::warn!(
@@ -579,11 +622,14 @@ async fn serve(
                 }
             }
         };
-        for reply in replies {
-            ws.send(tokio_tungstenite::tungstenite::Message::Binary(
-                reply.encode_to_vec().into(),
-            ))
-            .await?;
+        if !replies.is_empty() {
+            for reply in replies {
+                ws.feed(tokio_tungstenite::tungstenite::Message::Binary(
+                    reply.encode_to_vec().into(),
+                ))
+                .await?;
+            }
+            ws.flush().await?;
         }
     }
     Ok(())
@@ -688,22 +734,11 @@ mod attached {
         // The first frame proves this process is the one the gateway asked an
         // agent to start. Nothing else on this socket is authenticated,
         // because nothing else needs to be: the gateway closes it otherwise.
-        send(
-            &mut ws,
-            &Envelope {
-                msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
-                    game_id: attach.game_id.clone(),
-                    token: attach.token.clone(),
-                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
-                    pid: std::process::id(),
-                    build: baylee_build::short().to_owned(),
-                })),
-            },
-        )
-        .await?;
+        send(&mut ws, &engine_hello(&attach)).await?;
         tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
 
-        let mut runner = EngineRunner::new();
+        let mut runner =
+            EngineRunner::new().with_pump_budget(baylee_engine_server::ATTACHED_PUMP_SLICE);
         // Each deadline is anchored to what it was armed for, so it restarts
         // when its seat is asked something new rather than every time a frame
         // from another seat wakes this task up.
@@ -735,25 +770,21 @@ mod attached {
                 .record_deadline()
                 .map(|at| now + std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
             let next = armed.next();
+            let needs_pump = runner.needs_pump();
             tokio::select! {
+                biased;
                 () = deadline(record_at) => {
                     runner.tell_time(wall_ms());
-                    for envelope in runner.flush_record_due() {
-                        send(&mut ws, &envelope).await?;
-                    }
+                    send_batch(&mut ws, &runner.flush_record_due()).await?;
                 }
                 () = deadline(arrival) => {
                     runner.tell_time(wall_ms());
-                    for envelope in runner.finish_entrance() {
-                        send(&mut ws, &envelope).await?;
-                    }
+                    send_batch(&mut ws, &runner.finish_entrance()).await?;
                 }
                 () = deadline(curtain_at) => {
                     tracing::info!(game_id = attach.game_id, "table preparation timed out");
                     runner.tell_time(wall_ms());
-                    for envelope in runner.preparation_expired() {
-                        send(&mut ws, &envelope).await?;
-                    }
+                    send_batch(&mut ws, &runner.preparation_expired()).await?;
                 }
                 () = deadline(next.map(|(_, at)| at)) => {
                     // The clock is the one thing the rules kernel must not
@@ -762,9 +793,7 @@ mod attached {
                     tracing::info!(seat = clock.seat.get(), "decision timed out");
                     armed.fired(clock);
                     runner.tell_time(wall_ms());
-                    for envelope in runner.timeout(clock) {
-                        send(&mut ws, &envelope).await?;
-                    }
+                    send_batch(&mut ws, &runner.timeout(clock)).await?;
                 }
                 frame = ws.next() => {
                     let Some(frame) = frame else { break };
@@ -785,20 +814,14 @@ mod attached {
                     {
                         return project(ws, order).await;
                     }
-                    // Read the clocks before handing the frame over: this
-                    // frame may move the game, and after it has, a number
-                    // belongs to a question nobody is being asked any more.
-                    // Saturating rather than clamped-signed — a deadline
-                    // already past is nought left, not a negative countdown.
-                    let read = tokio::time::Instant::now();
-                    let remaining = armed.remaining(|at| {
-                        u32::try_from(at.saturating_duration_since(read).as_millis())
-                            .unwrap_or(u32::MAX)
-                    });
+                    let remaining = remaining_now(&armed);
                     runner.tell_time(wall_ms());
-                    for out in runner.handle(envelope, &remaining) {
-                        send(&mut ws, &out).await?;
-                    }
+                    send_batch(&mut ws, &runner.handle(envelope, &remaining)).await?;
+                }
+                () = tokio::task::yield_now(), if needs_pump => {
+                    let remaining = remaining_now(&armed);
+                    runner.tell_time(wall_ms());
+                    send_batch(&mut ws, &runner.pump_slice(&remaining)).await?;
                 }
             }
             if runner.finished() {
@@ -809,6 +832,28 @@ mod attached {
         // close the gateway logs as an ordinary end rather than a drop.
         let _ = ws.close(None).await;
         Ok(())
+    }
+
+    fn engine_hello(attach: &Attach) -> Envelope {
+        Envelope {
+            msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                game_id: attach.game_id.clone(),
+                token: attach.token.clone(),
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                pid: std::process::id(),
+                build: baylee_build::short().to_owned(),
+            })),
+        }
+    }
+
+    /// Reads the currently armed clocks against `Instant::now()`.
+    fn remaining_now(
+        armed: &baylee_engine_server::Armed<tokio::time::Instant>,
+    ) -> Vec<(baylee_engine_server::Clock, u32)> {
+        let read = tokio::time::Instant::now();
+        armed.remaining(|at| {
+            u32::try_from(at.saturating_duration_since(read).as_millis()).unwrap_or(u32::MAX)
+        })
     }
 
     /// A replay job (`baylee_engine_server::projection`): the projection runs
@@ -860,6 +905,24 @@ mod attached {
     {
         ws.send(Message::Binary(envelope.encode_to_vec().into()))
             .await?;
+        Ok(())
+    }
+
+    async fn send_batch<S>(
+        ws: &mut tokio_tungstenite::WebSocketStream<S>,
+        envelopes: &[Envelope],
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        if envelopes.is_empty() {
+            return Ok(());
+        }
+        for envelope in envelopes {
+            ws.feed(Message::Binary(envelope.encode_to_vec().into()))
+                .await?;
+        }
+        ws.flush().await?;
         Ok(())
     }
 }

@@ -37,11 +37,13 @@ impl Session {
     /// self-play runner in `baylee-train`): it reads the wall clock between
     /// calls, so it can stop a game whose every answer has become slow
     /// instead of waiting out a full `pump`. A call that runs out of answers
-    /// returns no envelopes, as a full `pump` that reaches its cap does; a
-    /// table with a human chair wants `pump`.
+    /// while the house still owes another step returns no envelopes; if the
+    /// `answers`-th step hands the decision to a socket seat or ends the
+    /// game, its views and choice request are returned immediately.
     pub fn pump_at_most(&mut self, answers: usize) -> Vec<(PlayerId, Envelope)> {
         let mut out = Vec::new();
-        for _ in 0..answers {
+        let mut answered = 0;
+        loop {
             let awaited = self.engine.awaited();
             if awaited.is_empty() {
                 let pending = self.engine.pending().clone();
@@ -58,15 +60,14 @@ impl Session {
             // The house answers first, in seat order: during the opening
             // mulligans several seats are asked at once, and a human who is
             // still deciding must not hold up an AI chair's keep.
-            let house = awaited.iter().find_map(|seat| {
+            let house_seat = awaited.iter().find(|seat| {
                 let socket = self
                     .seats
                     .get(seat.get() as usize)
                     .is_some_and(SeatKind::answers_over_socket);
-                let pending = self.engine.pending_for(seat).filter(|_| !socket)?;
-                Some((seat, pending.clone()))
+                !socket && self.engine.pending_for(*seat).is_some()
             });
-            let Some((player, pending)) = house else {
+            let Some(player) = house_seat else {
                 for seat in self.human_seats() {
                     let envelopes = self.view_envelopes(seat);
                     out.extend(envelopes.into_iter().map(|env| (seat, env)));
@@ -77,6 +78,12 @@ impl Session {
                     }
                 }
                 self.tell_spectators(&mut out);
+                return out;
+            };
+            if answered >= answers {
+                return out;
+            }
+            let Some(pending) = self.engine.pending_for(player).cloned() else {
                 return out;
             };
             let action = match &self.seats[player.get() as usize] {
@@ -112,7 +119,38 @@ impl Session {
                 self.moved(player, deciding);
                 self.house_answered[player.get() as usize] = by;
             }
+            answered += 1;
         }
+    }
+
+    /// Runs at most `answers` house steps and always emits incremental view
+    /// and log envelopes for every socket seat and spectator, even when the
+    /// house still owes further steps ([`Session::needs_pump`]).
+    ///
+    /// While `needs_pump()` remains true, no [`v1::ChoiceRequest`] is sent for
+    /// a seat whose turn to answer has not arrived yet (except during
+    /// simultaneous opening decisions where a human seat already has a pending
+    /// question, which `pump_at_most` answers only after the AI seats have
+    /// finished theirs). This lets an engine server or background worker slice
+    /// long AI turns across event-loop ticks, streaming live [`v1::StateDelta`]
+    /// frames and answering control frames without ever blocking the link.
+    pub fn pump_slice(&mut self, answers: usize) -> Vec<(PlayerId, Envelope)> {
+        let out = self.pump_at_most(answers);
+        if out.is_empty() && answers > 0 && self.needs_pump() {
+            return self.progress_envelopes();
+        }
+        out
+    }
+
+    /// Intermediate per-seat and spectator views and log lines while the house
+    /// is still stepping between human decisions.
+    pub fn progress_envelopes(&mut self) -> Vec<(PlayerId, Envelope)> {
+        let mut out = Vec::new();
+        for seat in self.human_seats() {
+            let envelopes = self.view_envelopes(seat);
+            out.extend(envelopes.into_iter().map(|env| (seat, env)));
+        }
+        self.tell_spectators(&mut out);
         out
     }
 

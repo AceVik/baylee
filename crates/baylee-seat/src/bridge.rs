@@ -679,11 +679,14 @@ impl Bridge {
     /// Carries out the core's steps, in order.
     async fn carry_out(&mut self, steps: Vec<Step>, mut ws: Option<&mut Socket>) -> Next {
         let mut next = Next::Go;
+        let mut dirty = false;
         let declaring = std::mem::take(&mut self.declaring);
         for step in declaring.into_iter().chain(steps) {
             match step {
                 Step::Send(envelope) => {
-                    if !send(ws.as_deref_mut(), &envelope).await {
+                    if feed(ws.as_deref_mut(), &envelope).await {
+                        dirty = true;
+                    } else {
                         next = Next::Lost;
                     }
                 }
@@ -701,13 +704,21 @@ impl Bridge {
                         fell_back.answered += 1;
                     }
                     if paced {
+                        if dirty {
+                            dirty = false;
+                            if !flush(ws.as_deref_mut()).await {
+                                next = Next::Lost;
+                            }
+                        }
                         let since = self
                             .asked
                             .filter(|(asked, _)| *asked == question)
                             .map_or_else(Instant::now, |(_, at)| at);
                         tokio::time::sleep_until(since + self.options.min_think).await;
                     }
-                    if !send(ws.as_deref_mut(), &envelope).await {
+                    if feed(ws.as_deref_mut(), &envelope).await {
+                        dirty = true;
+                    } else {
                         next = Next::Lost;
                     }
                 }
@@ -748,9 +759,22 @@ impl Bridge {
                     }
                 }
                 Step::MindDown => next = Next::Down,
-                Step::Leave(reason) => return Next::Left(reason),
-                Step::Over(result) => return Next::Over(result),
+                Step::Leave(reason) => {
+                    if dirty {
+                        let _ = flush(ws).await;
+                    }
+                    return Next::Left(reason);
+                }
+                Step::Over(result) => {
+                    if dirty {
+                        let _ = flush(ws).await;
+                    }
+                    return Next::Over(result);
+                }
             }
+        }
+        if dirty && !flush(ws).await {
+            next = Next::Lost;
         }
         next
     }
@@ -775,14 +799,24 @@ impl Bridge {
     }
 }
 
-/// Sends one envelope; `false` when there is no socket or it failed.
-async fn send(ws: Option<&mut Socket>, envelope: &Envelope) -> bool {
+/// Feeds one envelope into the socket buffer without flushing; `false` when
+/// there is no socket or it failed.
+async fn feed(ws: Option<&mut Socket>, envelope: &Envelope) -> bool {
     let Some(ws) = ws else {
         return false;
     };
-    ws.send(Message::Binary(envelope.encode_to_vec().into()))
+    ws.feed(Message::Binary(envelope.encode_to_vec().into()))
         .await
         .is_ok()
+}
+
+/// Flushes buffered envelopes on `ws`; `false` when there is no socket or it
+/// failed.
+async fn flush(ws: Option<&mut Socket>) -> bool {
+    let Some(ws) = ws else {
+        return false;
+    };
+    ws.flush().await.is_ok()
 }
 
 impl Drop for Bridge {

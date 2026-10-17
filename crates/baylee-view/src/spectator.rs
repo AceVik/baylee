@@ -109,4 +109,38 @@ impl SpectatorView {
             sorceries_have_flash: false,
         }
     }
+
+    /// Every [`PrintRef`](baylee_core::ids::PrintRef) this public view names,
+    /// in any zone, revealed hand or commander slot, without allocating a
+    /// [`PlayerView`].
+    pub fn prints(&self) -> impl Iterator<Item = baylee_core::ids::PrintRef> + '_ {
+        let commanders = self
+            .seats
+            .iter()
+            .flat_map(|s| &s.commanders)
+            .filter_map(|c| c.card);
+        let revealed = self
+            .revealed_hands
+            .iter()
+            .flat_map(|h| &h.cards)
+            .map(|o| o.card);
+        let flat = self
+            .battlefield
+            .iter()
+            .chain(&self.stack)
+            .chain(&self.library_tops)
+            .filter_map(|o| o.card);
+        let nested = self
+            .graveyards
+            .iter()
+            .chain(&self.exile)
+            .chain(&self.command)
+            .flatten()
+            .filter_map(|o| o.card);
+        commanders
+            .chain(revealed)
+            .chain(flat)
+            .chain(nested)
+            .map(|c| c.print)
+    }
 }

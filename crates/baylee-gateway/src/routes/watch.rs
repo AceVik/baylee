@@ -130,18 +130,23 @@ pub(crate) async fn run_watch_socket(
                 Some(Ok(_)) => {}
                 Some(Err(_)) | None => break,
             },
-            update = rx.recv() => match update {
-                Ok(bytes) => {
-                    if futures_util::SinkExt::send(&mut socket, Message::Binary(bytes))
-                        .await
-                        .is_err()
-                    {
-                        break;
+            update = rx.recv() => {
+                let lagged = match update {
+                    Ok(bytes) => {
+                        let Ok(lagged) =
+                            super::seat_socket::send_broadcast_batch(&mut socket, bytes, &mut rx)
+                                .await
+                        else {
+                            break;
+                        };
+                        lagged.is_some()
                     }
-                }
+                    Err(RecvError::Lagged(_)) => true,
+                    Err(RecvError::Closed) => break,
+                };
                 // Behind: a fresh snapshot rather than a gap. Every spectator
                 // shares the stream, so they all get it; it is idempotent.
-                Err(RecvError::Lagged(_)) => {
+                if lagged {
                     let lobby = state.lobby.lock();
                     if let Some(game) = lobby.games.get(&game_id)
                         && let Some(link) = &game.engine
@@ -153,7 +158,6 @@ pub(crate) async fn run_watch_socket(
                         });
                     }
                 }
-                Err(RecvError::Closed) => break,
             },
             over = ready.changed() => {
                 if over.is_err() || !*ready.borrow() {

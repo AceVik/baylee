@@ -98,14 +98,8 @@ impl Session {
             from: u32::try_from(from).unwrap_or(u32::MAX),
             entries: self.log.told(SPECTATOR, from, lines),
         };
-        let prints: Vec<_> = view
-            .clone()
-            .into_player_view(PlayerId::new(0))
-            .prints()
-            .chain(tail.prints())
-            .collect();
         let mut grew = false;
-        for print in prints {
+        for print in view.prints().chain(tail.prints()) {
             if let Some(slot) = self.gallery.revealed.get_mut(print.get() as usize)
                 && !*slot
             {
@@ -117,8 +111,7 @@ impl Session {
         if grew {
             out.push(self.spectator_game_static());
         }
-        let json = serde_json::to_vec(&view).unwrap_or_default();
-        out.extend(frames_of(self.seq, json, tail));
+        out.extend(frames_of(self.seq, super::view_json(&view), tail));
         let pending = self.engine.pending();
         if matches!(pending, Pending::GameOver(_)) {
             out.push(choice_envelope(self.seq, pending));
@@ -145,9 +138,8 @@ impl Session {
             from: u32::try_from(from).unwrap_or(u32::MAX),
             entries: self.log.told(SPECTATOR, from, lines),
         };
-        let prints: Vec<_> = view.prints().chain(tail.prints()).collect();
         let mut grew = false;
-        for print in prints {
+        for print in view.prints().chain(tail.prints()) {
             if let Some(slot) = self.gallery.revealed.get_mut(print.get() as usize)
                 && !*slot
             {
