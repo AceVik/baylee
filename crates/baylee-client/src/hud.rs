@@ -1325,6 +1325,10 @@ pub struct HudRevision {
     /// rebuild on resize is cheaper than a system clamping the sheet every
     /// frame, and it fixes the hand zone on the way past.
     window: (i32, i32),
+    /// The rectangle the hover preview must keep clear of (an open ability
+    /// sheet / mana bubble or drawer), rounded to whole logical pixels and
+    /// tracked only while a hover preview is open.
+    keep_out: Option<[i32; 4]>,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -2231,6 +2235,29 @@ pub struct OverlayTree<'w, 's> {
         (&'static ComputedNode, &'static UiGlobalTransform),
         With<ledge::drawer::DrawerZoom>,
     >,
+    /// The ability sheet (or mana bubble) standing beside a permanent, so the
+    /// hover preview keeps clear of its buttons too.
+    pub(crate) ability_sheet:
+        Query<'w, 's, (&'static sheet::AbilitySheet, &'static sheet::SheetZoom)>,
+}
+
+impl OverlayTree<'_, '_> {
+    /// The sheet or drawer that a hover preview must not cover: the ability
+    /// sheet (or mana bubble) standing beside a card, else the drawer growing
+    /// out of the shelf.
+    pub(crate) fn keep_out(&self) -> Option<Rect> {
+        self.ability_sheet
+            .iter()
+            .find(|(_, zoom)| !zoom.is_closing())
+            .and_then(|(sheet, _)| sheet.placed_rect())
+            .or_else(|| {
+                self.drawer_box.iter().next().map(|(computed, at)| {
+                    let size = computed.size() * computed.inverse_scale_factor;
+                    let centre = at.translation * computed.inverse_scale_factor;
+                    Rect::from_center_size(centre, size)
+                })
+            })
+    }
 }
 
 /// The zone dialog's own nodes, and the root they hang from.

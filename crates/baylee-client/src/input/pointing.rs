@@ -301,9 +301,25 @@ pub fn pointer(
 /// the row's `Out` would otherwise clear the hover its own bar's `Over` had
 /// just written — and the rebuild that follows a hover change would pull the
 /// bar from under a drag.
+fn find_hand_in_lineage<'a>(
+    entity: Entity,
+    query: &'a Query<(&HandCardVisual, Has<crate::hud::StackRowCard>)>,
+    parents: &Query<&ChildOf>,
+) -> Option<(&'a HandCardVisual, bool)> {
+    let mut current = Some(entity);
+    for _ in 0..6 {
+        let e = current?;
+        if let Ok(found) = query.get(e) {
+            return Some(found);
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    None
+}
+
 fn still_over(
     hovers: Option<&bevy::picking::hover::HoverMap>,
-    hand_cards: &Query<&HandCardVisual>,
+    hand_cards: &Query<(&HandCardVisual, Has<crate::hud::StackRowCard>)>,
     parents: &Query<&ChildOf>,
     hovered: Option<ObjectId>,
 ) -> bool {
@@ -312,8 +328,8 @@ fn still_over(
             .values()
             .flat_map(|over| over.keys().copied())
             .any(|entity| {
-                find_in_lineage(entity, hand_cards, parents)
-                    .is_some_and(|h| hovered == Some(h.object))
+                find_hand_in_lineage(entity, hand_cards, parents)
+                    .is_some_and(|(h, _)| hovered == Some(h.object))
             })
     })
 }
@@ -349,7 +365,7 @@ pub fn pointer_hover(
     mut zone: Local<Option<HoverZone>>,
     mut last: Local<Option<ObjectId>>,
     cards: Query<&CardVisual>,
-    hand_cards: Query<&HandCardVisual>,
+    hand_cards: Query<(&HandCardVisual, Has<crate::hud::StackRowCard>)>,
     tray_cards: Query<&TrayCard>,
     choice_previews: Query<&crate::hud::ChoicePreview>,
     piles: Query<&crate::table::PileVisual>,
@@ -375,15 +391,22 @@ pub fn pointer_hover(
     // rebuilt, the node the pointer was over is despawned, and a despawned
     // entity reports nothing. So the hover is also held against the kind of
     // entity that reported it. A land played from the hand is no longer *a
-    // hand card* whatever the battlefield now draws under the same id, which
-    // is why the source matters and a bare "does this object still exist"
-    // would not have cleared it.
+    // hand card* whatever the battlefield now draws under the same id, and a
+    // spell cast from the hand is no longer a hand card even though its new
+    // row in the stack panel also carries `HandCardVisual`, which is why the
+    // source matters and a bare "does this object still exist" would not have
+    // cleared it.
     //
     // Checked before the grace window, because the pointer has not moved —
     // that is the whole point.
     if let Some(object) = duel.hovered {
         let alive = match *source {
-            HoverSource::Hand => hand_cards.iter().any(|h| h.object == object),
+            HoverSource::Hand => hand_cards
+                .iter()
+                .any(|(h, stack)| !stack && h.object == object),
+            HoverSource::Stack => hand_cards
+                .iter()
+                .any(|(h, stack)| stack && h.object == object),
             // Drawn *and* still lying where the pointer found it. The second
             // half is [`HoverZone`]'s whole reason for existing: a permanent
             // that becomes the top of a graveyard keeps this very entity and
@@ -418,7 +441,7 @@ pub fn pointer_hover(
             // `move_cursor` heals a stale one on its own, so only a card that
             // has left both places is cleared.
             HoverSource::Elsewhere => {
-                hand_cards.iter().any(|h| h.object == object)
+                hand_cards.iter().any(|(h, _)| h.object == object)
                     || cards.iter().any(|v| v.object == object)
             }
         };
@@ -476,10 +499,16 @@ pub fn pointer_hover(
                     .view
                     .as_ref()
                     .and_then(|view| hover_zone(view, v.object));
-            } else if let Some(h) = find_in_lineage(over.entity, &hand_cards, &parents) {
+            } else if let Some((h, stack)) =
+                find_hand_in_lineage(over.entity, &hand_cards, &parents)
+            {
                 duel.hovered = Some(h.object);
                 duel.hovered_at = Some(HoverSpot::Point(at));
-                *source = HoverSource::Hand;
+                *source = if stack {
+                    HoverSource::Stack
+                } else {
+                    HoverSource::Hand
+                };
             } else if let Some(t) = find_in_lineage(over.entity, &tray_cards, &parents) {
                 // A row in the zone browser. It is a card drawn 74 px across,
                 // which is enough to pick out and not enough to read, so it
@@ -504,8 +533,8 @@ pub fn pointer_hover(
         for out in outs.read() {
             let is_current = find_in_lineage(out.entity, &cards, &parents)
                 .is_some_and(|v| duel.hovered == Some(v.object))
-                || find_in_lineage(out.entity, &hand_cards, &parents)
-                    .is_some_and(|h| duel.hovered == Some(h.object))
+                || find_hand_in_lineage(out.entity, &hand_cards, &parents)
+                    .is_some_and(|(h, _)| duel.hovered == Some(h.object))
                 || find_in_lineage(out.entity, &tray_cards, &parents)
                     .is_some_and(|t| duel.hovered == Some(t.object))
                 || find_in_lineage(out.entity, &choice_previews, &parents)
@@ -554,6 +583,8 @@ pub fn pointer_hover(
 pub enum HoverSource {
     /// A hand card, or a card in the command zone.
     Hand,
+    /// A row in the stack panel.
+    Stack,
     /// A permanent on the table.
     Table,
     /// A row in the zone browser.

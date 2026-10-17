@@ -412,7 +412,9 @@ fn open_when_asked(
         duel.game_menu = false;
     }
     if !(desk.asked || from_menu) || desk.open {
-        desk.asked = false;
+        if desk.asked {
+            desk.asked = false;
+        }
         return;
     }
     desk.asked = false;

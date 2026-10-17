@@ -537,9 +537,14 @@ fn pace(
     winit: Option<ResMut<WinitSettings>>,
     mut resting: ResMut<Resting>,
 ) {
-    let untouched_secs = (time.elapsed_secs_f64() - watch.last_input) as f32;
+    let passive = watched_from_behind();
+    let untouched_secs = if passive {
+        0.0
+    } else {
+        (time.elapsed_secs_f64() - watch.last_input) as f32
+    };
     let showing = Showing {
-        focused: focused(&windows),
+        focused: focused(&windows) || passive,
         hidden: watch.hidden || minimised(&windows),
         menu: phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed),
         untouched_secs,

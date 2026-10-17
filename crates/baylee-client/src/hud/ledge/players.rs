@@ -1261,19 +1261,25 @@ pub fn glow_the_players(
         } else {
             0.0
         };
-        glow.turn = turn_t;
-        glow.camera = camera_t;
-        glow.wait = wait_t;
-        glow.breath = breath;
+        if (glow.turn - turn_t).abs() > f32::EPSILON
+            || (glow.camera - camera_t).abs() > f32::EPSILON
+            || (glow.wait - wait_t).abs() > f32::EPSILON
+            || (glow.breath - breath).abs() > f32::EPSILON
+        {
+            glow.turn = turn_t;
+            glow.camera = camera_t;
+            glow.wait = wait_t;
+            glow.breath = breath;
+        }
         // The breath: rest border to the seat's colour and back, and the
         // ground a tenth of the way with it. Standing still, it is the
         // colour.
         let depth = if still {
             1.0
         } else {
-            0.5 - 0.5 * (std::f32::consts::TAU * glow.breath / BREATH).cos()
+            0.5 - 0.5 * (std::f32::consts::TAU * breath / BREATH).cos()
         };
-        let lean = glow.wait * if waited { depth } else { 1.0 };
+        let lean = wait_t * if waited { depth } else { 1.0 };
         let rim = mix(RIM, glow.colour.with_alpha(0.95), lean);
         if *border != BorderColor::all(rim) {
             *border = BorderColor::all(rim);
@@ -1287,7 +1293,7 @@ pub fn glow_the_players(
             feel.base = rest;
             // `Feel` redraws the ground only while the pointer moves it; at
             // rest the breath is drawn here.
-            if feel.warmth.abs() < f32::EPSILON {
+            if feel.warmth.abs() < f32::EPSILON && ground.0 != rest {
                 ground.0 = rest;
             }
         }

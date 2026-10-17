@@ -54,6 +54,54 @@ fn a_hand_card_that_is_played_takes_its_hover_with_it() {
     );
 }
 
+/// Casting a spell from the hand onto the stack must also take its hand hover
+/// preview with it.
+///
+/// A stack row carries `HandCardVisual` (plus `StackRowCard`) so it can be
+/// hovered and clicked like a card. A hover that started on the hand card must
+/// not survive by matching the new stack row in the top-right corner while keeping
+/// the old hand pointer position in the middle of the screen.
+#[test]
+fn a_hand_card_that_is_cast_onto_the_stack_takes_its_hover_with_it() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<bevy::picking::events::PointerOver>()
+        .add_message::<bevy::picking::events::PointerOut>()
+        .add_message::<bevy::window::CursorMoved>()
+        .insert_resource(crate::Duel::default())
+        .add_systems(Update, pointer_hover);
+
+    let card = app
+        .world_mut()
+        .spawn((
+            crate::hud::HandCardVisual { object: obj(4) },
+            crate::hud::HandRowCard,
+        ))
+        .id();
+    hover(&mut app, card);
+    assert_eq!(
+        app.world().resource::<crate::Duel>().hovered,
+        Some(obj(4)),
+        "the pointer over a hand card is a hover"
+    );
+
+    // The spell is cast: the hand node is despawned and a stack row is spawned
+    // with the same `ObjectId`. No `Out` is fired, and the pointer does not move.
+    app.world_mut().entity_mut(card).despawn();
+    app.world_mut().spawn((
+        crate::hud::HandCardVisual { object: obj(4) },
+        crate::hud::StackRowCard,
+    ));
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<crate::Duel>().hovered,
+        None,
+        "a hand card cast onto the stack does not leave its hover stuck above the hand"
+    );
+}
+
 /// The cure must not bring back the disease.
 ///
 /// `Duel::hovered` has four writers and `pointer_hover` is only one of

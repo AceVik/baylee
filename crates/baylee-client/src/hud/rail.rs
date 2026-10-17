@@ -90,24 +90,38 @@ pub fn flash_the_designation(
             state.seen = Some(block.0);
             state.at = now;
         }
-        let flash = if still {
+        let raw = if still {
             0.0
         } else {
             (-FLASH_DECAY * (now - state.at)).exp()
         };
+        let flash = if raw < 1e-3 { 0.0 } else { raw };
         let tone = match block.0 {
             baylee_view::DayNight::Day => palette::PARCHMENT,
             baylee_view::DayNight::Night => palette::INK,
         };
         let mut edge = tone.to_srgba();
         edge.alpha = 0.55 * flash;
-        *border = BorderColor::all(Color::from(edge));
-        if let Some(first) = shadow.first_mut() {
+        let next_border = BorderColor::all(Color::from(edge));
+        if *border != next_border {
+            *border = next_border;
+        }
+        if let Some(first) = shadow.first() {
             let mut glow = tone.to_srgba();
             glow.alpha = 0.55 * flash;
-            first.color = Color::from(glow);
-            first.blur_radius = Val::Px(NOW_GLOW * flash);
-            first.spread_radius = Val::Px(NOW_SPREAD * flash);
+            let next_color = Color::from(glow);
+            let next_blur = Val::Px(NOW_GLOW * flash);
+            let next_spread = Val::Px(NOW_SPREAD * flash);
+            if first.color != next_color
+                || first.blur_radius != next_blur
+                || first.spread_radius != next_spread
+            {
+                if let Some(first) = shadow.first_mut() {
+                    first.color = next_color;
+                    first.blur_radius = next_blur;
+                    first.spread_radius = next_spread;
+                }
+            }
         }
     }
 }

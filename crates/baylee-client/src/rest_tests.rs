@@ -52,3 +52,50 @@ fn no_chosen_cast_mode_no_write() {
 fn the_autopilot_with_nothing_to_answer_does_not_write() {
     assert!(!writes_at_rest(run_autopilot));
 }
+
+/// Red while `poll_host` mutably dereferenced `InstalledHost` to poll it and
+/// passed `&mut duel` through `ResMut<Duel>` into `follow_the_replay`,
+/// marking both `InstalledHost` and `Duel` changed on 100% of frames at rest.
+#[test]
+fn an_idle_host_does_not_write_the_duel_or_the_host() {
+    struct IdleHost;
+    impl DuelHost for IdleHost {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            Vec::new()
+        }
+        fn submit(&mut self, _: PlayerAction) {}
+        fn ready(&mut self) {}
+        fn seat(&self) -> baylee_core::ids::PlayerId {
+            baylee_core::ids::PlayerId::new(0)
+        }
+    }
+
+    let mut app = App::new();
+    let mut images = Assets::<Image>::default();
+    let card_textures = textures::CardTextures::new(&mut images, textures::default_budget_bytes());
+    app.add_plugins(bevy::state::app::StatesPlugin)
+        .insert_state(DuelPhase::Playing)
+        .insert_resource(resting())
+        .insert_resource(InstalledHost(Box::new(IdleHost)))
+        .insert_resource(card_textures)
+        .add_message::<DuelReport>()
+        .add_systems(Update, poll_host);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .resource_ref::<Duel>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "an idle host must not mark Duel changed on every frame"
+    );
+    assert!(
+        !app.world()
+            .resource_ref::<InstalledHost>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "polling an idle host must not mark InstalledHost changed on every frame"
+    );
+}

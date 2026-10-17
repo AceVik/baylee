@@ -2049,12 +2049,13 @@ fn poll_host(
     if *phase.get() == DuelPhase::Closed {
         return;
     }
-    let watching = host.0.watching();
+    let host = &mut host.bypass_change_detection().0;
+    let watching = host.watching();
     if duel.watching != watching {
         duel.watching = watching;
     }
     let mut jumped = false;
-    for message in host.0.poll() {
+    for message in host.poll() {
         match message {
             HostMessage::Jump => jumped = jump(&mut duel, &phase, &mut next, &mut placing),
             HostMessage::Spectators(count) => {
@@ -2069,7 +2070,7 @@ fn poll_host(
                 duel.statics = Some(*statics);
                 // The seat's own decklist, where this host knows it.
                 if duel.own_deck.is_empty() {
-                    duel.own_deck = host.0.own_deck();
+                    duel.own_deck = host.own_deck();
                 }
                 // Every attach opens with this payload. One before the
                 // curtain is up is a seat the engine may not have heard
@@ -2107,7 +2108,7 @@ fn poll_host(
                     next.set(DuelPhase::Playing);
                 }
                 if journey.is_none() && !duel.curtain_up && !duel.ready_sent {
-                    host.0.ready();
+                    host.ready();
                     duel.ready_sent = true;
                 }
             }
@@ -2170,7 +2171,7 @@ fn poll_host(
             }
         }
     }
-    follow_the_replay(&mut duel, host.0.replay(), jumped);
+    follow_the_replay(&mut duel, host.replay(), jumped);
 }
 
 /// A replay moved other than one step on (`HostMessage::Jump`): the next
@@ -2196,7 +2197,7 @@ fn jump(
 /// A replay's place, for the transport bar, written only when it moved; and
 /// no cue across a jump, or at 4× and 8×, where they would run into each
 /// other (§7.3).
-fn follow_the_replay(duel: &mut Duel, status: Option<&replay::ReplayStatus>, jumped: bool) {
+fn follow_the_replay(duel: &mut ResMut<Duel>, status: Option<&replay::ReplayStatus>, jumped: bool) {
     if duel.replay.as_ref() != status {
         duel.replay = status.cloned();
     }

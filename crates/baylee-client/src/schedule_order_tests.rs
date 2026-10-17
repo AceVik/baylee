@@ -113,3 +113,11 @@ fn the_edge_the_clock_depends_on_runs_one_way_only() {
         stored_as(hud::sync_ledge),
     ));
 }
+
+#[test]
+fn the_ability_sheet_is_placed_before_the_overlay_places_the_preview_around_it() {
+    assert!(runs_before(
+        stored_as(hud::place_ability_sheet),
+        stored_as(hud::sync_overlay),
+    ));
+}

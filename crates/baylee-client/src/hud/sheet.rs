@@ -344,6 +344,16 @@ pub struct AbilitySheet {
     placed: Option<Placement>,
 }
 
+impl AbilitySheet {
+    /// The rectangle the placed sheet occupies in logical pixels, once
+    /// [`place_ability_sheet`] has laid it out.
+    #[must_use]
+    pub(crate) fn placed_rect(&self) -> Option<Rect> {
+        self.placed
+            .map(|at| Rect::from_corners(at.corner, at.corner + at.size))
+    }
+}
+
 /// Where the sheet and its nub were last put.
 ///
 /// The sheet's own corner is **not** enough to guard on any more. It is
@@ -483,6 +493,14 @@ pub struct SheetZoom {
     t: f32,
     /// Whether the end of it is a despawn.
     closing: bool,
+}
+
+impl SheetZoom {
+    /// Whether this sheet is on its way off the screen.
+    #[must_use]
+    pub(crate) const fn is_closing(&self) -> bool {
+        self.closing
+    }
 }
 
 /// What the sheet is currently saying, so it is rebuilt only when that

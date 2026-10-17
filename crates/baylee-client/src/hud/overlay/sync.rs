@@ -135,6 +135,19 @@ pub fn sync_overlay(
         |(scroll, node, body)| (scroll.clone(), body.full_height(node, top)),
     );
     let stack_window = super::stack::window_start(stack_scroll.y, full_height);
+    let keep_out = tree.keep_out();
+    let keep_out_gate = (hovered.is_some() || duel.hovered_log.is_some())
+        .then(|| {
+            keep_out.map(|r| {
+                [
+                    r.min.x as i32,
+                    r.min.y as i32,
+                    r.max.x as i32,
+                    r.max.y as i32,
+                ]
+            })
+        })
+        .flatten();
     if revision.seq == seq
         && revision.lang == Some(lang)
         && revision.stack_selected == duel.stack_selected
@@ -161,6 +174,7 @@ pub fn sync_overlay(
         && revision.choice == choice
         && revision.cast_menu == cast_menu
         && revision.window == canvas
+        && revision.keep_out == keep_out_gate
         && !tree.root.is_empty()
     {
         return;
@@ -193,6 +207,7 @@ pub fn sync_overlay(
     revision.choice = choice;
     revision.cast_menu = cast_menu;
     revision.window = canvas;
+    revision.keep_out = keep_out_gate;
 
     let (Some(board), Some(view)) = (duel.board.as_ref(), duel.view.as_ref()) else {
         // Nothing to draw yet, or nothing left: the tree describes a game
@@ -488,19 +503,6 @@ pub fn sync_overlay(
             // every side, and the sheet under it when there is one.
             let panel =
                 card_box + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + super::preview_keys::HEIGHT);
-            // The drawer, if one is open, as the rectangle the preview
-            // must not cover. Read off the tree rather than rebuilt from
-            // `drawer.rs`'s constants: what is drawn is what a player sees
-            // covered, and the panel is scaled while it opens.
-            //
-            // `UiGlobalTransform` is in physical pixels and centred on the
-            // node, which is why both halves of this are converted and the
-            // size is halved before it is spent.
-            let keep_out = tree.drawer_box.iter().next().map(|(computed, at)| {
-                let size = computed.size() * computed.inverse_scale_factor;
-                let centre = at.translation * computed.inverse_scale_factor;
-                Rect::from_center_size(centre, size)
-            });
             // And the same count: the ×12 on the table is the one thing the
             // art under it cannot say. A badge over the card's top-right
             // corner, as it stands over it on a duel's felt (#261), so the

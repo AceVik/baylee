@@ -305,9 +305,12 @@ pub(crate) fn feel(
         if (feel.warmth - target).abs() < f32::EPSILON && !feel.is_changed() {
             continue;
         }
-        feel.warmth += (target - feel.warmth) * step;
-        if (feel.warmth - target).abs() < 0.001 {
-            feel.warmth = target;
+        if (feel.warmth - target).abs() >= f32::EPSILON {
+            let mut next_warmth = feel.warmth + (target - feel.warmth) * step;
+            if (next_warmth - target).abs() < 0.001 {
+                next_warmth = target;
+            }
+            feel.warmth = next_warmth;
         }
 
         let hot = feel.warmth.max(0.0);

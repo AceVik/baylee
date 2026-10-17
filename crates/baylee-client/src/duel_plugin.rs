@@ -198,7 +198,8 @@ pub(super) fn add_present_systems(app: &mut App) {
                 )
                     .chain()
                     .after(table::apply_camera_rig)
-                    .after(table::sync_scene),
+                    .after(table::sync_scene)
+                    .before(hud::sync_overlay),
                 // A life total changing is drawn over the cell that carries
                 // it, so this runs once the bar holding that cell has been
                 // rebuilt and placed. It reads `bevy_ui`'s own layout for
