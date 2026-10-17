@@ -55,12 +55,12 @@ pub(crate) enum HeaderPress {
     Report,
     /// The account menu: sign out.
     SignOut,
-    /// The chat button (beta.8): the chat panel, the box's caret.
-    Chat,
     /// The friends button: the friends drawer.
     Friends,
     /// Settings → Privacy's Chat & privacy row: the chat's privacy sheet.
     ChatPrivacy,
+    /// The account menu: quit / close the client.
+    Quit,
 }
 
 /// Something a header press asks of a system the press handler cannot
@@ -79,6 +79,56 @@ pub(crate) enum ShellAsk {
     ChatPrivacy,
     /// Dismiss a toast in `Toasts`.
     DismissToast(usize),
+    /// Quit the client application.
+    Quit,
+}
+
+/// Marks a header dropdown holder so `place_header_popovers` centers it
+/// beneath its [`kit_header::HeaderTrigger`] button and aligns its
+/// speech-bubble pointer (`nipple`) directly under the button's center.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct HeaderPopover {
+    pub(crate) trigger: kit_header::HeaderTrigger,
+    pub(crate) nipple: Entity,
+}
+
+/// Tracks the currently open header popover for smooth open/switch animation.
+#[derive(Resource, Default)]
+pub(crate) struct PopoverMotion {
+    last_trigger: Option<kit_header::HeaderTrigger>,
+    progress: f32,
+}
+
+/// Spawns a 14×14 rotated diamond speech-bubble pointer (`Sprechblasen-Nippel`)
+/// at the top edge of a dropdown popover.
+pub(crate) fn spawn_popover_nipple(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(-7.0),
+                right: px_fixed(20.0),
+                width: px_fixed(14.0),
+                height: px_fixed(14.0),
+                border: UiRect {
+                    left: px_fixed(1.0),
+                    top: px_fixed(1.0),
+                    right: px_fixed(0.0),
+                    bottom: px_fixed(0.0),
+                },
+                border_radius: BorderRadius::top_left(px_fixed(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.16, 0.25, 0.34, 0.98)),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            UiTransform {
+                rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
+                ..default()
+            },
+            ZIndex(2),
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 /// One of the header's nav pills.
@@ -174,6 +224,7 @@ pub(super) fn draw(
 }
 
 /// The header bar itself, and the quick settings' menu when it is open.
+#[allow(clippy::too_many_lines)]
 fn bar(
     commands: &mut Commands,
     root: Entity,
@@ -202,39 +253,52 @@ fn bar(
         let handle = handle(state);
         // The quick settings (language, music: the music's toggle stands on
         // every screen it plays on) keep their gear beside the bell.
-        let gear = commands
+        let gear_face = commands
+            .spawn((
+                Node {
+                    min_width: kit.m.px(32.0),
+                    min_height: kit.m.px(32.0),
+                    padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                UiTransform::default(),
+                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+                crate::shellkit::sheen::Sheen,
+                Pickable::IGNORE,
+            ))
+            .id();
+        let gear_glyph = commands
             .spawn((
                 Text::new("\u{f013}"),
                 crate::hud::icon_tf(kit.fonts, kit.m.text),
                 TextColor(tokens::INK),
+                Pickable::IGNORE,
             ))
             .id();
+        commands.entity(gear_face).add_child(gear_glyph);
         let gear = crate::shellkit::controls::hit(
             commands,
             kit,
-            gear,
-            Press::Front(FrontPress::FrontMenu),
+            gear_face,
+            (
+                Press::Front(FrontPress::FrontMenu),
+                kit_header::HeaderTrigger::Gear,
+            ),
         );
         let mut tools = vec![gear];
-        if let Some(friends) = state.chat_header {
+        if let Some(true) = state.chat_header {
             tools.push(chat_tool(
                 commands,
                 kit,
-                crate::hud::glyph::CHAT,
+                crate::hud::glyph::FRIENDS,
                 None,
-                crate::social::HeaderCount::Chat,
-                Press::Header(HeaderPress::Chat),
+                crate::social::HeaderCount::Friends,
+                Press::Header(HeaderPress::Friends),
             ));
-            if friends {
-                tools.push(chat_tool(
-                    commands,
-                    kit,
-                    crate::hud::glyph::FRIENDS,
-                    None,
-                    crate::social::HeaderCount::Friends,
-                    Press::Header(HeaderPress::Friends),
-                ));
-            }
         }
         let look = HeaderLook {
             brand: Phrase::AppName.text(lang),
@@ -271,6 +335,19 @@ fn bar(
                 back: Press::Header(HeaderPress::Return),
             },
         );
+        // Clicking the Baylee brand logo navigates to Lobby just like clicking
+        // the first nav item (`HeaderPress::Nav(0)`).
+        commands.queue(move |world: &mut World| {
+            let brand = world.get::<Children>(bar).and_then(|c| {
+                c.iter()
+                    .find(|e| world.get::<kit_header::BrandMark>(*e).is_some())
+            });
+            if let Some(brand) = brand
+                && let Ok(mut ent) = world.get_entity_mut(brand)
+            {
+                ent.insert(Press::Header(HeaderPress::Nav(0)));
+            }
+        });
         commands.entity(root).add_child(bar);
         if state.front_menu {
             let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
@@ -294,6 +371,8 @@ fn chat_tool(
     let face = commands
         .spawn((
             Node {
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
                 flex_direction: FlexDirection::Row,
                 align_items: if is_chat_badge {
                     AlignItems::FlexStart
@@ -305,8 +384,13 @@ fn chat_tool(
                 } else {
                     kit.m.px(6.0)
                 },
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            crate::shellkit::sheen::Sheen,
             Pickable::IGNORE,
         ))
         .id();
@@ -462,10 +546,11 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
             },
             BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.20, 0.26, 0.98).into(),
-                tokens::OPAQUE.with_alpha(0.95).into(),
+                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
             ])),
-            BorderColor::all(tokens::BORDER),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
         ))
@@ -581,10 +666,16 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
     card
 }
 
-/// An open header popover, under the header's right end, with a full-screen
-/// transparent click-catcher so clicking anywhere outside closes it.
+/// An open header popover, centered under its trigger button with a
+/// speech-bubble pointer (`Sprechblasen-Nippel`) and full-screen click-catcher.
+#[allow(clippy::too_many_lines)]
 fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMenu) -> Entity {
     let lang = state.lobby.lang();
+    let trigger = match menu {
+        HeaderMenu::Gateway => kit_header::HeaderTrigger::Gateway,
+        HeaderMenu::Bell => kit_header::HeaderTrigger::Bell,
+        HeaderMenu::Account => kit_header::HeaderTrigger::Account,
+    };
     let surface = match menu {
         // Offline there is no account to sign out of and no gateway to
         // describe: the pill's menu is the way back to the gateways.
@@ -634,6 +725,16 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     destructive: true,
                     action: Press::Header(HeaderPress::SignOut),
                 },
+                MenuItem {
+                    text: if lang == Lang::De {
+                        "Schließen"
+                    } else {
+                        "Quit"
+                    },
+                    keys: None,
+                    destructive: true,
+                    action: Press::Header(HeaderPress::Quit),
+                },
             ],
         ),
     };
@@ -661,18 +762,22 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            GlobalZIndex(tokens::z::POPOVER - 1),
+            GlobalZIndex(tokens::z::POPOVER - 2),
             Press::Header(HeaderPress::CloseMenu),
         ))
         .id();
+    let nipple = spawn_popover_nipple(commands);
+    commands.entity(surface).insert_children(0, &[nipple]);
     let holder = commands
         .spawn((
+            HeaderPopover { trigger, nipple },
             Node {
                 position_type: PositionType::Absolute,
-                top: px_fixed(kit.m.header + kit.m.gap),
+                top: px_fixed(kit.m.header + 8.0),
                 right: px_fixed(kit.m.body),
                 ..default()
             },
+            UiTransform::default(),
             GlobalZIndex(tokens::z::POPOVER),
             Pickable::IGNORE,
         ))
@@ -680,6 +785,92 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
     commands.entity(holder).add_child(surface);
     commands.entity(root).add_children(&[veil, holder]);
     root
+}
+
+/// Centers any open [`HeaderPopover`] beneath its trigger button in the header,
+/// aligns the speech-bubble pointer (`PopoverNipple`) directly under the
+/// button's horizontal center, and eases its open animation.
+#[allow(clippy::type_complexity)]
+pub(super) fn place_header_popovers(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut motion: ResMut<PopoverMotion>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
+    triggers: Query<
+        (
+            &kit_header::HeaderTrigger,
+            &ComputedNode,
+            &UiGlobalTransform,
+        ),
+        Without<HeaderPopover>,
+    >,
+    mut popovers: Query<(&HeaderPopover, &ComputedNode, &mut Node, &mut UiTransform)>,
+    mut nipples: Query<&mut Node, Without<HeaderPopover>>,
+) {
+    if popovers.is_empty() {
+        motion.last_trigger = None;
+        motion.progress = 0.0;
+        return;
+    }
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let win_width = windows.iter().next().map_or(1280.0, |w| {
+        crate::hud::scale::desktop_dimensions(w, ui.as_deref()).0
+    });
+    for (pop, computed, mut node, mut transform) in &mut popovers {
+        if motion.last_trigger != Some(pop.trigger) {
+            motion.last_trigger = Some(pop.trigger);
+            motion.progress = if still { 1.0 } else { 0.0 };
+        }
+        if motion.progress < 1.0 {
+            let step = if still {
+                1.0
+            } else {
+                1.0 - (-22.0 * time.delta_secs()).exp()
+            };
+            motion.progress = (motion.progress + (1.0 - motion.progress) * step).min(1.0);
+            if (1.0 - motion.progress) < 0.005 {
+                motion.progress = 1.0;
+            }
+        }
+        let t = motion.progress;
+        let scale = Vec2::splat(0.94 + 0.06 * t);
+        let y_offset = (1.0 - t) * -6.0;
+        if transform.scale != scale || transform.translation != Val2::px(0.0, y_offset) {
+            transform.scale = scale;
+            transform.translation = Val2::px(0.0, y_offset);
+        }
+
+        let Some((_, trig_node, trig_global)) =
+            triggers.iter().find(|(trig, ..)| **trig == pop.trigger)
+        else {
+            continue;
+        };
+        let trig_scale = trig_node.inverse_scale_factor;
+        let trig_size = trig_node.size() * trig_scale;
+        if trig_size.x <= 0.0 {
+            continue;
+        }
+        let trig_center = trig_global.translation * trig_scale;
+        let anchor_x = trig_center.x;
+        let anchor_bottom = trig_center.y + trig_size.y * 0.5;
+        let pop_width = (computed.size().x * computed.inverse_scale_factor).max(210.0);
+        let margin = 12.0;
+        let max_left = (win_width - pop_width - margin).max(margin);
+        let left = (anchor_x - pop_width * 0.5).clamp(margin, max_left);
+        let top = anchor_bottom + 8.0;
+        if node.left != px_fixed(left) || node.right != Val::Auto || node.top != px_fixed(top) {
+            node.left = px_fixed(left);
+            node.right = Val::Auto;
+            node.top = px_fixed(top);
+        }
+        let nipple_left = (anchor_x - left - 7.0).clamp(16.0, (pop_width - 30.0).max(16.0));
+        if let Ok(mut nip) = nipples.get_mut(pop.nipple)
+            && (nip.left != px_fixed(nipple_left) || nip.right != Val::Auto)
+        {
+            nip.left = px_fixed(nipple_left);
+            nip.right = Val::Auto;
+        }
+    }
 }
 
 /// The kit's measures for the lobby's window, at the device's text step and
@@ -731,12 +922,9 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
-            HeaderPress::Chat => {
-                cx.state.header_menu = None;
-                cx.state.shell_asks.push(ShellAsk::Chat);
-            }
             HeaderPress::Friends => {
                 cx.state.header_menu = None;
+                cx.state.front_menu = false;
                 cx.state.shell_asks.push(ShellAsk::Friends);
             }
             HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
@@ -744,7 +932,13 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 HubPress::SignOut.handle(cx);
             }
+            HeaderPress::Quit => {
+                cx.state.header_menu = None;
+                cx.state.shell_asks.push(ShellAsk::Quit);
+            }
             HeaderPress::Nav(n) => {
+                cx.state.header_menu = None;
+                cx.state.front_menu = false;
                 if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
                     cx.state.room_away = true;
                 }
@@ -1170,6 +1364,7 @@ pub(super) fn carry_out(
     mut state: ResMut<LobbyState>,
     mut toasts: ResMut<Toasts>,
     mut fired: MessageWriter<crate::shellkit::keys::ShellFired>,
+    mut exit: MessageWriter<bevy::app::AppExit>,
     desk: Option<ResMut<crate::report::ReportDesk>>,
     mut chat: Option<ResMut<crate::social::ChatUi>>,
     mut host: Option<ResMut<crate::social::SocialHost>>,
@@ -1191,6 +1386,9 @@ pub(super) fn carry_out(
                     desk.asked = true;
                 }
             }
+            ShellAsk::Quit => {
+                exit.write(bevy::app::AppExit::Success);
+            }
             ShellAsk::DismissToast(idx) => {
                 let offset = usize::from(has_undo);
                 if let Some(pos) = idx.checked_sub(offset)
@@ -1211,15 +1409,23 @@ pub(super) fn carry_out(
 /// The header's systems: its side questions, the bell, the toasts, what its
 /// presses ask of others, and the feed's reconnecting flag.
 pub(super) fn install(app: &mut App) {
-    app.init_resource::<Toasts>().add_systems(
-        Update,
-        (
-            follow_the_account,
-            ring_the_bell,
-            toast_lane,
-            carry_out,
-            super::feed::follow_the_feed.after(super::feed::feed),
+    app.init_resource::<Toasts>()
+        .init_resource::<PopoverMotion>()
+        .add_systems(
+            Update,
+            (
+                follow_the_account,
+                ring_the_bell,
+                toast_lane,
+                carry_out,
+                super::feed::follow_the_feed.after(super::feed::feed),
+            )
+                .run_if(in_state(DuelPhase::Closed)),
         )
-            .run_if(in_state(DuelPhase::Closed)),
-    );
+        .add_systems(
+            PostUpdate,
+            place_header_popovers
+                .after(bevy::ui::UiSystems::Layout)
+                .run_if(in_state(DuelPhase::Closed)),
+        );
 }

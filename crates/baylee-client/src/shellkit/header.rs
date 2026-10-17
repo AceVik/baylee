@@ -95,6 +95,29 @@ pub struct HeaderActions<N, G, B, A, R> {
     pub back: R,
 }
 
+/// Identifies a header trigger button so its dropdown popover can center
+/// beneath it with a speech-bubble pointer (`Sprechblasen-Nippel`).
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum HeaderTrigger {
+    /// The quick-settings gear button.
+    Gear,
+    /// The notifications bell button.
+    Bell,
+    /// The user profile / account button.
+    Account,
+    /// The gateway status pill.
+    Gateway,
+}
+
+/// Marks the top header bar (`false`) or seated strip (`true`) to receive a
+/// continuously animated silk-aurora background shader surface.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct HeaderSurface(pub bool);
+
+/// Marks a [`HeaderSurface`] whose shader child has already been attached.
+#[derive(Component)]
+pub struct HeaderSurfaceDressed;
+
 /// The header bar.
 #[allow(clippy::too_many_lines)] // one bar, read left to right
 pub fn header<NB, N, G, B, A, R>(
@@ -111,6 +134,7 @@ where
     A: Bundle,
     R: Bundle,
 {
+    let _ = look.build;
     let m = kit.m;
     let phone = m.frame == Frame::Phone;
     let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
@@ -118,6 +142,7 @@ where
     let bar = commands
         .spawn((
             Role::Header,
+            HeaderSurface(false),
             Node {
                 width: Val::Percent(100.0),
                 // Large text at a narrow desktop keeps all actions reachable
@@ -132,17 +157,23 @@ where
                 column_gap: if desktop { m.px(8.0) } else { px_fixed(m.gap) },
                 align_items: AlignItems::Center,
                 flex_shrink: 0.0,
+                border: UiRect::bottom(px_fixed(1.0)),
                 ..default()
             },
             BackgroundColor(tokens::PANEL),
+            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            GlobalZIndex(tokens::z::POPOVER - 1),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.36),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(4.0),
+                spread_radius: px_fixed(0.0),
+                blur_radius: px_fixed(12.0),
+            }]),
         ))
         .id();
     let brand = brand_mark(commands, m.header, look.brand);
     commands.entity(bar).add_child(brand);
-    if roomy {
-        let build = label(commands, kit, look.build, m.small, tokens::MUTED);
-        commands.entity(bar).add_child(build);
-    }
     for (i, text) in look.nav.iter().enumerate() {
         let pill = controls::nav(
             commands,
@@ -179,6 +210,7 @@ where
         commands.entity(bar).add_child(pill);
     } else if roomy {
         let pill = gateway_pill(commands, kit, look, actions.gateway);
+        commands.entity(pill).insert(HeaderTrigger::Gateway);
         commands.entity(bar).add_child(pill);
     } else {
         let dot = commands
@@ -190,13 +222,17 @@ where
                     ..default()
                 },
                 BackgroundColor(look.reach.colour()),
+                UiTransform::default(),
+                crate::ambience::Feel::new(look.reach.colour()),
             ))
             .id();
         let pill = hit(commands, kit, dot, actions.gateway);
+        commands.entity(pill).insert(HeaderTrigger::Gateway);
         commands.entity(bar).add_child(pill);
     }
     commands.entity(bar).add_children(look.tools);
     let bell = bell(commands, kit, look.unread, actions.bell);
+    commands.entity(bell).insert(HeaderTrigger::Bell);
     commands.entity(bar).add_child(bell);
     if let Some(handle) = look.handle {
         let account = if roomy {
@@ -204,6 +240,7 @@ where
         } else {
             avatar(commands, kit, handle, actions.account)
         };
+        commands.entity(account).insert(HeaderTrigger::Account);
         commands.entity(bar).add_child(account);
     }
     bar
@@ -261,9 +298,13 @@ pub fn brand_mark(commands: &mut Commands, header: f32, name: &str) -> Entity {
                 width: px_fixed((height * LOGO_ASPECT).round()),
                 height: px_fixed(height),
                 flex_shrink: 0.0,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            Pickable::IGNORE,
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            super::sheen::Sheen,
         ))
         .id()
 }
@@ -286,13 +327,85 @@ pub fn sharpen_brand(
     }
 }
 
+/// Attaches the continuous silk-aurora ambient material to any newly spawned
+/// [`HeaderSurface`] (top navigation bar or seated strip).
+fn dress_header_surfaces(
+    mut commands: Commands,
+    bars: Query<(Entity, &HeaderSurface), Without<HeaderSurfaceDressed>>,
+    materials: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    quality: Option<Res<crate::quality::InUse>>,
+) {
+    let Some(mut materials) = materials else {
+        return;
+    };
+    let still = crate::quality::ambient_still(
+        prefs.is_some_and(|p| p.all().reduce_motion),
+        quality.as_deref(),
+    );
+    for (bar, kind) in &bars {
+        let is_strip = kind.0;
+        let (low, high, pad, seed) = if is_strip {
+            (
+                Color::srgba(0.08, 0.13, 0.19, 0.95),
+                Color::srgba(0.19, 0.32, 0.43, 0.97),
+                2.2,
+                2.1,
+            )
+        } else {
+            (
+                Color::srgba(0.08, 0.12, 0.17, 0.96),
+                Color::srgba(0.18, 0.31, 0.42, 0.98),
+                2.0,
+                1.7,
+            )
+        };
+        let energy = if still { 0.0 } else { 1.0 };
+        let handle = materials.add(crate::ambience::AmbienceMaterial {
+            params: crate::ambience::AmbienceParams {
+                low: LinearRgba::from(low).to_f32_array().into(),
+                high: LinearRgba::from(high).to_f32_array().into(),
+                energy,
+                seed,
+                aspect: 12.0,
+                pad,
+            },
+        });
+        commands
+            .entity(bar)
+            .queue_silenced(move |mut bar_ent: EntityWorldMut| {
+                let surface = bar_ent.world_scope(|world| {
+                    world
+                        .spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: px_fixed(0.0),
+                                right: px_fixed(0.0),
+                                top: px_fixed(0.0),
+                                bottom: px_fixed(0.0),
+                                ..default()
+                            },
+                            MaterialNode(handle),
+                            crate::ambience::Ambient { energy: 1.0 },
+                            Pickable::IGNORE,
+                        ))
+                        .id()
+                });
+                bar_ent
+                    .insert(HeaderSurfaceDressed)
+                    .insert_children(0, &[surface]);
+            });
+    }
+}
+
 /// Loads the cuts and keeps the marks sharp.
 pub(super) fn install(app: &mut App) {
     if let Some(assets) = app.world().get_resource::<AssetServer>() {
         let art = BrandArt(LOGO_CUTS.map(|(_, path)| assets.load(path)));
         app.insert_resource(art);
     }
-    app.add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
+    app.add_systems(Update, dress_header_surfaces)
+        .add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
 }
 
 /// The gateway pill on Wide and Vast: the reach dot, the name (or address)
@@ -322,7 +435,9 @@ fn gateway_pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
+            super::sheen::Sheen,
         ))
         .id();
     let dot = commands
@@ -430,9 +545,18 @@ pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundl
     let face = commands
         .spawn((
             Node {
-                align_items: AlignItems::FlexStart,
+                min_width: kit.m.px(32.0),
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            super::sheen::Sheen,
             Pickable::IGNORE,
         ))
         .id();
@@ -502,6 +626,9 @@ pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bund
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
+            crate::ambience::Feel::new(tokens::CONTROL),
+            super::sheen::Sheen,
         ))
         .id();
     let words = label(commands, kit, &letter, kit.m.small, tokens::INK);
@@ -510,12 +637,14 @@ pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bund
 }
 
 /// A contextual strip below the header: a distinct bar with a status badge,
-/// sentence, and compact actions on the right.
+/// sentence, and compact actions on the right, sharing a continuous animated
+/// background with the top navigation bar ("wie aus einem Guss").
 pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entity]) -> Entity {
     let m = kit.m;
     let bar = commands
         .spawn((
             Role::Panel,
+            HeaderSurface(true),
             Node {
                 width: Val::Percent(100.0),
                 min_height: kit.m.px(38.0),
@@ -527,11 +656,14 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
                 ..default()
             },
             BackgroundColor(tokens::PANEL),
-            BackgroundGradient::from(LinearGradient::to_right(vec![
-                tokens::GOLD.with_alpha(0.14).into(),
-                tokens::PANEL.into(),
-            ])),
-            BorderColor::all(tokens::GOLD.with_alpha(0.35)),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.32),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(3.0),
+                spread_radius: px_fixed(0.0),
+                blur_radius: px_fixed(10.0),
+            }]),
             SeatStrip,
         ))
         .id();

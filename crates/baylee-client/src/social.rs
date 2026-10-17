@@ -518,7 +518,7 @@ pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lob
         }
         ShellAsk::Friends => ui.drawer = !ui.drawer,
         ShellAsk::ChatPrivacy => ui.sheet = Some(sheet::Sheet::Privacy),
-        ShellAsk::Shortcuts | ShellAsk::Report | ShellAsk::DismissToast(_) => {}
+        ShellAsk::Shortcuts | ShellAsk::Report | ShellAsk::DismissToast(_) | ShellAsk::Quit => {}
     }
 }
 

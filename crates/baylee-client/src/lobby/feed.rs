@@ -104,7 +104,12 @@ pub(super) fn feed(
     // sign-in screen has no token; a seated client has its seat's socket.
     let wanted = match (state.lobby.token(), state.lobby.screen()) {
         (Some(token), Screen::Table | Screen::Build) => {
-            Some((token.to_string(), state.lobby.query()))
+            let query = if state.room_away {
+                state.lobby.search_query()
+            } else {
+                state.lobby.query()
+            };
+            Some((token.to_string(), query))
         }
         _ => None,
     };

@@ -857,7 +857,7 @@ pub(super) fn gear_menu(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            GlobalZIndex(590),
+            GlobalZIndex(crate::shellkit::tokens::z::POPOVER - 2),
             Press::Front(FrontPress::FrontMenu),
         ))
         .id();
@@ -877,16 +877,22 @@ pub(super) fn gear_menu(
             },
             BackgroundColor(palette::PANEL_LIT.with_alpha(0.97)),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.17, 0.21, 0.27, 0.98).into(),
-                palette::PANEL_LIT.with_alpha(0.96).into(),
+                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
             ])),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.55)),
-            soft_shadow(),
+            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            crate::shellkit::surfaces::popover_shadow(),
+            UiTransform::default(),
             GlobalZIndex(600),
             // A press on the menu's own ground is not a press outside it.
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
+    let nipple = super::header::spawn_popover_nipple(commands);
+    commands.entity(menu).insert(super::header::HeaderPopover {
+        trigger: crate::shellkit::header::HeaderTrigger::Gear,
+        nipple,
+    });
     let head = commands
         .spawn((
             Node {
@@ -939,6 +945,8 @@ pub(super) fn gear_menu(
             },
             BackgroundColor(Color::NONE),
             crate::ambience::Feel::rising_to(Color::NONE, crate::shellkit::tokens::HOVER),
+            crate::shellkit::sheen::Sheen,
+            UiTransform::default(),
             Press::Front(FrontPress::FrontMenu),
         ))
         .id();
@@ -1013,9 +1021,9 @@ pub(super) fn gear_menu(
         node.justify_content = JustifyContent::Center;
     });
     let report = crate::report::button(commands, fonts, metrics, lang);
-    commands
-        .entity(menu)
-        .add_children(&[head, caption, languages, audio_box, rule, report, all]);
+    commands.entity(menu).add_children(&[
+        nipple, head, caption, languages, audio_box, rule, report, all,
+    ]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
 }
@@ -1331,7 +1339,10 @@ impl FrontPress {
                 }
             }
             FrontPress::LeaveGateway => state.leave_gateway(),
-            FrontPress::FrontMenu => state.front_menu = !state.front_menu,
+            FrontPress::FrontMenu => {
+                state.header_menu = None;
+                state.front_menu = !state.front_menu;
+            }
             FrontPress::Nothing => {}
             FrontPress::BackToSignIn => {
                 state.lobby.back_to_sign_in();

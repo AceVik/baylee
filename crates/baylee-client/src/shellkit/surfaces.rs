@@ -235,7 +235,73 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
     scrim
 }
 
-/// A popover: a read-only summary in an opaque box with a subtle vertical gradient.
+/// Elevation shadow shared by dropdown popovers and menus.
+#[must_use]
+pub fn popover_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.35),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(3.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(12.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(28.0),
+        },
+    ])
+}
+
+/// Prefix glyph for a dropdown menu item based on its label or destructive flag.
+fn menu_item_glyph(text: &str, destructive: bool) -> char {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("profil") || lower.contains("profile") {
+        '\u{f007}'
+    } else if lower.contains("tasten") || lower.contains("shortcut") || lower.contains("key") {
+        '\u{f11c}'
+    } else if lower.contains("problem")
+        || lower.contains("report")
+        || lower.contains("fehler")
+        || lower.contains("bug")
+    {
+        '\u{f188}'
+    } else if lower.contains("gateway") || lower.contains("wechsel") {
+        '\u{f0ec}'
+    } else if lower.contains("schließen")
+        || lower.contains("beenden")
+        || lower.contains("quit")
+        || lower.contains("close")
+    {
+        '\u{f011}'
+    } else if lower.contains("abmelden")
+        || lower.contains("konto")
+        || lower.contains("sign out")
+        || lower.contains("switch")
+    {
+        '\u{f2f5}'
+    } else if lower.contains("dupliz") || lower.contains("duplicate") {
+        '\u{f24d}'
+    } else if lower.contains("export") || lower.contains("kopier") || lower.contains("copy") {
+        '\u{f56e}'
+    } else if lower.contains("umbenenn")
+        || lower.contains("bearbeit")
+        || lower.contains("rename")
+        || lower.contains("edit")
+    {
+        '\u{f304}'
+    } else if destructive || lower.contains("lösch") || lower.contains("delete") {
+        '\u{f1f8}'
+    } else {
+        '\u{f0da}'
+    }
+}
+
+/// A popover: a read-only summary in an opaque box with a subtle vertical gradient
+/// and elevation shadow.
 pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
     let surface = commands
         .spawn((
@@ -250,10 +316,11 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
             },
             BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.19, 0.24, 0.98).into(),
-                tokens::OPAQUE.with_alpha(0.95).into(),
+                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
             ])),
-            BorderColor::all(tokens::BORDER),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
         .id();
@@ -308,10 +375,11 @@ pub fn menu<'a, B: Bundle>(
             },
             BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.19, 0.24, 0.98).into(),
-                tokens::OPAQUE.with_alpha(0.95).into(),
+                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
             ])),
-            BorderColor::all(tokens::BORDER),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
         .id();
@@ -345,6 +413,8 @@ pub fn menu<'a, B: Bundle>(
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
+                UiTransform::default(),
+                super::sheen::Sheen,
                 crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
                 item.action,
             ))
@@ -354,8 +424,31 @@ pub fn menu<'a, B: Bundle>(
         } else {
             tokens::INK
         };
+        let lead = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.px(10.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let glyph = commands
+            .spawn((
+                Text::new(menu_item_glyph(item.text, item.destructive).to_string()),
+                icon_tf(kit.fonts, kit.m.small),
+                TextColor(if item.destructive {
+                    tokens::DANGER
+                } else {
+                    tokens::ACCENT
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
         let words = label(commands, kit, item.text, kit.m.text, ink);
-        commands.entity(row).add_child(words);
+        commands.entity(lead).add_children(&[glyph, words]);
+        commands.entity(row).add_child(lead);
         if let Some(keys) = item.keys
             && let Some(cap) = super::controls::key_cap(commands, kit, keys)
         {

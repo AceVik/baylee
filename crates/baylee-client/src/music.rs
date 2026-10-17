@@ -304,13 +304,21 @@ pub(crate) fn controls(
         Phrase::MusicPlaying.text(lang),
         MusicAction::Toggle,
     );
-    commands.entity(toggle).with_child((
-        Text::new(Phrase::MusicPlaying.text(lang)),
-        tf(fonts, metrics.text),
-        TextColor(palette::INK),
-        MusicSwitch,
-        Pickable::IGNORE,
-    ));
+    commands.entity(toggle).with_children(|parent| {
+        parent.spawn((
+            Text::new("\u{f001}"),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(palette::DOCK_INK),
+            Pickable::IGNORE,
+        ));
+        parent.spawn((
+            Text::new(Phrase::MusicPlaying.text(lang)),
+            tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            MusicSwitch,
+            Pickable::IGNORE,
+        ));
+    });
     let row = commands
         .spawn((
             Node {
@@ -364,7 +372,7 @@ fn control_button(
     commands
         .entity(id)
         .remove::<crate::lobby::Press>()
-        .insert((UiButton, action))
+        .insert((UiButton, crate::shellkit::sheen::Sheen, action))
         .observe(
             |mut click: On<PointerClick>,
              actions: Query<&MusicAction>,

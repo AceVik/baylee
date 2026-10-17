@@ -311,13 +311,13 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // The editor lives in the same garden, with a calm reading light.
     rgb *= 1.0 - interior * 0.32;
 
-    // In the lobby Baylee sits on the terrace, centred under the content and
-    // in front of the world's darkening, in a soft warm glow with her own
-    // fireflies. Wide windows only; a phone has no floor to spare.
+    // In the lobby Baylee sits on the terrace, centred under the left column
+    // (`params.panel.x`) and in front of the world's darkening, in a soft warm
+    // glow with her own fireflies. Wide windows only; a phone has no floor to spare.
     let home = interior * wide;
     if home > 0.0 {
         let home_h = 0.30;
-        let home_foot = vec2<f32>(aspect * 0.5, 0.968);
+        let home_foot = vec2<f32>(params.panel.x, 0.968);
         let middle = home_foot - vec2<f32>(0.0, home_h * 0.5);
         let breath = 0.92 + 0.08 * sin(t * 0.45);
         rgb += GOLD * bell(p - middle, vec2<f32>(home_h * 0.95, home_h * 0.70)) * 0.11 * breath * home;

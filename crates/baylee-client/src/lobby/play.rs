@@ -163,39 +163,41 @@ pub(super) fn draw(
         ))
         .id();
     commands.entity(root).add_child(body);
-    let lane = commands
-        .spawn((
-            Node {
-                width: if phone {
-                    px(if metrics.frame == Frame::Compact {
-                        220
-                    } else {
-                        280
-                    })
-                } else if side {
-                    percent(30)
+    let mut lane = commands.spawn((
+        Node {
+            width: if phone {
+                px(if metrics.frame == Frame::Compact {
+                    220
                 } else {
-                    percent(100)
-                },
-                max_width: if side && !phone {
-                    kit.m.px(460.0)
-                } else {
-                    Val::Auto
-                },
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                row_gap: px_fixed(kit.m.body),
-                max_height: percent(100),
-                overflow: if phone {
-                    Overflow::scroll_y()
-                } else {
-                    Overflow::visible()
-                },
-                ..default()
+                    280
+                })
+            } else if side {
+                percent(30)
+            } else {
+                percent(100)
             },
-            Pickable::IGNORE,
-        ))
-        .id();
+            max_width: if side && !phone {
+                kit.m.px(460.0)
+            } else {
+                Val::Auto
+            },
+            flex_shrink: 0.0,
+            flex_direction: FlexDirection::Column,
+            row_gap: px_fixed(kit.m.body),
+            max_height: percent(100),
+            overflow: if phone {
+                Overflow::scroll_y()
+            } else {
+                Overflow::visible()
+            },
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    if side && !phone {
+        lane.insert(crate::vista::Framed(crate::vista::Vista::Interior));
+    }
+    let lane = lane.id();
     commands.entity(body).add_child(lane);
     let hero_more = hero(commands, lane, state, metrics, kit);
     if side && !phone {
@@ -205,22 +207,6 @@ pub(super) fn draw(
     if !side || phone {
         // Narrow and Phone: Recent games is a row under the list.
         recent(commands, body, state, kit);
-    }
-    let lang = state.lobby.lang();
-    if let Some(hint) = parts::key_hint(
-        commands,
-        kit,
-        &[
-            ("Enter", Phrase::PlayHintJoin.text(lang)),
-            ("/", Phrase::ShellKeySearch.text(lang)),
-            ("c", Phrase::CreateTable.text(lang)),
-        ],
-    ) {
-        commands
-            .entity(hint)
-            .entry::<Node>()
-            .and_modify(|mut n| n.margin = UiRect::left(px(20)));
-        commands.entity(root).add_child(hint);
     }
     menu(commands, root, state, kit, hero_more, tables_more);
     if state.play.picker {
@@ -799,6 +785,12 @@ fn tables(
                 } else {
                     percent(100)
                 },
+                height: if wide || phone {
+                    percent(100)
+                } else {
+                    Val::Auto
+                },
+                align_self: AlignSelf::Stretch,
                 max_width: if wide { kit.m.px(1000.0) } else { Val::Auto },
                 max_height: percent(100),
                 min_height: px(0),
@@ -986,18 +978,31 @@ fn tables(
     }
 
     let list = commands
-        .spawn((Node {
-            width: percent(100),
-            flex_grow: 1.0,
-            min_height: px(0),
-            flex_direction: FlexDirection::Column,
-            row_gap: kit.m.px(4.0),
-            overflow: Overflow::scroll_y(),
-            ..default()
-        },))
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                min_height: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(4.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            Role::Scroll,
+            Pickable::default(),
+        ))
         .id();
-    commands.entity(panel).add_child(list);
-    let order = model::table_order(lobby.games(), state.play.filter, state.play.sort);
+    let bar = super::scrollbars::attach(commands, panel, list, metrics);
+    commands
+        .entity(bar)
+        .insert(super::scrollbars::OnlyWhenNeeded)
+        .entry::<Node>()
+        .and_modify(|mut node| node.display = Display::None);
+    let query = lobby.field(Field::Search).trim();
+    let order: Vec<usize> = model::table_order(lobby.games(), state.play.filter, state.play.sort)
+        .into_iter()
+        .filter(|&i| model::matches_search(&lobby.games()[i], query))
+        .collect();
     // A list scrolls only when it has rows to scroll.
     if !order.is_empty() {
         commands.entity(list).insert((
@@ -1044,8 +1049,39 @@ fn tables(
         .next_deck()
         .map(|d| d.format.clone())
         .unwrap_or_default();
-    let mut walked = 0;
-    for index in order {
+    // Lazy windowed virtualization for large table listings (> 24 rows),
+    // keeping DOM/ECS entity count bounded while preserving exact scroll height.
+    let lazy_window = 24usize;
+    let total_rows = order.len();
+    let row_stride = 68.0 * kit.m.scale;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let (start, end) = if total_rows > lazy_window {
+        let scroll_y = scrolled.get(List::Games).max(0.0);
+        let first = (scroll_y / row_stride).floor() as usize;
+        let s = first
+            .saturating_sub(4)
+            .min(total_rows.saturating_sub(lazy_window));
+        (s, (s + lazy_window).min(total_rows))
+    } else {
+        (0, total_rows)
+    };
+    #[allow(clippy::cast_precision_loss)]
+    if start > 0 {
+        let top_spacer = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: px_fixed((start as f32 * row_stride - 4.0 * kit.m.scale).max(0.0)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(list).add_child(top_spacer);
+    }
+    let mut walked = start;
+    for &index in &order[start..end] {
         let game = &lobby.games()[index];
         let row = table_row(
             commands,
@@ -1058,6 +1094,23 @@ fn tables(
             &mut walked,
         );
         commands.entity(list).add_child(row);
+    }
+    #[allow(clippy::cast_precision_loss)]
+    if end < total_rows {
+        let bottom_spacer = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: px_fixed(
+                        ((total_rows - end) as f32 * row_stride - 4.0 * kit.m.scale).max(0.0),
+                    ),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(list).add_child(bottom_spacer);
     }
     // The pager, only with more than one page.
     if lobby.total() > lobby.games().len() {

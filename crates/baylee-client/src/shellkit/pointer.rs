@@ -60,6 +60,7 @@ pub(crate) struct Marks {
     clickable: Has<Clickable>,
     slider: Has<Slider>,
     button: Has<UiButton>,
+    brand: Has<super::header::BrandMark>,
 }
 
 /// The table's own buttons, which answer through their own components.
@@ -96,13 +97,28 @@ impl MarksItem<'_, '_> {
         {
             return Some(Shape::Text);
         }
+        if matches!(
+            self.press,
+            Some(crate::lobby::Press::Header(
+                crate::lobby::HeaderPress::CloseMenu
+            ))
+        ) || (matches!(self.role, Some(Role::Opaque))
+            && matches!(
+                self.press,
+                Some(crate::lobby::Press::Shared(
+                    crate::lobby::SharedPress::PickerNothing
+                ))
+            ))
+        {
+            return Some(Shape::Arrow);
+        }
         let acts = self.press.is_some()
-            || matches!(self.role, Some(Role::Hit))
+            || matches!(self.role, Some(Role::Hit | Role::MenuItem | Role::Slider))
             || self.feel
             || self.clickable
             || self.slider
-            || matches!(self.role, Some(Role::Slider))
-            || self.button;
+            || self.button
+            || self.brand;
         acts.then_some(Shape::Hand)
     }
 }

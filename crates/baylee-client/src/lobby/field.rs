@@ -192,26 +192,34 @@ pub(crate) fn text_field_with(
             Pickable::IGNORE,
         ))
         .id();
+    let is_search = look.lead == Some(crate::hud::glyph::MAGNIFIER);
     let boxed = commands
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(metrics.tap),
+                min_height: px(metrics.tap * if is_search { 0.80 } else { 1.0 }),
                 overflow: Overflow::clip_x(),
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(metrics.pad * 0.7), px(6)),
+                padding: UiRect::axes(
+                    px(metrics.pad * if is_search { 0.75 } else { 0.7 }),
+                    px(if is_search { 3 } else { 6 }),
+                ),
                 // Two pixels whether or not it has the caret, so that taking
                 // the caret rings the box instead of moving everything in it
                 // a pixel to the left.
                 border: UiRect::all(px(2)),
-                border_radius: btn_radius(),
+                border_radius: if is_search {
+                    BorderRadius::all(px(18))
+                } else {
+                    btn_radius()
+                },
                 ..default()
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(if look.focused {
                 palette::ACCENT
             } else {
-                Color::srgba(1.0, 1.0, 1.0, 0.06)
+                Color::srgba(1.0, 1.0, 1.0, 0.08)
             }),
             look.press,
         ))

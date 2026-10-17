@@ -355,6 +355,34 @@ pub fn table_order(games: &[GameSummary], filter: TableFilter, sort: TableSort) 
     shown
 }
 
+/// Whether a table matches the search box's words: case- and accent-folded
+/// tokens matched against the table's name, id, format, and its seated
+/// players' names and decks.
+#[must_use]
+pub fn matches_search(game: &GameSummary, query: &str) -> bool {
+    let q = super::shelf::fold(query);
+    if q.is_empty() {
+        return true;
+    }
+    let name = super::shelf::fold(&game.name);
+    let id = super::shelf::fold(&game.id);
+    let fmt = table_format(game)
+        .map(super::shelf::fold)
+        .unwrap_or_default();
+    q.split_whitespace().all(|word| {
+        name.contains(word)
+            || id.contains(word)
+            || fmt.contains(word)
+            || game.seats.iter().any(|s| {
+                s.player
+                    .as_deref()
+                    .is_some_and(|p| super::shelf::fold(p).contains(word))
+                    || super::shelf::fold(&s.deck).contains(word)
+                    || super::shelf::fold(&s.format).contains(word)
+            })
+    })
+}
+
 /// The line before a Join when the next game's deck does not fit the table
 /// (S-4): the host brought a deck of another format. Join still works — the
 /// room lets the player pick another deck. A mixed table warns nobody.

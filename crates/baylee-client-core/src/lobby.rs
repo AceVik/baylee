@@ -2001,7 +2001,8 @@ impl Lobby {
                     self.awaiting.is_none()
                         || (!self.offline() && self.room_edit.as_ref().is_some_and(|d| d.host))
                 }
-                Field::Search | Field::DeckSearch | Field::ReplaySearch => self.awaiting.is_none(),
+                Field::Search => !self.offline(),
+                Field::DeckSearch | Field::ReplaySearch => true,
                 _ => false,
             },
             Screen::Build | Screen::Seated(_) | Screen::Replay(_) => false,
@@ -2409,6 +2410,17 @@ impl Lobby {
         }
     }
 
+    /// What the table list itself asks for when shown (including when a
+    /// seated player steps away from their room to browse the lobby).
+    #[must_use]
+    pub fn search_query(&self) -> GameQuery {
+        GameQuery {
+            q: self.search.text().trim().to_string(),
+            offset: self.offset,
+            limit: PAGE,
+        }
+    }
+
     /// Asks for the current page of the table list.
     #[expect(
         clippy::unnecessary_wraps,
@@ -2484,7 +2496,9 @@ impl Lobby {
             return None;
         }
         self.offset = 0;
-        self.list()
+        self.busy = true;
+        self.refreshing = true;
+        Some(LobbyRequest::ListGames(self.search_query()))
     }
 
     /// How many tables the search matched, of which [`Lobby::games`] is a page.
@@ -3399,7 +3413,19 @@ impl Lobby {
             }
             LobbyEvent::Games(listing) => {
                 self.health.no_agents = !listing.agents_available;
+                let kept_own = (!self.search.text().trim().is_empty())
+                    .then(|| {
+                        self.awaiting.as_ref().and_then(|h| {
+                            (!listing.games.iter().any(|g| g.id == h.game_id))
+                                .then(|| self.games.iter().find(|g| g.id == h.game_id).cloned())
+                                .flatten()
+                        })
+                    })
+                    .flatten();
                 self.games = listing.games;
+                if let Some(own) = kept_own {
+                    self.games.insert(0, own);
+                }
                 self.total = listing.total;
                 self.sync_room_edit();
                 self.offset = listing.offset;

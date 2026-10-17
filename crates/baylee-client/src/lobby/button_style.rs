@@ -28,6 +28,9 @@ pub(crate) fn icon(commands: &mut Commands, fonts: &UiFonts, id: Entity, press: 
         Press::Build(BuildPress::ClearDeck) => '\u{f2ed}',
         Press::Build(BuildPress::ChooseCommander(_)) => '\u{f521}',
         Press::Front(FrontPress::LeaveGateway) => '\u{f053}',
+        Press::Settings(super::SettingsPress::OpenSettings) => '\u{f1de}',
+        Press::Shared(super::SharedPress::PickLang(_)) => '\u{f1ab}',
+        Press::Shared(super::SharedPress::ToggleMusic) => '\u{f001}',
         _ => return,
     };
     let icon = commands

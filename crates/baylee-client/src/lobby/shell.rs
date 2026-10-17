@@ -221,6 +221,8 @@ pub(super) struct KitDrawn {
     /// The big-screen scale in eighths (`ShellMetrics::scale`): crossing a
     /// step redraws, as crossing a frame does.
     scale: u8,
+    /// Lazy window bucket for `List::Games` when more than 24 tables are listed.
+    games_window: usize,
 }
 
 /// A scale in whole eighths (it is stepped in eighths; 1 to 1.75 is 8 to 14).
@@ -275,6 +277,12 @@ pub(super) fn ui(
     let metrics = metrics.at_scale(shell_m.scale);
     // Only what the header draws from the kit's side; compared, never read
     // off a change flag (a settings save is not a rebuild).
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let games_window = if state.lobby.games().len() > 24 {
+        (scrolled_to.get(List::Games).max(0.0) / (68.0 * shell_m.scale * 4.0)) as usize
+    } else {
+        0
+    };
     let kit_now = KitDrawn {
         frame: shell_m.frame,
         step,
@@ -282,6 +290,7 @@ pub(super) fn ui(
         strip: super::header::seated(&state).is_some(),
         tall: height >= super::front::door::FULL_COLOPHON_HEIGHT,
         scale: eighths(shell_m.scale),
+        games_window,
     };
     let kit_same = kit_drawn.as_ref() == Some(&kit_now);
     if !state.is_changed()

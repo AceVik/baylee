@@ -4,7 +4,7 @@
 
 use crate::hud::{icon_tf, tf, tf_bold};
 use crate::shellkit::controls::{self, Kit};
-use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
+use crate::shellkit::{Role, px_fixed, tokens};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::lobby::shelf::DeckArt;
 use bevy::prelude::*;
@@ -332,56 +332,14 @@ pub(super) fn art_with_credit(
     column
 }
 
-/// The key hint line at the foot of a screen, under a pointer on a wide
-/// frame only (`KEYBOARD.md` §4.4): `(key, words)` pairs.
+/// The key hint line at the foot of a screen, retired (owner, 17.10.2026:
+/// shortcuts live in the `?` overlay and Settings › Controls).
 pub(super) fn key_hint(
-    commands: &mut Commands,
-    kit: Kit,
-    pairs: &[(&str, &str)],
+    _commands: &mut Commands,
+    _kit: Kit,
+    _pairs: &[(&str, &str)],
 ) -> Option<Entity> {
-    if kit.m.touch() || !matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
-        return None;
-    }
-    let plate = commands
-        .spawn((
-            Role::Mist,
-            Node {
-                // Under the centred content on a big window, rather than
-                // alone in its bottom-left corner.
-                align_self: if kit.m.frame == ShellFrame::Vast {
-                    AlignSelf::Center
-                } else {
-                    AlignSelf::FlexStart
-                },
-                align_items: AlignItems::Center,
-                column_gap: kit.m.px(6.0),
-                padding: UiRect::axes(kit.m.px(10.0), kit.m.px(4.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(tokens::MIST),
-            Pickable::IGNORE,
-        ))
-        .id();
-    for (i, (keys, words)) in pairs.iter().enumerate() {
-        if i > 0 {
-            let dot = controls::label(commands, kit, "·", kit.m.small, tokens::INK);
-            commands.entity(plate).add_child(dot);
-        }
-        if let Some(cap) = controls::key_cap(commands, kit, keys) {
-            commands.entity(cap).insert(Node {
-                padding: UiRect::axes(kit.m.px(5.0), px_fixed(1.0)),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(4.0)),
-                ..default()
-            });
-            commands.entity(plate).add_child(cap);
-        }
-        let said = controls::label(commands, kit, words, kit.m.small, tokens::INK);
-        commands.entity(plate).add_child(said);
-    }
-    Some(plate)
+    None
 }
 
 /// Now, in unix seconds (`web_time`: the browser's clock on wasm).

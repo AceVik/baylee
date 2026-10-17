@@ -1113,10 +1113,19 @@ pub(crate) fn button(
         crate::hud::palette::PANEL,
         true,
     );
+    let bug = commands
+        .spawn((
+            Text::new(corner::BUG.to_string()),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(crate::hud::palette::DOCK_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
     commands
         .entity(id)
+        .insert_children(0, &[bug])
         .remove::<crate::lobby::Press>()
-        .insert(UiButton)
+        .insert((UiButton, crate::shellkit::sheen::Sheen))
         .observe(
             |mut click: On<PointerClick>, mut desk: ResMut<ReportDesk>| {
                 click.propagate(false);

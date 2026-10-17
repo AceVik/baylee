@@ -40,6 +40,22 @@ struct AmbienceParams {
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let t = globals.time * params.energy;
+    if params.pad > 1.5 {
+        // Gentle, continuously flowing silk-aurora backdrop for the top
+        // navigation bar (`pad = 2.0`) and the seated-at-table strip (`pad = 2.5`),
+        // sharing screen-space vertical coordinates so both bars read as one
+        // continuous surface ("wie aus einem Guss").
+        let sx = in.uv.x * 4.5 + params.seed;
+        let sy = in.position.y * 0.004;
+        let wave1 = 0.5 + 0.5 * sin(sx + sy * 2.0 - t * 0.36);
+        let wave2 = 0.5 + 0.5 * cos(sx * 1.4 - sy * 1.5 + t * 0.24);
+        let flow = smoothstep(0.15, 0.85, wave1 * 0.6 + wave2 * 0.4);
+        let top_glow = (1.0 - smoothstep(0.0, 0.65, in.uv.y)) * 0.14;
+        let rim = smoothstep(0.82, 1.0, in.uv.y) * (0.08 + 0.06 * wave1);
+        let grain = (hash2(floor(in.position.xy)) - 0.5) * 0.003;
+        let rgb = mix(params.low.rgb, params.high.rgb, flow * 0.38 + top_glow + rim) + grain;
+        return vec4<f32>(rgb, params.low.a);
+    }
     if params.pad > 0.5 {
         // A low-contrast moving satin band. Shared by all primary controls.
         let ribbon = 0.5 + 0.5 * sin(in.uv.x * 5.0 + in.uv.y * 1.5 - t * 0.42);

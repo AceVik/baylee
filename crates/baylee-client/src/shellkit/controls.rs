@@ -439,7 +439,9 @@ pub fn pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
+            super::sheen::Sheen,
         ))
         .id();
     if let Some(colour) = dot {
@@ -484,7 +486,7 @@ fn nav_glyph(text: &str) -> Option<char> {
 }
 
 /// A navigation pill in the header: filled when it is the screen shown, with
-/// a prefix icon for Lobby, Decks, and Replays.
+/// a larger prefix icon and bold label for Lobby, Decks, and Replays.
 pub fn nav(
     commands: &mut Commands,
     kit: Kit,
@@ -493,15 +495,16 @@ pub fn nav(
     action: impl Bundle,
 ) -> Entity {
     let icon = nav_glyph(text);
-    let pad_x = if icon.is_some() { 11.0 } else { 14.0 };
+    let pad_x = if icon.is_some() { 12.0 } else { 14.0 };
     let face = commands
         .spawn((
             Role::Nav,
             Node {
                 min_height: kit.m.px(34.0),
                 padding: UiRect::axes(kit.m.px(pad_x), px_fixed(0.0)),
-                column_gap: kit.m.px(6.0),
+                column_gap: kit.m.px(7.0),
                 align_items: AlignItems::Center,
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
                 ..default()
             },
@@ -510,6 +513,13 @@ pub fn nav(
             } else {
                 Color::NONE
             }),
+            BorderColor::all(if active {
+                tokens::ACCENT.with_alpha(0.42)
+            } else {
+                Color::NONE
+            }),
+            UiTransform::default(),
+            super::sheen::Sheen,
             if active {
                 crate::ambience::Feel::new(tokens::SELECTED)
             } else {
@@ -522,14 +532,22 @@ pub fn nav(
         let mark = commands
             .spawn((
                 Text::new(glyph.to_string()),
-                icon_tf(kit.fonts, kit.m.small * 0.9),
+                icon_tf(kit.fonts, kit.m.text * 1.05),
                 TextColor(if active { tokens::ACCENT } else { ink }),
                 Pickable::IGNORE,
             ))
             .id();
         commands.entity(face).add_child(mark);
     }
-    let words = label(commands, kit, text, kit.m.text, ink);
+    let words = commands
+        .spawn((
+            Text::new(text),
+            tf_bold(kit.fonts, kit.m.small * 1.05),
+            TextColor(ink),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
     commands.entity(face).add_child(words);
     hit(commands, kit, face, action)
 }
