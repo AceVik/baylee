@@ -49,9 +49,12 @@ pub fn sync_scene(
     mut cards: Query<DrawnCard>,
     mut work: Local<SceneWork>,
 ) {
-    let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
+    let Some(statics) = duel.statics.as_ref() else {
         return;
     };
+    if textures.is_none() {
+        return;
+    }
     let Some(quad) = index.quad.clone() else {
         return;
     };
@@ -63,10 +66,16 @@ pub fn sync_scene(
     // the view already this frame — it needs the same batch to know which
     // door an arriving card came in through — so the reading and the taking
     // are two calls, and this is the only place that takes.
-    if let Some(view) = duel.view.as_ref() {
+    if let Some(view) = duel.view.as_ref()
+        && !watch.has_observed(view)
+    {
         watch.observe(view);
     }
-    let moves = watch.take();
+    let moves = if watch.undrawn().is_empty() {
+        Vec::new()
+    } else {
+        watch.take()
+    };
 
     // A look carrying a sweep is a key that is asked for on every frame the
     // band is crossing and never again, so it is cached like any other look —
@@ -83,10 +92,14 @@ pub fn sync_scene(
     let arriving = |veil: crate::cardmat::Veil| {
         veil.rate == 0 || (now - f32::from_bits(veil.at)) * f32::from_bits(veil.rate) < 1.0
     };
-    index
-        .materials
-        .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)) && arriving(look.veil));
-    index.face_materials.retain(|look, _| arriving(look.veil));
+    let keep_look =
+        |look: &CardLook| look.sweep.is_none_or(|s| sheen.live(s)) && arriving(look.veil);
+    if index.materials.keys().any(|look| !keep_look(look)) {
+        index.materials.retain(|look, _| keep_look(look));
+    }
+    if index.face_materials.keys().any(|look| !arriving(look.veil)) {
+        index.face_materials.retain(|look, _| arriving(look.veil));
+    }
 
     // One original sleeve for the library, its fan and every hidden card.
     // Dress the resident material in place: the library's slabs spawn once
@@ -94,6 +107,7 @@ pub fn sync_scene(
     if !index.back_dressed
         && let Some(handle) = blank.as_ref()
         && let Some(mut material) = card_materials.get_mut(handle)
+        && let Some(textures) = textures.as_deref()
     {
         dress_in_the_back(&mut material, textures.procedural_back());
         index.back_dressed = true;
@@ -148,6 +162,9 @@ pub fn sync_scene(
         hidden,
         fanned,
         stamps,
+        stale,
+        visible,
+        last_visible,
     } = &mut *work;
     placements_into(&duel, wanted);
     live.clear();
@@ -193,7 +210,10 @@ pub fn sync_scene(
 
         // A card either wears its art or its own text, never both — text on
         // top of artwork is unreadable at any zoom.
-        let show_face = face::wants_face(&mode, &settings, textures, placement.art);
+        let Some(textures_ref) = textures.as_deref() else {
+            return;
+        };
+        let show_face = face::wants_face(&mode, &settings, textures_ref, placement.art);
         let object = objects
             .as_ref()
             .and_then(|view| view.object(placement.object));
@@ -228,8 +248,10 @@ pub fn sync_scene(
         let veil = track.veil(now);
         // A card in no state, fades over, needs no entry.
         if veil == crate::cardmat::Veil::NONE {
-            index.veils.remove(&placement.object);
-        } else {
+            if index.veils.contains_key(&placement.object) {
+                index.veils.remove(&placement.object);
+            }
+        } else if index.veils.get(&placement.object) != Some(&track) {
             index.veils.insert(placement.object, track);
         }
 
@@ -248,7 +270,7 @@ pub fn sync_scene(
             veil,
             sweep: sheen.of(placement.object, crate::sheen::Surface::Table),
             show_face,
-            texture_epoch: textures.epoch(),
+            texture_epoch: textures.as_deref().map_or(0, CardTextures::epoch),
             text_epoch: texts.generation(),
             seq: if show_face { seq } else { 0 },
         };
@@ -311,6 +333,9 @@ pub fn sync_scene(
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
                     } else {
+                        let Some(textures) = textures.as_deref_mut() else {
+                            return;
+                        };
                         let image = textures.get(key, statics, &assets);
                         let handle =
                             card_materials.add(material(look, Some(image), BACK_COLOR, motion));
@@ -522,13 +547,9 @@ pub fn sync_scene(
 
     // Anything no longer on the board leaves the scene.
 
-    let stale: Vec<ObjectId> = index
-        .cards
-        .keys()
-        .copied()
-        .filter(|id| !live.contains(id))
-        .collect();
-    for id in stale {
+    stale.clear();
+    stale.extend(index.cards.keys().copied().filter(|id| !live.contains(id)));
+    for &id in &*stale {
         if let Some(entity) = index.cards.remove(&id) {
             // Despawning a card takes its text children with it, so the map
             // only has to forget them — and it keeps them for as long as the
@@ -608,7 +629,9 @@ pub fn sync_scene(
 
     // After the stale pass and not before it: what this frame fanned is next
     // frame's answer to "was that card in the air".
-    std::mem::swap(&mut index.fanned, fanned);
+    if !index.fanned.is_empty() || !fanned.is_empty() {
+        std::mem::swap(&mut index.fanned, fanned);
+    }
 
     // Tell the cache what is on screen so the next fetch evicts something
     // else. The placements are the table's own cards; `required_images` is
@@ -617,15 +640,20 @@ pub fn sync_scene(
     // cardboard under a copy — and none of those is on the table, so none of
     // them was being touched at all. The zone dialog's rows are the one thing
     // neither list holds, and `hud::tray` touches those itself.
-    let mut visible: Vec<ImageKey> = wanted
-        .iter()
-        .filter(|p| p.shown)
-        .filter_map(|p| p.art)
-        .collect();
     if let Some(board) = duel.board.as_ref() {
-        visible.extend(board.required_images());
+        board.required_images_into(visible);
+    } else {
+        visible.clear();
     }
-    textures.touch_visible(&visible);
+    visible.extend(wanted.iter().filter(|p| p.shown).filter_map(|p| p.art));
+    visible.sort();
+    visible.dedup();
+    if *visible != *last_visible {
+        last_visible.clone_from(visible);
+        if let Some(textures) = textures.as_deref_mut() {
+            textures.touch_visible(visible);
+        }
+    }
 }
 
 /// Keeps animated poses independent of changes to the card's drawn content.

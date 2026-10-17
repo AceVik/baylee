@@ -449,6 +449,20 @@ fn video_option_writes_mp4_and_step_mp4_on_finish() {
     for name in ["recording.mp4", "recording-step.mp4"] {
         let bytes = std::fs::read(directory.join(name)).unwrap();
         assert_eq!(&bytes[4..8], b"ftyp", "{name}");
+        let ftyp_len = u32::from_be_bytes(bytes[0..4].try_into().unwrap()) as usize;
+        let mdat_len =
+            u32::from_be_bytes(bytes[ftyp_len..ftyp_len + 4].try_into().unwrap()) as usize;
+        let moov_pos = ftyp_len + mdat_len;
+        assert_eq!(&bytes[moov_pos + 4..moov_pos + 8], b"moov", "{name}");
+        // mvhd starts at moov_pos + 8; version 0 timescale is at +28..+32 and duration at +32..+36.
+        let mvhd_pos = moov_pos + 8;
+        assert_eq!(&bytes[mvhd_pos + 4..mvhd_pos + 8], b"mvhd", "{name}");
+        let duration_ms =
+            u32::from_be_bytes(bytes[mvhd_pos + 24..mvhd_pos + 28].try_into().unwrap());
+        assert!(
+            duration_ms >= 1000,
+            "{name} duration_ms={duration_ms} must be >= 1000 for 1 FPS video tokenizers"
+        );
     }
     let saved: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(directory.join("recording.json")).unwrap())

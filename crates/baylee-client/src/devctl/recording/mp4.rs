@@ -345,8 +345,19 @@ fn build_moov(
 ) -> Result<Vec<u8>, String> {
     let even_w = size.0 + (size.0 & 1);
     let even_h = size.1 + (size.1 & 1);
-    let total_ms = u32::try_from(delays.iter().map(|&d| u64::from(d)).sum::<u64>())
+    let mut padded_delays = delays.to_vec();
+    let raw_total = u32::try_from(padded_delays.iter().map(|&d| u64::from(d)).sum::<u64>())
         .map_err(|e| e.to_string())?;
+    // 1 FPS multimodal video tokenizers reject clips shorter than 1.0 s (0 sampled frames).
+    // Hold the final frame until at least 1000 ms while preserving inter-frame intervals.
+    let total_ms = if raw_total < TIMESCALE_MS
+        && let Some(last) = padded_delays.last_mut()
+    {
+        *last = last.saturating_add(TIMESCALE_MS - raw_total);
+        TIMESCALE_MS
+    } else {
+        raw_total
+    };
 
     let mut mvhd_body = Vec::with_capacity(96);
     mvhd_body.extend_from_slice(&[0_u8; 8]);
@@ -398,7 +409,7 @@ fn build_moov(
         &[&1_u32.to_be_bytes()[..], &url[..]].concat(),
     );
     let dinf = mp4_box(*b"dinf", &dref);
-    let stbl = build_stbl(size, offsets, sizes, delays, sync_samples)?;
+    let stbl = build_stbl(size, offsets, sizes, &padded_delays, sync_samples)?;
     let minf = mp4_box(*b"minf", &[vmhd, dinf, stbl].concat());
     let mdia = mp4_box(*b"mdia", &[mdhd, hdlr, minf].concat());
     let trak = mp4_box(*b"trak", &[tkhd, mdia].concat());

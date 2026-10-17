@@ -125,6 +125,12 @@ pub struct Tracker {
 }
 
 impl Tracker {
+    /// Whether `view` has already been read by this tracker.
+    #[must_use]
+    pub const fn has_observed(&self, view: &PlayerView) -> bool {
+        matches!(self.seq, Some(seq) if seq == view.seq)
+    }
+
     /// Reads one view and answers with every move that touched the
     /// battlefield, in object order.
     ///
@@ -139,7 +145,7 @@ impl Tracker {
     /// and the engine does not, so without this the same death would be
     /// reported until the next question was asked.
     pub fn observe(&mut self, view: &PlayerView) -> Vec<Move> {
-        if self.seq == Some(view.seq) {
+        if self.has_observed(view) {
             return Vec::new();
         }
         self.seq = Some(view.seq);

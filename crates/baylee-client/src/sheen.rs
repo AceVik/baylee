@@ -171,6 +171,11 @@ pub struct Sheen {
     /// spell is cast.
     in_hand: HashSet<ObjectId>,
     on_table: HashSet<ObjectId>,
+    /// Reusable scratch sets swapped with `in_hand` and `on_table` each frame.
+    next_hand: HashSet<ObjectId>,
+    next_table: HashSet<ObjectId>,
+    /// Reusable scratch buffer for newly arrived `(ObjectId, Surface)` pairs.
+    arrived: Vec<(ObjectId, Surface)>,
     /// What the preview was showing.
     previewing: Option<ObjectId>,
     /// How many sweeps have started in the run this one belongs to, and when
@@ -226,49 +231,73 @@ impl Sheen {
         previewing: Option<ObjectId>,
         reduce_motion: bool,
     ) {
-        let hand: HashSet<ObjectId> = hand.collect();
-        let table: HashSet<ObjectId> = table.collect();
+        let _ = self.observe_inner(now, hand, table, previewing, reduce_motion);
+    }
+
+    fn observe_inner(
+        &mut self,
+        now: f32,
+        hand: impl Iterator<Item = ObjectId>,
+        table: impl Iterator<Item = ObjectId>,
+        previewing: Option<ObjectId>,
+        reduce_motion: bool,
+    ) -> bool {
+        self.next_hand.clear();
+        self.next_hand.extend(hand);
+        self.next_table.clear();
+        self.next_table.extend(table);
         self.now = now;
+        let running_before = self.running.len();
         self.running.retain(|_, sweep| !sweep.done(now));
+        let mut changed = self.running.len() != running_before;
 
         if reduce_motion {
             // Nothing sweeps, and nothing is remembered as having swept: a
             // player who turns the setting back on should see the next card
             // that arrives, not a backlog.
-            self.running.clear();
+            if !self.running.is_empty() {
+                self.running.clear();
+                changed = true;
+            }
         } else {
             // Sorted, so a burst deals its cards in a stable order and the
             // durations do not depend on how a `HashSet` happened to hash.
             // Without this the seven cards of an opening hand would take
             // seven durations in an order that changed between runs, which
             // is a difference a screenshot can see.
-            let mut arrived: Vec<(ObjectId, Surface)> = hand
-                .difference(&self.in_hand)
-                .map(|id| (*id, Surface::Hand))
-                .chain(
-                    table
-                        .difference(&self.on_table)
-                        .map(|id| (*id, Surface::Table)),
-                )
-                .collect();
-            arrived.sort_unstable_by_key(|(id, _)| (id.slot(), id.generation()));
+            self.arrived.clear();
+            self.arrived.extend(
+                self.next_hand
+                    .difference(&self.in_hand)
+                    .map(|id| (*id, Surface::Hand))
+                    .chain(
+                        self.next_table
+                            .difference(&self.on_table)
+                            .map(|id| (*id, Surface::Table)),
+                    ),
+            );
+            self.arrived
+                .sort_unstable_by_key(|(id, _)| (id.slot(), id.generation()));
             // A preview is opened rather than arriving, so it is its own
             // event and comes first: it is the one the player is looking
             // straight at.
             if let Some(shown) = previewing
                 && previewing != self.previewing
             {
-                arrived.insert(0, (shown, Surface::Preview));
+                self.arrived.insert(0, (shown, Surface::Preview));
             }
-            for (id, surface) in arrived {
+            for i in 0..self.arrived.len() {
+                let (id, surface) = self.arrived[i];
                 let sweep = self.begin(now);
                 self.running.insert((id, surface), sweep);
+                changed = true;
             }
         }
 
-        self.in_hand = hand;
-        self.on_table = table;
+        std::mem::swap(&mut self.in_hand, &mut self.next_hand);
+        std::mem::swap(&mut self.on_table, &mut self.next_table);
         self.previewing = previewing;
+        changed
     }
 
     /// Tells the sweeps that have just started which door their card came in
@@ -293,6 +322,11 @@ impl Sheen {
     ///
     /// [`observe`]: Sheen::observe
     pub fn usher(&mut self, moves: &[Move]) {
+        let _ = self.usher_inner(moves);
+    }
+
+    fn usher_inner(&mut self, moves: &[Move]) -> bool {
+        let mut changed = false;
         for step in moves {
             let Some(door) = step.passage() else {
                 continue;
@@ -300,10 +334,14 @@ impl Sheen {
             if door.is_departure() {
                 continue;
             }
-            if let Some(sweep) = self.running.get_mut(&(step.object, Surface::Table)) {
+            if let Some(sweep) = self.running.get_mut(&(step.object, Surface::Table))
+                && sweep.door != Some(door)
+            {
                 sweep.door = Some(door);
+                changed = true;
             }
         }
+        changed
     }
 
     /// Forgets everything, when a duel closes.
@@ -355,7 +393,7 @@ pub fn watch_for_arrivals(
     let Some(board) = duel.board.as_ref() else {
         // No board: between duels, or before the first view. Whatever the
         // last one left behind is not this one's.
-        if !sheen.running.is_empty() || !sheen.in_hand.is_empty() {
+        if !sheen.running.is_empty() || !sheen.in_hand.is_empty() || !sheen.on_table.is_empty() {
             sheen.clear();
         }
         return;
@@ -374,7 +412,7 @@ pub fn watch_for_arrivals(
             })
             .map(|group| group.representative)
     });
-    sheen.observe(
+    let mut changed = sheen.bypass_change_detection().observe_inner(
         time.elapsed_secs_wrapped(),
         board.hand.iter().map(|card| card.id),
         table,
@@ -385,11 +423,18 @@ pub fn watch_for_arrivals(
     // through. Read after `observe`, because it stamps the sweeps `observe`
     // has just started; `sync_scene` is the one that empties the list, and it
     // runs after this.
-    if let Some(view) = duel.view.as_ref() {
+    if let Some(view) = duel.view.as_ref()
+        && !watch.has_observed(view)
+    {
         watch.observe(view);
     }
-    let doors: Vec<Move> = watch.undrawn().to_vec();
-    sheen.usher(&doors);
+    let doors = watch.undrawn();
+    if !doors.is_empty() {
+        changed |= sheen.bypass_change_detection().usher_inner(doors);
+    }
+    if changed {
+        sheen.set_changed();
+    }
 }
 
 #[cfg(test)]

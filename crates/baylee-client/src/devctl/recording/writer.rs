@@ -2,8 +2,11 @@
 
 use super::{Event, Sample, Work};
 use bevy::prelude::Image;
-use image::{RgbImage, imageops};
-use std::io::Write;
+use image::{
+    DynamicImage, ImageEncoder, Rgb, RgbImage,
+    codecs::png::{CompressionType, FilterType, PngEncoder},
+};
+use std::io::{BufWriter, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 
@@ -114,24 +117,76 @@ fn save_frame(
             .max(1),
         )
         .map_err(|e| e.to_string())?;
-        let rgb = dynamic.to_rgb8();
-        let scaled = if (rgb.width(), rgb.height()) == (width, height) {
-            rgb
-        } else {
-            imageops::resize(&rgb, width, height, imageops::FilterType::Triangle)
-        };
-        frames.push((metadata.requested_us, scaled));
+        frames.push((
+            metadata.requested_us,
+            downsample_rgb(&dynamic, width, height),
+        ));
     }
     let temp = directory.join(format!("{}.tmp", metadata.file));
-    dynamic
-        .save_with_format(&temp, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
+    {
+        let file = std::fs::File::create(&temp).map_err(|e| e.to_string())?;
+        let encoder = PngEncoder::new_with_quality(
+            BufWriter::new(file),
+            CompressionType::Fast,
+            FilterType::NoFilter,
+        );
+        encoder
+            .write_image(
+                dynamic.as_bytes(),
+                dynamic.width(),
+                dynamic.height(),
+                dynamic.color().into(),
+            )
+            .map_err(|e| e.to_string())?;
+    }
     std::fs::rename(temp, directory.join(&metadata.file)).map_err(|e| e.to_string())?;
     // Serialize before touching the ledger, then commit the row with its
     // newline. Recovery accepts only the valid newline-terminated prefix.
     let mut line = serde_json::to_vec(metadata).map_err(|e| e.to_string())?;
     line.push(b'\n');
     ledger.write_all(&line).map_err(|e| e.to_string())
+}
+
+fn downsample_rgb(dynamic: &DynamicImage, width: u32, height: u32) -> RgbImage {
+    let src_w = dynamic.width().max(1);
+    let src_h = dynamic.height().max(1);
+    if let Some(rgba) = dynamic.as_rgba8() {
+        let raw = rgba.as_raw();
+        let stride = src_w as usize * 4;
+        return RgbImage::from_fn(width, height, |dx, dy| {
+            let sx0 = (u64::from(dx) * u64::from(src_w) / u64::from(width)) as usize;
+            let sy0 = (u64::from(dy) * u64::from(src_h) / u64::from(height)) as usize;
+            let sx1 = ((sx0 + 1).min(src_w as usize - 1)) * 4;
+            let sx0 = sx0 * 4;
+            let row0 = sy0 * stride;
+            let row1 = ((sy0 + 1).min(src_h as usize - 1)) * stride;
+            let r = (u32::from(raw[row0 + sx0])
+                + u32::from(raw[row0 + sx1])
+                + u32::from(raw[row1 + sx0])
+                + u32::from(raw[row1 + sx1])
+                + 2)
+                >> 2;
+            let g = (u32::from(raw[row0 + sx0 + 1])
+                + u32::from(raw[row0 + sx1 + 1])
+                + u32::from(raw[row1 + sx0 + 1])
+                + u32::from(raw[row1 + sx1 + 1])
+                + 2)
+                >> 2;
+            let b = (u32::from(raw[row0 + sx0 + 2])
+                + u32::from(raw[row0 + sx1 + 2])
+                + u32::from(raw[row1 + sx0 + 2])
+                + u32::from(raw[row1 + sx1 + 2])
+                + 2)
+                >> 2;
+            Rgb([r as u8, g as u8, b as u8])
+        });
+    }
+    let rgb = dynamic.to_rgb8();
+    if (rgb.width(), rgb.height()) == (width, height) {
+        rgb
+    } else {
+        image::imageops::resize(&rgb, width, height, image::imageops::FilterType::Nearest)
+    }
 }
 
 fn write_videos(

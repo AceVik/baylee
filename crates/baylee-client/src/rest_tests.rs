@@ -99,3 +99,77 @@ fn an_idle_host_does_not_write_the_duel_or_the_host() {
         "polling an idle host must not mark InstalledHost changed on every frame"
     );
 }
+
+/// Red while `keep_the_table_connected` called `retry.schedule.settle()` on
+/// every connected frame without checking `is_settled()`, marking `Reconnect`
+/// changed on 100% of frames.
+#[test]
+fn a_connected_table_does_not_write_reconnect() {
+    struct LocalHost;
+    impl DuelHost for LocalHost {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            Vec::new()
+        }
+        fn submit(&mut self, _: PlayerAction) {}
+        fn ready(&mut self) {}
+        fn seat(&self) -> baylee_core::ids::PlayerId {
+            baylee_core::ids::PlayerId::new(0)
+        }
+    }
+
+    let mut app = App::new();
+    app.insert_resource(resting())
+        .insert_resource(InstalledHost(Box::new(LocalHost)))
+        .init_resource::<Reconnect>()
+        .init_resource::<Time>()
+        .add_message::<DuelReport>()
+        .add_systems(Update, keep_the_table_connected);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .resource_ref::<Reconnect>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "a settled local/connected table must not mark Reconnect changed on every frame"
+    );
+}
+
+/// Red while `watch_for_arrivals` mutably dereferenced `Sheen` and `ZoneWatch`
+/// on every frame even when no sweep started, finished, or arrived.
+#[test]
+fn a_resting_board_does_not_write_sheen_or_zone_watch() {
+    let mut app = App::new();
+    app.insert_resource(resting())
+        .init_resource::<sheen::Sheen>()
+        .init_resource::<table::ZoneWatch>()
+        .init_resource::<Time>()
+        .add_systems(Update, sheen::watch_for_arrivals);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .resource_ref::<sheen::Sheen>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "a resting board with no active sweeps must not mark Sheen changed on every frame"
+    );
+    assert!(
+        !app.world()
+            .resource_ref::<table::ZoneWatch>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "an already-observed view must not mark ZoneWatch changed on every frame"
+    );
+}
+
+/// Red if `track_proposals` marks `Duel` changed when proposals and
+/// activatable permanents match what the board already holds.
+#[test]
+fn track_proposals_does_not_write_the_duel_at_rest() {
+    assert!(!writes_at_rest(table::track_proposals));
+}

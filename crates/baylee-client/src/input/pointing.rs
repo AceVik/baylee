@@ -401,12 +401,8 @@ pub fn pointer_hover(
     // that is the whole point.
     if let Some(object) = duel.hovered {
         let alive = match *source {
-            HoverSource::Hand => hand_cards
-                .iter()
-                .any(|(h, stack)| !stack && h.object == object),
-            HoverSource::Stack => hand_cards
-                .iter()
-                .any(|(h, stack)| stack && h.object == object),
+            HoverSource::Hand => hand_cards.iter().any(|(h, s)| !s && h.object == object),
+            HoverSource::Stack => hand_cards.iter().any(|(h, s)| s && h.object == object),
             // Drawn *and* still lying where the pointer found it. The second
             // half is [`HoverZone`]'s whole reason for existing: a permanent
             // that becomes the top of a graveyard keeps this very entity and

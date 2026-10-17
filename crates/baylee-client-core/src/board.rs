@@ -1302,6 +1302,14 @@ impl BoardModel {
     #[must_use]
     pub fn required_images(&self) -> Vec<ImageKey> {
         let mut keys: Vec<ImageKey> = Vec::new();
+        self.required_images_into(&mut keys);
+        keys
+    }
+
+    /// Writes every image key the model wants resident into `keys`, sorted and
+    /// deduplicated, reusing `keys`'s allocation.
+    pub fn required_images_into(&self, keys: &mut Vec<ImageKey>) {
+        keys.clear();
         for pod in &self.pods {
             for lane in &pod.lanes {
                 let cards = || lane.groups.iter().flat_map(CardGroup::with_attached);
@@ -1344,7 +1352,6 @@ impl BoardModel {
         );
         keys.sort();
         keys.dedup();
-        keys
     }
 }
 

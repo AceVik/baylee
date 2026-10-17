@@ -20,19 +20,26 @@ use super::*;
 /// (report 31). The other seats' creatures in the declaration (the attackers
 /// aimed at, a planeswalker attacked) are left to the focus ring.
 pub(super) fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
-    let mut lit: std::collections::HashSet<ObjectId> = duel
+    let mut lit = std::collections::HashSet::new();
+    activatable_into(duel, &mut lit);
+    lit
+}
+
+pub(crate) fn activatable_into(duel: &Duel, lit: &mut std::collections::HashSet<ObjectId>) {
+    lit.clear();
+    if let Some(legal) = duel
         .interaction
         .as_ref()
         .and_then(Interaction::legal_actions)
-        .map(|legal| {
+    {
+        lit.extend(
             legal
                 .mana_abilities
                 .iter()
                 .copied()
-                .chain(legal.abilities.iter().map(|(source, _)| *source))
-                .collect()
-        })
-        .unwrap_or_default();
+                .chain(legal.abilities.iter().map(|(source, _)| *source)),
+        );
+    }
     if let (Some(choice), Some(view)) = (
         duel.interaction.as_ref().filter(|i| i.is_combat()),
         duel.view.as_ref(),
@@ -44,7 +51,6 @@ pub(super) fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .map(|o| o.id),
         );
     }
-    lit
 }
 
 pub(super) fn ability_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {

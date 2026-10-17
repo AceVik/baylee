@@ -25,9 +25,17 @@ pub struct ZoneWatch {
 }
 
 impl ZoneWatch {
+    /// Whether `view` has already been read by this tracker.
+    #[must_use]
+    pub fn has_observed(&self, view: &baylee_view::PlayerView) -> bool {
+        self.tracker.has_observed(view)
+    }
+
     /// Reads a view, if it has not been read, and keeps whatever it said.
     pub fn observe(&mut self, view: &baylee_view::PlayerView) {
-        self.undrawn.extend(self.tracker.observe(view));
+        if !self.has_observed(view) {
+            self.undrawn.extend(self.tracker.observe(view));
+        }
     }
 
     /// The moves nothing has drawn yet.

@@ -112,15 +112,14 @@ pub fn flash_the_designation(
             let next_color = Color::from(glow);
             let next_blur = Val::Px(NOW_GLOW * flash);
             let next_spread = Val::Px(NOW_SPREAD * flash);
-            if first.color != next_color
+            if (first.color != next_color
                 || first.blur_radius != next_blur
-                || first.spread_radius != next_spread
+                || first.spread_radius != next_spread)
+                && let Some(first) = shadow.first_mut()
             {
-                if let Some(first) = shadow.first_mut() {
-                    first.color = next_color;
-                    first.blur_radius = next_blur;
-                    first.spread_radius = next_spread;
-                }
+                first.color = next_color;
+                first.blur_radius = next_blur;
+                first.spread_radius = next_spread;
             }
         }
     }

@@ -232,6 +232,7 @@ pub fn fit_the_shells(
     >,
     camera: Query<&Transform, (With<TableCamera>, Without<ShellPart>)>,
     mut parts: Query<(&mut Visibility, &mut Transform), (With<ShellPart>, Without<TableCamera>)>,
+    mut faces: Local<Vec<(Entity, shellmat::Footprint)>>,
 ) {
     if index.shells.is_empty() {
         return;
@@ -242,16 +243,19 @@ pub fn fit_the_shells(
     let eye = eye.translation;
     // Only the cards that are drawn: a scrolled row's hidden cards stand
     // past the lane's end, where nothing is to be kept clear of them.
-    let faces: Vec<(Entity, shellmat::Footprint)> = cards
-        .iter()
-        .filter(|(_, _, seen)| **seen != Visibility::Hidden)
-        .map(|(entity, at, _)| (entity, shellmat::Footprint::of(at)))
-        .collect();
+    faces.clear();
+    faces.extend(
+        cards
+            .iter()
+            .filter(|(_, _, seen)| **seen != Visibility::Hidden)
+            .map(|(entity, at, _)| (entity, shellmat::Footprint::of(at))),
+    );
+    let mut standing_changed = false;
     let SceneIndex {
         shells,
         cards: drawn,
         ..
-    } = &mut *index;
+    } = index.bypass_change_detection();
     let shown = |up: bool| {
         if up {
             Visibility::Inherited
@@ -275,19 +279,27 @@ pub fn fit_the_shells(
             if standing { 0.0 } else { shellmat::STAND_AGAIN }
         };
         if let Some((wave, standing)) = &mut shell.wave {
-            *standing = shellmat::wave_stands(&me, others.clone(), eye, headroom(*standing));
+            let next = shellmat::wave_stands(&me, others.clone(), eye, headroom(*standing));
+            if *standing != next {
+                *standing = next;
+                standing_changed = true;
+            }
             if let Ok((mut seen, _)) = parts.get_mut(*wave) {
                 seen.set_if_neq(shown(*standing));
             }
         }
         if let Some(layer) = &mut shell.border {
-            layer.standing = shellmat::border_stands(
+            let next = shellmat::border_stands(
                 layer.ward.layers(),
                 &me,
                 others,
                 eye,
                 headroom(layer.standing),
             );
+            if layer.standing != next {
+                layer.standing = next;
+                standing_changed = true;
+            }
             if let Ok((mut seen, _)) = parts.get_mut(layer.stand) {
                 seen.set_if_neq(shown(layer.standing));
             }
@@ -296,5 +308,8 @@ pub fn fit_the_shells(
                 transform.set_if_neq(on_the_felt(at));
             }
         }
+    }
+    if standing_changed {
+        index.set_changed();
     }
 }

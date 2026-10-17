@@ -14,10 +14,10 @@ use baylee_core::ids::PlayerId;
 use bevy::prelude::*;
 
 /// The dial's state, on the slab, so a new table starts settled, and the
-/// scale its table asks for (`dial::scale_for` of the settled layout,
-/// worked out again only when the duel changed).
+/// facts its table asks for (`dial::bearings` and `dial::scale_for` of the
+/// settled layout, worked out again only when the duel changed).
 #[derive(Component, Default)]
-pub struct DialFace(Dial, f32);
+pub struct DialFace(Dial, DialFacts);
 
 /// How far back along its sweep a hand's trail reaches, in seconds.
 const TRAIL_LAG: f32 = 0.11;
@@ -118,13 +118,13 @@ fn jewel_uniforms(
     (jewels, tints, teams)
 }
 
-/// What `/state.dial` says this frame.
+/// What `/state.dial` says this frame, leaving `deciding` empty until a
+/// write is actually needed so a settled dial allocates nothing per frame.
 fn report_of(
     hands: &Dial,
     view: &baylee_view::PlayerView,
     lens: Option<&crate::table::Lens>,
     (now, still, effects): (f32, bool, bool),
-    deciding: Vec<PlayerId>,
     uploads: u64,
 ) -> DialReport {
     let turn = hands.turn.direction * hands.turn.length;
@@ -149,7 +149,7 @@ fn report_of(
     DialReport {
         turn_hand: (hands.turn.length > 0.01).then_some(turn),
         priority_hand: (prio_len > 0.01).then_some(prio * prio_len),
-        deciding,
+        deciding: Vec::new(),
         hub_pulse: pulse,
         dial_px: across,
         scale: hands.scale,
@@ -165,10 +165,10 @@ fn report_of(
 impl DialReport {
     /// Whether `next` says anything this report does not: what decides a
     /// write, so a settled dial leaves the resource untouched.
-    fn differs(&self, next: &Self) -> bool {
+    fn differs(&self, next: &Self, deciding: &[PlayerId]) -> bool {
         self.turn_hand != next.turn_hand
             || self.priority_hand != next.priority_hand
-            || self.deciding != next.deciding
+            || self.deciding != deciding
             || (self.hub_pulse - next.hub_pulse).abs() > 1e-4
             || (self.dial_px - next.dial_px).abs() > 1e-3
             || (self.scale - next.scale).abs() > 1e-4
@@ -234,37 +234,35 @@ pub(crate) fn turn_the_dial(
     let statics = duel.statics.as_ref();
     let team =
         |player: PlayerId| statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
-    let seats: Vec<_> = layout
-        .slots
-        .iter()
-        .map(|slot| (slot.player, slot.center, team(slot.player)))
-        .collect();
-    let over = duel
-        .interaction
-        .as_ref()
-        .is_some_and(|i| matches!(i.pending(), baylee_engine::choice::Pending::GameOver(_)));
-    let deciding: Vec<PlayerId> = view.deciding.iter().collect();
-    // The table's size, read again only when the duel changed: a settled
-    // table asks nothing per frame.
-    if duel.is_changed() || face.1 <= 0.0 {
-        face.1 = settled_scale(&duel);
+    let DialFace(hands, facts) = face.bypass_change_detection();
+    // The table's bearings, deciding seats and size, read again only when the
+    // duel changed: a settled table asks nothing per frame.
+    if duel.is_changed() || facts.scale <= 0.0 {
+        let seats: Vec<_> = layout
+            .slots
+            .iter()
+            .map(|slot| (slot.player, slot.center, team(slot.player)))
+            .collect();
+        let over = duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| matches!(i.pending(), baylee_engine::choice::Pending::GameOver(_)));
+        *facts = DialFacts {
+            jewels: dial::bearings(&seats),
+            active: Some(view.active),
+            awaiting: view.awaiting,
+            deciding: view.deciding.iter().collect(),
+            me: Some(view.seat),
+            over,
+            scale: settled_scale(&duel),
+        };
     }
-    let facts = DialFacts {
-        jewels: dial::bearings(&seats),
-        active: Some(view.active),
-        awaiting: view.awaiting,
-        deciding: deciding.clone(),
-        me: Some(view.seat),
-        over,
-        scale: face.1,
-    };
     let still = prefs.all().reduce_motion;
     let effects = !crate::quality::ambient_still(still, quality.as_deref());
     let now = time.elapsed_secs_wrapped();
-    face.0.advance(&facts, now, time.delta_secs(), still);
-    let hands = &face.0;
+    hands.advance(facts, now, time.delta_secs(), still);
 
-    let (jewels, tints, teams) = jewel_uniforms(&facts, view, layout, &team);
+    let (jewels, tints, teams) = jewel_uniforms(facts, view, layout, &team);
     let (hand_vectors, dial_times, pulse, trail) =
         hand_uniforms(hands, view.awaiting == Some(view.seat));
     #[allow(clippy::cast_precision_loss)] // eight seats at most
@@ -299,15 +297,15 @@ pub(crate) fn turn_the_dial(
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
         crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()))
     });
-    let next = report_of(
-        &face.0,
+    let mut next = report_of(
+        hands,
         view,
         lens.as_ref(),
         (now, still, effects),
-        facts.deciding,
         report.uploads,
     );
-    if report.differs(&next) {
+    if report.differs(&next, &facts.deciding) {
+        next.deciding.clone_from(&facts.deciding);
         *report = next;
     }
 }

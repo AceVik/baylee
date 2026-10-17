@@ -261,6 +261,15 @@ impl Retry {
         *self = Self::new();
     }
 
+    /// Whether the schedule is already settled at its initial state.
+    #[must_use]
+    pub const fn is_settled(&self) -> bool {
+        self.attempts == 0
+            && self.down.to_bits() == 0.0_f32.to_bits()
+            && self.left.to_bits() == Self::FIRST.to_bits()
+            && self.step.to_bits() == Self::FIRST.to_bits()
+    }
+
     /// `dt` seconds passed with the link down; whether to dial now.
     ///
     /// The wait doubles on every dial rather than on every failure, because

@@ -489,7 +489,9 @@ impl CardTextures {
 /// handle to re-fetch it and something has to ask again — the same reason
 /// [`CardTextures::get`] is what re-issues a printing.
 pub fn load_the_card_back(mut textures: ResMut<CardTextures>, assets: Res<AssetServer>) {
-    textures.load_card_back(&assets);
+    if !textures.handles.contains_key(&BACK_KEY) {
+        textures.load_card_back(&assets);
+    }
 }
 
 /// Notes which loads have finished and which have failed, so the renderer
@@ -612,6 +614,11 @@ pub fn drive_preloads(
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
 ) {
+    let mut want = |key: ImageKey| {
+        if !preload.queued.contains(&key) {
+            preload.want(key);
+        }
+    };
     if let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) {
         // P1: the local hand, every command zone, the whole battlefield —
         // everything a player is looking at *now*. Swept every frame rather
@@ -620,12 +627,12 @@ pub fn drive_preloads(
         // player will be looking at a minute later. `want` makes the repeat
         // free.
         for h in baylee_client_core::decision::known_cards(view) {
-            preload.want(ImageKey::of(h.card, ArtSize::Small));
+            want(ImageKey::of(h.card, ArtSize::Small));
         }
         for cmds in &view.command {
             for o in cmds {
                 if let Some(c) = o.card {
-                    preload.want(ImageKey::of(c, ArtSize::Small));
+                    want(ImageKey::of(c, ArtSize::Small));
                 }
             }
         }
@@ -640,7 +647,7 @@ pub fn drive_preloads(
             // `art_in`, as the board draws it: a copy wears its original's
             // printing where the view shows one (report 02).
             if let Some(key) = art_in(o, ArtSize::Small, crate::cardart::registry(), view) {
-                preload.want(key);
+                want(key);
             }
         }
         // P2: the same cards at the size the hover preview reads them at.
@@ -659,12 +666,12 @@ pub fn drive_preloads(
         // then thrash it. Hovering a permanent still fetches on the spot; it
         // is one image, and the face it falls back to meanwhile is correct.
         for h in baylee_client_core::decision::known_cards(view) {
-            preload.want(ImageKey::of(h.card, ArtSize::Normal));
+            want(ImageKey::of(h.card, ArtSize::Normal));
         }
         if let Some(cmds) = view.command.get(view.seat.get() as usize) {
             for o in cmds {
                 if let Some(c) = o.card {
-                    preload.want(ImageKey::of(c, ArtSize::Normal));
+                    want(ImageKey::of(c, ArtSize::Normal));
                 }
             }
         }
@@ -699,18 +706,21 @@ pub fn drive_preloads(
     }
 
     // Retire finished loads.
-    preload.in_flight.retain(|h| {
-        !matches!(
+    let settled = |h: &Handle<Image>| {
+        matches!(
             assets.get_load_state(h),
             Some(bevy::asset::LoadState::Loaded | bevy::asset::LoadState::Failed(_))
         )
-    });
+    };
+    if preload.in_flight.iter().any(settled) {
+        preload.in_flight.retain(|h| !settled(h));
+    }
 
     // Keep the pipe full.
     let Some(statics) = duel.statics.as_ref() else {
         return;
     };
-    while preload.in_flight.len() < PRELOAD_PARALLEL {
+    while preload.in_flight.len() < PRELOAD_PARALLEL && !preload.queue.is_empty() {
         let Some(key) = preload.queue.pop_front() else {
             break;
         };

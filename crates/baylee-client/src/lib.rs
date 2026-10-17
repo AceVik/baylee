@@ -2834,7 +2834,9 @@ fn keep_the_table_connected(
         // only where they stand: an assignment through the `ResMut` marks
         // the whole duel changed.
         LinkState::Local | LinkState::Up => {
-            retry.schedule.settle();
+            if !retry.schedule.is_settled() {
+                retry.schedule.settle();
+            }
             if retry.told {
                 retry.told = false;
             }
@@ -2946,7 +2948,18 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 pub fn proposals(
     duel: &Duel,
 ) -> std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal> {
+    let mut out = std::collections::HashMap::new();
+    proposals_into(duel, &mut out);
+    out
+}
+
+/// Writes [`proposals`] into `out`, reusing its allocation.
+pub(crate) fn proposals_into(
+    duel: &Duel,
+    out: &mut std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal>,
+) {
     use baylee_client_core::board::Proposal;
+    out.clear();
     let (plan, staged): (_, &[baylee_client_core::manaplan::Step]) = match duel.proposing() {
         Proposing::Armed(Armed {
             deed: Deed::Run { plan, .. },
@@ -2965,7 +2978,7 @@ pub fn proposals(
             .map(|(id, focus)| (id, Proposal::Combat(focus)))
             .chain(i.selected().map(|id| (id, Proposal::Picked)))
     });
-    spent.chain(answer).collect()
+    out.extend(spent.chain(answer));
 }
 
 impl Duel {

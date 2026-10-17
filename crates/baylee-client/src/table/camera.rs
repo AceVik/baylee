@@ -1027,6 +1027,14 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
 }
 
 /// Tells the board model what the answer being built now proposes.
+/// Reusable scratch maps for [`track_proposals`].
+#[derive(Default)]
+pub struct ProposalScratch {
+    proposed: std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal>,
+    activatable: std::collections::HashSet<ObjectId>,
+}
+
+/// Rebuilds the board model when the proposed or activatable sets move.
 ///
 /// A proposal is part of what a stack is merged on
 /// (`baylee_client_core::board::Proposal`): three Soldiers declared out of
@@ -1035,10 +1043,16 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
 /// the prompt bar, an armed spell — more doors than
 /// [`crate::rebuild_board`] has callers — so the change is noticed here,
 /// once a frame, the way [`track_canvas`] notices the window.
-pub fn track_proposals(mut duel: ResMut<Duel>) {
+pub fn track_proposals(mut duel: ResMut<Duel>, mut scratch: Local<ProposalScratch>) {
     // And the creatures a combat declaration can take, which move with its
     // focus and not with the view (`reach::activatable`, report 31).
-    if crate::proposals(&duel) != duel.proposed || crate::activatable(&duel) != duel.activatable {
+    let ProposalScratch {
+        proposed,
+        activatable,
+    } = &mut *scratch;
+    crate::proposals_into(&duel, proposed);
+    crate::reach::activatable_into(&duel, activatable);
+    if *proposed != duel.proposed || *activatable != duel.activatable {
         crate::rebuild_board(&mut duel);
     }
 }
