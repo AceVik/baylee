@@ -408,21 +408,16 @@ impl<L: CardLookup> Engine<L> {
         // the scan just fired it or the object left some other way: the
         // object it watched no longer exists (CR 400.7, 603.7b). Here and
         // not in the scan, which reads the state and writes nothing.
-        let delayed = std::mem::take(&mut self.state.delayed);
-        self.state.delayed = delayed
-            .into_iter()
-            .filter(|d| match d.when {
-                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
-                | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
-                | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
-                | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. } => {
-                    self.state.object(card).is_some_and(|o| {
-                        o.zone == crate::zone::Zone::Battlefield && o.version == version
-                    })
-                }
-                _ => true,
-            })
-            .collect();
+        let arena = &self.state.arena;
+        self.state.delayed.retain(|d| match d.when {
+            crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
+            | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
+            | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
+            | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. } => arena
+                .get(card)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version),
+            _ => true,
+        });
         self.trigger_queue.extend(found);
         // State triggers (CR 603.8) read the state, not the journal, so they
         // are looked for on every pass, and an ability that is still waiting

@@ -4124,6 +4124,10 @@ messages! {
     LogCounterTime { en: "time counter", de: "Zeitmarke" },
     /// Time counters.
     LogCountersTime { en: "time counters", de: "Zeitmarken" },
+    /// One age counter (CR 702.24a).
+    LogCounterAge { en: "age counter", de: "Altersmarke" },
+    /// Age counters (CR 702.24a).
+    LogCountersAge { en: "age counters", de: "Altersmarken" },
     /// One charge counter.
     LogCounterCharge { en: "charge counter", de: "Ladungsmarke" },
     /// Charge counters.

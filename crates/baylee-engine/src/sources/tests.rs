@@ -30,7 +30,10 @@ fn reverse_stack_index_matches_each_reference_query() {
             (Slot::Second(0), a),
             (Slot::Event, b),
         ]);
-        state.source_memory.stack.insert(holder, refs);
+        state
+            .source_memory
+            .stack
+            .insert(holder, std::sync::Arc::new(refs));
         if n % 2 == 0 {
             state.source_memory.event_readers.insert(holder);
         }

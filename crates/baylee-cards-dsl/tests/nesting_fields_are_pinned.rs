@@ -85,7 +85,7 @@
 // of Life and Glyph of Doom), and WheneverYouAttackThisTurn (wave 3,
 // Dalkovan Encampment), and PlayerMayPayManaEachThenElse's two branches
 // (Cyclone), and AtNextEndStepAboutSubject (Infinite Authority).
-const NESTING_FIELDS: usize = 58;
+const NESTING_FIELDS: usize = 61;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -134,7 +134,9 @@ const NESTING_FIELDS: usize = 58;
 /// `PlayerMayPayManaEachThenElse` (Cyclone) is the fiftieth: one new carrier,
 /// two branches. `AtNextEndStepAboutSubject` (Infinite Authority's "the
 /// first creature") is the fifty-first: one new carrier, one branch.
-const CARRYING_VARIANTS: usize = 51;
+/// `IfCastFromGraveyard`, `MayPayEnergyOr` and `LookAtTopMayTake` are the
+/// fifty-second to fifty-fourth carriers.
+const CARRYING_VARIANTS: usize = 54;
 
 /// The floor under the reader itself.
 ///

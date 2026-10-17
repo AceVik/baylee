@@ -9,8 +9,8 @@ static NOT_MINE: Filter = Filter::And(&[Filter::Not(&Filter::ControlledByYou), F
 
 static NORMAL_EFFECTS: &[Effect] = &[Effect::bounce(TargetSpec::Object(&NOT_MINE))];
 static OVERLOAD_EFFECTS: &[Effect] = &[Effect::ReturnAllToHand {
-    filter: &Filter::NONLAND,
-    opponents_only: true,
+    filter: &NOT_MINE,
+    opponents_only: false,
 }];
 
 use baylee_cards_dsl::prelude::*;

@@ -640,18 +640,20 @@ impl DuelHost for NetworkHost {
                             }
                             self.note_seq(&envelope);
                             self.note_refusal(&envelope);
-                            let message = if self.ticket.watch {
-                                watched_message(envelope)
-                            } else {
-                                host_message(envelope)
-                            };
-                            if let Some(message) = message {
-                                if let HostMessage::Static(statics) = &message {
-                                    // The table decides which chair this is; a
-                                    // ticket could only ever guess at it.
-                                    self.seat = statics.your_seat;
+                            if !crate::host::try_merge_log_chunk(&mut out, &envelope) {
+                                let message = if self.ticket.watch {
+                                    watched_message(envelope)
+                                } else {
+                                    host_message(envelope)
+                                };
+                                if let Some(message) = message {
+                                    if let HostMessage::Static(statics) = &message {
+                                        // The table decides which chair this is; a
+                                        // ticket could only ever guess at it.
+                                        self.seat = statics.your_seat;
+                                    }
+                                    out.push(message);
                                 }
-                                out.push(message);
                             }
                         }
                         Err(e) => out.push(HostMessage::Failed(format!("unreadable frame: {e}"))),

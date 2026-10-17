@@ -858,8 +858,7 @@ fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(Ob
         .ability_fires
         .iter()
         .filter(|((id, _), _)| {
-            state.source_identity(id.object) == Some(*id)
-                || !state.source_referenced_by(*id).is_empty()
+            state.source_identity(id.object) == Some(*id) || state.is_source_referenced(*id)
         })
         .map(|((id, index), n)| {
             (

@@ -766,7 +766,7 @@ pub(super) fn spawn(
     fonts: &UiFonts,
 ) {
     spawn_identity(commands, root, lang, view, statics, seat, role, fonts);
-    spawn_phases(commands, root, lang, view, statics, seat, orders, fonts);
+    spawn_phases(commands, root, lang, view, seat, orders, fonts);
 }
 
 /// The plate: spine, then three lines (`client_core::seatplate`).
@@ -1175,7 +1175,6 @@ fn spawn_phases(
     root: Entity,
     lang: Lang,
     view: &PlayerView,
-    statics: Option<&GameStatic>,
     seat: &SeatView,
     orders: &PhaseOrders,
     fonts: &UiFonts,
@@ -1208,7 +1207,7 @@ fn spawn_phases(
         ))
         .id();
     commands.entity(track).add_children(&[caption, timeline]);
-    let side = if same_team(statics, seat.player, view.seat) {
+    let side = if seat.player == view.seat {
         RailSide::Mine
     } else {
         RailSide::Theirs

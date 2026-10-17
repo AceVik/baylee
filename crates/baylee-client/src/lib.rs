@@ -2276,7 +2276,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         let Some(view) = duel.view.as_ref() else {
             return;
         };
-        let active_is_mine = hud::same_team(duel.statics.as_ref(), view.active, view.seat);
+        let active_is_mine = view.active == view.seat;
         let Some(interaction) = duel.interaction.as_ref() else {
             return;
         };
@@ -2717,15 +2717,19 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             .map(|mode| mode.plan.clone());
     }
     let cost = reach::least_x(spell_cost(view, legal, card)?);
-    let pool = view
-        .seat(baylee_client_core::decision::resource_player(view))?
-        .mana_pool;
-    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
+    let sources = manasources::sources(view, legal);
+    if legal.castable.contains(&card) {
+        baylee_client_core::manaplan::plan(&cost, &seat.mana_pool, &sources)
+    } else {
+        baylee_client_core::manaplan::plan_with_life(&cost, &seat.mana_pool, &sources, seat.life)
+    }
 }
 
 /// What casting `card` the ordinary way costs this seat: a hand card's
-/// printed cost, a graveyard card's flashback cost, a commander's cost plus
-/// its tax, each with what effects add to the spell.
+/// printed cost, a graveyard card's flashback cost, an exiled card's printed
+/// cost, or a commander's cost plus its tax, each with what effects add to
+/// the spell.
 fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
@@ -2742,6 +2746,8 @@ fn spell_cost(
         .and_then(|zone| zone.iter().find(|o| o.id == card))
     {
         buried.flashback?
+    } else if let Some(exiled) = view.exile.iter().flatten().find(|o| o.id == card) {
+        reach::printed_face(exiled.card?)?.mana_cost
     } else {
         let commander = view
             .seat(view.seat)?

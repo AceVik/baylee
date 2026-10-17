@@ -422,25 +422,16 @@ impl SubtypeSet {
     }
 
     /// Adds all subtypes of `other`.
-    pub const fn union_with(&mut self, other: Self) {
-        let mut i = 0;
-        while i < SUBTYPE_WORDS {
-            self.0[i] |= other.0[i];
-            i += 1;
-        }
+    #[inline]
+    pub fn union_with(&mut self, other: Self) {
+        bitmap::union_with(&mut self.0, &other.0);
     }
 
     /// Whether no subtype is set.
+    #[inline]
     #[must_use]
-    pub const fn is_empty(self) -> bool {
-        let mut i = 0;
-        while i < SUBTYPE_WORDS {
-            if self.0[i] != 0 {
-                return false;
-            }
-            i += 1;
-        }
-        true
+    pub fn is_empty(self) -> bool {
+        bitmap::is_empty(&self.0)
     }
 
     /// A set built from a slice of subtypes (const-friendly for codegen).
@@ -484,11 +475,11 @@ impl SubtypeSet {
     /// Whether the two sets share at least one subtype.
     ///
     /// The first word short-circuits common creature types. The remaining
-    /// words reduce with integer AND/OR, allowing portable vectorization
-    /// without fifteen unpredictable branches on disjoint sets.
+    /// words reduce with SIMD (`aarch64` NEON, `x86_64` SSE2, `wasm32`
+    /// `simd128`) or branchless integer AND/OR.
     #[inline]
     #[must_use]
-    pub const fn intersects(self, other: Self) -> bool {
+    pub fn intersects(self, other: Self) -> bool {
         bitmap::intersects(&self.0, &other.0)
     }
 
@@ -511,16 +502,10 @@ impl SubtypeSet {
     }
 
     /// Whether every subtype in `other` is also in this set.
+    #[inline]
     #[must_use]
-    pub const fn contains_all(self, other: Self) -> bool {
-        let mut i = 0;
-        while i < SUBTYPE_WORDS {
-            if self.0[i] & other.0[i] != other.0[i] {
-                return false;
-            }
-            i += 1;
-        }
-        true
+    pub fn contains_all(self, other: Self) -> bool {
+        bitmap::contains_all(&self.0, &other.0)
     }
 
     /// The subtypes in the set, in ascending id order.

@@ -53,9 +53,18 @@ impl Dialect for Agy {
         .collect();
         args.push("--json-schema".into());
         args.push(prompt::answer_schema().to_string().into());
+        let raw_model = model.unwrap_or(DEFAULT_AGY_MODEL);
+        let (resolved_model, resolved_effort) =
+            match (agy_tier_stem(raw_model), settings.effort.as_deref()) {
+                (Some(stem), Some(effort @ ("low" | "medium" | "high"))) => {
+                    (format!("{stem}-{effort}"), Some(effort))
+                }
+                (Some(stem), Some("xhigh" | "max")) => (format!("{stem}-high"), Some("high")),
+                _ => (raw_model.to_string(), settings.effort.as_deref()),
+            };
         args.push("--model".into());
-        args.push(model.unwrap_or(DEFAULT_AGY_MODEL).into());
-        if let Some(effort) = &settings.effort {
+        args.push(resolved_model.into());
+        if let Some(effort) = resolved_effort {
             args.push("--effort".into());
             args.push(effort.into());
         }
@@ -236,4 +245,13 @@ fn usage(usage: &Value) -> Usage {
         cache_read: n("cache_read_tokens"),
         ..Usage::default()
     }
+}
+
+/// The stem of a tier-suffixed `agy` model id (`gemini-3.8-flash-high` →
+/// `gemini-3.8-flash`), or `None` when the id carries no tier suffix.
+fn agy_tier_stem(model: &str) -> Option<&str> {
+    model
+        .strip_suffix("-low")
+        .or_else(|| model.strip_suffix("-medium"))
+        .or_else(|| model.strip_suffix("-high"))
 }

@@ -2649,11 +2649,25 @@ impl GameState {
         self.object_or_departed(id)
             .filter(|obj| version.is_none_or(|v| v == obj.version))
             .or_else(|| {
-                self.damage_sources
-                    .iter()
-                    .rev()
-                    .find(|obj| obj.id == id && version == Some(obj.version))
-                    .map(|obj| &**obj)
+                if self.source_memory.cache.damage_source_len == self.damage_sources.len()
+                    && let Some(v) = version
+                {
+                    self.source_memory
+                        .cache
+                        .damage_source_index
+                        .get(&baylee_core::ids::DamageSourceRef {
+                            object: id,
+                            version: v,
+                        })
+                        .and_then(|&idx| self.damage_sources.get(idx))
+                        .map(|obj| &**obj)
+                } else {
+                    self.damage_sources
+                        .iter()
+                        .rev()
+                        .find(|obj| obj.id == id && version == Some(obj.version))
+                        .map(|obj| &**obj)
+                }
             })
     }
 
@@ -2764,6 +2778,7 @@ impl GameState {
     /// Mutable object access.
     #[must_use]
     pub fn object_mut(&mut self, id: ObjectId) -> Option<&mut GameObject> {
+        self.source_memory.invalidate_object(id);
         self.arena.get_mut(id)
     }
 

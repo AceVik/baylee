@@ -238,11 +238,12 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.lands.push(card);
             }
-            if !legal.castable.contains(&card)
-                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-                && self.has_a_legal_target(player, card)
-            {
-                legal.castable.push(card);
+            if !legal.castable.contains(&card) && !legal.payable.contains(&card) {
+                match casting::can_cast(&self.state, &self.lookup, player, card) {
+                    Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                    Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                    _ => {}
+                }
             }
         }
         // Commander (CR 903.8): your own commanders in the command zone.

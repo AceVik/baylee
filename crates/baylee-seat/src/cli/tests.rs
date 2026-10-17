@@ -1182,6 +1182,23 @@ fn agy_dialect_args_and_events() {
     // followed).
     assert!(!args.iter().any(|a| a.contains("dangerously")));
 
+    // Tier-suffixed agy models reconcile their suffix with `--effort` so
+    // `agy` never rejects a conflicting `--model ...-high --effort low`.
+    let mut low_settings = settings.clone();
+    low_settings.effort = Some("low".into());
+    let low_args: Vec<String> = Agy
+        .args(
+            &low_settings,
+            Some("gemini-3.8-flash-high"),
+            "system",
+            Path::new("/support"),
+        )
+        .into_iter()
+        .map(|a| a.to_str().unwrap().to_string())
+        .collect();
+    assert!(low_args.contains(&"gemini-3.8-flash-low".to_string()));
+    assert!(low_args.contains(&"low".to_string()));
+
     // Stdin lines: first line includes system prompt, subsequent does not.
     let line1 = Agy.stdin_line("THE GAME\nYou are P1 at a table");
     let val1: Value = serde_json::from_str(&line1).unwrap();

@@ -430,24 +430,35 @@ fn graveyard_triggers(
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    for object in graveyard_observers(state, events) {
+    let batch_has_zone_changes = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
+    for object in graveyard_observers(state, events, batch_has_zone_changes) {
         let source = object.id;
         let owner = object.owner;
         let current = state.object_or_departed(source).unwrap_or(object);
+        let moves = object_moves(events, batch_has_zone_changes, current.id);
         let list = object.ability_list(lookup);
         for (index, ability) in list.abilities.iter().enumerate() {
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            let context = ability_context(state, object, &list, index);
             if firing.zone != TriggerZone::Graveyard {
                 continue;
             }
+            let context = ability_context(state, object, &list, index);
+            let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
+            if !condition_reads_event
+                && !condition_matches(state, firing.condition, owner, context, None)
+            {
+                continue;
+            }
             for entry in events {
-                let at_event = source_at_event(state, current, events, entry, false);
+                let at_event = source_at_event_with_moves(state, current, &moves, entry.seq, false);
                 if at_event.zone != Zone::Graveyard
                     || at_event.version != object.version
-                    || !condition_matches(state, firing.condition, owner, context, Some(entry))
+                    || (condition_reads_event
+                        && !condition_matches(state, firing.condition, owner, context, Some(entry)))
                 {
                     continue;
                 }
@@ -502,6 +513,7 @@ fn graveyard_triggers(
 fn graveyard_observers<'a>(
     state: &'a GameState,
     events: &[crate::event::JournalEntry],
+    batch_has_zone_changes: bool,
 ) -> Vec<&'a crate::object::GameObject> {
     let mut objects: Vec<_> = (0..state.players.len())
         .flat_map(|seat| {
@@ -513,26 +525,28 @@ fn graveyard_observers<'a>(
         .filter_map(|id| state.object(*id))
         .filter(|object| object.is_card())
         .collect();
-    for entry in events {
-        let GameEvent::ZoneChanged {
-            object,
-            from: Zone::Graveyard,
-            ..
-        } = entry.event
-        else {
-            continue;
-        };
-        let Some(current) = state.object_or_departed(object) else {
-            continue;
-        };
-        let after = source_at_event(state, current, events, entry, false);
-        if let Some(before) = state.source_object(baylee_core::ids::DamageSourceRef {
-            object,
-            version: after.version.wrapping_sub(1),
-        }) && before.zone == Zone::Graveyard
-            && before.is_card()
-        {
-            objects.push(before);
+    if batch_has_zone_changes {
+        for entry in events {
+            let GameEvent::ZoneChanged {
+                object,
+                from: Zone::Graveyard,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            let Some(current) = state.object_or_departed(object) else {
+                continue;
+            };
+            let after = source_at_event(state, current, events, entry, false);
+            if let Some(before) = state.source_object(baylee_core::ids::DamageSourceRef {
+                object,
+                version: after.version.wrapping_sub(1),
+            }) && before.zone == Zone::Graveyard
+                && before.is_card()
+            {
+                objects.push(before);
+            }
         }
     }
     objects.sort_unstable_by_key(|object| (object.id, object.version));
@@ -564,6 +578,15 @@ pub fn state_triggers(
         let Some(obj) = state.object(permanent) else {
             continue;
         };
+        let abilities = obj.abilities(lookup);
+        if !abilities.iter().any(|ability| {
+            triggered_parts(ability).is_some_and(|firing| {
+                firing.zone == TriggerZone::Battlefield
+                    && matches!(firing.trigger, Trigger::State(_))
+            })
+        }) {
+            continue;
+        }
         let list = obj.ability_list(lookup);
         for (index, ability) in list.abilities.iter().enumerate() {
             let Some(firing) = triggered_parts(ability) else {
@@ -1796,6 +1819,35 @@ fn targeted_by_opponent(
     }
 }
 
+struct ObjectMove {
+    seq: u64,
+    battlefield_departure_version: Option<u32>,
+}
+
+fn object_moves(
+    events: &[crate::event::JournalEntry],
+    batch_has_zone_changes: bool,
+    id: ObjectId,
+) -> smallvec::SmallVec<[ObjectMove; 2]> {
+    let mut moves = smallvec::SmallVec::new();
+    if !batch_has_zone_changes {
+        return moves;
+    }
+    for entry in events {
+        if let GameEvent::ZoneChanged { object, from, .. } = entry.event
+            && object == id
+        {
+            moves.push(ObjectMove {
+                seq: entry.seq,
+                battlefield_departure_version: (from == crate::zone::Zone::Battlefield)
+                    .then(|| entry.departure.as_ref().map(|d| d.version))
+                    .flatten(),
+            });
+        }
+    }
+    moves
+}
+
 /// The source and the event object are different identities. A death's event
 /// object is the card in its destination (CR 400.7e); the ability's source is
 /// the permanent immediately before departure (CR 113.7a, 603.10a).
@@ -1806,32 +1858,53 @@ fn source_at_event<'a>(
     event: &crate::event::JournalEntry,
     look_back: bool,
 ) -> &'a crate::object::GameObject {
-    let subsequent_moves = events.iter().filter(|entry| {
-        entry.seq > event.seq
-            && matches!(entry.event, GameEvent::ZoneChanged { object, .. } if object == current.id)
-    }).count();
-    let version = current
-        .version
-        .wrapping_sub(u32::try_from(subsequent_moves).expect("zone changes fit version"));
-    let at_event = state
-        .source_object(baylee_core::ids::DamageSourceRef {
-            object: current.id,
-            version,
-        })
-        .unwrap_or(current);
+    let moves = object_moves(events, true, current.id);
+    source_at_event_with_moves(state, current, &moves, event.seq, look_back)
+}
+
+fn source_at_event_with_moves<'a>(
+    state: &'a GameState,
+    current: &'a crate::object::GameObject,
+    moves: &[ObjectMove],
+    event_seq: u64,
+    look_back: bool,
+) -> &'a crate::object::GameObject {
+    if moves.is_empty() && (!look_back || current.zone == crate::zone::Zone::Battlefield) {
+        return current;
+    }
+    let subsequent_moves = moves.iter().filter(|m| m.seq > event_seq).count();
+    let at_event = if subsequent_moves == 0 {
+        current
+    } else {
+        let version = current
+            .version
+            .wrapping_sub(u32::try_from(subsequent_moves).expect("zone changes fit version"));
+        state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: current.id,
+                version,
+            })
+            .unwrap_or(current)
+    };
     if !look_back || at_event.zone == crate::zone::Zone::Battlefield {
         return at_event;
     }
     // Simultaneous departures have separate journal rows. The source may
     // precede another creature whose death it observes; use its own departure,
     // never the victim's version or an unrelated later incarnation.
-    events.iter().rev().filter(|entry| entry.seq <= event.seq).find_map(|entry| {
-        if matches!(entry.event, GameEvent::ZoneChanged { object, from: crate::zone::Zone::Battlefield, .. } if object == current.id) {
-            entry.departure.as_ref().and_then(|departure| state.source_object(baylee_core::ids::DamageSourceRef { object: current.id, version: departure.version }))
-        } else {
-            None
-        }
-    }).unwrap_or(at_event)
+    moves
+        .iter()
+        .rev()
+        .filter(|m| m.seq <= event_seq)
+        .find_map(|m| {
+            m.battlefield_departure_version.and_then(|version| {
+                state.source_object(baylee_core::ids::DamageSourceRef {
+                    object: current.id,
+                    version,
+                })
+            })
+        })
+        .unwrap_or(at_event)
 }
 
 /// Scans a set of objects for triggered abilities matching the events.
@@ -1858,6 +1931,12 @@ fn collect_for_objects(
             )
         })
         .collect();
+    let batch_has_zone_changes = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
+    let batch_has_spells_cast = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }));
     for &permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
@@ -1886,6 +1965,8 @@ fn collect_for_objects(
         let Some(obj) = state.object_or_departed(permanent) else {
             continue;
         };
+        let moves = object_moves(events, batch_has_zone_changes, obj.id);
+        let current_text = object_text(state, obj);
         // CR 603.10a: the look-back scan asks an object that has already
         // arrived somewhere else, and what it must see is the abilities that
         // existed "immediately prior to the event". A copy gives its rules
@@ -1922,10 +2003,11 @@ fn collect_for_objects(
         let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
         let abilities = list.abilities.clone();
         // Prowess (engine-level keyword trigger, CR 702.108).
-        if obj
-            .characteristics()
-            .keywords
-            .contains(baylee_cards_dsl::KeywordSet::PROWESS)
+        if batch_has_spells_cast
+            && obj
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::PROWESS)
         {
             for entry in events {
                 if let GameEvent::SpellCast { object, player, .. } = &entry.event
@@ -1937,12 +2019,12 @@ fn collect_for_objects(
                             .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 {
+                    let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
                     for _ in 0..times_triggered(
                         state,
                         baylee_cards_dsl::TriggerEventKind::Any,
                         permanent,
                     ) {
-                        let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
@@ -2006,7 +2088,7 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                let source = source_at_event(state, obj, events, entry, look_back);
+                let source = source_at_event_with_moves(state, obj, &moves, entry.seq, look_back);
                 // A grant belongs to its recipient's battlefield incarnation,
                 // not the new card in the graveyard (CR 603.10a).
                 let applies = if look_back {
@@ -2030,29 +2112,30 @@ fn collect_for_objects(
                 if hit > 0 {
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let times = trigger_count(state, trigger, permanent, source.controller) * hit;
+                    let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
+                    let event_ability = activated_stack_ability(&entry.event);
+                    let event_object_identity =
+                        event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+                    let event_mana_value = cast_mana_value(state, &entry.event);
+                    let event_departure = entry
+                        .departure
+                        .as_ref()
+                        .map(|d| (d.controller, d.toughness));
+                    let event_player = event_player_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             text,
                             source_version: Some(source.version),
                             related_objects: None,
-                            event_subject: event_subject_for(
-                                trigger,
-                                &entry.event,
-                                permanent,
-                                state,
-                            ),
-                            event_ability: activated_stack_ability(&entry.event),
-                            event_object_identity: event_object
-                                .and_then(|id| state.event_object_identity(id, entry.seq)),
+                            event_subject,
+                            event_ability,
+                            event_object_identity,
                             counter_source_version: None,
                             event_mana: None,
-                            event_mana_value: cast_mana_value(state, &entry.event),
-                            event_departure: entry
-                                .departure
-                                .as_ref()
-                                .map(|d| (d.controller, d.toughness)),
+                            event_mana_value,
+                            event_departure,
                             event_amount: None,
-                            event_player: event_player_of(&entry.event),
+                            event_player,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: source.controller,
@@ -2089,12 +2172,12 @@ fn collect_for_objects(
                     continue;
                 };
                 if state.is_opponent(caster, obj.controller) {
+                    let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
                     for _ in 0..times_triggered(
                         state,
                         baylee_cards_dsl::TriggerEventKind::Any,
                         permanent,
                     ) {
-                        let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
@@ -2124,6 +2207,7 @@ fn collect_for_objects(
                 }
             }
         }
+        let uses_counter_links = crate::resolve::linked_counters::uses_links(&abilities);
         for (index, ability) in abilities.iter().enumerate() {
             let Some(firing) = triggered_parts(ability) else {
                 continue;
@@ -2147,33 +2231,55 @@ fn collect_for_objects(
             {
                 continue;
             }
+            let look_back = matches!(
+                trigger,
+                Trigger::Dies(_)
+                    | Trigger::DiesNotSacrificed(_)
+                    | Trigger::LeavesBattlefield(_)
+                    | Trigger::LinkedCreatureLeaves
+            );
+            let source_is_constant =
+                moves.is_empty() && (!look_back || obj.zone == Zone::Battlefield);
+            let obj_context = RuleContext {
+                source: obj.id,
+                text: list.base_text(index).then(current_text),
+                reference: None,
+            };
+            let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
+            let obj_condition_holds = !condition_reads_event
+                && condition_matches(state, firing.condition, obj.controller, obj_context, None);
+            if source_is_constant && !condition_reads_event && !obj_condition_holds {
+                continue;
+            }
             // CR 603.4, the first of its two checks: an ability whose
             // intervening-`if` clause is false does not trigger at all.
             // Before `trigger_count`, so a trigger multiplier has nothing
             // to double — Panharmonicon doubles a trigger, not a
             // non-trigger.
             for entry in events {
-                let source = source_at_event(
-                    state,
-                    obj,
-                    events,
-                    entry,
-                    matches!(
-                        trigger,
-                        Trigger::Dies(_)
-                            | Trigger::DiesNotSacrificed(_)
-                            | Trigger::LeavesBattlefield(_)
-                            | Trigger::LinkedCreatureLeaves
-                    ),
-                );
-                let context = ability_context(state, source, &list, index);
-                if !condition_matches(
-                    state,
-                    firing.condition,
-                    source.controller,
-                    context,
-                    Some(entry),
-                ) {
+                let source = if source_is_constant {
+                    obj
+                } else {
+                    source_at_event_with_moves(state, obj, &moves, entry.seq, look_back)
+                };
+                let same_as_obj = std::ptr::eq(source, obj);
+                let context = if same_as_obj {
+                    obj_context
+                } else {
+                    ability_context(state, source, &list, index)
+                };
+                let cond_ok = if same_as_obj && !condition_reads_event {
+                    obj_condition_holds
+                } else {
+                    condition_matches(
+                        state,
+                        firing.condition,
+                        source.controller,
+                        context,
+                        Some(entry),
+                    )
+                };
+                if !cond_ok {
                     continue;
                 }
                 let linked_hit = (*trigger == Trigger::LinkedCreatureLeaves).then(|| {
@@ -2195,60 +2301,47 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let event_damage = event_damage_of(trigger, &entry.event, events);
+                    let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
+                    let event_ability = activated_stack_ability(&entry.event);
+                    let event_object_identity =
+                        event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+                    let counter_source_version = uses_counter_links.then(|| {
+                        // A source may return during the resolution that killed it,
+                        // before this event batch is collected.
+                        if matches!(entry.event, GameEvent::ZoneChanged {
+                            object, from: Zone::Battlefield, to: Zone::Graveyard, ..
+                        } if object == permanent)
+                        {
+                            state
+                                .ltb_versions
+                                .iter()
+                                .find(|(id, _)| *id == permanent)
+                                .map_or(obj.version, |(_, version)| *version)
+                        } else {
+                            obj.version
+                        }
+                    });
+                    let event_mana = produced_mana(&entry.event, events);
+                    let event_mana_value = cast_mana_value(state, &entry.event);
+                    let event_departure = entry
+                        .departure
+                        .as_ref()
+                        .map(|d| (d.controller, d.toughness));
+                    let event_player = event_player_of(&entry.event);
                     for _ in 0..times {
-                        let source = source_at_event(
-                            state,
-                            obj,
-                            events,
-                            entry,
-                            matches!(
-                                trigger,
-                                Trigger::Dies(_)
-                                    | Trigger::DiesNotSacrificed(_)
-                                    | Trigger::LeavesBattlefield(_)
-                                    | Trigger::LinkedCreatureLeaves
-                            ),
-                        );
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
-                            event_subject: event_subject_for(
-                                trigger,
-                                &entry.event,
-                                permanent,
-                                state,
-                            ),
-                            event_ability: activated_stack_ability(&entry.event),
-                            event_object_identity: event_object
-                                .and_then(|id| state.event_object_identity(id, entry.seq)),
-                            counter_source_version: crate::resolve::linked_counters::uses_links(
-                                &abilities,
-                            )
-                            .then(|| {
-                                // A source may return during the resolution that killed it,
-                                // before this event batch is collected.
-                                if matches!(entry.event, GameEvent::ZoneChanged {
-                                    object, from: Zone::Battlefield, to: Zone::Graveyard, ..
-                                } if object == permanent)
-                                {
-                                    state
-                                        .ltb_versions
-                                        .iter()
-                                        .find(|(id, _)| *id == permanent)
-                                        .map_or(obj.version, |(_, version)| *version)
-                                } else {
-                                    obj.version
-                                }
-                            }),
-                            event_mana: produced_mana(&entry.event, events),
-                            event_mana_value: cast_mana_value(state, &entry.event),
-                            event_departure: entry
-                                .departure
-                                .as_ref()
-                                .map(|d| (d.controller, d.toughness)),
+                            event_subject,
+                            event_ability,
+                            event_object_identity,
+                            counter_source_version,
+                            event_mana,
+                            event_mana_value,
+                            event_departure,
                             event_amount: event_damage,
-                            event_player: event_player_of(&entry.event),
+                            event_player,
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list.clone()),
@@ -2945,10 +3038,7 @@ fn matches(
             if *attacker != source {
                 return false;
             }
-            let Some(at) = batch
-                .iter()
-                .position(|entry| std::ptr::eq(&raw const entry.event, event))
-            else {
+            let Some(at) = event_groups::index_of_event(event, batch) else {
                 return false;
             };
             !state.combat.blockers_of(source).is_empty()

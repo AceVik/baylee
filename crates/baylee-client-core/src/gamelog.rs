@@ -890,6 +890,7 @@ impl Writer<'_> {
                 Phrase::LogCountersIndestructible,
                 None,
             ),
+            CounterKind::Custom(10) => (Phrase::LogCounterAge, Phrase::LogCountersAge, None),
             CounterKind::Custom(_) => (Phrase::LogCounterOther, Phrase::LogCountersOther, None),
         };
         let sizes = sizes.map_or_else(Vec::new, |(power, toughness)| {

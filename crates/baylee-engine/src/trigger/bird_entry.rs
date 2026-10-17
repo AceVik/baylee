@@ -88,13 +88,17 @@ pub(super) fn collect(
 }
 
 pub(crate) fn consume(state: &mut GameState, from_seq: u64) {
-    let watches = std::mem::take(&mut state.delayed);
+    if state.delayed.is_empty() {
+        return;
+    }
     let all_events = state.journal.entries();
     let events = &all_events[all_events.partition_point(|entry| entry.seq <= from_seq)..];
-    state.delayed = watches
-        .into_iter()
-        .filter(|watch| matching_event(state, watch, events).is_none())
-        .collect();
+    if events.is_empty() {
+        return;
+    }
+    let mut watches = std::mem::take(&mut state.delayed);
+    watches.retain(|watch| matching_event(state, watch, events).is_none());
+    state.delayed = watches;
 }
 
 #[cfg(test)]

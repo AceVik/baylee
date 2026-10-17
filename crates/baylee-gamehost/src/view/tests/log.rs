@@ -1598,3 +1598,32 @@ fn a_bolts_damage_is_told_before_the_life_it_cost() {
         );
     }
 }
+
+/// Report 01a1465d: drawing 3 cards (e.g. Jace's Brainstorm ability) while
+/// Courser of Kruphix reveals the top of the library folds all three draws
+/// into a single `LogEvent::Drew` line visible to every seat, with no stray
+/// `LogEvent::Revealed` or `LogEvent::Moved` lines left behind.
+#[test]
+fn courser_multi_draw_folds_into_one_public_draw_line_without_reveal_events() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &[], &["Courser of Kruphix"], &[]);
+    let from = log.len();
+    let drawn = engine
+        .dev_state_mut(me)
+        .expect("dev commands")
+        .draw_cards(me, 3);
+    log.consume(engine.state());
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let [LogEvent::Drew { player, cards }] = &told[..] else {
+            panic!("seat {seat:?} expected single Drew line, got {told:?}");
+        };
+        assert_eq!(*player, me);
+        assert_eq!(
+            cards.iter().filter_map(handle).collect::<Vec<_>>(),
+            drawn,
+            "seat {seat:?} sees all 3 drawn cards in the Drew line because Courser revealed each top card"
+        );
+    }
+}

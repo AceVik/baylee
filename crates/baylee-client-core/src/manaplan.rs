@@ -449,6 +449,55 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     best
 }
 
+/// [`plan`], settling as few Phyrexian symbols with 2 life each (CR 107.4f)
+/// as needed when the mana sources alone cannot pay their colours.
+///
+/// Rule 2 still holds whenever the board can pay the coloured pip: [`plan`]
+/// is tried first with no life spent at all, and Phyrexian symbols are
+/// settled with life in increasing count (`1..=symbols`) only after that
+/// returns `None` and only while `2 * count <= life`. The returned [`Plan`]'s
+/// `cost` stays the caller's `cost` (with its Phyrexian symbols intact),
+/// so prompts and cast-mode rows still quote the printed price.
+#[must_use]
+pub fn plan_with_life(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    life: i32,
+) -> Option<Plan> {
+    if let Some(found) = plan(cost, pool, sources) {
+        return Some(found);
+    }
+    let symbols = cost.phyrexian_count();
+    if symbols == 0 || symbols > 8 || life < 2 {
+        return None;
+    }
+    for paid_with_life in 1..=symbols {
+        let life_needed = 2 * i32::try_from(paid_with_life).unwrap_or(i32::MAX);
+        if life < life_needed {
+            break;
+        }
+        let mut best: Option<Plan> = None;
+        for mask in 1u32..(1u32 << symbols) {
+            if mask.count_ones() != paid_with_life {
+                continue;
+            }
+            let settled = cost.with_phyrexian_settled(mask);
+            let Some(mut found) = plan(&settled, pool, sources) else {
+                continue;
+            };
+            found.cost = *cost;
+            if best.as_ref().is_none_or(|kept| found.taps() < kept.taps()) {
+                best = Some(found);
+            }
+        }
+        if best.is_some() {
+            return best;
+        }
+    }
+    None
+}
+
 /// The largest X the floating pool and `sources` pay `cost` with, or `None`
 /// when `cost` has no X or not even X = 0 plans here.
 ///
@@ -1858,5 +1907,35 @@ mod tests {
     fn greatest_x_pays_every_x_in_the_cost() {
         let forests: Vec<Source> = (1..=5).map(|id| land(id, ManaColor::Green)).collect();
         assert_eq!(greatest_x(&cost("{X}{X}{G}"), &empty(), &forests), Some(2));
+    }
+
+    /// Phyrexian Metamorph (`{3}{U/P}`): three Forests and 20 life plan the
+    /// three Forests for `{3}` when no blue source exists, keeping the full
+    /// printed cost on the plan; with 1 life it remains `None`.
+    #[test]
+    fn plan_with_life_settles_phyrexian_when_off_colour_lands_pay_generic() {
+        let forests: Vec<Source> = (1..=3).map(|id| land(id, ManaColor::Green)).collect();
+        let metamorph = cost("{3}{U/P}");
+        assert!(plan(&metamorph, &empty(), &forests).is_none());
+        let found = plan_with_life(&metamorph, &empty(), &forests, 20).expect("3 generic + 2 life");
+        assert_eq!(tapped(&found), [1, 2, 3]);
+        assert_eq!(found.cost, metamorph);
+        assert!(plan_with_life(&metamorph, &empty(), &forests, 1).is_none());
+    }
+
+    /// Rule 2 still holds when a blue source is present: `plan_with_life`
+    /// prefers paying `{U/P}` with mana over spending life.
+    #[test]
+    fn plan_with_life_prefers_mana_when_colour_is_available() {
+        let sources = [
+            land(1, ManaColor::Green),
+            land(2, ManaColor::Green),
+            land(3, ManaColor::Green),
+            land(4, ManaColor::Blue),
+        ];
+        let metamorph = cost("{3}{U/P}");
+        let found = plan_with_life(&metamorph, &empty(), &sources, 20).expect("payable with mana");
+        assert_eq!(found.taps(), 4);
+        assert!(tapped(&found).contains(&4));
     }
 }

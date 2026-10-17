@@ -53,7 +53,11 @@ pub const fn choices(tool: CliTool) -> CliChoices {
         // its models are listed by `agy models`.
         CliTool::Agy => CliChoices {
             tool,
-            models: &[DEFAULT_AGY_MODEL, "gemini-3.8-flash-medium"],
+            models: &[
+                DEFAULT_AGY_MODEL,
+                "gemini-3.8-flash-medium",
+                "gemini-3.8-flash-low",
+            ],
             model_hint: "a model as `agy models` lists it",
             default_model: Some(DEFAULT_AGY_MODEL),
             efforts: &["low", "medium", "high", "xhigh", "max"],

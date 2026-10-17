@@ -13,11 +13,31 @@ use baylee_client_core::{
 use baylee_core::{generated::subtypes, ids::ObjectId};
 use bevy::prelude::*;
 
+/// Age counter (`baylee_cards_dsl::counters::AGE`) projected onto `baylee_view`.
+const AGE_COUNTER: baylee_view::CounterKind = baylee_view::CounterKind::Custom(10);
+
 #[derive(Component)]
-pub(crate) struct ChosenTypeLabel(ObjectId);
+pub(crate) struct ChosenTypeLabel {
+    object: ObjectId,
+    measured: [(String, Option<char>, Vec2); 2],
+}
 
 #[derive(Component)]
 pub(crate) struct ChargeIcon;
+
+fn counter_icon(object: &baylee_view::PublicObject) -> Option<char> {
+    for counter in &object.counters {
+        if counter.count == 0 {
+            continue;
+        }
+        match counter.kind {
+            baylee_view::CounterKind::Charge => return Some(glyph::CHARGE),
+            AGE_COUNTER => return Some(glyph::HOURGLASS),
+            _ => {}
+        }
+    }
+    None
+}
 
 fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
@@ -50,18 +70,22 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
         }
     }
     for counter in &object.counters {
-        if counter.kind == baylee_view::CounterKind::Charge && counter.count > 0 {
-            let noun = Phrase::counted(
-                usize::from(counter.count),
-                Phrase::LogCounterCharge,
-                Phrase::LogCountersCharge,
-            );
-            parts.push(if detail {
-                format!("{} {}", counter.count, noun.text(lang))
-            } else {
-                format!("{} ", counter.count)
-            });
+        if counter.count == 0 {
+            continue;
         }
+        let (one, many) = match counter.kind {
+            baylee_view::CounterKind::Charge => {
+                (Phrase::LogCounterCharge, Phrase::LogCountersCharge)
+            }
+            AGE_COUNTER => (Phrase::LogCounterAge, Phrase::LogCountersAge),
+            _ => continue,
+        };
+        let noun = Phrase::counted(usize::from(counter.count), one, many);
+        parts.push(if detail {
+            format!("{} {}", counter.count, noun.text(lang))
+        } else {
+            format!("{} ", counter.count)
+        });
     }
     (!parts.is_empty()).then(|| parts.join(" · "))
 }
@@ -107,16 +131,21 @@ type Geometry<'w, 's> = (
 );
 
 /// Follow the actual card pose without taking its pointer events. Only cards
-/// carrying a choice, a level, charge counters or no abilities get a label.
+/// carrying a choice, a level, charge/age counters or no abilities get a label.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn sync(
     mut commands: Commands,
     duel: Res<Duel>,
-    (settings, fonts): (Res<ClientSettings>, Res<UiFonts>),
+    (settings, fonts, mode): (
+        Res<ClientSettings>,
+        Res<UiFonts>,
+        Option<Res<crate::face::FaceMode>>,
+    ),
     shown: Res<table::ShownRig>,
     (windows, ui, cards, previews): Geometry<'_, '_>,
     mut labels: Query<(
         Entity,
-        &ChosenTypeLabel,
+        &mut ChosenTypeLabel,
         &mut Text,
         &mut Node,
         &mut Visibility,
@@ -126,15 +155,16 @@ pub(crate) fn sync(
     mut icons: Query<&mut TextSpan, With<ChargeIcon>>,
 ) {
     let lang = Lang::of(&settings.lang);
+    let detail = mode.as_ref().is_some_and(|m| m.held);
     let lens = shown.rig().and_then(|rig| {
         windows
             .single()
             .ok()
             .map(|window| table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref())))
     });
-    let wanted = wanted_labels(&duel, lang);
+    let wanted = wanted_labels(&duel, lang, detail);
     for (entity, mark, _, _, _, _, _) in &mut labels {
-        if !wanted.iter().any(|(id, _, _)| *id == mark.0) {
+        if !wanted.iter().any(|(id, _, _)| *id == mark.object) {
             commands.entity(entity).despawn();
         }
     }
@@ -158,18 +188,35 @@ pub(crate) fn sync(
         .single()
         .ok()
         .map(|w| crate::hud::scale::space(w, ui.as_deref()));
-    for (id, label, charge) in wanted {
-        // Reuse the renderer's measured logical size once this exact text
-        // has been laid out. Changed text gets a conservative first frame.
-        let size = labels
-            .iter()
-            .find(|(_, mark, text, _, _, _, node)| {
-                mark.0 == id && text.0 == label && node.size().x > 0.0
-            })
-            .map_or_else(
-                || estimated_size(&label, charge),
-                |(_, _, _, _, _, _, node)| node.size() * node.inverse_scale_factor,
-            );
+    let slot = usize::from(detail);
+    for (id, label, icon_glyph) in wanted {
+        let mut size = None;
+        for (_, mut mark, text, _, _, children, node) in &mut labels {
+            if mark.object != id {
+                continue;
+            }
+            let current_icon = children
+                .iter()
+                .find_map(|child| icons.get(child).ok())
+                .and_then(|span| span.0.chars().next());
+            if text.0 == label && current_icon == icon_glyph && node.size().x > 0.0 {
+                let actual = node.size() * node.inverse_scale_factor;
+                if mark.measured[slot].0 != label
+                    || mark.measured[slot].1 != icon_glyph
+                    || mark.measured[slot].2 != actual
+                {
+                    mark.measured[slot] = (label.clone(), icon_glyph, actual);
+                }
+                size = Some(actual);
+            } else if mark.measured[slot].0 == label
+                && mark.measured[slot].1 == icon_glyph
+                && mark.measured[slot].2.x > 0.0
+            {
+                size = Some(mark.measured[slot].2);
+            }
+            break;
+        }
+        let size = size.unwrap_or_else(|| estimated_size(&label, icon_glyph.is_some()));
         let at = boxes
             .iter()
             .find(|(object, _)| *object == id)
@@ -190,18 +237,14 @@ pub(crate) fn sync(
         };
         if let Some((_, _, mut text, mut node, mut visibility, children, _)) = labels
             .iter_mut()
-            .find(|(_, mark, _, _, _, _, _)| mark.0 == id)
+            .find(|(_, mark, _, _, _, _, _)| mark.object == id)
         {
             if text.0 != label {
                 text.0 = label;
             }
             for child in children {
                 if let Ok(mut icon) = icons.get_mut(*child) {
-                    let wanted = if charge {
-                        glyph::CHARGE.to_string()
-                    } else {
-                        String::new()
-                    };
+                    let wanted = icon_glyph.map_or_else(String::new, |c| c.to_string());
                     if icon.0 != wanted {
                         icon.0 = wanted;
                     }
@@ -219,32 +262,32 @@ pub(crate) fn sync(
                 place(&mut node, at);
             }
         } else {
-            spawn_label(&mut commands, &fonts, id, label, charge, at);
+            spawn_label(&mut commands, &fonts, id, label, icon_glyph, at);
         }
     }
 }
 
-fn estimated_size(label: &str, charge: bool) -> Vec2 {
+fn estimated_size(label: &str, has_icon: bool) -> Vec2 {
     Vec2::new(
-        label.chars().count() as f32 * 13.0 * super::UI_SCALE
-            + if charge { 16.0 } else { 0.0 }
+        label.chars().count() as f32 * 7.2 * super::UI_SCALE
+            + if has_icon {
+                14.0 * super::UI_SCALE
+            } else {
+                0.0
+            }
             + 10.0,
-        28.0,
+        21.0 * super::UI_SCALE,
     )
 }
 
-fn wanted_labels(duel: &Duel, lang: Lang) -> Vec<(ObjectId, String, bool)> {
+fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String, Option<char>)> {
     let Some(view) = duel.view.as_ref() else {
         return Vec::new();
     };
     view.battlefield
         .iter()
         .filter_map(|object| {
-            let detail = duel.hovered == Some(object.id);
-            let icon = !detail
-                && object.counters.iter().any(|counter| {
-                    counter.kind == baylee_view::CounterKind::Charge && counter.count > 0
-                });
+            let icon = (!detail).then(|| counter_icon(object)).flatten();
             let mut parts: Vec<_> = words(object, lang, detail).into_iter().collect();
             if let Some(protector) = object.battle_protector {
                 let called = super::seatbar::called(
@@ -278,7 +321,7 @@ fn spawn_label(
     fonts: &UiFonts,
     id: ObjectId,
     label: String,
-    charge: bool,
+    icon_glyph: Option<char>,
     at: Option<Vec2>,
 ) {
     let visible = if at.is_some() {
@@ -296,18 +339,20 @@ fn spawn_label(
         place(&mut node, at);
     }
     commands.spawn((
-        ChosenTypeLabel(id),
+        ChosenTypeLabel {
+            object: id,
+            measured: [
+                (String::new(), None, Vec2::ZERO),
+                (String::new(), None, Vec2::ZERO),
+            ],
+        },
         super::DetachedHud,
         node,
         Text::new(label),
         TextLayout::no_wrap(),
         children![(
             ChargeIcon,
-            TextSpan::new(if charge {
-                glyph::CHARGE.to_string()
-            } else {
-                String::new()
-            }),
+            TextSpan::new(icon_glyph.map_or_else(String::new, |c| c.to_string())),
             icon_tf(fonts, 12.0),
             TextColor(palette::CANDLE),
             Pickable::IGNORE,
@@ -371,11 +416,11 @@ mod tests {
         }];
         let mut duel = Duel::default();
         duel.receive_view(ViewBuilder::new(2).with_battlefield(0, [object]).build());
-        let english = wanted_labels(&duel, Lang::En);
+        let english = wanted_labels(&duel, Lang::En, false);
         assert!(english[0].1.contains("Defense 4"));
         assert!(english[0].1.contains("Protected by"));
         assert!(english[0].1.contains('1'));
-        let german = wanted_labels(&duel, Lang::De);
+        let german = wanted_labels(&duel, Lang::De, false);
         assert!(german[0].1.contains("Verteidigung 4"));
         assert!(german[0].1.contains("Beschützt von"));
     }
@@ -390,7 +435,7 @@ mod tests {
             .build();
         let mut duel = Duel::default();
         duel.receive_view(view);
-        let labels = wanted_labels(&duel, Lang::En);
+        let labels = wanted_labels(&duel, Lang::En, false);
         assert_eq!(labels.len(), 1);
         assert!(
             labels[0].1.contains('1'),
@@ -403,11 +448,11 @@ mod tests {
         opponent.display_name = "Mira".into();
         statics.seats.push(opponent);
         duel.statics = Some(statics);
-        assert_eq!(wanted_labels(&duel, Lang::En)[0].1, "Mira");
+        assert_eq!(wanted_labels(&duel, Lang::En, false)[0].1, "Mira");
     }
 
     #[test]
-    fn charge_counters_are_visible_and_localized_without_a_chosen_type() {
+    fn charge_and_age_counters_are_visible_and_localized_with_alt_detail() {
         let mut object = crate::registry_printed(1, 0, "Inspirit, Flagship Vessel");
         object.counters.push(baylee_view::CounterEntry {
             kind: baylee_view::CounterKind::Charge,
@@ -415,6 +460,7 @@ mod tests {
         });
         assert_eq!(words(&object, Lang::De, false).as_deref(), Some("4 "));
         assert_eq!(words(&object, Lang::En, false).as_deref(), Some("4 "));
+        assert_eq!(counter_icon(&object), Some(glyph::CHARGE));
         assert_eq!(
             words(&object, Lang::De, true).as_deref(),
             Some("4 Ladungsmarken")
@@ -425,6 +471,31 @@ mod tests {
         );
         object.counters[0].count = 1;
         assert_eq!(words(&object, Lang::De, false).as_deref(), Some("1 "));
+        assert_eq!(
+            words(&object, Lang::De, true).as_deref(),
+            Some("1 Ladungsmarke")
+        );
+
+        let mut remora = crate::registry_printed(2, 0, "Mystic Remora");
+        remora.counters.push(baylee_view::CounterEntry {
+            kind: AGE_COUNTER,
+            count: 2,
+        });
+        assert_eq!(words(&remora, Lang::De, false).as_deref(), Some("2 "));
+        assert_eq!(counter_icon(&remora), Some(glyph::HOURGLASS));
+        assert_eq!(
+            words(&remora, Lang::De, true).as_deref(),
+            Some("2 Altersmarken")
+        );
+        assert_eq!(
+            words(&remora, Lang::En, true).as_deref(),
+            Some("2 age counters")
+        );
+        remora.counters[0].count = 1;
+        assert_eq!(
+            words(&remora, Lang::De, true).as_deref(),
+            Some("1 Altersmarke")
+        );
         object.counters.clear();
         assert_eq!(words(&object, Lang::De, false), None);
     }

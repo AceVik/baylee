@@ -115,12 +115,15 @@ impl GameState {
                 ]
             })
         });
-        for waiting in self.zones.list(ZoneLocation::Stack).clone() {
-            if let Some(ability) = self.object_mut(waiting)
-                && ability.ability.is_some_and(|loc| loc.source == id)
-                && ability
-                    .riders
-                    .contains(&crate::object::Rider::AbilitySourceVersion(source_version))
+        let stack_len = self.zones.list(ZoneLocation::Stack).len();
+        for idx in 0..stack_len {
+            let waiting = self.zones.list(ZoneLocation::Stack)[idx];
+            if self.object(waiting).is_some_and(|ability| {
+                ability.ability.is_some_and(|loc| loc.source == id)
+                    && ability
+                        .riders
+                        .contains(&crate::object::Rider::AbilitySourceVersion(source_version))
+            }) && let Some(ability) = self.object_mut(waiting)
             {
                 ability.riders.retain(|rider| {
                     !matches!(
@@ -141,10 +144,12 @@ impl GameState {
             .object(id)
             .and_then(|o| o.characteristics().power)
             .unwrap_or(0);
-        for waiting in self.zones.list(ZoneLocation::Stack).clone() {
-            if let Some(obj) = self.object_mut(waiting)
-                && obj.ability.is_some_and(|loc| loc.source == id)
-                && obj.source_power_lki.is_none()
+        let stack_len = self.zones.list(ZoneLocation::Stack).len();
+        for idx in 0..stack_len {
+            let waiting = self.zones.list(ZoneLocation::Stack)[idx];
+            if self.object(waiting).is_some_and(|obj| {
+                obj.ability.is_some_and(|loc| loc.source == id) && obj.source_power_lki.is_none()
+            }) && let Some(obj) = self.object_mut(waiting)
             {
                 obj.source_power_lki = Some(power);
             }
@@ -216,9 +221,13 @@ impl GameState {
             && let Some(source) = self.object(id)
         {
             let (version, power) = (source.version, source.characteristics().power.unwrap_or(0));
-            for waiting in self.zones.list(ZoneLocation::Stack).clone() {
-                if let Some(ability) = self.object_mut(waiting)
-                    && ability.event_object == Some(id)
+            let stack_len = self.zones.list(ZoneLocation::Stack).len();
+            for idx in 0..stack_len {
+                let waiting = self.zones.list(ZoneLocation::Stack)[idx];
+                if self
+                    .object(waiting)
+                    .is_some_and(|ability| ability.event_object == Some(id))
+                    && let Some(ability) = self.object_mut(waiting)
                 {
                     for rider in &mut ability.riders {
                         if let crate::object::Rider::EventObjectIdentity(v, p) = rider
@@ -550,12 +559,18 @@ impl GameState {
             // its arena handle is stable. Detach now, after departure
             // snapshots, so a blink cannot restore the old relationship
             // before the next SBA.
-            // phasing: remember that a phased-out attachment must phase in
-            // unattached if its original host left (CR 702.26i), even if
-            // that handle has since returned. Do not affect it before then.
-            for worn in self.zones.list(ZoneLocation::Battlefield).clone() {
-                if let Some(attachment) = self.object_mut(worn)
-                    && attachment.attached_to == Some(id)
+            // Do not affect a phased-out attachment before it phases in;
+            // remember that it must phase in unattached if its original host
+            // left (CR 702.26i), even if that handle has since returned.
+            // phasing: inspect phased-out attachments on the battlefield too.
+            let bf_len = self.zones.list(ZoneLocation::Battlefield).len();
+            let bf_loc = ZoneLocation::Battlefield;
+            for idx in 0..bf_len {
+                let worn = self.zones.list(bf_loc)[idx];
+                if self
+                    .object(worn)
+                    .is_some_and(|attachment| attachment.attached_to == Some(id))
+                    && let Some(attachment) = self.object_mut(worn)
                 {
                     if attachment
                         .status

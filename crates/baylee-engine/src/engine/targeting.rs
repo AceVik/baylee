@@ -284,8 +284,13 @@ impl<L: CardLookup> Engine<L> {
             .expect("nonempty target series");
         for at in 0..count {
             if at > 0
-                && (self.target_batch_count() == 0
-                    || !self.trigger_queue.front().is_some_and(|t| same(&first, t)))
+                && (!matches!(
+                    self.pending_plan,
+                    Some(PlanKind::Trigger {
+                        per_opponent: None,
+                        ..
+                    })
+                ) || !self.trigger_queue.front().is_some_and(|t| same(&first, t)))
             {
                 break;
             }

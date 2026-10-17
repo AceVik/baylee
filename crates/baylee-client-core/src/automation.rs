@@ -268,7 +268,7 @@ impl RailRow {
 }
 
 /// Which of the two rails a button belongs to: the phases of *your own*
-/// (or a teammate's) turns, or the phases of *opponents'* turns. Both
+/// turns, or the phases of *other players'* turns. Both
 /// are priority controls — a red opponent-attackers row means "don't ask
 /// me for blocks", a red own-upkeep row means "don't ask me there".
 #[derive(
@@ -276,9 +276,9 @@ impl RailRow {
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum RailSide {
-    /// Phases of your own and your teammates' turns.
+    /// Phases of your own turns.
     Mine,
-    /// Phases of opponents' turns.
+    /// Phases of other players' turns (opponents and teammates).
     Theirs,
 }
 
@@ -618,7 +618,7 @@ pub enum AutoAnswer {
 pub struct Situation {
     /// Whether the pending choice is the local seat's to answer.
     pub mine: bool,
-    /// Whether the active player is the local seat or a teammate.
+    /// Whether the active player is the local seat.
     pub active_is_mine: bool,
     /// The phase the view is in.
     pub phase: Phase,

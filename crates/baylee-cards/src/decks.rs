@@ -715,11 +715,14 @@ pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<
             ),
             _ => (0, wanted),
         };
-        let card = crate::all()
-            .find(|def| {
-                def.faces
-                    .first()
-                    .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
+        let card = by_name(name)
+            .and_then(crate::by_index)
+            .or_else(|| {
+                crate::all().find(|def| {
+                    def.faces
+                        .first()
+                        .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
+                })
             })
             .ok_or_else(|| format!("no card named `{name}`"))?;
         // The card's **own** printing, and not `PrintRef::new(0)`.
@@ -1265,5 +1268,25 @@ mod partner_tests {
         let read = leader_of(plain).expect("a land has a reading too");
         assert!(!read.eligible, "a Forest may not lead a deck");
         assert_eq!(read.partner, PartnerKind::None);
+    }
+
+    #[test]
+    fn deal_named_resolves_split_and_single_face_names() {
+        let deck = LoadedDeck {
+            name: "test".to_string(),
+            main: vec![DeckCard::plain(index::FOREST)],
+            sideboard: vec![],
+            commanders: vec![],
+        };
+        let mut preset = preset_for(1, &deck, &deck);
+        let fire_ice = by_name("Fire // Ice").expect("Fire // Ice in pool");
+        deal_named(&mut preset, "Fire // Ice; 0:fire", DevZone::Hand).expect("Fire // Ice deals");
+        let hand = preset.seats[0]
+            .starting_hand
+            .as_ref()
+            .expect("starting hand populated");
+        assert_eq!(hand.len(), 2);
+        assert_eq!(hand[0].card, fire_ice);
+        assert_eq!(hand[1].card, fire_ice);
     }
 }

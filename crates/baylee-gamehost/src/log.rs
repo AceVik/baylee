@@ -421,6 +421,41 @@ impl GameLog {
         })
     }
 
+    /// Whether `id` is still on the stack (`Some`) and whether its current
+    /// modes and targets already match `held` (`Some(true)`), without
+    /// allocating when nothing changed.
+    fn aim_matches(state: &GameState, id: ObjectId, held: &Aim) -> Option<bool> {
+        let obj = state.object(id)?;
+        if obj.zone != Zone::Stack {
+            return None;
+        }
+        let modes = obj.modes | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
+        if modes != held.modes {
+            return Some(false);
+        }
+        let synthetic = obj
+            .ability
+            .is_some_and(|loc| loc.index == AbilityRef::SYNTHETIC);
+        if synthetic {
+            return Some(held.objects.is_empty() && held.players.is_empty());
+        }
+        let objects_match = obj
+            .targets
+            .iter()
+            .chain(obj.second_targets().iter())
+            .copied()
+            .eq(held.objects.iter().copied());
+        if !objects_match {
+            return Some(false);
+        }
+        let players: SeatSet = obj
+            .target_players
+            .iter()
+            .chain(obj.second_target_players().iter())
+            .collect();
+        Some(players == held.players)
+    }
+
     /// Writes what the spell or ability `id` was announced with, when it
     /// says anything and differs from what a line last said of it.
     fn announce(
@@ -457,17 +492,18 @@ impl GameLog {
     /// asked after it is put on the stack, CR 603.3d), and forgets the ones
     /// that have left it.
     fn reannounce(&mut self, state: &GameState) {
-        let held: Vec<(ObjectId, Aim)> = self
-            .aims
-            .iter()
-            .map(|(id, aim)| (*id, aim.clone()))
-            .collect();
-        for (id, aim) in held {
-            if Self::aim_of(state, id, aim.controller, aim.source, aim.ability).is_none() {
-                self.aims.remove(&id);
-            } else {
-                self.announce(state, id, aim.controller, aim.source, aim.ability);
-            }
+        let mut changed = Vec::new();
+        self.aims
+            .retain(|&id, aim| match Self::aim_matches(state, id, aim) {
+                None => false,
+                Some(true) => true,
+                Some(false) => {
+                    changed.push((id, aim.controller, aim.source, aim.ability));
+                    true
+                }
+            });
+        for (id, controller, source, ability) in changed {
+            self.announce(state, id, controller, source, ability);
         }
     }
 
@@ -613,7 +649,7 @@ impl GameLog {
                 to,
                 place,
                 ..
-            } => self.moved(state, *object, (*from, *to), *place, shown, discarded),
+            } => self.moved(state, *object, (*from, *to), *place, shown, discarded, batch),
             GameEvent::CardsDrawn { player, count, .. } => {
                 if self.started {
                     self.drew(*player, usize::from(*count), batch);
@@ -714,6 +750,7 @@ impl GameLog {
                 // Otherwise the engine moved the land before it recorded the
                 // play, so the move is already a line, and this one says it
                 // again with where from.
+                shown.remove(object);
                 self.unwrite_move(*object, LogZone::Battlefield, batch);
                 let from = came_from(state, *object, came);
                 let (land, sees) = self.refer(state, *object);
@@ -863,6 +900,7 @@ impl GameLog {
     }
 
     /// An object changed zones.
+    #[allow(clippy::too_many_arguments)]
     fn moved(
         &mut self,
         state: &GameState,
@@ -871,6 +909,7 @@ impl GameLog {
         place: Option<LibraryPlace>,
         shown: &mut BTreeSet<ObjectId>,
         discarded: &mut BTreeSet<ObjectId>,
+        batch: usize,
     ) {
         // Onto the stack is the cast or the ability; off it is the
         // resolution, or the counter that already has its line.
@@ -887,6 +926,8 @@ impl GameLog {
         if to == Zone::Battlefield
             && let Some(player) = self.landing.remove(&id)
         {
+            shown.remove(&id);
+            self.unwrite_reveal(id, batch);
             let from = log_zone(from).map(|zone| LogFrom {
                 zone,
                 owner: state.object(id).map_or(player, |obj| obj.owner),
@@ -992,6 +1033,22 @@ impl GameLog {
         any
     }
 
+    /// Takes back this batch's single-card `Revealed` line for `id` when the
+    /// move or play that immediately follows already names `id` to the table.
+    fn unwrite_reveal(&mut self, id: ObjectId, batch: usize) {
+        let first = batch.max(self.sealed);
+        if self.lines.len() > first
+            && self.lines[self.lines.len() - 1].repeat == 1
+            && matches!(
+                &self.lines[self.lines.len() - 1].event,
+                LogEvent::Revealed { cards, .. }
+                    if matches!(cards.as_slice(), [LogObject::Known { id: shown, .. }] if *shown == id)
+            )
+        {
+            self.lines.pop();
+        }
+    }
+
     /// Takes back this batch's line moving `id` to `to`, which a later line
     /// of the same action says better. Only a line nobody has been sent is
     /// taken back.
@@ -1015,28 +1072,59 @@ impl GameLog {
             });
         if let Some(at) = moved {
             self.lines.remove(first + at);
+            if at > 0
+                && self.lines[first + at - 1].repeat == 1
+                && matches!(
+                    &self.lines[first + at - 1].event,
+                    LogEvent::Revealed { cards, .. }
+                        if matches!(cards.as_slice(), [LogObject::Known { id: shown, .. }] if *shown == id)
+                )
+            {
+                self.lines.remove(first + at - 1);
+            }
         }
     }
 
     /// `count` cards were drawn: the moves that drew them, the batch's last
-    /// lines, become one line.
+    /// lines, become one line. When the top of the library was revealed
+    /// (`Courser of Kruphix`), `move_object` recorded a single-card
+    /// `Revealed` before each `Moved` so every seat knows the card; those
+    /// `Revealed` lines fold into `Drew` too (keeping `Sees::Everyone` on the
+    /// drawn cards) instead of breaking the multi-card draw into interleaved
+    /// `Revealed`/`Moved` lines and raising a reveal popup.
     fn drew(&mut self, player: PlayerId, count: usize, batch: usize) {
         let first = batch.max(self.sealed);
         let mut start = self.lines.len();
-        while start > first
-            && self.lines.len() - start < count
-            && self.lines[start - 1].repeat == 1
-            && matches!(
-                &self.lines[start - 1].event,
-                LogEvent::Moved {
-                    owner,
-                    from: LogZone::Library,
-                    to: LogZone::Hand,
-                    ..
-                } if *owner == player
-            )
-        {
+        let mut moved = 0;
+        while start > first && moved < count && self.lines[start - 1].repeat == 1 {
+            let LogEvent::Moved {
+                object,
+                owner,
+                from: LogZone::Library,
+                to: LogZone::Hand,
+                ..
+            } = &self.lines[start - 1].event
+            else {
+                break;
+            };
+            if *owner != player {
+                break;
+            }
+            let drawn = object.clone();
             start -= 1;
+            moved += 1;
+            if start > first
+                && self.lines[start - 1].repeat == 1
+                && matches!(
+                    &self.lines[start - 1].event,
+                    LogEvent::Revealed {
+                        player: who,
+                        cards,
+                    } if *who == player && cards.as_slice() == [drawn]
+                )
+            {
+                start -= 1;
+            }
         }
         let mut cards = Vec::new();
         let mut sees = Vec::new();

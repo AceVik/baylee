@@ -445,8 +445,44 @@ impl LocalHost {
             if player != self.seat {
                 continue;
             }
-            self.pending_out.extend(host_message(envelope));
+            push_host_message(&mut self.pending_out, envelope);
         }
+    }
+}
+
+/// Folds a continuation `StateDelta` frame (same non-zero `seq`, contiguous
+/// non-empty [`LogTail`]) into the preceding [`HostMessage::View`] without
+/// decoding `view_json` again.
+///
+/// `Session::frames_of` splits a step with more than `LOG_TAIL_CAP` log lines
+/// into several `StateDelta` frames carrying the same `seq` and `view_json`,
+/// each with the next slice of `LogTail`. Merging contiguous chunks at the
+/// host boundary avoids allocating dozens of identical multi-megabyte
+/// `PlayerView`s and rebuilding the board once per 200 log lines.
+pub(crate) fn try_merge_log_chunk(out: &mut [HostMessage], envelope: &Envelope) -> bool {
+    if let Some(v1::envelope::Msg::StateDelta(delta)) = &envelope.msg
+        && delta.seq != 0
+        && let Some(HostMessage::View(prev_view, Some(prev_tail))) = out.last_mut()
+        && prev_view.seq == delta.seq
+        && !prev_tail.entries.is_empty()
+        && let Some(next_tail) = log_tail(&delta.log_json)
+        && !next_tail.entries.is_empty()
+        && prev_tail.from as usize + prev_tail.entries.len() == next_tail.from as usize
+    {
+        prev_tail.entries.extend(next_tail.entries);
+        return true;
+    }
+    false
+}
+
+/// Decodes `envelope` and appends it to `out`, merging multi-chunk log tails
+/// that repeat the same `seq` via [`try_merge_log_chunk`].
+pub(crate) fn push_host_message(out: &mut Vec<HostMessage>, envelope: Envelope) {
+    if try_merge_log_chunk(out, &envelope) {
+        return;
+    }
+    if let Some(msg) = host_message(envelope) {
+        out.push(msg);
     }
 }
 
@@ -932,6 +968,59 @@ pub(crate) mod tests {
             ),
             "a log that does not decode took its view with it"
         );
+    }
+
+    #[test]
+    fn split_log_frames_sharing_a_seq_fold_into_one_view_message() {
+        use baylee_view::{LogEntry, LogEvent};
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.seq = 7;
+        let view_json = serde_json::to_vec(&view).expect("a view encodes");
+        let entry = |turn| LogEntry {
+            at: 0,
+            turn,
+            repeat: 1,
+            event: LogEvent::TurnStarted {
+                active: PlayerId::new(0),
+            },
+            phase: None,
+        };
+        let first = Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                game_id: "g".to_string(),
+                seq: 7,
+                view_json,
+                log_json: serde_json::to_vec(&LogTail {
+                    from: 10,
+                    entries: vec![entry(1), entry(2)],
+                })
+                .expect("tail encodes"),
+            })),
+        };
+        // Continuation chunk carries invalid view_json to prove it is never
+        // re-decoded once the first chunk for `seq = 7` is in `out`.
+        let second = Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                game_id: "g".to_string(),
+                seq: 7,
+                view_json: b"not-decoded-again".to_vec(),
+                log_json: serde_json::to_vec(&LogTail {
+                    from: 12,
+                    entries: vec![entry(3)],
+                })
+                .expect("tail encodes"),
+            })),
+        };
+        let mut out = Vec::new();
+        push_host_message(&mut out, first);
+        push_host_message(&mut out, second);
+        assert_eq!(out.len(), 1);
+        let HostMessage::View(got_view, Some(got_tail)) = &out[0] else {
+            panic!("expected one merged View message");
+        };
+        assert_eq!(got_view.seq, 7);
+        assert_eq!(got_tail.from, 10);
+        assert_eq!(got_tail.entries, vec![entry(1), entry(2), entry(3)]);
     }
 
     /// The version rides outside the payload so this check can happen before

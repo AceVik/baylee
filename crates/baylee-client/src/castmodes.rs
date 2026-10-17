@@ -121,9 +121,9 @@ pub fn reachable_modes(
     else {
         return Vec::new();
     };
-    let Some(pool) = view
+    let Some((pool, life)) = view
         .seat(baylee_client_core::decision::resource_player(view))
-        .map(|s| s.mana_pool)
+        .map(|s| (s.mana_pool, s.life))
     else {
         return Vec::new();
     };
@@ -131,7 +131,7 @@ pub fn reachable_modes(
     let mut out = Vec::new();
     let mut offer = |kind, cost: ManaCost| {
         let cost = cost.with_more_generic(legal.spell_increase(card, kind));
-        if let Some(plan) = manaplan::plan(&cost, &pool, &sources) {
+        if let Some(plan) = manaplan::plan_with_life(&cost, &pool, &sources, life) {
             out.push(ReachableMode { kind, cost, plan });
         }
     };

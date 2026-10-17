@@ -685,9 +685,7 @@ fn spawn_bar(
                 Cell::Life => life(commands, seat, fonts, width, height, density),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
                 Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
-                Cell::Steps => steps(
-                    commands, view, statics, seat, orders, fonts, density, size.x,
-                ),
+                Cell::Steps => steps(commands, view, seat, orders, fonts, density, size.x),
             };
             commands.entity(parent).add_child(node);
         }
@@ -1273,14 +1271,13 @@ fn designation_of(now: baylee_view::DayNight) -> (char, Color) {
 fn steps(
     commands: &mut Commands,
     view: &PlayerView,
-    statics: Option<&GameStatic>,
     seat: &SeatView,
     orders: &PhaseOrders,
     fonts: &UiFonts,
     density: Density,
     length: f32,
 ) -> Entity {
-    let side = if same_team(statics, seat.player, view.seat) {
+    let side = if seat.player == view.seat {
         RailSide::Mine
     } else {
         RailSide::Theirs

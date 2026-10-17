@@ -60,10 +60,24 @@ impl TargetReferences {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash)]
+#[derive(Clone, Default)]
+pub(crate) struct SourceCaptureCache {
+    /// Indexed by `ObjectId::slot() as usize`. Stores `obj.version.wrapping_add(1)` when
+    /// `capture_stack_references` has captured that exact incarnation on the stack, or `0` if dirty.
+    pub(crate) stack_clean: Vec<u32>,
+    /// Indexed by `ObjectId::slot() as usize`. Stores `obj.version.wrapping_add(1)` when
+    /// `capture_rule_references` has captured that exact incarnation on the stack (and it has
+    /// no dynamic linked-exile reader), or `0` if dirty.
+    pub(crate) rules_clean: Vec<u32>,
+    /// Index from `DamageSourceRef` to position in `GameState::damage_sources`.
+    pub(crate) damage_source_index: BTreeMap<DamageSourceRef, usize>,
+    pub(crate) damage_source_len: usize,
+}
+
+#[derive(Clone, Default)]
 pub(crate) struct SourceMemory {
     pub(crate) next_choice: u64,
-    pub(crate) stack: BTreeMap<DamageSourceRef, BTreeMap<Slot, DamageSourceRef>>,
+    pub(crate) stack: BTreeMap<DamageSourceRef, std::sync::Arc<BTreeMap<Slot, DamageSourceRef>>>,
     /// Announcement decisions survive with the exact spell/ability being copied.
     pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(baylee_core::ids::TargetRef, u32)>>,
     effects: BTreeMap<EffectId, DamageSourceRef>,
@@ -73,6 +87,51 @@ pub(crate) struct SourceMemory {
     resolving: BTreeSet<DamageSourceRef>,
     on_resolution: BTreeMap<DamageSourceRef, (PlayerId, &'static [baylee_cards_dsl::Effect])>,
     linked: BTreeMap<DamageSourceRef, DamageSourceRef>,
+    pub(crate) cache: SourceCaptureCache,
+}
+
+#[allow(clippy::missing_fields_in_debug)]
+impl std::fmt::Debug for SourceMemory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SourceMemory")
+            .field("next_choice", &self.next_choice)
+            .field("stack", &self.stack)
+            .field("divisions", &self.divisions)
+            .field("effects", &self.effects)
+            .field("event_readers", &self.event_readers)
+            .field("resolved", &self.resolved)
+            .field("resolving", &self.resolving)
+            .field("on_resolution", &self.on_resolution)
+            .field("linked", &self.linked)
+            .finish()
+    }
+}
+
+impl std::hash::Hash for SourceMemory {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.next_choice.hash(state);
+        self.stack.hash(state);
+        self.divisions.hash(state);
+        self.effects.hash(state);
+        self.event_readers.hash(state);
+        self.resolved.hash(state);
+        self.resolving.hash(state);
+        self.on_resolution.hash(state);
+        self.linked.hash(state);
+    }
+}
+
+impl SourceMemory {
+    #[inline]
+    pub(crate) fn invalidate_object(&mut self, id: ObjectId) {
+        let slot = id.slot() as usize;
+        if let Some(entry) = self.cache.stack_clean.get_mut(slot) {
+            *entry = 0;
+        }
+        if let Some(entry) = self.cache.rules_clean.get_mut(slot) {
+            *entry = 0;
+        }
+    }
 }
 
 fn identity(obj: &GameObject) -> DamageSourceRef {
@@ -140,6 +199,20 @@ impl GameState {
             .collect()
     }
 
+    /// Whether any stack object publicly refers to this exact source incarnation.
+    #[must_use]
+    pub fn is_source_referenced(&self, source: DamageSourceRef) -> bool {
+        self.source_memory.stack.iter().any(|(holder, refs)| {
+            self.object(holder.object)
+                .is_some_and(|o| o.zone == Zone::Stack && o.version == holder.version)
+                && refs.iter().any(|(slot, r)| {
+                    *r == source
+                        && (*slot != Slot::Event
+                            || self.source_memory.event_readers.contains(holder))
+                })
+        })
+    }
+
     /// All public stack references, indexed once for a complete view.
     ///
     /// Equivalent to asking [`Self::source_referenced_by`] for every source,
@@ -156,7 +229,7 @@ impl GameState {
             {
                 continue;
             }
-            for (slot, source) in refs {
+            for (slot, source) in refs.iter() {
                 if *slot == Slot::Event && !self.source_memory.event_readers.contains(holder) {
                     continue;
                 }
@@ -179,13 +252,31 @@ impl GameState {
     /// Capture before removing a referenced object from its zone or arena.
     pub(crate) fn remember_damage_source(&mut self, id: ObjectId) {
         self.capture_references_leaving(Some(id));
-        if let Some(obj) = self.object(id)
-            && !self
-                .damage_sources
-                .iter()
-                .any(|old| identity(old) == identity(obj))
-        {
-            self.damage_sources.push(std::sync::Arc::new(obj.clone()));
+        if let Some(obj) = self.object(id) {
+            let id_ref = identity(obj);
+            let already_present =
+                if self.source_memory.cache.damage_source_len == self.damage_sources.len() {
+                    self.source_memory
+                        .cache
+                        .damage_source_index
+                        .contains_key(&id_ref)
+                } else {
+                    self.damage_sources
+                        .iter()
+                        .any(|old| identity(old) == id_ref)
+                };
+            if !already_present {
+                let arc_obj = std::sync::Arc::new(obj.clone());
+                let idx = self.damage_sources.len();
+                self.damage_sources.push(arc_obj);
+                if self.source_memory.cache.damage_source_len == idx {
+                    self.source_memory
+                        .cache
+                        .damage_source_index
+                        .insert(id_ref, idx);
+                    self.source_memory.cache.damage_source_len = idx + 1;
+                }
+            }
         }
     }
 
@@ -269,17 +360,28 @@ impl GameState {
     }
 
     /// What every object on the stack refers to, by slot.
+    #[allow(clippy::too_many_lines)]
     fn capture_stack_references(&mut self) {
-        for id in self.zones.list(ZoneLocation::Stack).clone() {
+        let stack_len = self.zones.list(ZoneLocation::Stack).len();
+        let has_stack_mem = !self.source_memory.stack.is_empty();
+        let mut slots = Vec::new();
+        for idx in 0..stack_len {
+            let id = self.zones.list(ZoneLocation::Stack)[idx];
+            let slot_idx = id.slot() as usize;
             let Some(obj) = self.object(id) else { continue };
+            let stamp = obj.version.wrapping_add(1);
+            if has_stack_mem
+                && self.source_memory.cache.stack_clean.get(slot_idx).copied() == Some(stamp)
+            {
+                continue;
+            }
             let holder = identity(obj);
             let mut refs = self
                 .source_memory
                 .stack
                 .get(&holder)
-                .cloned()
-                .unwrap_or_default();
-            let mut slots = Vec::new();
+                .map_or_else(BTreeMap::new, |arc| (**arc).clone());
+            slots.clear();
             slots.extend(delayed_object_slots(obj));
             if let Some(ability) = obj.ability {
                 let version = obj.riders.iter().find_map(|r| match r {
@@ -340,7 +442,7 @@ impl GameState {
                 matches!(slot, Slot::Linked(_) | Slot::MovedSource)
                     || slots.iter().any(|(s, _, _)| s == slot)
             });
-            for (slot, object, version) in slots {
+            for &(slot, object, version) in &slots {
                 let reference = version
                     .map(|version| DamageSourceRef { object, version })
                     .or_else(|| refs.get(&slot).copied().filter(|r| r.object == object))
@@ -349,10 +451,20 @@ impl GameState {
                     refs.insert(slot, reference);
                 }
             }
-            if let Some((_, shares)) = self.divided.iter().find(|(id, _)| *id == holder.object) {
-                self.source_memory.divisions.insert(holder, shares.clone());
+            self.source_memory
+                .stack
+                .insert(holder, std::sync::Arc::new(refs));
+            if self.source_memory.cache.stack_clean.len() <= slot_idx {
+                self.source_memory.cache.stack_clean.resize(slot_idx + 1, 0);
             }
-            self.source_memory.stack.insert(holder, refs);
+            self.source_memory.cache.stack_clean[slot_idx] = stamp;
+        }
+        for (id, shares) in &self.divided {
+            if let Some(obj) = self.arena.get(*id).filter(|o| o.zone == Zone::Stack) {
+                self.source_memory
+                    .divisions
+                    .insert(identity(obj), shares.clone());
+            }
         }
         for effect in self.effects.iter().filter(|e| is_prevention(&e.modifier)) {
             if let Some(source) = effect.source
@@ -407,9 +519,20 @@ impl GameState {
 
     pub(crate) fn capture_rule_references(&mut self, lookup: &impl crate::state::CardLookup) {
         use baylee_cards_dsl::AbilityDef as A;
+        let stack_len = self.zones.list(ZoneLocation::Stack).len();
+        let has_stack_mem = !self.source_memory.stack.is_empty();
         let mut work = Vec::new();
-        for &id in self.zones.list(ZoneLocation::Stack) {
+        for idx in 0..stack_len {
+            let id = self.zones.list(ZoneLocation::Stack)[idx];
+            let slot_idx = id.slot() as usize;
             let Some(obj) = self.object(id) else { continue };
+            let stamp = obj.version.wrapping_add(1);
+            if has_stack_mem
+                && self.source_memory.cache.rules_clean.get(slot_idx).copied() == Some(stamp)
+            {
+                continue;
+            }
+            let start_work = work.len();
             for (index, ability) in obj.printed_abilities(lookup).iter().enumerate() {
                 if obj
                     .ability
@@ -423,7 +546,9 @@ impl GameState {
                     | A::ActivatedConditional { effects, .. }
                     | A::Triggered { effects, .. }
                     | A::Loyalty { effects, .. }
-                    | A::SagaChapter { effects, .. } => work.push((id, *effects)),
+                    | A::SagaChapter { effects, .. } => {
+                        work.push((id, slot_idx, stamp, *effects));
+                    }
                     A::ModalSpell { modes, .. }
                     | A::ModalTriggered { modes, .. }
                     | A::ModalActivated { modes, .. } => {
@@ -431,16 +556,33 @@ impl GameState {
                             if obj.mode_index == u8::try_from(index).ok()
                                 || (index < 8 && obj.modes & (1 << index) != 0)
                             {
-                                work.push((id, mode.effects));
+                                work.push((id, slot_idx, stamp, mode.effects));
                             }
                         }
                     }
                     _ => {}
                 }
             }
+            if work.len() == start_work {
+                if self.source_memory.cache.rules_clean.len() <= slot_idx {
+                    self.source_memory.cache.rules_clean.resize(slot_idx + 1, 0);
+                }
+                self.source_memory.cache.rules_clean[slot_idx] = stamp;
+            }
         }
-        for (id, effects) in work {
-            self.capture_linked_references(id, effects);
+        let mut dynamic_blocked_slot = usize::MAX;
+        for (id, slot_idx, stamp, effects) in work {
+            if self.capture_linked_references(id, effects) {
+                dynamic_blocked_slot = slot_idx;
+                if let Some(entry) = self.source_memory.cache.rules_clean.get_mut(slot_idx) {
+                    *entry = 0;
+                }
+            } else if dynamic_blocked_slot != slot_idx {
+                if self.source_memory.cache.rules_clean.len() <= slot_idx {
+                    self.source_memory.cache.rules_clean.resize(slot_idx + 1, 0);
+                }
+                self.source_memory.cache.rules_clean[slot_idx] = stamp;
+            }
         }
         self.capture_source_references();
     }
@@ -449,7 +591,7 @@ impl GameState {
         &mut self,
         holder: ObjectId,
         effects: &'static [baylee_cards_dsl::Effect],
-    ) {
+    ) -> bool {
         use baylee_cards_dsl::Effect;
         if (event_readers::refers_to_event(effects)
             || (subject_readers::moves_subject(effects)
@@ -463,10 +605,7 @@ impl GameState {
             && let Some(subject) = obj.paid.as_ref().and_then(|p| p.source_after_cost)
             && let Some(holder) = self.source_identity(holder)
         {
-            self.source_memory
-                .stack
-                .entry(holder)
-                .or_default()
+            std::sync::Arc::make_mut(self.source_memory.stack.entry(holder).or_default())
                 .insert(Slot::MovedSource, subject);
         }
         let mut refers = false;
@@ -477,11 +616,11 @@ impl GameState {
             );
         });
         if !refers {
-            return;
+            return false;
         }
         self.capture_source_references();
         let Some(holder) = self.source_identity(holder) else {
-            return;
+            return true;
         };
         let Some(source) = self
             .source_memory
@@ -490,7 +629,7 @@ impl GameState {
             .and_then(|refs| refs.get(&Slot::Source))
             .copied()
         else {
-            return;
+            return true;
         };
         let linked: Vec<_> =
             self.arena
@@ -504,11 +643,12 @@ impl GameState {
                     .then_some(identity(obj))
                 })
                 .collect();
-        let refs = self.source_memory.stack.entry(holder).or_default();
+        let refs = std::sync::Arc::make_mut(self.source_memory.stack.entry(holder).or_default());
         for (index, reference) in linked.into_iter().enumerate() {
             refs.entry(Slot::Linked(u32::try_from(index).expect("linked index")))
                 .or_insert(reference);
         }
+        true
     }
 
     #[cfg(test)]
@@ -584,6 +724,7 @@ impl GameState {
         let Some(to) = self.source_identity(copy) else {
             return;
         };
+        self.source_memory.invalidate_object(copy);
         if let Some(refs) = self.source_memory.stack.get(&original).cloned() {
             self.source_memory.stack.insert(to, refs);
         }
@@ -600,10 +741,12 @@ impl GameState {
     }
 
     pub(crate) fn bind_target_references(&mut self, holder: ObjectId, targets: &TargetReferences) {
-        let Some(holder) = self.source_identity(holder) else {
+        let Some(holder_ref) = self.source_identity(holder) else {
             return;
         };
-        let refs = self.source_memory.stack.entry(holder).or_default();
+        self.source_memory.invalidate_object(holder);
+        let refs =
+            std::sync::Arc::make_mut(self.source_memory.stack.entry(holder_ref).or_default());
         refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_)));
         for (group, objects) in [(false, &targets.first), (true, &targets.second)] {
             for (index, &reference) in objects.iter().enumerate() {
@@ -820,6 +963,14 @@ impl GameState {
         }
         self.damage_sources
             .retain(|o| retained.contains(&identity(o)));
+        self.source_memory.cache.damage_source_index.clear();
+        for (idx, o) in self.damage_sources.iter().enumerate() {
+            self.source_memory
+                .cache
+                .damage_source_index
+                .insert(identity(o), idx);
+        }
+        self.source_memory.cache.damage_source_len = self.damage_sources.len();
         self.source_memory.stack.retain(|holder, _| {
             retained.contains(holder)
                 || self

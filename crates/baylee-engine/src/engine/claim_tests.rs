@@ -345,7 +345,7 @@ const CONDITIONS: &[&str] = &[
 
 /// Whether the sentence carries one of those words.
 fn says_if(sentence: &str) -> bool {
-    let padded = format!(" {} ", sentence.to_lowercase());
+    let padded = format!(" {} ", sentence.replace('"', " ").to_lowercase());
     CONDITIONS.iter().any(|word| padded.contains(word))
 }
 

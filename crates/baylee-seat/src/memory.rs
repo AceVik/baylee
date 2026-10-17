@@ -99,6 +99,11 @@ impl TableMemory {
                         // lines are, and the whole log comes again on resume.
                         Err(_) => self.gaps += 1,
                     }
+                    if delta.seq != 0
+                        && self.view.as_ref().is_some_and(|held| delta.seq <= held.seq)
+                    {
+                        return Heard::View;
+                    }
                 }
                 match serde_json::from_slice::<PlayerView>(&delta.view_json) {
                     Ok(view) => {
@@ -307,5 +312,38 @@ mod tests {
         assert_eq!(memory.view().map(|v| v.seq), Some(9));
         assert_eq!(memory.log().len(), 1);
         assert_eq!(memory.last_seq(), 9);
+    }
+
+    #[test]
+    fn continuation_log_frames_append_lines_without_redecoding_the_view() {
+        let mut memory = TableMemory::default();
+        assert!(matches!(
+            memory.hear(&delta(
+                7,
+                7,
+                Some(LogTail {
+                    from: 0,
+                    entries: vec![line(1)],
+                }),
+            )),
+            Heard::View
+        ));
+        let continuation = Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                game_id: "g".into(),
+                seq: 7,
+                view_json: b"not-decoded-again".to_vec(),
+                log_json: serde_json::to_vec(&LogTail {
+                    from: 1,
+                    entries: vec![line(2)],
+                })
+                .unwrap(),
+            })),
+        }
+        .encode_to_vec();
+        assert!(matches!(memory.hear(&continuation), Heard::View));
+        assert_eq!(memory.view().map(|v| v.seq), Some(7));
+        assert_eq!(memory.log().len(), 2);
+        assert_eq!(memory.gaps(), 0);
     }
 }

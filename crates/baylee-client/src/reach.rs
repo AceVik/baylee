@@ -98,6 +98,7 @@ pub(super) fn phyrexian_life_only(
 /// was lit and clickable on an opponent's turn and over a stack that had not
 /// resolved. The offer is not free: taking it taps the lands *first*, and the
 /// engine then refuses the cast, which spends the turn's mana on nothing.
+#[allow(clippy::too_many_lines)]
 pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
@@ -119,9 +120,9 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     if sources.is_empty() {
         return std::collections::HashSet::new();
     }
-    let Some(pool) = view
+    let Some((pool, life)) = view
         .seat(baylee_client_core::decision::resource_player(view))
-        .map(|s| s.mana_pool)
+        .map(|s| (s.mana_pool, s.life))
     else {
         return std::collections::HashSet::new();
     };
@@ -134,7 +135,16 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         let cost = least_x(cost).with_more_generic(
             legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
         );
-        baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
+        // A card already in `legal.castable` is in this sweep only when
+        // `phyrexian_life_only` kept it here so untapped lands can offer to
+        // pay the Phyrexian mana instead of life. Settling those symbols with
+        // life again would plan zero taps and mark a life-only card as needing
+        // land taps even over off-colour lands.
+        if legal.castable.contains(&id) {
+            baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
+        } else {
+            baylee_client_core::manaplan::plan_with_life(&cost, &pool, &sources, life).is_some()
+        }
     };
     baylee_client_core::decision::hand(view)
         .iter()
@@ -250,6 +260,33 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .filter(|o| {
                     o.flashback.is_some_and(|cost| {
                         cost.symbols().next().is_some() && affordable(o.id, cost)
+                    })
+                })
+                .filter(|o| {
+                    o.card
+                        .is_some_and(|card| !targeting::provably_targetless(view, card))
+                })
+                .map(|o| o.id),
+        )
+        // And any exile zone, for a card the engine offers to cast from exile
+        // once its mana is made (`legal.payable`: an adventure's creature half,
+        // CR 715.3d, or an exile cast permission). Permission is a game-state
+        // fact `PublicObject` does not carry, so `legal.payable` is the gate:
+        // the engine has already checked the permission and target legality.
+        .chain(
+            view.exile
+                .iter()
+                .flatten()
+                .filter(|o| !legal.castable.contains(&o.id) && legal.payable.contains(&o.id))
+                .filter(|o| {
+                    o.card.is_some_and(|card| {
+                        baylee_client_core::timing::allows(view, o.types, has_flash(card))
+                    })
+                })
+                .filter(|o| {
+                    o.card.and_then(printed_face).is_some_and(|face| {
+                        face.mana_cost.symbols().next().is_some()
+                            && affordable(o.id, face.mana_cost)
                     })
                 })
                 .filter(|o| {
@@ -509,6 +546,91 @@ mod tests {
         assert!(
             !lit.contains(&obj(11)) && !lit.contains(&obj(1)),
             "a creature that cannot attack, or the opponent's, was lit: {lit:?}"
+        );
+    }
+
+    #[test]
+    fn adventure_exiled_card_and_phyrexian_metamorph_are_reachable_with_untapped_lands() {
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::ids::PrintRef;
+        use baylee_core::types::{SubtypeSet, TypeSet};
+        use baylee_engine::choice::LegalActions;
+        use baylee_view::{CardIdentity, HandObject, PublicObject};
+
+        let rider_def = baylee_cards::decks::by_name("Murderous Rider")
+            .and_then(baylee_cards::by_index)
+            .expect("Murderous Rider in registry");
+        let metamorph_def = baylee_cards::decks::by_name("Phyrexian Metamorph")
+            .and_then(baylee_cards::by_index)
+            .expect("Phyrexian Metamorph in registry");
+
+        let swamp = |slot: u32| PublicObject {
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[land::SWAMP]),
+            power: None,
+            toughness: None,
+            ..token(slot, 0, "Swamp", 0, 0)
+        };
+        let mut rider_exiled = token(50, 0, "Murderous Rider", 2, 3);
+        rider_exiled.card = Some(CardIdentity {
+            index: rider_def.index,
+            print: PrintRef::new(0),
+            face: 0,
+        });
+
+        let metamorph_hand = HandObject {
+            id: obj(60),
+            card: CardIdentity {
+                index: metamorph_def.index,
+                print: PrintRef::new(0),
+                face: 0,
+            },
+            name: "Phyrexian Metamorph".to_string(),
+            mana_value: 4,
+            colors: baylee_core::color::ColorSet::default(),
+            types: metamorph_def.faces[0].types,
+            commander: false,
+        };
+
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![swamp(1), swamp(2), swamp(3)])
+            .with_exile(0, vec![rider_exiled])
+            .build();
+        view.hand.push(metamorph_hand);
+
+        let legal = LegalActions {
+            mana_abilities: vec![obj(1), obj(2), obj(3)],
+            payable: vec![obj(50), obj(60)],
+            ..LegalActions::default()
+        };
+        let pending = Pending::Priority {
+            player: view.seat,
+            legal: Box::new(legal),
+        };
+        let duel = Duel {
+            interaction: Some(Interaction::new(pending, view.seat)),
+            view: Some(view),
+            ..Duel::default()
+        };
+
+        let reach = reachable(&duel);
+        assert!(
+            reach.contains(&obj(50)),
+            "Murderous Rider in adventure exile should be reachable with 3 Swamps: {reach:?}"
+        );
+        assert!(
+            reach.contains(&obj(60)),
+            "Phyrexian Metamorph in hand should be reachable with 3 Swamps + 2 life: {reach:?}"
+        );
+        assert_eq!(
+            crate::mana_for(&duel, obj(50)).map(|p| p.taps()),
+            Some(3),
+            "mana_for should plan 3 Swamps for Murderous Rider in exile"
+        );
+        assert_eq!(
+            crate::mana_for(&duel, obj(60)).map(|p| p.taps()),
+            Some(3),
+            "mana_for should plan 3 Swamps for Phyrexian Metamorph in hand"
         );
     }
 }

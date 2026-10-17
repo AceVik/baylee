@@ -154,6 +154,7 @@ fn both_forms_of_a_counted_phrase_carry_the_same_values() {
         (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty),
         (Phrase::LogCounterLore, Phrase::LogCountersLore),
         (Phrase::LogCounterTime, Phrase::LogCountersTime),
+        (Phrase::LogCounterAge, Phrase::LogCountersAge),
         (Phrase::LogCounterCharge, Phrase::LogCountersCharge),
         (Phrase::LogCounterPoison, Phrase::LogCountersPoison),
         (Phrase::LogCounterEnergy, Phrase::LogCountersEnergy),

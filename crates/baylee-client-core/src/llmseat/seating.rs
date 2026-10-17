@@ -56,10 +56,20 @@ impl ChairModel {
     }
 
     /// Plays `model` instead, keeping the effort only where the new model
-    /// takes it ([`Resolved::takes`]).
+    /// takes it ([`Resolved::takes`]) and where a tier-suffixed `agy:` model
+    /// does not name another effort tier in its own id.
     pub fn choose_model(&mut self, model: &Resolved) {
         self.model.clone_from(&model.id);
-        if self.effort.as_deref().is_some_and(|e| !model.takes(e)) {
+        let tier_mismatch = model
+            .id
+            .strip_prefix("agy:")
+            .and_then(|own| {
+                ["low", "medium", "high"]
+                    .into_iter()
+                    .find(|tier| own.ends_with(&format!("-{tier}")))
+            })
+            .is_some_and(|tier| self.effort.as_deref().is_some_and(|e| e != tier));
+        if tier_mismatch || self.effort.as_deref().is_some_and(|e| !model.takes(e)) {
             self.effort = None;
         }
     }
