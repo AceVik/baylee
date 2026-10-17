@@ -10028,21 +10028,22 @@ screenshots and a pixel diff, which is what it took the once.
 ### Recording real render frames
 
 A native `dev-control` client can sample its rendered window through Bevy's
-`Screenshot` observer. Start it normally, then use the native Rust helper. GIF and
-lossless animated WebP encoding run locally through `image`; neither Python
-nor an external encoder is required:
+`Screenshot` observer. Start it normally, then use the native Rust helper. GIF,
+lossless animated WebP, and Baseline H.264 `.mp4` video encoding (`I_PCM` + `P_Skip`)
+run locally in pure Rust; neither Python nor an external encoder is required:
 
 ```bash
-cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format both --diff
-# Or start, perform a /pointer or /key action, then poll separately:
+cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format all --diff
+# Or start (with optional "video": true to emit recording.mp4 + recording-step.mp4 on the worker),
+# perform a /pointer or /key action, then poll separately:
 curl -s -XPOST http://127.0.0.1:28770/recording/start \
-  -H 'Content-Type: application/json' -d '{"duration_ms":3000,"fps":15}'
+  -H 'Content-Type: application/json' -d '{"duration_ms":3000,"fps":15,"video":true}'
 curl -s http://127.0.0.1:28770/recording/status
 curl -s -XPOST http://127.0.0.1:28770/recording/stop -d '{}'
 # The helper also exposes status and stop/cancel:
 cargo run --profile tools -p baylee-tools -- recording status
 cargo run --profile tools -p baylee-tools -- recording stop --cancel
-cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format both
+cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format all
 ```
 
 Use the returned `recording.directory` (the platform's temporary directory,

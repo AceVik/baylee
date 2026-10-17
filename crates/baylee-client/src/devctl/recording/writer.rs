@@ -1,7 +1,8 @@
-//! Background-only PNG and ledger writes; a failed append poisons the worker.
+//! Background-only PNG, MP4 and ledger writes; a failed append poisons the worker.
 
 use super::{Event, Sample, Work};
 use bevy::prelude::Image;
+use image::{RgbImage, imageops};
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
@@ -10,6 +11,7 @@ use std::sync::mpsc::Receiver;
 pub(super) fn write_frames(
     directory: &std::path::Path,
     initial: &str,
+    video_fps: Option<u32>,
     jobs: &Receiver<Work>,
     events: &std::sync::mpsc::Sender<Event>,
     cancelled: &AtomicBool,
@@ -29,26 +31,43 @@ pub(super) fn write_frames(
         std::fs::File::create(directory.join("frames.jsonl")).map_err(|e| e.to_string())?;
     events.send(Event::Ready).map_err(|e| e.to_string())?;
     let mut write_error = None;
+    let mut video_frames: Vec<(u64, RgbImage)> = Vec::new();
     for work in jobs {
         match work {
             Work::Frame(metadata, image) => {
                 let slot = metadata.slot;
                 let result = write_or_cancel(&mut write_error, cancelled, || {
-                    save_frame(directory, &mut ledger, &metadata, *image)
+                    save_frame(
+                        directory,
+                        &mut ledger,
+                        &metadata,
+                        *image,
+                        video_fps.is_some().then_some(&mut video_frames),
+                    )
                 });
                 events
                     .send(Event::Written(slot, result))
                     .map_err(|e| e.to_string())?;
             }
             Work::Finish(json) => {
-                let result = std::fs::write(directory.join("recording.json.tmp"), json)
-                    .and_then(|()| {
-                        std::fs::rename(
-                            directory.join("recording.json.tmp"),
-                            directory.join("recording.json"),
-                        )
-                    })
-                    .map_err(|e| e.to_string());
+                let mut result = Ok(());
+                if let Some(fps) = video_fps
+                    && write_error.is_none()
+                    && !cancelled.load(Ordering::Relaxed)
+                    && !video_frames.is_empty()
+                {
+                    result = write_videos(directory, fps, &video_frames);
+                }
+                let result = result.and_then(|()| {
+                    std::fs::write(directory.join("recording.json.tmp"), json)
+                        .and_then(|()| {
+                            std::fs::rename(
+                                directory.join("recording.json.tmp"),
+                                directory.join("recording.json"),
+                            )
+                        })
+                        .map_err(|e| e.to_string())
+                });
                 let _ = events.send(Event::Finished(result));
                 return Ok(());
             }
@@ -84,8 +103,25 @@ fn save_frame(
     ledger: &mut std::fs::File,
     metadata: &Sample,
     image: Image,
+    video_frames: Option<&mut Vec<(u64, RgbImage)>>,
 ) -> Result<(), String> {
     let dynamic = image.try_into_dynamic().map_err(|e| e.to_string())?;
+    if let Some(frames) = video_frames {
+        let width = metadata.width.clamp(1, 640);
+        let height = u32::try_from(
+            ((u64::from(metadata.height) * u64::from(width) + u64::from(metadata.width) / 2)
+                / u64::from(metadata.width.max(1)))
+            .max(1),
+        )
+        .map_err(|e| e.to_string())?;
+        let rgb = dynamic.to_rgb8();
+        let scaled = if (rgb.width(), rgb.height()) == (width, height) {
+            rgb
+        } else {
+            imageops::resize(&rgb, width, height, imageops::FilterType::Triangle)
+        };
+        frames.push((metadata.requested_us, scaled));
+    }
     let temp = directory.join(format!("{}.tmp", metadata.file));
     dynamic
         .save_with_format(&temp, image::ImageFormat::Png)
@@ -96,4 +132,36 @@ fn save_frame(
     let mut line = serde_json::to_vec(metadata).map_err(|e| e.to_string())?;
     line.push(b'\n');
     ledger.write_all(&line).map_err(|e| e.to_string())
+}
+
+fn write_videos(
+    directory: &std::path::Path,
+    fps: u32,
+    video_frames: &[(u64, RgbImage)],
+) -> Result<(), String> {
+    let size = video_frames[0].1.dimensions();
+    let images: Vec<RgbImage> = video_frames.iter().map(|(_, img)| img.clone()).collect();
+    let default_ms = (1000 / fps.max(1)).max(1);
+    let mut real_delays = Vec::with_capacity(video_frames.len());
+    for pair in video_frames.windows(2) {
+        let delta_us = pair[1].0.saturating_sub(pair[0].0);
+        let ms = u32::try_from((delta_us + 500) / 1000)
+            .unwrap_or(60_000)
+            .clamp(1, 60_000);
+        real_delays.push(ms);
+    }
+    real_delays.push(real_delays.last().copied().unwrap_or(default_ms));
+    super::mp4::write_mp4(
+        &directory.join("recording.mp4"),
+        size,
+        &images,
+        &real_delays,
+    )?;
+    let step_delays = vec![1000_u32; images.len()];
+    super::mp4::write_mp4(
+        &directory.join("recording-step.mp4"),
+        size,
+        &images,
+        &step_delays,
+    )
 }

@@ -388,3 +388,78 @@ fn partial_ledger_write_poison_prevents_later_queued_appends() {
     assert!(second.is_err());
     assert_eq!(ledger, prefix, "nothing may follow a failed partial append");
 }
+
+#[test]
+fn video_option_writes_mp4_and_step_mp4_on_finish() {
+    let mut recorder = Recorder::default();
+    start(
+        &mut recorder,
+        r#"{"duration_ms":1000,"fps":10,"video":true}"#,
+    )
+    .unwrap();
+    let run = recorder.run.as_mut().unwrap();
+    assert!(matches!(
+        run.events
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap(),
+        Event::Ready
+    ));
+    run.start = Some(Instant::now());
+    run.summary.phase = "capturing";
+    let directory = run.summary.directory.clone();
+    for slot in 0..2 {
+        let metadata = Sample {
+            slot,
+            file: format!("frame-{slot:06}.png"),
+            nominal_us: u64::from(slot) * 100_000,
+            requested_us: u64::from(slot) * 100_000,
+            request_frame: u64::from(slot),
+            started_unix_ms: 0,
+            virtual_us: u128::from(slot) * 100_000,
+            virtual_speed: 1.0,
+            virtual_paused: false,
+            received_us: u64::from(slot) * 100_000,
+            received_frame: u64::from(slot),
+            width: 32,
+            height: 24,
+        };
+        let image = Image::from_dynamic(image::DynamicImage::new_rgba8(32, 24), true, default());
+        run.writer
+            .try_send(Work::Frame(metadata, Box::new(image)))
+            .unwrap();
+    }
+    for _ in 0..2 {
+        run.receive();
+        while run.summary.written < 2 {
+            std::thread::sleep(Duration::from_millis(5));
+            run.receive();
+        }
+    }
+    run.end("duration");
+    run.finish();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while run.summary.phase == "draining" {
+        assert!(Instant::now() < deadline, "worker did not finish");
+        run.receive();
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(run.summary.phase, "complete");
+    for name in ["recording.mp4", "recording-step.mp4"] {
+        let bytes = std::fs::read(directory.join(name)).unwrap();
+        assert_eq!(&bytes[4..8], b"ftyp", "{name}");
+    }
+    let saved: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(directory.join("recording.json")).unwrap())
+            .unwrap();
+    assert!(saved["video"].as_str().unwrap().ends_with("recording.mp4"));
+    assert!(
+        saved["video_step"]
+            .as_str()
+            .unwrap()
+            .ends_with("recording-step.mp4")
+    );
+    drop(recorder);
+    std::fs::remove_dir_all(directory).unwrap();
+}

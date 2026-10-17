@@ -66,7 +66,9 @@ pub(super) struct Preview {
 pub(super) enum Format {
     Gif,
     Webp,
+    Mp4,
     Both,
+    All,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -74,6 +76,7 @@ pub(super) enum Cadence {
     Real,
     Virtual,
     Nominal,
+    Step,
 }
 
 impl Cadence {
@@ -82,6 +85,7 @@ impl Cadence {
             Self::Real => "real",
             Self::Virtual => "virtual",
             Self::Nominal => "nominal",
+            Self::Step => "step",
         }
     }
 }

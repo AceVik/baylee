@@ -53,14 +53,14 @@ Postgres. The helper sends input only to the loopback dev-control socket;
 it does not automate OS input.
 
 ```bash
-cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format both --diff
+cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format all --diff
 ```
 
 ```bash
-cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format both --diff
+cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format all --diff
 ```
 
-Raw PNGs and their timestamp ledger remain authoritative. GIF/WebP, contact
+Raw PNGs and their timestamp ledger remain authoritative. MP4 (`preview-CADENCE.mp4` and 1 FPS `preview-step.mp4`), GIF/WebP, contact
 sheets and pixel differences make a transition easier to inspect, but dropped
 samples and ordinary animated pixels limit any flicker conclusion. Include a
 paused control, inspect real frames, and retain incomplete/drop metadata.

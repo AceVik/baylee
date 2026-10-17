@@ -4,6 +4,10 @@ use super::data::Recording;
 use anyhow::{Result, ensure};
 
 pub(super) fn delays(recording: &Recording, cadence: Cadence, quantum_ms: u32) -> Result<Vec<u32>> {
+    if cadence == Cadence::Step {
+        let step_ms = 1000_u32.div_ceil(quantum_ms) * quantum_ms;
+        return Ok(vec![step_ms; recording.frames.len()]);
+    }
     let times: Vec<_> = recording
         .frames
         .iter()
@@ -11,6 +15,7 @@ pub(super) fn delays(recording: &Recording, cadence: Cadence, quantum_ms: u32) -
             Cadence::Real => frame.requested_us,
             Cadence::Virtual => frame.virtual_us,
             Cadence::Nominal => frame.nominal_us,
+            Cadence::Step => unreachable!(),
         })
         .collect();
     let mut differences = Vec::with_capacity(times.len());

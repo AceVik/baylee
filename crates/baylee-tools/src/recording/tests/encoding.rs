@@ -169,3 +169,53 @@ fn failed_output_preserves_previous_artifact_and_cleans_temporary_file() {
     assert_eq!(fs::read(destination).unwrap(), b"previous");
     assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
 }
+
+#[test]
+fn mp4_and_step_cadence_write_valid_isobmff_containers_without_external_encoder() {
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let mut options = preview();
+    options.format = Format::All;
+    let report = render::encode(dir.path(), &options, false).unwrap();
+    assert_eq!(
+        report["timing"]["mp4"]["duration_ms"],
+        json!([100, 300, 100])
+    );
+    assert_eq!(report["timing"]["mp4"]["total_ms"], 500);
+    for name in ["preview-real.mp4", "preview-step.mp4"] {
+        let bytes = fs::read(dir.path().join(name)).unwrap();
+        assert!(bytes.len() > 64, "{name}");
+        assert_eq!(&bytes[4..8], b"ftyp", "{name}");
+        let ftyp_len = u32::from_be_bytes(bytes[0..4].try_into().unwrap()) as usize;
+        assert_eq!(&bytes[ftyp_len + 4..ftyp_len + 8], b"mdat", "{name}");
+        let mdat_len =
+            u32::from_be_bytes(bytes[ftyp_len..ftyp_len + 4].try_into().unwrap()) as usize;
+        let moov_pos = ftyp_len + mdat_len;
+        assert_eq!(&bytes[moov_pos + 4..moov_pos + 8], b"moov", "{name}");
+        let moov_len =
+            u32::from_be_bytes(bytes[moov_pos..moov_pos + 4].try_into().unwrap()) as usize;
+        assert_eq!(moov_pos + moov_len, bytes.len(), "{name}");
+    }
+
+    for (width, height) in [(1, 1), (17, 11), (48, 7)] {
+        let images = [
+            RgbImage::from_fn(width, height, |x, y| {
+                Rgb([
+                    u8::try_from(x * 3).unwrap(),
+                    u8::try_from(y * 17).unwrap(),
+                    37,
+                ])
+            }),
+            RgbImage::from_pixel(width, height, Rgb([125, 44, 8])),
+            RgbImage::from_pixel(width, height, Rgb([125, 44, 8])),
+        ];
+        let mut bytes = Cursor::new(Vec::new());
+        let mut encoder = super::super::mp4::Animation::new(&mut bytes, (width, height)).unwrap();
+        for (frame, delay) in images.iter().zip([1, 500, 60_000]) {
+            encoder.frame(frame, delay).unwrap();
+        }
+        encoder.finish().unwrap();
+        let bytes = bytes.into_inner();
+        assert_eq!(&bytes[4..8], b"ftyp");
+    }
+}

@@ -1,6 +1,6 @@
 //! Local preview encoding and exact raw RGB difference measurements.
-use super::cli::{Format, Preview};
-use super::{control, data, sheet, timing, webp};
+use super::cli::{Cadence, Format, Preview};
+use super::{control, data, mp4, sheet, timing, webp};
 use anyhow::{Result, ensure};
 use image::{
     Delay, DynamicImage, Frame, RgbImage,
@@ -21,16 +21,18 @@ pub(super) fn encode(directory: &Path, options: &Preview, allow_incomplete: bool
     let formats: &[Format] = match options.format {
         Format::Gif => &[Format::Gif],
         Format::Webp => &[Format::Webp],
+        Format::Mp4 => &[Format::Mp4],
         Format::Both => &[Format::Gif, Format::Webp],
+        Format::All => &[Format::Gif, Format::Webp, Format::Mp4],
     };
     let mut plans = Vec::new();
     for format in formats {
-        let (name, quantum) = if *format == Format::Gif {
-            ("gif", 10)
-        } else {
-            ("webp", 1)
+        let (name, quantum, limit) = match *format {
+            Format::Gif => ("gif", 10, 65535),
+            Format::Webp => ("webp", 1, 16384),
+            Format::Mp4 => ("mp4", 1, 4096),
+            Format::Both | Format::All => unreachable!(),
         };
-        let limit = if *format == Format::Gif { 65535 } else { 16384 };
         ensure!(
             canvas.0 <= limit && canvas.1 <= limit,
             "{name} canvas dimensions exceed {limit}"
@@ -68,6 +70,13 @@ pub(super) fn encode(directory: &Path, options: &Preview, allow_incomplete: bool
         )?;
         outputs.push(path);
         timing.insert(name.into(), json!({"duration_ms":delays,"total_ms":delays.iter().map(|n| u64::from(*n)).sum::<u64>()}));
+        if format == Format::Mp4 && options.cadence != Cadence::Step {
+            let step_delays = timing::delays(&recording, Cadence::Step, 1)?;
+            let step_path = data::output(&recording.directory, "preview-step.mp4", |output| {
+                animation(output, Format::Mp4, canvas, &images, &step_delays)
+            })?;
+            outputs.push(step_path);
+        }
     }
     let (contact, slots) = sheet::build(&recording, &images, options.sheet_frames)?;
     outputs.push(data::output(
@@ -85,7 +94,7 @@ pub(super) fn encode(directory: &Path, options: &Preview, allow_incomplete: bool
         "dropped":summary["dropped"],"discarded":summary["discarded"],"cadence":options.cadence.name(),
         "timing":timing,"contact_sheet_slots":slots,"outputs":outputs,
         "difference_report":options.diff.then_some("Consecutive raw RGB deltas over the full viewport; heuristic only, not automatic flicker/bug proof. Legitimate motion also changes pixels."),
-        "note":"Real=request timestamp, virtual=game clock, nominal=requested FPS. No presentation timestamps. GIF quantizes to 10 ms; WebP to 1 ms. Raw PNGs and frames.jsonl retain all saved samples. Preview scaling/palette changes are unsuitable for exact pixel diffs. Viewer playback cadence is not guaranteed; inspect frames/contact sheet for agent QA."
+        "note":"Real=request timestamp, virtual=game clock, nominal=requested FPS, step=1000 ms per frame. No presentation timestamps. GIF quantizes to 10 ms; WebP and MP4 to 1 ms. Raw PNGs and frames.jsonl retain all saved samples. Preview scaling/palette changes are unsuitable for exact pixel diffs. Viewer playback cadence is not guaranteed; inspect preview-step.mp4, raw frames, or contact sheet for agent QA."
     });
     data::output(
         &recording.directory,
@@ -106,26 +115,38 @@ fn animation(
     images: &[RgbImage],
     delays: &[u32],
 ) -> Result<()> {
-    if format == Format::Gif {
-        let mut encoder = GifEncoder::new_with_speed(output, 10);
-        encoder.set_repeat(Repeat::Infinite)?;
-        for (image, delay) in images.iter().zip(delays) {
-            control::check_interrupted()?;
-            let rgba = DynamicImage::ImageRgb8(image.clone()).into_rgba8();
-            encoder.encode_frame(Frame::from_parts(
-                rgba,
-                0,
-                0,
-                Delay::from_numer_denom_ms(*delay, 1),
-            ))?;
+    match format {
+        Format::Gif => {
+            let mut encoder = GifEncoder::new_with_speed(output, 10);
+            encoder.set_repeat(Repeat::Infinite)?;
+            for (image, delay) in images.iter().zip(delays) {
+                control::check_interrupted()?;
+                let rgba = DynamicImage::ImageRgb8(image.clone()).into_rgba8();
+                encoder.encode_frame(Frame::from_parts(
+                    rgba,
+                    0,
+                    0,
+                    Delay::from_numer_denom_ms(*delay, 1),
+                ))?;
+            }
         }
-    } else {
-        let mut encoder = webp::Animation::new(output, canvas)?;
-        for (image, delay) in images.iter().zip(delays) {
-            control::check_interrupted()?;
-            encoder.frame(image, *delay)?;
+        Format::Webp => {
+            let mut encoder = webp::Animation::new(output, canvas)?;
+            for (image, delay) in images.iter().zip(delays) {
+                control::check_interrupted()?;
+                encoder.frame(image, *delay)?;
+            }
+            encoder.finish()?;
         }
-        encoder.finish()?;
+        Format::Mp4 => {
+            let mut encoder = mp4::Animation::new(output, canvas)?;
+            for (image, delay) in images.iter().zip(delays) {
+                control::check_interrupted()?;
+                encoder.frame(image, *delay)?;
+            }
+            encoder.finish()?;
+        }
+        Format::Both | Format::All => unreachable!(),
     }
     Ok(())
 }

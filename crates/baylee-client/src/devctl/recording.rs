@@ -2,6 +2,7 @@
 //! on the app thread; the two permits include GPU readback and worker writes.
 
 mod http;
+mod mp4;
 mod writer;
 
 pub(super) use http::{header_line, validate_http};
@@ -123,6 +124,8 @@ fn mark_readback(
 struct Options {
     duration_ms: u32,
     fps: u32,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    video: bool,
 }
 
 impl Options {
@@ -183,6 +186,10 @@ struct Summary {
     max_frame_bytes: u64,
     max_raw_bytes: u64,
     gaps: Vec<Gap>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    video: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    video_step: Option<PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -291,7 +298,10 @@ fn start(recorder: &mut Recorder, body: &str) -> Result<(), String> {
         max_frame_bytes: MAX_FRAME_BYTES,
         max_raw_bytes: MAX_RAW_BYTES,
         gaps: Vec::new(),
+        video: None,
+        video_step: None,
     };
+    let video_fps = summary.options.video.then_some(summary.options.fps);
     let initial = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
     let (writer, jobs) = sync_channel(MAX_OUTSTANDING);
     let (events_tx, events) = channel();
@@ -300,7 +310,14 @@ fn start(recorder: &mut Recorder, body: &str) -> Result<(), String> {
     std::thread::Builder::new()
         .name("devctl-recording".into())
         .spawn(move || {
-            let result = write_frames(&directory, &initial, &jobs, &events_tx, &worker_cancelled);
+            let result = write_frames(
+                &directory,
+                &initial,
+                video_fps,
+                &jobs,
+                &events_tx,
+                &worker_cancelled,
+            );
             if let Err(error) = result {
                 let _ = events_tx.send(Event::Failed(error));
             }
@@ -443,6 +460,13 @@ impl Run {
             return;
         }
         self.summary.phase = self.terminal_phase();
+        if self.summary.options.video
+            && self.summary.written > 0
+            && self.summary.phase == "complete"
+        {
+            self.summary.video = Some(self.summary.directory.join("recording.mp4"));
+            self.summary.video_step = Some(self.summary.directory.join("recording-step.mp4"));
+        }
         let json = serde_json::to_string_pretty(&self.summary).unwrap();
         self.summary.phase = "draining";
         match self.writer.try_send(Work::Finish(json)) {

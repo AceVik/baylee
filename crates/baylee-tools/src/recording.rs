@@ -1,7 +1,8 @@
-//! Local render recordings: loopback capture, GIF/WebP, sheets and diagnostics.
+//! Local render recordings: loopback capture, GIF/WebP/MP4, sheets and diagnostics.
 mod cli;
 mod control;
 mod data;
+mod mp4;
 mod render;
 mod sheet;
 mod timing;
