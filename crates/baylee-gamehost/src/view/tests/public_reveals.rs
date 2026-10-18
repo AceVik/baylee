@@ -2,6 +2,68 @@ use super::*;
 use baylee_core::generated::index;
 
 #[test]
+fn phoenix_reveal_reaches_other_seats_and_spectators_without_exposing_the_rest_of_hand() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield.push(DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: index::FIRESTORM_PHOENIX,
+        print: PrintRef::new(0),
+    });
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    settle(&mut engine, None);
+    let phoenix = engine
+        .state()
+        .battlefield_seen()
+        .find(|id| {
+            engine.state().object(*id).unwrap().card.unwrap().index == index::FIRESTORM_PHOENIX
+        })
+        .unwrap();
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            phoenix,
+            ZoneLocation::Graveyard(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(phoenix).unwrap().zone,
+        baylee_engine::zone::Zone::Hand
+    );
+    assert!(own_hand(engine.state(), p0).len() > 1);
+    let mut opponent = seen_by(&engine, p1);
+    assert_eq!(opponent.shared_hands.len(), 1);
+    assert_eq!(opponent.shared_hands[0].cards.len(), 1);
+    assert_eq!(opponent.shared_hands[0].cards[0].id, phoenix);
+    assert!(opponent.shared_hands[0].public);
+    assert!(seen_by(&engine, p0).shared_hands.is_empty());
+    let watcher = spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+    assert_eq!(watcher.revealed_hands, opponent.shared_hands);
+
+    show_whole_hand(engine.state(), &mut opponent, p0);
+    assert_eq!(opponent.shared_hands.len(), 1);
+    assert!(!opponent.shared_hands[0].public);
+    assert_eq!(opponent.shared_hands[0].cards, own_hand(engine.state(), p0));
+
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            phoenix,
+            ZoneLocation::Exile(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
+        )
+        .unwrap();
+    assert!(seen_by(&engine, p1).shared_hands.is_empty());
+}
+
+#[test]
 fn public_revelation_reaches_every_seat_and_spectators_then_becomes_private_again() {
     let p0 = PlayerId::new(0);
     let mut preset = mixed_print_preset();

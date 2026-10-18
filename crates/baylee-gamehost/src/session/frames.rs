@@ -235,15 +235,8 @@ impl Session {
         hands: baylee_core::ids::SeatSet,
     ) {
         for owner in (0..self.seats.len()).map(|i| PlayerId::new(seat_byte(i))) {
-            if owner != seat
-                && hands.contains(owner)
-                && !view.shared_hands.iter().any(|hand| hand.player == owner)
-            {
-                view.shared_hands.push(baylee_view::SharedHand {
-                    public: false,
-                    player: owner,
-                    cards: crate::view::own_hand(self.engine.state(), owner),
-                });
+            if owner != seat && hands.contains(owner) {
+                crate::view::show_whole_hand(self.engine.state(), view, owner);
             }
         }
         view.shared_hands.sort_by_key(|hand| hand.player);

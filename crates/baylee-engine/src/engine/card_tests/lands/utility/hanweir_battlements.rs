@@ -95,7 +95,7 @@ fn hanweir_battlements_grants_haste_and_offers_meld_ability() {
 }
 
 #[test]
-fn hanweir_battlements_melds_with_hanweir_garrison_into_writhing_township() {
+fn hanweir_battlements_exiles_a_named_impostor_but_cannot_meld_it() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -127,26 +127,11 @@ fn hanweir_battlements_melds_with_hanweir_garrison_into_writhing_township() {
     activate(&mut engine, p0, hanweir_battlements(), 2);
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(
-        engine.state().object(battlements).unwrap().zone,
-        Zone::Battlefield,
-        "melded permanent returned to battlefield"
-    );
-    assert!(
-        !is_tapped(&engine, battlements),
-        "melded permanent enters untapped"
-    );
-    assert_eq!(
-        pt(&engine, battlements),
-        (7, 4),
-        "Hanweir, the Writhing Township is 7/4"
-    );
-    let kw = keywords_of(&engine, battlements);
-    assert!(kw.contains(KeywordSet::TRAMPLE));
-    assert!(kw.contains(KeywordSet::HASTE));
-    assert_eq!(
-        engine.state().object(garrison).unwrap().zone,
-        Zone::Command,
-        "meld partner is held as a merged component"
-    );
+    for card in [battlements, garrison] {
+        assert_eq!(
+            engine.state().object(card).unwrap().zone,
+            Zone::Exile,
+            "matching names allow exile, but only the physical meld pair can return"
+        );
+    }
 }

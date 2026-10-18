@@ -4,6 +4,58 @@
 use super::*;
 
 #[test]
+fn oubliette_source_phasing_is_not_leaving_before_resolution() {
+    use baylee_core::generated::index::OUBLIETTE;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for leaves in [false, true] {
+        let mut engine = Duel::new(SEED, swamp())
+            .battlefield(0, &[swamp(), swamp(), swamp()])
+            .hand(0, &[OUBLIETTE])
+            .battlefield(1, &[grizzly_bears()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+        cast_from_hand(&mut engine, p0, OUBLIETTE);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseTargets { .. })
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![bear],
+                },
+            )
+            .unwrap();
+        let source = on_battlefield(&engine, p0, OUBLIETTE).unwrap();
+        let state = engine.dev_state_mut(p0).unwrap();
+        if leaves {
+            state
+                .move_object(
+                    source,
+                    ZoneLocation::Graveyard(p0),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        } else {
+            state.phase_out(&[source]);
+        }
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine
+                .state()
+                .object(bear)
+                .unwrap()
+                .status
+                .contains(crate::object::Status::PHASED_OUT),
+            !leaves
+        );
+    }
+}
+
+#[test]
 fn oubliette_phases_target_out_across_untap_and_phases_it_in_tapped_when_oubliette_leaves() {
     let oubliette = baylee_core::generated::index::OUBLIETTE;
     let disenchant = baylee_core::generated::index::DISENCHANT;

@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use crate::state::CardLookup as _;
 
 /// Operations that complete immediately. This is only the dispatcher:
 /// effect families live in their own modules (life/damage, zones, mana,
@@ -44,10 +45,11 @@ pub(super) fn exec_immediate(
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::TakklemaggotDeath => takklemaggot_death(state, res),
         Effect::MeldWithNamed {
+            source_name,
             partner_name,
             melded,
         } => {
-            meld_with_named(state, res, partner_name, melded);
+            meld_with_named(state, res, source_name, partner_name, melded);
             None
         }
         Effect::VentureIntoTheDungeon => venture_into_the_dungeon(state, res),
@@ -2763,6 +2765,7 @@ fn takklemaggot_death(state: &mut GameState, res: &mut Resolution) -> Option<Pen
 fn meld_with_named(
     state: &mut GameState,
     res: &mut Resolution,
+    source_name: &'static str,
     partner_name: &'static str,
     melded: &'static baylee_cards_dsl::TokenDef,
 ) {
@@ -2793,6 +2796,17 @@ fn meld_with_named(
     }) else {
         return;
     };
+    // Names on the battlefield determine which objects are exiled. Only the
+    // actual physical pair can meld afterwards; copies and tokens stay exiled.
+    let physical_name_is = |id, name| {
+        state
+            .object(id)
+            .and_then(|object| object.card)
+            .and_then(|card| state.bases.card(card.index))
+            .is_some_and(|definition| definition.name() == name)
+    };
+    let can_meld =
+        physical_name_is(source.object, source_name) && physical_name_is(partner, partner_name);
     if let Some(obj) = state.object_mut(source.object) {
         obj.kind = ObjectKind::Card;
     }
@@ -2811,9 +2825,10 @@ fn meld_with_named(
         ZonePosition::Top,
         Cause::Effect,
     );
-    if !state
-        .object(source.object)
-        .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+    if !can_meld
+        || !state
+            .object(source.object)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
         || !state
             .object(partner)
             .is_some_and(|o| o.zone == crate::zone::Zone::Exile)

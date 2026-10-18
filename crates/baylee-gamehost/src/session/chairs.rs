@@ -5,7 +5,7 @@ use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::Envelope;
-use baylee_view::{LogEvent, PlayerView, SeatSetting, SharedHand};
+use baylee_view::{LogEvent, PlayerView, SeatSetting};
 
 impl Session {
     /// A socket opened for `seat` (not a resync of one already open): what
@@ -494,13 +494,7 @@ impl Session {
         }
         let [shown, sharing, requests, requested] = self.hands_told(seat);
         for owner in shown.iter() {
-            if !view.shared_hands.iter().any(|hand| hand.player == owner) {
-                view.shared_hands.push(SharedHand {
-                    public: false,
-                    player: owner,
-                    cards: crate::view::own_hand(self.engine.state(), owner),
-                });
-            }
+            crate::view::show_whole_hand(self.engine.state(), view, owner);
         }
         view.shared_hands.sort_by_key(|hand| hand.player);
         view.hand_shared_with = sharing;

@@ -1535,7 +1535,8 @@ const LANDS: Bounds = Bounds {
     // one newly judged simple promise. Chocobo Camp's Bird rider remains
     // explicitly unparsed, not a seventh simple promise. Keep the original
     // six-promise slack budget above the current measured population.
-    promises: 700..=1050,
+    // 1055 non-opponent-dependent promises after the October card batches.
+    promises: 700..=1061,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

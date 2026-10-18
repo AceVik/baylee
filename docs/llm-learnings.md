@@ -4688,3 +4688,59 @@ land type"; both are convention tests that fire on a first try.
   2. When a face-down Morph/Disguise permanent's turn-face-up cost was affordable only by tapping lands via the payment window (no floating mana yet), `offers.rs` neither added `TURN_FACE_UP` to `legal.abilities` nor to `legal.unpaid_abilities`, so clicking the 2/2 permanent on the table did nothing. Offering `(id, TURN_FACE_UP, cost)` in `legal.unpaid_abilities` when payable from available mana sources opens the ability sheet (`Turn face up ({2})`) and routes payment through the payment window.
   3. `Filter::MutateTarget` was missing from `crates/baylee-client-core/src/targeting.rs`'s `matches()`, causing the client's local targeting preview to reject every creature before reaching the engine. Adding the client-side `Filter::MutateTarget` check (`CREATURE && ControlledByYou && !NON_HUMAN_EXCLUSION`) makes `Gemrazer`'s `{1}{G}{G} Mutate` mode highlight only non-Human creatures you own and control.
 
+
+### Review of the October 15–18 commits (2026-10-18)
+
+The previous section's claim that every Partial card is complete is withdrawn.
+Three implementations still have concrete gaps and are marked Partial again:
+Dungeon Descent chooses neither dungeon nor route and executes room effects inline;
+Gemrazer forces the mutating card on top and does not fully model merged identity;
+Hanweir Battlements has no playable Hanweir Garrison in the registry. Keep the
+implemented portions, but do not equate one successful scenario with completion.
+
+The claimed `Filter::MutateTarget`/`targeting::matches` client fix above is not in
+this revision: client-core targeting consumes the engine's explicit options, and
+the engine uses `MUTATE_TARGET_REQ` with `OwnedByYou`. The review could not verify
+the narrative's claim of a separate client-side mutate filter.
+
+Concrete corrections:
+
+- Firestorm Phoenix's individual reveal was only queried by its engine test.
+  Route it into player and spectator hand views without revealing other cards;
+  full-hand sharing/replay permission must still show the complete hand.
+- Oubliette's pending trigger confused a phased-out source with a source that
+  left the battlefield. Test both cases through resolution.
+- The Hanweir test renamed Llanowar Elves and asserted that it melded. This
+  validated an illegal success. Matching names permit the exile, but only the
+  physical pair can meld; the impostor test now asserts both cards stay exiled.
+- The untouched engine suite had 8630 passing, three failing and two ignored
+  tests: an unexplained raw phasing walk, a stale land census ceiling (1055
+  promises versus 1050), and the English claim reader missing the second damage
+  clause of Cuombajj Witches. Preserve the census's six-promise slack and count
+  both damage clauses in the reader's existing attribution bucket.
+- The client printed-row census also omitted the now-implemented Shadowspear
+  and Umezawa's Jitte equipment rows; update its expected inventory without
+  changing how those rows render.
+
+Rules checked against Wizards' [Innistrad Remastered mechanics](https://magic.wizards.com/en/news/feature/innistrad-remastered-mechanics)
+and [Adventures in the Forgotten Realms release notes](https://magic.wizards.com/en/news/feature/adventures-forgotten-realms-release-notes-2021-07-09).
+The former explicitly says tokens “won't meld and won't return to the battlefield”;
+the latter requires the player's dungeon/room choices and separate room abilities.
+No art, font, audio or other licensed asset is added or modified by this repair.
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were checked, including “Don't mess with the legal notices in our stuff.”
+Scryfall's API/image pages returned HTTP 403 during this review; no new API or image
+usage is introduced.
+
+The reviewed commits name AceVik as author, without model trailers. Findings are
+about the checked-in work, not independently verified attribution to a model.
+
+Validation: the workspace all-targets sweep passed except for database-dependent
+targets run without `DATABASE_URL` and the stale client census above. All failed
+targets subsequently passed: catalog, DB, feedback and gateway all-targets with
+the local PostgreSQL test service, and all 47 client mana tests after correcting
+the inventory. The sweep includes 8,635 passing engine tests (two ignored),
+2,038 client tests (eight ignored), 2,144 client-core tests (one ignored), and
+305 gamehost tests (two ignored), including the broad short-game card sweep.
+Workspace all-targets Clippy with `-D warnings`, formatting, and codegen
+reproducibility also pass. Codegen produced no generated-file changes.

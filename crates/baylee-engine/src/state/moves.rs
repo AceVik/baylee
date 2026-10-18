@@ -77,6 +77,7 @@ impl GameState {
                     .object(host)
                     .is_none_or(|h| h.zone != Zone::Battlefield)
         });
+        // phasing: returning held permanents must find the phased-out objects themselves.
         let phased: Vec<(ObjectId, bool)> = self
             .zones
             .list(ZoneLocation::Battlefield)

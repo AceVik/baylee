@@ -430,10 +430,19 @@ pub struct SeatContext<'a> {
 /// always was. Every *other* seat's hand is a count, and that asymmetry is
 /// the point — see the crate docs on hidden information.
 pub(crate) fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
+    hand_matching(state, seat, |_| true)
+}
+
+fn hand_matching(
+    state: &GameState,
+    seat: PlayerId,
+    include: impl Fn(ObjectId) -> bool,
+) -> Vec<HandObject> {
     state
         .zones
         .list(ZoneLocation::Hand(seat))
         .iter()
+        .filter(|id| include(**id))
         .filter_map(|id| {
             let obj = state.object(*id)?;
             let card = obj.card?;
@@ -686,19 +695,36 @@ pub fn spectator_view(
 
 /// Public continuous information, not a one-time reveal or a sharing setting.
 fn revealed_hands(state: &GameState, exclude: Option<PlayerId>) -> Vec<baylee_view::SharedHand> {
-    if !state.hands_revealed() {
-        return Vec::new();
-    }
+    let whole_hands = state.hands_revealed();
     state
         .players
         .iter()
         .filter(|player| Some(player.id) != exclude && !state.has_left(player.id))
-        .map(|player| baylee_view::SharedHand {
-            public: true,
-            player: player.id,
-            cards: own_hand(state, player.id),
+        .filter_map(|player| {
+            let cards = hand_matching(state, player.id, |id| {
+                whole_hands || state.hand_card_revealed(id)
+            });
+            (whole_hands || !cards.is_empty()).then_some(baylee_view::SharedHand {
+                public: true,
+                player: player.id,
+                cards,
+            })
         })
         .collect()
+}
+
+/// Adds full-hand permission without letting an individual public card mask it.
+pub(crate) fn show_whole_hand(state: &GameState, view: &mut PlayerView, owner: PlayerId) {
+    let hand = baylee_view::SharedHand {
+        public: state.hand_revealed(owner),
+        player: owner,
+        cards: own_hand(state, owner),
+    };
+    if let Some(existing) = view.shared_hands.iter_mut().find(|h| h.player == owner) {
+        *existing = hand;
+    } else {
+        view.shared_hands.push(hand);
+    }
 }
 
 /// Teferi, Time Raveler's +1 for `seat`: its sorceries may be cast as though

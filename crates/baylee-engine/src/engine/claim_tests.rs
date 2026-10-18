@@ -472,6 +472,14 @@ fn claims_in(line: &Line) -> Vec<Claim> {
                     claim(Kind::Damage, Some(n));
                 }
             }
+            // A second damage clause may omit "deals". When both targets
+            // coincide the journal combines the damage, so the two promises
+            // belong in the existing multiple-amount attribution bucket.
+            "and" if noun == "damage" && has_damage_verb(&words[..i]) => {
+                if let Some(n) = next {
+                    claim(Kind::Damage, Some(n));
+                }
+            }
             "draws" | "draw" if noun.starts_with("card") => {
                 if let Some(n) = next {
                     claim(Kind::Draw, Some(n));
@@ -535,6 +543,37 @@ fn claims_in(line: &Line) -> Vec<Claim> {
         }
     }
     out
+}
+
+fn has_damage_verb(words: &[String]) -> bool {
+    words
+        .windows(3)
+        .any(|part| matches!(part[0].as_str(), "deal" | "deals") && part[2] == "damage")
+}
+
+#[test]
+fn paired_damage_clauses_are_not_misread_as_one_damage_event() {
+    let claims = claims_of(
+        "This creature deals 1 damage to any target and 1 damage to any target of an opponent's choice.",
+    );
+    assert_eq!(claims.len(), 2);
+    assert!(
+        claims
+            .iter()
+            .all(|c| c.kind == Kind::Damage && c.amount == Some(1))
+    );
+    let mut tally = Tally::default();
+    assert!(
+        disagreements(
+            "paired damage",
+            &claims,
+            &[(Kind::Damage, Some(2))],
+            false,
+            &mut tally
+        )
+        .is_empty()
+    );
+    assert_eq!(tally.ambiguous, 2);
 }
 
 /// Every claim one card's printed text makes.

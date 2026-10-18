@@ -656,12 +656,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // CR 610.3a, 610.4: if the source has already left the
             // battlefield before the ability resolves, the target does not
             // phase out at all.
-            let host_gone = state.object(res.source).is_none_or(|host| {
-                host.zone != crate::zone::Zone::Battlefield
-                    || host.status.contains(crate::object::Status::PHASED_OUT)
-            }) || state
-                .object(res.on_stack)
-                .is_some_and(|ability| ability.source_power_lki.is_some());
+            // Phasing is not a zone change: a phased-out source has not
+            // fulfilled the event that ends this one-shot effect.
+            let host_gone = state
+                .object(res.source)
+                .is_none_or(|host| host.zone != crate::zone::Zone::Battlefield)
+                || state
+                    .object(res.on_stack)
+                    .is_some_and(|ability| ability.source_power_lki.is_some());
             if host_gone {
                 return None;
             }

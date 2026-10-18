@@ -488,7 +488,6 @@ fn requirements_are_reachable(
         && second_is_reachable(first, second, state, player, card, None, wall_only)
 }
 
-/// Kicker replaces the first targeting group, retaining the second group.
 /// Target requirement for casting a creature spell for its mutate cost (CR 702.140a):
 /// "target non-Human creature with the same owner as this spell".
 pub const MUTATE_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::TargetReq::one(
@@ -501,6 +500,7 @@ pub const MUTATE_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::Tar
     ])),
 );
 
+/// Kicker replaces the first targeting group, retaining the second group.
 pub(crate) fn kicked_targets_reachable(
     state: &GameState,
     def: &baylee_cards_dsl::CardDef,

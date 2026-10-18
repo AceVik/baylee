@@ -3353,6 +3353,8 @@ pub enum Effect {
     /// "If you both own and control this [permanent] and a creature named
     /// `partner_name`, exile them, then meld them into `melded`" (Hanweir Battlements, CR 701.42a).
     MeldWithNamed {
+        /// Physical front-face name of the card carrying the meld ability.
+        source_name: &'static str,
         /// Exact English name of the meld partner creature.
         partner_name: &'static str,
         /// The melded back-face characteristics and abilities.
