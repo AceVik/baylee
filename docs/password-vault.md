@@ -128,3 +128,24 @@ Scryfall's primary documentation returned an access challenge during this
 review; no API, image, attribution, or image treatment is changed. New direct
 crypto/OS dependencies are existing lockfile crates, licensed MIT/Apache-2.0
 (or the compatible rustix options); no new shipped asset licence is introduced.
+
+## Integration verification (18 October 2026)
+
+An isolated registered account on the local gateway was exercised through the
+native client's dev-control harness, with the normal password store enabled:
+explicit creation and confirmation, manual lock, rejected wrong password,
+correct unlock, process restart and automatic unlock from a fresh login.
+The encrypted record was 232 bytes; no plaintext `device.key` was created.
+A wrong password left the file byte-identical. Manual password changes in both
+directions changed the wrapper while preserving the encrypted device payload
+byte-for-byte. Rendered unlock, failure and restored-chat screens were inspected.
+The final native client run passed 2094 tests; the integrated core run passed
+2150 tests. Workspace all-targets Clippy with dev-control, Wasm and formatting
+checks passed. A 1280 × 720 run also verified scrolling, Escape dismissal, and
+that an acknowledged chat notice stays closed after another unlock.
+Client/core regression tests also cover idle-tree retention, focus, account
+switch cancellation, migration, password reset and preferences changed during
+an unlock job. Windows ACL code and tests were cross-compiled, but Windows
+runtime verification remains unavailable on this Mac. Dependency license, ban
+and source checks passed; advisory checking reports pre-existing unmaintained
+`zbus_names`, `zvariant` and `zvariant_derive` advisories (2026-0370/0371/0372).
