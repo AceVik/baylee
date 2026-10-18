@@ -1057,16 +1057,20 @@ pub(crate) fn can_cast_form_paying(
     };
     // A waived mana cost still pays increases (CR 601.2f).
     if permission.is_some_and(|p| p.free) {
+        let free_base = printed_face
+            .and_then(|f| f.behold_or_pay)
+            .filter(|b| behold_options(state, player, card, b.filter).is_empty())
+            .map_or(ManaCost::ZERO, |b| b.cost);
         let payable = if let Some(def) = printed.filter(|def| modes_are_the_only_way(def, 0)) {
             def.abilities_for_face(0).iter().any(|a| match a {
                 baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
                     mode_sets(modes, *choose).any(|set| {
-                        probe(&mode_set_cost(ManaCost::ZERO, modes, set))
+                        probe(&mode_set_cost(free_base, modes, set))
                             && mode_set_has_legal_targets(state, lookup, player, card, set)
                     })
                 }
                 baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
-                    probe(&ManaCost::ZERO)
+                    probe(&free_base)
                         && modes.iter().enumerate().any(|(i, mode)| {
                             mode.cost_override.is_none()
                                 && mode_has_a_legal_target(state, lookup, player, card, i)
@@ -1075,7 +1079,7 @@ pub(crate) fn can_cast_form_paying(
                 _ => false,
             })
         } else {
-            probe(&ManaCost::ZERO)
+            probe(&free_base)
         };
         let back_payable = printed.is_some_and(|def| {
             castable_back_faces(def, on_adventure).any(|(face, _)| {
@@ -1269,7 +1273,13 @@ pub(crate) fn can_cast_form_paying(
     // card itself; the full payment is validated when the wizard finishes.
     // A face with no printed cost has no normal way to be cast at all
     // (CR 202.1b) and falls straight through to the alternatives.
-    let normal_cost = c.mana_cost;
+    let normal_cost = if let Some(behold) = printed_face.and_then(|f| f.behold_or_pay)
+        && behold_options(state, player, card, behold.filter).is_empty()
+    {
+        c.mana_cost.combine(&behold.cost)
+    } else {
+        c.mana_cost
+    };
     // `c.mana_cost` and not `normal_cost`: the question is what the card
     // *prints*, and cost arithmetic does not preserve the answer —
     // `with_less_generic` rebuilds a cost symbol by symbol and drops a
@@ -1461,6 +1471,58 @@ pub fn pitchable(
                     .is_some_and(|o| crate::eval::matches(filter, state, o, player, card))
         })
         .collect()
+}
+
+/// The permanents `player` controls on the battlefield and cards in `player`'s
+/// hand (other than `card`) that may be chosen to behold `filter` (CR 701.60a).
+#[must_use]
+pub fn behold_options(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|id| {
+            *id != card
+                && state.object(*id).is_some_and(|o| {
+                    o.controller == player && crate::eval::matches(filter, state, o, player, card)
+                })
+        })
+        .collect();
+    out.extend(
+        state
+            .zones
+            .list(ZoneLocation::Hand(player))
+            .iter()
+            .copied()
+            .filter(|id| {
+                *id != card
+                    && state
+                        .object(*id)
+                        .is_some_and(|o| crate::eval::matches(filter, state, o, player, card))
+            }),
+    );
+    out
+}
+
+/// The minimum printed mana cost of `face` when cast by `player`: includes
+/// `behold_or_pay`'s mana cost when `player` has nothing matching to behold.
+#[must_use]
+pub fn face_base_mana_cost(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+) -> ManaCost {
+    if let Some(behold) = face.behold_or_pay
+        && behold_options(state, player, card, behold.filter).is_empty()
+    {
+        face.mana_cost.combine(&behold.cost)
+    } else {
+        face.mana_cost
+    }
 }
 
 /// Whether the non-mana parts of an alternative cost could be paid right now.

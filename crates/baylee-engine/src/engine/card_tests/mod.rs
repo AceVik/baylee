@@ -40,6 +40,7 @@ mod batch49_untap;
 mod batch49_wall;
 mod batch52_horse_johan;
 mod batch52_protection;
+mod batch53_cards;
 mod battle_damage_kit;
 mod battles;
 mod counted_activation_costs;

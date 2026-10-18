@@ -1036,8 +1036,8 @@ pub mod prelude {
         StaticAbility,
     };
     pub use crate::{
-        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, Escape,
-        FaceDef, KeywordSet, PartnerKind,
+        ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,
+        EnterModifier, Escape, FaceDef, KeywordSet, PartnerKind,
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{

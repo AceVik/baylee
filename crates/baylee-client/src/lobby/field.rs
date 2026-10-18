@@ -184,14 +184,17 @@ pub(crate) fn text_field_with(
             Pickable::IGNORE,
         ))
         .id();
-    let caption = commands
-        .spawn((
-            Text::new(label),
-            tf(fonts, metrics.small * 0.8),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
+    if !label.is_empty() {
+        let caption = commands
+            .spawn((
+                Text::new(label),
+                tf(fonts, metrics.small * 0.8),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(column).add_child(caption);
+    }
     let is_search = look.lead == Some(crate::hud::glyph::MAGNIFIER);
     let boxed = commands
         .spawn((
@@ -274,14 +277,7 @@ pub(crate) fn text_field_with(
             commands.entity(boxed).add_child(button);
         }
     }
-    // A box with no caption (the builder's search and title) is the box
-    // alone: an empty line above it would be a line of nothing.
-    if label.is_empty() {
-        commands.entity(caption).despawn();
-        commands.entity(column).add_child(boxed);
-    } else {
-        commands.entity(column).add_children(&[caption, boxed]);
-    }
+    commands.entity(column).add_child(boxed);
     column
 }
 

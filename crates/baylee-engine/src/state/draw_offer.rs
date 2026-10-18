@@ -72,6 +72,13 @@ pub struct FrontDraw {
 enum Mandatory {
     /// Chains of Mephistopheles.
     Chains(ObjectId),
+    /// Hullbreacher: replaces an opponent's draw (except the first in each of
+    /// their draw steps) with its controller creating `token`.
+    Hullbreacher {
+        source: ObjectId,
+        controller: PlayerId,
+        token: &'static baylee_cards_dsl::TokenDef,
+    },
     /// An Aladdin's Lamp effect.
     Lamp {
         effect: EffectId,
@@ -89,7 +96,7 @@ impl Mandatory {
     /// The object a player names to choose it.
     const fn source(self) -> Option<ObjectId> {
         match self {
-            Self::Chains(source) => Some(source),
+            Self::Chains(source) | Self::Hullbreacher { source, .. } => Some(source),
             Self::Lamp { source, .. } | Self::Wish { source, .. } => source,
         }
     }
@@ -137,6 +144,7 @@ impl GameState {
                     )
             })
             || !self.chains_sources().is_empty()
+            || !self.hullbreacher_sources(player).is_empty()
             || !self.dredge_options(player).is_empty()
     }
 
@@ -152,6 +160,27 @@ impl GameState {
                 })
             {
                 sources.push(rule.source);
+            }
+        }
+        sources
+    }
+
+    /// Every Hullbreacher-style replacement on the battlefield controlled by
+    /// an opponent of `player`.
+    fn hullbreacher_sources(
+        &self,
+        player: PlayerId,
+    ) -> Vec<(ObjectId, PlayerId, &'static baylee_cards_dsl::TokenDef)> {
+        let mut sources = Vec::new();
+        for rule in &self.replacement_rules {
+            if let ReplacementRule::OpponentsExtraDrawsCreateToken(token) = rule.rule
+                && self.is_opponent(player, rule.controller)
+                && !sources.iter().any(|(s, _, _)| *s == rule.source)
+                && self.object(rule.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                })
+            {
+                sources.push((rule.source, rule.controller, token));
             }
         }
         sources
@@ -203,6 +232,16 @@ impl GameState {
                     .into_iter()
                     .filter(|source| !self.draw_front.applied.contains(source))
                     .map(Mandatory::Chains),
+            );
+            out.extend(
+                self.hullbreacher_sources(player)
+                    .into_iter()
+                    .filter(|(source, _, _)| !self.draw_front.applied.contains(source))
+                    .map(|(source, controller, token)| Mandatory::Hullbreacher {
+                        source,
+                        controller,
+                        token,
+                    }),
             );
         }
         for effect in self.effects.iter().filter(|e| e.controller == player) {
@@ -318,7 +357,10 @@ impl GameState {
     /// unless a replacement has begun on this card or Chains could treat
     /// the cards of it differently (the first of a draw step is exempt).
     fn draw_plainly(&mut self, player: PlayerId, n: u32) {
-        if self.draw_front != FrontDraw::default() || !self.chains_sources().is_empty() {
+        if self.draw_front != FrontDraw::default()
+            || !self.chains_sources().is_empty()
+            || !self.hullbreacher_sources(player).is_empty()
+        {
             self.take_front_draw();
             self.draw_now(player, 1);
         } else {
@@ -359,6 +401,21 @@ impl GameState {
                     }
                     _ => Some(DrawReplacement::Discard(source)),
                 }
+            }
+            Mandatory::Hullbreacher {
+                source,
+                controller,
+                token,
+            } => {
+                let _ = source;
+                #[cfg(test)]
+                crate::ability_log::replaced_by(
+                    source,
+                    ReplacementRule::OpponentsExtraDrawsCreateToken(token),
+                );
+                let _ = crate::resolve::tokens::create_tokens(self, controller, token, None, 1);
+                self.take_front_draw();
+                None
             }
             Mandatory::Lamp { effect, count, .. } => {
                 self.effects.remove_where(|entry| entry.id == effect);

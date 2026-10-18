@@ -1539,6 +1539,10 @@ fn apply(
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::PlayerProtectionFromOpponents { .. }
+        | Modifier::DoubleCountersPlacedByYou
+        | Modifier::CantAttackYou
+        | Modifier::AttackTaxLife { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
@@ -1548,6 +1552,7 @@ fn apply(
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
+        | Modifier::GrantTriggeredUpToOne { .. }
         | Modifier::ManaIsAnyColor
         | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover

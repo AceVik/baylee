@@ -138,6 +138,8 @@ fn advance(
             )
         })
         .collect();
+    let player_mult =
+        i32::try_from(state.player_counter_multiplier(res.controller)).unwrap_or(i32::MAX);
     let players = selection
         .chosen_players
         .into_iter()
@@ -146,7 +148,7 @@ fn advance(
                 .counters()
                 .into_iter()
                 .filter(|(_, count)| *count > 0)
-                .map(move |(kind, _)| (player, kind, 1))
+                .map(move |(kind, _)| (player, kind, player_mult))
         })
         .collect();
     crate::replacement::counter_order::enqueue_batch(state, plans, players);

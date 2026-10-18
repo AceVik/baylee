@@ -327,7 +327,8 @@ pub(crate) fn collect(
                     let mut pending = pending(death, source);
                     pending.synthetic_effects = Some(effects);
                     pending.text = *text;
-                    pending.synthetic_target = *target;
+                    pending.synthetic_target =
+                        target.map(|spec| baylee_cards_dsl::TargetReq::exactly(spec, 1));
                     out.extend(std::iter::repeat_n(pending, observer.times as usize));
                 }
             }

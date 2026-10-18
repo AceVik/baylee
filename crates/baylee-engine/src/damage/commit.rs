@@ -23,11 +23,23 @@ impl DamageWork {
                 DamageTarget::Player(player) => {
                     state.record_player_damage(part.view.source, part.source_version, player);
                     if part.keywords.contains(KeywordSet::INFECT) {
-                        state.change_player_counters(
-                            player,
-                            CounterKind::Poison,
-                            i32::try_from(part.view.amount).unwrap_or(i32::MAX),
-                        );
+                        if let Some(by) = state
+                            .damage_source(part.view.source, part.source_version)
+                            .map(|s| s.controller)
+                        {
+                            state.put_player_counters_by(
+                                by,
+                                player,
+                                CounterKind::Poison,
+                                part.view.amount,
+                            );
+                        } else {
+                            state.change_player_counters(
+                                player,
+                                CounterKind::Poison,
+                                i32::try_from(part.view.amount).unwrap_or(i32::MAX),
+                            );
+                        }
                     } else {
                         let loss = life_loss.loss(part.view.recipient, part.view.amount);
                         if loss > 0 {

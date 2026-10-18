@@ -353,6 +353,7 @@ pub(super) fn resume_cast_question(
         card,
         version,
         then_no_more_spells,
+        any_mana,
     }) = res.awaiting
     {
         res.awaiting = None;
@@ -364,6 +365,7 @@ pub(super) fn resume_cast_question(
                     card,
                     version,
                     then_no_more_spells,
+                    any_mana,
                 },
             });
         }
@@ -409,6 +411,67 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
     flow
 }
 
+fn resume_may_exile_graveyard(
+    state: &mut GameState,
+    res: &mut Resolution,
+    answer: bool,
+) -> Option<Flow> {
+    if let Some(AwaitingOp::PlayerMayGetPoison {
+        player,
+        amount,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            state.put_player_counters_by(
+                res.controller,
+                player,
+                baylee_cards_dsl::CounterKind::Poison,
+                amount,
+            );
+            res.pc += 1;
+            return Some(run(state, res));
+        }
+        return Some(run_fallback(state, res, std::slice::from_ref(effect)));
+    }
+    if !matches!(
+        res.awaiting,
+        Some(AwaitingOp::MayExileFromGraveyardThen { .. })
+    ) {
+        return None;
+    }
+    let Some(AwaitingOp::MayExileFromGraveyardThen {
+        options,
+        count,
+        then,
+    }) = res.awaiting.take()
+    else {
+        unreachable!("just matched")
+    };
+    if !answer {
+        res.pc += 1;
+        return Some(run(state, res));
+    }
+    if count == 0 {
+        return Some(run_fallback(state, res, then));
+    }
+    let pending = Pending::ChooseCards {
+        player: res.controller,
+        options: options.clone(),
+        min: count,
+        max: count,
+        prompt: ChoicePrompt::CostExile,
+        total: None,
+    };
+    res.awaiting = Some(AwaitingOp::MayExileFromGraveyardThen {
+        options,
+        count,
+        then,
+    });
+    Some(Flow::Wait(pending))
+}
+
 pub(super) fn resume_yes_no_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -419,6 +482,7 @@ pub(super) fn resume_yes_no_inner(
         .or_else(|| graveyard_choice::resume_commander(state, res, answer))
         .or_else(|| resume_cast_question(state, res, answer))
         .or_else(|| super::proliferate::resume_player(state, res, answer))
+        .or_else(|| resume_may_exile_graveyard(state, res, answer))
     {
         return flow;
     }

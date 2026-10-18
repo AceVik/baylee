@@ -85,7 +85,10 @@
 // of Life and Glyph of Doom), and WheneverYouAttackThisTurn (wave 3,
 // Dalkovan Encampment), and PlayerMayPayManaEachThenElse's two branches
 // (Cyclone), and AtNextEndStepAboutSubject (Infinite Authority).
-const NESTING_FIELDS: usize = 61;
+// PlayerMayGetPoisonOr, WheneverOneOrMoreDealCombatDamageToPlayerThisTurn,
+// WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn, and
+// MayExileFromYourGraveyardThen add one each (tested in verb_tests).
+const NESTING_FIELDS: usize = 65;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -136,7 +139,10 @@ const NESTING_FIELDS: usize = 61;
 /// first creature") is the fifty-first: one new carrier, one branch.
 /// `IfCastFromGraveyard`, `MayPayEnergyOr` and `LookAtTopMayTake` are the
 /// fifty-second to fifty-fourth carriers.
-const CARRYING_VARIANTS: usize = 54;
+/// `PlayerMayGetPoisonOr`, `WheneverOneOrMoreDealCombatDamageToPlayerThisTurn`,
+/// `WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn` and
+/// `MayExileFromYourGraveyardThen` are the fifty-fifth to fifty-eighth carriers.
+const CARRYING_VARIANTS: usize = 58;
 
 /// The floor under the reader itself.
 ///

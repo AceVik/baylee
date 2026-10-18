@@ -1955,7 +1955,25 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let wizard = self.cast_wizard.as_mut().expect("cast wizard active");
                     wizard.returned = objects.first().copied();
+                    wizard.stage = cast_wizard::WizardStage::Behold;
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Behold)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if let Some(&chosen) = objects.first() {
+                        wizard.beheld = Some(chosen);
+                        wizard.behold_paid_mana = false;
+                    } else {
+                        wizard.beheld = None;
+                        wizard.behold_paid_mana = true;
+                    }
                     wizard.stage = cast_wizard::WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());
                 }
@@ -2340,17 +2358,34 @@ impl<L: CardLookup> Engine<L> {
         }
         // CR 508.1d: every creature that attacks if able, and can, does.
         // No restriction the engine knows makes one requirement cost
-        // another, so the most that can be obeyed is all of them.
+        // another, so the most that can be obeyed is all of them. A player is
+        // never required to pay a cost to declare an attacker (CR 508.1d), so
+        // only defenders with zero life tax count toward a requirement.
         let shirking = self
             .state
             .battlefield_seen()
             .filter(|id| rules.must_attack(*id) && !seen.contains(id))
             .any(|id| {
                 combat::can_attack(&self.state, player, id)
-                    && legal.iter().any(|d| rules.allows(id, *d))
+                    && legal
+                        .iter()
+                        .any(|d| rules.allows(id, *d) && rules.life_tax(id, *d) == 0)
             });
         if shirking {
             return Err(crate::choice::AnswerFault::MustAttack.into());
+        }
+        let total_life_tax = attackers
+            .iter()
+            .map(|&(creature, defending)| rules.life_tax(creature, defending))
+            .fold(0_i32, i32::saturating_add);
+        if total_life_tax > 0 && !self.state.can_pay_life(player, total_life_tax) {
+            return Err(EngineError::IllegalAction(
+                "cannot pay life required to declare those attackers",
+            ));
+        }
+        if total_life_tax > 0 {
+            self.state
+                .change_life(player, -total_life_tax, Cause::TurnBased);
         }
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {

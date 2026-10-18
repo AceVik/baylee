@@ -901,14 +901,14 @@ impl<L: CardLookup> Engine<L> {
             if allowed.is_empty() {
                 continue;
             }
+            if rules.must_attack(id) && allowed.iter().any(|&d| rules.life_tax(id, d) == 0) {
+                required.push(id);
+            }
             if allowed.len() < defenders.len() {
                 limits.push(crate::choice::AttackLimit {
                     creature: id,
                     defenders: allowed,
                 });
-            }
-            if rules.must_attack(id) {
-                required.push(id);
             }
             attackers.push(id);
         }
@@ -1171,18 +1171,6 @@ fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
 fn outlives_its_rules_text(layer: baylee_cards_dsl::Layer) -> bool {
     use baylee_cards_dsl::Layer;
     matches!(layer, Layer::Copy | Layer::Control)
-}
-
-/// What a synthetic trigger's targets were chosen against, for the
-/// resolution-time re-check (CR 608.2b): one object, or up to one per
-/// opponent for `ObjectOfEachOpponent` — the count the questions asked, and
-/// written as the printed cards write it (`TargetReq::up_to(spec,
-/// u8::MAX)`), so a second opponent's answer is not trimmed as a surplus.
-fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
-    match spec {
-        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
-        _ => TargetReq::one(spec),
-    }
 }
 
 /// Dash's delayed triggered ability (CR 702.109a): "return the permanent this

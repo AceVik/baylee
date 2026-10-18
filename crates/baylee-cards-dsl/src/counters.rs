@@ -135,6 +135,9 @@ pub const SOUL: CounterKind = CounterKind::Custom(29);
 /// Luck counters (Gemstone Caverns).
 pub const LUCK: CounterKind = CounterKind::Custom(30);
 
+/// Ice counters (Dark Depths).
+pub const ICE: CounterKind = CounterKind::Custom(31);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -171,6 +174,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("scream", SCREAM),
     ("soul", SOUL),
     ("luck", LUCK),
+    ("ice", ICE),
 ];
 
 #[cfg(test)]

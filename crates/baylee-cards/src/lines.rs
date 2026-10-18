@@ -765,9 +765,11 @@ mod tests {
                 "Tarrian's Journal",
                 "The Everflowing Well",
                 "Thousand Moons Smithy",
+                "Tamiyo, Inquisitive Student",
                 "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
-                "Sidequest: Catch a Fish"
+                "Sidequest: Catch a Fish",
+                "Tony Stark"
             ],
             "the back faces that reach the stack"
         );

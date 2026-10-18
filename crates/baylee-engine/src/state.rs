@@ -337,6 +337,18 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "Whenever one or more [creatures matching filter] deal combat damage to a player this turn" (Aphelia).
+    OneOrMoreDealCombatDamageToPlayerThisTurn {
+        /// Which creatures count.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
+    /// "Until your next turn, whenever a creature attacks you or a planeswalker you control" (Tamiyo, Seasoned Scholar).
+    CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 impl DelayedWhen {
@@ -352,6 +364,7 @@ impl DelayedWhen {
                 | Self::DealtDamageThisTurn { .. }
                 | Self::EndOfCombatThisTurn
                 | Self::YouAttackThisTurn { .. }
+                | Self::OneOrMoreDealCombatDamageToPlayerThisTurn { .. }
         )
     }
 }
@@ -430,6 +443,8 @@ pub enum DelayedAction {
         version: u32,
         /// "If you do, you can't cast additional spells this turn."
         then_no_more_spells: bool,
+        /// "Mana of any type can be spent to cast that spell."
+        any_mana: bool,
     },
     /// Pay a cost or lose the game (Pact of Negation).
     PayCostOrLose {

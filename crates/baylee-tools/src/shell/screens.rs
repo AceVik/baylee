@@ -10,11 +10,11 @@ use anyhow::{Result, ensure};
 use serde_json::{Value, json};
 use std::path::Path;
 
-// Native clients include Replays between Decks and Settings.
+// Native clients include Replays after Decks; Settings lives on the gear icon.
 const HEADER_SCREENS: [(&str, &str); 3] = [
     ("play", "Header(Nav(0))"),
     ("decks", "Header(Nav(1))"),
-    ("settings", "Header(Nav(3))"),
+    ("replays", "Header(Nav(2))"),
 ];
 pub(super) fn tiles_per_row(tree: &Tree) -> usize {
     let top = tree

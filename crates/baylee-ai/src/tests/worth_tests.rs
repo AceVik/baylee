@@ -897,7 +897,13 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Batch60 adds one modal activation each for Pyramids and Triassic Egg.
     // Their unbound modes remain unread; Egg's existing hatchling activation
     // is unchanged. Count both new rows without inventing a combined value.
-    assert_eq!((read, of), (2521, 3009), "activated/loyalty reader census");
+    // Batch53 adds 30 activated and loyalty abilities across planeswalkers
+    // (The Theorist, Jace Beleren; Nissa, Vital Force; Professor Dellian Fel;
+    // Sivitri, Dragon Master; Tamiyo, Seasoned Scholar), equipment/classes
+    // (Shadowspear, Umezawa's Jitte, Innkeeper's Talent), Dark Depths,
+    // Vampire Hexmage, Faerie Mastermind, Tony Stark, and Psychic Frog, of
+    // which 17 are read by the evaluator.
+    assert_eq!((read, of), (2538, 3039), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

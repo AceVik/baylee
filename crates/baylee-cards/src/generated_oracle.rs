@@ -10176,7 +10176,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Web of Inertia
+    &[
+        "At the beginning of combat on each opponent's turn, that player may exile a card from their graveyard. If the player doesn't, creatures they control can't attack you this turn.",
+    ],
     &[],
     &[],
     &[],
@@ -12784,7 +12787,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Umezawa's Jitte
+    &[
+        "Whenever equipped creature deals combat damage, put two charge counters on Umezawa's Jitte.\nRemove a charge counter from Umezawa's Jitte: Choose one —\n• Equipped creature gets +2/+2 until end of turn.\n• Target creature gets -1/-1 until end of turn.\n• You gain 2 life.\nEquip {2}",
+    ],
     &[],
     &[],
     &[],
@@ -18192,7 +18198,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\nWhenever a Mountain you control enters, if you control at least five other Mountains, you may have this land deal 3 damage to any target.\n{T}: Add {R}.",
     ],
-    &[],
+    // Vampire Hexmage
+    &["First strike\nSacrifice this creature: Remove all counters from target permanent."],
     &[],
     // Vampire Nighthawk
     &[
@@ -26966,7 +26973,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, draw a card."],
     &[],
     &[],
-    &[],
+    // Nissa, Vital Force
+    &[
+        "+1: Untap target land you control. Until your next turn, it becomes a 5/5 Elemental creature with haste. It's still a land.\n−3: Return target permanent card from your graveyard to your hand.\n−6: You get an emblem with \"Whenever a land you control enters, you may draw a card.\"",
+    ],
     &[],
     // Ornamental Courage
     &["Untap target creature. It gets +1/+3 until end of turn."],
@@ -32466,7 +32476,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature you control\nWhen this Aura enters, draw a card.\nEnchanted creature gets +1/+0 and has trample. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
     ],
-    &[],
+    // Shadowspear
+    &[
+        "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+    ],
     &[],
     &[],
     &[],
@@ -33923,7 +33936,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Hullbreacher
+    &[
+        "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     &[],
     &[],
     &[],
@@ -38637,7 +38653,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Sivitri, Dragon Master
+    &[
+        "+1: Until your next turn, creatures can't attack you or planeswalkers you control unless their controller pays 2 life for each of those creatures.\n−3: Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.\n−7: Destroy all non-Dragon creatures.\nSivitri, Dragon Master can be your commander.",
+    ],
     &[],
     // Smash to Dust
     &[
@@ -40227,7 +40246,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Faerie Mastermind
+    &[
+        "Flash\nFlying\nWhenever an opponent draws their second card each turn, you draw a card.\n{3}{U}: Each player draws a card.",
+    ],
     // Failed Conversion
     &[
         "Enchant creature\nEnchanted creature gets -4/-4.\nWhen enchanted creature dies, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
@@ -41498,7 +41520,11 @@ pub static ORACLE: &[&[&str]] = &[
         "Copy target activated or triggered ability you control. You may choose new targets for the copy.",
     ],
     &[],
-    &[],
+    // Virtue of Persistence
+    &[
+        "At the beginning of your upkeep, put target creature card from a graveyard onto the battlefield under your control.",
+        "Target creature gets -3/-3 until end of turn. You gain 2 life.",
+    ],
     &[],
     &[],
     &[],
@@ -41819,7 +41845,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Legolas's Quick Reflexes
+    &[
+        "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nUntap target creature. Until end of turn, it gains reach, hexproof, and \"Whenever this creature becomes tapped, it deals damage equal to its power to up to one target creature.\"",
+    ],
     // Minas Morgul, Dark Fortress
     &[
         "Minas Morgul enters tapped.\n{T}: Add {B}.\n{3}{B}, {T}: Put a shadow counter on target creature. For as long as that creature has a shadow counter on it, it's a Wraith in addition to its other types. (A creature with shadow can block or be blocked by only creatures with shadow.)",
@@ -43074,7 +43103,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Nuclear Fallout
+    &["Each creature gets twice -X/-X until end of turn. Each player gets X rad counters."],
     &[],
     &[],
     &[],
@@ -43564,7 +43594,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Tinybones, the Pickpocket
+    &[
+        "Deathtouch\nWhenever Tinybones deals combat damage to a player, you may cast target nonland permanent card from that player's graveyard, and mana of any type can be spent to cast that spell.",
+    ],
     &[],
     &[],
     &[],
@@ -43932,7 +43965,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Psychic Frog
+    &[
+        "Whenever this creature deals combat damage to a player or planeswalker, draw a card.\nDiscard a card: Put a +1/+1 counter on this creature.\nExile three cards from your graveyard: This creature gains flying until end of turn.",
+    ],
     &[],
     // Pyrogoyf
     &[
@@ -44059,7 +44095,11 @@ pub static ORACLE: &[&[&str]] = &[
         "When this land enters, up to one target creature phases out.\n{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}: Put this card from your hand onto the battlefield.",
     ],
     &[],
-    &[],
+    // Tamiyo, Inquisitive Student
+    &[
+        "Flying\nWhenever Tamiyo attacks, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhen you draw your third card in a turn, exile Tamiyo, then return her to the battlefield transformed under her owner's control.",
+        "+2: Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -1/-0 until end of turn.\n−3: Return target instant or sorcery card from your graveyard to your hand. If it's a green card, add one mana of any color.\n−7: Draw cards equal to half the number of cards in your library, rounded up. You get an emblem with \"You have no maximum hand size.\"",
+    ],
     &[],
     &[],
     &[],
@@ -44454,7 +44494,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Indicate
     &["Target permanent."],
-    &[],
+    // Innkeeper's Talent
+    &[
+        "(Gain the next level as a sorcery to add its ability.)\nAt the beginning of combat on your turn, put a +1/+1 counter on target creature you control.\n{G}: Level 2\nPermanents you control with counters on them have ward {1}.\n{3}{G}: Level 3\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.",
+    ],
     &[],
     &[],
     &[],
@@ -45283,7 +45326,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Anthem of Champions
     &["Creatures you control get +1/+1."],
-    &[],
+    // Aphelia, Viper Whisperer
+    &[
+        "Deathtouch\nWhenever Aphelia attacks, you may pay {1}{B/G}. If you do, create a 1/1 black Snake creature token with deathtouch.\n{4}{B}: Until end of turn, whenever one or more Gorgons and/or Snakes you control deal combat damage to a player, that player loses half their life, rounded up.",
+    ],
     &[],
     // Arahbo, the First Fang
     &[
@@ -45835,7 +45881,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Sab-Sunen, Luxa Embodied
+    &[
+        "Reach, trample, indestructible\nSab-Sunen can't attack or block unless it has an even number of counters on it. (Zero is even.)\nAt the beginning of your first main phase, put a +1/+1 counter on Sab-Sunen. Then if it has an odd number of counters on it, draw two cards.",
+    ],
     &[],
     &[],
     &[],
@@ -45869,7 +45918,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Stock Up
+    &[
+        "Look at the top five cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.",
+    ],
     &[],
     &[],
     // Sunbillow Verge
@@ -46411,7 +46463,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // A Realm Reborn
     &["Other permanents you control have \"{T}: Add one mana of any color.\""],
-    &[],
+    // Absolute Virtue
+    &[
+        "This spell can't be countered.\nFlying\nYou have protection from each of your opponents. (You can't be dealt damage, enchanted, or targeted by anything controlled by your opponents.)",
+    ],
     &[],
     &[],
     // Adventurer's Inn
@@ -48250,7 +48305,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Wan Shi Tong, Librarian
+    &[
+        "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",
+    ],
     &[],
     &[],
     // Warship Scout
@@ -49186,7 +49244,11 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Emeritus of Ideation
+    &[
+        "Flying, ward {2}\nThis creature enters prepared.\nWhenever this creature attacks, you may exile eight cards from your graveyard. If you do, this creature becomes prepared.",
+        "Target player draws three cards.",
+    ],
     &[],
     // Emeritus of Woe
     &[
@@ -49356,7 +49418,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Professor Dellian Fel
+    &[
+        "+2: You gain 3 life.\n0: You draw a card and lose 1 life.\n−3: Destroy target creature.\n−6: You get an emblem with \"Whenever you gain life, target opponent loses that much life.\"",
+    ],
     // Pterafractyl
     &[
         "Flying\nThis creature enters with X +1/+1 counters on it.\nWhen this creature enters, you gain 2 life.",
@@ -49621,7 +49686,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Bast, Panther Goddess
+    &[
+        "Reach, trample, indestructible\nBast can't attack or block unless you control three or more creatures.\nWhenever you attack, target attacking creature gets +X/+X until end of turn, where X is the number of creatures you control.",
+    ],
     &[],
     // Baxter Building
     &[
@@ -50274,7 +50342,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // The Serpent Society
+    &[
+        "Deathtouch\nWard—Get five poison counters. (A player with ten or more poison counters loses the game.)\nWhenever another creature you control with deathtouch dies, each opponent sacrifices a nontoken creature of their choice.",
+    ],
     &[],
     &[],
     &[],
@@ -50309,7 +50380,11 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Tony Stark
+    &[
+        "{1}, {T}: Look at the top four cards of your library. You may reveal an artifact card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\n{4}{U}{R}: Transform Tony Stark. Activate only as a sorcery.",
+        "Flying, haste\nAt the beginning of combat on your turn, you may put an artifact card from your hand onto the battlefield. If it's an Equipment, attach it to The Invincible Iron Man.",
+    ],
     &[],
     // Training Compound
     &[
@@ -50761,7 +50836,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Countersculpt
+    &[
+        "As an additional cost to cast this spell, behold a Jace or pay {1}. (To behold a Jace, choose a Jace you control or reveal a Jace card from your hand.)\nCounter target spell. Empower Jace 1. (Put a loyalty counter on a Jace token you control. If you don't control one, first create a blue Jace planeswalker token with \"[−1]: Surveil 1\" and \"[−3]: Draw a card.\")",
+    ],
     &[],
     &[],
     &[],
@@ -50890,7 +50968,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // The Theorist, Jace Beleren
+    &[
+        "At the beginning of each opponent's draw step, you draw a card.\n+1: Create a 1/1 blue Illusion creature token.\n−2: For each opponent, return up to one target artifact or creature that player controls to its owner's hand.\n−6: Draw three cards. Then put X +1/+1 counters on each creature you control, where X is the number of cards in your hand.",
+    ],
     // Theorist's Proxy
     &[
         "Flash\nWhen this creature enters, empower Jace 3. (Put three loyalty counters on a Jace token you control. If you don't control one, first create a blue Jace planeswalker token with \"[−1]: Surveil 1\" and \"[−3]: Draw a card.\")\n{U}, Sacrifice this creature: The next spell you cast this turn can't be countered.",

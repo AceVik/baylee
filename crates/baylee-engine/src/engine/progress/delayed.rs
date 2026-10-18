@@ -48,6 +48,7 @@ impl<L: CardLookup> Engine<L> {
         card: ObjectId,
         version: u32,
         then_no_more_spells: bool,
+        any_mana: bool,
     ) -> bool {
         let Some(cost) = self
             .state
@@ -56,6 +57,11 @@ impl<L: CardLookup> Engine<L> {
             .map(|o| o.characteristics().mana_cost)
         else {
             return false;
+        };
+        let cost = if any_mana {
+            cost.with_any_type_component(&cost)
+        } else {
+            cost
         };
         if !crate::casting::may_begin_casting(&self.state, player) {
             return false;
@@ -69,6 +75,7 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 cost,
                 then_no_more_spells,
+                any_mana,
                 opened: Box::new(self.window_start(player)),
             },
         });
@@ -266,7 +273,8 @@ impl<L: CardLookup> Engine<L> {
                 card,
                 version,
                 then_no_more_spells,
-            } => self.open_cast_payment(controller, card, version, then_no_more_spells),
+                any_mana,
+            } => self.open_cast_payment(controller, card, version, then_no_more_spells, any_mana),
             crate::state::DelayedAction::Transform {
                 card,
                 version,

@@ -307,6 +307,41 @@ fn if_target_matches_body_is_visited() {
     assert!(body_seen);
 }
 
+#[test]
+fn poison_or_combat_damage_attacks_and_exile_graveyard_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::PlayerMayGetPoisonOr {
+            player: crate::PlayerRel::EachOpponent,
+            poison: crate::Amount::Fixed(1),
+            effect: &Effect::draw(1),
+        },
+        Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn {
+            filter: &crate::Filter::CREATURE,
+            effects: &[Effect::LoseHalfLife {
+                player: crate::PlayerRel::DamagedPlayer,
+            }],
+        },
+        Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {
+            effects: &[Effect::TapEventObject],
+        },
+        Effect::MayExileFromYourGraveyardThen {
+            count: 3,
+            filter: &crate::Filter::Any,
+            then: &[Effect::BecomePrepared],
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut halved, mut tapped, mut prepared) = (false, false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        halved |= matches!(effect, Effect::LoseHalfLife { .. });
+        tapped |= matches!(effect, Effect::TapEventObject);
+        prepared |= matches!(effect, Effect::BecomePrepared);
+    });
+    assert_eq!(seen, 8);
+    assert!(drew && halved && tapped && prepared);
+}
+
 use crate::ability::Trigger;
 use crate::static_ability::{Duration, Layer, Modifier};
 

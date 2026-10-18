@@ -8979,3 +8979,30 @@ Xindi Surveyors
 
 # Battle rules regression fixture: a Siege with a token ETB and a back-face anthem.
 Invasion of Belenon // Belenon War Anthem
+Absolute Virtue
+Aphelia, Viper Whisperer
+Bast, Panther Goddess
+Countersculpt
+Emeritus of Ideation // Ancestral Recall
+Faerie Mastermind
+Hullbreacher
+Innkeeper's Talent
+Legolas's Quick Reflexes
+Nissa, Vital Force
+Nuclear Fallout
+Professor Dellian Fel
+Psychic Frog
+Sab-Sunen, Luxa Embodied
+Shadowspear
+Sivitri, Dragon Master
+Stock Up
+Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar
+The Serpent Society
+The Theorist, Jace Beleren
+Tinybones, the Pickpocket
+Tony Stark // The Invincible Iron Man
+Umezawa's Jitte
+Vampire Hexmage
+Virtue of Persistence // Locthwain Scorn
+Wan Shi Tong, Librarian
+Web of Inertia

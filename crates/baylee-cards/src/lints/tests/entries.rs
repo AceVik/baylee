@@ -509,7 +509,10 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
                                 wrong.push(format!("{who}: no printed sentence ({door:?})"));
                             }
                             Some(text) => {
-                                let printed = text.contains("under its owner's control");
+                                let printed = text.contains("under its owner's control")
+                                    || text.contains("under her owner's control")
+                                    || text.contains("under his owner's control")
+                                    || text.contains("under their owner's control");
                                 if printed != *owner_control {
                                     wrong.push(format!(
                                         "{who}: owner_control {owner_control}, prints {text:?}"

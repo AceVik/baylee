@@ -289,6 +289,17 @@ pub struct Escape {
     pub exile: u8,
 }
 
+/// "As an additional cost to cast this spell, behold a [filter] or pay [cost]"
+/// (CR 701.60a): choose a permanent you control matching `filter` or reveal a
+/// card in your hand matching `filter`, or pay `cost`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BeholdOrPay {
+    /// What permanent or hand card satisfies the behold option.
+    pub filter: &'static Filter,
+    /// Alternative additional mana cost paid if not beholding.
+    pub cost: ManaCost,
+}
+
 /// One face of a card.
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
@@ -428,6 +439,8 @@ pub struct FaceDef {
     pub escape: Option<Escape>,
     /// Printed freerunning cost; presence is a spell characteristic even when this cost is not paid.
     pub freerunning: Option<ManaCost>,
+    /// "As an additional cost to cast this spell, behold a [filter] or pay [cost]" (CR 701.60a).
+    pub behold_or_pay: Option<BeholdOrPay>,
 }
 
 impl FaceDef {
@@ -477,6 +490,7 @@ impl FaceDef {
         dash: None,
         escape: None,
         freerunning: None,
+        behold_or_pay: None,
     };
 }
 

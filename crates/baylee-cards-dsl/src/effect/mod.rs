@@ -3204,6 +3204,69 @@ pub enum Effect {
     /// this resolution, and for nothing it only aimed at. A target whose
     /// damage was prevented was not dealt damage (CR 615.1).
     ExileDamagedThisWayIfDies,
+    /// "Remove all counters from target permanent" (Vampire Hexmage): removes
+    /// every counter of every kind from each target.
+    RemoveAllCountersTarget,
+    /// The named players get `amount` rad counters (Nuclear Fallout, CR 725).
+    Rad {
+        /// Recipients relative to the resolution.
+        who: PlayerRel,
+        /// Number of rad counters.
+        amount: Amount,
+    },
+    /// "You may cast that card, and mana of any type can be spent to cast
+    /// that spell" (Tinybones, the Pickpocket): [`Self::MayCastTarget`] where
+    /// mana of any type may pay colored costs of the spell.
+    MayCastTargetAnyMana,
+    /// "You may put [a card matching `filter`] from your hand onto the
+    /// battlefield. If an Equipment is put onto the battlefield this way,
+    /// attach it to this creature" (The Invincible Iron Man).
+    MayPutFromHandOntoBattlefieldAttachIfEquipment {
+        /// What cards in hand may be put onto the battlefield.
+        filter: &'static Filter,
+    },
+    /// "[effect] unless [player] gets `poison` poison counters" (The Serpent
+    /// Society): each matching player chooses whether to get `poison` poison
+    /// counters; if any player doesn't (or no player matches), `effect` runs.
+    PlayerMayGetPoisonOr {
+        /// Player who may choose to get poison counters.
+        player: PlayerRel,
+        /// Number of poison counters.
+        poison: Amount,
+        /// Fallback effect if the player declines.
+        effect: &'static Effect,
+    },
+    /// "Whenever one or more [creatures matching `filter`] deal combat damage
+    /// to a player this turn, [effects]" (Aphelia, Viper Whisperer): registers
+    /// a delayed triggered ability for the rest of the turn (CR 603.7) whose
+    /// `EventPlayer` / `DamagedPlayer` is the player dealt combat damage.
+    WheneverOneOrMoreDealCombatDamageToPlayerThisTurn {
+        /// Which creatures' combat damage counts.
+        filter: &'static Filter,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "Until your next turn, whenever a creature attacks you or a
+    /// planeswalker you control, [effects]" (Tamiyo, Seasoned Scholar +2):
+    /// registers a delayed triggered ability until the start of the
+    /// controller's next turn (CR 603.7) whose `EventObject` is the attacking
+    /// creature.
+    WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "You may exile `count` [filter] cards from your graveyard. If you do,
+    /// [then]" (Emeritus of Ideation): if the controller's graveyard holds at
+    /// least `count` matching cards, asks them to choose `count` (or 0 to
+    /// decline); if `count` are exiled, runs `then`.
+    MayExileFromYourGraveyardThen {
+        /// Exact number of cards to exile if chosen.
+        count: u8,
+        /// What cards in your graveyard qualify.
+        filter: &'static Filter,
+        /// What happens if `count` cards are exiled this way.
+        then: &'static [Effect],
+    },
 }
 
 #[cfg(test)]

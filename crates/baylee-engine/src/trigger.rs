@@ -112,11 +112,11 @@ pub struct PendingTrigger {
     /// and a reflexive triggered ability an effect created (CR 603.12,
     /// `resolve::reflexive`).
     pub synthetic_effects: Option<&'static [baylee_cards_dsl::Effect]>,
-    /// Target spec for synthetic triggers that need a target choice
+    /// Target requirement for synthetic triggers that need a target choice
     /// (granted triggered abilities, class levels, a reflexive "target").
     /// It is written onto the stack object as its `target_req`, which is
     /// what CR 608.2b re-checks at resolution.
-    pub synthetic_target: Option<baylee_cards_dsl::TargetSpec>,
+    pub synthetic_target: Option<baylee_cards_dsl::TargetReq>,
     /// Fires at most once each turn (marked by the engine after stacking).
     pub once_per_turn: bool,
     /// The mode a modal trigger's controller picked, once they have.
@@ -895,77 +895,122 @@ fn watch_triggers(
 /// still the one it was. The source is asked as it deals the damage — the
 /// scan follows the event before anything else happens — with the watch's
 /// controller as "you". "That much" is the event's amount.
+fn synthetic_watch_trigger(
+    state: &GameState,
+    watch: &crate::state::DelayedTrigger,
+) -> Option<PendingTrigger> {
+    let crate::state::DelayedAction::Trigger {
+        source,
+        source_version,
+        effects,
+        text,
+    } = watch.action
+    else {
+        return None;
+    };
+    Some(PendingTrigger {
+        text,
+        source_version: Some(source_version),
+        event_ability: None,
+        event_object_identity: None,
+        related_objects: None,
+        event_subject: None,
+        counter_source_version: None,
+        event_amount: None,
+        event_player: None,
+        event_mana: None,
+        event_mana_value: None,
+        event_departure: None,
+        source,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        abilities: None,
+        controller: watch.controller,
+        timestamp: state.object(source).map_or(0, |o| o.timestamp),
+        event_object: None,
+        implicit_target: None,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+    })
+}
+
 fn damage_watch_triggers(
     state: &GameState,
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for watch in &state.delayed {
-        let crate::state::DelayedWhen::DealtDamageThisTurn {
-            card,
-            version,
-            by,
-            after,
-        } = watch.when
-        else {
+        let Some(base) = synthetic_watch_trigger(state, watch) else {
             continue;
         };
-        let crate::state::DelayedAction::Trigger {
-            source,
-            source_version,
-            effects,
-            text,
-        } = watch.action
-        else {
-            continue;
-        };
-        if state.object(card).is_none_or(|o| o.version != version) {
-            continue;
-        }
-        for entry in events.iter().filter(|entry| entry.seq > after) {
-            let GameEvent::DamageDealt {
-                source: Some(damager),
-                target: crate::event::DamageTarget::Object(recipient),
-                amount,
-                ..
-            } = entry.event
-            else {
-                continue;
-            };
-            if recipient != card || amount == 0 {
-                continue;
+        match watch.when {
+            crate::state::DelayedWhen::DealtDamageThisTurn {
+                card,
+                version,
+                by,
+                after,
+            } => {
+                if state.object(card).is_none_or(|o| o.version != version) {
+                    continue;
+                }
+                for entry in events.iter().filter(|entry| entry.seq > after) {
+                    let GameEvent::DamageDealt {
+                        source: Some(damager),
+                        target: crate::event::DamageTarget::Object(recipient),
+                        amount,
+                        ..
+                    } = entry.event
+                    else {
+                        continue;
+                    };
+                    if recipient != card || amount == 0 {
+                        continue;
+                    }
+                    let Some(dealer) = state.object_or_departed(damager) else {
+                        continue;
+                    };
+                    if eval::matches(by, state, dealer, watch.controller, base.source) {
+                        triggers.push(PendingTrigger {
+                            event_amount: Some(amount),
+                            event_object: Some(damager),
+                            ..base.clone()
+                        });
+                    }
+                }
             }
-            let Some(dealer) = state.object_or_departed(damager) else {
-                continue;
-            };
-            if !eval::matches(by, state, dealer, watch.controller, source) {
-                continue;
+            crate::state::DelayedWhen::OneOrMoreDealCombatDamageToPlayerThisTurn {
+                filter,
+                after,
+            } => {
+                let mut damaged_players: smallvec::SmallVec<[PlayerId; 4]> =
+                    smallvec::SmallVec::new();
+                for entry in events.iter().filter(|entry| entry.seq > after) {
+                    let GameEvent::DamageDealt {
+                        source: Some(damager),
+                        target: crate::event::DamageTarget::Player(damaged_player),
+                        amount: 1..,
+                        is_combat: true,
+                    } = entry.event
+                    else {
+                        continue;
+                    };
+                    if !damaged_players.contains(&damaged_player)
+                        && state.object_or_departed(damager).is_some_and(|dealer| {
+                            eval::matches(filter, state, dealer, watch.controller, base.source)
+                        })
+                    {
+                        damaged_players.push(damaged_player);
+                    }
+                }
+                for damaged_player in damaged_players {
+                    triggers.push(PendingTrigger {
+                        event_player: Some(damaged_player),
+                        ..base.clone()
+                    });
+                }
             }
-            triggers.push(PendingTrigger {
-                text,
-                source_version: Some(source_version),
-                event_ability: None,
-                event_object_identity: None,
-                related_objects: None,
-                event_subject: None,
-                counter_source_version: None,
-                event_amount: Some(amount),
-                event_player: None,
-                event_mana: None,
-                event_mana_value: None,
-                event_departure: None,
-                source,
-                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                abilities: None,
-                controller: watch.controller,
-                timestamp: state.object(source).map_or(0, |o| o.timestamp),
-                event_object: Some(damager),
-                implicit_target: None,
-                synthetic_effects: Some(effects),
-                once_per_turn: false,
-                synthetic_target: None,
-                chosen_mode: None,
-            });
+            _ => {}
         }
     }
 }
@@ -983,51 +1028,50 @@ fn attack_watch_triggers(
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for watch in &state.delayed {
-        let crate::state::DelayedWhen::YouAttackThisTurn { after } = watch.when else {
+        let Some(base) = synthetic_watch_trigger(state, watch) else {
             continue;
         };
-        let crate::state::DelayedAction::Trigger {
-            source,
-            source_version,
-            effects,
-            text,
-        } = watch.action
-        else {
-            continue;
-        };
-        let attacked = events
-            .iter()
-            .filter(|entry| entry.seq > after)
-            .any(|entry| {
-                matches!(entry.event, GameEvent::BecameAttacker { object, .. }
-                if state.object(object).is_some_and(|o| o.controller == watch.controller))
-            });
-        if attacked {
-            triggers.push(PendingTrigger {
-                text,
-                source_version: Some(source_version),
-                event_ability: None,
-                event_object_identity: None,
-                related_objects: None,
-                event_subject: None,
-                counter_source_version: None,
-                event_amount: None,
-                event_player: Some(watch.controller),
-                event_mana: None,
-                event_mana_value: None,
-                event_departure: None,
-                source,
-                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                abilities: None,
-                controller: watch.controller,
-                timestamp: state.object(source).map_or(0, |o| o.timestamp),
-                event_object: None,
-                implicit_target: None,
-                synthetic_effects: Some(effects),
-                once_per_turn: false,
-                synthetic_target: None,
-                chosen_mode: None,
-            });
+        match watch.when {
+            crate::state::DelayedWhen::YouAttackThisTurn { after } => {
+                let attacked = events
+                    .iter()
+                    .filter(|entry| entry.seq > after)
+                    .any(|entry| {
+                        matches!(entry.event, GameEvent::BecameAttacker { object, .. }
+                        if state.object(object).is_some_and(|o| o.controller == watch.controller))
+                    });
+                if attacked {
+                    triggers.push(PendingTrigger {
+                        event_player: Some(watch.controller),
+                        ..base
+                    });
+                }
+            }
+            crate::state::DelayedWhen::CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {
+                after,
+            } => {
+                for entry in events.iter().filter(|entry| entry.seq > after) {
+                    let GameEvent::BecameAttacker { object, defending } = entry.event else {
+                        continue;
+                    };
+                    let attacks_you_or_yours = match defending {
+                        baylee_core::ids::Defender::Player(p) => p == watch.controller,
+                        baylee_core::ids::Defender::Planeswalker(pw) => state
+                            .object(pw)
+                            .is_some_and(|o| o.controller == watch.controller),
+                        baylee_core::ids::Defender::Battle(_) => false,
+                    };
+                    if attacks_you_or_yours {
+                        triggers.push(PendingTrigger {
+                            event_object_identity: state.event_object_identity(object, entry.seq),
+                            event_object: Some(object),
+                            implicit_target: Some(object),
+                            ..base.clone()
+                        });
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -1381,6 +1425,7 @@ fn event_damage_of(
             amount,
             ..
         } => Some(*amount),
+        GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         _ => None,
     }
 }
@@ -1407,6 +1452,7 @@ fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::Discarded { player, .. }
         | GameEvent::LifeChanged { player, .. }
         | GameEvent::ManaProduced { player, .. }
+        | GameEvent::LibrarySearched { player }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
@@ -1462,7 +1508,9 @@ fn event_object_for(
         (
             Trigger::DealsDamageToPlayer { .. }
             | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
-            | Trigger::DealsCombatDamageToYou(_),
+            | Trigger::DealsCombatDamageToYou(_)
+            | Trigger::DealsCombatDamage(_)
+            | Trigger::DealsCombatDamageToPlayerOrPlaneswalker(_),
             GameEvent::DamageDealt {
                 source: damage_source,
                 ..
@@ -1701,6 +1749,20 @@ fn hits_with_context(
                 // a count of the turn's cards read here, at collection,
                 // could not tell it apart.
                 repeats(event).saturating_sub(u32::from(*first_in_draw_step))
+            }
+            _ => 0,
+        },
+        Trigger::NthCardDrawnInTurn { who, n } => match event {
+            GameEvent::CardsDrawn {
+                player,
+                count,
+                drawn_this_turn_after,
+                ..
+            } if *count > 0
+                && eval::players(*who, state, you).is_some_and(|seats| seats.contains(player)) =>
+            {
+                let first = drawn_this_turn_after.saturating_sub(u32::from(*count)) + 1;
+                u32::from((first..=*drawn_this_turn_after).contains(&u32::from(*n)))
             }
             _ => 0,
         },
@@ -1944,6 +2006,7 @@ fn collect_for_objects(
                     matches!(
                         fx.modifier,
                         baylee_cards_dsl::Modifier::GrantTriggered { .. }
+                            | baylee_cards_dsl::Modifier::GrantTriggeredUpToOne { .. }
                     )
                 })
                 .collect()
@@ -2046,13 +2109,31 @@ fn collect_for_objects(
         // Granted triggered abilities (class levels): continuous effects
         // carrying GrantTriggered that apply to this permanent.
         for &fx in &granted {
-            let baylee_cards_dsl::Modifier::GrantTriggered {
-                trigger,
-                effects,
-                target,
-            } = &fx.modifier
-            else {
-                continue;
+            let (trigger, effects, target) = match &fx.modifier {
+                baylee_cards_dsl::Modifier::GrantTriggered {
+                    trigger,
+                    effects,
+                    target,
+                } => (
+                    trigger,
+                    *effects,
+                    target.map(|spec| match spec {
+                        baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) => {
+                            baylee_cards_dsl::TargetReq::up_to(spec, u8::MAX)
+                        }
+                        _ => baylee_cards_dsl::TargetReq::one(spec),
+                    }),
+                ),
+                baylee_cards_dsl::Modifier::GrantTriggeredUpToOne {
+                    trigger,
+                    effects,
+                    target,
+                } => (
+                    trigger,
+                    *effects,
+                    Some(baylee_cards_dsl::TargetReq::up_to_one(*target)),
+                ),
+                _ => continue,
             };
             let text = state.effect_text(fx);
             let context = RuleContext {
@@ -2117,7 +2198,7 @@ fn collect_for_objects(
                             event_mana: None,
                             event_mana_value,
                             event_departure,
-                            event_amount: None,
+                            event_amount: event_damage_of(trigger, &entry.event, events),
                             event_player,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -2129,7 +2210,7 @@ fn collect_for_objects(
                                 .flatten(),
                             abilities: None,
                             synthetic_effects: Some(effects),
-                            synthetic_target: *target,
+                            synthetic_target: target,
                             once_per_turn: false,
                             chosen_mode: None,
                         });
@@ -3162,6 +3243,55 @@ fn matches(
                 _ => true,
             }
         }
+        (Trigger::SearchesLibrary(rel), GameEvent::LibrarySearched { player }) => {
+            eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::GainsLife(rel),
+            GameEvent::LifeChanged {
+                player, old, new, ..
+            },
+        ) => {
+            new > old && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::DealsCombatDamage(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                amount: 1..,
+                is_combat: true,
+                ..
+            },
+        ) => {
+            first_combat_damage_by(event, batch, *damage_source)
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            Trigger::DealsCombatDamageToPlayerOrPlaneswalker(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target,
+                amount: 1..,
+                is_combat: true,
+            },
+        ) => {
+            let valid_target = match target {
+                crate::event::DamageTarget::Player(_) => true,
+                crate::event::DamageTarget::Object(id) => {
+                    state.object_or_departed(*id).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                    })
+                }
+            };
+            valid_target
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         _ => false,
     }
 }
@@ -3184,6 +3314,15 @@ impl PendingTrigger {
             // unbound and offers nothing.
             baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter) => match self.event_player {
                 Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
+                None => spec,
+            },
+            baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                filter,
+                PlayerRel::EventPlayer | PlayerRel::DamagedPlayer,
+            ) => match self.event_player {
+                Some(player) => {
+                    baylee_cards_dsl::TargetSpec::CardInPlayersGraveyard(filter, player)
+                }
                 None => spec,
             },
             other => other,

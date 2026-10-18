@@ -66,7 +66,7 @@ mod amass;
 mod card_copies;
 mod empower;
 mod sacrifices;
-mod tokens;
+pub(crate) mod tokens;
 mod zones;
 
 mod answers;
@@ -1266,6 +1266,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
+        | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
@@ -1279,6 +1280,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayGetPoisonOr { .. }
+        | Effect::MayExileFromYourGraveyardThen { .. }
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }

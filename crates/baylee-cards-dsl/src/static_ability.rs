@@ -835,6 +835,33 @@ pub enum Modifier {
     PreventDamageToYouFrom(&'static Filter),
     /// Set the opponent chosen as this source entered to this hand-size limit.
     ChosenPlayerMaxHandSize(u8),
+    /// Grants a triggered ability with "up to one target" (Legolas's Quick Reflexes).
+    GrantTriggeredUpToOne {
+        /// The trigger condition.
+        trigger: crate::ability::Trigger,
+        /// The effect operations.
+        effects: &'static [crate::effect::Effect],
+        /// The optional target specification (min 0, max 1).
+        target: crate::effect::TargetSpec,
+    },
+    /// "If you would put one or more counters on a permanent or player, put
+    /// twice that many of each of those kinds of counters on that permanent
+    /// or player instead" (Innkeeper's Talent Level 3).
+    DoubleCountersPlacedByYou,
+    /// The named players have protection from each of the effect controller's
+    /// opponents (Absolute Virtue: "You have protection from each of your opponents").
+    PlayerProtectionFromOpponents {
+        /// Affected players relative to the effect controller.
+        who: crate::effect::PlayerRel,
+    },
+    /// The affected creature can't attack the effect's controller (Web of Inertia).
+    CantAttackYou,
+    /// Creatures can't attack the effect's controller or planeswalkers they control
+    /// unless their controller pays `life` life for each creature (Sivitri, Dragon Master).
+    AttackTaxLife {
+        /// Life paid per attacking creature.
+        life: u16,
+    },
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -982,7 +1009,8 @@ impl Modifier {
             // "Protection is a static ability" — so granting it is an
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
-            | Self::GrantTriggered { .. } => Layer::Ability,
+            | Self::GrantTriggered { .. }
+            | Self::GrantTriggeredUpToOne { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
@@ -1033,12 +1061,14 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::LifeTotalCantChange { .. }
             | Self::PlayerProtectionFromEverything { .. }
+            | Self::PlayerProtectionFromOpponents { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
             | Self::CantBeAttackedExceptBy { .. }
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
+            | Self::DoubleCountersPlacedByYou
             | Self::NextDestructionClearsDamage
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
@@ -1055,6 +1085,8 @@ impl Modifier {
             | Self::CantBeBlockedBy(_)
             | Self::CantBeBlockedByPlayer(_)
             | Self::CantAttack
+            | Self::CantAttackYou
+            | Self::AttackTaxLife { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::CantAttackPlayerIdleLastTurn
@@ -1306,6 +1338,9 @@ pub enum ReplacementRule {
     /// and the draw it leaves is a draw other replacements may modify
     /// (CR 616.2). With an empty hand the mill replaces the draw entirely.
     DiscardInsteadOfLaterDraws,
+    /// "If an opponent would draw a card except the first one they draw in
+    /// each of their draw steps, instead you create a [token]" (Hullbreacher).
+    OpponentsExtraDrawsCreateToken(&'static crate::effect::TokenDef),
 }
 
 #[cfg(test)]
@@ -1450,6 +1485,14 @@ mod tests {
                 Layer::Ability,
             ),
             (
+                Modifier::GrantTriggeredUpToOne {
+                    trigger: crate::ability::Trigger::ETB,
+                    effects: NOTHING,
+                    target: crate::effect::TargetSpec::Object(&Filter::CREATURE),
+                },
+                Layer::Ability,
+            ),
+            (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
                     toughness_plus: 1,
@@ -1551,6 +1594,9 @@ mod tests {
             Modifier::PlayerProtectionFromEverything {
                 who: crate::PlayerRel::You,
             },
+            Modifier::PlayerProtectionFromOpponents {
+                who: crate::PlayerRel::You,
+            },
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
             },
@@ -1575,6 +1621,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
@@ -1588,6 +1635,8 @@ mod tests {
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::CantAttackPlayerIdleLastTurn,
+            Modifier::CantAttackYou,
+            Modifier::AttackTaxLife { life: 2 },
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::AttacksEachCombat,

@@ -158,6 +158,7 @@ pub(crate) fn check_target_counts_match_the_printing(
         "x_targets(",
         "min: 0",
         "ObjectOfEachOpponent(",
+        "GrantTriggeredUpToOne",
     ]
     .iter()
     .any(|way| content.contains(way))
@@ -415,6 +416,8 @@ pub(crate) fn check_optional_clauses_are_offered(
         "CastFaceDownUsingSpentX",
         "MayPlayLinkedExile",
         "ExileAndCastCopies",
+        "MayCastTargetAnyMana",
+        "MayPutFromHandOntoBattlefieldAttachIfEquipment",
     ];
     if !def.is_fully_read() {
         return;
@@ -808,7 +811,10 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("WhileYouControlSource")
         || built.contains("GainControl")
         // This verb installs a YOUR_CREATURE effect for the trigger controller.
-        || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat");
+        || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat")
+        // These scope the attack restriction/trigger to you and planeswalkers you control.
+        || built.contains("AttackTaxLife")
+        || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("OpponentControlCountAtMost(")

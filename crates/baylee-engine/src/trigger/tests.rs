@@ -426,6 +426,7 @@ fn the_draw_step_exception_skips_one_card_of_an_entry_and_no_more() {
         player,
         count,
         first_in_draw_step,
+        drawn_this_turn_after: u32::from(count),
     };
     let fired =
         |trigger: &Trigger, event: &GameEvent| hits(trigger, event, &[], &state, source, me());
@@ -458,6 +459,7 @@ fn a_batched_event_is_as_many_happenings_as_it_counts() {
             player: me(),
             count: 3,
             first_in_draw_step: false,
+            drawn_this_turn_after: 3,
         }),
         3
     );
@@ -466,6 +468,7 @@ fn a_batched_event_is_as_many_happenings_as_it_counts() {
             player: me(),
             count: 0,
             first_in_draw_step: false,
+            drawn_this_turn_after: 0,
         }),
         1,
         "a zero would suppress a trigger that matched rather than \

@@ -41,6 +41,12 @@ const FIRST_SEED: u64 = 0x5178_c1b7_2722_0a95;
 const SEEDS: u64 = 64;
 
 /// How far a bucket may be displaced before the seed is judged a bad one.
+///
+/// Because `slots` is a power of two, `(base + d * step) & (slots - 1)` is
+/// periodic in `d` with period `slots`: every `d >= slots` repeats the exact
+/// same slot assignments as `d & (slots - 1)`. Capping the search at `slots`
+/// (bounded above by `MAX_DISPLACEMENT`) avoids spinning through redundant
+/// periods when a bucket cannot fit.
 const MAX_DISPLACEMENT: u32 = 1_000_000;
 
 /// Empty-slot marker in the slot table. The pool would have to reach 65 535
@@ -88,14 +94,19 @@ pub fn place(keys: &[&str]) -> Result<Placement, CodegenError> {
         });
     }
     // Both powers of two: the slot index is taken with a mask, and four keys
-    // to a bucket is the ratio CHD is usually run at.
-    let slots = keys.len().next_power_of_two().max(2);
-    let buckets = (slots / 4).max(1);
-
-    for attempt in 0..SEEDS {
-        let seed = FIRST_SEED.wrapping_add(attempt);
-        if let Some(p) = try_seed(keys, seed, slots, buckets) {
-            return Ok(p);
+    // to a bucket is the ratio CHD is usually run at. When `keys.len()` sits
+    // right on (or just under) a power of two, a 100% load factor can leave
+    // the last multi-key bucket with no slack; stepping up to the next power
+    // of two gives it 50% slack while keeping every table that already fits in
+    // `base_slots` byte-identical.
+    let base_slots = keys.len().next_power_of_two().max(2);
+    for slots in [base_slots, base_slots.saturating_mul(2)] {
+        let buckets = (slots / 4).max(1);
+        for attempt in 0..SEEDS {
+            let seed = FIRST_SEED.wrapping_add(attempt);
+            if let Some(p) = try_seed(keys, seed, slots, buckets) {
+                return Ok(p);
+            }
         }
     }
     Err(CodegenError::NoPerfectHash {
@@ -120,6 +131,9 @@ fn try_seed(keys: &[&str], seed: u64, slots: usize, buckets: usize) -> Option<Pl
     order.sort_by_key(|&b| (std::cmp::Reverse(in_bucket[b].len()), b));
 
     let mask = slots - 1;
+    let max_d = u32::try_from(slots)
+        .unwrap_or(MAX_DISPLACEMENT)
+        .min(MAX_DISPLACEMENT);
     let mut placed = vec![EMPTY; slots];
     let mut displacements = vec![0u32; buckets];
     let mut scratch: Vec<usize> = Vec::new();
@@ -129,7 +143,7 @@ fn try_seed(keys: &[&str], seed: u64, slots: usize, buckets: usize) -> Option<Pl
             continue;
         }
         let mut found = false;
-        for d in 0..=MAX_DISPLACEMENT {
+        for d in 0..max_d {
             scratch.clear();
             let fits = in_bucket[b].iter().all(|&i| {
                 let (base, step) = parts[i];
@@ -399,5 +413,28 @@ mod tests {
             out.contains(r#"("Yawgmoth's Will", CardIndex::new(2))"#),
             "{out}"
         );
+    }
+
+    /// When `keys.len()` sits right on a power of two (e.g. 128 whole-card
+    /// names), `next_power_of_two()` is 100% full and must step up cleanly
+    /// rather than failing to find a seed.
+    #[test]
+    fn power_of_two_key_counts_place_cleanly() {
+        for count in [64usize, 128, 256, 512] {
+            let owned: Vec<String> = (0..count)
+                .map(|i| format!("Split {i} // Half {i}"))
+                .collect();
+            let keys: Vec<&str> = owned.iter().map(String::as_str).collect();
+            let p = place(&keys).expect("placeable at power-of-two key count");
+            let table = baylee_core::phf::Table {
+                displacements: Box::leak(p.displacements.clone().into_boxed_slice()),
+                slots: p.slots.len(),
+                seed: p.seed,
+            };
+            for (i, key) in keys.iter().enumerate() {
+                let at = p.slots[table.slot(key.as_bytes())];
+                assert_eq!(usize::from(at), i, "{key} at count {count}");
+            }
+        }
     }
 }

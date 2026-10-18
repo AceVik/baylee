@@ -598,6 +598,8 @@ pub struct AttackRules<'a> {
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
+    cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
+    attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
 }
 
 impl<'a> AttackRules<'a> {
@@ -609,12 +611,16 @@ impl<'a> AttackRules<'a> {
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
         let mut idle_defenders = Vec::new();
+        let mut cant_attack_you = Vec::new();
+        let mut attack_tax_life = Vec::new();
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
                 Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
+                Modifier::CantAttackYou => cant_attack_you.push(fx),
+                Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
                 _ => {}
             }
         }
@@ -624,6 +630,8 @@ impl<'a> AttackRules<'a> {
             except_by,
             requirements,
             idle_defenders,
+            cant_attack_you,
+            attack_tax_life,
         }
     }
 
@@ -640,6 +648,33 @@ impl<'a> AttackRules<'a> {
         })
     }
 
+    /// Total life cost `creature`'s controller must pay to declare `creature`
+    /// attacking `defender` (CR 508.1g: Sivitri, Dragon Master's +1).
+    #[must_use]
+    pub fn life_tax(&self, creature: ObjectId, defender: Defender) -> i32 {
+        if self.attack_tax_life.is_empty()
+            || !matches!(defender, Defender::Player(_) | Defender::Planeswalker(_))
+        {
+            return 0;
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return 0;
+        };
+        let Some(defending) = defending_player(self.state, defender) else {
+            return 0;
+        };
+        self.attack_tax_life
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::AttackTaxLife { life } = fx.modifier else {
+                    return None;
+                };
+                (fx.controller == defending && crate::effects::applies_to(self.state, fx, obj))
+                    .then_some(i32::from(life))
+            })
+            .fold(0_i32, i32::saturating_add)
+    }
+
     /// Whether `creature` may attack `defender`, past the restrictions on
     /// the pair. Asked of a creature [`can_attack`] already allows.
     #[must_use]
@@ -647,6 +682,8 @@ impl<'a> AttackRules<'a> {
         if self.unless_defender_controls.is_empty()
             && self.except_by.is_empty()
             && self.idle_defenders.is_empty()
+            && self.cant_attack_you.is_empty()
+            && self.attack_tax_life.is_empty()
         {
             return true;
         }
@@ -664,6 +701,21 @@ impl<'a> AttackRules<'a> {
                 .iter()
                 .any(|fx| crate::effects::applies_to(state, fx, obj))
         {
+            return false;
+        }
+        // "Creatures can't attack you" (Web of Inertia) protects the player
+        // themself, while a planeswalker they control remains a legal defender
+        // (CR 506.3).
+        if let Defender::Player(attacked) = defender
+            && self
+                .cant_attack_you
+                .iter()
+                .any(|fx| fx.controller == attacked && crate::effects::applies_to(state, fx, obj))
+        {
+            return false;
+        }
+        let tax = self.life_tax(creature, defender);
+        if tax > 0 && !state.can_pay_life(obj.controller, tax) {
             return false;
         }
         // "You can't be attacked except by …" protects the player, and a

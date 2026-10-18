@@ -256,24 +256,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ReturnToHand { target } => {
-            if let Some(&target_id) = moving_objects(state, res, target).first() {
-                let owner = state.object(target_id).map_or(you, |o| o.owner);
+            let targets = moving_objects(state, res, target);
+            if !targets.is_empty() {
+                let planned: SmallVec<[(ObjectId, ZoneLocation); 2]> = targets
+                    .iter()
+                    .map(|&id| {
+                        let owner = state.object(id).map_or(you, |o| o.owner);
+                        (id, ZoneLocation::Hand(owner))
+                    })
+                    .collect();
                 // CR 903.9b, before the kind flips below: this operation
                 // re-runs from the top once every owner has answered.
-                if let Some(pending) =
-                    ask_commander_replace(state, res, &[(target_id, ZoneLocation::Hand(owner))])
-                {
+                if let Some(pending) = ask_commander_replace(state, res, &planned) {
                     return Some(pending);
                 }
-                if let Some(obj) = state.object_mut(target_id) {
-                    obj.kind = ObjectKind::Card;
+                for (target_id, dest) in planned {
+                    if let Some(obj) = state.object_mut(target_id) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = state.move_object(target_id, dest, ZonePosition::Top, Cause::Effect);
                 }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Hand(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
             }
             None
         }

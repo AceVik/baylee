@@ -52,19 +52,18 @@ pub(super) fn exec_immediate(
         Effect::SacrificeAmountOrLose { filter, amount } => {
             sacrifice_amount_or_lose(state, res, filter, &amount)
         }
-        Effect::Poison { who, amount } | Effect::Energy { who, amount } => {
+        Effect::Poison { who, amount }
+        | Effect::Energy { who, amount }
+        | Effect::Rad { who, amount } => {
             let amount = amount2(&amount, state, you, res);
-            let kind = if matches!(op, Effect::Poison { .. }) {
-                baylee_cards_dsl::CounterKind::Poison
-            } else {
-                baylee_cards_dsl::CounterKind::Energy
+            let kind = match op {
+                Effect::Poison { .. } => baylee_cards_dsl::CounterKind::Poison,
+                Effect::Energy { .. } => baylee_cards_dsl::CounterKind::Energy,
+                Effect::Rad { .. } => baylee_cards_dsl::CounterKind::Rad,
+                _ => unreachable!("matched player counter effect"),
             };
             for player in players_of(who, state, you, res) {
-                state.change_player_counters(
-                    player,
-                    kind,
-                    i32::try_from(amount).unwrap_or(i32::MAX),
-                );
+                state.put_player_counters_by(res.controller, player, kind, amount);
             }
             None
         }
@@ -347,6 +346,7 @@ pub(super) fn exec_immediate(
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::RemoveAllCountersSelf { .. }
+        | Effect::RemoveAllCountersTarget
         | Effect::ChangeAttachedCounters { .. }
         | Effect::ModifyAttached { .. }
         | Effect::AddCounterFilter { .. }
@@ -978,6 +978,44 @@ pub(super) fn exec_immediate(
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
                 when: crate::state::DelayedWhen::YouAttackThisTurn { after },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter, effects } => {
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::OneOrMoreDealCombatDamageToPlayerThisTurn {
+                    filter,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { effects } => {
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when:
+                    crate::state::DelayedWhen::CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {
+                        after,
+                    },
                 action: crate::state::DelayedAction::Trigger {
                     source: res.source,
                     source_version: source_version(state, res)
@@ -1768,15 +1806,21 @@ pub(super) fn exec_immediate(
         }
         // "You may cast that card": the first target, still where it was
         // targeted (CR 608.2b has dropped it otherwise).
-        Effect::MayCastTarget {
-            then_no_more_spells,
-        } => {
+        Effect::MayCastTarget { .. } | Effect::MayCastTargetAnyMana => {
+            let (then_no_more_spells, any_mana) = match op {
+                Effect::MayCastTarget {
+                    then_no_more_spells,
+                } => (then_no_more_spells, false),
+                Effect::MayCastTargetAnyMana => (false, true),
+                _ => unreachable!("matched MayCastTarget"),
+            };
             let card = res.targets.first().copied()?;
             let version = state.object(card).map(|o| o.version)?;
             res.awaiting = Some(AwaitingOp::CastTarget {
                 card,
                 version,
                 then_no_more_spells,
+                any_mana,
             });
             Some(Pending::YesNo {
                 player: you,
@@ -2485,6 +2529,7 @@ pub(super) fn exec_immediate(
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
+        | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
@@ -2497,6 +2542,8 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayGetPoisonOr { .. }
+        | Effect::MayExileFromYourGraveyardThen { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }

@@ -77,7 +77,12 @@ pub(super) fn arm(
             event_object: None,
             implicit_target: None,
             synthetic_effects: Some(effects),
-            synthetic_target: target,
+            synthetic_target: target.map(|spec| match spec {
+                TargetSpec::ObjectOfEachOpponent(_) => {
+                    baylee_cards_dsl::TargetReq::up_to(spec, u8::MAX)
+                }
+                _ => baylee_cards_dsl::TargetReq::one(spec),
+            }),
             once_per_turn: false,
             chosen_mode: None,
         });

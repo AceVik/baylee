@@ -457,6 +457,8 @@ pub enum Condition {
     /// A permanent card owned by this player reached their graveyard this turn.
     /// Tokens and destination-replaced moves do not qualify.
     DescendedThisTurn,
+    /// Total counters of all kinds on the source is even (0 is even; Sab-Sunen, Luxa Embodied).
+    EvenCountersOnSelf,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -790,6 +792,21 @@ pub enum Trigger {
     State(&'static Condition),
     /// A creature linked by this exact rules acquisition leaves the battlefield.
     LinkedCreatureLeaves,
+    /// A player searches a library (Wan Shi Tong, Librarian).
+    SearchesLibrary(crate::effect::PlayerRel),
+    /// A player draws their Nth card in a turn (Faerie Mastermind, Tamiyo, Inquisitive Student).
+    NthCardDrawnInTurn {
+        /// Which player's draws are observed.
+        who: crate::effect::PlayerRel,
+        /// Which draw number in the turn triggers it.
+        n: u8,
+    },
+    /// A source matching the filter deals combat damage to a player or planeswalker (Psychic Frog).
+    DealsCombatDamageToPlayerOrPlaneswalker(&'static Filter),
+    /// A source matching the filter deals combat damage (Umezawa's Jitte).
+    DealsCombatDamage(&'static Filter),
+    /// A player gains life (Professor Dellian Fel).
+    GainsLife(crate::effect::PlayerRel),
 }
 
 impl Trigger {

@@ -667,6 +667,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToCreature(_)
         | T::DealsCombatDamageToPlayer(_)
+        | T::DealsCombatDamageToPlayerOrPlaneswalker(_)
+        | T::DealsCombatDamage(_)
         | T::DealsCombatDamageToYou(_)
         | T::OneOrMoreDealCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
@@ -685,7 +687,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CountersReach { .. } => &["becomes level"],
         // Divine Intervention, "When you remove the last intervention counter".
         T::LastCounterRemoved { .. } => &["remove the last"],
-        T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
+        T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
+        T::SearchesLibrary(_) => &["search"],
+        T::GainsLife(_) => &["gain life", "gains life"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
         T::PlaysAnotherLand => &["play another land"],
@@ -792,6 +796,9 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         // sentence.
         Trigger::Draws(rel)
         | Trigger::DrawsExceptFirst(rel)
+        | Trigger::NthCardDrawnInTurn { who: rel, .. }
+        | Trigger::SearchesLibrary(rel)
+        | Trigger::GainsLife(rel)
         | Trigger::PlaysLand(rel)
         | Trigger::InstantCastAfterFirst { who: rel }
         | Trigger::FirstNoncreatureSpellCast(rel)
@@ -817,6 +824,8 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToCreature(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
+        | Trigger::DealsCombatDamageToPlayerOrPlaneswalker(filter)
+        | Trigger::DealsCombatDamage(filter)
         | Trigger::OneOrMoreDealCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::DealsDamageToPlayer { source: filter, .. }

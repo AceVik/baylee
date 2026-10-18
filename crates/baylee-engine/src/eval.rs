@@ -1538,6 +1538,13 @@ pub fn condition_holds_with_context(
         Condition::CanSacrifice(filter) => {
             !controlled_matching_with_context(state, you, filter, you, context).is_empty()
         }
+        Condition::EvenCountersOnSelf => state.object(source).is_some_and(|o| {
+            o.counters
+                .iter()
+                .map(|(_, n)| u32::from(n))
+                .sum::<u32>()
+                .is_multiple_of(2)
+        }),
     }
 }
 
@@ -1977,6 +1984,15 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
                 if let Some(players) = players(who, state, effect.controller) {
                     for player in players {
                         everything.insert(player);
+                    }
+                }
+            }
+            baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
+                if let Some(players) = players(who, state, effect.controller) {
+                    for player in players {
+                        if state.is_opponent(player, you) {
+                            everything.insert(player);
+                        }
                     }
                 }
             }

@@ -675,10 +675,17 @@ impl Effect {
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
             | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
+            | Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter: _, effects }
+            | Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects }
             | Effect::AtEndOfCombatThisTurn { about: _, effects }
             | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::MayExileFromYourGraveyardThen {
+                count: _,
+                filter: _,
+                then,
+            }
             | Effect::SacrificeOneThen {
                 filter: _,
                 if_it_was: _,
@@ -731,6 +738,11 @@ impl Effect {
                 mana: _,
                 effect,
             }
+            | Effect::PlayerMayGetPoisonOr {
+                player: _,
+                poison: _,
+                effect,
+            }
             | Effect::PlayerMayPayManaOr {
                 player: _,
                 cost: _,
@@ -760,6 +772,10 @@ impl Effect {
             | Effect::RevealUntil { .. }
             | Effect::Cascade
             | Effect::MayCastTarget { .. }
+            | Effect::MayCastTargetAnyMana
+            | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { .. }
+            | Effect::RemoveAllCountersTarget
+            | Effect::Rad { .. }
             | Effect::MillMayTakeOne { .. }
             | Effect::RevealAndSeparate { .. }
             | Effect::LookAtTopMayPut { .. }

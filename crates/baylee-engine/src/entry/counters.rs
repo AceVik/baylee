@@ -11,6 +11,7 @@ pub(super) fn needs_entry(state: &GameState, _id: ObjectId) -> bool {
         matches!(
             effect.modifier,
             baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
+                | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
         )
     })
 }

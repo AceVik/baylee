@@ -148,7 +148,12 @@ pub(super) fn answer(state: &mut GameState, question: &Question, action: &Player
         (Question::TapCounters { kind, amount }, PlayerAction::YesNo(accept)) => {
             if *accept {
                 entry.tapped = true;
-                state.change_player_counters(entry.controller, *kind, i32::from(*amount));
+                state.put_player_counters_by(
+                    entry.controller,
+                    entry.controller,
+                    *kind,
+                    u32::from(*amount),
+                );
             }
         }
         (Question::TapReveal { satisfied }, PlayerAction::ChooseObjects { objects }) => {

@@ -153,6 +153,17 @@ impl<L: CardLookup> Engine<L> {
                 returned,
             )?;
         }
+        if let Some(beheld) = wizard.beheld
+            && self
+                .state
+                .object(beheld)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
+        {
+            self.state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![beheld],
+            });
+        }
         let mut sacrificed = wizard.sacrifices.iter();
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;

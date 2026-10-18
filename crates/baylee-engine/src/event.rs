@@ -381,6 +381,14 @@ pub enum GameEvent {
         /// collected, other draws may have followed it in the same batch.
         #[serde(default)]
         first_in_draw_step: bool,
+        /// Total cards `player` has drawn this turn after this draw batch.
+        #[serde(default)]
+        drawn_this_turn_after: u32,
+    },
+    /// A player searched a library (CR 701.23a).
+    LibrarySearched {
+        /// The searching player.
+        player: PlayerId,
     },
     /// A creature was declared as attacker.
     BecameAttacker {

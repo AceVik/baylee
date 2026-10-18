@@ -278,6 +278,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::RemoveAllCountersTarget => {
+            for &target in &res.targets.clone() {
+                if !subjects::target(state, res, target)
+                    .is_some_and(|r| subjects::is_current(state, r))
+                {
+                    continue;
+                }
+                let Some(counters) = state
+                    .object(target)
+                    .map(|o| o.counters.iter().collect::<Vec<_>>())
+                else {
+                    continue;
+                };
+                for (kind, n) in counters {
+                    crate::replacement::remove_counters_by(
+                        state,
+                        target,
+                        kind,
+                        n,
+                        Some(res.controller),
+                    );
+                }
+            }
+            None
+        }
         Effect::AddCounterFilter {
             filter,
             kind,

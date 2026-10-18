@@ -57,6 +57,8 @@ pub mod abrupt_decay;
 pub mod absolute_grace;
 #[path = "enchantments/mv_2/absolute_law.rs"]
 pub mod absolute_law;
+#[path = "creatures/mv_8/absolute_virtue.rs"]
+pub mod absolute_virtue;
 #[path = "instants/mv_3/absorb.rs"]
 pub mod absorb;
 #[path = "lands/utility/abstergo_entertainment.rs"]
@@ -579,6 +581,8 @@ pub mod anti_magic_aura;
 pub mod anurid_murkdiver;
 #[path = "creatures/artifacts/mv_4/anvilwrought_raptor.rs"]
 pub mod anvilwrought_raptor;
+#[path = "creatures/mv_2/aphelia_viper_whisperer.rs"]
+pub mod aphelia_viper_whisperer;
 #[path = "creatures/mv_4/appa_aang_s_companion.rs"]
 pub mod appa_aang_s_companion;
 #[path = "creatures/enchantments/mv_3/appendage_amalgam.rs"]
@@ -1193,6 +1197,8 @@ pub mod basilisk_collar;
 pub mod basilisk_gate;
 #[path = "creatures/mv_2/bassara_tower_archer.rs"]
 pub mod bassara_tower_archer;
+#[path = "creatures/mv_4/bast_panther_goddess.rs"]
+pub mod bast_panther_goddess;
 #[path = "creatures/mv_3/bastion_enforcer.rs"]
 pub mod bastion_enforcer;
 #[path = "creatures/artifacts/mv_5/bastion_mastodon.rs"]
@@ -3061,6 +3067,8 @@ pub mod cosmium_blast;
 pub mod council_of_advisors;
 #[path = "sorceries/mv_3/counsel_of_the_soratami.rs"]
 pub mod counsel_of_the_soratami;
+#[path = "instants/mv_2/countersculpt.rs"]
+pub mod countersculpt;
 #[path = "instants/mv_2/counterspell.rs"]
 pub mod counterspell;
 #[path = "instants/mv_2/countersquall.rs"]
@@ -4661,6 +4669,8 @@ pub mod emeria_angel;
 pub mod emeria_s_call;
 #[path = "lands/utility/emeria_the_sky_ruin.rs"]
 pub mod emeria_the_sky_ruin;
+#[path = "creatures/mv_5/emeritus_of_ideation.rs"]
+pub mod emeritus_of_ideation;
 #[path = "creatures/mv_4/emeritus_of_woe.rs"]
 pub mod emeritus_of_woe;
 #[path = "creatures/mv_4/emiel_the_blessed.rs"]
@@ -5021,6 +5031,8 @@ pub mod faerie_duelist;
 pub mod faerie_formation;
 #[path = "creatures/mv_5/faerie_invaders.rs"]
 pub mod faerie_invaders;
+#[path = "creatures/mv_2/faerie_mastermind.rs"]
+pub mod faerie_mastermind;
 #[path = "creatures/mv_1/faerie_seer.rs"]
 pub mod faerie_seer;
 #[path = "creatures/mv_4/faerie_swarm.rs"]
@@ -7375,6 +7387,8 @@ pub mod hulk_bruce_banner;
 pub mod hulking_bugbear;
 #[path = "creatures/mv_4/hulking_devil.rs"]
 pub mod hulking_devil;
+#[path = "creatures/mv_3/hullbreacher.rs"]
+pub mod hullbreacher;
 #[path = "creatures/artifacts/mv_1/hullcarver.rs"]
 pub mod hullcarver;
 #[path = "instants/mv_1/human_frailty.rs"]
@@ -7665,6 +7679,8 @@ pub mod inkrise_infiltrator;
 pub mod inkwell_leviathan;
 #[path = "instants/mv_3/inner_calm_outer_strength.rs"]
 pub mod inner_calm_outer_strength;
+#[path = "enchantments/classes/mv_2/innkeeper_s_talent.rs"]
+pub mod innkeeper_s_talent;
 #[path = "instants/mv_2/inordinate_rage.rs"]
 pub mod inordinate_rage;
 #[path = "creatures/mv_4/inquisitor_greyfax.rs"]
@@ -8651,6 +8667,8 @@ pub mod legion_s_judgment;
 pub mod legion_s_landing;
 #[path = "creatures/mv_3/legolas_greenleaf.rs"]
 pub mod legolas_greenleaf;
+#[path = "instants/mv_1/legolas_s_quick_reflexes.rs"]
+pub mod legolas_s_quick_reflexes;
 #[path = "creatures/mv_4/leonin_abunas.rs"]
 pub mod leonin_abunas;
 #[path = "artifacts/mv_3/leonin_bladetrap.rs"]
@@ -10417,6 +10435,8 @@ pub mod nip_gwyllion;
 pub mod nirkana_revenant;
 #[path = "creatures/mv_3/nissa_resurgent_animist.rs"]
 pub mod nissa_resurgent_animist;
+#[path = "planeswalkers/mv_5/nissa_vital_force.rs"]
+pub mod nissa_vital_force;
 #[path = "lands/utility/nivix_aerie_of_the_firemind.rs"]
 pub mod nivix_aerie_of_the_firemind;
 #[path = "creatures/mv_4/nivix_barrier.rs"]
@@ -10499,6 +10519,8 @@ pub mod noxious_newt;
 pub mod noxious_toad;
 #[path = "creatures/mv_6/nucklavee.rs"]
 pub mod nucklavee;
+#[path = "sorceries/mv_2/nuclear_fallout.rs"]
+pub mod nuclear_fallout;
 #[path = "artifacts/mv_3/nuisance_engine.rs"]
 pub mod nuisance_engine;
 #[path = "instants/mv_2/nullify.rs"]
@@ -11515,6 +11537,8 @@ pub mod profane_prayers;
 pub mod profane_procession;
 #[path = "sorceries/mv_0/profane_tutor.rs"]
 pub mod profane_tutor;
+#[path = "planeswalkers/mv_4/professor_dellian_fel.rs"]
+pub mod professor_dellian_fel;
 #[path = "creatures/mv_4/professor_of_zoomancy.rs"]
 pub mod professor_of_zoomancy;
 #[path = "creatures/mv_2/professor_zei_anthropologist.rs"]
@@ -11565,6 +11589,8 @@ pub mod psionic_entity;
 pub mod psychic_barrier;
 #[path = "sorceries/mv_2/psychic_drain.rs"]
 pub mod psychic_drain;
+#[path = "creatures/mv_2/psychic_frog.rs"]
+pub mod psychic_frog;
 #[path = "sorceries/mv_1/psychic_purge.rs"]
 pub mod psychic_purge;
 #[path = "creatures/mv_6/psychic_symbiont.rs"]
@@ -12739,6 +12765,8 @@ pub mod rustwing_falcon;
 pub mod ryusei_the_falling_star;
 #[path = "creatures/artifacts/mv_3/s_h_i_e_l_d_deployment_drone.rs"]
 pub mod s_h_i_e_l_d_deployment_drone;
+#[path = "creatures/mv_5/sab_sunen_luxa_embodied.rs"]
+pub mod sab_sunen_luxa_embodied;
 #[path = "creatures/artifacts/mv_5/saberclaw_golem.rs"]
 pub mod saberclaw_golem;
 #[path = "creatures/mv_6/sabertooth_nishoba.rs"]
@@ -13493,6 +13521,8 @@ pub mod shadowblood_ridge;
 pub mod shadowcloak_vampire;
 #[path = "creatures/mv_3/shadowmage_infiltrator.rs"]
 pub mod shadowmage_infiltrator;
+#[path = "artifacts/equipment/mv_1/shadowspear.rs"]
+pub mod shadowspear;
 #[path = "lands/surveil/shadowy_backstreet.rs"]
 pub mod shadowy_backstreet;
 #[path = "instants/mv_3/shake_the_foundations.rs"]
@@ -13897,6 +13927,8 @@ pub mod siren_s_call;
 pub mod sisay_s_ring;
 #[path = "creatures/mv_3/sisters_of_the_flame.rs"]
 pub mod sisters_of_the_flame;
+#[path = "planeswalkers/mv_4/sivitri_dragon_master.rs"]
+pub mod sivitri_dragon_master;
 #[path = "creatures/mv_7/sivitri_scarzam.rs"]
 pub mod sivitri_scarzam;
 #[path = "sorceries/mv_3/sizzle.rs"]
@@ -14873,6 +14905,8 @@ pub mod stir_the_grave;
 pub mod stirring_wildwood;
 #[path = "creatures/mv_1/stitcher_s_supplier.rs"]
 pub mod stitcher_s_supplier;
+#[path = "sorceries/mv_3/stock_up.rs"]
+pub mod stock_up;
 #[path = "creatures/mv_4/stoic_angel.rs"]
 pub mod stoic_angel;
 #[path = "creatures/mv_3/stoic_builder.rs"]
@@ -15455,6 +15489,8 @@ pub mod talrand_s_invocation;
 pub mod talrand_sky_summoner;
 #[path = "creatures/mv_4/talruum_minotaur.rs"]
 pub mod talruum_minotaur;
+#[path = "creatures/mv_1/tamiyo_inquisitive_student.rs"]
+pub mod tamiyo_inquisitive_student;
 #[path = "sorceries/mv_4/tamiyo_s_epiphany.rs"]
 pub mod tamiyo_s_epiphany;
 #[path = "instants/mv_1/tamiyo_s_safekeeping.rs"]
@@ -15775,6 +15811,8 @@ pub mod the_rack;
 pub mod the_reaper_king_no_more;
 #[path = "lands/spheres/the_seedcore.rs"]
 pub mod the_seedcore;
+#[path = "creatures/mv_3/the_serpent_society.rs"]
+pub mod the_serpent_society;
 #[path = "lands/legendary/the_shire.rs"]
 pub mod the_shire;
 #[path = "lands/spheres/the_surgical_bay.rs"]
@@ -15783,6 +15821,8 @@ pub mod the_surgical_bay;
 pub mod the_tabernacle_at_pendrell_vale;
 #[path = "creatures/mv_7/the_terror_of_serpent_s_pass.rs"]
 pub mod the_terror_of_serpent_s_pass;
+#[path = "planeswalkers/mv_4/the_theorist_jace_beleren.rs"]
+pub mod the_theorist_jace_beleren;
 #[path = "artifacts/mv_1/the_underworld_cookbook.rs"]
 pub mod the_underworld_cookbook;
 #[path = "creatures/mv_9/the_unspeakable.rs"]
@@ -16075,6 +16115,8 @@ pub mod tin_street_market;
 pub mod tinder_farm;
 #[path = "artifacts/mv_3/tinker_s_tote.rs"]
 pub mod tinker_s_tote;
+#[path = "creatures/mv_1/tinybones_the_pickpocket.rs"]
+pub mod tinybones_the_pickpocket;
 #[path = "creatures/mv_5/tireless_hauler.rs"]
 pub mod tireless_hauler;
 #[path = "creatures/mv_5/tireless_missionaries.rs"]
@@ -16139,6 +16181,8 @@ pub mod tome_raider;
 pub mod tome_scour;
 #[path = "creatures/mv_2/tonic_peddler.rs"]
 pub mod tonic_peddler;
+#[path = "creatures/mv_2/tony_stark.rs"]
+pub mod tony_stark;
 #[path = "artifacts/mv_3/tooth_of_ramos.rs"]
 pub mod tooth_of_ramos;
 #[path = "creatures/mv_3/topan_ascetic.rs"]
@@ -16557,6 +16601,8 @@ pub mod umara_wizard;
 pub mod umbral_expanse;
 #[path = "artifacts/equipment/mv_3/umbral_mantle.rs"]
 pub mod umbral_mantle;
+#[path = "artifacts/equipment/mv_2/umezawa_s_jitte.rs"]
+pub mod umezawa_s_jitte;
 #[path = "instants/mv_2/unauthorized_exit.rs"]
 pub mod unauthorized_exit;
 #[path = "artifacts/mv_4/unbender_tine.rs"]
@@ -16815,6 +16861,8 @@ pub mod vampire_bats;
 pub mod vampire_champion;
 #[path = "creatures/mv_3/vampire_envoy.rs"]
 pub mod vampire_envoy;
+#[path = "creatures/mv_2/vampire_hexmage.rs"]
+pub mod vampire_hexmage;
 #[path = "creatures/mv_3/vampire_hounds.rs"]
 pub mod vampire_hounds;
 #[path = "creatures/mv_1/vampire_neonate.rs"]
@@ -17099,6 +17147,8 @@ pub mod viridian_shaman;
 pub mod viridian_zealot;
 #[path = "enchantments/mv_5/virtue_of_knowledge.rs"]
 pub mod virtue_of_knowledge;
+#[path = "enchantments/mv_7/virtue_of_persistence.rs"]
+pub mod virtue_of_persistence;
 #[path = "sorceries/mv_3/virtue_s_ruin.rs"]
 pub mod virtue_s_ruin;
 #[path = "enchantments/mv_3/virulent_plague.rs"]
@@ -17365,6 +17415,8 @@ pub mod wall_of_wonder;
 pub mod wall_of_wood;
 #[path = "sorceries/mv_2/wallop.rs"]
 pub mod wallop;
+#[path = "creatures/mv_2/wan_shi_tong_librarian.rs"]
+pub mod wan_shi_tong_librarian;
 #[path = "artifacts/mv_4/wand_of_the_elements.rs"]
 pub mod wand_of_the_elements;
 #[path = "instants/mv_4/wander_off.rs"]
@@ -17543,6 +17595,8 @@ pub mod weaver_of_currents;
 pub mod weaver_of_lightning;
 #[path = "enchantments/auras/mv_1/web.rs"]
 pub mod web;
+#[path = "enchantments/mv_3/web_of_inertia.rs"]
+pub mod web_of_inertia;
 #[path = "creatures/mv_3/wee_dragonauts.rs"]
 pub mod wee_dragonauts;
 #[path = "creatures/mv_5/weed_pruner_poplar.rs"]

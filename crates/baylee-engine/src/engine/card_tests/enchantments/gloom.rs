@@ -384,7 +384,8 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
             add_mana(&mut e, p, ManaColor::White, 1);
             add_mana(&mut e, p, ManaColor::Colorless, 3);
             let opened = Box::new(e.window_start(p));
-            e.start_paid_cast(p, card, version, false, opened).unwrap();
+            e.start_paid_cast(p, card, version, false, false, opened)
+                .unwrap();
         }
         assert_eq!(e.state().players[0].mana_pool.total(), 0);
         assert_eq!(e.state().object(card).unwrap().zone, Zone::Stack);

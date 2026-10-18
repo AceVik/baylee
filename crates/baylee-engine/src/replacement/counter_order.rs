@@ -173,7 +173,7 @@ pub(crate) fn build_plan(
             .then_some(n)
         })
         .collect();
-    let doubles = state
+    let effect_doubles = state
         .replacement_rules
         .iter()
         .filter(|entry| {
@@ -185,6 +185,20 @@ pub(crate) fn build_plan(
             crate::eval::matches(object_filter, state, object, entry.controller, entry.source)
         })
         .count();
+    let player_doubles = state
+        .effects
+        .iter()
+        .filter(|effect| {
+            matches!(
+                effect.modifier,
+                baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+            ) && effect.controller == by
+                && object.zone == crate::zone::Zone::Battlefield
+                && crate::effects::applies_to(state, effect, object)
+        })
+        .count();
+    let doubles = effect_doubles.saturating_add(player_doubles);
+    let by_effect = by_effect || player_doubles > 0;
     let mut plan = CounterPlacementPlan::new(
         recipient,
         by,

@@ -210,11 +210,19 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 cost: _,
                 then_no_more_spells,
+                any_mana,
                 opened,
             } => {
                 let start = (*opened).clone();
                 let paid = self
-                    .start_paid_cast(window.player, card, version, then_no_more_spells, opened)
+                    .start_paid_cast(
+                        window.player,
+                        card,
+                        version,
+                        then_no_more_spells,
+                        any_mana,
+                        opened,
+                    )
                     .is_ok();
                 if !paid {
                     self.give_back_window(window.player, &start);
@@ -224,22 +232,7 @@ impl<L: CardLookup> Engine<L> {
         };
         let paid = self.can_settle_tax(&res);
         if let Some(resolve::AwaitingOp::ManaForDamage { player, amount }) = res.awaiting {
-            res.awaiting = Some(resolve::AwaitingOp::DamagePayment { player, amount });
-            self.pending = Pending::ChooseNumber {
-                player,
-                min: 0,
-                max: casting::spendable_units(
-                    &self.state,
-                    player,
-                    resolve::payment_for(&self.state, &res),
-                ),
-                reason: crate::choice::NumberPrompt::ManaPayment {
-                    preventable_damage: amount,
-                },
-            };
-            self.resolution = Some(res);
-            self.awaiting_answer = true;
-            // No fixed debt: what is paid is the number asked next.
+            self.prompt_damage_payment(res, player, amount);
             return Ok(WindowClose::Paid);
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
@@ -257,6 +250,29 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         Ok(WindowClose::settled(paid))
+    }
+
+    fn prompt_damage_payment(
+        &mut self,
+        mut res: resolve::Resolution,
+        player: PlayerId,
+        amount: u32,
+    ) {
+        res.awaiting = Some(resolve::AwaitingOp::DamagePayment { player, amount });
+        self.pending = Pending::ChooseNumber {
+            player,
+            min: 0,
+            max: casting::spendable_units(
+                &self.state,
+                player,
+                resolve::payment_for(&self.state, &res),
+            ),
+            reason: crate::choice::NumberPrompt::ManaPayment {
+                preventable_damage: amount,
+            },
+        };
+        self.resolution = Some(res);
+        self.awaiting_answer = true;
     }
 
     /// Where a window `player` is about to pay in begins

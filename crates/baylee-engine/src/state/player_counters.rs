@@ -64,4 +64,39 @@ impl GameState {
         );
         true
     }
+
+    /// Multiplier from [`baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou`]
+    /// effects controlled by `by`.
+    #[must_use]
+    pub fn player_counter_multiplier(&self, by: PlayerId) -> u32 {
+        let doubles = self
+            .effects
+            .iter()
+            .filter(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+                ) && fx.controller == by
+            })
+            .count();
+        1u32.checked_shl(u32::try_from(doubles).unwrap_or(u32::MAX))
+            .unwrap_or(u32::MAX)
+    }
+
+    /// Places `amount` counters of `kind` on `player` from `by`, applying
+    /// [`baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou`] replacements
+    /// controlled by `by` (CR 122.6, CR 614.16).
+    pub fn put_player_counters_by(
+        &mut self,
+        by: PlayerId,
+        player: PlayerId,
+        kind: CounterKind,
+        amount: u32,
+    ) {
+        if amount == 0 {
+            return;
+        }
+        let scaled = amount.saturating_mul(self.player_counter_multiplier(by));
+        self.change_player_counters(player, kind, i32::try_from(scaled).unwrap_or(i32::MAX));
+    }
 }

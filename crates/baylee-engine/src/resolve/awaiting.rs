@@ -355,6 +355,26 @@ pub enum AwaitingOp {
     PutOntoBattlefield {
         /// Entry state captured by the effect.
         tapped: bool,
+        /// Attach to the source permanent if the put card is an Equipment (Tony Stark).
+        attach_to_source_if_equipment: bool,
+    },
+    /// After `PlayerMayGetPoisonOr`: the player chooses whether to get poison counters.
+    PlayerMayGetPoison {
+        /// The player deciding.
+        player: PlayerId,
+        /// Number of poison counters.
+        amount: u32,
+        /// The fallback effect when they decline.
+        effect: &'static Effect,
+    },
+    /// After `MayExileFromYourGraveyardThen`: the player decides whether to exile cards from their graveyard, then chooses them.
+    MayExileFromGraveyardThen {
+        /// Eligible cards in the controller's graveyard.
+        options: Vec<ObjectId>,
+        /// How many cards must be exiled.
+        count: u8,
+        /// Effects to run if they do.
+        then: &'static [Effect],
     },
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
@@ -396,6 +416,8 @@ pub enum AwaitingOp {
         version: u32,
         /// "If you do, you can't cast additional spells this turn."
         then_no_more_spells: bool,
+        /// "Mana of any type can be spent to cast that spell."
+        any_mana: bool,
     },
     /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
     /// card named goes where `find` says; none named searches the library.

@@ -70,6 +70,9 @@ pub(crate) enum WizardStage {
     PitchChoice,
     /// A creature returned to pay the selected graveyard alternative cost.
     ReturnCreature,
+    /// Behold a permanent you control or reveal a card from your hand, or pay
+    /// the alternative additional mana cost (CR 701.60a).
+    Behold,
     /// Delve choice (exile-from-graveyard, {1} each).
     Delve,
     /// The tap question of convoke (creatures) or of a paid waterbend
@@ -88,6 +91,7 @@ pub(crate) enum WizardStage {
 
 /// A spell being cast step by step.
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)] // independent casting facts (kicked, behold_paid_mana, free, masked)
 pub(crate) struct CastWizard {
     /// The card being cast.
     pub card: ObjectId,
@@ -132,6 +136,11 @@ pub(crate) struct CastWizard {
     pub pitch: SmallVec<[ObjectId; 2]>,
     /// The creature returned for beam me up, chosen without targeting.
     pub returned: Option<ObjectId>,
+    /// The permanent or card in hand chosen to behold (CR 701.60a).
+    pub beheld: Option<ObjectId>,
+    /// Whether the caster is paying `behold_or_pay`'s mana cost instead of
+    /// beholding.
+    pub behold_paid_mana: bool,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
     /// The other cards escape's cost exiles from the graveyard. They pay no
@@ -217,6 +226,8 @@ impl CastWizard {
             self.announced,
             self.forced_face,
             self.returned,
+            self.beheld,
+            self.behold_paid_mana,
             self.north_star,
         ))
         .wrapping_mul(31)
@@ -307,6 +318,8 @@ pub(crate) enum EffectCast {
     /// "…If you do, you can't cast additional spells this turn": set on the
     /// caster once the spell has been cast.
     ThenNoMoreSpells,
+    /// "…and mana of any type can be spent to cast that spell."
+    AnyMana,
 }
 
 /// The cost parts [`Engine::finish_cast`] pays out of a chosen **alternative**
@@ -414,6 +427,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -484,6 +499,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -603,6 +620,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -642,10 +661,19 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn free_normal_options(&self, player: PlayerId, card: ObjectId) -> Vec<CastModeDesc> {
-        let cost = self.front_spell_price(player, card, ManaCost::ZERO);
-        if !self.free_cost_affordable(player, card, cost) {
+        let base = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .and_then(|def| def.faces[0].behold_or_pay)
+            .filter(|b| casting::behold_options(&self.state, player, card, b.filter).is_empty())
+            .map_or(ManaCost::ZERO, |b| b.cost);
+        let min_cost = self.front_spell_price(player, card, base);
+        if !self.free_cost_affordable(player, card, min_cost) {
             return Vec::new();
         }
+        let cost = self.front_spell_price(player, card, ManaCost::ZERO);
         vec![CastModeDesc {
             index: 0,
             kind: CastModeKind::Normal,
@@ -752,6 +780,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -823,6 +853,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -866,6 +898,7 @@ impl<L: CardLookup> Engine<L> {
         card: ObjectId,
         version: u32,
         then_no_more_spells: bool,
+        any_mana: bool,
         opened: Box<super::WindowStart>,
     ) -> Result<(), EngineError> {
         let cost = self
@@ -899,6 +932,8 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
+            beheld: None,
+            behold_paid_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -912,7 +947,9 @@ impl<L: CardLookup> Engine<L> {
             }],
             free: false,
             masked: false,
-            by_effect: Some(if then_no_more_spells {
+            by_effect: Some(if any_mana {
+                EffectCast::AnyMana
+            } else if then_no_more_spells {
                 EffectCast::ThenNoMoreSpells
             } else {
                 EffectCast::Plain
@@ -1217,7 +1254,18 @@ impl<L: CardLookup> Engine<L> {
                 2 * i32::try_from(settled.iter().filter(|l| **l).count()).unwrap_or(i32::MAX);
             self.state.can_pay_life(wizard.player, life)
                 && (deferred
-                    || if let Some(component) = wizard
+                    || if wizard.by_effect == Some(EffectCast::AnyMana) {
+                        casting::component_affordable(
+                            &self.state,
+                            wizard.player,
+                            spend_for(wizard, self.wizard_face(wizard)),
+                            pool,
+                            &price,
+                            &price,
+                            settled,
+                            self.wizard_source_allowance(wizard),
+                        )
+                    } else if let Some(component) = wizard
                         .north_star
                         .and_then(|_| self.north_star_component(wizard))
                     {
@@ -1321,7 +1369,10 @@ impl<L: CardLookup> Engine<L> {
                 self.mana_window = Some(super::PaymentWindow {
                     player,
                     suspended: super::PaymentContinuation::Miracle {
-                        cost: self.restricted_x_payment(&wizard, cost).0,
+                        cost: self.north_star_payment(
+                            &wizard,
+                            self.restricted_x_payment(&wizard, cost).0,
+                        ),
                         wizard: Box::new(wizard),
                         version,
                         opened,
@@ -1810,6 +1861,11 @@ fn wizard_total_before_reduction(
     if let Some(replicate) = face.replicate {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
+    if wizard.behold_paid_mana
+        && let Some(behold) = face.behold_or_pay
+    {
+        total = total.combine(&behold.cost);
+    }
     total
 }
 
@@ -1832,7 +1888,7 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
 /// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, and the
 /// replicate cost however many times it was announced.
 const fn pays_mana(wizard: &CastWizard) -> bool {
-    !wizard.free || wizard.kicked || wizard.replicated > 0
+    !wizard.free || wizard.kicked || wizard.replicated > 0 || wizard.behold_paid_mana
 }
 
 /// What the cast's mana pays for, which restricted mana asks (CR 106.6):

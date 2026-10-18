@@ -78,27 +78,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.state.invalidate_projections();
-        // "Until your next turn" effects end as their controller's turn
-        // begins (Elspeth's flying, Teferi's sorcery-flash).
-        let new_active = self.state.turn.active;
-        self.state.effects.remove_where(|fx| {
-            matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextTurn)
-                && fx.controller == new_active
-        });
-        self.state.play_permissions.retain_mut(|permission| {
-            use baylee_cards_dsl::PlayWindow;
-            if permission.player == new_active {
-                use crate::state::PlayLifetime;
-                match permission.window {
-                    PlayLifetime::Turns(PlayWindow::UntilYourNextTurn) => return false,
-                    PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
-                        permission.window = PlayWindow::ThisTurn.into();
-                    }
-                    PlayLifetime::Turns(PlayWindow::ThisTurn) | PlayLifetime::Prepared(_) => {}
-                }
-            }
-            true
-        });
+        self.expire_until_next_turn_effects(self.state.turn.active);
         self.start_awaited_attack_restrictions();
         self.state.per_turn.reset();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
@@ -134,6 +114,36 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+    }
+
+    fn expire_until_next_turn_effects(&mut self, new_active: PlayerId) {
+        // "Until your next turn" effects end as their controller's turn
+        // begins (Elspeth's flying, Teferi's sorcery-flash).
+        self.state.effects.remove_where(|fx| {
+            matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextTurn)
+                && fx.controller == new_active
+        });
+        self.state.delayed.retain(|d| {
+            !(d.controller == new_active
+                && matches!(
+                    d.when,
+                    crate::state::DelayedWhen::CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { .. }
+                ))
+        });
+        self.state.play_permissions.retain_mut(|permission| {
+            use baylee_cards_dsl::PlayWindow;
+            if permission.player == new_active {
+                use crate::state::PlayLifetime;
+                match permission.window {
+                    PlayLifetime::Turns(PlayWindow::UntilYourNextTurn) => return false,
+                    PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
+                        permission.window = PlayWindow::ThisTurn.into();
+                    }
+                    PlayLifetime::Turns(PlayWindow::ThisTurn) | PlayLifetime::Prepared(_) => {}
+                }
+            }
+            true
+        });
     }
 
     fn remember_completed_turn_attackers(&mut self) {
@@ -435,7 +445,7 @@ impl<L: CardLookup> Engine<L> {
             );
             // What the targets were chosen against. CR 608.2b re-checks
             // them against it at resolution, as it does a spell's.
-            obj.target_req = t.synthetic_target.map(synthetic_target_req);
+            obj.target_req = t.synthetic_target;
             obj
         });
         self.synthetic_fx.insert(id, synthetic);

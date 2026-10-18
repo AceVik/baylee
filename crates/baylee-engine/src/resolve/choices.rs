@@ -273,12 +273,20 @@ pub(super) fn exec_choice(
                 total: None,
             })
         }
-        Effect::PutFromHandOntoBattlefield {
-            tapped,
-            filter,
-            mana_value,
-            optional,
-        } => {
+        Effect::PutFromHandOntoBattlefield { .. }
+        | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { .. } => {
+            let (tapped, filter, mana_value, optional, attach_to_source_if_equipment) = match op {
+                Effect::PutFromHandOntoBattlefield {
+                    tapped,
+                    filter,
+                    mana_value,
+                    optional,
+                } => (tapped, filter, mana_value, optional, false),
+                Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { filter } => {
+                    (false, filter, None, true, true)
+                }
+                _ => unreachable!("matched PutFromHandOntoBattlefield"),
+            };
             let bound = mana_value.map(|b| (b.cmp, amount2(&b.amount, state, you, res)));
             let options: Vec<ObjectId> = state
                 .zones
@@ -298,7 +306,10 @@ pub(super) fn exec_choice(
             if options.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::PutOntoBattlefield { tapped });
+            res.awaiting = Some(AwaitingOp::PutOntoBattlefield {
+                tapped,
+                attach_to_source_if_equipment,
+            });
             Some(Pending::ChooseCards {
                 player: you,
                 options,
@@ -530,6 +541,54 @@ pub(super) fn exec_choice(
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::PayLife { amount },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayGetPoisonOr {
+            player,
+            poison,
+            effect,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let amount = amount2(&poison, state, you, res);
+            res.awaiting = Some(AwaitingOp::PlayerMayGetPoison {
+                player,
+                amount,
+                effect,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::Generic,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::MayExileFromYourGraveyardThen {
+            count,
+            filter,
+            then,
+        } => {
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.len() < usize::from(count) {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::MayExileFromGraveyardThen {
+                options,
+                count,
+                then,
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
                 source: resolving_ability(state, res),
             })
         }

@@ -169,6 +169,8 @@ enum PaymentContinuation {
         cost: baylee_core::mana::ManaCost,
         /// "If you do, you can't cast additional spells this turn."
         then_no_more_spells: bool,
+        /// "Mana of any type can be spent to cast that spell."
+        any_mana: bool,
         /// What closing without the cast gives back (CR 732.1).
         opened: Box<WindowStart>,
     },
@@ -255,6 +257,7 @@ impl PaymentContinuation {
                 version,
                 cost,
                 then_no_more_spells,
+                any_mana,
                 opened,
             } => u64::from(card.slot())
                 .wrapping_mul(31)
@@ -263,6 +266,8 @@ impl PaymentContinuation {
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(2)
                 .wrapping_add(u64::from(*then_no_more_spells))
+                .wrapping_mul(2)
+                .wrapping_add(u64::from(*any_mana))
                 .wrapping_mul(31)
                 .wrapping_add(opened.fingerprint()),
         }

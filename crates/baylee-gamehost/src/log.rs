@@ -598,7 +598,9 @@ impl GameLog {
             // says only that the caster thought for a while.
             | GameEvent::CastCancelled { .. }
             // The creating effect and resulting stack entries already identify copies.
-            | GameEvent::SpellCopied { .. } | GameEvent::Connived { .. }
+            | GameEvent::SpellCopied { .. }
+            | GameEvent::Connived { .. }
+            | GameEvent::LibrarySearched { .. }
             // The board says which attackers nothing blocks, and an ability
             // it set off has its own line.
             | GameEvent::AttackerBlocked { .. }

@@ -51,6 +51,9 @@ impl<L: CardLookup> Engine<L> {
         wizard: &CastWizard,
         cost: ManaCost,
     ) -> ManaCost {
+        if wizard.by_effect == Some(EffectCast::AnyMana) {
+            return cost.with_any_type_component(&cost);
+        }
         let Some(component) = wizard
             .north_star
             .and_then(|_| self.north_star_component(wizard))

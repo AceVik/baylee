@@ -395,7 +395,7 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::ReturnCreature => {
                 if wizard.option != Some(CastModeKind::BeamMeUp) {
-                    wizard.stage = WizardStage::Delve;
+                    wizard.stage = WizardStage::Behold;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -409,6 +409,40 @@ impl<L: CardLookup> Engine<L> {
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::CostReturn,
+                    total: None,
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Behold => {
+                let face = self.wizard_face(&wizard);
+                let Some(behold) = face.behold_or_pay else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                let options =
+                    casting::behold_options(&self.state, wizard.player, wizard.card, behold.filter);
+                if options.is_empty() {
+                    let mut wizard = wizard;
+                    wizard.behold_paid_mana = true;
+                    wizard.stage = WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                let mut probe = wizard.clone();
+                probe.behold_paid_mana = true;
+                let can_pay_mana_instead = wizard.makes_mana_after_choices()
+                    || self.can_make_mana_for_cast(wizard.player)
+                    || self.wizard_pool_can_pay(&probe, wizard_total_cost(face, &probe));
+                let min = u8::from(!can_pay_mana_instead);
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options,
+                    min,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
                     total: None,
                 };
                 self.awaiting_answer = true;

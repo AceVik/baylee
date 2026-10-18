@@ -6,6 +6,38 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-18 — Batch 53: 31 cards, modal MDFCs, Class levels, and validator sync
+
+Implementing 28 new cards (`Coverage::Implemented`, plus 3 already implemented)
+touched modal MDFCs (`Tony Stark // The Invincible Iron Man`), Adventure
+(`Virtue of Persistence // Locthwain Scorn`, `Emeritus of Ideation // Ancestral
+Recall`), Class level progression (`Innkeeper's Talent`), Planeswalkers
+(`The Theorist, Jace Beleren`, `Nissa, Vital Force`, `Professor Dellian Fel`,
+`Sivitri, Dragon Master`), draw replacement (`Hullbreacher`), state-triggered
+abilities (`Dark Depths`), and parity-gated Gods (`Sab-Sunen, Luxa Embodied`).
+
+Three cross-cutting lessons stood out:
+1. **Validator and sentence-mapper tables must advance in lockstep with DSL
+   additions.** Every new `Trigger`, `ContinuousEffect`, `Replacement`, or
+   `Effect` variant (`PlayerSearchesLibrary`, `OpponentDrawsExceptFirstInDrawStep`,
+   `ClassLevel`, `MayCastFromZone`, `CreateTokenWithCounters`,
+   `DoubleCountersOnTargetWithTypes`) needs matching arms in `xtask/src/validate/`
+   (`claims.rs`, `effect_trees.rs`, `event_readers.rs`, `leaves.rs`,
+   `trigger_Matrix.rs`) and `xtask/src/codegen/ability_map.rs`, followed by two
+   `xtask codegen` passes so `ability_lines.rs` reflects the updated line
+   mapping.
+2. **Scoped leaves-the-battlefield cleanup vs. standalone exile effects.**
+   `leaves.rs` rejects `Effect::ExileTarget` on an enters trigger unless the
+   card is a finite-duration O-ring style lock. Permanent exile or graveyard
+   effects that also grant a cast permission (`Tinybones, the Pickpocket`,
+   `Web of Inertia`) must either stay in their actual trigger (`CombatDamageToPlayer`,
+   `CombatBegin`) or pair with `UntilSourceLeaves` / `UntilEndOfTurn` duration
+   when granting `MayPlayExiled` / `MayCastFromZone`.
+3. **Splitting large test modules early keeps clippy pedantic happy.** Grouping
+   the 27 behavioral tests for Batch 53 into a directory module
+   (`card_tests/batch53_cards/` with six focused files) avoided `too_many_lines`
+   and kept each category's helper setup self-contained.
+
 ## 2026-10-14 — Corpus expansion: establish equivalence before adding cards
 
 Changing the reference checkout exposed syntax drift rather than card-rule

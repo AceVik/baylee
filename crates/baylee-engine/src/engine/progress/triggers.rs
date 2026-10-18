@@ -37,7 +37,7 @@ impl<L: CardLookup> Engine<L> {
         if trigger.synthetic_effects.is_some() {
             return trigger
                 .synthetic_target
-                .is_some_and(eval::target_domain::wall_spec);
+                .is_some_and(|req| eval::target_domain::wall_spec(req.spec));
         }
         self.trigger_abilities(trigger)
             .get(trigger.ability_index as usize)
@@ -723,8 +723,9 @@ impl<L: CardLookup> Engine<L> {
             // Synthetic triggers with a target requirement (granted
             // triggered abilities): ask for the target first.
             if t.synthetic_effects.is_some()
-                && let Some(spec) = t.synthetic_target
+                && let Some(req) = t.synthetic_target
             {
+                let spec = req.spec;
                 // "For each opponent, … up to one target creature that player
                 // controls": one question per opponent, as the printed path
                 // asks it, and the trigger stacks even when nobody had
@@ -771,7 +772,7 @@ impl<L: CardLookup> Engine<L> {
                     None,
                     self.trigger_wall_only(&t),
                 );
-                if options.is_empty() {
+                if options.len() < usize::from(req.min) {
                     // No legal target, so the trigger is removed (CR 603.3d)
                     // — and it is *already* removed: the pop above took this
                     // queue entry off before the synthetic target was asked
@@ -779,17 +780,24 @@ impl<L: CardLookup> Engine<L> {
                     // behind it as well, unread and unresolved.
                     continue;
                 }
+                if options.is_empty() {
+                    // "Up to one" with no legal target: stacks targeting nothing (CR 603.3d).
+                    self.push_synthetic_trigger_with_targets(&t, SmallVec::new());
+                    continue;
+                }
                 let plan_t = t.clone();
                 self.pending_plan = Some(PlanKind::SyntheticTriggerTarget {
                     trigger: plan_t,
                     per_opponent: None,
                 });
+                let (min, max) = req.bounds(0);
+                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
                     player_options: Vec::new(),
-                    min: 1,
-                    max: 1,
+                    min,
+                    max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;

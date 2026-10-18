@@ -1092,8 +1092,9 @@ impl GameState {
             self.pending_miracle.push_back((player, card));
         }
         if !drawn.is_empty() {
+            let drawn_this_turn_after = already.saturating_add(drawn.len() as u32);
             if let Some(v) = self.per_turn.draws.get_mut(player.get() as usize) {
-                *v = v.saturating_add(drawn.len() as u32);
+                *v = drawn_this_turn_after;
             }
             // "The first one they draw in each of their draw steps" is a
             // fact about this draw, so it is written down now. The turn's
@@ -1108,6 +1109,7 @@ impl GameState {
                 player,
                 count: drawn.len() as u16,
                 first_in_draw_step,
+                drawn_this_turn_after,
             });
         }
         drawn

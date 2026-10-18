@@ -67,6 +67,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         adventure: false,
         dash: None,
         escape: None,
+        behold_or_pay: None,
     }
 }
 

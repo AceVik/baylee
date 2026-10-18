@@ -87,7 +87,8 @@ pub(super) fn granted_list(modifier: &Modifier) -> Option<(&'static [Effect], bo
             mana_ability,
             ..
         } => Some((effects, !*mana_ability)),
-        Modifier::GrantTriggered { effects, .. } => Some((effects, true)),
+        Modifier::GrantTriggered { effects, .. }
+        | Modifier::GrantTriggeredUpToOne { effects, .. } => Some((effects, true)),
         Modifier::GrantStatic { modifier, .. } => granted_list(modifier),
         _ => None,
     }

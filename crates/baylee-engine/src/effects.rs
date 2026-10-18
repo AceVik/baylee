@@ -134,6 +134,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
+        | Modifier::GrantTriggeredUpToOne { .. }
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
@@ -154,6 +155,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         Modifier::ReplacePlayerDamage { .. }
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
@@ -194,6 +196,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
         | Modifier::CantBeAttackedExceptBy { .. }
+        | Modifier::CantAttackYou
+        | Modifier::AttackTaxLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
             | Modifier::PreventAllDamageFromIt
@@ -230,6 +234,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof
         | Modifier::SpellsHaveFlash(_)
@@ -559,7 +564,10 @@ impl EffectTable {
         );
         self.hints.insert_if(
             RuleHints::GRANT_TRIGGERED,
-            matches!(fx.modifier, Modifier::GrantTriggered { .. }),
+            matches!(
+                fx.modifier,
+                Modifier::GrantTriggered { .. } | Modifier::GrantTriggeredUpToOne { .. }
+            ),
         );
         self.hints.insert_if(
             RuleHints::INDEFINITE_OBJECT,
@@ -1487,6 +1495,11 @@ mod tests {
                 effects: NOTHING,
                 target: None,
             },
+            Modifier::GrantTriggeredUpToOne {
+                trigger: baylee_cards_dsl::Trigger::ETB,
+                effects: NOTHING,
+                target: baylee_cards_dsl::TargetSpec::Object(&Filter::CREATURE),
+            },
             Modifier::GrantActivatedDefinition(&GRANTED),
             Modifier::GrantActivatedFromLinkedExile(&Filter::Any),
             Modifier::CreatureAbilityManaAnyColor,
@@ -1586,6 +1599,8 @@ mod tests {
                 who: PlayerRel::You,
                 by: &Filter::CREATURE,
             },
+            Modifier::CantAttackYou,
+            Modifier::AttackTaxLife { life: 2 },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::PreventAllDamageFromIt,
@@ -1603,6 +1618,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
@@ -1646,6 +1662,9 @@ mod tests {
                 who: PlayerRel::You,
             },
             Modifier::PlayerProtectionFromEverything {
+                who: PlayerRel::You,
+            },
+            Modifier::PlayerProtectionFromOpponents {
                 who: PlayerRel::You,
             },
             Modifier::SpellCastLimitPerTurn {
@@ -1704,7 +1723,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            139,
+            144,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1776,7 +1795,7 @@ mod tests {
         // `AdditionalCounterPlacement`) modify rules, not characteristics:
         // the rules-only count rises from 90 to 93; locking remains 45.
         // Pyramids' NextDestructionClearsDamage is another rules-only replacement.
-        assert_eq!((locking, all.len() - locking), (45, 94));
+        assert_eq!((locking, all.len() - locking), (46, 98));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

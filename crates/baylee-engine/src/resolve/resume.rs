@@ -114,6 +114,30 @@ pub(super) fn resume_inner(
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
+        AwaitingOp::MayExileFromGraveyardThen {
+            options: _,
+            count,
+            then,
+        } => {
+            let you = res.controller;
+            if chosen.len() == usize::from(count)
+                && chosen.iter().all(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Graveyard && o.zone_owner == Some(you)
+                    })
+                })
+            {
+                for &card in chosen {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Exile(you),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+                return run_fallback(state, res, then);
+            }
+        }
         AwaitingOp::SacrificeAndIf { check, effect } => {
             if let Some(&victim) = chosen.first() {
                 let qualifies = state.object(victim).is_some_and(|object| {
@@ -505,7 +529,10 @@ pub(super) fn resume_inner(
                 }
             }
         }
-        AwaitingOp::PutOntoBattlefield { tapped } => {
+        AwaitingOp::PutOntoBattlefield {
+            tapped,
+            attach_to_source_if_equipment,
+        } => {
             for &card in chosen {
                 if tapped {
                     state.set_tapped(card, true);
@@ -520,6 +547,18 @@ pub(super) fn resume_inner(
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if attach_to_source_if_equipment
+                    && state.object(card).is_some_and(|o| {
+                        o.characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                    })
+                    && let Some(equip_ref) = state.source_identity(card)
+                    && let Some(source) =
+                        subjects::source(state, res).filter(|s| subjects::on_battlefield(state, *s))
+                {
+                    super::attachments::attach_to(state, equip_ref, source.object, false);
+                }
             }
         }
         AwaitingOp::DestroyAllExcept { filter } => {
@@ -1127,6 +1166,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
+        | AwaitingOp::PlayerMayGetPoison { .. }
         | AwaitingOp::PayEnergy { .. }
         | AwaitingOp::MaySearchBasicLand { .. }
         | AwaitingOp::MayDo { .. }
