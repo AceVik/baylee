@@ -72,6 +72,11 @@ impl Feed {
             .is_some_and(|l| l.delivered)
     }
 
+    /// A subscription is waiting for its first matching listing.
+    pub(super) fn loading(&self) -> bool {
+        self.asked.is_some() && !self.live()
+    }
+
     /// Closes the socket, whatever state it was in, and forgets any ticket
     /// still on its way.
     fn hang_up(&mut self) {
@@ -314,7 +319,7 @@ pub(super) fn follow_the_feed(
     if live || !reading {
         *was_live = live;
     }
-    let down = reading && !live && *was_live;
+    let down = reading && !live && *was_live && feed.cooldown > 0.0;
     if state.feed_down != down {
         state.feed_down = down;
     }

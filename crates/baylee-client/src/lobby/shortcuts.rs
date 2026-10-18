@@ -91,7 +91,10 @@ pub(crate) fn modal_by(state: &LobbyState, screen: Context) -> Vec<&'static str>
             ),
         ),
         ("deck_preview", state.decks.preview.is_some()),
-        ("create_sheet", state.play.sheet.is_some()),
+        (
+            "create_sheet",
+            state.play.sheet.is_some() || state.play.password_for.is_some(),
+        ),
         ("deck_picker", state.play.picker),
         ("chair_sheet", state.chair_sheet.is_some()),
         (
@@ -178,6 +181,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         });
     let hub = table && !in_room && state.lobby.awaiting().is_none_or(|_| state.room_away);
     let sheet = state.play.sheet.is_some()
+        || state.play.password_for.is_some()
         || state.play.picker
         || state.decks.preview.is_some()
         || matches!(

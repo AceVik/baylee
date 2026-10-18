@@ -1206,3 +1206,13 @@ returned HTTP 403 to both the web reader and direct HTTP access during this chec
 that access failure is recorded rather than presented as a fresh verification of
 those terms. Existing Scryfall licensing decisions and delivery restrictions above
 remain applicable; no new distribution or image treatment is introduced.
+
+### Lobby discovery refinement (18.10.2026)
+
+This change draws original UI geometry, text, borders and transitions with the
+existing licensed font stack. No new art, symbol, font, audio or card-image
+asset is introduced. The [Wizards Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were checked: “Tell the Community it’s unofficial.” and “Don't mess with the
+legal notices in our stuff.” The existing disclaimer/source links and card-image
+pipeline remain in place; existing Scryfall image and font licence checks above
+continue to apply.

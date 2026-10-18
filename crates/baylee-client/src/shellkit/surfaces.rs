@@ -367,16 +367,17 @@ pub fn menu<'a, B: Bundle>(
             Role::Opaque,
             Node {
                 flex_direction: FlexDirection::Column,
-                min_width: kit.m.px(210.0),
-                padding: UiRect::axes(kit.m.px(4.0), kit.m.px(6.0)),
+                min_width: kit.m.px(240.0),
+                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(8.0)),
+                row_gap: kit.m.px(3.0),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            BackgroundColor(tokens::OPAQUE),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
+                Color::srgb(0.075, 0.12, 0.17).into(),
+                tokens::OPAQUE.into(),
             ])),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
             popover_shadow(),
@@ -408,14 +409,13 @@ pub fn menu<'a, B: Bundle>(
                     padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
-                    column_gap: kit.m.px(16.0),
+                    column_gap: kit.m.px(24.0),
                     border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 UiTransform::default(),
-                super::sheen::Sheen,
-                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::SELECTED),
                 item.action,
             ))
             .id();

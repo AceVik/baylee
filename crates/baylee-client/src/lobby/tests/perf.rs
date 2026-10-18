@@ -248,3 +248,65 @@ fn an_idle_lobby_writes_no_ui_node() {
         "an idle frame wrote a node"
     );
 }
+
+#[test]
+fn menu_and_search_updates_preserve_the_header_subtree() {
+    use super::super::header::{HeaderPress, RetainedHeader};
+    let mut app = signed_in();
+    let header = |app: &mut App| {
+        let mut query = app
+            .world_mut()
+            .query::<(Entity, &RetainedHeader, &Children)>();
+        let all: Vec<_> = query
+            .iter(app.world())
+            .map(|(entity, _, children)| (entity, children.to_vec()))
+            .collect();
+        assert_eq!(all.len(), 1, "exactly one attached header");
+        all.into_iter().next().unwrap()
+    };
+    let before = header(&mut app);
+    for press in [
+        Press::Header(HeaderPress::Account),
+        Press::Header(HeaderPress::CloseMenu),
+        Press::Shared(SharedPress::Focus(Field::Search)),
+    ] {
+        tap_press(&mut app, press);
+        assert_eq!(
+            header(&mut app),
+            before,
+            "{press:?} replaced header or its children"
+        );
+    }
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::Search, "table");
+    app.update();
+    assert_eq!(header(&mut app), before);
+    tap_press(&mut app, Press::Shared(SharedPress::PickLang(Lang::De)));
+    assert_ne!(
+        header(&mut app).0,
+        before.0,
+        "translated navigation must be redrawn"
+    );
+    assert!(labels(&mut app).contains(&Phrase::ShellPlay.text(Lang::De).to_owned()));
+}
+
+#[test]
+fn reconnecting_does_not_insert_a_strip_above_table_discovery() {
+    let mut app = signed_in();
+    app.world_mut().resource_mut::<LobbyState>().feed_down = true;
+    app.update();
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(), With<crate::shellkit::header::SeatStrip>>();
+    assert_eq!(query.iter(app.world()).count(), 0);
+    assert!(
+        app.world_mut()
+            .query_filtered::<(), With<super::super::play::discovery::ListLoading>>()
+            .iter(app.world())
+            .count()
+            > 0,
+        "loading belongs to the list"
+    );
+}

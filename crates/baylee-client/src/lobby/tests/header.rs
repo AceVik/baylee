@@ -454,11 +454,8 @@ fn while_my_game_runs_the_hero_returns_and_its_starts_wait() {
             .filter(|(p, s)| **p == Press::Play(PlayPress::Return) && s.id == "return")
             .count()
     };
-    assert_eq!(hero_return(&mut app), 1, "gold Return");
-    assert!(
-        off(&mut app, Press::Play(PlayPress::PlayHouse)),
-        "Play the house waits"
-    );
+    assert_eq!(hero_return(&mut app), 0, "return belongs to the header");
+    assert!(!presses(&mut app).contains(&Press::Play(PlayPress::PlayHouse)));
     assert!(
         off(&mut app, Press::Play(PlayPress::CreateTable)),
         "Create table waits"
@@ -472,7 +469,7 @@ fn while_my_game_runs_the_hero_returns_and_its_starts_wait() {
         1,
         "the header's pill"
     );
-    assert!(off(&mut app, Press::Play(PlayPress::PlayHouse)));
+    assert!(!presses(&mut app).contains(&Press::Play(PlayPress::PlayHouse)));
 }
 
 /// DESIGN-v5 §5 (S4-2): the Create-table sheet's Players is a segmented

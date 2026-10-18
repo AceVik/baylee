@@ -10674,3 +10674,36 @@ and player chip show an S and the current speed; their accessible description
 says “Speed N/4”, or “Max speed (4/4)” at four, in the selected language.
 The agent narrator also names speed and max speed. Speed is not a counter
 and does not enter proliferate choices.
+
+### Stable table discovery (18.10.2026)
+
+The lobby retains the header subtree across search, list refreshes and popover
+changes when its visible identity is unchanged. Page teardown detaches it first;
+changes to language, layout, account or navigation redraw it. Header materials
+are attached before layout in PostUpdate, so a fresh bar never renders a plain
+fallback frame before its surface arrives. Header ghost controls use eased tint
+rather than a separate resting sheen.
+
+Table discovery shows gateway context, live counts and room actions. Online deck
+selection belongs to the room; offline play keeps its deck-and-house controls.
+A protected room requests its password in a modal identified by game id, with
+Enter/Cancel/Escape and a modal tab order. A changing listing cannot redirect
+that prompt to another table by index.
+
+Loading stays in a reserved status row inside the table panel (150 ms appearance
+delay, 300 ms minimum dwell). Normal websocket query resubscription is not a
+connection failure. An empty pending listing shows skeletons rather than a
+premature no-results claim. Rows have aligned occupancy/action columns, fixed
+virtual-list pitch and eased hover tint/rim without changing their hit areas.
+All new motion follows reduced-motion preferences.
+
+Visual verification used four isolated native `dev-control` iterations on a local
+gateway, with four waiting rooms (including a protected room). Iterations covered
+1728 × 1052, 1280 × 800 and 1280 × 720, selected menu options, the protected-room
+modal, search, hover and sidebar scrolling. A local HTTP/WebSocket proxy delayed
+listing delivery by 1.2 seconds: the fourth run showed the list-local spinner
+while pending and removed it after delivery. Header entity and control geometry
+were unchanged across search when visible header facts stayed the same. Earlier
+recordings dropped samples and are not evidence that every render frame is free
+of flicker; the retained-subtree regression tests check the underlying teardown
+bug directly.

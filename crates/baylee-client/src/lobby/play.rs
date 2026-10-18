@@ -12,6 +12,8 @@
 //!   primary (M-7, S-8). On a phone the header's Return pill is the one way
 //!   back and the rail shows no second (S4-3).
 
+pub(super) mod discovery;
+
 use super::decks::DecksPress;
 use super::menus::{self, ShellMenu};
 use super::orders;
@@ -45,6 +47,8 @@ pub(crate) struct PlayUi {
     pub(crate) sheet: Option<(TableDraft, bool)>,
     /// The deck picker sheet (Change deck) is up.
     pub(crate) picker: bool,
+    /// Stable room identity while its password prompt is open.
+    pub(crate) password_for: Option<String>,
 }
 
 impl Default for PlayUi {
@@ -56,6 +60,7 @@ impl Default for PlayUi {
             difficulty: 2,
             sheet: None,
             picker: false,
+            password_for: None,
         }
     }
 }
@@ -88,6 +93,8 @@ pub(crate) enum PlayPress {
     Sort(TableSort),
     /// Join a listed table (its index in the listing).
     Join(usize),
+    /// Submit the password for the room held by stable id.
+    JoinProtected,
     /// Watch a listed table being played (its index in the listing).
     Watch(usize),
     /// The sheet: whether spectators may watch.
@@ -185,21 +192,24 @@ pub(super) fn draw(
             flex_direction: FlexDirection::Column,
             row_gap: px_fixed(kit.m.body),
             max_height: percent(100),
-            overflow: if phone {
-                Overflow::scroll_y()
-            } else {
-                Overflow::visible()
-            },
+            overflow: Overflow::scroll_y(),
             ..default()
         },
-        Pickable::IGNORE,
+        Scrollable(List::Discovery),
+        ScrollPosition(Vec2::new(0.0, scrolled.get(List::Discovery))),
+        Pickable::default(),
     ));
     if side && !phone {
         lane.insert(crate::vista::Framed(crate::vista::Vista::Interior));
     }
     let lane = lane.id();
     commands.entity(body).add_child(lane);
-    let hero_more = hero(commands, lane, state, metrics, kit);
+    let hero_more = if state.lobby.offline() {
+        hero(commands, lane, state, metrics, kit)
+    } else {
+        discovery::sidebar(commands, lane, state, kit);
+        HeroAnchors::default()
+    };
     if side && !phone {
         recent(commands, lane, state, kit);
     }
@@ -211,6 +221,9 @@ pub(super) fn draw(
     menu(commands, root, state, kit, hero_more, tables_more);
     if state.play.picker {
         picker(commands, root, state, kit);
+    }
+    if let Some(id) = &state.play.password_for {
+        discovery::password_sheet(commands, root, state, metrics, kit, id);
     }
     if let Some((draft, editing)) = &state.play.sheet {
         create_sheet(commands, root, state, metrics, kit, draft, *editing);
@@ -977,6 +990,14 @@ fn tables(
         commands.entity(panel).add_child(line);
     }
 
+    let query = lobby.field(Field::Search).trim();
+    let order: Vec<usize> = model::table_order(lobby.games(), state.play.filter, state.play.sort)
+        .into_iter()
+        .filter(|&i| model::matches_search(&lobby.games()[i], query))
+        .collect();
+    if !offline {
+        discovery::loading_notice(commands, panel, kit, order.len());
+    }
     let list = commands
         .spawn((
             Node {
@@ -984,7 +1005,7 @@ fn tables(
                 flex_grow: 1.0,
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(4.0),
+                row_gap: kit.m.px(8.0),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -998,11 +1019,6 @@ fn tables(
         .insert(super::scrollbars::OnlyWhenNeeded)
         .entry::<Node>()
         .and_modify(|mut node| node.display = Display::None);
-    let query = lobby.field(Field::Search).trim();
-    let order: Vec<usize> = model::table_order(lobby.games(), state.play.filter, state.play.sort)
-        .into_iter()
-        .filter(|&i| model::matches_search(&lobby.games()[i], query))
-        .collect();
     // A list scrolls only when it has rows to scroll.
     if !order.is_empty() {
         commands.entity(list).insert((
@@ -1010,7 +1026,10 @@ fn tables(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Games))),
         ));
     }
-    if order.is_empty() {
+    if order.is_empty() && lobby.refreshing() {
+        let skeleton = crate::shellkit::states::skeleton(commands, kit, 3);
+        commands.entity(list).add_child(skeleton);
+    } else if order.is_empty() {
         let hunt = lobby.field(Field::Search).trim();
         let (said, action) = if offline {
             (Phrase::OfflineReadyToPlay.text(lang).to_string(), None)
@@ -1045,15 +1064,13 @@ fn tables(
             crate::shellkit::states::empty(commands, kit, crate::hud::glyph::HOUSE, &said, action);
         commands.entity(list).add_child(empty);
     }
-    let mine_format = lobby
-        .next_deck()
-        .map(|d| d.format.clone())
-        .unwrap_or_default();
+    // Deck selection belongs to the room; browsing has no selected-deck warning.
+    let mine_format = String::new();
     // Lazy windowed virtualization for large table listings (> 24 rows),
     // keeping DOM/ECS entity count bounded while preserving exact scroll height.
     let lazy_window = 24usize;
     let total_rows = order.len();
-    let row_stride = 68.0 * kit.m.scale;
+    let row_stride = discovery::row_stride(kit.m.frame) * kit.m.scale;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let (start, end) = if total_rows > lazy_window {
         let scroll_y = scrolled.get(List::Games).max(0.0);
@@ -1071,7 +1088,7 @@ fn tables(
             .spawn((
                 Node {
                     width: percent(100),
-                    height: px_fixed((start as f32 * row_stride - 4.0 * kit.m.scale).max(0.0)),
+                    height: px_fixed((start as f32 * row_stride - 8.0 * kit.m.scale).max(0.0)),
                     flex_shrink: 0.0,
                     ..default()
                 },
@@ -1102,7 +1119,7 @@ fn tables(
                 Node {
                     width: percent(100),
                     height: px_fixed(
-                        ((total_rows - end) as f32 * row_stride - 4.0 * kit.m.scale).max(0.0),
+                        ((total_rows - end) as f32 * row_stride - 8.0 * kit.m.scale).max(0.0),
                     ),
                     flex_shrink: 0.0,
                     ..default()
@@ -1182,23 +1199,24 @@ fn table_row(
     let row = commands
         .spawn((
             Role::Row,
+            discovery::TableCard,
             Node {
                 width: percent(100),
-                min_height: px_fixed(if kit.m.frame == ShellFrame::Phone {
-                    60.0
-                } else {
-                    kit.m.row
-                }),
+                min_height: kit.m.px(discovery::row_stride(kit.m.frame) - 8.0),
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 row_gap: kit.m.px(4.0),
-                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(6.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                padding: UiRect::axes(kit.m.px(16.0), kit.m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(12.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.03)),
-            Pickable::IGNORE,
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER.with_alpha(0.45)),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::SELECTED),
+            Pickable::default(),
         ))
         .id();
     let top = parts::row(commands, kit, false);
@@ -1213,7 +1231,8 @@ fn table_row(
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
                 min_width: px(0),
-                row_gap: kit.m.px(2.0),
+                overflow: Overflow::clip_x(),
+                row_gap: kit.m.px(4.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1248,6 +1267,18 @@ fn table_row(
     // The counts: seats, the lock, the AI (wrapping on a phone, where they
     // share the name's column with Join beside it).
     let counts = parts::row(commands, kit, phone);
+    if wide {
+        commands
+            .entity(counts)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.width = kit.m.px(160.0);
+                n.flex_shrink = 0.0;
+                n.flex_direction = FlexDirection::Column;
+                n.align_items = AlignItems::Start;
+                n.row_gap = kit.m.px(6.0);
+            });
+    }
     let taken = game
         .seats
         .iter()
@@ -1289,9 +1320,9 @@ fn table_row(
         );
         commands.entity(counts).add_child(ai);
     }
+    discovery::seat_marks(commands, counts, kit, game);
     // The one action that applies.
     let mine = game.seated() || game.yours;
-    let mut password_line = None;
     if phone
         && !mine
         && model::format_warning(lang, mine_format, game).is_some()
@@ -1370,49 +1401,6 @@ fn table_row(
         *walked += 1;
         commands.entity(top).add_child(watch);
     } else if game.joinable() {
-        if game.locked && !held {
-            let password = commands
-                .spawn((
-                    Node {
-                        width: kit.m.px(160.0),
-                        flex_shrink: 1.0,
-                        min_width: px(80),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            let field = text_field(
-                commands,
-                kit.fonts,
-                super::Metrics::of(1280.0),
-                "",
-                &FieldLook {
-                    buffer: lobby.buffer(Field::RoomPassword),
-                    focused: lobby.focus() == Field::RoomPassword && lobby.typing_here(),
-                    mask: Some(Masked {
-                        field: Some(Field::RoomPassword),
-                        shown: lobby.showing(Field::RoomPassword),
-                    }),
-                    press: Press::Shared(SharedPress::Focus(Field::RoomPassword)),
-                    lead: None,
-                    hint: Some(Phrase::PlayPassword.text(lang)),
-                    tail: None,
-                },
-            );
-            commands.entity(password).add_child(field);
-            if phone {
-                // A phone's row has no room beside the name: the password
-                // takes a line of its own under it.
-                commands
-                    .entity(password)
-                    .entry::<Node>()
-                    .and_modify(|mut n| n.width = percent(100));
-                password_line = Some(password);
-            } else {
-                commands.entity(top).add_child(password);
-            }
-        }
         let join = controls::button(
             commands,
             kit,
@@ -1432,10 +1420,27 @@ fn table_row(
         *walked += 1;
         commands.entity(top).add_child(join);
     }
-    commands.entity(row).add_child(top);
-    if let Some(password) = password_line {
-        commands.entity(row).add_child(password);
+    if wide {
+        let action_width = kit.m.px(132.0);
+        commands.queue(move |world: &mut World| {
+            let actions: Vec<_> = world
+                .get::<Children>(top)
+                .map(|children| {
+                    children
+                        .iter()
+                        .filter(|id| world.get::<Press>(*id).is_some())
+                        .collect()
+                })
+                .unwrap_or_default();
+            for action in actions {
+                if let Some(mut node) = world.get_mut::<Node>(action) {
+                    node.width = action_width;
+                    node.flex_shrink = 0.0;
+                }
+            }
+        });
     }
+    commands.entity(row).add_child(top);
     if !wide && !phone {
         // The second meta line (Narrow).
         commands.entity(row).add_child(counts);
@@ -1495,6 +1500,7 @@ fn menu(
                 .map(|s| menus::item(s.phrase().text(lang), Press::Play(PlayPress::Sort(s))))
                 .collect();
             menus::draw(commands, root, kit, anchor, items);
+            menus::selected(commands, Press::Play(PlayPress::Sort(state.play.sort)));
         }
         _ => {}
     }
@@ -2016,8 +2022,24 @@ impl PlayPress {
             }
             PlayPress::Sort(sort) => state.play.sort = sort,
             PlayPress::Join(index) => {
-                let game = state.lobby.games().get(index).map(|g| g.id.clone());
-                if let Some(game) = game {
+                let game = state
+                    .lobby
+                    .games()
+                    .get(index)
+                    .map(|g| (g.id.clone(), g.locked));
+                if let Some((game, locked)) = game {
+                    if locked {
+                        state.play.password_for = Some(game);
+                        state.lobby.set_field(Field::RoomPassword, "");
+                        state.lobby.focus_on(Field::RoomPassword);
+                    } else {
+                        let request = state.lobby.join(&game);
+                        dispatch(state, mailbox, request);
+                    }
+                }
+            }
+            PlayPress::JoinProtected => {
+                if let Some(game) = state.play.password_for.clone() {
                     let request = state.lobby.join(&game);
                     dispatch(state, mailbox, request);
                 }
@@ -2130,6 +2152,7 @@ impl PlayPress {
             PlayPress::CloseSheet => {
                 state.play.sheet = None;
                 state.play.picker = false;
+                state.play.password_for = None;
                 if matches!(state.lobby.focus(), Field::RoomName | Field::RoomPassword) {
                     state.lobby.focus_on(Field::Search);
                 }
@@ -2194,6 +2217,12 @@ pub(super) fn ask_for_house(
 /// Forgets having stepped away from a room once there is no room (M-7): the
 /// next chair is shown its room.
 pub(super) fn follow_the_room(mut state: ResMut<LobbyState>) {
+    if state.play.password_for.as_ref().is_some_and(|id| {
+        state.lobby.awaiting().is_some() || !state.lobby.games().iter().any(|game| &game.id == id)
+    }) {
+        state.play.password_for = None;
+        state.lobby.focus_on(Field::Search);
+    }
     if state.lobby.awaiting().is_some() {
         return;
     }

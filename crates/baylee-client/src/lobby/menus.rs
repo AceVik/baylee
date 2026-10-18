@@ -10,7 +10,7 @@
 use super::*;
 use crate::shellkit::controls::Kit;
 use crate::shellkit::surfaces::{self, MenuItem};
-use crate::shellkit::tokens;
+use crate::shellkit::{Role, tokens};
 
 /// Which menu is open.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -42,6 +42,9 @@ pub(crate) struct MenuAnchor(pub Entity);
 /// A menu waiting to be placed (spawned hidden, measured first).
 #[derive(Component)]
 pub(crate) struct Unplaced;
+
+#[derive(Component, Default)]
+pub(super) struct Opening(f32);
 
 /// Draws `items` as the open menu hanging from `anchor`, with a scrim that
 /// closes it, at the root of the tree.
@@ -75,14 +78,17 @@ pub(super) fn draw<'a>(
             left: px(0),
             top: px(0),
             flex_direction: FlexDirection::Column,
-            min_width: kit.m.px(200.0),
-            padding: UiRect::axes(px(0), kit.m.px(4.0)),
+            min_width: kit.m.px(240.0),
+            row_gap: kit.m.px(3.0),
+            padding: UiRect::all(kit.m.px(8.0)),
             border: UiRect::all(px(1)),
             border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
             ..default()
         },
         MenuAnchor(anchor),
         Unplaced,
+        Opening::default(),
+        UiTransform::default(),
         Visibility::Hidden,
     ));
     commands.entity(root).add_children(&[scrim, menu]);
@@ -161,4 +167,52 @@ pub(super) fn danger(text: &str, press: Press) -> MenuItem<'_, Press> {
         destructive: true,
         action: press,
     }
+}
+
+/// Gentle arrival after placement, independent of the display refresh rate.
+pub(super) fn animate(
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut menus: Query<(&mut Opening, &mut UiTransform, &Visibility)>,
+) {
+    for (mut opening, mut transform, visible) in &mut menus {
+        if *visible == Visibility::Hidden || opening.0 >= 1.0 {
+            continue;
+        }
+        let next = if prefs.all().reduce_motion {
+            1.0
+        } else {
+            opening.0 + (1.0 - opening.0) * (1.0 - (-24.0 * time.delta_secs()).exp())
+        };
+        opening.0 = if next > 0.995 { 1.0 } else { next };
+        transform.translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
+    }
+}
+
+/// Mark the currently selected option through both fill and a check mark.
+pub(super) fn selected(commands: &mut Commands, wanted: Press) {
+    commands.queue(move |world: &mut World| {
+        let row = world
+            .query::<(Entity, &Press, &Role)>()
+            .iter(world)
+            .find(|(_, action, role)| **action == wanted && **role == Role::MenuItem)
+            .map(|(id, _, _)| id);
+        let Some(row) = row else {
+            return;
+        };
+        world.entity_mut(row).insert((
+            BackgroundColor(tokens::SELECTED),
+            crate::ambience::Feel::tinting_to(tokens::SELECTED, tokens::PRIMARY),
+        ));
+        let icon = world
+            .get::<Children>(row)
+            .and_then(|children| children.iter().next())
+            .and_then(|lead| world.get::<Children>(lead))
+            .and_then(|children| children.iter().next());
+        if let Some(icon) = icon
+            && let Some(mut text) = world.get_mut::<Text>(icon)
+        {
+            text.0 = "\u{f00c}".into();
+        }
+    });
 }

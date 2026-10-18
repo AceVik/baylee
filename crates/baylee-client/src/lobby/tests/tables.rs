@@ -39,12 +39,8 @@ fn an_empty_search_has_a_working_way_back_to_all_tables() {
         .apply(LobbyEvent::Games(GameListing::default()));
     app.update();
     assert!(labels(&mut app).contains(&Phrase::ShellNoOneWaiting.text(Lang::En).to_owned()));
-    // First run (S-3): the hero asks for a deck, and Play the house waits.
-    assert!(
-        labels(&mut app)
-            .iter()
-            .any(|l| l.eq_ignore_ascii_case(Phrase::PlayPickToStart.text(Lang::En)))
-    );
+    assert!(labels(&mut app).contains(&Phrase::DiscoveryHelp.text(Lang::En).to_owned()));
+    assert!(!presses(&mut app).contains(&Press::Play(PlayPress::ChangeDeck)));
     assert!(presses(&mut app).contains(&Press::Play(PlayPress::CreateTable)));
     assert!(!presses(&mut app).contains(&Press::Play(PlayPress::ClearSearch)));
 }
@@ -89,14 +85,12 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             }])));
     }
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::DeckMeta.fill(Lang::En, &["100", "4"])));
+    assert!(labels(&mut app).contains(&Phrase::DiscoveryGateway.text(Lang::En).to_owned()));
+    assert!(!labels(&mut app).iter().any(|text| text == "Allytifact"));
     let found = presses(&mut app);
     for wanted in [
         // Signing out is in the account pill's menu (the shell design, §2.1).
         Press::Header(super::super::header::HeaderPress::Account),
-        Press::Play(PlayPress::ChangeDeck),
-        Press::Play(PlayPress::PlayHouse),
-        Press::Shared(SharedPress::OpenMenu(ShellMenu::Difficulty)),
         Press::Play(PlayPress::CreateTable),
         Press::Play(PlayPress::Join(0)),
         // The chairs of a waiting table are drawn for everyone, so a
@@ -798,4 +792,106 @@ fn local_and_hosted_llm_deck_presses_recheck_host_authority() {
     games[0].seats[1].delegated_by = None; // A person took this chair meanwhile.
     state.lobby.apply(LobbyEvent::Games(GameListing::of(games)));
     assert!(deck_request(&mut state, 0, 1, 1).is_none());
+}
+
+#[test]
+fn protected_table_password_is_requested_only_after_selecting_it() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+            id: "protected-room".into(),
+            name: "Friends".into(),
+            locked: true,
+            state: "waiting".into(),
+            seats: vec![
+                GameSeat::default(),
+                GameSeat {
+                    seat: 1,
+                    ..default()
+                },
+            ],
+            ..default()
+        }])));
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::Shared(SharedPress::Focus(Field::RoomPassword))));
+    press(&mut app, Press::Play(PlayPress::Join(0)));
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .play
+            .password_for
+            .as_deref(),
+        Some("protected-room")
+    );
+    assert!(presses(&mut app).contains(&Press::Play(PlayPress::JoinProtected)));
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.busy(),
+        "opening the prompt sends no request"
+    );
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Tab, Key::Tab));
+    app.update();
+    let focused = app
+        .world()
+        .resource::<bevy::input_focus::InputFocus>()
+        .get()
+        .expect("modal focus");
+    let stop = app
+        .world()
+        .get::<crate::shellkit::focus::Stop>(focused)
+        .expect("modal stop");
+    assert_eq!(stop.table, orders::CREATE.name);
+    assert_eq!(stop.id, "cancel");
+    for _ in 0..2 {
+        app.world_mut()
+            .resource_mut::<Messages<KeyboardInput>>()
+            .write(pressed(KeyCode::Tab, Key::Tab));
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.focus(),
+        Field::RoomPassword
+    );
+    press(&mut app, Press::Play(PlayPress::CloseSheet));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .play
+            .password_for
+            .is_none()
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.focus(),
+        Field::Search
+    );
+}
+
+#[test]
+fn discovery_sidebar_restores_its_own_scroll_after_search_rebuilds() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.world_mut()
+        .resource_mut::<Scrolled>()
+        .set(List::Discovery, 80.0);
+    app.world_mut()
+        .resource_mut::<Scrolled>()
+        .set(List::Games, 112.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::Search, "friends");
+    app.update();
+    let mut lists = app.world_mut().query::<(&Scrollable, &ScrollPosition)>();
+    let sidebar = lists
+        .iter(app.world())
+        .find(|(list, _)| list.0 == List::Discovery)
+        .expect("scrollable gateway sidebar");
+    assert!((sidebar.1.y - 80.0).abs() < f32::EPSILON);
+    assert!((app.world().resource::<Scrolled>().get(List::Games) - 112.0).abs() < f32::EPSILON);
 }

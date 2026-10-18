@@ -5497,6 +5497,34 @@ messages! {
     ShellCouldNotReach { en: "Couldn't reach {0}", de: "{0} ist nicht erreichbar" },
     /// Play's empty tables list.
     ShellNoOneWaiting { en: "No one is waiting", de: "Niemand wartet" },
+    /// Gateway context and table-discovery actions.
+    DiscoveryGateway { en: "YOUR GATEWAY", de: "DEIN GATEWAY" },
+    /// Localized table-discovery interface text.
+    DiscoveryOnline { en: "Online", de: "Online" },
+    /// Localized table-discovery interface text.
+    DiscoveryWaiting { en: "Open tables", de: "Offene Tische" },
+    /// Localized table-discovery interface text.
+    DiscoveryPlaying { en: "In play", de: "Im Spiel" },
+    /// Localized table-discovery interface text.
+    DiscoveryLive { en: "Live updates connected", de: "Live-Aktualisierung verbunden" },
+    /// Localized table-discovery interface text.
+    DiscoveryConnecting { en: "Connecting live updates…", de: "Live-Aktualisierung verbindet …" },
+    /// Localized table-discovery interface text.
+    DiscoveryRefresh { en: "Refresh tables", de: "Tische aktualisieren" },
+    /// Localized table-discovery interface text.
+    DiscoveryDetails { en: "Gateway details", de: "Gateway-Details" },
+    /// Localized table-discovery interface text.
+    DiscoveryChoose { en: "Find your next table", de: "Finde deinen nächsten Tisch" },
+    /// Localized table-discovery interface text.
+    DiscoveryHelp { en: "Join a table, then choose your deck in the room. The host sets the format and pace.", de: "Tritt einem Tisch bei und wähle dort dein Deck. Der Gastgeber legt Format und Spieltempo fest." },
+    /// Localized table-discovery interface text.
+    DiscoveryLoading { en: "Updating tables", de: "Tische werden aktualisiert" },
+    /// Localized table-discovery interface text.
+    DiscoveryResults { en: "{0} tables shown", de: "{0} Tische angezeigt" },
+    /// Localized table-discovery interface text.
+    DiscoveryProtected { en: "Password protected", de: "Mit Passwort" },
+    /// Localized table-discovery interface text.
+    DiscoveryOpen { en: "Open to join", de: "Beitritt möglich" },
     /// A list read a moment ago.
     ShellUpdatedJustNow { en: "updated just now", de: "gerade aktualisiert" },
     /// A table filter.

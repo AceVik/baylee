@@ -519,11 +519,10 @@ pub fn nav(
                 Color::NONE
             }),
             UiTransform::default(),
-            super::sheen::Sheen,
             if active {
                 crate::ambience::Feel::new(tokens::SELECTED)
             } else {
-                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER)
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER)
             },
         ))
         .id();
@@ -1455,7 +1454,12 @@ mod tests {
             for _ in 0..40 {
                 app.update();
             }
-            assert!(scale(&app, face) < 1.0, "{what} gives under a press");
+            if what == "nav" {
+                // Retained navigation keeps its face and hit area stationary.
+                assert!((scale(&app, face) - 1.0).abs() < 1e-6);
+            } else {
+                assert!(scale(&app, face) < 1.0, "{what} gives under a press");
+            }
             point(&mut app, wrapper, PickingInteraction::None);
             for _ in 0..60 {
                 app.update();

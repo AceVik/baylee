@@ -26,6 +26,8 @@ pub(crate) enum List {
     Table,
     /// The saved gateways on the front door.
     Gateways,
+    /// Gateway information and discovery actions.
+    Discovery,
     Games,
     RoomCards,
     Library,
@@ -59,6 +61,7 @@ pub(crate) struct Scrolled {
     deck: f32,
     table: f32,
     gateways: f32,
+    discovery: f32,
     games: f32,
     library: f32,
     picker_panel: f32,
@@ -78,6 +81,7 @@ impl Scrolled {
             List::Deck => self.deck,
             List::Table => self.table,
             List::Gateways => self.gateways,
+            List::Discovery => self.discovery,
             List::Games => self.games,
             List::RoomCards | List::PickerSets => 0.0,
             List::Library => self.library,
@@ -98,6 +102,7 @@ impl Scrolled {
             List::Deck => self.deck = at,
             List::Table => self.table = at,
             List::Gateways => self.gateways = at,
+            List::Discovery => self.discovery = at,
             List::Games => self.games = at,
             List::RoomCards | List::PickerSets => {}
             List::Library => self.library = at,

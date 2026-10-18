@@ -136,7 +136,11 @@ impl Plugin for LobbyPlugin {
                     (feed::feed, chat_joins),
                     (poll, entrance::advance).chain(),
                     localization::update,
-                    watch,
+                    (
+                        watch,
+                        play::discovery::animate_loading,
+                        play::discovery::hover_cards.after(crate::ambience::feel),
+                    ),
                     softkeys,
                     (
                         crate::seatpanel::poll,
@@ -294,7 +298,9 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    menus::place.after(bevy::ui::UiSystems::Layout),
+                    (menus::place, menus::animate)
+                        .chain()
+                        .after(bevy::ui::UiSystems::Layout),
                     focusing::follow_focus,
                 )
                     .run_if(in_state(DuelPhase::Closed)),

@@ -20,6 +20,8 @@ pub(crate) const PLAY: TabOrder = TabOrder {
         "play-house",
         "difficulty",
         "create",
+        "refresh",
+        "gateway-details",
         "recent",
         "search",
         "chips",

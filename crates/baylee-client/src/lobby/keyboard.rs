@@ -411,8 +411,9 @@ fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>
         }
         return true;
     }
-    if state.play.sheet.is_some() && escape {
+    if (state.play.sheet.is_some() || state.play.password_for.is_some()) && escape {
         state.play.sheet = None;
+        state.play.password_for = None;
         state.lobby.focus_on(Field::Search);
         return true;
     }
@@ -424,11 +425,11 @@ fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>
 /// starting-board search only in its open drawer, a locked row's password
 /// only on the list. A field that is not drawn takes no keys.
 pub(super) fn field_drawn(state: &LobbyState) -> bool {
-    let sheet = state.play.sheet.is_some();
+    let sheet = state.play.sheet.is_some() || state.play.password_for.is_some();
     let room = state.lobby.awaiting().is_some() && !state.room_away;
     match state.lobby.focus() {
-        Field::RoomName => sheet,
-        Field::RoomPassword => sheet || !room,
+        Field::RoomName => state.play.sheet.is_some(),
+        Field::RoomPassword => sheet,
         Field::RoomBoard(seat) => room && state.room_setup_seat == Some(seat),
         Field::RoomCounter => room && state.room_setup_seat.is_some(),
         Field::Search | Field::DeckSearch | Field::ReplaySearch => !room && !sheet,
@@ -492,6 +493,11 @@ fn paste_into_form(
 /// The room's optional editors are shell state. Tab only visits fields the
 /// room currently draws; the other forms keep the core's normal field ring.
 fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
+    if state.play.password_for.is_some() {
+        state.lobby.focus_on(Field::RoomPassword);
+        state.lobby.select_all();
+        return;
+    }
     // The Create-table sheet: its name and its password, the only two
     // fields it draws (offline, the name alone).
     if state.play.sheet.is_some() {
@@ -699,6 +705,12 @@ fn text_field_keys(
                 }
             }
             // The Create-table sheet's default button (`KEYBOARD.md` §7.4).
+            Key::Enter if table && state.play.password_for.is_some() => {
+                if let Some(game) = state.play.password_for.clone() {
+                    let request = state.lobby.join(&game);
+                    dispatch(state, mailbox, request);
+                }
+            }
             Key::Enter if table && state.play.sheet.is_some() => {
                 if let Some((draft, editing)) = state.play.sheet.take() {
                     let request = if editing {

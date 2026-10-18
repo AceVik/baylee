@@ -208,10 +208,19 @@ pub(super) fn draw(
     state: &LobbyState,
     kit: Kit,
     metrics: Metrics,
+    retained: Option<Entity>,
 ) {
     let seated = seated(state);
     if wears_header(state) {
-        bar(commands, root, state, kit, metrics, seated.is_some());
+        if let Some(bar) = retained {
+            commands.entity(root).add_child(bar);
+        } else {
+            bar(commands, root, state, kit, seated.is_some());
+        }
+    }
+    if state.front_menu && wears_header(state) {
+        let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
+        commands.entity(root).add_child(menu);
     }
     strips(commands, root, state, kit, seated);
     // The builder wears a header of its own (`buildui::header`) with the
@@ -223,16 +232,54 @@ pub(super) fn draw(
     }
 }
 
+/// Stable header identity, independent of page requests and open popovers.
+#[derive(Component)]
+pub(crate) struct RetainedHeader(pub String);
+
+/// Only visible header facts invalidate it; page requests and menus do not.
+pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
+    let lobby = &state.lobby;
+    let gateway = state
+        .gateway_name()
+        .unwrap_or_else(|| state.gateway.clone());
+    let counts = if lobby.offline() {
+        Phrase::ShellOfflinePill.text(lobby.lang()).to_owned()
+    } else {
+        strips::pill_words(lobby.stats(), lobby, lobby.lang())
+    };
+    format!(
+        "{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+        active(state),
+        lobby.offline(),
+        state.feed_down,
+        gateway,
+        counts,
+        handle(state),
+        seated(state).is_some(),
+        state.bell.unread(),
+        state.chat_header == Some(true),
+        kit.m.frame,
+        kit.m.scale,
+        kit.m.text,
+        kit.m.header,
+        kit.m.hit,
+        kit.german
+    )
+}
+
+/// Discards a header when the next screen no longer wears one.
+fn discard_detached(
+    mut commands: Commands,
+    headers: Query<Entity, (With<RetainedHeader>, Without<ChildOf>)>,
+) {
+    for entity in &headers {
+        commands.entity(entity).despawn();
+    }
+}
+
 /// The header bar itself, and the quick settings' menu when it is open.
 #[allow(clippy::too_many_lines)]
-fn bar(
-    commands: &mut Commands,
-    root: Entity,
-    state: &LobbyState,
-    kit: Kit,
-    metrics: Metrics,
-    seated: bool,
-) {
+fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seated: bool) {
     let lang = state.lobby.lang();
     {
         let reach = if state.lobby.offline() {
@@ -267,7 +314,6 @@ fn bar(
                 BackgroundColor(Color::NONE),
                 UiTransform::default(),
                 crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-                crate::shellkit::sheen::Sheen,
                 Pickable::IGNORE,
             ))
             .id();
@@ -348,11 +394,10 @@ fn bar(
                 ent.insert(Press::Header(HeaderPress::Nav(0)));
             }
         });
+        commands
+            .entity(bar)
+            .insert((RetainedHeader(identity(state, kit)), LobbyScreen));
         commands.entity(root).add_child(bar);
-        if state.front_menu {
-            let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
-            commands.entity(bar).add_child(menu);
-        }
     }
 }
 
@@ -502,24 +547,6 @@ fn strips(
     }
     if state.update_required() && matches!(state.lobby.screen(), Screen::Table) {
         let bar = kit_header::strip(commands, kit, Phrase::ShellUpdateRequired.text(lang), &[]);
-        commands.entity(root).add_child(bar);
-    }
-    if state.feed_down && !phone && matches!(state.lobby.screen(), Screen::Table) {
-        let retry = controls::button_compact(
-            commands,
-            kit,
-            None,
-            Phrase::ShellRetryNow.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            Press::Header(HeaderPress::RetryNow),
-        );
-        let bar = kit_header::strip(
-            commands,
-            kit,
-            Phrase::ShellReconnecting.text(lang),
-            &[retry],
-        );
         commands.entity(root).add_child(bar);
     }
 }
@@ -778,6 +805,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 ..default()
             },
             UiTransform::default(),
+            Visibility::Hidden,
             GlobalZIndex(tokens::z::POPOVER),
             Pickable::IGNORE,
         ))
@@ -804,7 +832,13 @@ pub(super) fn place_header_popovers(
         ),
         Without<HeaderPopover>,
     >,
-    mut popovers: Query<(&HeaderPopover, &ComputedNode, &mut Node, &mut UiTransform)>,
+    mut popovers: Query<(
+        &HeaderPopover,
+        &ComputedNode,
+        &mut Node,
+        &mut UiTransform,
+        &mut Visibility,
+    )>,
     mut nipples: Query<&mut Node, Without<HeaderPopover>>,
 ) {
     if popovers.is_empty() {
@@ -816,7 +850,7 @@ pub(super) fn place_header_popovers(
     let win_width = windows.iter().next().map_or(1280.0, |w| {
         crate::hud::scale::desktop_dimensions(w, ui.as_deref()).0
     });
-    for (pop, computed, mut node, mut transform) in &mut popovers {
+    for (pop, computed, mut node, mut transform, mut shown) in &mut popovers {
         if motion.last_trigger != Some(pop.trigger) {
             motion.last_trigger = Some(pop.trigger);
             motion.progress = if still { 1.0 } else { 0.0 };
@@ -833,7 +867,7 @@ pub(super) fn place_header_popovers(
             }
         }
         let t = motion.progress;
-        let scale = Vec2::splat(0.94 + 0.06 * t);
+        let scale = Vec2::splat(0.985 + 0.015 * t);
         let y_offset = (1.0 - t) * -6.0;
         if transform.scale != scale || transform.translation != Val2::px(0.0, y_offset) {
             transform.scale = scale;
@@ -853,7 +887,11 @@ pub(super) fn place_header_popovers(
         let trig_center = trig_global.translation * trig_scale;
         let anchor_x = trig_center.x;
         let anchor_bottom = trig_center.y + trig_size.y * 0.5;
-        let pop_width = (computed.size().x * computed.inverse_scale_factor).max(210.0);
+        let measured_width = computed.size().x * computed.inverse_scale_factor;
+        if measured_width <= 0.0 {
+            continue;
+        }
+        let pop_width = measured_width;
         let margin = 12.0;
         let max_left = (win_width - pop_width - margin).max(margin);
         let left = (anchor_x - pop_width * 0.5).clamp(margin, max_left);
@@ -862,6 +900,11 @@ pub(super) fn place_header_popovers(
             node.left = px_fixed(left);
             node.right = Val::Auto;
             node.top = px_fixed(top);
+            // Layout must consume this position before any pixels are shown.
+            continue;
+        }
+        if *shown != Visibility::Inherited {
+            *shown = Visibility::Inherited;
         }
         let nipple_left = (anchor_x - left - 7.0).clamp(16.0, (pop_width - 30.0).max(16.0));
         if let Ok(mut nip) = nipples.get_mut(pop.nipple)
@@ -1424,7 +1467,7 @@ pub(super) fn install(app: &mut App) {
         )
         .add_systems(
             PostUpdate,
-            place_header_popovers
+            (discard_detached, place_header_popovers)
                 .after(bevy::ui::UiSystems::Layout)
                 .run_if(in_state(DuelPhase::Closed)),
         );

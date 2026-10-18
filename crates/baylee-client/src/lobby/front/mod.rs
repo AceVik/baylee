@@ -889,10 +889,13 @@ pub(super) fn gear_menu(
         ))
         .id();
     let nipple = super::header::spawn_popover_nipple(commands);
-    commands.entity(menu).insert(super::header::HeaderPopover {
-        trigger: crate::shellkit::header::HeaderTrigger::Gear,
-        nipple,
-    });
+    commands.entity(menu).insert((
+        super::header::HeaderPopover {
+            trigger: crate::shellkit::header::HeaderTrigger::Gear,
+            nipple,
+        },
+        Visibility::Hidden,
+    ));
     let head = commands
         .spawn((
             Node {

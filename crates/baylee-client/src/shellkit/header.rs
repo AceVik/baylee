@@ -304,7 +304,6 @@ pub fn brand_mark(commands: &mut Commands, header: f32, name: &str) -> Entity {
             BackgroundColor(Color::NONE),
             UiTransform::default(),
             crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-            super::sheen::Sheen,
         ))
         .id()
 }
@@ -404,8 +403,11 @@ pub(super) fn install(app: &mut App) {
         let art = BrandArt(LOGO_CUTS.map(|(_, path)| assets.load(path)));
         app.insert_resource(art);
     }
-    app.add_systems(Update, dress_header_surfaces)
-        .add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
+    app.add_systems(
+        PostUpdate,
+        dress_header_surfaces.before(bevy::ui::UiSystems::Layout),
+    )
+    .add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
 }
 
 /// The gateway pill on Wide and Vast: the reach dot, the name (or address)
@@ -437,7 +439,6 @@ fn gateway_pill(
             BorderColor::all(tokens::BORDER),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
-            super::sheen::Sheen,
         ))
         .id();
     let dot = commands
@@ -556,7 +557,6 @@ pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundl
             BackgroundColor(Color::NONE),
             UiTransform::default(),
             crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-            super::sheen::Sheen,
             Pickable::IGNORE,
         ))
         .id();
@@ -628,7 +628,6 @@ pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bund
             BorderColor::all(tokens::BORDER),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
-            super::sheen::Sheen,
         ))
         .id();
     let words = label(commands, kit, &letter, kit.m.small, tokens::INK);

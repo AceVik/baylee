@@ -231,6 +231,11 @@ fn eighths(scale: f32) -> u8 {
     (scale * 8.0).round() as u8
 }
 
+type LobbyRoots<'w, 's> = (
+    Query<'w, 's, Entity, With<LobbyRoot>>,
+    Query<'w, 's, (Entity, &'static super::header::RetainedHeader)>,
+);
+
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
 /// into a different frame.
 ///
@@ -245,7 +250,7 @@ pub(super) fn ui(
     scrolled_to: Res<Scrolled>,
     fonts: Option<Res<UiFonts>>,
     (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
-    root: Query<Entity, With<LobbyRoot>>,
+    roots: LobbyRoots<'_, '_>,
     // Only the printing picker draws a remote image, and a headless test has
     // no asset server {2014} nor should it reach the CDN to build a tree.
     assets: Option<Res<AssetServer>>,
@@ -265,6 +270,7 @@ pub(super) fn ui(
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
     mut rebuilds: ResMut<UiRebuilds>,
 ) {
+    let (root, headers) = roots;
     let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
         crate::hud::scale::desktop_dimensions(w, ui.as_deref())
     });
@@ -279,7 +285,9 @@ pub(super) fn ui(
     // off a change flag (a settings save is not a rebuild).
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let games_window = if state.lobby.games().len() > 24 {
-        (scrolled_to.get(List::Games).max(0.0) / (68.0 * shell_m.scale * 4.0)) as usize
+        (scrolled_to.get(List::Games).max(0.0)
+            / (super::play::discovery::row_stride(shell_m.frame) * shell_m.scale * 4.0))
+            as usize
     } else {
         0
     };
@@ -388,6 +396,14 @@ pub(super) fn ui(
     rebuilds.cast += u64::from(cast.is_changed());
     rebuilds.frame += u64::from(root.is_empty() || drawn.0 != Some(metrics.frame) || !kit_same);
     *builder_drawn = None;
+    let header_key = super::header::identity(&state, kit);
+    let retained_header = headers
+        .iter()
+        .find(|(_, stored)| stored.0 == header_key)
+        .map(|(entity, _)| entity);
+    for (entity, _) in &headers {
+        commands.entity(entity).remove::<ChildOf>();
+    }
     for entity in &root {
         commands.entity(entity).despawn();
     }
@@ -440,7 +456,7 @@ pub(super) fn ui(
     // account's, not the gateway's, and coming back has to land exactly where
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
-        super::header::draw(&mut commands, root, &state, kit, metrics);
+        super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
         let (_, _, in_use, trial, monitors) = &kit_inputs;
         let settings = kit_inputs.1.as_deref();
         let view = crate::settingsui::View {
@@ -492,11 +508,12 @@ pub(super) fn ui(
             &scrolled_to,
             kit,
             prefs.all(),
+            retained_header,
         ),
         Screen::Build => {
             // The builder keeps its own header; the seated strip stands
             // above it.
-            super::header::draw(&mut commands, root, &state, kit, metrics);
+            super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
             *builder_drawn = Some(crate::buildui::builder(
                 &mut commands,
                 root,

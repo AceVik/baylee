@@ -16,6 +16,7 @@ pub(super) fn table(
     scrolled_to: &Scrolled,
     kit: crate::shellkit::controls::Kit,
     prefs: &baylee_client_core::prefs::Preferences,
+    retained_header: Option<Entity>,
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
@@ -53,7 +54,7 @@ pub(super) fn table(
     // ---- the shell's header, its strips and popovers (WP0b-3);
     // lobby.status() notices and refusals are rendered in the unified
     // top-left ToastLane (`header::toast_lane`) with 15s auto-dismiss and X.
-    super::header::draw(commands, root, state, kit, metrics);
+    super::header::draw(commands, root, state, kit, metrics, retained_header);
 
     if let Some(handover) = lobby.awaiting().filter(|_| !state.room_away)
         && let Some(index) = lobby
