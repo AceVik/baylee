@@ -25,7 +25,7 @@ use crate::{
 #[derive(Component)]
 struct Root;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-enum Press {
+pub(crate) enum Press {
     Open,
     Close,
     Field(usize),
@@ -111,19 +111,30 @@ fn act(press: Press, form: &mut Form, host: &mut SocialHost, ui: &mut ChatUi) {
             form.clear();
         }
         Press::Action(choice) => {
-            if host.vault.busy() || form.password.is_empty() {
+            let creating = choice != Choice::Unlock;
+            let chosen = if creating && !form.new_password.is_empty() {
+                form.new_password.text()
+            } else {
+                form.password.text()
+            };
+            if host.vault.busy() || chosen.is_empty() {
+                return;
+            }
+            let confirm = if creating {
+                chosen
+            } else {
+                form.new_password.text()
+            };
+            if confirm != form.again.text() {
+                form.mismatch = true;
                 return;
             }
             if choice == Choice::Create && !form.create_armed {
                 form.create_armed = true;
                 return;
             }
-            if form.new_password.text() != form.again.text() {
-                form.mismatch = true;
-                return;
-            }
-            let password = Zeroizing::new(form.password.text().to_string());
-            let new = (!form.new_password.is_empty())
+            let password = Zeroizing::new(chosen.to_string());
+            let new = (!creating && !form.new_password.is_empty())
                 .then(|| Zeroizing::new(form.new_password.text().to_string()));
             form.clear();
             vault_access::begin(host, choice, password, None, new);
@@ -528,9 +539,35 @@ mod tests {
     }
 
     #[test]
+    fn create_and_import_require_confirmation_of_the_actual_wrapping_password() {
+        for choice in [Choice::Create, Choice::ImportFile, Choice::ImportKeychain] {
+            let mut form = Form::default();
+            form.password.set("password", 8, None);
+            let mut host = SocialHost::default();
+            act(
+                Press::Action(choice),
+                &mut form,
+                &mut host,
+                &mut ChatUi::default(),
+            );
+            assert!(form.mismatch && !form.create_armed && !host.vault.busy());
+            form.again.set("password", 8, None);
+            form.new_password.set("different", 9, None);
+            act(
+                Press::Action(choice),
+                &mut form,
+                &mut host,
+                &mut ChatUi::default(),
+            );
+            assert!(form.mismatch && !form.create_armed && !host.vault.busy());
+        }
+    }
+
+    #[test]
     fn new_device_creation_requires_two_deliberate_presses() {
         let mut form = Form::default();
         form.password.set("password", 8, None);
+        form.again.set("password", 8, None);
         let mut host = SocialHost::default();
         act(
             Press::Action(Choice::Create),

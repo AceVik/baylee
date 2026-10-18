@@ -49,7 +49,14 @@ fn accepted_password_change_with_same_token_locks_before_reopening() {
     let mut login = super::super::Login::from_request(&session.gateway, &request).unwrap();
     login.accept(&session.token);
     lobby.vault_login = Some(login);
-    follow(&mut host, &mut lobby);
+    let mut started = false;
+    follow_with(&mut host, &mut lobby, |host, login| {
+        assert!(host.machine.is_none() && host.store.is_none());
+        assert_eq!(login.password.as_str(), "new");
+        assert_eq!(login.previous.as_deref().map(String::as_str), Some("old"));
+        started = true;
+    });
+    assert!(started);
     assert!(host.machine.is_none());
     assert!(host.store.is_none());
     assert!(lobby.vault_login.is_none());

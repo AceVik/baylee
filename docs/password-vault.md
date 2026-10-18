@@ -74,7 +74,9 @@ the old history cannot be promised recoverable.
 ## Creation, import, and durable storage
 
 Missing vaults require an explicit choice. **Create new encrypted vault** has a
-second confirmation because it creates a new E2E device. **Import legacy key
+second confirmation because it creates a new E2E device. Creation and imports
+also require a matching repeat of the actual chosen wrapping password, using
+the optional new-password field when supplied and otherwise the first field. **Import legacy key
 file** and **Import from system keychain** read their source only after the
 player selects them. The latter may show an OS access prompt, on its worker.
 There is no automatic OS-store availability probe or keychain read.

@@ -38,7 +38,7 @@ pub(crate) mod toasts;
 mod transport;
 pub(crate) mod vault_access;
 #[cfg(not(target_arch = "wasm32"))]
-mod vault_ui;
+pub(crate) mod vault_ui;
 pub(crate) mod window;
 pub(crate) mod zoom;
 

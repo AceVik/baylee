@@ -158,7 +158,7 @@ fn native_vault_is_exclusive_private_durable_and_never_overwrites_on_failure() {
 #[test]
 fn trusted_root_alias_is_resolved_but_vault_symlink_is_refused() {
     use crate::social::vault::SecretSlot;
-    use std::os::unix::fs::symlink;
+    use std::os::unix::fs::{PermissionsExt as _, symlink};
     let temp = std::env::temp_dir();
     let root = temp.join(format!("baylee-vault-alias-{}", uuid::Uuid::now_v7()));
     std::fs::create_dir(&root).unwrap();
@@ -177,7 +177,6 @@ fn trusted_root_alias_is_resolved_but_vault_symlink_is_refused() {
     assert!(PasswordStore::open(&alias, scope(), slot, "password", None).is_err());
     std::fs::remove_file(&dir).unwrap();
     std::fs::rename(&moved, &dir).unwrap();
-    use std::os::unix::fs::PermissionsExt as _;
     std::fs::set_permissions(root.join("vault"), std::fs::Permissions::from_mode(0o777)).unwrap();
     assert!(
         PasswordStore::open(

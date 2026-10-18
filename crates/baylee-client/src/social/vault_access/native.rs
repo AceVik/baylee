@@ -50,6 +50,18 @@ impl Access {
 }
 
 pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
+    follow_with(host, lobby, |host, login| {
+        begin(host, Choice::Unlock, login.password, login.previous, None);
+    });
+}
+
+// Inject the I/O boundary so lifecycle tests cannot accidentally use the real
+// process configuration directory when another test has opened Settings.
+fn follow_with(
+    host: &mut SocialHost,
+    lobby: &mut LobbyState,
+    start: impl FnOnce(&mut SocialHost, super::Login),
+) {
     // A password endpoint may retain the same session token. Its accepted
     // credentials still require a fresh unlock/rewrap, even without end().
     if host.machine.is_some()
@@ -115,7 +127,7 @@ pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
         .take()
         .filter(|l| l.gateway == session.gateway && l.token.as_deref() == Some(&session.token));
     if let Some(login) = login {
-        begin(host, Choice::Unlock, login.password, login.previous, None);
+        start(host, login);
     }
 }
 

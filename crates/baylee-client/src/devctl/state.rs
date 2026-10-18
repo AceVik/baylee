@@ -29,6 +29,7 @@ type ChatControl = (
     Option<&'static crate::social::sheet::SheetPress>,
     Option<&'static crate::social::toasts::ToastPress>,
     Option<&'static crate::social::menu::RowPress>,
+    Option<&'static crate::social::vault_ui::Press>,
     &'static ComputedNode,
     &'static UiGlobalTransform,
     &'static InheritedVisibility,
@@ -60,6 +61,7 @@ type ChatControlFilter = Or<(
     With<crate::social::sheet::SheetPress>,
     With<crate::social::toasts::ToastPress>,
     With<crate::social::menu::RowPress>,
+    With<crate::social::vault_ui::Press>,
 )>;
 
 /// Everything `/state` reads, in one parameter.
@@ -810,13 +812,14 @@ fn chat_json(believed: &Believed) -> String {
     let rows: Vec<serde_json::Value> = controls
         .iter()
         .filter(|(.., seen)| seen.get())
-        .map(|(chat, drawer, sheet, toast, row, node, place, _)| {
+        .map(|(chat, drawer, sheet, toast, row, vault, node, place, _)| {
             let press = chat
                 .map(|p| format!("{p:?}"))
                 .or_else(|| drawer.map(|p| format!("{p:?}")))
                 .or_else(|| sheet.map(|p| format!("{p:?}")))
                 .or_else(|| toast.map(|p| format!("{p:?}")))
                 .or_else(|| row.map(|p| format!("{p:?}")))
+                .or_else(|| vault.map(|p| format!("Vault{p:?}")))
                 .unwrap_or_default();
             let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
