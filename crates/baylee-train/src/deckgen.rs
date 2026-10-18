@@ -16,7 +16,8 @@ use std::fmt::Write as _;
 use anyhow::{Context as _, bail};
 use baylee_cards::decks::{DeckCard, LoadedDeck, basic_lands, leader_of};
 use baylee_cards::formats::{self, Shape};
-use baylee_core::color::{Color, ColorSet};
+use baylee_core::color::{Color, ColorPair, ColorSet};
+use baylee_core::generated::index::CRYPTIC_SPIRES;
 use baylee_core::ids::CardIndex;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
@@ -248,10 +249,24 @@ impl Generated {
     pub fn loaded(&self) -> LoadedDeck {
         LoadedDeck {
             name: self.name.clone(),
-            main: self.main.iter().map(|c| DeckCard::plain(*c)).collect(),
+            main: self.main.iter().map(|c| self.copy(*c)).collect(),
             sideboard: Vec::new(),
             commanders: self.leaders.iter().map(|c| DeckCard::plain(*c)).collect(),
         }
+    }
+
+    // Keep the in-memory preset and exported deck's construction choices equal.
+    fn copy(&self, index: CardIndex) -> DeckCard {
+        let mut card = DeckCard::plain(index);
+        if index == CRYPTIC_SPIRES {
+            let mut colors = COLORS.into_iter().filter(|c| self.colors.contains(*c));
+            let first = colors.next().unwrap_or(Color::White);
+            let second = colors
+                .next()
+                .unwrap_or_else(|| COLORS.into_iter().find(|c| *c != first).unwrap());
+            card.choices.circled_colors = Some(ColorPair::new(first, second));
+        }
+        card
     }
 
     /// The deck in the house decks' text format: `[deck:Name]`, one
@@ -261,11 +276,20 @@ impl Generated {
     /// main; call it then instead.
     #[must_use]
     pub fn text(&self) -> String {
-        let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
         for c in &self.main {
-            *counts
-                .entry(baylee_cards::by_index(*c).map_or("?", |d| d.name()))
-                .or_default() += 1;
+            let mut name = baylee_cards::by_index(*c)
+                .map_or("?", |d| d.name())
+                .to_owned();
+            if let Some(pair) = self.copy(*c).choices.circled_colors {
+                let _ = write!(
+                    name,
+                    " circles={}{}",
+                    pair.first().symbol(),
+                    pair.second().symbol()
+                );
+            }
+            *counts.entry(name).or_default() += 1;
         }
         let mut out = format!("[deck:{}]\n", self.name);
         for (name, n) in counts {
@@ -425,6 +449,8 @@ pub fn generate(
         .entries
         .iter()
         .filter(|e| e.land && !e.basic)
+        // Two distinct circles cannot fit a mono-color commander's identity.
+        .filter(|e| shape != Shape::Commander || colors.len() >= 2 || e.card != CRYPTIC_SPIRES)
         .filter(fits)
         .collect();
     let mut land_cards: Vec<CardIndex> = Vec::with_capacity(lands);
@@ -520,6 +546,11 @@ mod tests {
                         assert!(working.check(card).is_ok(), "{card} does not work");
                         assert!(!held.contains(&card), "{card} is held out");
                     }
+                    let parsed = crate::housedeck::HouseDeck::parse("generated", &deck.text())
+                        .expect("every generated deck retains valid construction choices");
+                    let mut parsed_main = parsed.deck.main;
+                    parsed_main.sort_by_key(|card| card.index);
+                    assert_eq!(parsed_main, deck.loaded().main);
                     let again = generate(&pool, shape, archetype, seed).unwrap();
                     assert_eq!(deck.main, again.main);
                 }
@@ -550,11 +581,35 @@ mod tests {
     }
 
     #[test]
+    fn spires_choices_survive_loaded_and_text_decks() {
+        for colors in [ColorSet::of(Color::Red), ColorSet::ALL] {
+            let deck = Generated {
+                name: "Spires".into(),
+                shape: Shape::Constructed,
+                archetype: Archetype::Midrange,
+                colors,
+                main: vec![CRYPTIC_SPIRES; 4],
+                leaders: Vec::new(),
+            };
+            let loaded = deck.loaded();
+            let parsed = crate::housedeck::HouseDeck::parse("spires", &deck.text()).unwrap();
+            assert_eq!(parsed.deck.main, loaded.main);
+            for card in loaded.main {
+                baylee_cards::print_rules::validate_choices(card.index, card.choices).unwrap();
+                assert_eq!(card.choices.colors().len(), 2);
+                assert!(!card.choices.colors().intersection(colors).is_empty());
+            }
+        }
+    }
+
+    #[test]
     fn the_text_is_a_house_deck_file() {
         let (_, pool) = pool();
         let deck = generate(&pool, Shape::Commander, Archetype::Midrange, 3).unwrap();
         let parsed = crate::housedeck::HouseDeck::parse("gen", &deck.text()).unwrap();
-        assert_eq!(parsed.deck.main.len(), deck.main.len());
+        let mut parsed_main = parsed.deck.main;
+        parsed_main.sort_by_key(|card| card.index);
+        assert_eq!(parsed_main, deck.loaded().main);
         assert_eq!(parsed.deck.commanders.len(), 1);
     }
 }

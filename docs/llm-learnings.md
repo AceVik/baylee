@@ -4801,3 +4801,27 @@ The final native binary repeated this as one game: Garrison attacked for four
 with two 1/1 Humans, melded in the second main phase, then Township attacked for
 13 on the following turn (40 → 36 → 23). This run used `BAYLEE_NO_TOURS=1` without
 the CLI switch and confirmed `tour.disabled == true` with an empty seen list.
+
+The final workspace sweep also exposed a deck-generator integration omission:
+Cryptic Spires entered generated training decks without its required circles.
+Generated presets and text exports now share the same deterministic pair of
+colors; mono-color Commander decks exclude Spires because two distinct colors
+cannot fit their commander's identity. A round-trip test checks all physical
+copies rather than merely comparing deck sizes.
+
+Validation on the completed implementation: engine 8,653 passed (2 ignored),
+gamehost 308 passed (2 ignored), client 2,040 passed (8 ignored), client-core
+2,144 passed (1 ignored). The full workspace/all-targets sweep used the local
+PostgreSQL test service. Its follow-up runs covered every target after the
+initial stop: corrected protocol-version expectations, the Spires round-trip,
+and the recorded view-version pair (82). Final training tests: 43 passed;
+view: 46 passed; xtask: 76 passed. The version guards caught stale test records,
+not a need to lower the protocol/view versions again.
+
+Final quality gates passed: workspace/all-targets Clippy with `-D warnings`,
+client Clippy with `dev-control`, formatting, codegen reproducibility,
+`cargo build --workspace`, Scryfall-cache verification, card validation and
+`scripts/gate-wasm.sh`. The native debug build emits the known macOS linker
+warning about the large unwind-data section; it links successfully. Validation
+reports 9,107 conforming cards, including 56 explicitly marked stubs; finishing
+these three reviewed mechanics does not turn those stubs into implementations.

@@ -330,7 +330,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // choices also require a reader that understands their new variants.
     // 80: imported damage-clearing replacement prompt; local view shape unchanged.
     // 81: Battle defender/Defense counter variants and public battle protector.
-    const RECORDED: (u32, u64) = (81, 6_787_793_169_872_021_519);
+    // 82: imported dungeon and mutate choices and physical-card/token status bits.
+    const RECORDED: (u32, u64) = (82, 6_787_793_169_872_021_519);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
