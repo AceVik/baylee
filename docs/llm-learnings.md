@@ -6,13 +6,15 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
-## 2026-10-18 — Generated baseline verification (Packages 1–4: 2,364 cards promoted)
+## 2026-10-19 — Generated baseline verification (Packages 1–6: all 4,969 cards promoted)
 
-Verifying the frozen `Coverage::Generated` baseline in mechanical packages
-(Package 1: 12 battle-hold / scriptgen cards; Package 2: 788 vanilla, keyword,
-protection, combat-restriction, and enter-modifier creatures; Package 3: 627
-Auras, Equipment, non-Aura Enchantments, and non-Equipment Artifacts; Package 4:
-574 Instants and 363 Sorceries) surfaced five reusable lessons:
+Verifying the entire frozen `Coverage::Generated` baseline in six mechanical
+packages (Package 1: 12 battle-hold / scriptgen cards; Package 2: 788 vanilla,
+keyword, protection, combat-restriction, and enter-modifier creatures; Package 3:
+627 Auras, Equipment, non-Aura Enchantments, and non-Equipment Artifacts;
+Package 4: 574 Instants and 363 Sorceries; Package 5: 1,296 non-triggered
+creatures; Package 6: 1,309 triggered creatures) promoted all 4,969 cards to
+`Coverage::Implemented` and surfaced eight reusable lessons:
 
 1. **Test-scanner `oracle_id` discipline.** `xtask codegen` scans all files under
    `crates/baylee-engine/src/engine/card_tests/` for quoted `oracle_id` UUID
@@ -46,6 +48,27 @@ Auras, Equipment, non-Aura Enchantments, and non-Equipment Artifacts; Package 4:
    rule test `nothing_writes_the_tapped_bit_except_the_one_door` scans all
    files under `crates/baylee-engine/src/` for direct `.status.insert(Status::TAPPED)`
    writes; test fixtures that pre-tap permanents must call `st.set_tapped(id, true)`.
+6. **Multiple instances of cumulative keywords (`Prowess`, `Exalted`, `Melee`).**
+   Under CR 702.108b, multiple instances of prowess on the same object trigger
+   separately (`Thor Odinson, God of Thunder`: `"Flying, prowess, prowess"`).
+   `scriptgen` must preserve repeated instances of `Keyword::Prowess`,
+   `Keyword::Exalted`, and `Keyword::Melee` rather than deduplicating them in
+   `keywords.rs`.
+7. **Printed `mana_ability!` vs. intrinsic CR 305.6 basic-land mana.**
+   `PlayerAction::ActivateManaAbility { source }` is strictly the CR 305.6
+   intrinsic basic-land subtype shortcut (`Plains`, `Island`, `Swamp`,
+   `Mountain`, `Forest`). Printed `mana_ability!` entries in a card's `abilities`
+   slice (such as `Silhana Starfletcher` or mana dorks) are activated via
+   `PlayerAction::ActivateAbility { source, ability_index }`.
+8. **`sba::destroy` vs. `kill` when testing `Trigger::Dies` and state triggers.**
+   Calling `sba::destroy` directly on `GameState` journals the `ObjectMoved`
+   event without running `flush_triggers_and_sbas`, and `pass_until(engine,
+   stack_is_empty)` checks its predicate *before* applying an action—returning
+   immediately while the stack is still empty and triggers are still uncollected
+   in the journal. Always use `kill(&mut engine, id)` (or apply one
+   `PlayerAction::PassPriority` after `sba::destroy` before `pass_until`) so
+   `flush_triggers_and_sbas` places `Trigger::Dies` and `Trigger::State` abilities
+   onto the stack.
 
 ## 2026-10-18 — Batch 53: 31 cards, modal MDFCs, Class levels, and validator sync
 
