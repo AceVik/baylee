@@ -5,12 +5,14 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static TARGET1: Filter = Filter::And(&[Filter::CREATURE, Filter::CmcAtMostX]);
+
 card!(
     index = index::STIR_THE_GRAVE,
     oracle_id = "296dcc57-5651-4cb1-b89c-fcdd3f5311bd",
     scryfall_id = "7287f68f-f2e2-4e6f-a772-29a629bb9ccd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stir the Grave",
         mana_cost = mana!("{X}{B}"),
@@ -18,12 +20,12 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You),
             owner_control: false,
             counters: None
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::CREATURE,
+            &TARGET1,
             PlayerRel::You
         )))
     ),],

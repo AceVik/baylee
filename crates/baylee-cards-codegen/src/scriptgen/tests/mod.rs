@@ -90,6 +90,7 @@ fn filter(valid: &str) -> String {
     let cats = cats();
     let tx = Tx {
         svars: &svars,
+        oracle: "",
         cats: &cats,
         tokens: None,
         has_x: false,

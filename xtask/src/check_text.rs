@@ -217,6 +217,22 @@ pub(crate) fn check_player_targets_match_the_printing(
         return;
     };
     tally.player_targets += 1;
+    if bare.contains("target opponent")
+        && !bare.contains("target player")
+        && !bare.contains("any target")
+    {
+        if ["TargetSpec::AnyOpponent", "TargetSpec::OpponentOrObject"]
+            .iter()
+            .any(|spec| content.contains(spec))
+        {
+            return;
+        }
+        println!(
+            "{slug}: the printing says \"target opponent\" and the code names no opponent to target"
+        );
+        *problems += 1;
+        return;
+    }
     // `OpponentOrObject` is "target opponent or [filter]" (Huntmaster of
     // the Fells' back face): one instance of the word that may name a player.
     if [

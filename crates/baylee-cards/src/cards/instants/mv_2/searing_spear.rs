@@ -10,7 +10,7 @@ card!(
     oracle_id = "aafd44c1-74a9-4aa7-a4a2-67eb39a07478",
     scryfall_id = "44c5f884-d071-40c2-bb2c-925dc2197ea3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Searing Spear",
         mana_cost = mana!("{1}{R}"),

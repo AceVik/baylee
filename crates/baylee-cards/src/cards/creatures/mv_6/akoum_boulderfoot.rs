@@ -11,7 +11,7 @@ card!(
     oracle_id = "c16367eb-1c0a-4197-8e2f-2d74e4381024",
     scryfall_id = "88e8f7b6-1214-447b-8665-ff3c85845564",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akoum Boulderfoot",
         mana_cost = mana!("{4}{R}{R}"),

@@ -4825,3 +4825,31 @@ client Clippy with `dev-control`, formatting, codegen reproducibility,
 warning about the large unwind-data section; it links successfully. Validation
 reports 9,107 conforming cards, including 56 explicitly marked stubs; finishing
 these three reviewed mechanics does not turn those stubs into implementations.
+
+## 2026-10-18 — Generated baseline audit and Package 1 (scriptgen fixes + battle-hold promotion)
+
+Auditing the frozen baseline of 4,969 `Coverage::Generated` cards against Scryfall
+Oracle text and the reference corpus exposed two `scriptgen` defects and nine
+resolved battle-damage holds:
+
+- `Stir the Grave` (`{X}{B}`, "Return target creature card with mana value X or
+  less from your graveyard to the battlefield.") spelled its mana-value bound in
+  the corpus via `SVar:X:Targeted$CardManaCost` rather than `+cmcLEX` on
+  `ValidTgts$`. `scriptgen::Tx::graveyard_target` and `cmc_atom` now attach
+  `Filter::CmcAtMostX` when an X spell/ability carries `SVar:X:Targeted$CardManaCost`.
+- `Dread Rider` (`{1}{B}, {T}, Exile a creature card from your graveyard: Target
+  opponent loses 3 life.`) had `ValidTgts$ Player` in the corpus script despite
+  its `Oracle:` line specifying `Target opponent`. `scriptgen::Tx::target_spec`
+  now narrows `ValidTgts$ Player` to `TargetSpec::AnyOpponent` when the script's
+  Oracle text prints `"target opponent"` without `"target player"`, and
+  `xtask::check_text::check_player_targets_match_the_printing` now rejects any
+  card printing `"target opponent"` (without `"target player"` or `"any target"`)
+  that lacks `TargetSpec::AnyOpponent` or `TargetSpec::OpponentOrObject`.
+- When running `xtask codegen` from a git worktree, both `../mtg/card-scripts`
+  and sibling `../mtg/tokenscripts` must resolve so `TokenLookup::beside` can
+  transcode token-creating cards without regressing precon deck status.
+- Promoted 12 `Generated` cards in Package 1 (`Stir the Grave`, `Dread Rider`,
+  `Slumbering Waterways`, and the 9 battle-damage hold cards after removing the
+  resolved entries from `data/card-test-holds.tsv`), reducing remaining
+  `Coverage::Generated` cards from 4,969 to 4,957.
+

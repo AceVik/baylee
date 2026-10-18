@@ -309,8 +309,11 @@ impl Tx<'_> {
     pub(super) fn cmc_atom(&self, atom: &str) -> Option<String> {
         let (cmp, number) = atom.strip_prefix("cmc")?.split_at_checked(2)?;
         if number == "X" {
-            let announced =
-                self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid");
+            let announced = self.has_x
+                && matches!(
+                    self.svars.get("X").map(String::as_str),
+                    Some("Count$xPaid" | "Targeted$CardManaCost")
+                );
             return match cmp {
                 "LE" if announced => Some("Filter::CmcAtMostX".to_string()),
                 "EQ" if announced => Some("Filter::CmcExactlyX".to_string()),

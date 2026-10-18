@@ -38,6 +38,7 @@ pub fn refusal_reason(
     }
     let mut tx = Tx {
         svars: &script.svars,
+        oracle: &script.oracle,
         cats,
         tokens,
         has_x: false,

@@ -80,6 +80,7 @@ mod secret_base;
 mod shimmering_grotto;
 mod shock;
 mod slow;
+mod slumbering_waterways;
 mod spheres;
 mod storage;
 mod study_hall;

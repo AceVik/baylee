@@ -9,7 +9,7 @@ card!(
     index = index::EXPLOSIVE_APPARATUS,
     oracle_id = "ab8301da-f9f7-4d90-afae-bd7e60834c22",
     scryfall_id = "608f431b-a05c-4610-94f7-928d87b2c056",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Explosive Apparatus",
         mana_cost = mana!("{1}"),

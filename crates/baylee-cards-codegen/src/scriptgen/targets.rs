@@ -320,8 +320,14 @@ impl Tx<'_> {
     pub(super) fn target_spec(&mut self, valid: &str, api: &str) -> Option<String> {
         // "Target player" and "target opponent" are both a *choice*, and
         // they are different choices: `Player(PlayerRel::Opponent)` would be
-        // every opponent and no choice at all.
+        // every opponent and no choice at all. When the corpus script writes
+        // `ValidTgts$ Player` on a card whose Oracle text says "target
+        // opponent" (Dread Rider), the Oracle restriction wins.
         if valid == "Player" {
+            let lower = self.oracle.to_ascii_lowercase();
+            if lower.contains("target opponent") && !lower.contains("target player") {
+                return Some("TargetSpec::AnyOpponent".to_string());
+            }
             return Some("TargetSpec::AnyPlayer".to_string());
         }
         if valid == "Opponent" {
@@ -364,6 +370,14 @@ impl Tx<'_> {
                 "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
                 other => kept.push(other),
             }
+        }
+        // Stir the Grave spells its "with mana value X or less" bound as
+        // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
+        if self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Targeted$CardManaCost")
+            && !kept.iter().any(|a| a.starts_with("cmc"))
+        {
+            kept.push("cmcLEX");
         }
         let filter = if kept.is_empty() {
             self.filter_expr(base)?

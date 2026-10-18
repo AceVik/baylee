@@ -11,7 +11,7 @@ card!(
     oracle_id = "69003cbc-8e5a-41dc-ac53-18f6e776217b",
     scryfall_id = "22331eb5-c791-4d38-a6f7-cc5f4ef815ef",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sparkmage Apprentice",
         mana_cost = mana!("{1}{R}"),

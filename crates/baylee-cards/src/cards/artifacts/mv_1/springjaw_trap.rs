@@ -11,7 +11,7 @@ card!(
     oracle_id = "3a635b73-692f-4345-9628-cb4f9f0cddad",
     scryfall_id = "3741de51-ea92-493a-8058-e0f2000e7701",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Springjaw Trap",
         mana_cost = mana!("{1}"),

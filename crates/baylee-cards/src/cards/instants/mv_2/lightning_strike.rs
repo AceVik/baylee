@@ -10,7 +10,7 @@ card!(
     oracle_id = "f34b9bc4-7bfe-47fd-ba23-4eeeb46026eb",
     scryfall_id = "88b13bc0-da54-4c3b-917c-7c8345a329f5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Strike",
         mana_cost = mana!("{1}{R}"),

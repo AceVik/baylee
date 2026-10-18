@@ -313,6 +313,7 @@ fn a_cost_is_not_split_inside_its_own_brackets() {
     let cats = cats();
     let mut tx = Tx {
         svars: &svars,
+        oracle: "",
         cats: &cats,
         tokens: None,
         has_x: false,

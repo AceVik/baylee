@@ -11,7 +11,7 @@ card!(
     oracle_id = "e5c15ef5-6795-40c2-a131-a73f74142314",
     scryfall_id = "205eb029-68a0-4895-b142-2eb09987b5cb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dread Rider",
         mana_cost = mana!("{5}{B}"),
@@ -26,6 +26,6 @@ card!(
             amount: Amount::Fixed(3),
             target: PlayerRel::Chosen
         }],
-        target = Some(TargetSpec::AnyPlayer)
+        target = Some(TargetSpec::AnyOpponent)
     ),],
 );

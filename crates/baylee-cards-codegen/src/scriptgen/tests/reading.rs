@@ -1209,3 +1209,39 @@ fn chosen_source_all_damage_shield_is_repeatable_and_not_recipient_limited() {
         assert!(refused(&script.replace(a, b)));
     }
 }
+
+#[test]
+fn graveyard_return_with_targeted_mana_cost_x_adds_cmc_at_most_x_filter() {
+    let body = read(
+        "Name:Stir the Grave\nManaCost:X B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouCtrl\n\
+         SVar:X:Targeted$CardManaCost",
+    );
+    assert!(
+        body.statics
+            .contains("Filter::And(&[Filter::CREATURE, Filter::CmcAtMostX])"),
+        "{}",
+        body.statics
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "spell!(&[Effect::GraveyardToBattlefield { target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You), owner_control: false, counters: None }], targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You))))"
+        ]
+    );
+}
+
+#[test]
+fn player_target_with_target_opponent_oracle_narrows_to_any_opponent() {
+    let body = read(
+        "Name:Dread Rider\nManaCost:5 B\nTypes:Creature Spirit Knight\nPT:3/7\n\
+         A:AB$ LoseLife | Cost$ 1 B T ExileFromGrave<1/Creature> | ValidTgts$ Player | LifeAmount$ 3\n\
+         Oracle:{1}{B}, {T}, Exile a creature card from your graveyard: Target opponent loses 3 life.",
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "activated!(cost!(\"{1}{B}\", TapSelf, ExileFromGraveyard(&Filter::CREATURE)), &[Effect::LoseLife { amount: Amount::Fixed(3), target: PlayerRel::Chosen }], target = Some(TargetSpec::AnyOpponent))"
+        ]
+    );
+}

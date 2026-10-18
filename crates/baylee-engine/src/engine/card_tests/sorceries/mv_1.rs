@@ -38,3 +38,4 @@ mod disentomb;
 mod return_to_battle;
 
 mod chain_lightning;
+mod stir_the_grave;

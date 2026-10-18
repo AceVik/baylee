@@ -1,12 +1,3 @@
 # Test acceptance holds: Oracle ID<TAB>known rules gap.
 # Useful tests remain enabled; machine-owned cards stay Generated until the hold is removed.
 # This does not fix or disable the known behavior; Generated remains untrusted.
-c16367eb-1c0a-4197-8e2f-2d74e4381024	Akoum Boulderfoot: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-6f76fec2-6fd0-4d33-b39a-f1684922d478	Blisterstick Shaman: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-ab8301da-f9f7-4d90-afae-bd7e60834c22	Explosive Apparatus: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-f34b9bc4-7bfe-47fd-ba23-4eeeb46026eb	Lightning Strike: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-8b218023-50b8-4d9d-b17b-9647479d3675	Open Fire: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-aafd44c1-74a9-4aa7-a4a2-67eb39a07478	Searing Spear: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-69003cbc-8e5a-41dc-ac53-18f6e776217b	Sparkmage Apprentice: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-3a635b73-692f-4345-9628-cb4f9f0cddad	Springjaw Trap: damage to battles does not remove defense counters; battle-target coverage is incomplete.
-5f9ea6e4-f5be-4ea2-95b4-fbdc69685ac5	Precision Bolt: damage to battles does not remove defense counters; battle-target coverage is incomplete.

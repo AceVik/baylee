@@ -77,3 +77,5 @@ mod firestorm_phoenix;
 mod hill_giant_herdgorger;
 mod megantic_sliver;
 mod oathsworn_giant;
+
+mod dread_rider;

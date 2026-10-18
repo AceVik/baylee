@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slumbering Waterways",
         types = TypeSet::LAND,

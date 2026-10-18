@@ -10,7 +10,7 @@ card!(
     oracle_id = "8b218023-50b8-4d9d-b17b-9647479d3675",
     scryfall_id = "448f9fb5-ffb5-4325-9f81-ce8782e5f9e9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Open Fire",
         mana_cost = mana!("{2}{R}"),

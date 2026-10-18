@@ -78,6 +78,8 @@ pub use support::{SUPPORTED_APIS, apis_used, is_supported_api, is_vanilla, refus
 pub struct CardScript {
     /// Whether the type line explicitly names Land, for land-only permissions.
     pub is_land: bool,
+    /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
+    pub oracle: String,
     /// `K:` lines, verbatim.
     pub keywords: Vec<String>,
     /// Rules lines as `(kind, body)` — kind is `A`, `T`, `S` or `R`.
@@ -97,7 +99,6 @@ const IGNORED_PREFIXES: &[&str] = &[
     "Loyalty",
     "Defense",
     "Colors",
-    "Oracle",
     "DeckHas",
     "DeckHints",
     "DeckNeeds",
@@ -121,6 +122,7 @@ pub fn parse(text: &str) -> CardScript {
         };
         match prefix {
             "Types" => out.is_land = rest.split_whitespace().any(|word| word == "Land"),
+            "Oracle" => out.oracle = rest.to_string(),
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -307,6 +309,7 @@ struct BlockHalf {
 
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
+    oracle: &'a str,
     cats: &'a SubtypeCatalogs,
     /// The reference's token scripts, when a checkout is at hand. `None` is
     /// a run with no token corpus and not a gap in the DSL, which is why the
@@ -491,6 +494,7 @@ pub fn transcode(
     }
     let mut tx = Tx {
         svars: &script.svars,
+        oracle: &script.oracle,
         cats,
         tokens,
         has_x: false,
