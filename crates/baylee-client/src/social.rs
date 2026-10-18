@@ -762,7 +762,9 @@ fn drive(
         }
         host.session = wanted;
     }
-    vault_access::discard_stale_login(&mut lobby);
+    // Vault credentials are an invisible one-shot handoff. Mutating only that
+    // field must not flag visible lobby state and rebuild its UI every frame.
+    vault_access::discard_stale_login(lobby.bypass_change_detection());
     let Some(session) = host.session.clone() else {
         return;
     };
@@ -805,7 +807,7 @@ fn drive(
             }
         }
     }
-    vault_access::follow(host, &mut lobby);
+    vault_access::follow(host, lobby.bypass_change_detection());
     if host.machine.is_none() {
         return;
     }
