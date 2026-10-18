@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Songbird, Sonic Screamer",
         mana_cost = mana!("{1}{B}"),

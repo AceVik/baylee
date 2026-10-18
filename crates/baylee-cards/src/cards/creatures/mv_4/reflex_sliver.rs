@@ -11,7 +11,7 @@ card!(
     oracle_id = "80e4e857-3f7e-4344-bf41-64d3b32f328f",
     scryfall_id = "2e14da2f-0e35-4586-8435-de0859aad060",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reflex Sliver",
         mana_cost = mana!("{3}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3c6b4a2d-0bc0-4a54-9c78-712b48ad6be1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlefly Swarm",
         mana_cost = mana!("{B}"),

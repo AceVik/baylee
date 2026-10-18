@@ -13,7 +13,7 @@ card!(
     scryfall_id = "16705695-1ba8-4169-974f-d8c683ab2652",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stalking Bloodsucker",
         mana_cost = mana!("{4}{B}{B}"),

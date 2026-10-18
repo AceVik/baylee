@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7afaaea9-300a-46c8-b9ec-a2579f8a4b7f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stunt Double",
         mana_cost = mana!("{3}{U}"),

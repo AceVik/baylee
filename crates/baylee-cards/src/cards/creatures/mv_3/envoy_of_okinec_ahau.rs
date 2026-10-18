@@ -12,7 +12,7 @@ card!(
     oracle_id = "ebc70734-bf1a-4754-8094-bcbb4db91f30",
     scryfall_id = "96de0741-9270-4118-bb8e-f3480c75a582",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Envoy of Okinec Ahau",
         mana_cost = mana!("{2}{W}"),

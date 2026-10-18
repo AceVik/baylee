@@ -17,7 +17,7 @@ card!(
     oracle_id = "85791f11-44ab-4405-b284-1d91c7e0afbb",
     scryfall_id = "48181263-11fd-444e-9fef-02ccfe016c8c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angrath's Ambusher",
         mana_cost = mana!("{2}{B}"),

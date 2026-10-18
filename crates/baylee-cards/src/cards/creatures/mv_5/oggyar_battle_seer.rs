@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a38329f1-af6e-47b8-86e4-f2a39e1edbf8",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oggyar Battle-Seer",
         mana_cost = mana!("{3}{U}{R}"),

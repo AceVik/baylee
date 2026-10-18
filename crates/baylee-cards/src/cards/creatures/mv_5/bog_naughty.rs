@@ -18,7 +18,7 @@ card!(
     scryfall_id = "0cf282fe-83fd-4208-b46f-dae76e3a7f62",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bog Naughty",
         mana_cost = mana!("{3}{B}{B}"),

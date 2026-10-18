@@ -18,7 +18,7 @@ card!(
     oracle_id = "b7ebd207-43e3-49eb-86ca-b5987ef9e22f",
     scryfall_id = "58b3b63d-fabb-46ad-aabe-1e9fb34b4f8c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lys Alana Scarblade",
         mana_cost = mana!("{2}{B}"),

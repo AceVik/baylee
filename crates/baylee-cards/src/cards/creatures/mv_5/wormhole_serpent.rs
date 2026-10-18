@@ -11,7 +11,7 @@ card!(
     oracle_id = "6eb21aca-116e-427b-9e75-8adaee0cc62a",
     scryfall_id = "2d0fd73f-e161-4e42-b4f9-9246a9dba785",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wormhole Serpent",
         mana_cost = mana!("{4}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "35826db0-b6ff-47b5-be16-c5b878d9e842",
     scryfall_id = "22f2bad4-565d-4302-a8aa-57e03f65cc84",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stronghold Assassin",
         mana_cost = mana!("{1}{B}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "805d1f48-dd91-4034-b42c-3f1f1cb75cc9",
     scryfall_id = "71f7f788-2795-46a7-82ae-270f1e9415ca",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ephara's Warden",
         mana_cost = mana!("{3}{W}"),

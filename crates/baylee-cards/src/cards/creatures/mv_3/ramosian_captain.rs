@@ -26,7 +26,7 @@ card!(
     scryfall_id = "0e9d2e2a-c608-4787-bbd9-e1871f681b58",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ramosian Captain",
         mana_cost = mana!("{1}{W}{W}"),

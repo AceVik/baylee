@@ -14,7 +14,7 @@ card!(
     scryfall_id = "6d224279-83f3-4a29-9fd9-86b72407b87a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trestle Troll",
         mana_cost = mana!("{1}{B}{G}"),

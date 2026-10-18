@@ -17,7 +17,7 @@ card!(
     oracle_id = "91770dc7-3de3-458f-a240-6540455fe05f",
     scryfall_id = "deac6492-ce39-4137-8418-6169d3b1b632",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "D'Avenant Healer",
         mana_cost = mana!("{1}{W}{W}"),

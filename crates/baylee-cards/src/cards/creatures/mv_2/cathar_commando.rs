@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7cd21530-ca72-4986-a0f2-142b9f23c413",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cathar Commando",
         mana_cost = mana!("{1}{W}"),

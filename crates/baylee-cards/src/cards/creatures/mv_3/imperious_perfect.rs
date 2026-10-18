@@ -13,7 +13,7 @@ card!(
     oracle_id = "3fa71348-fa4d-4f39-a451-cf1570591991",
     scryfall_id = "83b4a09f-ea53-42b4-a41a-4299192a6fd3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperious Perfect",
         mana_cost = mana!("{2}{G}"),

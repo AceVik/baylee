@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c9411c44-92a8-4f5d-b3de-d80046649c8c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Inquisitor",
         mana_cost = mana!("{W}{W}"),

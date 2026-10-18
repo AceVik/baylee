@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c9c0a096-870d-443c-92d3-f7ec1f362616",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scurrid Colony",
         mana_cost = mana!("{1}{G}"),

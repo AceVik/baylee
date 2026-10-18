@@ -6,6 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static TRIGGER1: Filter = Filter::And(&[Filter::NONCREATURE, Filter::ControlledByYou]);
+
 card!(
     index = index::THOR_ODINSON,
     oracle_id = "ec9b74d0-e4fe-4764-b628-992a62f2a1cf",
@@ -14,9 +16,8 @@ card!(
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
-        .union(KeywordSet::PROWESS)
         .union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thor Odinson",
         mana_cost = mana!("{3}{R}{W}"),
@@ -29,5 +30,16 @@ card!(
         ],
         power = Some(4),
         toughness = Some(4),
+    ),],
+    abilities = &[triggered!(
+        Trigger::SpellCast(&TRIGGER1),
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(1),
+            keywords: KeywordSet::EMPTY,
+            duration: Duration::UntilEndOfTurn
+        }]
     ),],
 );

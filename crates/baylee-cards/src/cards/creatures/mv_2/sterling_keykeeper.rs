@@ -16,7 +16,7 @@ card!(
     oracle_id = "f893d3d6-efef-4394-8e15-e01deed72b4f",
     scryfall_id = "019d539f-04c2-43f1-8677-6d6fbb0e94f7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sterling Keykeeper",
         mana_cost = mana!("{1}{W}"),

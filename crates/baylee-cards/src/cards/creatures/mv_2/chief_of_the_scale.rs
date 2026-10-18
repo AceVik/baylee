@@ -11,7 +11,7 @@ card!(
     oracle_id = "32e4de02-8437-4ffc-acc9-a3736652d282",
     scryfall_id = "a227b8cc-cbe5-4955-ad1b-a354704a82e8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chief of the Scale",
         mana_cost = mana!("{W}{B}"),

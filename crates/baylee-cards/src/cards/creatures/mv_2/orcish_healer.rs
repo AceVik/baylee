@@ -24,7 +24,7 @@ card!(
     oracle_id = "9b7a0c9d-1045-4fc0-b5e3-18616106da08",
     scryfall_id = "7ff511f3-416e-4919-acd6-fd8183bf5c60",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orcish Healer",
         mana_cost = mana!("{R}{R}"),

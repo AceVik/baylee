@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4d6cce01-a0cb-4059-a0ad-fbf7d9b998b8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Felhide Petrifier",
         mana_cost = mana!("{2}{B}"),

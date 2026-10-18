@@ -11,7 +11,7 @@ card!(
     oracle_id = "1a185f90-69eb-496b-8e38-8dcf241a84a4",
     scryfall_id = "8fb20f32-cdfa-43e3-8dbe-339bb03c0a00",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarland Thrinax",
         mana_cost = mana!("{B}{R}{G}"),

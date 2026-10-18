@@ -16,7 +16,7 @@ card!(
     oracle_id = "2d49c50b-3e2d-4e74-9b8a-c2f9a495e470",
     scryfall_id = "5677bd49-69eb-41dc-8e64-2df3b7f5c45f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spawnbinder Mage",
         mana_cost = mana!("{3}{W}"),

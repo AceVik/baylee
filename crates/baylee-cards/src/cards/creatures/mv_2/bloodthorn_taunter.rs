@@ -15,7 +15,7 @@ card!(
     scryfall_id = "8769e8f6-15ad-4f1b-bb4d-848ae6b7549e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodthorn Taunter",
         mana_cost = mana!("{1}{R}"),

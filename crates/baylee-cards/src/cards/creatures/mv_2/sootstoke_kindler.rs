@@ -24,7 +24,7 @@ card!(
     scryfall_id = "4b2260b4-c069-4f59-9bd9-35745c98c518",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sootstoke Kindler",
         mana_cost = mana!("{1}{B/R}"),

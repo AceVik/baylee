@@ -11,7 +11,7 @@ card!(
     oracle_id = "2f299e69-d82b-48c9-b7f5-cf07cd9dced2",
     scryfall_id = "ae4328fc-20d2-487b-9a74-57c39b0810c0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jungle Delver",
         mana_cost = mana!("{G}"),

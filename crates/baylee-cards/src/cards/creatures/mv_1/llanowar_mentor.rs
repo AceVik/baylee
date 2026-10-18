@@ -12,7 +12,7 @@ card!(
     oracle_id = "bc7b6508-6522-4772-93b0-3985e7e75048",
     scryfall_id = "e0f894e7-adf7-4fe5-811a-8e2d8c8a88d6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Llanowar Mentor",
         mana_cost = mana!("{G}"),

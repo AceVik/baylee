@@ -17,7 +17,7 @@ card!(
     oracle_id = "3a7cca31-ccca-459b-9ac6-c8f384136ba5",
     scryfall_id = "4189a909-2e20-4dc7-894c-21446da5b0cf",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kird Chieftain",
         mana_cost = mana!("{3}{R}"),

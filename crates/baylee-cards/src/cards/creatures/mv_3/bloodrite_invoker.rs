@@ -11,7 +11,7 @@ card!(
     oracle_id = "2dd3a6f7-65a9-4157-9ad9-13a885ebe927",
     scryfall_id = "94ebd19f-c3ec-41de-bde0-3118b34b76a4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodrite Invoker",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "668a6a9d-80fc-437b-99b8-6807e92eabca",
     scryfall_id = "cc08576f-1d48-4db4-9bb9-e039f75c98b8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agent of Horizons",
         mana_cost = mana!("{2}{G}"),

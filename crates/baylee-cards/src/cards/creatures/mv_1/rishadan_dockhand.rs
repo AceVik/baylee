@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fc488a4c-2885-4727-8317-da93aee8fced",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rishadan Dockhand",
         mana_cost = mana!("{U}"),

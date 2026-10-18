@@ -13,7 +13,7 @@ card!(
     oracle_id = "75da657e-0e36-4f2a-9b81-b7eba7d8e050",
     scryfall_id = "3ab5e71e-dc8d-4ed8-bcef-6497177c4a9d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unburied Earthcarver",
         mana_cost = mana!("{1}{B}"),

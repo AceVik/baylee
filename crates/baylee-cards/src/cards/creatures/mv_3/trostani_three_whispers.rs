@@ -14,7 +14,7 @@ card!(
     scryfall_id = "329f3aca-6db7-41d3-95b2-c479d14b7fa3",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trostani, Three Whispers",
         mana_cost = mana!("{G}{G/W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "73e3cfbc-7177-4bbc-89c4-560c9c2f97db",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Specter of the Fens",
         mana_cost = mana!("{3}{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "87bedc9b-b4d2-41b6-b9f1-e1aeb8e75ec3",
     scryfall_id = "4e87db5a-1a70-42df-83a2-c0f71fe8533a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rootrider Faun",
         mana_cost = mana!("{1}{G}"),

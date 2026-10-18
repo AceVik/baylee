@@ -12,7 +12,7 @@ card!(
     oracle_id = "f432998f-7737-4f41-86b5-a4372bc5db2b",
     scryfall_id = "5f90f877-4033-4892-a6e7-22d2b393c65d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Embraal Bruiser",
         mana_cost = mana!("{1}{B}"),

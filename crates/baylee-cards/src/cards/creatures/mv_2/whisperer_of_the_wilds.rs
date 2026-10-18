@@ -18,7 +18,7 @@ card!(
     oracle_id = "c1e456b6-5d2b-4c42-9464-54a8f9f8f3ba",
     scryfall_id = "2cf17d8a-c7ee-4909-bc80-4138dcfe7e67",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whisperer of the Wilds",
         mana_cost = mana!("{1}{G}"),

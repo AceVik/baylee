@@ -16,7 +16,7 @@ card!(
     oracle_id = "fa8ae8ac-4ad2-4cda-9f6b-4ec634526658",
     scryfall_id = "a4c186d2-e631-4811-83ea-fdb54e730a5d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathcult Rogue",
         mana_cost = mana!("{1}{U/B}{U/B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "388f2e45-570f-4a35-b205-37e1345b5d06",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonerise Spirit",
         mana_cost = mana!("{1}{W}"),

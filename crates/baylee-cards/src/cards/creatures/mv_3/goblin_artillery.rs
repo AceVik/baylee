@@ -11,7 +11,7 @@ card!(
     oracle_id = "06db7444-0225-48c8-ab04-d69ff06e97b6",
     scryfall_id = "674bd59d-9d6d-434d-974f-3aa1cbd770b5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Artillery",
         mana_cost = mana!("{1}{R}{R}"),

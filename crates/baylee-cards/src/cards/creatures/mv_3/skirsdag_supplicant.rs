@@ -11,7 +11,7 @@ card!(
     oracle_id = "c7d97311-6e34-4679-a678-e107022c785c",
     scryfall_id = "b3f63897-15a1-4b34-9916-d9df62f66785",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirsdag Supplicant",
         mana_cost = mana!("{2}{B}"),

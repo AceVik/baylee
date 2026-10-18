@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4998ac4f-b461-4ab8-9680-81c396df371a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyre Charger",
         mana_cost = mana!("{R}{R}"),

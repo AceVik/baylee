@@ -11,7 +11,7 @@ card!(
     oracle_id = "86fd8f95-0f1c-42c0-a63e-567c59ce89c4",
     scryfall_id = "41bd76f3-299d-4bc0-a603-2cc7db7dac7b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caller of Gales",
         mana_cost = mana!("{U}"),

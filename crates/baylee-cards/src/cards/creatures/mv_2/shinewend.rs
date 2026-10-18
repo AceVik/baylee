@@ -14,7 +14,7 @@ card!(
     scryfall_id = "85dbd4a4-2a6f-477a-a267-27859ad73369",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shinewend",
         mana_cost = mana!("{1}{W}"),

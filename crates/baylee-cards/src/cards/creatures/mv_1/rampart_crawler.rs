@@ -16,7 +16,7 @@ card!(
     oracle_id = "302c0400-043d-42fa-abbb-488e520116ba",
     scryfall_id = "8b60f86f-c78a-4dfb-bb18-e9bcf21b26c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rampart Crawler",
         mana_cost = mana!("{B}"),

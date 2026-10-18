@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b99d6d11-b3f7-4d73-967c-3049af82a9d8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Lava",
         mana_cost = mana!("{1}{R}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "93383078-b17f-47f5-a47a-cd6b5bfd8411",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Icatian Phalanx",
         mana_cost = mana!("{4}{W}"),

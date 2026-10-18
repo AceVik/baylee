@@ -16,7 +16,7 @@ card!(
     oracle_id = "9a0a926c-59ab-4bd3-a238-13988bdd96a5",
     scryfall_id = "78480527-cfd6-4065-b702-82de4694f9bb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cephalid Retainer",
         mana_cost = mana!("{2}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "646edf58-4bc5-4d87-af68-b8b006ccb806",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon-Style Twins",
         mana_cost = mana!("{3}{R}{R}"),

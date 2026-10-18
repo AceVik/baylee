@@ -11,7 +11,7 @@ card!(
     oracle_id = "a5ef15b5-83d2-4b23-9403-a9a52be46154",
     scryfall_id = "73c6f5c0-686d-4b3a-add7-487f9fff5faa",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treefolk Healer",
         mana_cost = mana!("{4}{G}"),

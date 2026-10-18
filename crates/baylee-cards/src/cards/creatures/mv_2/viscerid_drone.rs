@@ -25,7 +25,7 @@ card!(
     oracle_id = "5fd4be4c-70a3-4c91-a4c6-788a2051ff13",
     scryfall_id = "9a8871a9-6dc2-487a-83d0-9f08f7ca806a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viscerid Drone",
         mana_cost = mana!("{1}{U}"),

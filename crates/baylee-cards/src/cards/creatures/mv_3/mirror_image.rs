@@ -11,7 +11,7 @@ card!(
     oracle_id = "7275fb8c-571a-4c4c-889a-829419332e51",
     scryfall_id = "5b3ffc69-f21b-410e-8993-8c1b4669fc19",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirror Image",
         mana_cost = mana!("{2}{U}"),

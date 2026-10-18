@@ -14,7 +14,7 @@ card!(
     oracle_id = "affced7f-797d-4e50-8a24-2da14de44e43",
     scryfall_id = "985448b8-5852-4074-a4bd-1dee5192b104",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Atzocan Seer",
         mana_cost = mana!("{1}{G}{W}"),

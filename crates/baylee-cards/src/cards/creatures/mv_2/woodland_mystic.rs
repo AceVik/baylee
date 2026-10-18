@@ -11,7 +11,7 @@ card!(
     oracle_id = "6996c354-d3fa-40c3-8534-27d2f5b74756",
     scryfall_id = "2d6117cf-5cb3-41f3-8756-c01b5e9c760e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodland Mystic",
         mana_cost = mana!("{1}{G}"),

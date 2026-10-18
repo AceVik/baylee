@@ -13,7 +13,7 @@ card!(
     oracle_id = "63bc0a02-0d6c-4a00-8b17-1b024f830219",
     scryfall_id = "be3143f6-9668-4458-b05d-525ddeaf357f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stone Spirit",
         mana_cost = mana!("{4}{R}"),

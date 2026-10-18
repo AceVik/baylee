@@ -11,7 +11,7 @@ card!(
     oracle_id = "399ea8a4-55f5-4f14-ad7a-7af306959496",
     scryfall_id = "41a3b5f2-0b0b-42e0-a15b-4bb2fce05927",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spike-Tailed Ceratops",
         mana_cost = mana!("{4}{G}"),

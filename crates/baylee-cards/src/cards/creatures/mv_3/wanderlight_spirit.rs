@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7bb3ce5d-330d-427e-a053-8cc4eeb2941b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderlight Spirit",
         mana_cost = mana!("{2}{U}"),

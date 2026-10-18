@@ -13,7 +13,7 @@ card!(
     scryfall_id = "24a14ac5-0b7e-4441-9963-782a7cda3f4a",
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Walls of Ba Sing Se",
         mana_cost = mana!("{8}"),

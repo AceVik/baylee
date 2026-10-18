@@ -11,7 +11,7 @@ card!(
     oracle_id = "a671fedf-3766-4fda-abeb-6f63e2fdd20b",
     scryfall_id = "490cd287-5f09-442f-9150-4a6ac2cf3e2e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devkarin Dissident",
         mana_cost = mana!("{1}{G}"),

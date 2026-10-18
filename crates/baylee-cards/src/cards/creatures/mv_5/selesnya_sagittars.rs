@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9a72e933-d977-4be9-985f-8b8cf1267f8c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selesnya Sagittars",
         mana_cost = mana!("{3}{G}{W}"),

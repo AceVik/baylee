@@ -16,7 +16,7 @@ card!(
     oracle_id = "d2cbdbf9-9b08-419e-bb3e-482972d58e74",
     scryfall_id = "4f829763-3dce-453f-a783-177ea085ee01",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Western Paladin",
         mana_cost = mana!("{2}{B}{B}"),

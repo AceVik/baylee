@@ -13,7 +13,7 @@ card!(
     oracle_id = "c07bbe66-96ae-4fab-82b9-fc6dc4f549c3",
     scryfall_id = "3d10be36-8e57-4b08-bc3b-e69769e0908a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oashra Cultivator",
         mana_cost = mana!("{G}"),

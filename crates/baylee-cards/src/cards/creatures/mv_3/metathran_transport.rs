@@ -19,7 +19,7 @@ card!(
     scryfall_id = "4fa9048d-1599-44a5-b4b2-45382c5b238d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metathran Transport",
         mana_cost = mana!("{1}{U}{U}"),

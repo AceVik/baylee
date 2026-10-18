@@ -11,7 +11,7 @@ card!(
     oracle_id = "fe6ff20b-5e4d-44d5-b011-c6e512169294",
     scryfall_id = "6addc915-2997-4b81-a026-97d4421cf17d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mungha Wurm",
         mana_cost = mana!("{2}{G}{G}"),

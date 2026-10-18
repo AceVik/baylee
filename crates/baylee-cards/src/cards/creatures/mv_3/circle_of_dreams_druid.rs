@@ -11,7 +11,7 @@ card!(
     oracle_id = "1c857fa4-e823-494d-9ea4-7eb9e719c9b6",
     scryfall_id = "be6fdec0-a2c4-4da2-ae14-961185eaee66",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Circle of Dreams Druid",
         mana_cost = mana!("{G}{G}{G}"),

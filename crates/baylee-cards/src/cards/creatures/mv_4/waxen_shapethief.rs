@@ -19,7 +19,7 @@ card!(
     scryfall_id = "412aaa30-b9cd-4cf8-beb8-1c1229667b31",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waxen Shapethief",
         mana_cost = mana!("{3}{U}"),

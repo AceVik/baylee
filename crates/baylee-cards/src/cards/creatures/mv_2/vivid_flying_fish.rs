@@ -11,7 +11,7 @@ card!(
     oracle_id = "e8ec9ba4-dc6b-437d-863f-5ec37f4ae9cd",
     scryfall_id = "c6783b19-4d23-445c-9c4c-bb485a1e4149",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vivid Flying Fish",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "668312dd-7b6e-46bf-9c6a-bfb03dd75b8f",
     scryfall_id = "c5ba6543-ede7-45a5-8e8d-e17d3f545d3f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Icatian Crier",
         mana_cost = mana!("{2}{W}"),

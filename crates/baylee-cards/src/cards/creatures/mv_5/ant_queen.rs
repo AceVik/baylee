@@ -12,7 +12,7 @@ card!(
     oracle_id = "50de88d4-0beb-45e5-9664-d4f0e280e652",
     scryfall_id = "499cc16c-9ead-45b9-b56c-7512cd54cf7c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ant Queen",
         mana_cost = mana!("{3}{G}{G}"),

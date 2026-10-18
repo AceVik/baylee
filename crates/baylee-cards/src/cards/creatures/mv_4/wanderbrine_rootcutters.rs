@@ -16,7 +16,7 @@ card!(
     oracle_id = "7e2e96db-e4df-41de-b5a7-712c4a8fe7be",
     scryfall_id = "ab739d64-cdcd-4f07-9854-e067c37c4f41",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderbrine Rootcutters",
         mana_cost = mana!("{2}{U/B}{U/B}"),

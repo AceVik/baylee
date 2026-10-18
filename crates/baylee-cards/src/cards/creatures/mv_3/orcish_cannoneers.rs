@@ -11,7 +11,7 @@ card!(
     oracle_id = "9ebf3eeb-1a1b-4b88-a760-887c2188d287",
     scryfall_id = "d5955be1-4b7c-48d8-939c-e3224466876a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orcish Cannoneers",
         mana_cost = mana!("{1}{R}{R}"),

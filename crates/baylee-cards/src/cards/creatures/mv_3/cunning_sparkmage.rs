@@ -13,7 +13,7 @@ card!(
     scryfall_id = "699842c1-6507-48ee-b98b-3774d1f07c76",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cunning Sparkmage",
         mana_cost = mana!("{2}{R}"),

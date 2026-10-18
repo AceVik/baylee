@@ -11,7 +11,7 @@ card!(
     oracle_id = "ffe05d4b-0ec9-4319-bb11-1366dc091224",
     scryfall_id = "a5f8f9e9-4505-485a-b6c6-a92a4da5155a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venom Sliver",
         mana_cost = mana!("{1}{G}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "b3215b51-01df-4670-994d-b4d7a57b80f8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ember Weaver",
         mana_cost = mana!("{2}{G}"),

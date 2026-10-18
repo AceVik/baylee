@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4a89e82c-7206-4d74-95c6-ad3627e5a9ce",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ranger en-Vec",
         mana_cost = mana!("{1}{G}{W}"),

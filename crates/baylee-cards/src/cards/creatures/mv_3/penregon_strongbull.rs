@@ -11,7 +11,7 @@ card!(
     oracle_id = "a4e34111-aefd-4c61-a6e3-ac8895799c3f",
     scryfall_id = "1c2deb43-7134-4f9c-b02d-78407a8986b1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Penregon Strongbull",
         mana_cost = mana!("{2}{R}"),

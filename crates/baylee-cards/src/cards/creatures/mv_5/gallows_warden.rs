@@ -13,7 +13,7 @@ card!(
     scryfall_id = "15947b20-8c8e-42ed-9599-8b180a382d21",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gallows Warden",
         mana_cost = mana!("{4}{W}"),

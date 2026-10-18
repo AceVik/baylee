@@ -12,7 +12,7 @@ card!(
     oracle_id = "5ddcc7a5-c869-49fd-baa1-ab5f5f456f90",
     scryfall_id = "9686f1a8-035e-415e-9a06-933d6ce1cd5c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloated Toad",
         mana_cost = mana!("{2}{G}"),

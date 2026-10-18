@@ -14,7 +14,7 @@ card!(
     scryfall_id = "4f5e95f8-c04d-405f-bba4-e83a8f6bf463",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gitaxian Raptor",
         mana_cost = mana!("{2}{U}"),

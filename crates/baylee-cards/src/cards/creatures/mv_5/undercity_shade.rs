@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6609aa2e-6832-4c20-beda-e5f2506bf9b2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undercity Shade",
         mana_cost = mana!("{4}{B}"),

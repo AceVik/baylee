@@ -11,7 +11,7 @@ card!(
     oracle_id = "63324e72-e580-456a-91be-766c9f07b7b3",
     scryfall_id = "6f921dca-ce93-42d1-87b1-149973558467",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kargan Warleader",
         mana_cost = mana!("{1}{R}{W}"),

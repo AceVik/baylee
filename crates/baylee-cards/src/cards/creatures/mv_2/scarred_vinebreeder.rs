@@ -13,7 +13,7 @@ card!(
     oracle_id = "759e454e-ee8c-4b0e-9503-26e4c0a2a8f9",
     scryfall_id = "a60c51c2-3a24-4376-850c-cebd4d75adca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarred Vinebreeder",
         mana_cost = mana!("{1}{B}"),

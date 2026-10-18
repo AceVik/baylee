@@ -11,7 +11,7 @@ card!(
     oracle_id = "36652a44-f5bd-4bc0-abfd-fa3688853dfd",
     scryfall_id = "af5535db-696f-4c43-a8b9-c8e521b62c9c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tymora's Invoker",
         mana_cost = mana!("{1}{U}"),

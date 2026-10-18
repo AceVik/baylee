@@ -17,7 +17,7 @@ card!(
     oracle_id = "ff0647bc-87d1-45f0-ad5c-63c29174f404",
     scryfall_id = "aa33fc15-3a4f-48bc-be7c-fdec1cb49c10",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gateway Shade",
         mana_cost = mana!("{2}{B}"),

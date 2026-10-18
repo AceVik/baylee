@@ -14,7 +14,7 @@ card!(
     scryfall_id = "374d2d74-1209-4822-b370-ab8b049d4ce0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glen Elendra Liege",
         mana_cost = mana!("{1}{U/B}{U/B}{U/B}"),

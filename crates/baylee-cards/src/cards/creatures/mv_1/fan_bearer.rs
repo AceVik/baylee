@@ -11,7 +11,7 @@ card!(
     oracle_id = "d2e7198a-0eb5-4d30-973f-4b2d9617436f",
     scryfall_id = "4f587d8d-1bef-4e4b-9b94-94c0ae11bc8f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fan Bearer",
         mana_cost = mana!("{W}"),

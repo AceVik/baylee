@@ -11,7 +11,7 @@ card!(
     oracle_id = "18bb35a8-01ac-414f-9a45-e550060ff905",
     scryfall_id = "a5b435ee-82cc-41df-a09f-cf3602e31c23",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cephalid Broker",
         mana_cost = mana!("{3}{U}"),

@@ -22,7 +22,7 @@ card!(
     oracle_id = "ea0dde32-1638-47f1-bef6-0813794ba35b",
     scryfall_id = "764c1a14-143f-4601-92c5-ebeabf3e375d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cliffrunner Behemoth",
         mana_cost = mana!("{3}{G}"),

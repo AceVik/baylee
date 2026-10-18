@@ -13,7 +13,7 @@ card!(
     scryfall_id = "99b74fa3-c1d7-4780-977d-f2d6663a529a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voracious Varmint",
         mana_cost = mana!("{1}{G}"),

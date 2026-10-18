@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Skycaptain",
         mana_cost = mana!("{4}{W}"),

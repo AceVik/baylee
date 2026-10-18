@@ -11,7 +11,7 @@ card!(
     oracle_id = "58321467-41d6-4419-bcb2-cd3e60f677b3",
     scryfall_id = "5f75b7f4-249c-4b10-a06d-6b7654cccc46",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sinister Starfish",
         mana_cost = mana!("{1}{B}"),

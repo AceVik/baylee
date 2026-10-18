@@ -13,7 +13,7 @@ card!(
     oracle_id = "a34d1845-e02f-4795-b445-d73366c2baea",
     scryfall_id = "aa45664c-ac39-40f8-9f56-cf25ed60a84a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spike Soldier",
         mana_cost = mana!("{2}{G}{G}"),

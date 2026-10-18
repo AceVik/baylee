@@ -12,7 +12,7 @@ card!(
     oracle_id = "68c90a32-d6ee-4595-8517-5f4cb0e4062d",
     scryfall_id = "74f68014-489d-4f51-a959-0f335541cb4e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vault Robber",
         mana_cost = mana!("{1}{R}"),

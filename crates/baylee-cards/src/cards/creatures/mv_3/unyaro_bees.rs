@@ -14,7 +14,7 @@ card!(
     scryfall_id = "76356bc9-2285-44a7-815e-a27ad4e07afc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unyaro Bees",
         mana_cost = mana!("{G}{G}{G}"),

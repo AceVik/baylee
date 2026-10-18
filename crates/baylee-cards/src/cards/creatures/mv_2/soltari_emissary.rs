@@ -11,7 +11,7 @@ card!(
     oracle_id = "a8211eb1-332d-41c0-8086-4a18cd7a5832",
     scryfall_id = "f719b546-e6f8-4b6b-ada9-7050538f2186",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soltari Emissary",
         mana_cost = mana!("{1}{W}"),

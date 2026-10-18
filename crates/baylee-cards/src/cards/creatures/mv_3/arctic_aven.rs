@@ -19,7 +19,7 @@ card!(
     scryfall_id = "06f6aab1-c400-4d87-b68e-f36552e7417f",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arctic Aven",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "de6d0248-79f6-48df-bdca-8ce207b2ec08",
     scryfall_id = "524fab2b-ff28-4e02-9f25-e038c754b2cf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawntreader Elk",
         mana_cost = mana!("{1}{G}"),

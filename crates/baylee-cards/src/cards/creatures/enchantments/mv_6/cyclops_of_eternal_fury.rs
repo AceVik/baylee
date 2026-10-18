@@ -11,7 +11,7 @@ card!(
     oracle_id = "f7875f87-d774-4811-a4a7-349ec01bf95b",
     scryfall_id = "44a92b7a-7119-45b3-b9ed-5dbf5abca818",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cyclops of Eternal Fury",
         mana_cost = mana!("{4}{R}{R}"),

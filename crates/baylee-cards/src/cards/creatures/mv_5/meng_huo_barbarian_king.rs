@@ -12,7 +12,7 @@ card!(
     scryfall_id = "417f01e0-370e-43b0-a55c-4086ddb4c85b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meng Huo, Barbarian King",
         mana_cost = mana!("{3}{G}{G}"),

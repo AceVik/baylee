@@ -11,7 +11,7 @@ card!(
     oracle_id = "590a4c09-2d19-40db-8d0d-7765f3b63e38",
     scryfall_id = "12a5a212-395c-427e-81b8-893745274068",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Omnibian",
         mana_cost = mana!("{1}{G}{G}{U}"),

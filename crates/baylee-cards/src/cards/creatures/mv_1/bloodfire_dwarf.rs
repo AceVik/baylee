@@ -16,7 +16,7 @@ card!(
     oracle_id = "ff42551a-a08e-4d0c-a5b1-d1c1bbff4915",
     scryfall_id = "86b5c38e-7d74-4862-8187-f5db4a3d1e0f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodfire Dwarf",
         mana_cost = mana!("{R}"),

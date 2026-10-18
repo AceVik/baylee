@@ -14,7 +14,7 @@ card!(
     scryfall_id = "cfabe410-ff54-48ba-8d1a-b7248976e967",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thunder Wall",
         mana_cost = mana!("{1}{U}{U}"),

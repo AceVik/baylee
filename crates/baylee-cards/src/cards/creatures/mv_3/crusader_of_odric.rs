@@ -11,7 +11,7 @@ card!(
     oracle_id = "ea384b0d-3091-4d50-b15f-1f6763647b7c",
     scryfall_id = "2fd0400a-ef3e-4b03-9852-63e28304da53",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crusader of Odric",
         mana_cost = mana!("{2}{W}"),

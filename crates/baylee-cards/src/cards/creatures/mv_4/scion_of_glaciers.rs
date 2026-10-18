@@ -11,7 +11,7 @@ card!(
     oracle_id = "9d49cef5-8f9c-46cd-aa5e-7861fc1dcaa4",
     scryfall_id = "5e370939-831b-4c42-8291-8ffb0b6c1af7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scion of Glaciers",
         mana_cost = mana!("{2}{U}{U}"),

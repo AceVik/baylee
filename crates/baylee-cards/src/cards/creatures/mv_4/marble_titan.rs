@@ -11,7 +11,7 @@ card!(
     oracle_id = "62674cfd-f400-44d9-bfff-15bdfbd243fe",
     scryfall_id = "e4816f18-9f66-4539-9764-2f65f2826812",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marble Titan",
         mana_cost = mana!("{3}{W}"),

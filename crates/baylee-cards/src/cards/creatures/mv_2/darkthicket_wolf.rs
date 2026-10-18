@@ -11,7 +11,7 @@ card!(
     oracle_id = "a78ab15e-72e7-4d2b-bc42-b2960147ea7b",
     scryfall_id = "fec37c5a-8223-441c-a8a6-8da1a2dfc3fb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darkthicket Wolf",
         mana_cost = mana!("{1}{G}"),

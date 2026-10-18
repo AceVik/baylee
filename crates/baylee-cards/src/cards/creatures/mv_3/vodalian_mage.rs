@@ -11,7 +11,7 @@ card!(
     oracle_id = "8dee4577-0315-4c9f-ab1c-0c68e2ab6a76",
     scryfall_id = "c107e82b-134a-4f2b-98c2-6537fae6a50d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Mage",
         mana_cost = mana!("{2}{U}"),

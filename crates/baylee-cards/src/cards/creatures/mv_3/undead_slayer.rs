@@ -17,7 +17,7 @@ card!(
     oracle_id = "08fc069e-7fdd-4726-aa08-a96bbd2bcaa3",
     scryfall_id = "3439568c-606e-4b95-b4fc-4d31e12ff30a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undead Slayer",
         mana_cost = mana!("{2}{W}"),

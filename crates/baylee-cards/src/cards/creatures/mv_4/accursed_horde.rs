@@ -16,7 +16,7 @@ card!(
     oracle_id = "8f3cba20-e7a4-47f4-8bce-90168ce9cc5c",
     scryfall_id = "709bcbca-7238-4c31-8d9e-ec0d54d0b298",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Accursed Horde",
         mana_cost = mana!("{3}{B}"),

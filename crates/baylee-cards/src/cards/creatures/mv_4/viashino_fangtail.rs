@@ -11,7 +11,7 @@ card!(
     oracle_id = "5140cd2f-af30-4405-b5e4-996ef6349f59",
     scryfall_id = "2616dac9-bbcf-453a-9205-8e433a1c62aa",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Fangtail",
         mana_cost = mana!("{2}{R}{R}"),

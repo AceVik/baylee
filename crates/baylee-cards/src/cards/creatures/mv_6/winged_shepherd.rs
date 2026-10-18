@@ -13,7 +13,7 @@ card!(
     scryfall_id = "04301470-82d9-43c7-aaf1-a41e185cb109",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winged Shepherd",
         mana_cost = mana!("{5}{W}"),

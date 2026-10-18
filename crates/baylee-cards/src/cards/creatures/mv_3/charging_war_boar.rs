@@ -19,7 +19,7 @@ card!(
     scryfall_id = "02cef5a4-e8fd-4ebd-b121-67059308c772",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charging War Boar",
         mana_cost = mana!("{1}{R}{G}"),

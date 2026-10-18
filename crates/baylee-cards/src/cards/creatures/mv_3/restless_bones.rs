@@ -12,7 +12,7 @@ card!(
     oracle_id = "b6c6e872-1363-480f-9a8d-c393361ccbc1",
     scryfall_id = "4d11a4f2-376e-42ae-9693-9dc754bd2282",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Restless Bones",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b1e76ce9-6f39-419c-99e3-ede2dfa4858c",
     scryfall_id = "04c68dbd-e61b-49a7-aa17-da6b26c9fd29",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nebelgast Beguiler",
         mana_cost = mana!("{4}{W}"),

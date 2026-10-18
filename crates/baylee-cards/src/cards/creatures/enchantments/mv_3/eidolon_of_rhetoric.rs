@@ -11,7 +11,7 @@ card!(
     oracle_id = "33017203-233e-498e-806e-94b1dccf5c35",
     scryfall_id = "c3bc8b9e-4d22-41ba-b593-d383fd301ef9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of Rhetoric",
         mana_cost = mana!("{2}{W}"),

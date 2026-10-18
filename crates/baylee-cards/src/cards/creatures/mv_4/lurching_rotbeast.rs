@@ -11,7 +11,7 @@ card!(
     oracle_id = "771be8ad-5ab5-40b1-ad9b-e5e834949d32",
     scryfall_id = "9f06be97-71c8-46c8-a1c2-5da3af25e6de",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lurching Rotbeast",
         mana_cost = mana!("{3}{B}"),

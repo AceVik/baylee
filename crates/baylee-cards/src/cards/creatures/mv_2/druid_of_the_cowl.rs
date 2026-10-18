@@ -11,7 +11,7 @@ card!(
     oracle_id = "b1793c3b-25d6-4fae-a99d-cfdd2210ca67",
     scryfall_id = "db2d0ee9-865c-4fc9-8cb6-540c597e1bf4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Druid of the Cowl",
         mana_cost = mana!("{1}{G}"),

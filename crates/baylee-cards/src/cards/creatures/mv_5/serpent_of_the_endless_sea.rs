@@ -19,7 +19,7 @@ card!(
     oracle_id = "3b954d5f-3a93-4dd9-9d60-6097594d449c",
     scryfall_id = "f525d734-7e19-4c1e-a5c2-097b718df7c4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpent of the Endless Sea",
         mana_cost = mana!("{4}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "979e670e-bbd8-4595-8d9d-ad1c0bc422e3",
     scryfall_id = "0389a652-4ca8-45ab-ab3f-624c8f2626f7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coralhelm Guide",
         mana_cost = mana!("{1}{U}"),

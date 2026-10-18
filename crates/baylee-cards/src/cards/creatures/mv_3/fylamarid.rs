@@ -19,7 +19,7 @@ card!(
     scryfall_id = "8dd4f686-79e3-4067-81f9-7fae0c25dc8f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fylamarid",
         mana_cost = mana!("{1}{U}{U}"),

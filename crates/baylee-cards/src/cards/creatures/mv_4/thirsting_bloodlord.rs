@@ -11,7 +11,7 @@ card!(
     oracle_id = "b04ba676-a1f5-4216-9d93-3c475b504bfa",
     scryfall_id = "599e8ed3-4341-4373-8871-2768a90d98c1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thirsting Bloodlord",
         mana_cost = mana!("{2}{B}{B}"),

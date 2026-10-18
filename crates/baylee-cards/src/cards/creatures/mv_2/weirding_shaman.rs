@@ -17,7 +17,7 @@ card!(
     oracle_id = "ed8e0c38-64b1-48a5-9623-935d59ffaacc",
     scryfall_id = "fe1d40cc-2871-4a33-bc58-5250fd3d4f0e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weirding Shaman",
         mana_cost = mana!("{1}{B}"),

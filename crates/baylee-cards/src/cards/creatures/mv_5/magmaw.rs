@@ -13,7 +13,7 @@ card!(
     oracle_id = "bc891258-2f22-4248-9972-4f41905744c6",
     scryfall_id = "08c571fe-54ef-4234-98c3-5d4a7b07e7d2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magmaw",
         mana_cost = mana!("{3}{R}{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2581106f-13fc-4b47-8a91-aa74c4f46ecd",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grizzly Ghoul",
         mana_cost = mana!("{2}{B}{G}"),

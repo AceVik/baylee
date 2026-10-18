@@ -17,7 +17,7 @@ card!(
     oracle_id = "9b38ab81-7ee7-4d89-878b-3507e44836ca",
     scryfall_id = "428b0d43-94c9-4f7f-b042-ea63f88ac697",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spire Tracer",
         mana_cost = mana!("{G}"),

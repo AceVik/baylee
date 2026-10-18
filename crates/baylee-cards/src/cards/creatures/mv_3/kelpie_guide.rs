@@ -14,7 +14,7 @@ card!(
     oracle_id = "8fc1e8b1-3afc-4e9d-a3ae-7bd9bcdcb465",
     scryfall_id = "0112ebfb-55ad-401c-9dc5-ffd829f5b5bf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kelpie Guide",
         mana_cost = mana!("{2}{U}"),

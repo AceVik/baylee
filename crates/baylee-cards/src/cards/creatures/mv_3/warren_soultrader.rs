@@ -14,7 +14,7 @@ card!(
     oracle_id = "ace86e56-efde-4eb7-8815-71456a4c3abe",
     scryfall_id = "b334e4c6-d316-4141-8889-f95afcc04701",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warren Soultrader",
         mana_cost = mana!("{2}{B}"),

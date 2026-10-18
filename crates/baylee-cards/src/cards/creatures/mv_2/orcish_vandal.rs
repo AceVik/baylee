@@ -11,7 +11,7 @@ card!(
     oracle_id = "933a1811-7e1a-4173-b1c9-34b2c858ba68",
     scryfall_id = "a6ac010e-bcd9-4e40-91f5-3f6058dca104",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orcish Vandal",
         mana_cost = mana!("{1}{R}"),

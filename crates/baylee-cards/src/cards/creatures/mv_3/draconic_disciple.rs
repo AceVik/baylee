@@ -13,7 +13,7 @@ card!(
     oracle_id = "781cee5f-f9cb-42ed-b408-543d297bf96d",
     scryfall_id = "a353510a-30de-4891-97b9-d7d556531c41",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Draconic Disciple",
         mana_cost = mana!("{1}{R}{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "62c1f09a-9d17-415c-8afa-cd0b62abe48d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poison Dart Frog",
         mana_cost = mana!("{1}{G}"),

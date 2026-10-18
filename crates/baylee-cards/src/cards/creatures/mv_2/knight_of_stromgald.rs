@@ -13,7 +13,7 @@ card!(
     oracle_id = "8cf57287-21b0-4194-8da3-62d00160234f",
     scryfall_id = "304f4541-1ef9-405d-b298-894e0ebec19c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of Stromgald",
         mana_cost = mana!("{B}{B}"),

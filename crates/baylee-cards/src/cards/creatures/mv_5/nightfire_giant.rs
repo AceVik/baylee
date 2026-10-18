@@ -17,7 +17,7 @@ card!(
     oracle_id = "2f351af6-0c94-4881-b91a-0211645c43c8",
     scryfall_id = "11da48a7-903d-43f5-8085-1b3790ed079a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightfire Giant",
         mana_cost = mana!("{4}{B}"),

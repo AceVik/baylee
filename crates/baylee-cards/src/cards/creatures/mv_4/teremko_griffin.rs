@@ -12,7 +12,7 @@ card!(
     scryfall_id = "96267012-24da-43ae-97af-69ca3d7704f8",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teremko Griffin",
         mana_cost = mana!("{3}{W}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "e4606bc2-faaa-4dd8-9109-55ce3440cf5b",
     scryfall_id = "33f1a343-250b-4a30-a3b5-296282a70446",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treetop Rangers",
         mana_cost = mana!("{2}{G}"),

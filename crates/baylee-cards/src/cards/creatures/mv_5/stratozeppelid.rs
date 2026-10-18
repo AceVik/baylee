@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7ccfc49d-2a07-4088-a288-ba7be4da7bc2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stratozeppelid",
         mana_cost = mana!("{4}{U}"),

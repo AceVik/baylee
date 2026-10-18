@@ -13,7 +13,7 @@ card!(
     oracle_id = "04936cc9-c915-4182-b84a-3491d26be548",
     scryfall_id = "5b302bc8-683f-4a26-ab86-87eaa19dce4d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sepulcher Ghoul",
         mana_cost = mana!("{1}{B}"),

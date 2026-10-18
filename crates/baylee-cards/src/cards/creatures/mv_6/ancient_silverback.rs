@@ -11,7 +11,7 @@ card!(
     oracle_id = "5f12134c-d626-4a5e-8653-700681a491fc",
     scryfall_id = "7b24ea58-0690-45d7-a84b-265b6277b59a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancient Silverback",
         mana_cost = mana!("{4}{G}{G}"),

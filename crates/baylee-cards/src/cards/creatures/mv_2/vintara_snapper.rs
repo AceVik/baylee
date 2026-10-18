@@ -13,7 +13,7 @@ card!(
     oracle_id = "57c5cbd6-432d-4d48-9fc6-5b8a6eb223f1",
     scryfall_id = "897edf01-fc6f-4835-b025-c137d921ce09",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vintara Snapper",
         mana_cost = mana!("{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2ffce33-ab1a-40f1-959b-31583219ed1a",
     scryfall_id = "499f9987-87d8-4cd3-98c4-b6976c70739e",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Parapet Watchers",
         mana_cost = mana!("{2}{U}"),

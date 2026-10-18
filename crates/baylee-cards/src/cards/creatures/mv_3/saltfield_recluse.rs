@@ -11,7 +11,7 @@ card!(
     oracle_id = "c87e056a-6067-49e6-b3f7-bba8234777de",
     scryfall_id = "ecb21c04-d3f7-4960-9b9b-2354e98becb7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saltfield Recluse",
         mana_cost = mana!("{2}{W}"),

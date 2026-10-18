@@ -13,7 +13,7 @@ card!(
     scryfall_id = "48669993-ad68-499e-8f2e-bc5c651b4b28",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maw of Kozilek",
         mana_cost = mana!("{3}{R}"),

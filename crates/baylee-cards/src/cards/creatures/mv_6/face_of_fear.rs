@@ -11,7 +11,7 @@ card!(
     oracle_id = "605787fe-64e9-4de8-974a-473277b0ba2e",
     scryfall_id = "17542219-1165-4483-9cef-7abecaebb6a2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Face of Fear",
         mana_cost = mana!("{5}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "1a852283-42d4-4197-91b9-5c952c7325ca",
     scryfall_id = "068943d2-c456-42a3-8088-3e4923bf6d74",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Line-Slinger",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "572c15ab-2229-4536-b586-638ec77d9cb7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Blademaster",
         mana_cost = mana!("{2}{U}"),

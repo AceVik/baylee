@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5c2e2364-9181-4745-9267-3fa1b775331e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screeching Harpy",
         mana_cost = mana!("{2}{B}{B}"),

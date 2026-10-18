@@ -11,7 +11,7 @@ card!(
     oracle_id = "e60a9e8d-0be4-4d08-a03a-af9f9e2be65b",
     scryfall_id = "c7935b2b-aebe-44b3-b91b-52978bb4ded5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lore Broker",
         mana_cost = mana!("{1}{U}"),

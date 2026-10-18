@@ -11,7 +11,7 @@ card!(
     oracle_id = "d2783a37-b6de-4184-b094-e1a23f185a94",
     scryfall_id = "2d193a35-8950-4a77-ace3-c4d4085727f4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnstrider",
         mana_cost = mana!("{1}{G}"),

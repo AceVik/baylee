@@ -16,7 +16,7 @@ card!(
     oracle_id = "d8863b64-110d-4f6b-9d0e-4662f2b399cb",
     scryfall_id = "cbe4af47-d913-4c19-a027-501e2c78758c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mudbrawler Raiders",
         mana_cost = mana!("{2}{R/G}{R/G}"),

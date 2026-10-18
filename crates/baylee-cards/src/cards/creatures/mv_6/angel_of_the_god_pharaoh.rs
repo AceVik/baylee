@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ad202785-a91f-4dc8-bcc0-eb1bd49f162e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel of the God-Pharaoh",
         mana_cost = mana!("{4}{W}{W}"),

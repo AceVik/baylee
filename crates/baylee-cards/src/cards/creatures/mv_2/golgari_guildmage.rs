@@ -12,7 +12,7 @@ card!(
     oracle_id = "46dad873-11f5-4269-8ec2-f126419fbd7d",
     scryfall_id = "342ad189-b221-493c-b2c1-73b63246ab47",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Guildmage",
         mana_cost = mana!("{B/G}{B/G}"),

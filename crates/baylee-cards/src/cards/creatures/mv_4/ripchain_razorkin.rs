@@ -13,7 +13,7 @@ card!(
     scryfall_id = "effad662-3309-434c-addc-4394db1f359c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ripchain Razorkin",
         mana_cost = mana!("{3}{R}"),

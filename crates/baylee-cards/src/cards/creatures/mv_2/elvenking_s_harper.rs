@@ -11,7 +11,7 @@ card!(
     oracle_id = "7d070a95-49ea-4aea-b512-dbb0006a00ee",
     scryfall_id = "9c50656d-c74a-4e90-9ef7-afa237682516",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvenking's Harper",
         mana_cost = mana!("{1}{U}"),

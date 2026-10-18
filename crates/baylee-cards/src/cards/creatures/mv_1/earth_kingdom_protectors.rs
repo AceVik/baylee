@@ -19,7 +19,7 @@ card!(
     scryfall_id = "d263472e-1d75-4cb9-8f7b-986fa22bc841",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Earth Kingdom Protectors",
         mana_cost = mana!("{W}"),

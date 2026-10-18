@@ -11,7 +11,7 @@ card!(
     oracle_id = "915d70ac-46ce-41d0-a137-f17e7aaea87d",
     scryfall_id = "f4c134ed-adbf-4e88-80e0-75c176ce94c3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderbrine Trapper",
         mana_cost = mana!("{W}"),

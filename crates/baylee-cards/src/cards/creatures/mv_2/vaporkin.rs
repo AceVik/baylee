@@ -15,7 +15,7 @@ card!(
     scryfall_id = "2c074399-36e9-41f7-918e-5fae267e9da2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vaporkin",
         mana_cost = mana!("{1}{U}"),

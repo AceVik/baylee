@@ -12,7 +12,7 @@ card!(
     oracle_id = "6205c485-f46b-40af-8b73-03c668f9ea42",
     scryfall_id = "67570c1a-7107-41fb-bc09-a9d0c6d79b2b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glorifier of Dusk",
         mana_cost = mana!("{3}{W}{W}"),

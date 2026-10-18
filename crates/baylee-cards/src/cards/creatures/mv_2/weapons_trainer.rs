@@ -16,7 +16,7 @@ card!(
     oracle_id = "d193f3b7-d205-4c49-ae52-6a095282e0b3",
     scryfall_id = "bcaa5ed4-041d-47d6-a4e0-baf8910430ed",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weapons Trainer",
         mana_cost = mana!("{R}{W}"),

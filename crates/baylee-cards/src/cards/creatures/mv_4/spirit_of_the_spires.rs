@@ -13,7 +13,7 @@ card!(
     scryfall_id = "dbd11910-58e2-4233-a18c-e97413126597",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit of the Spires",
         mana_cost = mana!("{3}{W}"),

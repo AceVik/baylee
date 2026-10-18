@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e83ee667-7726-42e9-9483-6cfc6f9ce638",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Nation Archers",
         mana_cost = mana!("{3}{R}"),

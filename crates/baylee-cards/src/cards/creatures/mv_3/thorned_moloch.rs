@@ -13,7 +13,7 @@ card!(
     scryfall_id = "01ab2615-5a02-4b59-b8bd-577b91a1a0e3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thorned Moloch",
         mana_cost = mana!("{2}{R}"),

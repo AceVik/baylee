@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1777f69c-869e-414e-afe3-892714a6032a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lim-Dûl's High Guard",
         mana_cost = mana!("{1}{B}{B}"),

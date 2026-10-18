@@ -11,7 +11,7 @@ card!(
     oracle_id = "e84f1727-ce01-44be-aebf-8a0c4e032c9a",
     scryfall_id = "5449d71c-5c1b-44c6-9407-0212aa3c3e3a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teferi's Protege",
         mana_cost = mana!("{2}{U}"),

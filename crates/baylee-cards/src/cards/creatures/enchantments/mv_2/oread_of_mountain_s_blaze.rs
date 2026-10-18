@@ -11,7 +11,7 @@ card!(
     oracle_id = "ebbcbaa4-9dc2-4098-b6a2-393375d86f16",
     scryfall_id = "0f9bb73a-5b4e-4c9b-b0a6-8e531dc27394",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oread of Mountain's Blaze",
         mana_cost = mana!("{1}{R}"),

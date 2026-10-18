@@ -16,7 +16,7 @@ card!(
     oracle_id = "574abab1-a722-45f5-a210-c1d4442a278a",
     scryfall_id = "4971a447-29c8-47b6-863c-f13a69b4148b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seething Pathblazer",
         mana_cost = mana!("{2}{R}"),

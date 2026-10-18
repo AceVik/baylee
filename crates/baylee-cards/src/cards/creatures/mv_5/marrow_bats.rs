@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a469e9a9-2498-4651-89fb-a86729d8c978",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marrow Bats",
         mana_cost = mana!("{4}{B}"),

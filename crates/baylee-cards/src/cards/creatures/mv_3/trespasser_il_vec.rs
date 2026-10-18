@@ -11,7 +11,7 @@ card!(
     oracle_id = "90980841-4994-453c-a076-6cdf8d85c809",
     scryfall_id = "278421ff-5324-44e5-b24f-dfbf9aa9b604",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trespasser il-Vec",
         mana_cost = mana!("{2}{B}"),

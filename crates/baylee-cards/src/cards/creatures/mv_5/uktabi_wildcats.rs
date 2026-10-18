@@ -22,7 +22,7 @@ card!(
     oracle_id = "dd25afe0-a69a-4e0b-b364-b88d3a522ed3",
     scryfall_id = "700bb560-5a4a-4422-9158-1c2edad1913f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Uktabi Wildcats",
         mana_cost = mana!("{4}{G}"),

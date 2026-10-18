@@ -15,7 +15,7 @@ card!(
     scryfall_id = "ee04dfd8-e704-46d7-bdf8-b0b2ee747a49",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gloomwidow",
         mana_cost = mana!("{2}{G}"),

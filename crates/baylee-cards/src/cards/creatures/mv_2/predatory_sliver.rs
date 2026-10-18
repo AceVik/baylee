@@ -11,7 +11,7 @@ card!(
     oracle_id = "6b589e70-9c1d-48dd-a597-479959e692bf",
     scryfall_id = "a2e37de8-66a1-4afa-aa6f-1151f849dfa8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Predatory Sliver",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "fcb34e92-f991-401c-a494-c2919083bf9e",
     scryfall_id = "565c750e-47f9-4878-abff-ec973ec6d8a4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Veteran Armorsmith",
         mana_cost = mana!("{W}{W}"),

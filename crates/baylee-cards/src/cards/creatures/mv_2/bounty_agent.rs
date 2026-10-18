@@ -28,7 +28,7 @@ card!(
     scryfall_id = "1542ad81-169e-4ac8-bd85-038494489594",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bounty Agent",
         mana_cost = mana!("{1}{W}"),

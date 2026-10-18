@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ccf59723-fa84-40e3-b63e-b735addfdb43",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benevolent Ancestor",
         mana_cost = mana!("{2}{W}"),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "aebfdcc0-c5b9-4737-8498-764a5021b087",
     scryfall_id = "e0e73b63-17cc-4dca-abd6-728b74bc37a8",
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Graaz, Unstoppable Juggernaut",
         mana_cost = mana!("{8}"),

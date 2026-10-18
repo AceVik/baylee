@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d6a837b6-c8b0-4971-ae95-0b49d38bc830",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PLAINSWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boggart Arsonists",
         mana_cost = mana!("{2}{R}"),

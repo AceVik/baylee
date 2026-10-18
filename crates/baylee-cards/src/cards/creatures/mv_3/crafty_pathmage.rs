@@ -13,7 +13,7 @@ card!(
     oracle_id = "c4020178-71d9-4363-a0bd-b9a7eecd5d02",
     scryfall_id = "f186271c-2b03-4e0c-b922-27e23787d865",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crafty Pathmage",
         mana_cost = mana!("{2}{U}"),

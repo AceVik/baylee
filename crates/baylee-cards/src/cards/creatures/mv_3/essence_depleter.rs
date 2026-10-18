@@ -13,7 +13,7 @@ card!(
     scryfall_id = "996da623-1c34-4545-a800-648238ea91ae",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Depleter",
         mana_cost = mana!("{2}{B}"),

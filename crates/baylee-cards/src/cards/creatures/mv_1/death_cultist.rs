@@ -11,7 +11,7 @@ card!(
     oracle_id = "edbde032-4432-4610-83a2-a52f6ce199e1",
     scryfall_id = "bd0a2fe3-45ab-4bac-aca7-a6418e28d0be",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death Cultist",
         mana_cost = mana!("{B}"),

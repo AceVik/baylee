@@ -19,7 +19,7 @@ card!(
     scryfall_id = "288b056a-ea80-4fdc-990d-0ee1e9a7bf64",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drowsing Tyrannodon",
         mana_cost = mana!("{1}{G}"),

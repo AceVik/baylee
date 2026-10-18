@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::HASTE)
         .union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stormchaser Mage",
         mana_cost = mana!("{U}{R}"),

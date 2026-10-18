@@ -13,7 +13,7 @@ card!(
     oracle_id = "efd93428-88a5-4f7b-95f3-1d6eec069a4c",
     scryfall_id = "03c7d409-90e7-44d7-a8c6-4eda35fbcc83",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Regal Bunnicorn",
         mana_cost = mana!("{1}{W}"),

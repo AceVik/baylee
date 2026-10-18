@@ -12,7 +12,7 @@ card!(
     oracle_id = "679d5a1d-8da8-4142-924b-97b359f55309",
     scryfall_id = "15b7cd60-e3b9-4dd8-ad3c-a687f642147f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thraben Standard Bearer",
         mana_cost = mana!("{W}"),

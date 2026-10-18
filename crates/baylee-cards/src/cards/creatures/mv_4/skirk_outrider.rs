@@ -16,7 +16,7 @@ card!(
     oracle_id = "40e52554-74e9-4d15-9a38-fc945f7d7ab8",
     scryfall_id = "416de0f4-1540-4286-a1ac-4f57301c54e9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirk Outrider",
         mana_cost = mana!("{3}{R}"),

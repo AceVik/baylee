@@ -11,7 +11,7 @@ card!(
     oracle_id = "5cb6ebf7-6a75-4464-9e39-e171fcb52de3",
     scryfall_id = "8793a19e-6743-4031-86d9-2ff55f384549",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Great Forest Druid",
         mana_cost = mana!("{1}{G}"),

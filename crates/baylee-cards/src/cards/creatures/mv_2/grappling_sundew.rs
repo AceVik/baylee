@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f74d8d76-8091-424d-ad11-e8a1faae584d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grappling Sundew",
         mana_cost = mana!("{1}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6f1d8e26-304b-4571-9b33-7713265d9bbf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeletal Changeling",
         mana_cost = mana!("{1}{B}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3ff8968b-cd96-4f44-85f8-2af20d61d7cb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soratami Mirror-Guard",
         mana_cost = mana!("{3}{U}"),

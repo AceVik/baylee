@@ -13,7 +13,7 @@ card!(
     oracle_id = "0734272d-5cce-476d-a663-fbf0bd7cd3a7",
     scryfall_id = "7e5102a7-2147-4e22-b683-c08b4a725617",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Shielddare",
         mana_cost = mana!("{1}{W}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "82db4a41-03e8-4f0c-946c-a98fc5c9f7c8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aboshan, Cephalid Emperor",
         mana_cost = mana!("{4}{U}{U}"),

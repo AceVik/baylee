@@ -14,7 +14,7 @@ card!(
     oracle_id = "9d546a53-5beb-40f5-b358-377810c8a75d",
     scryfall_id = "b07e37ea-aa8d-4443-9af6-4351994bc00c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ironclaw Buzzardiers",
         mana_cost = mana!("{2}{R}"),

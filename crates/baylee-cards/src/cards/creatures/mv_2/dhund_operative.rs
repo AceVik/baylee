@@ -11,7 +11,7 @@ card!(
     oracle_id = "e025c802-9862-4dee-8c2a-b875eb001714",
     scryfall_id = "e0efe5b1-c515-4642-aca2-3eba68fe63ff",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dhund Operative",
         mana_cost = mana!("{1}{B}"),

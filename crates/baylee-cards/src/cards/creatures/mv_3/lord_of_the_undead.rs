@@ -14,7 +14,7 @@ card!(
     oracle_id = "7714af0e-41d9-4609-967f-27233b46055f",
     scryfall_id = "792e773b-5feb-407f-a162-f35d6e693cca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lord of the Undead",
         mana_cost = mana!("{1}{B}{B}"),

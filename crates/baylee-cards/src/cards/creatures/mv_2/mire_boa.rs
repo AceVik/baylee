@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4ab20019-d4b7-4bbb-b258-c9cc14bf2b3a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mire Boa",
         mana_cost = mana!("{1}{G}"),

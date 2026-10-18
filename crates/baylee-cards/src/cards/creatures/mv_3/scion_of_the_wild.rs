@@ -11,7 +11,7 @@ card!(
     oracle_id = "8aaa2217-012e-4e34-ba44-4986d7ee9ece",
     scryfall_id = "9a8860f5-64ad-4e2d-bab9-b7d416e4ddb9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scion of the Wild",
         mana_cost = mana!("{1}{G}{G}"),

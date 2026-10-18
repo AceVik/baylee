@@ -16,7 +16,7 @@ card!(
     oracle_id = "017f4471-db5a-4ad0-97b3-b1f12b52578a",
     scryfall_id = "92461f3c-21dc-48a8-b532-9c4e2e1e80b5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zulaport Chainmage",
         mana_cost = mana!("{3}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "f53f33ed-5c8c-4835-bc5f-65a8acfa3f5b",
     scryfall_id = "4dceda33-1a43-475c-85a8-8a3a4c2cb517",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steeple Creeper",
         mana_cost = mana!("{2}{G}"),

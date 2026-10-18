@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "She-Hulk, Jennifer Walters",
         mana_cost = mana!("{3}{R}"),

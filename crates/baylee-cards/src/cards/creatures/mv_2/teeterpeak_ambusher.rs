@@ -11,7 +11,7 @@ card!(
     oracle_id = "fe769071-3f99-411b-878a-57a2200649a0",
     scryfall_id = "ad57c2f3-d9cb-4165-bb39-897b5b12689e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teeterpeak Ambusher",
         mana_cost = mana!("{1}{R}"),

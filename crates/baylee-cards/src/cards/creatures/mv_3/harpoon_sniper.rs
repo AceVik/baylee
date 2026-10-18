@@ -21,7 +21,7 @@ card!(
     oracle_id = "2856844d-f727-48aa-8387-cb6079afb40c",
     scryfall_id = "c10ccaef-2a75-43d6-95f2-c3690ae5c87a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harpoon Sniper",
         mana_cost = mana!("{2}{W}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a42906c1-cf32-4c14-b08a-d800d1858d8f",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Truefire Paladin",
         mana_cost = mana!("{R}{W}"),

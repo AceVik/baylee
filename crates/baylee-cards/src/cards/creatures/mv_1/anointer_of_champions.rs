@@ -11,7 +11,7 @@ card!(
     oracle_id = "f74ef5b0-9222-43d0-a919-aaf28dc21b59",
     scryfall_id = "3379dc97-abdf-43d7-8625-f8ac04b5687e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anointer of Champions",
         mana_cost = mana!("{W}"),

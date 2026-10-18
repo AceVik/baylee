@@ -11,7 +11,7 @@ card!(
     oracle_id = "7f52993c-a20a-48fe-b463-2a33873b489a",
     scryfall_id = "27dcb0c8-e6d5-4f6b-a74f-e495b5e42606",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gnathosaur",
         mana_cost = mana!("{4}{R}{R}"),

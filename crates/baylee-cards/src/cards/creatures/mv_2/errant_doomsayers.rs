@@ -13,7 +13,7 @@ card!(
     oracle_id = "82d4d70b-afb9-4ae7-8f30-16bc64dccf3e",
     scryfall_id = "0eb5c6e6-7251-4b80-9561-742442d8a497",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Errant Doomsayers",
         mana_cost = mana!("{1}{W}"),

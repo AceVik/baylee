@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ace86fac-769c-4440-9a40-318d7172555b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanguinary Mage",
         mana_cost = mana!("{1}{R}"),

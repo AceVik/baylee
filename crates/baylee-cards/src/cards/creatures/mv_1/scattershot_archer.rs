@@ -13,7 +13,7 @@ card!(
     oracle_id = "a38ef622-d793-4867-a818-5c27982608b7",
     scryfall_id = "d74d6cdb-a087-4b3d-bf25-509200ed6d93",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scattershot Archer",
         mana_cost = mana!("{G}"),

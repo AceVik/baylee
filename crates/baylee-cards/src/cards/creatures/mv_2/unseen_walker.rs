@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bc03eea5-ff21-4f4d-b4c2-ce9d8f456440",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unseen Walker",
         mana_cost = mana!("{1}{G}"),

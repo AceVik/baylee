@@ -31,7 +31,7 @@ card!(
     oracle_id = "967c509f-dbde-44ee-93fa-a01376f34b99",
     scryfall_id = "b51e84d7-bf9f-454f-bdcd-a2458b1b5b33",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Behemoth's Herald",
         mana_cost = mana!("{G}"),

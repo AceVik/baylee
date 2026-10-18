@@ -11,7 +11,7 @@ card!(
     oracle_id = "49984248-4800-4f46-933a-fedd970ae910",
     scryfall_id = "44e4f5e6-935e-429f-89b4-4571376f442e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kami of False Hope",
         mana_cost = mana!("{W}"),

@@ -25,7 +25,7 @@ card!(
     oracle_id = "0d16e52a-a7d0-4850-b49d-99f7978133e4",
     scryfall_id = "17ab3455-f464-41b0-ac63-d40d27abbfb1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blightspeaker",
         mana_cost = mana!("{1}{B}"),

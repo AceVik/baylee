@@ -16,7 +16,7 @@ card!(
     oracle_id = "b4219836-c802-49e2-9a66-f03ca8f13895",
     scryfall_id = "8b665186-7ee5-47dd-b849-cb9c318f31e6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heavy Ballista",
         mana_cost = mana!("{3}{W}"),

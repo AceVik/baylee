@@ -22,7 +22,7 @@ card!(
     oracle_id = "35d3d96a-d303-4bf5-b972-f311331ec07a",
     scryfall_id = "5a3bb291-11d1-45e0-a60a-e75c7dc94b94",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Nacatl",
         mana_cost = mana!("{G}"),

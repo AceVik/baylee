@@ -13,7 +13,7 @@ card!(
     scryfall_id = "62e6e481-a050-4515-a557-d59ba6136ff6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Indigo Faerie",
         mana_cost = mana!("{1}{U}"),

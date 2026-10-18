@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3f1e9c54-134b-41da-8c3d-ec699d96778a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fog of Gnats",
         mana_cost = mana!("{B}{B}"),

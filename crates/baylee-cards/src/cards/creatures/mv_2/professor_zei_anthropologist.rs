@@ -13,7 +13,7 @@ card!(
     scryfall_id = "27baccc0-7e25-4f39-be0d-31cd98ca0dc5",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Professor Zei, Anthropologist",
         mana_cost = mana!("{U/R}{U/R}"),

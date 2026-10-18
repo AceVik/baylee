@@ -13,7 +13,7 @@ card!(
     oracle_id = "25571850-d5c6-460f-b212-9fc9aa705277",
     scryfall_id = "0cc42e33-7489-4a32-bb30-adc80ec13521",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beacon Behemoth",
         mana_cost = mana!("{3}{G}{G}"),

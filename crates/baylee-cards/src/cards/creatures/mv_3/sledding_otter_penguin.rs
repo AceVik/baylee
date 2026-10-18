@@ -11,7 +11,7 @@ card!(
     oracle_id = "1b115051-a3c8-4c5f-9ad2-82b5a6897c51",
     scryfall_id = "d3e0f159-029d-4177-8f20-c96eca0a421c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sledding Otter-Penguin",
         mana_cost = mana!("{2}{W}"),

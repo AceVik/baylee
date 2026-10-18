@@ -13,7 +13,7 @@ card!(
     scryfall_id = "08520f97-e7f5-45fc-9423-fa6a3a507671",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Suture Spirit",
         mana_cost = mana!("{1}{W}"),

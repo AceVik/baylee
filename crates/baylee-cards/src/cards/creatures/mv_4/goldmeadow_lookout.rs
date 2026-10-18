@@ -12,7 +12,7 @@ card!(
     oracle_id = "28b2d31f-1ff7-4374-8ea3-0dd4a96c4a32",
     scryfall_id = "99c0eb4c-c8f1-40cf-ae0a-a413432b4c5f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goldmeadow Lookout",
         mana_cost = mana!("{3}{W}"),

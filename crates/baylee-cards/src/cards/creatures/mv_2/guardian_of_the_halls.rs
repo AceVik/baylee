@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4265caec-8c28-44cd-8e6b-90b5af926d3c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian of the Halls",
         mana_cost = mana!("{1}{G}"),

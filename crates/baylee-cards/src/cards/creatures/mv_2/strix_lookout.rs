@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3b0c77ab-15cd-49d8-ac5b-7b8b968d14cd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strix Lookout",
         mana_cost = mana!("{1}{U}"),

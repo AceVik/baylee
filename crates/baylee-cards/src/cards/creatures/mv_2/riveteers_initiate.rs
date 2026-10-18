@@ -11,7 +11,7 @@ card!(
     oracle_id = "c756d786-9aff-4d2e-9c06-6ae01d5fca2e",
     scryfall_id = "e2e65a50-d2bc-43a0-a9d4-0e846d170f78",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riveteers Initiate",
         mana_cost = mana!("{1}{R}"),

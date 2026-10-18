@@ -18,7 +18,7 @@ card!(
     scryfall_id = "da55a961-9eb7-4b9b-9be3-d4a0a5b76efb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Jailbreaker",
         mana_cost = mana!("{3}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "84910453-e5dc-4bff-8554-86a5f4ab2746",
     scryfall_id = "00212714-a410-4cbc-bf1c-f90d7d77378c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harbinger of the Seas",
         mana_cost = mana!("{1}{U}{U}"),

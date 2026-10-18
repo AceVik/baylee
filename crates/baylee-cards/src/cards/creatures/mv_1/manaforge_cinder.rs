@@ -11,7 +11,7 @@ card!(
     oracle_id = "3c9535a2-7995-42de-a56f-0a445f2dd697",
     scryfall_id = "812f4eb6-06bb-4bc9-83da-0141f7ee4730",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manaforge Cinder",
         mana_cost = mana!("{B/R}"),

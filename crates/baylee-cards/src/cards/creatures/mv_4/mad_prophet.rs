@@ -13,7 +13,7 @@ card!(
     scryfall_id = "89a62145-8dad-4385-9c6d-8cf8bfdad681",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mad Prophet",
         mana_cost = mana!("{3}{R}"),

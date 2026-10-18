@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a441fae0-a9c7-4d91-a69e-8ea1f8fa6947",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Slaughtermaster",
         mana_cost = mana!("{1}{R}"),

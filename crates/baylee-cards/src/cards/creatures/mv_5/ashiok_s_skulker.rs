@@ -11,7 +11,7 @@ card!(
     oracle_id = "ffaa2776-f61d-4eaa-8949-a0407f85214f",
     scryfall_id = "7dd5b0a1-104d-4e0f-82de-65487fbf01ff",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashiok's Skulker",
         mana_cost = mana!("{4}{U}"),

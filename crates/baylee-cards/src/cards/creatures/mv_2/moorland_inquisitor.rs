@@ -11,7 +11,7 @@ card!(
     oracle_id = "76bbd280-dcbc-43b3-a8a1-603443b2ccaa",
     scryfall_id = "9d7b1446-7c9f-4b62-9877-e3d1060948aa",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moorland Inquisitor",
         mana_cost = mana!("{1}{W}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "0f94d1a7-351f-4d37-8dab-1ebf2e8ee213",
     scryfall_id = "3ad97067-2b6b-4e60-817c-6414e2739806",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of Fierce Defiance",
         mana_cost = mana!("{3}{R}"),

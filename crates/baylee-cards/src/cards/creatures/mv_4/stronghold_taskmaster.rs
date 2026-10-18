@@ -11,7 +11,7 @@ card!(
     oracle_id = "7a2b134d-9d7e-4d43-98fc-c776fc4bad45",
     scryfall_id = "6171c210-01b5-45a9-9dd3-dbf96a33a750",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stronghold Taskmaster",
         mana_cost = mana!("{2}{B}{B}"),

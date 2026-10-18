@@ -18,7 +18,7 @@ card!(
     scryfall_id = "f24b3479-18c3-4c43-b8d1-8b4a25d271a7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krosan Constrictor",
         mana_cost = mana!("{3}{G}"),

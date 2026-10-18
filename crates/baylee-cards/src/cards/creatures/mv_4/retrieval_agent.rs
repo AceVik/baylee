@@ -11,7 +11,7 @@ card!(
     oracle_id = "2a6a1e58-85a9-436e-b1a0-373baa44d6f2",
     scryfall_id = "f333a7b1-936e-42f3-ba22-2c76dd2f1c9a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Retrieval Agent",
         mana_cost = mana!("{3}{U}"),

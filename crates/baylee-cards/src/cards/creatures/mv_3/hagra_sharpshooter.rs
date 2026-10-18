@@ -11,7 +11,7 @@ card!(
     oracle_id = "d2f59fa6-8e61-4a70-8044-196d7b26ec9e",
     scryfall_id = "a706b2e3-bd0e-4111-8b68-976869c7d707",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hagra Sharpshooter",
         mana_cost = mana!("{2}{B}"),

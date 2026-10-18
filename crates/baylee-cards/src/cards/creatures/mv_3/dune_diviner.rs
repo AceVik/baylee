@@ -16,7 +16,7 @@ card!(
     oracle_id = "4bf308fc-a54e-4fba-b0fd-3bedb4db3b18",
     scryfall_id = "01818188-e18e-4dc0-b7ef-34cedef64f7e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dune Diviner",
         mana_cost = mana!("{2}{G}"),

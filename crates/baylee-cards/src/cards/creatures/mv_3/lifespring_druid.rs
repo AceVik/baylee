@@ -11,7 +11,7 @@ card!(
     oracle_id = "165c1b17-2bde-4c96-892d-4a8fdc7a57b7",
     scryfall_id = "a3657719-7d4d-46db-a5f4-699ee2032ebe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lifespring Druid",
         mana_cost = mana!("{2}{G}"),

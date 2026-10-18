@@ -12,7 +12,7 @@ card!(
     scryfall_id = "18243ac8-6097-4f2c-8064-3dab48038e4a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pikemen",
         mana_cost = mana!("{1}{W}"),

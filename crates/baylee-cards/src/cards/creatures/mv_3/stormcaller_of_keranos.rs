@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d397bdc3-a866-45be-8740-185d9ccf29c4",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stormcaller of Keranos",
         mana_cost = mana!("{2}{R}"),

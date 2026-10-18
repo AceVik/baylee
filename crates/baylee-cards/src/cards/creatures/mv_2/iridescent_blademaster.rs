@@ -11,7 +11,7 @@ card!(
     oracle_id = "5e1fd76b-46c8-41b5-87b3-e078f7a47535",
     scryfall_id = "3fee189f-539f-48fa-b217-4b2599375364",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iridescent Blademaster",
         mana_cost = mana!("{1}{G}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "8f4f0cd2-9777-4ea1-944d-306347dc48a2",
     scryfall_id = "b7d5e3dc-f307-4f91-a5ee-e7c5d03d8102",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marauding Maulhorn",
         mana_cost = mana!("{2}{R}{R}"),

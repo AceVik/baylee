@@ -17,7 +17,7 @@ card!(
     oracle_id = "6deba6e8-077b-4602-86af-64db766fbbd9",
     scryfall_id = "013360b3-c335-46c0-abe3-b7e3760f62c9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drover of the Mighty",
         mana_cost = mana!("{1}{G}"),

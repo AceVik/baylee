@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5e36a17b-89d6-4de9-867b-9762afedb4f1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimble-Blade Khenra",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d68adf9b-57b1-4c14-97b1-c5906dc5d29b",
     scryfall_id = "91e6fd0e-39a9-49e0-8faa-64ff95f867af",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Towering Thunderfist",
         mana_cost = mana!("{4}{R}"),

@@ -26,7 +26,7 @@ card!(
     scryfall_id = "2d293c51-714c-45b8-bfa4-fe35e8f3fbc1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Slaver",
         mana_cost = mana!("{4}{B}{B}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "c7ab80bf-d115-4155-82e1-9a3a70b1b67d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hoverguard Observer",
         mana_cost = mana!("{2}{U}{U}"),

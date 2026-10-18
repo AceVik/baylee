@@ -4967,3 +4967,44 @@ resolved battle-damage holds:
     `TypeSet::LAND | TypeSet::ENCHANTMENT`.
 - Promoted all 627 non-creature permanents from `Coverage::Generated` to
   `Coverage::Implemented` (`1,427 / 4,969` completed, `3,542` remaining).
+
+## 2026-10-18 — Package 4 (937 instants and sorceries) and Package 5 (1,296 non-triggered creatures)
+
+- **Package 4 (`scriptgen` graveyard/library filter fixes + 937 instants/sorceries)**:
+  - Auditing all 574 instants and 363 sorceries against Scryfall Oracle texts exposed
+    three `scriptgen` defects:
+    - `ChangeZoneAll` from `Library` (`Swap_o'-Lantern`): `scriptgen::Tx::change_zone_all`
+      matched `("Battlefield" | "Graveyard", "Hand")`, silently dropping `Library -> Hand`
+      clauses unless handled alongside `Effect::FromLibraryToHand`.
+    - `Counter$ P1P1` filter in `ChangeZone` (`Ojutai's Command` mode 1): the corpus
+      attached `+counters_GE1_P1P1` to `ChangeZone`'s `ChangeType$` when a separate card
+      on the stack had a different `P1P1` reason; restricted the `Counter::PlusOnePlusOne`
+      skip to `CounterTarget` and `Self` contexts so graveyard/library filter clauses are
+      never misread as `Filter::HasCounter(Counter::PlusOnePlusOne)`.
+    - `cmcLE` on `ValidTgts$` (`Orim's Thunder` kicked mode): make sure target filters
+      preserve `ManaValueAtMost` when decomposing multi-clause target restrictions.
+  - Promoted all 937 instants and sorceries (`2,364 / 4,969` completed).
+- **Package 5 (1,296 non-triggered creatures + `Thor Odinson` multiple-prowess fix)**:
+  - Auditing all 1,296 non-triggered creatures against Scryfall Oracle texts uncovered
+    a `scriptgen` defect on `Thor Odinson` (`{3}{R}{W}`, double `Prowess`, CR 702.108b:
+    "If a creature has multiple instances of prowess, each triggers separately"):
+    `Tx::keyword` in `crates/baylee-cards-codegen/src/scriptgen/keywords.rs` folded every
+    `K:Prowess` line into `self.keywords = self.keywords.union(KeywordSet::PROWESS)`,
+    collapsing the second instance. Fixed `Tx::keyword` to emit an explicit
+    `triggered!(Trigger::SpellCast(&TRIGGER1), &[Effect::PumpFilter { filter: &Filter::This, .. }])`
+    for each `K:Prowess` beyond the first, and added both a `scriptgen` unit test
+    (`multiple_prowess_keywords_emit_separate_triggers`) and an engine regression test
+    (`thor_odinson_double_prowess_triggers_twice_per_noncreature_spell`).
+  - Testing lessons across 1,296 activated/static/replacement/alternative-cost creatures:
+    - `KeywordSet::contains(k)` in `baylee-cards-dsl` checks `self.0 & k.0 != 0`
+      (non-empty intersection), which returns `false` when `k == KeywordSet::EMPTY` and
+      only checks one bit of a multi-keyword union. Always assert subset containment via
+      `actual.bits() & expected.bits() == expected.bits()`.
+    - Summoning sickness is compared via `GameObject::controlled_since <= Player::turn_start_timestamp`
+      (CR 302.6), not `GameObject::timestamp`, so clearing summoning sickness on a newly
+      cast creature in a test fixture sets `controlled_since = 0`.
+    - Pre-tapping a permanent in a test fixture (e.g. for `{Q}` untap abilities like
+      `Order of Whiteclay` or `Leech Bonder`) must go through `state.set_tapped(id, true)`
+      rather than writing `Status::TAPPED` directly (`rules::nothing_writes_the_tapped_bit_except_the_one_door`).
+  - Promoted all 1,296 non-triggered creatures (`3,660 / 4,969` completed, `1,309` remaining).
+

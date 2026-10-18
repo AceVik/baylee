@@ -18,7 +18,7 @@ card!(
     scryfall_id = "221d999c-dde1-4a0f-87cf-9e9f44969f94",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Overseer",
         mana_cost = mana!("{3}{W}{W}"),

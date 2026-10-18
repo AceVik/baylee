@@ -11,7 +11,7 @@ card!(
     oracle_id = "6103f294-f920-4307-af80-d44cc71167fd",
     scryfall_id = "aa127602-10b2-4144-985b-38e075f1e1f7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kitesail Corsair",
         mana_cost = mana!("{1}{U}"),

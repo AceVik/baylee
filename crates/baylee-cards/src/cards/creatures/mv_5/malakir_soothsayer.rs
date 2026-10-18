@@ -16,7 +16,7 @@ card!(
     oracle_id = "6ebfce76-82a2-4168-bd64-99cf16882dee",
     scryfall_id = "72cb3c2c-5d5a-4c9b-a381-ab4dd477d84d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malakir Soothsayer",
         mana_cost = mana!("{4}{B}"),

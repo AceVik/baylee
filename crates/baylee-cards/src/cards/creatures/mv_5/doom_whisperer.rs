@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e8aabcaf-0968-402f-bc9f-289756e4d4b7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doom Whisperer",
         mana_cost = mana!("{3}{B}{B}"),

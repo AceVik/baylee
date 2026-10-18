@@ -12,7 +12,7 @@ card!(
     oracle_id = "448da389-81db-4931-9cf7-3fde0ce9392f",
     scryfall_id = "c7f517b9-ac10-4710-8ef1-ced1253d5ecf",
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warden of Geometries",
         mana_cost = mana!("{4}"),

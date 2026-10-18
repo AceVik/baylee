@@ -14,7 +14,7 @@ card!(
     oracle_id = "61251125-1379-43e9-8fb1-ce03ca399083",
     scryfall_id = "fdb6b1ae-db92-447f-943a-8d33de940d44",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Streambed Aquitects",
         mana_cost = mana!("{1}{U}{U}"),

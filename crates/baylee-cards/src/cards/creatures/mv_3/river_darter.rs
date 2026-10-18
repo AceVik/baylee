@@ -16,7 +16,7 @@ card!(
     oracle_id = "939a6815-bed1-43b0-bf4d-f0581ba0fed5",
     scryfall_id = "d766eb87-19ef-460b-982f-e55ae5890e6a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "River Darter",
         mana_cost = mana!("{2}{U}"),

@@ -23,7 +23,7 @@ card!(
     oracle_id = "cf42a7e3-71ee-40b8-a6ca-0368c746e128",
     scryfall_id = "c9e43116-a489-4557-a47f-623d915a2b79",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadow-Rite Priest",
         mana_cost = mana!("{1}{B}"),

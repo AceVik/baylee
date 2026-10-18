@@ -14,7 +14,7 @@ card!(
     scryfall_id = "4b335496-05d2-40f5-a52c-10029f7fa008",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghen, Arcanum Weaver",
         mana_cost = mana!("{R}{W}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d1244c95-a066-412d-bd04-c906ea4b4dd0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Bell Monk",
         mana_cost = mana!("{2}{W}"),

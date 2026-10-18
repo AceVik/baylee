@@ -18,7 +18,7 @@ card!(
     scryfall_id = "adffc298-0219-4807-ab05-d94460e767bc",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Intruding Soulrager",
         mana_cost = mana!("{U}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "3835cb81-b6e4-4be8-9d49-8307ddc2e1a2",
     scryfall_id = "1d4e5c23-3a7f-4a6b-99c4-6a1487a9b097",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chained Brute",
         mana_cost = mana!("{1}{R}"),

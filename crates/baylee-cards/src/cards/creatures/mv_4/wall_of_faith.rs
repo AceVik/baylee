@@ -13,7 +13,7 @@ card!(
     scryfall_id = "05f30f77-75ea-4145-a4a1-106cc547f482",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Faith",
         mana_cost = mana!("{3}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "b5187725-9a39-433c-ae09-eccd6111574c",
     scryfall_id = "1fa545eb-aa45-4085-8472-676f5d5e1c48",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Lynx",
         mana_cost = mana!("{1}{W}"),

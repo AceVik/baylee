@@ -18,7 +18,7 @@ card!(
     oracle_id = "73ca3132-d849-4cf9-beba-75ba09789332",
     scryfall_id = "14f2ed5a-042b-4cce-82ad-cfb4bd511d98",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deserter's Disciple",
         mana_cost = mana!("{1}{R}"),

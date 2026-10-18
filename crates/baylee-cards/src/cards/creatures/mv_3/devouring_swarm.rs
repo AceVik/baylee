@@ -13,7 +13,7 @@ card!(
     scryfall_id = "735c2c79-9b4f-4f86-9dec-0749237fe9ce",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devouring Swarm",
         mana_cost = mana!("{1}{B}{B}"),

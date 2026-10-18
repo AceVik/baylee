@@ -12,7 +12,7 @@ card!(
     scryfall_id = "65b41982-6e79-4e04-a0f3-d985da92e8c1",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hanna, Ship's Navigator",
         mana_cost = mana!("{1}{W}{U}"),

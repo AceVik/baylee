@@ -11,7 +11,7 @@ card!(
     oracle_id = "06a94ea3-6cda-42fe-ba3b-40a0e9044f8e",
     scryfall_id = "289d6da8-9cfe-4c1b-90c9-477a743f6d62",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravenous Intruder",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "8fb44b03-017f-4cf3-a79b-8f6cc33570ca",
     scryfall_id = "9f255055-0499-400f-ae0a-c32624f0ce78",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildfire Emissary",
         mana_cost = mana!("{3}{R}"),

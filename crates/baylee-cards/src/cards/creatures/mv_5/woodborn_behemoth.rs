@@ -11,7 +11,7 @@ card!(
     oracle_id = "9bc458ac-5566-4978-aeaa-73b600d4ec29",
     scryfall_id = "a2e49925-a4ab-4960-ad83-20583dcd2c2c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodborn Behemoth",
         mana_cost = mana!("{3}{G}{G}"),

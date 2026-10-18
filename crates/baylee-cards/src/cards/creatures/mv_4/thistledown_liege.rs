@@ -14,7 +14,7 @@ card!(
     scryfall_id = "41a21a0c-fe3d-456b-a905-8d962c0b1e3c",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thistledown Liege",
         mana_cost = mana!("{1}{W/U}{W/U}{W/U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "487de0df-0496-4b5d-8050-27b8e617582b",
     scryfall_id = "edb2b284-f79c-41eb-a25f-4710d4a5228f",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firehoof Cavalry",
         mana_cost = mana!("{W}"),

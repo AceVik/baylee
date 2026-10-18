@@ -11,7 +11,7 @@ card!(
     oracle_id = "744fcf77-b597-48a0-92ec-f3a617c03df1",
     scryfall_id = "8d586143-fac0-463f-96ec-c6b9fd582194",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dutiful Thrull",
         mana_cost = mana!("{W}"),

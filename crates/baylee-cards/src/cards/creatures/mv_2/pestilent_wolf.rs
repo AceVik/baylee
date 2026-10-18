@@ -11,7 +11,7 @@ card!(
     oracle_id = "39940633-ef64-408e-ae8f-ade201fe7f06",
     scryfall_id = "e2686431-8d9c-4b9c-998f-38b5ae113d4a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pestilent Wolf",
         mana_cost = mana!("{1}{G}"),

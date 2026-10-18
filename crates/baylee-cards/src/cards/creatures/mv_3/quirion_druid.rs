@@ -11,7 +11,7 @@ card!(
     oracle_id = "cdc0621a-5a88-46a0-90fa-87ba1e7e1eb2",
     scryfall_id = "8ca5319a-5c26-487f-ba87-d317633122ba",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quirion Druid",
         mana_cost = mana!("{2}{G}"),

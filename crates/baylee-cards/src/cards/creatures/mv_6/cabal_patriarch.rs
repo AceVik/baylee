@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9e9a1276-5ad5-44ee-83e5-2d1ab728946e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cabal Patriarch",
         mana_cost = mana!("{3}{B}{B}{B}"),

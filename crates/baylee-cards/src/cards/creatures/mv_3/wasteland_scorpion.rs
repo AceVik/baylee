@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2bab1782-498c-40fc-bf2e-5c991d0c3501",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wasteland Scorpion",
         mana_cost = mana!("{2}{B}"),

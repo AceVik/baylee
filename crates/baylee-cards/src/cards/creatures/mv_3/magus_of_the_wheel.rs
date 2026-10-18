@@ -11,7 +11,7 @@ card!(
     oracle_id = "df13dafb-f82e-42ac-b6dc-efe82af5db58",
     scryfall_id = "0e952dd9-ef09-40f0-993f-eb3a1516616a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Wheel",
         mana_cost = mana!("{2}{R}"),

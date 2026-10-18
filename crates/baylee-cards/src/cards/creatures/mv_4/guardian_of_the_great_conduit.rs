@@ -19,7 +19,7 @@ card!(
     scryfall_id = "72638ac5-84fd-4688-9b81-0eea3c05e53e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian of the Great Conduit",
         mana_cost = mana!("{3}{G}"),

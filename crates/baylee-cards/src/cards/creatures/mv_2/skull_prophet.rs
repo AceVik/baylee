@@ -12,7 +12,7 @@ card!(
     oracle_id = "39b51f62-8421-42d1-86d3-74fd6e6f31a2",
     scryfall_id = "ea53e2c9-0a3f-4fda-a6ab-9a558bb8f126",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skull Prophet",
         mana_cost = mana!("{B}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1afa006b-1190-4047-a9fe-4215f20df8f2",
     scryfall_id = "ac7bb326-a07a-448c-a962-b9d3acc9d5b8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thalakos Drifters",
         mana_cost = mana!("{2}{U}{U}"),

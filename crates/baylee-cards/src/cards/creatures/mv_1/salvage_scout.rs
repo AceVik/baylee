@@ -11,7 +11,7 @@ card!(
     oracle_id = "502e991c-f4de-4095-adac-cb0c25e44a7c",
     scryfall_id = "5909e77e-a930-4713-bca4-c6b265238c17",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salvage Scout",
         mana_cost = mana!("{W}"),

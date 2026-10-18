@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d961c441-b76b-4bd8-b510-a3e073207a1b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistral Singer",
         mana_cost = mana!("{2}{U}"),

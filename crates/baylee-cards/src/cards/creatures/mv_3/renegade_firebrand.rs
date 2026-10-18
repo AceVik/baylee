@@ -17,7 +17,7 @@ card!(
     oracle_id = "d4b0a6e6-937d-428a-a469-bc09c30ac276",
     scryfall_id = "4b633884-867c-4b51-bd5b-5f246d0ecd4e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Renegade Firebrand",
         mana_cost = mana!("{2}{R}"),

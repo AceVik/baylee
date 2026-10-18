@@ -11,7 +11,7 @@ card!(
     oracle_id = "2c181479-6df0-44ef-a7ce-d1d592735bc6",
     scryfall_id = "ecd271d7-a3c8-4448-b8e2-bcef5d7e9118",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snarling Wolf",
         mana_cost = mana!("{G}"),

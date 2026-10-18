@@ -11,7 +11,7 @@ card!(
     oracle_id = "5863c67b-a47c-4466-8bd1-210ab26e0d3f",
     scryfall_id = "119d4579-26e6-4985-b232-40d11d60fd96",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inspired Insurgent",
         mana_cost = mana!("{1}{W}"),

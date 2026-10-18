@@ -16,7 +16,7 @@ card!(
     oracle_id = "969233f8-a644-4297-a2bf-b1ca7a58bb0b",
     scryfall_id = "361dab9e-22f0-45e4-a793-aa6c97a96781",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrenton Cragtreads",
         mana_cost = mana!("{2}{W/U}{W/U}"),

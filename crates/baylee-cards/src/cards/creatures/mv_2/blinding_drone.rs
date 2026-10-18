@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4eb60957-0811-40c3-a92b-cce3e6a94745",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blinding Drone",
         mana_cost = mana!("{1}{U}"),

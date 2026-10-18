@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d6bfa227-4309-40ed-952c-279595eab17e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monastery Swiftspear",
         mana_cost = mana!("{R}"),

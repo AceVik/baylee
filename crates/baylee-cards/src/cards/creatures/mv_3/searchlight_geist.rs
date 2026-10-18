@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b0dc1a94-0193-464e-a481-730b34b57db5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Searchlight Geist",
         mana_cost = mana!("{2}{B}"),

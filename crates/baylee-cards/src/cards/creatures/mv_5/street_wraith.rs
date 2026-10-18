@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5d09cc57-2275-4b6b-aaf6-a6d781cd9365",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Street Wraith",
         mana_cost = mana!("{3}{B}{B}"),

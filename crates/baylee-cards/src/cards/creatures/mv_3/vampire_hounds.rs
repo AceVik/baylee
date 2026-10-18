@@ -11,7 +11,7 @@ card!(
     oracle_id = "0184d74b-e9aa-4b5a-8db0-b15cecbc17fb",
     scryfall_id = "59339026-3ec6-4bd9-a1c4-c80951f8c68d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Hounds",
         mana_cost = mana!("{2}{B}"),

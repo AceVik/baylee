@@ -16,7 +16,7 @@ card!(
     oracle_id = "58805c22-29cc-4ab2-a95c-b1798eb7a90d",
     scryfall_id = "769cddf0-2078-456b-a622-057571464fe7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flutterfox",
         mana_cost = mana!("{1}{W}"),

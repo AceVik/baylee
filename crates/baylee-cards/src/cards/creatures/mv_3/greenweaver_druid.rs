@@ -11,7 +11,7 @@ card!(
     oracle_id = "5e35a7c9-1e6e-41a7-9f59-5ea1bc53bc65",
     scryfall_id = "747099f7-ce5b-4366-a8a4-f3d80100f66e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greenweaver Druid",
         mana_cost = mana!("{2}{G}"),

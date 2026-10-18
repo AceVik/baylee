@@ -11,7 +11,7 @@ card!(
     oracle_id = "ef220824-fab4-4d8e-9ba4-65ff5ba1db66",
     scryfall_id = "86bc07c6-2ba7-41f8-90ab-f9bbac86dd08",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thrashing Wumpus",
         mana_cost = mana!("{3}{B}{B}"),

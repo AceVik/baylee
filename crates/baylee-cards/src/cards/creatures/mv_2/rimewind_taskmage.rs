@@ -16,7 +16,7 @@ card!(
     oracle_id = "f5d9248e-9cff-4f80-b6ed-7d368099e97b",
     scryfall_id = "e9cdc06e-1458-4b19-a272-28a3d0453643",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rimewind Taskmage",
         mana_cost = mana!("{1}{U}"),

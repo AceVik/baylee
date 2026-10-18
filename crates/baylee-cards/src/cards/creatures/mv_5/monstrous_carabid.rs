@@ -12,7 +12,7 @@ card!(
     oracle_id = "2e29025e-6954-4fbd-933f-81c2309c704e",
     scryfall_id = "b09e668d-02ca-4164-88ee-c7ea6c665975",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monstrous Carabid",
         mana_cost = mana!("{3}{B}{R}"),

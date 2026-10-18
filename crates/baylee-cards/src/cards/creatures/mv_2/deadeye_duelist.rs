@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e9a50b7a-8741-4520-8d45-8e6b128c2628",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadeye Duelist",
         mana_cost = mana!("{1}{R}"),

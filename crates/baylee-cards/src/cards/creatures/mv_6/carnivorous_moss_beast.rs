@@ -11,7 +11,7 @@ card!(
     oracle_id = "32f5f67b-bba3-427c-ab24-13a50acdc611",
     scryfall_id = "bd814ce3-9555-4e9d-a212-e40717f4e546",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carnivorous Moss-Beast",
         mana_cost = mana!("{4}{G}{G}"),

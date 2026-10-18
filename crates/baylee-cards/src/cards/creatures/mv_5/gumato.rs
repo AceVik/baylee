@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1cf2440a-63ed-485a-806a-dd267fc6e298",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gumato",
         mana_cost = mana!("{4}{G}"),

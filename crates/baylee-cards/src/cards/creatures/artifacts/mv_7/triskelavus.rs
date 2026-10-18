@@ -14,7 +14,7 @@ card!(
     oracle_id = "e958f7bf-3011-4175-b467-ca225a9b7ad2",
     scryfall_id = "899eb19e-9932-4066-9de6-dfdbbab5e769",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Triskelavus",
         mana_cost = mana!("{7}"),

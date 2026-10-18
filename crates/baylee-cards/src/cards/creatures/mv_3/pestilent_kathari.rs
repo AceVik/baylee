@@ -14,7 +14,7 @@ card!(
     scryfall_id = "dba00df7-2c8d-435a-86d1-6bd7b7413585",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pestilent Kathari",
         mana_cost = mana!("{2}{B}"),

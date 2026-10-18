@@ -16,7 +16,7 @@ card!(
     oracle_id = "01799149-4bca-417b-9e89-14493fd46c79",
     scryfall_id = "367e7821-44f1-4064-a9a3-d9852c7c235c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Summit Apes",
         mana_cost = mana!("{3}{G}"),

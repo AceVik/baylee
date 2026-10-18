@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b0fd1009-cd3d-4b53-b9f1-dbc47e8708ab",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kaervek, the Spiteful",
         mana_cost = mana!("{2}{B}{B}"),

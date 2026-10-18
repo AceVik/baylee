@@ -11,7 +11,7 @@ card!(
     oracle_id = "d71bc551-3fd9-43a9-9477-2acc8683a784",
     scryfall_id = "b2048d84-b5e6-405c-9091-1997a0c4e1a5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nova Cleric",
         mana_cost = mana!("{W}"),

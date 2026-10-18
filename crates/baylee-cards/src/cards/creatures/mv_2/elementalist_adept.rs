@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d9768cc6-8f53-4922-ae32-376a2f32d719",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elementalist Adept",
         mana_cost = mana!("{1}{U}"),

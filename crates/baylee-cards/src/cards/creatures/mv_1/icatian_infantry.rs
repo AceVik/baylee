@@ -12,7 +12,7 @@ card!(
     oracle_id = "9eb274f3-ef55-4545-81b4-29454a48f075",
     scryfall_id = "f95d42d8-ba75-43bf-81b8-b02374f03e83",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Icatian Infantry",
         mana_cost = mana!("{W}"),

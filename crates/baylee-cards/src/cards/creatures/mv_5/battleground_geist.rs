@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3507e285-fabb-45e3-af4c-52032558cf03",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battleground Geist",
         mana_cost = mana!("{4}{U}"),

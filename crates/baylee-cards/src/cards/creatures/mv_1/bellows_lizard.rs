@@ -11,7 +11,7 @@ card!(
     oracle_id = "667dae0b-5006-4e38-be80-eae79c2a2a95",
     scryfall_id = "285d2e99-13f1-4ce8-9a54-139de193c1b3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bellows Lizard",
         mana_cost = mana!("{R}"),

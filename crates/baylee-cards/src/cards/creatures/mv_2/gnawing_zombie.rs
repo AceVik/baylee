@@ -11,7 +11,7 @@ card!(
     oracle_id = "7979c1e6-6bc5-4b8c-82b0-2770e67ba898",
     scryfall_id = "f4bdd28d-7467-494b-a52f-a84932da25f3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gnawing Zombie",
         mana_cost = mana!("{1}{B}"),

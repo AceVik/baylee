@@ -10,7 +10,7 @@ card!(
     index = index::DIABOLIC_MACHINE,
     oracle_id = "afd9b232-3f46-40c5-b1cf-2a7e8c955eba",
     scryfall_id = "82e90d11-dde3-4aaa-b21c-79ea480447ee",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diabolic Machine",
         mana_cost = mana!("{7}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "0d9d7f04-6319-4596-8b74-de5a794936e5",
     scryfall_id = "760c0369-c2e4-4bd7-a301-9f707f5f48a8",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yotian Tactician",
         mana_cost = mana!("{2}{W}{U}"),

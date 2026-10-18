@@ -22,7 +22,7 @@ card!(
     oracle_id = "9777a54b-1c60-4d6b-bb83-c57cb3a1d7e6",
     scryfall_id = "57cec628-5f6a-4b42-9044-3f9a80cac3e6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rage Weaver",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "101a5c2d-b0b4-45a7-b236-df474ac47356",
     scryfall_id = "3457f86f-422c-483d-9d3f-b8e99fdab6c8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mnemonic Sliver",
         mana_cost = mana!("{2}{U}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "16aba9af-7a12-4c3d-87eb-06278921cb7c",
     scryfall_id = "ac545978-ad30-4c6b-8add-3edd6c0eb7f3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk Sovereign",
         mana_cost = mana!("{1}{U}{U}"),

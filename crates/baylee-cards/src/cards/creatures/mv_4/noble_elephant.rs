@@ -12,7 +12,7 @@ card!(
     scryfall_id = "65f399cb-dddb-422a-8d36-938b82b59e10",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noble Elephant",
         mana_cost = mana!("{3}{W}"),

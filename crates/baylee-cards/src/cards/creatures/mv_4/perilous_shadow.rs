@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ba3405d-8c9a-4a80-811d-529cd3cb657f",
     scryfall_id = "2c101171-a988-4c1d-9954-634e2f1c6f01",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Perilous Shadow",
         mana_cost = mana!("{2}{B}{B}"),

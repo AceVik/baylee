@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4c45b36f-b879-417c-b284-0176990fb9f9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sachi, Daughter of Seshiro",
         mana_cost = mana!("{2}{G}{G}"),

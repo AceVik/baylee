@@ -17,7 +17,7 @@ card!(
     oracle_id = "94431642-cfcf-48f4-9e0b-fcddc5b051ef",
     scryfall_id = "f0b96e41-caae-4e22-82f9-df5a054ea3b7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Creeping Trailblazer",
         mana_cost = mana!("{R}{G}"),

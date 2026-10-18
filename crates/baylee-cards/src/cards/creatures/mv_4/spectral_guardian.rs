@@ -17,7 +17,7 @@ card!(
     oracle_id = "87d734bc-4e4d-4013-91ed-c6bf1dde824e",
     scryfall_id = "2a0bea61-8fd2-4802-90b4-651bebbe9638",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Guardian",
         mana_cost = mana!("{2}{W}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "4ddb6c2c-876e-4e7c-b97d-90dd3c52930f",
     scryfall_id = "dec01518-b7c8-424f-97d6-455775204fb8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hag of Noxious Nightmares",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "2e6d3120-d41d-4e48-b33f-0f73c876fe69",
     scryfall_id = "b44370ea-b62a-4001-86f0-1fe006005217",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyshroud Troll",
         mana_cost = mana!("{2}{G}{G}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "942a461a-49aa-4eeb-b399-a2afba41ade9",
     scryfall_id = "97c3fcca-480f-4acf-b74f-0f37b46fa799",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of Eternal Wilds",
         mana_cost = mana!("{3}{G}"),

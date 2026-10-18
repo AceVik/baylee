@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a3e7e593-e5b0-4348-b8e5-20173d41aa39",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeletal Kathari",
         mana_cost = mana!("{4}{B}"),

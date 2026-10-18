@@ -16,7 +16,7 @@ card!(
     oracle_id = "067b54e4-18f3-48e3-b824-3aba7fcf2408",
     scryfall_id = "f9ff6624-ed0e-43d0-9519-112979b165f5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master Apothecary",
         mana_cost = mana!("{W}{W}{W}"),

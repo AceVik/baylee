@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3e2160e9-14a0-4c75-b7b0-fb09051ddb32",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodcrazed Paladin",
         mana_cost = mana!("{1}{B}"),

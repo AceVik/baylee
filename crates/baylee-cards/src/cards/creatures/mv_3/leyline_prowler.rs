@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c5d9286d-449b-4959-98ae-bd6a35be221d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leyline Prowler",
         mana_cost = mana!("{1}{B}{G}"),

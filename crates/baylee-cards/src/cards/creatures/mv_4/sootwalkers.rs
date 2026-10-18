@@ -16,7 +16,7 @@ card!(
     oracle_id = "1492e778-b85e-4675-b48c-bc0a2eb1d105",
     scryfall_id = "f36c7932-cc1e-4b1f-ae39-2f04b84bcddb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sootwalkers",
         mana_cost = mana!("{2}{B/R}{B/R}"),

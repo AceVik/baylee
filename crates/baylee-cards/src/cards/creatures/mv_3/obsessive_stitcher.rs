@@ -12,7 +12,7 @@ card!(
     oracle_id = "e8210145-a6ac-4f84-a74c-a5799c5e9434",
     scryfall_id = "d319c8a2-ae7b-4077-8b11-97937979fed2",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obsessive Stitcher",
         mana_cost = mana!("{1}{U}{B}"),

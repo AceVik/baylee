@@ -11,7 +11,7 @@ card!(
     oracle_id = "82732de2-b98d-4534-967f-2cf4c9e6bfbe",
     scryfall_id = "0528fe29-f3c1-4d10-9030-053c3de57b7b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Split-Tail Miko",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "39d60cd8-bebc-407d-b361-8e49e70e339a",
     scryfall_id = "11a1fc03-5719-49ed-9d53-d8ea5693373e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Black Poplar Shaman",
         mana_cost = mana!("{2}{B}"),

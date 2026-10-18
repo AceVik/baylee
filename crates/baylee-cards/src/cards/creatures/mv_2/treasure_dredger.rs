@@ -12,7 +12,7 @@ card!(
     oracle_id = "9a691e96-fb47-4c23-a063-3b287c51147b",
     scryfall_id = "c88df498-147c-4609-8a94-d8d10a87e37c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treasure Dredger",
         mana_cost = mana!("{1}{B}"),

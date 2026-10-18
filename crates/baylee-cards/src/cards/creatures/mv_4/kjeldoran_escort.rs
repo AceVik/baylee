@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0fd7536a-5417-4de0-9a48-82a5f82d9af4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Escort",
         mana_cost = mana!("{2}{W}{W}"),

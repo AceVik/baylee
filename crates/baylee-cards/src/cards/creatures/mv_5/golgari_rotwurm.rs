@@ -11,7 +11,7 @@ card!(
     oracle_id = "75df9e6a-a17c-4311-a4e7-ff0d75728337",
     scryfall_id = "d482d3d5-d4ad-4e0e-ab92-3246cf684d14",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Rotwurm",
         mana_cost = mana!("{3}{B}{G}"),

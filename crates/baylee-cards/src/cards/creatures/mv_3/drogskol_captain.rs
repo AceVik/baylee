@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c88e7e22-6300-4871-9af8-923eedfe4b32",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drogskol Captain",
         mana_cost = mana!("{1}{W}{U}"),

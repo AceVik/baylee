@@ -22,7 +22,7 @@ card!(
     oracle_id = "2a41f61b-a419-4b79-a25f-2506eaf05f55",
     scryfall_id = "b5b3c413-96ca-42c5-b263-f2da195c1854",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hate Weaver",
         mana_cost = mana!("{1}{B}"),

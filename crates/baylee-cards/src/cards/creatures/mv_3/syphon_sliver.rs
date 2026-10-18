@@ -11,7 +11,7 @@ card!(
     oracle_id = "61f18560-8f26-4d7b-a6f8-ec388766123b",
     scryfall_id = "3d222985-759c-4fdc-82ba-d970ef789b35",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Syphon Sliver",
         mana_cost = mana!("{2}{B}"),

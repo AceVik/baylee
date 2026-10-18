@@ -11,7 +11,7 @@ card!(
     oracle_id = "748c2723-dc59-4aa7-9667-d4679448c8b6",
     scryfall_id = "43752240-10b1-4920-bb89-e4a4a1e78219",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Ghoul",
         mana_cost = mana!("{2}{B}"),

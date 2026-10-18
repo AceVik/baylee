@@ -12,7 +12,7 @@ card!(
     oracle_id = "3b14e7ea-e01c-421d-acd2-0b70436ca6aa",
     scryfall_id = "b29fc64e-297e-4e10-8f4e-289dc1c3ebfd",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathbellow Raider",
         mana_cost = mana!("{1}{R}"),

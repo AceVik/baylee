@@ -11,7 +11,7 @@ card!(
     oracle_id = "ee9208e7-2075-45b9-9ed7-b18e1a280d79",
     scryfall_id = "0700908c-87f3-4d88-bb54-e061ee735170",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brothers of Fire",
         mana_cost = mana!("{1}{R}{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1a129f22-dd7e-4b2c-a514-a2ac55bb5661",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mage-Ring Bully",
         mana_cost = mana!("{1}{R}"),

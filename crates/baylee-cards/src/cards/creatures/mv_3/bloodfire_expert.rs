@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0742564e-f7a7-4107-b9ed-63703ca4702c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodfire Expert",
         mana_cost = mana!("{2}{R}"),

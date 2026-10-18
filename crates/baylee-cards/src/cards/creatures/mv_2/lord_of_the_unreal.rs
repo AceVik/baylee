@@ -11,7 +11,7 @@ card!(
     oracle_id = "cc60181a-5eeb-4d66-9876-3194bac1e7a7",
     scryfall_id = "b09140f6-fa75-4bee-9ca0-3a71cd2b5a7b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lord of the Unreal",
         mana_cost = mana!("{U}{U}"),

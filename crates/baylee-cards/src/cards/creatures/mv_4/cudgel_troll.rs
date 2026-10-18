@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2f86723-4765-4dac-a9f6-9cfa543613b2",
     scryfall_id = "e156b8d8-5309-494e-9709-44f98826a69f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cudgel Troll",
         mana_cost = mana!("{2}{G}{G}"),

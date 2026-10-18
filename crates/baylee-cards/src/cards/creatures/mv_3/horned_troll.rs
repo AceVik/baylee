@@ -11,7 +11,7 @@ card!(
     oracle_id = "6ecc61ff-719a-405d-b02a-01607729d05c",
     scryfall_id = "fffce2f7-b619-4483-a75e-916343194641",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horned Troll",
         mana_cost = mana!("{2}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "5b60a257-e4f8-412e-b146-b7983a384753",
     scryfall_id = "be87e59d-422c-4dd7-8867-423e784830a2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Resplendent Mentor",
         mana_cost = mana!("{4}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "58d39991-420b-4eca-967d-49ad3f9a4702",
     scryfall_id = "259469b3-1212-4030-97ae-a84f132798d4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "War-Torch Goblin",
         mana_cost = mana!("{R}"),

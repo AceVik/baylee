@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8987b2af-66d6-4271-a139-37e544cdec62",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Herald of Dromoka",
         mana_cost = mana!("{1}{W}"),

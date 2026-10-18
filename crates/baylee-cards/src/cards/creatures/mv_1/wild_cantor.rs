@@ -12,7 +12,7 @@ card!(
     oracle_id = "24472823-d33c-4d96-add1-233116f6f4f7",
     scryfall_id = "e6b56946-a368-4cd7-9d35-be14afca935b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Cantor",
         mana_cost = mana!("{R/G}"),

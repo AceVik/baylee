@@ -13,7 +13,7 @@ card!(
     scryfall_id = "18acffb1-c1e8-4729-a350-64823b2f9d29",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mothdust Changeling",
         mana_cost = mana!("{U}"),

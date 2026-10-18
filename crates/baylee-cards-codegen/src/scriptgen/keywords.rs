@@ -32,7 +32,18 @@ impl Tx<'_> {
             return self.enchant(rest);
         }
         if let Some(bit) = keyword_const(line) {
-            self.body.keywords.push(bit.to_string());
+            if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
+                let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                self.body.abilities.push(format!(
+                    "triggered!(Trigger::SpellCast(&{filter}), &[Effect::PumpFilter {{ \
+                     filter: &Filter::This, controlled_by: None, power: Amount::Fixed(1), \
+                     toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
+                     duration: Duration::UntilEndOfTurn }}])"
+                ));
+            } else {
+                self.body.keywords.push(bit.to_string());
+            }
             return Some(());
         }
         if let Some(from) = self.protection_filter(line) {

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "37fd303a-0a51-4931-9735-704ce8179a98",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stoic Angel",
         mana_cost = mana!("{1}{G}{W}{U}"),

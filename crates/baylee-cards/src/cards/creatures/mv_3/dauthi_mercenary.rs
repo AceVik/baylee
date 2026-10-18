@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1f4d6a3b-5880-447f-9095-84ea9e28e5a9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Mercenary",
         mana_cost = mana!("{2}{B}"),

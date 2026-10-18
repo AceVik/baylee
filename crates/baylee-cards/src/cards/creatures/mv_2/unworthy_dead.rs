@@ -11,7 +11,7 @@ card!(
     oracle_id = "7454e2cf-5ef2-4623-bac7-c375fd230595",
     scryfall_id = "0f42c561-1762-43c4-a539-0cf9a5ce7f4f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unworthy Dead",
         mana_cost = mana!("{1}{B}"),

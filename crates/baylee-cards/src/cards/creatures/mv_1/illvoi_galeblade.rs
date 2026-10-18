@@ -14,7 +14,7 @@ card!(
     scryfall_id = "769f7d13-a312-4d79-8639-6ae248452448",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Illvoi Galeblade",
         mana_cost = mana!("{U}"),

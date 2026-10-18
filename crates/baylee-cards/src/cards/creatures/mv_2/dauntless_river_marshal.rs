@@ -17,7 +17,7 @@ card!(
     oracle_id = "544c4cb3-cd43-4670-9883-e9545dad9cd6",
     scryfall_id = "efedfd1e-5073-47e2-9137-5f2bf4e436e3",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauntless River Marshal",
         mana_cost = mana!("{1}{W}"),

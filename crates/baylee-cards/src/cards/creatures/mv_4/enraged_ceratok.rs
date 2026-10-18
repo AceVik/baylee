@@ -13,7 +13,7 @@ card!(
     oracle_id = "e1f3f377-c7b1-474c-aed6-78b061d138c1",
     scryfall_id = "bcab8f40-aa49-47c0-a065-2e09286adfef",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enraged Ceratok",
         mana_cost = mana!("{2}{G}{G}"),

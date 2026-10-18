@@ -11,7 +11,7 @@ card!(
     oracle_id = "a621ae15-122a-4e11-bfcf-11dfc09784c0",
     scryfall_id = "c912e984-1d27-4da2-9733-d56e437bcf58",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Barbarian",
         mana_cost = mana!("{1}{R}"),

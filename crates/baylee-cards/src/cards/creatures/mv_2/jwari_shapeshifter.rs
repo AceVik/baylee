@@ -16,7 +16,7 @@ card!(
     oracle_id = "0b0c02eb-4d9e-4fea-bad6-9ef5d7bb5295",
     scryfall_id = "587f91f6-b46e-4dd5-a86d-1048054dd3c0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jwari Shapeshifter",
         mana_cost = mana!("{1}{U}"),

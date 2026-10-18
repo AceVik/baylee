@@ -11,7 +11,7 @@ card!(
     oracle_id = "29e8d973-0233-446e-b587-1c7508352642",
     scryfall_id = "9c34c1f5-d509-4c66-ba41-c7958ef5ee44",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selesnya Sentry",
         mana_cost = mana!("{2}{W}"),

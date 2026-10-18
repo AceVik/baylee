@@ -19,7 +19,7 @@ card!(
     oracle_id = "38212d24-40fd-404f-a8bb-24ed0d023fe8",
     scryfall_id = "5afc32ed-c1a9-4c37-bfe0-562818c046fc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of Gathering Mists",
         mana_cost = mana!("{3}{U}"),

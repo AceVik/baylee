@@ -12,7 +12,7 @@ card!(
     oracle_id = "7c07970d-063a-44a1-9761-b80aafa90dac",
     scryfall_id = "709ffd07-706c-471f-b74d-4637afa11686",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stark Industries Executive",
         mana_cost = mana!("{R}"),

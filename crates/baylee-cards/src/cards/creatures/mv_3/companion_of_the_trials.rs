@@ -19,7 +19,7 @@ card!(
     scryfall_id = "637ac220-058f-4212-ba8b-a389bb0528bd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Companion of the Trials",
         mana_cost = mana!("{2}{W}"),

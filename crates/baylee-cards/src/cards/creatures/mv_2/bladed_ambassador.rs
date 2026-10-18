@@ -12,7 +12,7 @@ card!(
     oracle_id = "3088ee75-3b51-4cbc-8987-76cb93f416b1",
     scryfall_id = "0bd8d2b8-4caf-4349-9538-0dfbebf0ce1b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bladed Ambassador",
         mana_cost = mana!("{1}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "604aded2-64c2-4474-b5b7-8c83e0e3fe76",
     scryfall_id = "ceb85311-a7f7-44d5-9caa-50a24fd6d00a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Scholar",
         mana_cost = mana!("{2}{U}"),

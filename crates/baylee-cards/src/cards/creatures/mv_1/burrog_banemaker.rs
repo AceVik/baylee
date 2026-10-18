@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3e4f9d23-1a17-4188-ac91-f8ddea46a1c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burrog Banemaker",
         mana_cost = mana!("{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bd0a8af9-2e86-4639-a6c9-209f115e95f8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cavern Crawler",
         mana_cost = mana!("{2}{R}"),

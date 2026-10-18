@@ -31,7 +31,7 @@ card!(
     oracle_id = "9e4db334-4698-4986-820f-1daf1bffda83",
     scryfall_id = "36197ed0-4382-4de3-8359-73cb74edc78b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel's Herald",
         mana_cost = mana!("{W}"),

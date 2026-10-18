@@ -11,7 +11,7 @@ card!(
     oracle_id = "227cbba1-700b-4255-b730-b324ab3dec34",
     scryfall_id = "1e2f7d7f-4097-419b-8de0-b7bf28fc3a4b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beetleform Mage",
         mana_cost = mana!("{1}{G}{U}"),

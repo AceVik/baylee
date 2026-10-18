@@ -12,7 +12,7 @@ card!(
     oracle_id = "5322a218-6a0c-4d86-835a-c87eb52aaf6a",
     scryfall_id = "07a262d7-6d0c-43d0-89b6-9f46a1a9eb69",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Samite Archer",
         mana_cost = mana!("{1}{W}{U}"),

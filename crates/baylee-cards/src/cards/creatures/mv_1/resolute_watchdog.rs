@@ -13,7 +13,7 @@ card!(
     scryfall_id = "56d86909-b7f3-4a46-9904-e173853b79f1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Resolute Watchdog",
         mana_cost = mana!("{W}"),

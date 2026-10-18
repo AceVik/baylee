@@ -13,7 +13,7 @@ card!(
     oracle_id = "4a7a55a3-568c-4c31-9460-5b94dc0121d8",
     scryfall_id = "790f9433-7565-4f7f-88e8-8af762ea0296",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hungry Ghoul",
         mana_cost = mana!("{1}{B}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d1a72d09-9cfc-463a-a9ec-3359003d54da",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frog Butler",
         mana_cost = mana!("{1}{G}"),

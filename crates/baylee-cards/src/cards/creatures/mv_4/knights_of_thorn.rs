@@ -12,7 +12,7 @@ card!(
     scryfall_id = "98b76698-e27b-40fa-97fd-9f214f346e31",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knights of Thorn",
         mana_cost = mana!("{3}{W}"),

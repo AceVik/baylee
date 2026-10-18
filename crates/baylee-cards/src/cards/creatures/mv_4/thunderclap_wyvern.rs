@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7fc3c21f-99d5-48dc-b36e-8db597da44bf",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thunderclap Wyvern",
         mana_cost = mana!("{2}{W}{U}"),

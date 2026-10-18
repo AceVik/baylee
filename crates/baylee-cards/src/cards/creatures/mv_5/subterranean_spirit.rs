@@ -17,7 +17,7 @@ card!(
     oracle_id = "58917163-584d-4c74-8243-f56c5d4b49e7",
     scryfall_id = "132e8aac-9698-45fa-8d64-b460fd5deffc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Subterranean Spirit",
         mana_cost = mana!("{3}{R}{R}"),

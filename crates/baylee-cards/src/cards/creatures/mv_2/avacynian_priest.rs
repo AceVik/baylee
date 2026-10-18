@@ -16,7 +16,7 @@ card!(
     oracle_id = "df7e296d-96de-4280-a4d8-49189544b9e3",
     scryfall_id = "c119b314-c563-4b6b-8bac-a680e69c6b37",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avacynian Priest",
         mana_cost = mana!("{1}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "a7fe5473-fae5-490e-8600-b7e497b9989e",
     scryfall_id = "d8634068-0ada-4913-8246-c9ac7e9dbde3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirsdag Cultist",
         mana_cost = mana!("{2}{R}{R}"),

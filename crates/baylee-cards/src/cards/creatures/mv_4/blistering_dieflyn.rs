@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5720a5b2-60ca-49f9-83e8-b801471c92ea",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blistering Dieflyn",
         mana_cost = mana!("{3}{R}"),

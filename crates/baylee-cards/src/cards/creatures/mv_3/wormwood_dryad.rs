@@ -12,7 +12,7 @@ card!(
     oracle_id = "277bd0c7-2400-4c94-ba82-4c9472badb60",
     scryfall_id = "d35ad370-1b7e-4926-9580-7acf919787f2",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wormwood Dryad",
         mana_cost = mana!("{2}{G}"),

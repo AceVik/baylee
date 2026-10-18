@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2c1fa0c5-8eef-484e-9d5f-38e87d99ed73",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanguine Guard",
         mana_cost = mana!("{1}{B}{B}"),

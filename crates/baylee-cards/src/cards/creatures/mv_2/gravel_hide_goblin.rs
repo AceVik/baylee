@@ -11,7 +11,7 @@ card!(
     oracle_id = "71d284ee-5b29-4db3-b355-a6bdc142a05b",
     scryfall_id = "ed8d49e1-4079-4411-930b-36dbac5c2113",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gravel-Hide Goblin",
         mana_cost = mana!("{1}{R}"),

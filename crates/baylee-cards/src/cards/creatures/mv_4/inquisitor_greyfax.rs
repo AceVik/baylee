@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inquisitor Greyfax",
         mana_cost = mana!("{1}{W}{U}{B}"),

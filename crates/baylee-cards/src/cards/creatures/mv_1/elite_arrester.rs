@@ -11,7 +11,7 @@ card!(
     oracle_id = "f25af8de-3edb-400b-9b6c-ec446a8314fa",
     scryfall_id = "070f0a21-8e06-46ec-9d84-c65067b23893",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Arrester",
         mana_cost = mana!("{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "155422a0-a0cd-4399-8ed9-fa68ac2c80a6",
     scryfall_id = "2d3225e8-9902-4826-9cb3-68ecfaebb1e9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doomed Necromancer",
         mana_cost = mana!("{2}{B}"),

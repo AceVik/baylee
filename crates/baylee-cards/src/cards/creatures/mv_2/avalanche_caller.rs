@@ -17,7 +17,7 @@ card!(
     oracle_id = "c66dc0d3-b98c-40a2-be35-e455b4658828",
     scryfall_id = "89cef049-6a47-4264-b2bc-b9d291a09c4c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avalanche Caller",
         mana_cost = mana!("{1}{U}"),

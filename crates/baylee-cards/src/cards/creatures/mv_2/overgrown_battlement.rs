@@ -19,7 +19,7 @@ card!(
     scryfall_id = "680f6308-4469-4565-873e-40fb5aaef27d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Overgrown Battlement",
         mana_cost = mana!("{1}{G}"),

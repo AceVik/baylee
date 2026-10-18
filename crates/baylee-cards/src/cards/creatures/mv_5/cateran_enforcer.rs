@@ -26,7 +26,7 @@ card!(
     scryfall_id = "9e9b6da8-39da-4fce-89cf-ea972f981331",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Enforcer",
         mana_cost = mana!("{3}{B}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "98fe1e1e-b14a-4efe-894b-b9da635f007f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ember-Eye Wolf",
         mana_cost = mana!("{1}{R}"),

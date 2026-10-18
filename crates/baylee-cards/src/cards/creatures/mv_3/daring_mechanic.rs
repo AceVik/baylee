@@ -16,7 +16,7 @@ card!(
     oracle_id = "9b1d79b7-a812-4f48-9be0-789294da3b56",
     scryfall_id = "3382552c-2740-409a-83a1-80b60627beb8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daring Mechanic",
         mana_cost = mana!("{2}{W}"),

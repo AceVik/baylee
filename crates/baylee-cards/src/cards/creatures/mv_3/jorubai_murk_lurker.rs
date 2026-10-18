@@ -17,7 +17,7 @@ card!(
     oracle_id = "12e091d0-3fd0-4058-84a9-529023b74c74",
     scryfall_id = "7af346ac-32a6-49a8-986d-834b2c8c0478",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jorubai Murk Lurker",
         mana_cost = mana!("{2}{U}"),

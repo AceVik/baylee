@@ -11,7 +11,7 @@ card!(
     oracle_id = "b05d000d-39b4-4db5-bd32-9c77a7434127",
     scryfall_id = "c6f8e16a-3e90-4be2-bf1a-989c86552251",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraul Warrior",
         mana_cost = mana!("{1}{G}"),

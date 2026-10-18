@@ -19,7 +19,7 @@ card!(
     scryfall_id = "4ec464dc-b1dd-4e45-b093-c3ad65a74050",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Hexcatcher",
         mana_cost = mana!("{1}{U}"),

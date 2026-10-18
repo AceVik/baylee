@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6cd07471-b216-465c-9946-1eac689db32e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soltari Crusader",
         mana_cost = mana!("{2}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1a68615d-9808-479d-aa80-50651246954e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jaspera Sentinel",
         mana_cost = mana!("{G}"),

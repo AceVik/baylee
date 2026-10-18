@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0ac76be5-3a2c-499e-830a-bd02eec517ce",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Karsus Depthguard",
         mana_cost = mana!("{2}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "c9610d33-4cef-4171-bbf4-48d720492d55",
     scryfall_id = "7cd03837-37cc-4f6c-8e22-e3b0ff635462",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cirith Ungol Patrol",
         mana_cost = mana!("{4}{B}"),

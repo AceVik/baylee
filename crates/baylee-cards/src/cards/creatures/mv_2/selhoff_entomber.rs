@@ -11,7 +11,7 @@ card!(
     oracle_id = "3b97794a-3aaa-45a6-9cad-f1b768615b6d",
     scryfall_id = "f8805db2-5a26-43cf-9b74-f882c283e5e4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selhoff Entomber",
         mana_cost = mana!("{1}{U}"),

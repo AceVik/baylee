@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e450cbd1-1d08-44ab-be87-95674dfc96cf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Creeperhulk",
         mana_cost = mana!("{3}{G}{G}"),

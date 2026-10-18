@@ -15,7 +15,7 @@ card!(
     scryfall_id = "69e8136d-beab-4783-839c-2d60c26cf5b1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Two-Headed Dragon",
         mana_cost = mana!("{4}{R}{R}"),

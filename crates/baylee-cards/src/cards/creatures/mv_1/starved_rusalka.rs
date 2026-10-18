@@ -11,7 +11,7 @@ card!(
     oracle_id = "0a57ac2e-276b-41ea-89f4-287f530114c6",
     scryfall_id = "25b4aec5-0a7d-4b1c-8819-ea675d415eac",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starved Rusalka",
         mana_cost = mana!("{G}"),

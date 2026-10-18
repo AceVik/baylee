@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0674b340-420d-4864-92fe-7b268fe0874c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gibbering Barricade",
         mana_cost = mana!("{2}{B}"),

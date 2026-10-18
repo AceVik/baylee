@@ -19,7 +19,7 @@ card!(
     scryfall_id = "6aea6702-16a8-4073-9c83-fbea20a5fd32",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bristlepack Sentry",
         mana_cost = mana!("{1}{G}"),

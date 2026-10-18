@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ca75f61-60bf-487f-8cb3-b955cdd81e2a",
     scryfall_id = "c52d48ac-1685-4061-9907-31248ae38cc9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Miner's Bane",
         mana_cost = mana!("{4}{R}{R}"),

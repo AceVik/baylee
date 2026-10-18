@@ -11,7 +11,7 @@ card!(
     oracle_id = "ae58e71c-b617-404f-a5dc-5e6a487f2675",
     scryfall_id = "c15d6329-ffb1-43fd-8558-60c8315f5b91",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steelform Sliver",
         mana_cost = mana!("{2}{W}"),

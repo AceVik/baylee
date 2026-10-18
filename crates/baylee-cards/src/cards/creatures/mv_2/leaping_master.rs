@@ -11,7 +11,7 @@ card!(
     oracle_id = "1b5c2ba0-3df7-4394-a3f1-8e8330d7ac81",
     scryfall_id = "0f786a1d-4703-4bac-abba-632506d2726c",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leaping Master",
         mana_cost = mana!("{1}{R}"),

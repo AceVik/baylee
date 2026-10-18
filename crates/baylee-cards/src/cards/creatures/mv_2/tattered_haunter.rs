@@ -15,7 +15,7 @@ card!(
     scryfall_id = "fd8ac8da-7497-4b07-af86-29bac1361c8e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattered Haunter",
         mana_cost = mana!("{1}{U}"),

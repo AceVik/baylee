@@ -11,7 +11,7 @@ card!(
     oracle_id = "f6c325e8-b9bd-44ab-9370-196a40c71e1f",
     scryfall_id = "9919382e-3dcd-4f83-8135-be71345e57c0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merrow Wavebreakers",
         mana_cost = mana!("{4}{U}"),

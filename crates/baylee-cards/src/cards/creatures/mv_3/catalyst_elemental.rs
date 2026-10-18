@@ -11,7 +11,7 @@ card!(
     oracle_id = "7779525d-080d-4669-bb65-af532bf0983e",
     scryfall_id = "e83a678b-19d4-47a5-aa1c-c2437e5009c0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Catalyst Elemental",
         mana_cost = mana!("{2}{R}"),

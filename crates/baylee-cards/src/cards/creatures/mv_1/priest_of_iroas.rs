@@ -11,7 +11,7 @@ card!(
     oracle_id = "706f7d56-f4da-48ba-ac94-fc09580beec7",
     scryfall_id = "013ec9f5-8bf3-4067-a942-d535d011af82",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Priest of Iroas",
         mana_cost = mana!("{R}"),

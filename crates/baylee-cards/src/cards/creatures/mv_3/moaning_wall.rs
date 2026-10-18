@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ef494f81-638a-4e5d-b987-0dde7f2a135c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moaning Wall",
         mana_cost = mana!("{2}{B}"),

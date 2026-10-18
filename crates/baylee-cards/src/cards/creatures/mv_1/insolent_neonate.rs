@@ -13,7 +13,7 @@ card!(
     scryfall_id = "813104f6-e6e4-4709-8626-12fe4262a11f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Insolent Neonate",
         mana_cost = mana!("{R}"),

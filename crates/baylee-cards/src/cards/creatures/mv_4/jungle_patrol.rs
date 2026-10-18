@@ -19,7 +19,7 @@ card!(
     oracle_id = "5bc8e918-7824-4ad7-a5c0-05537ce81641",
     scryfall_id = "91c343b8-bbfd-4bc5-b80a-4bc4565cdd40",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jungle Patrol",
         mana_cost = mana!("{3}{G}"),

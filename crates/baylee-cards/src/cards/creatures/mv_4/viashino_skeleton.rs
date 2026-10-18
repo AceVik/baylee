@@ -11,7 +11,7 @@ card!(
     oracle_id = "a85e893c-6027-42eb-8d05-14c745cc8c95",
     scryfall_id = "b9451a62-31a4-4aaf-beef-2bf149f25ae3",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Skeleton",
         mana_cost = mana!("{3}{R}"),

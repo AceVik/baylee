@@ -11,7 +11,7 @@ card!(
     oracle_id = "508ce3a9-9050-4494-9adf-7f9cd6cc2f9f",
     scryfall_id = "55e2f383-d2a0-4424-bf7a-79e82d6f691f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soulreaper of Mogis",
         mana_cost = mana!("{2}{B}"),

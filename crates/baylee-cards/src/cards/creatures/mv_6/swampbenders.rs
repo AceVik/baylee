@@ -14,7 +14,7 @@ card!(
     oracle_id = "feb00c6d-ff43-49bc-84d5-57e2d4651258",
     scryfall_id = "b0a8ee49-7bb0-48e2-bc43-a2cfa0a7196c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swampbenders",
         mana_cost = mana!("{4}{G}{G}"),

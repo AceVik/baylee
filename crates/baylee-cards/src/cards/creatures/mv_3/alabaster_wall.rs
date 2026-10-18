@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9cf393a3-831e-4d3a-8404-ee83f60970aa",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alabaster Wall",
         mana_cost = mana!("{2}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6716f46c-806d-4b3e-8a1c-fd6dcedacf8e",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fireborn Knight",
         mana_cost = mana!("{R/W}{R/W}{R/W}{R/W}"),

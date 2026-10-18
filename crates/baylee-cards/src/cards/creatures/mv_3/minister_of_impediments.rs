@@ -12,7 +12,7 @@ card!(
     oracle_id = "5a51a0ee-bc81-4c42-bb17-a41cea957d9a",
     scryfall_id = "96aada87-a880-4d33-8694-9fbc74211755",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Minister of Impediments",
         mana_cost = mana!("{2}{W/U}"),

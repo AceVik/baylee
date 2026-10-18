@@ -15,7 +15,7 @@ card!(
     scryfall_id = "e19879a4-7c77-4bfd-a7fa-5fe5cc82a193",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heedless One",
         mana_cost = mana!("{3}{G}"),

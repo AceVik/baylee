@@ -11,7 +11,7 @@ card!(
     oracle_id = "9d277206-9156-4dc9-bdd2-9d9219787735",
     scryfall_id = "e4ea6aac-d42b-4522-b7a9-4c99ed9c14bd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonewood Invoker",
         mana_cost = mana!("{1}{G}"),

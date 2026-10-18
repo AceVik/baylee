@@ -11,7 +11,7 @@ card!(
     oracle_id = "1d95ad32-768f-40a1-a461-e0562326b2b7",
     scryfall_id = "7ae24f37-0788-4f53-af5a-c6c1f2b64894",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bonescythe Sliver",
         mana_cost = mana!("{3}{W}"),

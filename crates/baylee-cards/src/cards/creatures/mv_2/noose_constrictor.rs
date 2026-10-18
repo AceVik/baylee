@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b432cccb-4291-46f3-a171-919adf8b95eb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noose Constrictor",
         mana_cost = mana!("{1}{G}"),

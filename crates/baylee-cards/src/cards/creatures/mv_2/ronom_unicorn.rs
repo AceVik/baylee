@@ -11,7 +11,7 @@ card!(
     oracle_id = "3c6913cc-c543-45f8-ad3b-ccd282efa6f7",
     scryfall_id = "b3275ed0-30b2-4d30-aa03-0dbda913f530",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ronom Unicorn",
         mana_cost = mana!("{1}{W}"),

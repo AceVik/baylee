@@ -13,7 +13,7 @@ card!(
     oracle_id = "f13a8621-4d88-4c1f-8b6e-80f8ef383cd2",
     scryfall_id = "3e1b9878-62b4-45eb-943e-0230a6e78764",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dai Li Censor",
         mana_cost = mana!("{1}{B}"),

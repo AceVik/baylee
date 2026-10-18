@@ -31,7 +31,7 @@ card!(
     oracle_id = "9f4e4d6e-bb1d-41d6-9184-3cac45197285",
     scryfall_id = "f5aa309e-5df3-4419-9e9c-3fd928c1e360",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Demon's Herald",
         mana_cost = mana!("{B}"),

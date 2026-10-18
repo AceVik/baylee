@@ -19,7 +19,7 @@ card!(
     scryfall_id = "9c62f724-7fb4-4498-b5c1-cf65d86d8e95",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Herald of the Sun",
         mana_cost = mana!("{4}{W}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "747dfffd-880c-48fe-9380-eb56071f5910",
     scryfall_id = "def88ab5-1b82-46f5-a136-ee1addff4214",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death-Hood Cobra",
         mana_cost = mana!("{1}{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "55ad9924-f217-4844-8a82-48746186bc53",
     scryfall_id = "212a807f-d5d0-4787-b390-3351783a1ae4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darkwatch Elves",
         mana_cost = mana!("{2}{G}"),

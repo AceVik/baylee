@@ -16,7 +16,7 @@ card!(
     oracle_id = "ea55db87-a5c3-49f7-b968-77510cdeb469",
     scryfall_id = "6da90318-4db4-4f03-ae2f-b1faeca46f57",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Chirurgeon",
         mana_cost = mana!("{R}"),

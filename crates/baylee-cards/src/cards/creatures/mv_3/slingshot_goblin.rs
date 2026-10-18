@@ -16,7 +16,7 @@ card!(
     oracle_id = "b377595f-c6c2-4c54-b462-73ef4eba519b",
     scryfall_id = "81825aef-bef7-46b7-bf52-29e32c1836b0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slingshot Goblin",
         mana_cost = mana!("{2}{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c2fddecd-e660-43de-bccc-52f60a089052",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Azorius Skyguard",
         mana_cost = mana!("{4}{W}{U}"),

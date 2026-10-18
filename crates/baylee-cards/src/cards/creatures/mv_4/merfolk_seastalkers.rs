@@ -18,7 +18,7 @@ card!(
     scryfall_id = "4fe5d069-45a0-46ea-b3ec-4e75f0531382",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk Seastalkers",
         mana_cost = mana!("{3}{U}"),

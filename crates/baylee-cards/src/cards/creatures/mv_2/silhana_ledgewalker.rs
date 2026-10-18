@@ -18,7 +18,7 @@ card!(
     scryfall_id = "21a2d11e-48b7-4e9a-a574-838cc26c2b17",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silhana Ledgewalker",
         mana_cost = mana!("{1}{G}"),

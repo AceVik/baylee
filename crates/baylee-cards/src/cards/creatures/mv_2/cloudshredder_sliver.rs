@@ -11,7 +11,7 @@ card!(
     oracle_id = "f943c005-9b77-411a-b522-1182e22724e1",
     scryfall_id = "9f523765-7704-4faf-a72b-8a2c414bb179",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudshredder Sliver",
         mana_cost = mana!("{R}{W}"),

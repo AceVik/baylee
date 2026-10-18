@@ -13,7 +13,7 @@ card!(
     scryfall_id = "dbee1daa-b4ba-49ee-bed1-e70fa09942a2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spear Spewer",
         mana_cost = mana!("{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3a028306-c5d7-4f8f-b6f4-0d103fd47000",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Newt",
         mana_cost = mana!("{1}{G}"),

@@ -24,7 +24,7 @@ card!(
     scryfall_id = "5e7af2b0-e07f-4b59-8fcf-e51c47f4f095",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unyaro Griffin",
         mana_cost = mana!("{3}{W}"),

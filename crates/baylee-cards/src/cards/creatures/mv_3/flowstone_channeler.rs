@@ -11,7 +11,7 @@ card!(
     oracle_id = "91818ad0-b22a-423c-bed6-a285f2f8c9d4",
     scryfall_id = "9f10fa1c-2c7b-49ba-87b6-3b652b65704d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flowstone Channeler",
         mana_cost = mana!("{2}{R}"),

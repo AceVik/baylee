@@ -11,7 +11,7 @@ card!(
     oracle_id = "c5e2ed91-edd2-47ec-809e-3e4a4245e2ce",
     scryfall_id = "157e5763-4892-47e4-8fd5-f576844c0a0d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shore Snapper",
         mana_cost = mana!("{2}{B}"),

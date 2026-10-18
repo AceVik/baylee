@@ -16,7 +16,7 @@ card!(
     oracle_id = "f62d4910-4547-43f6-909c-fc6a86ecc922",
     scryfall_id = "2fa39646-a609-4b37-b8de-97893ae43c49",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treetop Scout",
         mana_cost = mana!("{G}"),

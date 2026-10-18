@@ -11,7 +11,7 @@ card!(
     oracle_id = "07ba4fb4-f95b-49ca-be6c-6cdda0f1f030",
     scryfall_id = "d9f3a08f-403e-4d6c-87c7-add8170bde8b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frilled Oculus",
         mana_cost = mana!("{1}{U}"),

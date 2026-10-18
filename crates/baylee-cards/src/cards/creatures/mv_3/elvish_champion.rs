@@ -11,7 +11,7 @@ card!(
     oracle_id = "7e40f37c-9a0c-40e0-b195-7ea94b12f798",
     scryfall_id = "ad42a3fd-21ae-49cf-b11d-3700835f2f96",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Champion",
         mana_cost = mana!("{1}{G}{G}"),

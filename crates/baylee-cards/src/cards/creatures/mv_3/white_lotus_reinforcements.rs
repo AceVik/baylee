@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4c7e3e2f-d7ac-4d40-ab84-cb7efe06a316",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "White Lotus Reinforcements",
         mana_cost = mana!("{1}{G}{W}"),

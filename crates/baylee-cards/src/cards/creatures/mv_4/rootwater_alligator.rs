@@ -16,7 +16,7 @@ card!(
     oracle_id = "2bf84938-6049-4d03-b09e-85bd0763a187",
     scryfall_id = "3a840bba-4725-45fd-885f-1b3d615dfa97",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rootwater Alligator",
         mana_cost = mana!("{3}{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "fa9c7e09-8384-4866-af92-ba56bd307d9c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silhana Starfletcher",
         mana_cost = mana!("{2}{G}"),

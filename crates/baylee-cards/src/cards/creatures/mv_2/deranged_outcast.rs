@@ -16,7 +16,7 @@ card!(
     oracle_id = "115f1397-fa24-4412-80b7-e2a6ddedcd4c",
     scryfall_id = "e2b35fee-8e24-4d89-ad77-d55d06bb1d7f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deranged Outcast",
         mana_cost = mana!("{1}{G}"),

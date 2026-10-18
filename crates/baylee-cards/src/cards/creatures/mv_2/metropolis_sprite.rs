@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fce74849-2e08-4d08-b387-4693f1b9f653",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metropolis Sprite",
         mana_cost = mana!("{1}{U}"),

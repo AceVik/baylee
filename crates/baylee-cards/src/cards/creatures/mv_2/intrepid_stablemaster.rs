@@ -19,7 +19,7 @@ card!(
     scryfall_id = "4d6cdf2a-026a-41ba-87d9-8fcd8a67f06e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Intrepid Stablemaster",
         mana_cost = mana!("{1}{G}"),

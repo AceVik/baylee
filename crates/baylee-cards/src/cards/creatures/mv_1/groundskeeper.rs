@@ -13,7 +13,7 @@ card!(
     oracle_id = "f2c19fba-9b06-461f-bb5e-e827ba41204d",
     scryfall_id = "30444f88-5a7e-46bc-ab0c-17e62fae2457",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Groundskeeper",
         mana_cost = mana!("{G}"),

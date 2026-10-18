@@ -19,7 +19,7 @@ card!(
         Color::White
     ]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of the Amesha",
         mana_cost = mana!("{2}{W}"),

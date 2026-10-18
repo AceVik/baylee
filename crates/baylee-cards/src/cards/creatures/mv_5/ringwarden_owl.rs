@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1acf216d-ef8f-431b-9b65-1e2e91285517",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ringwarden Owl",
         mana_cost = mana!("{3}{U}{U}"),

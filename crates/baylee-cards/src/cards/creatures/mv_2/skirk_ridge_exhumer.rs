@@ -12,7 +12,7 @@ card!(
     oracle_id = "4ed9bccf-c655-426e-8192-65beab830fcd",
     scryfall_id = "4e783332-ea4e-4330-ba91-d23e5a58a7eb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirk Ridge Exhumer",
         mana_cost = mana!("{1}{B}"),

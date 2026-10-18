@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ce76f38f-566e-49ff-b197-510cfa1cb51c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Warrior",
         mana_cost = mana!("{W}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "e405800a-27e6-468a-938b-484346ee20cd",
     scryfall_id = "b868da85-9d19-4407-a0c3-fc3b2b237cda",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raven's Run Dragoon",
         mana_cost = mana!("{2}{G/W}{G/W}"),

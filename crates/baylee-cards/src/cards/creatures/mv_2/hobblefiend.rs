@@ -15,7 +15,7 @@ card!(
     scryfall_id = "4bfffc18-b36a-4dd5-909e-60ea9f8eb60b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hobblefiend",
         mana_cost = mana!("{1}{R}"),

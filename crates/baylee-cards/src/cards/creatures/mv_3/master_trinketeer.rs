@@ -13,7 +13,7 @@ card!(
     oracle_id = "aa57f607-c5eb-45a7-bfb1-adce0aef49c7",
     scryfall_id = "cdb6beb3-1669-4e7b-9c76-65424673eb36",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master Trinketeer",
         mana_cost = mana!("{2}{W}"),

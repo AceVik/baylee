@@ -13,7 +13,7 @@ card!(
     oracle_id = "e12bba04-b10f-4bbd-959c-560f31630951",
     scryfall_id = "88e07226-f180-4972-b7f8-90c743d45fb8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Embodiment of Spring",
         mana_cost = mana!("{U}"),

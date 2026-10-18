@@ -11,7 +11,7 @@ card!(
     oracle_id = "b4fd5a3f-3aec-4336-9dcd-6971c117515a",
     scryfall_id = "90d0d7fd-a580-41af-8e9d-fee74094ec47",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Daggerdare",
         mana_cost = mana!("{1}{G}"),

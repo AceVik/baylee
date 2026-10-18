@@ -11,7 +11,7 @@ card!(
     oracle_id = "b5c64331-2ba5-43ad-b77c-979875cc39e3",
     scryfall_id = "b7c3544a-5dd5-423e-8a40-ac4803db8adc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goobbue Gardener",
         mana_cost = mana!("{1}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2eb06c36-cf7e-47a9-819e-adfc54284153",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeskai Brushmaster",
         mana_cost = mana!("{1}{U}{R}{W}"),

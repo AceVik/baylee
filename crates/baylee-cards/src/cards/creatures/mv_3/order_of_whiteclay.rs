@@ -13,7 +13,7 @@ card!(
     oracle_id = "16c46eaf-7a31-4957-ab7c-ff07fbbd9ddc",
     scryfall_id = "0caaa62f-4959-4321-a2d5-dc255f1e5eaf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of Whiteclay",
         mana_cost = mana!("{1}{W}{W}"),

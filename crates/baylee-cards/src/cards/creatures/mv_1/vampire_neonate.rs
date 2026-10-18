@@ -11,7 +11,7 @@ card!(
     oracle_id = "c0045925-25bf-403c-b721-5f05ba30985b",
     scryfall_id = "c7649d57-3537-45a2-b57e-98e7d32025c9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Neonate",
         mana_cost = mana!("{B}"),

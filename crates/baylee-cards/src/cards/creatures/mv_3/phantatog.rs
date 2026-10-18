@@ -14,7 +14,7 @@ card!(
     oracle_id = "edaff13c-1a07-4fcf-8b31-ed5acba207c5",
     scryfall_id = "6967608d-141d-426f-a129-6f1a6a58273c",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phantatog",
         mana_cost = mana!("{1}{W}{U}"),

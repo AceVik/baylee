@@ -11,7 +11,7 @@ card!(
     oracle_id = "f281c47f-3587-4a3f-8726-ec59568fef94",
     scryfall_id = "2964b501-5b7f-4225-9dd3-e7519bf34048",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loch Korrigan",
         mana_cost = mana!("{3}{B}"),

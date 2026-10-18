@@ -11,7 +11,7 @@ card!(
     oracle_id = "1c77b4da-b580-4ce9-b127-76de674f5694",
     scryfall_id = "9e0140b2-0185-4adb-b365-2611ce89a0e2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iron-Shield Elf",
         mana_cost = mana!("{1}{B}"),

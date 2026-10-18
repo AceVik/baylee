@@ -13,7 +13,7 @@ card!(
     scryfall_id = "868256bb-d4e2-42eb-a43a-360148aec06f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stalwart Shield-Bearers",
         mana_cost = mana!("{1}{W}"),

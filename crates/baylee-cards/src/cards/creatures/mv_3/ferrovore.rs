@@ -11,7 +11,7 @@ card!(
     oracle_id = "1f0f068a-fd4e-4a6f-9439-0e694e34a945",
     scryfall_id = "8dcc7170-38d9-4b9e-a5f9-73ac1208c439",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ferrovore",
         mana_cost = mana!("{2}{R}"),

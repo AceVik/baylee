@@ -15,7 +15,7 @@ card!(
     scryfall_id = "1776f5b4-1292-460f-9719-e1b603cee46c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyway Sniper",
         mana_cost = mana!("{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "b7d231eb-255d-4505-89a9-0c6824622209",
     scryfall_id = "0cfd2e76-ad64-42ff-a6a2-c4cf1bec5932",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barkhide Troll",
         mana_cost = mana!("{G}{G}"),

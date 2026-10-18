@@ -17,7 +17,7 @@ card!(
     oracle_id = "87ab1c79-79f5-48a9-af1a-7c876684c8d9",
     scryfall_id = "779a130b-1d23-4a20-9914-dbdc2268ae3b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodshot Trainee",
         mana_cost = mana!("{3}{R}"),

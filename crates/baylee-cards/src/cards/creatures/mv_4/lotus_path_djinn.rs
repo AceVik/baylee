@@ -13,7 +13,7 @@ card!(
     scryfall_id = "197ec248-70d9-47f4-a53b-99b23f021116",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lotus Path Djinn",
         mana_cost = mana!("{3}{U}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "a65250f6-55e2-47ed-a355-d690047db6f2",
     scryfall_id = "6394a522-37bb-4cf3-b434-5121c8000ac6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master of Dark Rites",
         mana_cost = mana!("{B}"),

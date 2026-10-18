@@ -11,7 +11,7 @@ card!(
     oracle_id = "2e35bcef-505a-4559-a1fe-f42f4543197f",
     scryfall_id = "9afde98f-a429-4eff-9d06-8582267ac74b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rushwood Herbalist",
         mana_cost = mana!("{2}{G}"),

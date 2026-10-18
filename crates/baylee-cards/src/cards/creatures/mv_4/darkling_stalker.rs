@@ -12,7 +12,7 @@ card!(
     oracle_id = "0103b2f2-05dd-40af-954d-303c144edb04",
     scryfall_id = "4eb883b7-da6a-45c3-9dde-61334a0ddcae",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darkling Stalker",
         mana_cost = mana!("{3}{B}"),

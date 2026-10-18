@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2f2fd39-4a21-489b-893e-4258f8d2aa63",
     scryfall_id = "11ad9a06-4ab0-499e-828d-7151ff85adfe",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roofstalker Wight",
         mana_cost = mana!("{1}{B}"),

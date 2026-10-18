@@ -11,7 +11,7 @@ card!(
     oracle_id = "00fc773a-72aa-4b58-a17c-8ac0f17c4c85",
     scryfall_id = "4b4911e9-01e6-4c41-9f2a-dfc25bedb2f7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadowcloak Vampire",
         mana_cost = mana!("{4}{B}"),

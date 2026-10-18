@@ -16,7 +16,7 @@ card!(
     oracle_id = "4d47e598-690e-4850-97e4-7136bc7b497e",
     scryfall_id = "8402543e-5406-404f-95c4-800a1dce35f1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kelsinko Ranger",
         mana_cost = mana!("{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "64cd9d60-826c-4b35-9684-dccb0880399e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Witness of Tomorrows",
         mana_cost = mana!("{4}{U}"),

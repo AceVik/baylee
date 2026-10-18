@@ -11,7 +11,7 @@ card!(
     oracle_id = "f105ccdd-65bc-4880-bbfe-f57fc0e060ea",
     scryfall_id = "b54625ac-484f-4522-8048-38e01c545ac3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corrupted Harvester",
         mana_cost = mana!("{4}{B}{B}"),

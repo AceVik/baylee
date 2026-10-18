@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fcc3fa22-a4c4-423d-969b-98c65b23e782",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dirtwater Wraith",
         mana_cost = mana!("{3}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4c590579-e0ef-4839-8f67-f52813cd9fe7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tide Drifter",
         mana_cost = mana!("{1}{U}"),

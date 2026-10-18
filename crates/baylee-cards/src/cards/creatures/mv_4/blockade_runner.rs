@@ -11,7 +11,7 @@ card!(
     oracle_id = "f97df8f4-a7ef-45f9-9563-b76b4d2b03f5",
     scryfall_id = "59e483df-b58a-401e-85bc-0afda4bf7cac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blockade Runner",
         mana_cost = mana!("{3}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "df366871-8ed7-4183-8b0c-414ca361a711",
     scryfall_id = "7023129c-09f5-49cf-ae32-b9bd30e0ff63",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kargan Dragonrider",
         mana_cost = mana!("{1}{R}"),

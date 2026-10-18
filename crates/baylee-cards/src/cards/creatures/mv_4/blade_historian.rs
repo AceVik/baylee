@@ -11,7 +11,7 @@ card!(
     oracle_id = "314f0a96-5e91-42a3-9d75-3f641f22a9ee",
     scryfall_id = "a46d64ec-aca4-428e-bce6-66cd755c8cc3",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blade Historian",
         mana_cost = mana!("{R/W}{R/W}{R/W}{R/W}"),

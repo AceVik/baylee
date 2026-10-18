@@ -16,7 +16,7 @@ card!(
     oracle_id = "d011153e-d12a-4eb1-b105-64729e37be12",
     scryfall_id = "9b255d34-04fa-4d3b-9fc1-8f980ef1f054",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ondu War Cleric",
         mana_cost = mana!("{1}{W}"),

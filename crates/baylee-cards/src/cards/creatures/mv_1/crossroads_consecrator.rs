@@ -17,7 +17,7 @@ card!(
     oracle_id = "a4f41c7b-b4ae-46cd-9fdc-8b8e6c29a62d",
     scryfall_id = "b1a83854-dc45-4c26-aca0-67f372236383",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crossroads Consecrator",
         mana_cost = mana!("{G}"),

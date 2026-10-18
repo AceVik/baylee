@@ -13,7 +13,7 @@ card!(
     oracle_id = "3bfa51dd-daed-473a-8377-7bb34a2c3371",
     scryfall_id = "78cc4e02-949f-4879-9f32-7c33490d0b45",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubblebelt Runner",
         mana_cost = mana!("{1}{R}{G}"),

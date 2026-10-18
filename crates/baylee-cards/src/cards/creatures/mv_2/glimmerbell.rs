@@ -13,7 +13,7 @@ card!(
     scryfall_id = "54f71f8a-546a-465e-a254-09a3ae873ef4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimmerbell",
         mana_cost = mana!("{1}{U}"),

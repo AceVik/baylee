@@ -12,7 +12,7 @@ card!(
     oracle_id = "e38e3723-05f5-4a51-8364-1cda19f9cc49",
     scryfall_id = "c9889a59-519c-4adb-9002-dbed400a0d33",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steelbane Hydra",
         mana_cost = mana!("{X}{G}{G}"),

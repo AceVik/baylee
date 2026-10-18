@@ -13,7 +13,7 @@ card!(
     scryfall_id = "667871d3-0d1b-496b-afbd-7504989798e4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smog Elemental",
         mana_cost = mana!("{4}{B}{B}"),

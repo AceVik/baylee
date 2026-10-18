@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cbb6e447-5f40-4039-8a17-257b4a55382c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inkrise Infiltrator",
         mana_cost = mana!("{1}{B}"),

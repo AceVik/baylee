@@ -11,7 +11,7 @@ card!(
     oracle_id = "9f6ea9fe-eee5-4dca-a34e-c66d3e218716",
     scryfall_id = "6b48dc56-667c-4fde-8175-952463e233cc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master of the Pearl Trident",
         mana_cost = mana!("{U}{U}"),

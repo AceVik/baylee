@@ -11,7 +11,7 @@ card!(
     oracle_id = "4145c153-1ee3-4583-8a60-8471959656eb",
     scryfall_id = "a6315323-cf82-46c0-b164-e6ea1bf809f4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rootwater Diver",
         mana_cost = mana!("{U}"),

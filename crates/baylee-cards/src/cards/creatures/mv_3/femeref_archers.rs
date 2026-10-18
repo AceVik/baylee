@@ -17,7 +17,7 @@ card!(
     oracle_id = "b5867796-5898-4a75-a75a-c802407ab338",
     scryfall_id = "61df49d2-1324-460b-8c72-6b6fe8b03c15",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Femeref Archers",
         mana_cost = mana!("{2}{G}"),

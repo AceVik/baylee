@@ -18,7 +18,7 @@ card!(
     scryfall_id = "023562bf-da7d-486d-93fc-60353f55b8a7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horde of Boggarts",
         mana_cost = mana!("{3}{R}"),

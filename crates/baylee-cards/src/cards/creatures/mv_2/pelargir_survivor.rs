@@ -12,7 +12,7 @@ card!(
     oracle_id = "ce0b3c22-3f77-4a6c-a126-9ed3c06b4482",
     scryfall_id = "767ab62c-59fd-4fda-8291-6170383a8ae0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pelargir Survivor",
         mana_cost = mana!("{1}{U}"),

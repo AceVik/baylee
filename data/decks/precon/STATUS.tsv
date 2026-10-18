@@ -816,7 +816,7 @@ PAST/azaar-lichlord	PAST	Shandalar Enemy Deck	1997-04-01	Azaar - Lichlord	61	yes
 PAST/beast-master	PAST	Shandalar Enemy Deck	1997-04-01	Beast Master	62	no
 PAST/centaur-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Centaur Shaman	64	yes
 PAST/centaur-warchief	PAST	Shandalar Enemy Deck	1997-04-01	Centaur Warchief	64	no
-PAST/cleric	PAST	Shandalar Enemy Deck	1997-04-01	Cleric	62	no
+PAST/cleric	PAST	Shandalar Enemy Deck	1997-04-01	Cleric	62	yes
 PAST/conjurer	PAST	Shandalar Enemy Deck	1997-04-01	Conjurer	67	yes
 PAST/crag-hydra	PAST	Shandalar Enemy Deck	1997-04-01	Crag Hydra	61	yes
 PAST/crusader	PAST	Shandalar Enemy Deck	1997-04-01	Crusader	72	no
@@ -840,19 +840,19 @@ PAST/mind-stealer	PAST	Shandalar Enemy Deck	1997-04-01	Mind Stealer	66	no
 PAST/necromancer	PAST	Shandalar Enemy Deck	1997-04-01	Necromancer	63	no
 PAST/nether-fiend	PAST	Shandalar Enemy Deck	1997-04-01	Nether Fiend	64	yes
 PAST/paladin	PAST	Shandalar Enemy Deck	1997-04-01	Paladin	63	no
-PAST/priestess	PAST	Shandalar Enemy Deck	1997-04-01	Priestess	68	no
+PAST/priestess	PAST	Shandalar Enemy Deck	1997-04-01	Priestess	68	yes
 PAST/prismat	PAST	Shandalar Enemy Deck	1997-04-01	Prismat	62	yes
 PAST/queltosh	PAST	Shandalar Enemy Deck	1997-04-01	Queltosh	74	no
 PAST/sainted-one	PAST	Shandalar Enemy Deck	1997-04-01	Sainted One	75	no
 PAST/saltrem-tor	PAST	Shandalar Enemy Deck	1997-04-01	Saltrem Tor	60	yes
 PAST/sea-drake	PAST	Shandalar Enemy Deck	1997-04-01	Sea Drake	62	no
-PAST/sedge-beast	PAST	Shandalar Enemy Deck	1997-04-01	Sedge Beast	62	no
-PAST/seer	PAST	Shandalar Enemy Deck	1997-04-01	Seer	60	no
+PAST/sedge-beast	PAST	Shandalar Enemy Deck	1997-04-01	Sedge Beast	62	yes
+PAST/seer	PAST	Shandalar Enemy Deck	1997-04-01	Seer	60	yes
 PAST/shapeshifter	PAST	Shandalar Enemy Deck	1997-04-01	Shapeshifter	62	no
 PAST/sorcerer	PAST	Shandalar Enemy Deck	1997-04-01	Sorcerer	65	yes
 PAST/sorceress	PAST	Shandalar Enemy Deck	1997-04-01	Sorceress	64	no
 PAST/summoner	PAST	Shandalar Enemy Deck	1997-04-01	Summoner	63	yes
-PAST/thought-invoker	PAST	Shandalar Enemy Deck	1997-04-01	Thought Invoker	62	no
+PAST/thought-invoker	PAST	Shandalar Enemy Deck	1997-04-01	Thought Invoker	62	yes
 PAST/troll-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Troll Shaman	67	yes
 PAST/undead-knight	PAST	Shandalar Enemy Deck	1997-04-01	Undead Knight	72	no
 PAST/vampire-lord	PAST	Shandalar Enemy Deck	1997-04-01	Vampire Lord	66	no
@@ -860,7 +860,7 @@ PAST/war-mage	PAST	Shandalar Enemy Deck	1997-04-01	War Mage	62	no
 PAST/warlock	PAST	Shandalar Enemy Deck	1997-04-01	Warlock	66	no
 PAST/whim	PAST	Shandalar Enemy Deck	1997-04-01	Whim	62	no
 PAST/winged-stallion	PAST	Shandalar Enemy Deck	1997-04-01	Winged Stallion	68	yes
-PAST/witch	PAST	Shandalar Enemy Deck	1997-04-01	Witch	63	no
+PAST/witch	PAST	Shandalar Enemy Deck	1997-04-01	Witch	63	yes
 PC2/chaos-reigns	PC2	Planechase Deck	2012-06-01	Chaos Reigns	60	no
 PC2/night-of-the-ninja	PC2	Planechase Deck	2012-06-01	Night Of The Ninja	60	no
 PC2/primordial-hunger	PC2	Planechase Deck	2012-06-01	Primordial Hunger	60	no

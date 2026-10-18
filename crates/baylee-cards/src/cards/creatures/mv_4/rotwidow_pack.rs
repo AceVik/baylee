@@ -19,7 +19,7 @@ card!(
     scryfall_id = "2cda35eb-ae42-43be-9015-3c468c7ebede",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotwidow Pack",
         mana_cost = mana!("{2}{B}{G}"),

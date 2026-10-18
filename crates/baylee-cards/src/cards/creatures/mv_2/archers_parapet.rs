@@ -13,7 +13,7 @@ card!(
     scryfall_id = "64ac0667-8ecc-4034-89bb-dce0af531014",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archers' Parapet",
         mana_cost = mana!("{1}{G}"),

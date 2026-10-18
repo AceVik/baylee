@@ -17,7 +17,7 @@ card!(
     oracle_id = "861f0b1c-3b37-4d38-9232-e42565247076",
     scryfall_id = "781476a1-73a9-4f43-9f71-d29c97ecc69a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Gatekeeper",
         mana_cost = mana!("{2}{W}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b4ab38e5-c446-4845-b509-4d6f4438949d",
     scryfall_id = "41d1a332-f950-4f56-9b1e-37c0954e72f6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spiteflame Witch",
         mana_cost = mana!("{1}{B/R}"),

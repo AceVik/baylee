@@ -11,7 +11,7 @@ card!(
     oracle_id = "91e09399-3f09-4323-8533-51536ecb7869",
     scryfall_id = "74e42dad-5958-443f-a196-12b3f3e44213",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spellkeeper Weird",
         mana_cost = mana!("{2}{U}"),

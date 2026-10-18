@@ -11,7 +11,7 @@ card!(
     oracle_id = "cfd0f0e6-1bbf-4450-97d2-c54907abb7e4",
     scryfall_id = "407c1b95-dc0c-4154-a441-fe25537df45c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Llanowar Tribe",
         mana_cost = mana!("{G}{G}{G}"),

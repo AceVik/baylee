@@ -13,7 +13,7 @@ card!(
     oracle_id = "faddaa9d-3f70-49a2-81e6-22b16cf8e9fe",
     scryfall_id = "d1ee1ceb-61dd-4c98-bc48-a0763315a14f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodwraith Corrupter",
         mana_cost = mana!("{3}{B}{B}{G}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "0dd88305-d57b-4e77-aec9-f0a3ace42c37",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crowd of Cinders",
         mana_cost = mana!("{3}{B}"),

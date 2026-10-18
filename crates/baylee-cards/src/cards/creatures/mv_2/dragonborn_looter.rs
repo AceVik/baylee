@@ -11,7 +11,7 @@ card!(
     oracle_id = "f74e53e1-e575-4386-a128-5c87124987d4",
     scryfall_id = "570e8aaa-5273-42f4-b151-51976ab7730c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonborn Looter",
         mana_cost = mana!("{1}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0c23716e-453e-4686-a8dd-ca1d67ad577d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wake of Vultures",
         mana_cost = mana!("{3}{B}"),

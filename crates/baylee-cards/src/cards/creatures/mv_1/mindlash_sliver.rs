@@ -11,7 +11,7 @@ card!(
     oracle_id = "7a08b371-1353-476d-ae72-379594f801da",
     scryfall_id = "f8c54575-dc1d-491c-a4f6-41f76eba2a2d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindlash Sliver",
         mana_cost = mana!("{B}"),

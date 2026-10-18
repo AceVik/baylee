@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0b1689f3-9dfa-4525-90b3-7af15f7eb720",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eladamri, Lord of Leaves",
         mana_cost = mana!("{G}{G}"),

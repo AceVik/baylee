@@ -15,7 +15,7 @@ card!(
     scryfall_id = "6ea1dbf2-f3fb-40c4-86df-cd2511d27088",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyship Stalker",
         mana_cost = mana!("{2}{R}{R}"),

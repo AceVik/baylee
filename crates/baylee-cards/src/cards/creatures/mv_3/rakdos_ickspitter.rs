@@ -11,7 +11,7 @@ card!(
     oracle_id = "329f6e2e-6c37-4e98-bd45-bd252f1a2bd9",
     scryfall_id = "c007b10b-2701-4bac-8b95-8fc7dcfb9e21",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Ickspitter",
         mana_cost = mana!("{1}{B}{R}"),

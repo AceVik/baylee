@@ -19,7 +19,7 @@ card!(
     oracle_id = "d31c6043-e005-4efe-9aa7-d82cb122eebe",
     scryfall_id = "a4ac18ae-0d1e-43f5-9cc9-722fa6e36fe5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpent of Yawning Depths",
         mana_cost = mana!("{4}{U}{U}"),

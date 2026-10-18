@@ -24,7 +24,7 @@ card!(
     oracle_id = "f60d03ae-f45f-45b2-a0f7-108acb0a45db",
     scryfall_id = "73b6ce76-0ed0-4994-ae2c-d8e51ae09920",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Brute",
         mana_cost = mana!("{2}{B}"),

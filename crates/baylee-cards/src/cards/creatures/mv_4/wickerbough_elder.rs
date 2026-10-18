@@ -12,7 +12,7 @@ card!(
     oracle_id = "3d794629-9014-460a-8d3b-785eadc1cdb5",
     scryfall_id = "83e0b855-0259-4229-a6b9-d0faaf225355",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wickerbough Elder",
         mana_cost = mana!("{3}{G}"),

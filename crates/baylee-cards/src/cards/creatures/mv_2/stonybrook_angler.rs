@@ -11,7 +11,7 @@ card!(
     oracle_id = "d29d28c8-4ba9-4fcc-b0d7-5d7b3de89b82",
     scryfall_id = "047709e7-c44f-47e4-a9cc-1d941264e454",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonybrook Angler",
         mana_cost = mana!("{1}{U}"),

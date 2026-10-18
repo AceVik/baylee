@@ -11,7 +11,7 @@ card!(
     oracle_id = "f8f450c1-f405-4ccc-aef3-f0186d1f5056",
     scryfall_id = "c2b7f4d7-278b-45fc-98aa-b7c8b9162bcd",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Hexhunter",
         mana_cost = mana!("{G/W}"),

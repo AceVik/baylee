@@ -12,7 +12,7 @@ card!(
     oracle_id = "7a49731b-bd95-4f0a-ac47-1aa318c12fec",
     scryfall_id = "6b71fd8f-e688-4210-bc5b-a3f19b5b3497",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rustvine Cultivator",
         mana_cost = mana!("{G}"),

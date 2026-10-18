@@ -16,7 +16,7 @@ card!(
     scryfall_id = "66de5a3e-7b08-438b-866e-9fce1a36b243",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lurking Green Dragon",
         mana_cost = mana!("{3}{G}"),

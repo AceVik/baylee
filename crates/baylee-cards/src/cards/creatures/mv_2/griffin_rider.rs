@@ -16,7 +16,7 @@ card!(
     oracle_id = "af8aa11b-34be-42a3-a8a2-3cad38f29f66",
     scryfall_id = "3f1a5517-e442-4fbc-b8c3-fea28e5e44d2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Griffin Rider",
         mana_cost = mana!("{1}{W}"),

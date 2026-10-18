@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2c468103-dc1c-4798-bd13-8661ff53f7c4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ant-Man, Scott Lang",
         mana_cost = mana!("{1}{W}"),

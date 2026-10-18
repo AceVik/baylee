@@ -12,7 +12,7 @@ card!(
     oracle_id = "95630a83-3699-4340-b3e5-17e81db1b82f",
     scryfall_id = "099f8400-d70a-48ef-8ff6-645eae97e072",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hydro-Channeler",
         mana_cost = mana!("{1}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "e5868cf5-9fdc-442d-95cb-3bc5e2727981",
     scryfall_id = "6d0952ed-efc7-4ff5-a233-e64c0f11119b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Topan Ascetic",
         mana_cost = mana!("{2}{G}"),

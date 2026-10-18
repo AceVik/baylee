@@ -14,7 +14,7 @@ card!(
     oracle_id = "038463c8-d2e1-4e7b-829d-67a744ae2660",
     scryfall_id = "694bbf39-fd66-4ff4-9cc3-ec75b1fb3a51",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unliving Psychopath",
         mana_cost = mana!("{2}{B}{B}"),

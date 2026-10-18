@@ -11,7 +11,7 @@ card!(
     oracle_id = "f67df84f-667e-41cf-80f9-911abafe70ac",
     scryfall_id = "f378ee17-bf8b-4a83-b42e-86da10817dba",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Citanul Hierophants",
         mana_cost = mana!("{3}{G}"),

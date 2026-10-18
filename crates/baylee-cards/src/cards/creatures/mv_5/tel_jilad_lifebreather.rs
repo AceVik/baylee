@@ -16,7 +16,7 @@ card!(
     oracle_id = "1ef49064-eb2a-49ae-917e-3d441ba14bf9",
     scryfall_id = "ee58a5ef-68ec-48cf-bb7e-73bcbe86cc3c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tel-Jilad Lifebreather",
         mana_cost = mana!("{4}{G}"),

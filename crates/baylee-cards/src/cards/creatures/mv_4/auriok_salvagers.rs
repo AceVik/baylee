@@ -13,7 +13,7 @@ card!(
     oracle_id = "db2f3a06-f75e-4689-b147-9820aebb30e2",
     scryfall_id = "befb996b-1da6-41a3-8d9a-a45c2353c401",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Auriok Salvagers",
         mana_cost = mana!("{3}{W}"),

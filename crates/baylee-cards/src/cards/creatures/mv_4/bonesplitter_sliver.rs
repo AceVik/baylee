@@ -11,7 +11,7 @@ card!(
     oracle_id = "a0f6834c-faa9-4d90-adad-847a8b337fe6",
     scryfall_id = "83327f18-f9f6-4f9b-b72a-68f85ad96b00",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bonesplitter Sliver",
         mana_cost = mana!("{3}{R}"),

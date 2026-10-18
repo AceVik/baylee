@@ -12,7 +12,7 @@ card!(
     oracle_id = "ef85a5eb-9cde-47b7-97e4-daa9aa9d4676",
     scryfall_id = "ae7a771f-bd21-4388-857f-08160b24e26e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necra Disciple",
         mana_cost = mana!("{B}"),

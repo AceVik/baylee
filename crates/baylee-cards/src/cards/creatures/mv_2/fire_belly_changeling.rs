@@ -13,7 +13,7 @@ card!(
     scryfall_id = "803f388a-0f92-4984-ace5-02fbeaa0cf28",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire-Belly Changeling",
         mana_cost = mana!("{1}{R}"),

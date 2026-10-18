@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "La Forge, Perceptive Engineer",
         mana_cost = mana!("{1}{U}"),

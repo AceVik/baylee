@@ -17,7 +17,7 @@ card!(
     oracle_id = "2d7bef31-3447-4de6-9d0e-bd6749e7ecd5",
     scryfall_id = "1a864ae8-18fc-4c70-8564-65b745aded9a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sacred White Deer",
         mana_cost = mana!("{1}{G}"),

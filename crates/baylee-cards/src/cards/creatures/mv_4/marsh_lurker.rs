@@ -16,7 +16,7 @@ card!(
     oracle_id = "4b35b928-1088-457d-bd0d-3b14dc4ab230",
     scryfall_id = "90c4b759-f53d-4977-8d97-a93762622e75",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marsh Lurker",
         mana_cost = mana!("{3}{B}"),

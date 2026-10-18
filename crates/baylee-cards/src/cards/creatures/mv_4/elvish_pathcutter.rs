@@ -16,7 +16,7 @@ card!(
     oracle_id = "0bb860c5-41af-494e-9b0f-d05d6fa8255c",
     scryfall_id = "c7d810b8-1a15-46cc-9d9d-871ac43b7036",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Pathcutter",
         mana_cost = mana!("{3}{G}"),

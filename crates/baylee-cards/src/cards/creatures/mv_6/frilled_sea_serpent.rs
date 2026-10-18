@@ -11,7 +11,7 @@ card!(
     oracle_id = "6dc534e8-e22b-4e3c-aa30-c6e4c84f698c",
     scryfall_id = "b59698a5-be76-4ce2-a337-9052821f239f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frilled Sea Serpent",
         mana_cost = mana!("{4}{U}{U}"),

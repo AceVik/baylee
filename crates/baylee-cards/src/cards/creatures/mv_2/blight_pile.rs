@@ -19,7 +19,7 @@ card!(
     scryfall_id = "9dd5bcec-b766-41cd-8809-eeec7e31b39c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blight Pile",
         mana_cost = mana!("{1}{B}"),

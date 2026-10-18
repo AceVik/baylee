@@ -10,7 +10,7 @@ card!(
     index = index::ENDLESS_ONE,
     oracle_id = "7a51780a-fa28-4ee0-94c7-4330800ca9cb",
     scryfall_id = "00b3c10a-799f-4922-bb0a-44981b13203b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Endless One",
         mana_cost = mana!("{X}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "3aa64915-8b1b-4414-b11e-d2078c1732a5",
     scryfall_id = "6d83770e-16ff-49c6-b4e7-eb7fc566eef8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Trapper",
         mana_cost = mana!("{2}{B}"),

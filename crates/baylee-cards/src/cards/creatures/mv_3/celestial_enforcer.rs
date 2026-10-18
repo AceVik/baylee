@@ -17,7 +17,7 @@ card!(
     oracle_id = "81f5c70f-fbb1-4b3a-a048-1f4602adfa0e",
     scryfall_id = "46666fba-d4a7-4687-8747-a42e4c6d853e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Celestial Enforcer",
         mana_cost = mana!("{2}{W}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "5ac44e0a-782f-49ee-b263-2fb65359faaa",
     scryfall_id = "fc98e542-4bcc-43e1-9616-64ce40348a34",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dromoka Dunecaster",
         mana_cost = mana!("{W}"),

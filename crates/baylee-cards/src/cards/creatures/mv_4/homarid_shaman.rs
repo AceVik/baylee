@@ -16,7 +16,7 @@ card!(
     oracle_id = "137e3974-74e1-4941-8597-10aeba6cac37",
     scryfall_id = "c17c6416-86d6-46ea-aea1-41b98a66b250",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Homarid Shaman",
         mana_cost = mana!("{2}{U}{U}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "acb58839-2b26-4724-9e9b-b49b8217b13f",
     scryfall_id = "873be98f-e263-4e84-afa0-1e329aa47550",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flinthoof Boar",
         mana_cost = mana!("{1}{G}"),

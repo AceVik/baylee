@@ -16,7 +16,7 @@ card!(
     oracle_id = "70ebd18a-c878-4a93-b7c4-3f7a2aa65f5e",
     scryfall_id = "f31d7d1b-a219-4653-be99-a885bc9b2e2f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Expendable Troops",
         mana_cost = mana!("{1}{W}"),

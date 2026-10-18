@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1f5d274c-3a03-4f0d-97e8-7eef6508105d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shivan Devastator",
         mana_cost = mana!("{X}{R}"),

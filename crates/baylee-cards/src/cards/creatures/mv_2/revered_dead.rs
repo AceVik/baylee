@@ -11,7 +11,7 @@ card!(
     oracle_id = "96a57ce0-f1ab-4af7-8c18-8e35aad11780",
     scryfall_id = "f9a78d5c-27f8-4061-be89-0246fb69e752",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revered Dead",
         mana_cost = mana!("{1}{W}"),

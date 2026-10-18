@@ -11,7 +11,7 @@ card!(
     oracle_id = "298a71d4-6dc1-444e-9057-0d25aef7fb64",
     scryfall_id = "54938334-ebad-4dde-82e6-8c854aef4a91",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Sky Climber",
         mana_cost = mana!("{2}{W}"),

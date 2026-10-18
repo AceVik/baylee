@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ebc166d-98c5-4ab7-9610-bc5bcd231d80",
     scryfall_id = "b8bb97ce-d9cf-47db-93cb-02745ebeb05e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gutless Ghoul",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "bc548ecb-57c4-49ef-a7aa-312bf3665fab",
     scryfall_id = "cc4d04bc-6263-43b0-9b01-894a532cd3ed",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravenous Bloodseeker",
         mana_cost = mana!("{1}{R}"),

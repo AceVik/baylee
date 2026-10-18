@@ -11,7 +11,7 @@ card!(
     oracle_id = "697c851d-8475-479e-8783-cebdbe9a892d",
     scryfall_id = "a5664b7d-b553-4e0a-93ec-3d70e8e4f63b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten Ravager",
         mana_cost = mana!("{2}{R}"),

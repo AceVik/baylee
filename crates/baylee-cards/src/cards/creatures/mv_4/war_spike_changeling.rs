@@ -13,7 +13,7 @@ card!(
     scryfall_id = "523500d3-5614-4be8-95c7-d63ca279c1b1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "War-Spike Changeling",
         mana_cost = mana!("{3}{R}"),

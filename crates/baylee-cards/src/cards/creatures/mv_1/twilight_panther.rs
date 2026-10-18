@@ -11,7 +11,7 @@ card!(
     oracle_id = "5e19aa52-5b76-40d7-ba9c-0e5d64f2b773",
     scryfall_id = "c12b92f0-3cb8-4ab6-8f8d-6c47b2bbaa7e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twilight Panther",
         mana_cost = mana!("{W}"),

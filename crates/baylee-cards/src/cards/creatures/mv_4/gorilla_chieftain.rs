@@ -11,7 +11,7 @@ card!(
     oracle_id = "4137ee86-bbf0-49dc-87c5-b48a384baac4",
     scryfall_id = "9e76185a-519f-4bec-b399-989ebddbab71",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gorilla Chieftain",
         mana_cost = mana!("{2}{G}{G}"),

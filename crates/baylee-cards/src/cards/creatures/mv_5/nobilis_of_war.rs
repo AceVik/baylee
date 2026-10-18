@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0f002636-1971-468d-b171-7b8147829972",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nobilis of War",
         mana_cost = mana!("{R/W}{R/W}{R/W}{R/W}{R/W}"),

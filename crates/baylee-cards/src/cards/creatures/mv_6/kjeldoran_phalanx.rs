@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b6e91ba0-b229-4ab1-84f3-2a490dfa5051",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::BANDING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Phalanx",
         mana_cost = mana!("{5}{W}"),

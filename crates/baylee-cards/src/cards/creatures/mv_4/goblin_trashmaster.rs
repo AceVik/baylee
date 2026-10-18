@@ -17,7 +17,7 @@ card!(
     oracle_id = "0283bf5e-ddf2-4a4a-a7cf-d3e27eed7e7d",
     scryfall_id = "2bc69988-3c2d-4b76-a8c0-05926b9bbd08",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Trashmaster",
         mana_cost = mana!("{2}{R}{R}"),

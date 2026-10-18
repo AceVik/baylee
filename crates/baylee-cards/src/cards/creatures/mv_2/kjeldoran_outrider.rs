@@ -11,7 +11,7 @@ card!(
     oracle_id = "7b8559a7-e11f-430d-8a7a-785a7005c4c4",
     scryfall_id = "bd641b1d-dab8-415b-9655-09e033df761d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Outrider",
         mana_cost = mana!("{1}{W}"),

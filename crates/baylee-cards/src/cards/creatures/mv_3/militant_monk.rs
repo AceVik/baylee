@@ -13,7 +13,7 @@ card!(
     scryfall_id = "886a3cfd-7f83-480a-bb22-eec67ad35e4f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Militant Monk",
         mana_cost = mana!("{1}{W}{W}"),

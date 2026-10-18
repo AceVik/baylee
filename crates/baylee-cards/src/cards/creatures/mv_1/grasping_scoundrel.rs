@@ -11,7 +11,7 @@ card!(
     oracle_id = "d8c3298f-da96-46ee-8b46-ce1d0df95f62",
     scryfall_id = "9fd574a9-2034-402c-9fd6-83c4b9db83d1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grasping Scoundrel",
         mana_cost = mana!("{B}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "b6eb56a7-4dfe-4d51-a1df-55f892c1b014",
     scryfall_id = "1bd3077a-0446-4cf4-9a32-366b4c4085a3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orchard Spirit",
         mana_cost = mana!("{2}{G}"),

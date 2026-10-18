@@ -11,7 +11,7 @@ card!(
     oracle_id = "17ed18cf-33e5-4861-8a36-8f7bb91971f9",
     scryfall_id = "b8000d86-60e7-4edd-b685-14ade08b76f2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valakut Invoker",
         mana_cost = mana!("{2}{R}"),

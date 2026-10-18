@@ -13,7 +13,7 @@ card!(
     oracle_id = "88ef3413-21bc-428a-9803-d275e437c4bd",
     scryfall_id = "7274f791-c9f1-49a1-9002-10e94caee96e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scoria Cat",
         mana_cost = mana!("{3}{R}{R}"),

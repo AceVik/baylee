@@ -14,7 +14,7 @@ card!(
     oracle_id = "9845fb27-3a1e-4cad-b30b-2c7a9dbb6209",
     scryfall_id = "aa559342-9587-4fe3-9059-3b3a08d6637a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thaumatog",
         mana_cost = mana!("{1}{G}{W}"),

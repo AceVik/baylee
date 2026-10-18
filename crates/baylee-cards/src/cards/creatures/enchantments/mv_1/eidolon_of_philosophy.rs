@@ -11,7 +11,7 @@ card!(
     oracle_id = "65acea17-c900-4574-b22f-910285552aa2",
     scryfall_id = "d2897635-b387-485d-932f-5655244a381f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of Philosophy",
         mana_cost = mana!("{U}"),

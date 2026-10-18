@@ -14,7 +14,7 @@ card!(
     scryfall_id = "0f28e081-7994-468d-8505-9981b90c001c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boartusk Liege",
         mana_cost = mana!("{1}{R/G}{R/G}{R/G}"),

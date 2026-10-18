@@ -11,7 +11,7 @@ card!(
     oracle_id = "c5dcab94-f4c0-4e5e-ad99-7b3871be6e89",
     scryfall_id = "572a2dc4-3f8f-4412-8a40-9e61df33db76",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oran-Rief Invoker",
         mana_cost = mana!("{1}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "56a95546-c45a-4da5-b1e8-d5658b5b7d53",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fetid Imp",
         mana_cost = mana!("{1}{B}"),

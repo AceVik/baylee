@@ -13,7 +13,7 @@ card!(
     oracle_id = "f557697a-4c1b-44f6-a989-4879bbe26eb5",
     scryfall_id = "a26c340e-ccfb-4e91-ab10-a8b7714a9089",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Skysweeper",
         mana_cost = mana!("{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "73d0b29a-5b7a-4835-9bd4-5d00e685b851",
     scryfall_id = "4e74f8ae-992b-40a6-87e3-7b321dba4ffa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weatherseed Elf",
         mana_cost = mana!("{G}"),

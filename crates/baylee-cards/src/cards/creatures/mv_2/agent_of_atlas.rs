@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a9db550e-ed1f-4973-a7f5-ec2e6adb8e6b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agent of Atlas",
         mana_cost = mana!("{1}{W}"),

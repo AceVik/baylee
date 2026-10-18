@@ -11,7 +11,7 @@ card!(
     oracle_id = "541b7b2f-7bb0-4858-8dc5-6e50de443c33",
     scryfall_id = "97cc7e09-315f-44fd-b7ce-03d4c18d88be",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Combat Medic",
         mana_cost = mana!("{2}{W}"),

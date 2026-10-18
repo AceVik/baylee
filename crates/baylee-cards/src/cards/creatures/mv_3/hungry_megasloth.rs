@@ -13,7 +13,7 @@ card!(
     scryfall_id = "455c92ca-bb23-495d-be9e-2e0101b115ac",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hungry Megasloth",
         mana_cost = mana!("{2}{G}"),

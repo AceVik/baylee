@@ -13,7 +13,7 @@ card!(
     scryfall_id = "78c66cc0-cb0f-4daf-8141-0923ad46a834",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Ridgewolf",
         mana_cost = mana!("{2}{R}"),

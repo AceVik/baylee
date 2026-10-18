@@ -11,7 +11,7 @@ card!(
     oracle_id = "9a2bc266-4076-4923-b201-5898b18cbad9",
     scryfall_id = "422308b7-a163-447f-aabd-42944b4d4376",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Passwall Adept",
         mana_cost = mana!("{1}{U}"),

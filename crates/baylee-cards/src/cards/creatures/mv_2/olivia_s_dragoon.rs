@@ -11,7 +11,7 @@ card!(
     oracle_id = "a5019399-91a8-4233-b16f-399718c4be9c",
     scryfall_id = "571a9e92-6f34-4bf4-b7f4-15d12560efb6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Olivia's Dragoon",
         mana_cost = mana!("{1}{B}"),

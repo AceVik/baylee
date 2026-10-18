@@ -13,7 +13,7 @@ card!(
     scryfall_id = "394dd931-e34e-4314-88c9-774a2f3c8c1b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Niblis of Dusk",
         mana_cost = mana!("{2}{U}"),

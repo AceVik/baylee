@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9fdbe6b5-7f67-42f1-be8f-637c35417925",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirlwind Adept",
         mana_cost = mana!("{4}{U}"),

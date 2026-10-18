@@ -12,7 +12,7 @@ card!(
     oracle_id = "17661062-928c-4e33-a4f3-92ddc9d8c817",
     scryfall_id = "8888e0aa-3682-4800-9c50-fff5d5c9547d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrenton Medic",
         mana_cost = mana!("{4}{W}"),

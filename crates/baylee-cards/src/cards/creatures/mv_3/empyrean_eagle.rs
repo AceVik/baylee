@@ -13,7 +13,7 @@ card!(
     scryfall_id = "577e99a7-4a55-4314-8f08-2ae0c33b85c7",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Empyrean Eagle",
         mana_cost = mana!("{1}{W}{U}"),

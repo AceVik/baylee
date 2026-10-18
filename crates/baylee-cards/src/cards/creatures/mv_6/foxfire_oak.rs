@@ -11,7 +11,7 @@ card!(
     oracle_id = "925775c6-b6d2-4793-a363-bd5aca871aa8",
     scryfall_id = "46e23eae-7630-40db-b265-2fa00715878e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foxfire Oak",
         mana_cost = mana!("{5}{G}"),

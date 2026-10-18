@@ -11,7 +11,7 @@ card!(
     oracle_id = "c66342bb-bbc1-4aaf-8d99-0af68292081e",
     scryfall_id = "52aece74-cc1f-4f32-ad1f-00733eb79007",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kranioceros",
         mana_cost = mana!("{4}{R}"),

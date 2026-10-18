@@ -11,7 +11,7 @@ card!(
     oracle_id = "bb300e38-32d7-4152-9a82-88d43af99f19",
     scryfall_id = "05ada02f-04e9-4269-b04a-97a7eaac2c46",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chronatog",
         mana_cost = mana!("{1}{U}"),

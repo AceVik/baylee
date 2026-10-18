@@ -16,7 +16,7 @@ card!(
     oracle_id = "7d72a2f4-cce6-4a2b-9507-0ee1c3e1e4ae",
     scryfall_id = "a602c93d-e00f-4b4f-a7ff-95316b7e7641",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Wolves",
         mana_cost = mana!("{2}{G}"),

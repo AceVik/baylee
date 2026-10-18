@@ -11,7 +11,7 @@ card!(
     oracle_id = "83a76601-ef59-4888-af70-5088dd1f504c",
     scryfall_id = "36f569cc-ed09-4c27-b753-18b22ad7f425",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Regal Imperiosaur",
         mana_cost = mana!("{1}{G}{G}"),

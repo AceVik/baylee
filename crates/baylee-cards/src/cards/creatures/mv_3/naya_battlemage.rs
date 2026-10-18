@@ -12,7 +12,7 @@ card!(
     oracle_id = "db4d2580-50f4-4986-8091-769b4d2f6d72",
     scryfall_id = "4fe73f62-2e80-4d5f-b7b5-c54c895a3e4d",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Naya Battlemage",
         mana_cost = mana!("{2}{G}"),

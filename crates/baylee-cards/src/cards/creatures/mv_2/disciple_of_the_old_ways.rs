@@ -11,7 +11,7 @@ card!(
     oracle_id = "d19d69c5-9f11-4ac1-9fc7-1636689f23a0",
     scryfall_id = "3c62b3ee-db2b-45c3-87d5-5d917ea4baeb",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disciple of the Old Ways",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1c99c9d9-3ea8-43bc-96d7-4dea12770b5c",
     scryfall_id = "26407330-d7a1-4915-b7c6-e08e166cf638",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ostiary Thrull",
         mana_cost = mana!("{3}{B}"),

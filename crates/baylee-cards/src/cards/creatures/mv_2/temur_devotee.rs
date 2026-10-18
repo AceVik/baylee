@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a2ef698e-5466-43bd-985d-020f2e5d8205",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temur Devotee",
         mana_cost = mana!("{1}{U}"),

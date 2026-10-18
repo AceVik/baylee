@@ -12,7 +12,7 @@ card!(
     scryfall_id = "585e4e02-4873-4a65-a9ad-30cf0d5b6f79",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kudo, King Among Bears",
         mana_cost = mana!("{G}{W}"),

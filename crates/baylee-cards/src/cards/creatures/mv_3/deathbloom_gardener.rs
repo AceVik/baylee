@@ -13,7 +13,7 @@ card!(
     scryfall_id = "88dee3d1-0496-40ea-b208-7362a932f531",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathbloom Gardener",
         mana_cost = mana!("{2}{G}"),

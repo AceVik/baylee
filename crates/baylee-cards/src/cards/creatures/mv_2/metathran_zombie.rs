@@ -11,7 +11,7 @@ card!(
     oracle_id = "c631887c-e157-4a95-8a59-08a44854d07f",
     scryfall_id = "6676a0f7-8213-4547-b2ac-b904cd418073",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metathran Zombie",
         mana_cost = mana!("{1}{U}"),

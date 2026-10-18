@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3efee309-2eba-4702-9361-0f75043922bb",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pearl Dragon",
         mana_cost = mana!("{4}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "49dc3434-2501-4788-84f2-93e55730f67c",
     scryfall_id = "6911759c-7177-402c-a95a-f9f46efaf521",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selfless Savior",
         mana_cost = mana!("{W}"),

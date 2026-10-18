@@ -17,7 +17,7 @@ card!(
     oracle_id = "ea30f395-86fc-444f-8c9e-b9876287084e",
     scryfall_id = "fe3802f3-feb3-4dcd-a5ba-f493baf3d447",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unraveling Mummy",
         mana_cost = mana!("{1}{W}{B}"),

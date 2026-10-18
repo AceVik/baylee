@@ -11,7 +11,7 @@ card!(
     oracle_id = "8a327626-ce42-4ef8-8869-3468960c671e",
     scryfall_id = "8d6bb19c-3610-4609-b23c-21d4d80e4582",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crackling Triton",
         mana_cost = mana!("{2}{U}"),

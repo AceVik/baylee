@@ -18,7 +18,7 @@ card!(
     scryfall_id = "b8b4ebbf-1613-42a0-97ff-2f36dc8d984a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dungrove Elder",
         mana_cost = mana!("{2}{G}"),

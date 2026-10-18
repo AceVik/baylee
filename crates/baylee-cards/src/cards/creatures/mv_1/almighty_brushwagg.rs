@@ -13,7 +13,7 @@ card!(
     scryfall_id = "71f2b7ac-8742-468d-b6a3-87881cb522ff",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Almighty Brushwagg",
         mana_cost = mana!("{G}"),

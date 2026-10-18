@@ -22,7 +22,7 @@ card!(
     oracle_id = "d46d8913-7575-4aef-b511-6c0ca9d4b506",
     scryfall_id = "7c9b5baf-6163-48a9-b58d-195edfeb437d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle Brawler",
         mana_cost = mana!("{1}{B}"),

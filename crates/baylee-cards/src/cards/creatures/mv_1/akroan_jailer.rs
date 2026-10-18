@@ -11,7 +11,7 @@ card!(
     oracle_id = "e3ad2c77-2a41-4a4a-a6bf-e542d0162b88",
     scryfall_id = "8d96bc2b-2e31-4654-b192-c3f023d9fde6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroan Jailer",
         mana_cost = mana!("{W}"),

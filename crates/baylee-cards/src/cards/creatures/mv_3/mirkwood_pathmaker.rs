@@ -11,7 +11,7 @@ card!(
     oracle_id = "f1b36dde-9cde-46c8-8d5a-9ad93feba41f",
     scryfall_id = "50fbedc0-bc66-4ffb-87f6-a2df69995091",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirkwood Pathmaker",
         mana_cost = mana!("{2}{G}"),

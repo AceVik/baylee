@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f10f1687-fb20-4ad2-bad7-52e4470b35e4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Half-Elf Monk",
         mana_cost = mana!("{3}{W}"),

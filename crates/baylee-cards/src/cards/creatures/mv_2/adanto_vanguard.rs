@@ -12,7 +12,7 @@ card!(
     oracle_id = "91c380f6-2c41-48b7-9f07-104e8659e397",
     scryfall_id = "21c950d7-b4f6-4902-8c9a-98f2933f9fa5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adanto Vanguard",
         mana_cost = mana!("{1}{W}"),

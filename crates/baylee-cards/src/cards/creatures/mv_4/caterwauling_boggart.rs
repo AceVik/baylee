@@ -11,7 +11,7 @@ card!(
     oracle_id = "ab3f4455-7329-4145-b9c4-93eef38bf327",
     scryfall_id = "ee8337bf-9fe8-45a0-974c-8911306b19ea",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caterwauling Boggart",
         mana_cost = mana!("{3}{R}"),

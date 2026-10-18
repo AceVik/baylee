@@ -17,7 +17,7 @@ card!(
     oracle_id = "a6e654fb-3567-4b92-ae9b-d064bba7112a",
     scryfall_id = "e64d7cc7-bbdd-4db3-906e-a2f7672e0f67",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neverwinter Dryad",
         mana_cost = mana!("{G}"),

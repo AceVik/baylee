@@ -11,7 +11,7 @@ card!(
     oracle_id = "54e7a6d4-d405-4627-93ab-8d8bd945fe02",
     scryfall_id = "43d9c248-2360-4fdc-9a0f-49d350c11e95",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ridgeline Rager",
         mana_cost = mana!("{2}{R}"),

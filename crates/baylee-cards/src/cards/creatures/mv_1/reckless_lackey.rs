@@ -14,7 +14,7 @@ card!(
     scryfall_id = "912fcd14-5e81-418c-997b-771f2f38f63d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Lackey",
         mana_cost = mana!("{R}"),

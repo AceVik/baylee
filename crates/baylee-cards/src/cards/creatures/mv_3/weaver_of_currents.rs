@@ -11,7 +11,7 @@ card!(
     oracle_id = "9aabb520-7e97-47b2-975c-11f457d0b870",
     scryfall_id = "dac35181-baae-4c50-b397-a10b234833e5",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weaver of Currents",
         mana_cost = mana!("{1}{G}{U}"),

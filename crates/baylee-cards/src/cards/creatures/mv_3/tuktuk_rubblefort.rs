@@ -13,7 +13,7 @@ card!(
     scryfall_id = "02eedf9d-e26c-405c-aee5-1b3493dc5e9b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tuktuk Rubblefort",
         mana_cost = mana!("{2}{R}"),

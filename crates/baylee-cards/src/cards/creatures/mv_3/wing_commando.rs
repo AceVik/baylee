@@ -13,7 +13,7 @@ card!(
     scryfall_id = "43e640c3-02bb-453c-a609-05d8214e2e2e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wing Commando",
         mana_cost = mana!("{2}{U}"),

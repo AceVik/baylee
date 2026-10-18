@@ -11,7 +11,7 @@ card!(
     oracle_id = "5e0d877c-6ce3-462b-9746-7fc921c93be9",
     scryfall_id = "6c691f62-009b-4178-8e8b-d6e88229a282",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cabaretti Initiate",
         mana_cost = mana!("{G}"),

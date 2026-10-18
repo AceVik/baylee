@@ -18,7 +18,7 @@ card!(
     scryfall_id = "19fb3ce2-a660-4829-9af4-330cfd612f06",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soraya the Falconer",
         mana_cost = mana!("{1}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d3297f28-a15d-43dd-a96e-09701d5f9aed",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pulsating Illusion",
         mana_cost = mana!("{4}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "62fbd1bc-3e57-43d5-ad54-443ca740fcc4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sun-Collared Raptor",
         mana_cost = mana!("{1}{R}"),

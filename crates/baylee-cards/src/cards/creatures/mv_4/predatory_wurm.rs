@@ -19,7 +19,7 @@ card!(
     scryfall_id = "4073cbc6-11de-4d4a-bcd7-792f9b7c5219",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Predatory Wurm",
         mana_cost = mana!("{3}{G}"),

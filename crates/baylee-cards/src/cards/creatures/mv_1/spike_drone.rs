@@ -12,7 +12,7 @@ card!(
     oracle_id = "dd6d15c0-c294-42c9-a6cf-57b0b5d40823",
     scryfall_id = "5d45a3d3-a114-496e-b575-504179a297cc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spike Drone",
         mana_cost = mana!("{G}"),

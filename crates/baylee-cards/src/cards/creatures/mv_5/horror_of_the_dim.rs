@@ -11,7 +11,7 @@ card!(
     oracle_id = "83e91e0a-2680-4bd3-98eb-7567791e77d5",
     scryfall_id = "f5d36c9d-967e-42dc-890c-0485b12f704f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horror of the Dim",
         mana_cost = mana!("{4}{B}"),

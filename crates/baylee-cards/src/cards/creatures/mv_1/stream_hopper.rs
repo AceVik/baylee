@@ -11,7 +11,7 @@ card!(
     oracle_id = "153cd93c-7bba-4482-893c-55a602c4439b",
     scryfall_id = "55371d0e-29da-4517-ab16-075782a1326f",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stream Hopper",
         mana_cost = mana!("{U/R}"),

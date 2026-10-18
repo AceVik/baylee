@@ -13,7 +13,7 @@ card!(
     oracle_id = "e5fbd5c8-7b0c-4740-9430-456e86267966",
     scryfall_id = "1bd5c2b6-fcb2-4865-a0e5-9af59d94ae5a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarblade Elite",
         mana_cost = mana!("{B}{B}"),

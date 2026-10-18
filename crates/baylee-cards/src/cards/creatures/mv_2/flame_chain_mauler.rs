@@ -11,7 +11,7 @@ card!(
     oracle_id = "d6eef6a7-0cf4-4ee8-90e0-727a283c3be9",
     scryfall_id = "752d7e8e-0dd0-4ace-9c89-a8f9ce73775e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flame-Chain Mauler",
         mana_cost = mana!("{1}{R}"),

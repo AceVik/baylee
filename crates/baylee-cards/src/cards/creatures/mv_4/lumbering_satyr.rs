@@ -11,7 +11,7 @@ card!(
     oracle_id = "fba1329d-d8bf-4c5e-9cf1-5410a42f732e",
     scryfall_id = "5d897088-0667-4864-91c3-5f0ac7f9b220",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lumbering Satyr",
         mana_cost = mana!("{2}{G}{G}"),

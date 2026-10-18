@@ -13,7 +13,7 @@ card!(
     oracle_id = "4567a528-75f0-4ea6-b927-3a500caf76ac",
     scryfall_id = "4b81165e-f091-4211-8b47-5ea6868b0d4c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arbor Elf",
         mana_cost = mana!("{G}"),

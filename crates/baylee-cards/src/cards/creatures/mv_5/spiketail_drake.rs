@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4db398ca-6b0b-4225-baaa-c4b1c243b2bd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spiketail Drake",
         mana_cost = mana!("{3}{U}{U}"),

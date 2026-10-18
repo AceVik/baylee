@@ -13,7 +13,7 @@ card!(
     oracle_id = "17f930a9-64ee-46f9-8a7c-8877e532c94f",
     scryfall_id = "0ccf9c8b-8a03-4ef8-8267-af57ac35fe02",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gnat Alley Creeper",
         mana_cost = mana!("{2}{R}"),

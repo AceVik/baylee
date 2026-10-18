@@ -13,7 +13,7 @@ card!(
     scryfall_id = "534eb449-3f1c-46ec-a965-0f5812e2c93e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thicket Crasher",
         mana_cost = mana!("{3}{G}"),

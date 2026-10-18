@@ -16,7 +16,7 @@ card!(
     oracle_id = "c5081f2d-ebe2-4ff3-a8ef-fe50f8ecde60",
     scryfall_id = "e2c07842-9b70-40b1-9b97-9a9279b7ebc4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Liberated Dwarf",
         mana_cost = mana!("{R}"),

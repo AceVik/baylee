@@ -20,7 +20,7 @@ card!(
     scryfall_id = "89e92e98-202f-4790-8411-17aebffe19fe",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Celestial Messenger",
         mana_cost = mana!("{2}{U}{U}"),

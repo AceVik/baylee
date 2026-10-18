@@ -16,7 +16,7 @@ card!(
     oracle_id = "5791710d-c718-4f64-9c14-3668154716f1",
     scryfall_id = "4f964660-c2db-4995-bb16-65383362cf19",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dread Warlock",
         mana_cost = mana!("{1}{B}{B}"),

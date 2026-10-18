@@ -16,7 +16,7 @@ card!(
     oracle_id = "3e7707df-54e3-4307-9695-2de4e3edcf89",
     scryfall_id = "552c9c66-8023-41ef-8d4f-3b0dc30743f3",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noggle Bandit",
         mana_cost = mana!("{1}{U/R}{U/R}"),

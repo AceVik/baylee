@@ -23,7 +23,7 @@ card!(
     oracle_id = "ff922641-142a-4774-be3e-36a5183fce2b",
     scryfall_id = "a93e5fa9-cfe3-487b-af77-0dbf6c68ee04",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Order",
         mana_cost = mana!("{2}{G}{G}"),

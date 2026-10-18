@@ -13,7 +13,7 @@ card!(
     oracle_id = "2e00598c-4f06-45aa-87a7-c63b5e8e92f3",
     scryfall_id = "ec3193cb-2c00-4ef8-bf2e-d3b1e3b875a3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steam Frigate",
         mana_cost = mana!("{2}{U}"),

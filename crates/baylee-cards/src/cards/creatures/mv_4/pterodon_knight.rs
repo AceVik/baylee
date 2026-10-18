@@ -16,7 +16,7 @@ card!(
     oracle_id = "8feb7149-a4dc-491a-a0b4-d2e8b85a97ce",
     scryfall_id = "41f00a04-1336-4830-a6c2-514848afefd2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pterodon Knight",
         mana_cost = mana!("{3}{W}"),

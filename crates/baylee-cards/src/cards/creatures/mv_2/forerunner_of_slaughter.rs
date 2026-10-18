@@ -15,7 +15,7 @@ card!(
     scryfall_id = "a38aba41-a83f-47ef-9fc9-ea3424fc6d64",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forerunner of Slaughter",
         mana_cost = mana!("{B}{R}"),

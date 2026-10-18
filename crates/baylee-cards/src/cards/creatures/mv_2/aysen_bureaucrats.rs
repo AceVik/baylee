@@ -13,7 +13,7 @@ card!(
     oracle_id = "786b2028-cf24-4f00-b1d6-05b94e78d617",
     scryfall_id = "194a17ad-8393-44d4-a5d1-a61f9a875573",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aysen Bureaucrats",
         mana_cost = mana!("{1}{W}"),

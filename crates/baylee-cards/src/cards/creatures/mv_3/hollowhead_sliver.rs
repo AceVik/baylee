@@ -11,7 +11,7 @@ card!(
     oracle_id = "739ad367-a4ff-4779-8888-3c27f0f60253",
     scryfall_id = "c444a566-bcb1-424b-b66b-55ce87e4d98f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hollowhead Sliver",
         mana_cost = mana!("{2}{R}"),

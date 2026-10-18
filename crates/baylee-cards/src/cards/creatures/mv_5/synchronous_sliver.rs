@@ -11,7 +11,7 @@ card!(
     oracle_id = "b90e2fb8-9b09-4d95-a8a2-5287b5f18132",
     scryfall_id = "c02fa57b-4b7f-46e1-b2b5-6b1a9e9d1643",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Synchronous Sliver",
         mana_cost = mana!("{4}{U}"),

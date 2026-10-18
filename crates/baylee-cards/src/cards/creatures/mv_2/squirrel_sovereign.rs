@@ -11,7 +11,7 @@ card!(
     oracle_id = "f43d1ea5-8127-4b64-a87b-ee5cc9b9e9fa",
     scryfall_id = "8f739d55-30d6-4879-872a-82c6778113de",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squirrel Sovereign",
         mana_cost = mana!("{1}{G}"),

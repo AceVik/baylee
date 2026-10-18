@@ -11,7 +11,7 @@ card!(
     oracle_id = "eab27405-f590-40b7-ad7c-0e6c52410c0a",
     scryfall_id = "b437bab9-2279-4160-85fd-d29c7a35ca2c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilt-Leaf Seer",
         mana_cost = mana!("{2}{G}"),

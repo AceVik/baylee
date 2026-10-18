@@ -11,7 +11,7 @@ card!(
     oracle_id = "a9df60bf-f327-4d50-ab4d-99324fc2dcfe",
     scryfall_id = "20a97cda-42b2-44f1-8e77-f64dd1c98f6f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Xenobotanist",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "f249db15-09fa-4a1c-9461-9ae803c219b6",
     scryfall_id = "9d8dfef3-4c87-4eb8-b0d4-8f8485de792c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Somberwald Sage",
         mana_cost = mana!("{2}{G}"),

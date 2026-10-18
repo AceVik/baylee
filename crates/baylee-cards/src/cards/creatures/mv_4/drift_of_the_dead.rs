@@ -19,7 +19,7 @@ card!(
     scryfall_id = "2d96224a-178d-4d41-bc6a-b5ccfd27ed2f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drift of the Dead",
         mana_cost = mana!("{3}{B}"),

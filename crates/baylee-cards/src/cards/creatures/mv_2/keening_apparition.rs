@@ -11,7 +11,7 @@ card!(
     oracle_id = "b9212596-3f65-41c9-9ee8-1f4cec7f0ecf",
     scryfall_id = "af8f86ba-4795-4d0f-aa99-f1ca109f0f5c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Keening Apparition",
         mana_cost = mana!("{1}{W}"),

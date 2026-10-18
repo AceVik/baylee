@@ -11,7 +11,7 @@ card!(
     oracle_id = "6881e3ac-9e3d-49d2-b2ac-63feb6f0f2ff",
     scryfall_id = "5601725f-d733-4052-86eb-5d11baad8c34",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Relentless Hunter",
         mana_cost = mana!("{1}{R}{G}"),

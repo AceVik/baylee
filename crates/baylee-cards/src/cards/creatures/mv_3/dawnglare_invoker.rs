@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c7cc4332-8d8a-47f5-9583-219be4f2030a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnglare Invoker",
         mana_cost = mana!("{2}{W}"),

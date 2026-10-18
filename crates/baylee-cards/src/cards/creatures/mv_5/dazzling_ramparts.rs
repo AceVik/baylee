@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ce43a2df-4305-4ab1-ae45-96cca597650e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dazzling Ramparts",
         mana_cost = mana!("{4}{W}"),

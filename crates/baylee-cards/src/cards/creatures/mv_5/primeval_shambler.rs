@@ -11,7 +11,7 @@ card!(
     oracle_id = "7a2722c6-04a0-4790-be45-dafb7832bb41",
     scryfall_id = "e45931d2-3fbf-4509-aa41-13d7839578df",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primeval Shambler",
         mana_cost = mana!("{4}{B}"),

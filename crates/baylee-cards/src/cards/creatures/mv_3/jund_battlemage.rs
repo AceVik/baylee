@@ -13,7 +13,7 @@ card!(
     oracle_id = "d2567448-f8a5-4bf3-9804-f5aac3b645ce",
     scryfall_id = "ee8c962f-11b0-48f7-bbba-a2212e41990f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jund Battlemage",
         mana_cost = mana!("{2}{R}"),

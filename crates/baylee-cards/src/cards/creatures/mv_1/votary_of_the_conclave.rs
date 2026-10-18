@@ -11,7 +11,7 @@ card!(
     oracle_id = "83837ceb-7aae-4257-8545-a6cf34656e3b",
     scryfall_id = "9bb6f929-5a19-421b-ae88-9bbb7e64756c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Votary of the Conclave",
         mana_cost = mana!("{W}"),

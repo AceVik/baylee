@@ -13,7 +13,7 @@ card!(
     oracle_id = "96ef0bd9-4abb-49af-8744-0b2ad595a393",
     scryfall_id = "368322d7-d399-45e1-8d7f-8001d048071e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "White Shield Crusader",
         mana_cost = mana!("{W}{W}"),

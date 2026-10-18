@@ -16,7 +16,7 @@ card!(
     oracle_id = "f47f1c96-0b09-4277-8d61-cffa56d81be7",
     scryfall_id = "53a3019f-0b27-4ba3-be4c-73ed50eb9514",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Pony",
         mana_cost = mana!("{R}"),

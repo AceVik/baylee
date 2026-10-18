@@ -19,7 +19,7 @@ card!(
     scryfall_id = "f0282af2-9b3f-4335-92ea-9db9267e8cd2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axebane Guardian",
         mana_cost = mana!("{2}{G}"),

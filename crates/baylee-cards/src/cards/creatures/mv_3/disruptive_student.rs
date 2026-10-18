@@ -11,7 +11,7 @@ card!(
     oracle_id = "74315869-46e3-43a2-abc0-d86d0a70d343",
     scryfall_id = "ee43681d-e0f7-422b-a363-0d630f68d363",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disruptive Student",
         mana_cost = mana!("{2}{U}"),

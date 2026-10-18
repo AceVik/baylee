@@ -13,7 +13,7 @@ card!(
     oracle_id = "9740ce6d-ef6b-4d70-839a-8bd5e0e1e0a1",
     scryfall_id = "6b485cf7-bad0-4824-9ba7-cb112ce4769f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Druid of the Spade",
         mana_cost = mana!("{2}{G}"),

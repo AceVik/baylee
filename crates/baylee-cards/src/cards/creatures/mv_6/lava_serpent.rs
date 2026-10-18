@@ -13,7 +13,7 @@ card!(
     scryfall_id = "00ebd57f-7f7c-41b0-aa56-511c1816bc14",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lava Serpent",
         mana_cost = mana!("{5}{R}"),

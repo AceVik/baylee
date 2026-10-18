@@ -11,7 +11,7 @@ card!(
     oracle_id = "88e5b905-fe52-4fd6-8cdf-b7ede5166ebc",
     scryfall_id = "78b0b1a4-5372-424f-99b0-8abf500d5ece",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darkheart Sliver",
         mana_cost = mana!("{B}{G}"),

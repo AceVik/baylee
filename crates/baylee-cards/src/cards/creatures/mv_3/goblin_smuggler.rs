@@ -15,7 +15,7 @@ card!(
     scryfall_id = "5837ccf1-9bac-4afb-bcc9-82c5f3c0e8e2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Smuggler",
         mana_cost = mana!("{2}{R}"),

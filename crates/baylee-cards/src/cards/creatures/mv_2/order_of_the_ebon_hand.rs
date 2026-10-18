@@ -13,7 +13,7 @@ card!(
     oracle_id = "2f65f16f-c6c2-48f0-b556-63cf7d162000",
     scryfall_id = "8f8e1828-1c41-4525-9f42-5a6e936bfd7a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of the Ebon Hand",
         mana_cost = mana!("{B}{B}"),

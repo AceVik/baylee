@@ -16,7 +16,7 @@ card!(
     oracle_id = "3b9117a1-cd2d-4478-beda-1049e0b0f8eb",
     scryfall_id = "160335df-8377-4f72-9d3f-4b1492bd23ea",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sacellum Archers",
         mana_cost = mana!("{2}{G}"),

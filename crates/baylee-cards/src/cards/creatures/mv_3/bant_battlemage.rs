@@ -12,7 +12,7 @@ card!(
     oracle_id = "92d8b956-87db-43e4-bbb5-436ba01b5714",
     scryfall_id = "2c597b1d-d8b5-4922-a3f2-1f173a73ea2a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bant Battlemage",
         mana_cost = mana!("{2}{W}"),

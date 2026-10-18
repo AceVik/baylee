@@ -11,7 +11,7 @@ card!(
     oracle_id = "d558b465-75c6-450e-b1f2-5843ad67de71",
     scryfall_id = "4ab4769d-31ba-40d3-9375-494b93f01183",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Wolf Prowler",
         mana_cost = mana!("{2}{G}"),

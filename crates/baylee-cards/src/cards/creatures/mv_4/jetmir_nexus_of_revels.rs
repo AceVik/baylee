@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f9c69d75-651f-4b75-b65d-79999d2069f6",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jetmir, Nexus of Revels",
         mana_cost = mana!("{1}{R}{G}{W}"),

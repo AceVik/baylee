@@ -11,7 +11,7 @@ card!(
     oracle_id = "515c1604-59f0-45b4-91be-d2f20fdd3e1e",
     scryfall_id = "b9dec431-a20e-4c1c-9855-904779756509",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frostbridge Guard",
         mana_cost = mana!("{1}{W}"),

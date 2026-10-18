@@ -16,7 +16,7 @@ card!(
     oracle_id = "85b52f70-b583-4f04-a2ab-226d7291c03a",
     scryfall_id = "a6555cbb-97fc-4258-9b11-096c3eaec833",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duergar Assailant",
         mana_cost = mana!("{R/W}"),

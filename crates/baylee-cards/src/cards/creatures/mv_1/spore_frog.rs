@@ -11,7 +11,7 @@ card!(
     oracle_id = "97db6c39-e690-49b6-93a6-e51b8dfad10b",
     scryfall_id = "6d42fd52-34ea-4d1b-80dc-58fb0593bb5b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spore Frog",
         mana_cost = mana!("{G}"),

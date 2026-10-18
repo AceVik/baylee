@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d7c015a6-4d7d-421b-84fa-30bf070cff83",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ben-Ben, Akki Hermit",
         mana_cost = mana!("{2}{R}{R}"),

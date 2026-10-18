@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ad371c97-a266-4a88-9d28-2e889a37ba00",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Panicked Altisaur",
         mana_cost = mana!("{4}{R}"),

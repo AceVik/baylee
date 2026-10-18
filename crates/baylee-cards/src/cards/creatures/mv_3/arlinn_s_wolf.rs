@@ -13,7 +13,7 @@ card!(
     oracle_id = "fe4c0f02-c5fd-4cd5-9f80-0936e3875f1c",
     scryfall_id = "747223a5-c669-4d0e-a062-265eb47710cd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arlinn's Wolf",
         mana_cost = mana!("{2}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "00bcfbaf-cd31-4688-973e-4238749051b7",
     scryfall_id = "a232d196-490d-4712-b2a2-466751b28d11",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unyielding Krumar",
         mana_cost = mana!("{3}{B}"),

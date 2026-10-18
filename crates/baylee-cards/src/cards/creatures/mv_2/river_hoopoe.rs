@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2aff9aa6-bc5e-476d-9dd1-1318ed521b6f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "River Hoopoe",
         mana_cost = mana!("{G}{U}"),

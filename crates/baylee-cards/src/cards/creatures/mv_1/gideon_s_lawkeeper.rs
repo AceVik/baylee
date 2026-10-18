@@ -11,7 +11,7 @@ card!(
     oracle_id = "bae86bb0-5a97-4f6a-8a3f-4e6848bfacc0",
     scryfall_id = "757d58fc-cf26-4095-9616-a47e9501cc0d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gideon's Lawkeeper",
         mana_cost = mana!("{W}"),

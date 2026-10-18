@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8e04a31e-24b6-4d54-90c3-3f37d457131b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kaysa",
         mana_cost = mana!("{3}{G}{G}"),

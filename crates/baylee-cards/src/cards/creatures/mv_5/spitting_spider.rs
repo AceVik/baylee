@@ -15,7 +15,7 @@ card!(
     scryfall_id = "bfeeb515-7d3d-4678-a480-32485b197afb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spitting Spider",
         mana_cost = mana!("{3}{G}{G}"),

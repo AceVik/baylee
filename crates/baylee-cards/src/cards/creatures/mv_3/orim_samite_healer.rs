@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7567daf2-343f-4d62-977e-0b3b6001d57a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orim, Samite Healer",
         mana_cost = mana!("{1}{W}{W}"),

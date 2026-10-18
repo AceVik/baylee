@@ -13,7 +13,7 @@ card!(
     oracle_id = "063884e0-1f5e-4be9-930b-e73895b2fa41",
     scryfall_id = "d0391b4f-e819-409a-9e81-1bff932808e7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Red Cliffs Armada",
         mana_cost = mana!("{4}{U}"),

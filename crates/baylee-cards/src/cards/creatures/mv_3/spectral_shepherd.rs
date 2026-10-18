@@ -18,7 +18,7 @@ card!(
     scryfall_id = "a44cc0d0-5fdf-4090-bedd-a64069831df4",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Shepherd",
         mana_cost = mana!("{2}{W}"),

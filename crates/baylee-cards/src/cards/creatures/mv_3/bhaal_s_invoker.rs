@@ -11,7 +11,7 @@ card!(
     oracle_id = "92512acd-bf1e-4133-93cd-6c6af5affb95",
     scryfall_id = "3fd3e535-8412-4f79-a2b1-dfda9db1c496",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bhaal's Invoker",
         mana_cost = mana!("{2}{R}"),

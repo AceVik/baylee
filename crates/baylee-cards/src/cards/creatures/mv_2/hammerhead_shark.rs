@@ -13,7 +13,7 @@ card!(
     oracle_id = "ce176172-6c7b-40b0-a6d0-68e9c32b3402",
     scryfall_id = "48c1a040-9045-4977-84e4-695de0f886a9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hammerhead Shark",
         mana_cost = mana!("{1}{U}"),

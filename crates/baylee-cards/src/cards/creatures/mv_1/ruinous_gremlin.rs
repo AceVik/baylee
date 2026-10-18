@@ -11,7 +11,7 @@ card!(
     oracle_id = "b88d67c0-ef12-453c-8e58-6642650dffcc",
     scryfall_id = "88067bc3-6ec9-4a96-8077-817c57e032d0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ruinous Gremlin",
         mana_cost = mana!("{R}"),

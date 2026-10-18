@@ -13,7 +13,7 @@ card!(
     scryfall_id = "03ee2d7e-50ee-4f5a-b787-cf9669a892f3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prophet of Distortion",
         mana_cost = mana!("{U}"),

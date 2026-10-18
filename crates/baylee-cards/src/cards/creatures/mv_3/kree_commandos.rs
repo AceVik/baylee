@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kree Commandos",
         mana_cost = mana!("{2}{W}"),

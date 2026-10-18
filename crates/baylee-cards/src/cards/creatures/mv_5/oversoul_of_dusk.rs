@@ -11,7 +11,7 @@ card!(
     oracle_id = "da790c72-63e7-4955-9435-d073767f9bb5",
     scryfall_id = "8893842f-aa3f-45f6-8139-ca775d33792b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oversoul of Dusk",
         mana_cost = mana!("{G/W}{G/W}{G/W}{G/W}{G/W}"),

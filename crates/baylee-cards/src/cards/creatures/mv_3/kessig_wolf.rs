@@ -11,7 +11,7 @@ card!(
     oracle_id = "7b82045f-5a2b-4e6e-976c-986c80ecd8b2",
     scryfall_id = "3255480b-c1cf-43d9-a40e-43e38112bb18",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kessig Wolf",
         mana_cost = mana!("{2}{R}"),

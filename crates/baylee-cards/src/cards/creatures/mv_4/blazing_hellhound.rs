@@ -13,7 +13,7 @@ card!(
     oracle_id = "598a7410-35e8-4d62-9bf1-d44ee7717040",
     scryfall_id = "a8b85603-0ac6-4587-9724-e35ac06ffab9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blazing Hellhound",
         mana_cost = mana!("{2}{B}{R}"),

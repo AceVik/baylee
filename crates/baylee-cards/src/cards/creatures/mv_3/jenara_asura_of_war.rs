@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jenara, Asura of War",
         mana_cost = mana!("{G}{W}{U}"),

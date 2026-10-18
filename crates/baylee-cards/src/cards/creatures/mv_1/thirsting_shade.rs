@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a920c2e6-4a1f-487c-ad3f-b772443f0633",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thirsting Shade",
         mana_cost = mana!("{B}"),

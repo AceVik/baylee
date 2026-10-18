@@ -15,7 +15,7 @@ card!(
     scryfall_id = "6152487a-4b9b-4c26-9430-afab60e43101",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krovikan Mist",
         mana_cost = mana!("{1}{U}"),

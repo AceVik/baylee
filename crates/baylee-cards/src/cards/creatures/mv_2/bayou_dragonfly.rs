@@ -12,7 +12,7 @@ card!(
     scryfall_id = "93cfcca5-070b-4946-b17b-0c94b1e47fcd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING.union(KeywordSet::SWAMPWALK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bayou Dragonfly",
         mana_cost = mana!("{1}{G}"),

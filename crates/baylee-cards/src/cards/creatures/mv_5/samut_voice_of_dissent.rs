@@ -19,7 +19,7 @@ card!(
         .union(KeywordSet::DOUBLE_STRIKE)
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Samut, Voice of Dissent",
         mana_cost = mana!("{3}{R}{G}"),

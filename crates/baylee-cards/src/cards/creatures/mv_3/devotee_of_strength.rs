@@ -11,7 +11,7 @@ card!(
     oracle_id = "a6d8f944-f516-49d7-9aa8-77b98e862d6a",
     scryfall_id = "977698ab-3b64-41f2-a214-ac95e04c9956",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devotee of Strength",
         mana_cost = mana!("{2}{G}"),

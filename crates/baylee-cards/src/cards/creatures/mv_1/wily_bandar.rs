@@ -11,7 +11,7 @@ card!(
     oracle_id = "2b0ba5a5-649a-4d7a-8136-6bcf692337f5",
     scryfall_id = "cac6ece3-9889-47fa-9140-420b4f31dd1b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wily Bandar",
         mana_cost = mana!("{G}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "2cff1f9e-11a6-460c-8f5f-4c02424357e3",
     scryfall_id = "18096cdb-0ba9-41e0-b597-c5ed819e7497",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Balduvian Frostwaker",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fa3ed9d2-9053-4583-a226-0ab49bbdab6e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Markov Dreadknight",
         mana_cost = mana!("{3}{B}{B}"),

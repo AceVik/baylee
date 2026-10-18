@@ -16,7 +16,7 @@ card!(
     scryfall_id = "f1ebf021-02a1-4a47-b581-c85a7a76cdec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlefield Percher",
         mana_cost = mana!("{3}{B}{B}"),

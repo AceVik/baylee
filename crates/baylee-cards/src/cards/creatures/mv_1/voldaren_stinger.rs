@@ -12,7 +12,7 @@ card!(
     oracle_id = "5bd66394-6e1e-4b13-8824-e83768fb533e",
     scryfall_id = "f27a7c78-3a64-42fc-8808-15b1f41976a1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voldaren Stinger",
         mana_cost = mana!("{R}"),

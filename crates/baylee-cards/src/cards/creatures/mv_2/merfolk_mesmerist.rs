@@ -11,7 +11,7 @@ card!(
     oracle_id = "590d524f-278d-4cf4-ae3f-efcced4517b1",
     scryfall_id = "220dede5-472c-4a09-bdf0-73e722d9d4d2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk Mesmerist",
         mana_cost = mana!("{1}{U}"),

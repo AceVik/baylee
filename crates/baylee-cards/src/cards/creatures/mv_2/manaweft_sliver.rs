@@ -11,7 +11,7 @@ card!(
     oracle_id = "bd47398d-da35-4a09-8754-771af91b14f4",
     scryfall_id = "e51629ac-51d5-47cb-a7fc-315b34dd82ce",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manaweft Sliver",
         mana_cost = mana!("{1}{G}"),

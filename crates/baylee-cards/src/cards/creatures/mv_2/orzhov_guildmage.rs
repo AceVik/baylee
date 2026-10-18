@@ -12,7 +12,7 @@ card!(
     oracle_id = "877bfa3f-6e30-4cb3-831e-d56849b01334",
     scryfall_id = "5eb5c82b-71aa-4c94-bda0-3e5abe10ea67",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orzhov Guildmage",
         mana_cost = mana!("{W/B}{W/B}"),

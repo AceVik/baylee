@@ -13,7 +13,7 @@ card!(
     oracle_id = "73109353-51fa-43a1-93e0-b74536f372a5",
     scryfall_id = "9dab2ca2-0039-4eac-a7dc-68756362737d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sculptor of Winter",
         mana_cost = mana!("{1}{G}"),

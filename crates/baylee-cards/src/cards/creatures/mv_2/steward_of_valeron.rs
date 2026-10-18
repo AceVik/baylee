@@ -13,7 +13,7 @@ card!(
     scryfall_id = "237c62b7-7c0e-44bb-b420-d41aad2792a0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steward of Valeron",
         mana_cost = mana!("{G}{W}"),

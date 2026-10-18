@@ -11,7 +11,7 @@ card!(
     oracle_id = "636a9364-54a6-4f67-ad96-731646e8bde7",
     scryfall_id = "28822a9a-97fa-4784-ad97-072fcfc7b9ed",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chief of the Edge",
         mana_cost = mana!("{W}{B}"),

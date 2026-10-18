@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ef3358cb-714c-49bf-b7e9-a69d02d7799e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saruli Caretaker",
         mana_cost = mana!("{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "833a3622-9f24-47a3-816f-1732c0e077d0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foriysian Interceptor",
         mana_cost = mana!("{3}{W}"),

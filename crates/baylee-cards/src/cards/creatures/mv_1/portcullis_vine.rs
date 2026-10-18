@@ -19,7 +19,7 @@ card!(
     scryfall_id = "d1abd95a-4ecc-479c-b200-5aaf7c993ef8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Portcullis Vine",
         mana_cost = mana!("{G}"),

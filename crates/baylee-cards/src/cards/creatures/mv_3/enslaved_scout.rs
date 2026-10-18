@@ -11,7 +11,7 @@ card!(
     oracle_id = "f39a3798-1ff0-4d1b-933f-bfcc0f265168",
     scryfall_id = "ea21414e-65f7-4d65-b0dc-7fec7b9b416d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enslaved Scout",
         mana_cost = mana!("{2}{R}"),

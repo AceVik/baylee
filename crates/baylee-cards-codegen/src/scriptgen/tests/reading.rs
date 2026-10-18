@@ -1303,3 +1303,26 @@ fn permanent_card_in_graveyard_or_library_filters_permanent_types_only() {
         bridge.statics
     );
 }
+
+#[test]
+fn multiple_prowess_keywords_emit_separate_triggers() {
+    let thor = read(
+        "Name:Thor Odinson\nManaCost:3 R W\nTypes:Legendary Creature God Warrior Hero\nPT:4/4\n\
+         K:Flying\nK:Vigilance\nK:Prowess\nK:Prowess\n\
+         Oracle:Flying, vigilance, prowess, prowess",
+    );
+    assert_eq!(
+        thor.keywords,
+        [
+            "KeywordSet::FLYING",
+            "KeywordSet::VIGILANCE",
+            "KeywordSet::PROWESS"
+        ]
+    );
+    assert_eq!(
+        thor.abilities,
+        [
+            "triggered!(Trigger::SpellCast(&TRIGGER1), &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}

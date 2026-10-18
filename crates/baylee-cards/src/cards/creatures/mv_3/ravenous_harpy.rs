@@ -15,7 +15,7 @@ card!(
     scryfall_id = "676ec702-75c4-4733-b500-eb15406778bb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravenous Harpy",
         mana_cost = mana!("{2}{B}"),

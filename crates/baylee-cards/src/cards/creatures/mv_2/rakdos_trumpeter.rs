@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a4ee43e8-06ab-45da-8e56-2ed88c0141fa",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Trumpeter",
         mana_cost = mana!("{1}{B}"),

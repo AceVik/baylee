@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b3684a28-e819-4909-912e-dec4a9cf1b11",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhox Pikemaster",
         mana_cost = mana!("{2}{W}{W}"),

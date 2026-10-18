@@ -13,7 +13,7 @@ card!(
     scryfall_id = "607bdb54-a956-4a9c-89cf-af6f1163b856",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Granitic Titan",
         mana_cost = mana!("{4}{R}{R}"),

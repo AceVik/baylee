@@ -24,7 +24,7 @@ card!(
     oracle_id = "938c4f2e-6dda-4ac4-b50c-40dc165b4eaa",
     scryfall_id = "3768bdc1-4055-423a-a1cc-69b4c620e3e6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Kidnappers",
         mana_cost = mana!("{2}{B}{B}"),

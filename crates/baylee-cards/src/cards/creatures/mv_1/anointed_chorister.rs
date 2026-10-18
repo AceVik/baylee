@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9c977c67-b0c0-40b0-b129-28de094aaf40",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anointed Chorister",
         mana_cost = mana!("{W}"),

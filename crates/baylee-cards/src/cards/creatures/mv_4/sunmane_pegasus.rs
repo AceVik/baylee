@@ -13,7 +13,7 @@ card!(
     scryfall_id = "52e28f5a-55ee-4fcc-bc16-e59944592fcd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunmane Pegasus",
         mana_cost = mana!("{3}{W}"),

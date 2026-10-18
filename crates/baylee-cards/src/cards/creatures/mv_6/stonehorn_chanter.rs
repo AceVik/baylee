@@ -11,7 +11,7 @@ card!(
     oracle_id = "22c5187b-e3db-4221-a173-e3b83a581fca",
     scryfall_id = "cd6ec61b-c039-4526-a359-a7947eeba5c3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonehorn Chanter",
         mana_cost = mana!("{5}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "66bd5999-742a-43e0-827c-ecb8ec7db242",
     scryfall_id = "2cd81534-79cb-4fde-bfa5-11c510ac6e11",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghost Warden",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "00d1596a-c3e2-4109-86da-388934a0c652",
     scryfall_id = "7604b534-5480-42fa-bc36-bbae730f8582",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coeurl",
         mana_cost = mana!("{1}{W}"),

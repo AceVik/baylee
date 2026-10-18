@@ -15,7 +15,7 @@ card!(
     scryfall_id = "5f1e9195-a711-4f4d-9d53-d5d230c092ef",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Black Oak of Odunos",
         mana_cost = mana!("{2}{B}"),

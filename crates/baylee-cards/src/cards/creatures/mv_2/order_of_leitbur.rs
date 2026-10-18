@@ -13,7 +13,7 @@ card!(
     oracle_id = "d8f5279f-c58e-4560-9c68-77d226a3c86c",
     scryfall_id = "756c46be-7c05-4004-8a2e-d8a20c28e5cd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of Leitbur",
         mana_cost = mana!("{W}{W}"),

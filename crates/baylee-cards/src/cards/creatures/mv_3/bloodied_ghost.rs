@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c68b6fc7-e565-4f7d-8efb-c4d29e41c689",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodied Ghost",
         mana_cost = mana!("{1}{W/B}{W/B}"),

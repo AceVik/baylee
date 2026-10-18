@@ -11,7 +11,7 @@ card!(
     oracle_id = "9d2dd032-bcef-4d04-8836-1eaff1c56b98",
     scryfall_id = "9d5911b5-a54e-4ebb-9c36-d4dc8e97bb4b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Niall Silvain",
         mana_cost = mana!("{G}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "7261dc6d-7669-4682-977b-1304f57a201d",
     scryfall_id = "0d11b6ef-3a24-4709-a62f-c5e062a6cee1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foriysian Brigade",
         mana_cost = mana!("{3}{W}"),

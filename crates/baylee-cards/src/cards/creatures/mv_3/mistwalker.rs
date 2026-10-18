@@ -14,7 +14,7 @@ card!(
     scryfall_id = "92f64b49-327c-473b-a492-f020a322aed7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::CHANGELING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistwalker",
         mana_cost = mana!("{2}{U}"),

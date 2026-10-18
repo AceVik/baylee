@@ -11,7 +11,7 @@ card!(
     oracle_id = "7d313958-49ca-4592-97c7-20f12c8468a8",
     scryfall_id = "159d476e-2f20-4f9b-adfd-9c541dc3e199",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ember Hauler",
         mana_cost = mana!("{R}{R}"),

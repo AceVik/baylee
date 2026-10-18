@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b3ecb728-4b54-47d0-bbef-d39e5f7d172f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squall Drifter",
         mana_cost = mana!("{1}{W}"),

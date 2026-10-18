@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8456730a-607c-44c0-b18e-0df8f35b0634",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pheres-Band Warchief",
         mana_cost = mana!("{3}{G}"),

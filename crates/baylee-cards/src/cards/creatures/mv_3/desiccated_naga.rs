@@ -17,7 +17,7 @@ card!(
     oracle_id = "ab172e3e-e71e-4627-9b9a-a9295b891533",
     scryfall_id = "21f31e96-bb66-4b28-b14a-426d1d5839a6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desiccated Naga",
         mana_cost = mana!("{2}{B}"),

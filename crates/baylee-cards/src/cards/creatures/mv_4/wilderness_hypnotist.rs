@@ -22,7 +22,7 @@ card!(
     oracle_id = "4c6870f3-4b70-4050-bf22-b1f348f89360",
     scryfall_id = "1947000d-bc0f-4f8b-a9a6-09bf29f846ea",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wilderness Hypnotist",
         mana_cost = mana!("{2}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "0f2504b0-bd5a-4b61-b8bb-c8b20aa1e26e",
     scryfall_id = "ed8c028e-6656-47ef-97fb-de99f8833d5f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rabid Rats",
         mana_cost = mana!("{1}{B}"),

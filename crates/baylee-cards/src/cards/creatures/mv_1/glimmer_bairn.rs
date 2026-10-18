@@ -13,7 +13,7 @@ card!(
     oracle_id = "118cdf8b-44fb-4c3e-86c4-e7f4b1267646",
     scryfall_id = "03250752-bd85-485a-b19a-fa344c4ffd50",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimmer Bairn",
         mana_cost = mana!("{G}"),

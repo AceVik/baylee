@@ -11,7 +11,7 @@ card!(
     oracle_id = "a75bf714-ed3e-4403-a009-3a81f430bc64",
     scryfall_id = "88c67e15-833c-406a-b75f-8de97fbacf5a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Satyr Hedonist",
         mana_cost = mana!("{1}{G}"),

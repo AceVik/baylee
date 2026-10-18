@@ -19,7 +19,7 @@ card!(
     scryfall_id = "8050afb7-3c16-4456-aa34-4cc999fac7f5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saryth, the Viper's Fang",
         mana_cost = mana!("{2}{G}{G}"),

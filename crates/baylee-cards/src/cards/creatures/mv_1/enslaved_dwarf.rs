@@ -16,7 +16,7 @@ card!(
     oracle_id = "ff052137-2ffd-4399-8fdd-906f8e2041f8",
     scryfall_id = "da5003a6-211e-43d3-9a3c-756496357163",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enslaved Dwarf",
         mana_cost = mana!("{R}"),

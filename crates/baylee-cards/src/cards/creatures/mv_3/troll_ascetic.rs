@@ -13,7 +13,7 @@ card!(
     scryfall_id = "430fa067-cecd-4958-851b-5908a0765063",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Troll Ascetic",
         mana_cost = mana!("{1}{G}{G}"),

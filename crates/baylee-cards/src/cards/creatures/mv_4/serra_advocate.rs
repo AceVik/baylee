@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d7d48d56-c79e-4c7c-a9a0-92b7fb980e5c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serra Advocate",
         mana_cost = mana!("{3}{W}"),

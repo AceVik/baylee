@@ -13,7 +13,7 @@ card!(
     oracle_id = "d5a9fd97-535c-4aa4-9777-6cf8a413b6ec",
     scryfall_id = "b31b2e24-1a70-48bd-8946-ff29e12c6f3d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trickster Mage",
         mana_cost = mana!("{U}"),

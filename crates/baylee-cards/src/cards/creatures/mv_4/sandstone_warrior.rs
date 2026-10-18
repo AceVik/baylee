@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0c8a607b-b79a-4dc5-bbf5-f6de556f1c7d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sandstone Warrior",
         mana_cost = mana!("{2}{R}{R}"),

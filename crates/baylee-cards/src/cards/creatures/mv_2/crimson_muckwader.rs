@@ -17,7 +17,7 @@ card!(
     oracle_id = "2b34f341-42bc-408a-85cc-b2d8797612b8",
     scryfall_id = "a0811f91-ed92-4a8e-badd-ae5054e7707d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crimson Muckwader",
         mana_cost = mana!("{1}{R}"),

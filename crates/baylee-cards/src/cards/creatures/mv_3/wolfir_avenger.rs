@@ -13,7 +13,7 @@ card!(
     scryfall_id = "88cc00e5-9683-4ccc-a914-c422b76f6014",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wolfir Avenger",
         mana_cost = mana!("{1}{G}{G}"),

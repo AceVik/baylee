@@ -13,7 +13,7 @@ card!(
     oracle_id = "fac57730-8fd8-4702-8b35-4ef0ed5fa41a",
     scryfall_id = "b16f2cf2-5908-4f49-9c5c-6c9e22a65a4d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hurler Cyclops",
         mana_cost = mana!("{3}{R}{R}"),

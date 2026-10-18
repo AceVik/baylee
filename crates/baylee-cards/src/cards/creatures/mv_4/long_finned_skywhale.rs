@@ -15,7 +15,7 @@ card!(
     scryfall_id = "772e9472-c710-474e-b8e9-54662330a592",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Long-Finned Skywhale",
         mana_cost = mana!("{2}{U}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "63908256-a8a4-494f-b5b1-4b92c064af1d",
     scryfall_id = "5fa18f23-c995-4fcc-8e95-bbf76426e703",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Slasher",
         mana_cost = mana!("{1}{R}"),

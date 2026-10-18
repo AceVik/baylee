@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c32487e9-f3ac-472e-b6ea-81bd9254770c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Blue]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sultai Devotee",
         mana_cost = mana!("{1}{G}"),

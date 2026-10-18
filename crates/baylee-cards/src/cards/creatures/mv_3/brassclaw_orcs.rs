@@ -13,7 +13,7 @@ card!(
     oracle_id = "c8ce324f-aa58-48f9-9f56-435e49dfff0a",
     scryfall_id = "cd10b1f1-9851-456a-859a-e65293323cf6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brassclaw Orcs",
         mana_cost = mana!("{2}{R}"),

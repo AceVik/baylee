@@ -11,7 +11,7 @@ card!(
     oracle_id = "8d7933c4-4c74-492f-a9cd-50b339a4b29e",
     scryfall_id = "de32bf78-73c2-4cd4-b3b3-ef8be53e1e5e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Druid of the Anima",
         mana_cost = mana!("{1}{G}"),

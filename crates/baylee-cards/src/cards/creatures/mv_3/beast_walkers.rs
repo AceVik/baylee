@@ -11,7 +11,7 @@ card!(
     oracle_id = "68dfc626-66d5-4a40-9410-2b15676ebcec",
     scryfall_id = "99b42f6c-5c7e-4ba8-b0fb-ac8564aaf825",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beast Walkers",
         mana_cost = mana!("{1}{W}{W}"),

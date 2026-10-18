@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a264f107-f9dd-4599-a134-62db6a242a8b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ingenious Skaab",
         mana_cost = mana!("{2}{U}"),

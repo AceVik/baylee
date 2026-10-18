@@ -11,7 +11,7 @@ card!(
     oracle_id = "01e81249-6c45-4fae-86ee-9ef5fbec99ec",
     scryfall_id = "3ad5c175-581c-4fdd-b008-e7d10b0928c7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Embraal Gear-Smasher",
         mana_cost = mana!("{2}{R}"),

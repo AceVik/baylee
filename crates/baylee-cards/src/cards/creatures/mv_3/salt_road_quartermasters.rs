@@ -12,7 +12,7 @@ card!(
     oracle_id = "9398fbb4-a2b9-4ae4-9e0f-2553eb570501",
     scryfall_id = "4076bf6b-c8b1-49ef-8f23-afaf7a234e2d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salt Road Quartermasters",
         mana_cost = mana!("{2}{G}"),

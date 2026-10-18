@@ -11,7 +11,7 @@ card!(
     oracle_id = "6800d01c-345d-4932-a2a4-8df0fb1902f2",
     scryfall_id = "7c9bd75c-9606-4607-bfa6-d6acdee12820",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Moon",
         mana_cost = mana!("{2}{R}"),

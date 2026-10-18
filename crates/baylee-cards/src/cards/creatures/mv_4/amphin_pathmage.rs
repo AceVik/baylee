@@ -11,7 +11,7 @@ card!(
     oracle_id = "53e4273c-3292-47a0-90d1-8a0eb0eaf381",
     scryfall_id = "eafd2e27-01d0-4894-886e-2b8776904ab9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Amphin Pathmage",
         mana_cost = mana!("{3}{U}"),

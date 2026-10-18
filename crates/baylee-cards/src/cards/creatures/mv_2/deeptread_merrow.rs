@@ -11,7 +11,7 @@ card!(
     oracle_id = "b301b371-e99e-43cc-af7f-dbd7b2abe5f8",
     scryfall_id = "42ebd6ff-2b1c-4e93-81cc-81998459c5c7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deeptread Merrow",
         mana_cost = mana!("{1}{U}"),

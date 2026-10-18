@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5d879923-55fc-46ab-9306-5e1f10441c89",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Pine Needles",
         mana_cost = mana!("{3}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "dfbaf597-6be2-4aa0-88ae-cc4c94878add",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moopsy",
         mana_cost = mana!("{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "27f5969e-d613-4cbc-87af-98899bb5c58a",
     scryfall_id = "5314bae2-4930-4f8a-8a52-853bc3feb88f",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Engineer",
         mana_cost = mana!("{2}{W}{U}"),

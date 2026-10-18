@@ -11,7 +11,7 @@ card!(
     oracle_id = "019a3229-dd1c-4f70-a8fb-e33dbc54df39",
     scryfall_id = "34ffaefe-1b9e-418d-9760-b7d546f03542",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scribe of the Mindful",
         mana_cost = mana!("{2}{U}"),

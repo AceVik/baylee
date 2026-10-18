@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c652ce39-903c-466b-91d5-5b1d6e645b57",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistmeadow Skulk",
         mana_cost = mana!("{1}{W}"),

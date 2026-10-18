@@ -12,7 +12,7 @@ card!(
     oracle_id = "e119869d-1f66-402b-8251-d351965cf0d3",
     scryfall_id = "187d5819-6a63-4e4f-98c4-18191c03f164",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paradise Druid",
         mana_cost = mana!("{1}{G}"),

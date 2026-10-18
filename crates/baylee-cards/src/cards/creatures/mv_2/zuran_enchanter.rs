@@ -11,7 +11,7 @@ card!(
     oracle_id = "ee0f883f-d7c9-4acf-a78f-f733b6f268d3",
     scryfall_id = "721edcef-f40a-4d43-9d80-26161dc425cb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zuran Enchanter",
         mana_cost = mana!("{1}{U}"),

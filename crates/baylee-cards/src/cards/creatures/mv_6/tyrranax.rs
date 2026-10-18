@@ -11,7 +11,7 @@ card!(
     oracle_id = "28ecc209-d78b-4b37-8411-fb8079f6e088",
     scryfall_id = "5cb0cc0e-f71f-456f-a6ec-6a70cf838c35",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tyrranax",
         mana_cost = mana!("{4}{G}{G}"),

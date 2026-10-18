@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d11803b8-d1df-454d-93ec-b1bb276843b6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mischievous Poltergeist",
         mana_cost = mana!("{2}{B}"),

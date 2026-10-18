@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0e58f4fb-5b4e-45bc-99b3-d09cd79132df",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Stalwart",
         mana_cost = mana!("{3}{W}{W}"),

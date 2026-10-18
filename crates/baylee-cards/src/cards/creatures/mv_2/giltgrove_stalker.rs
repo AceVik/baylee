@@ -13,7 +13,7 @@ card!(
     oracle_id = "2be3969b-a427-47be-a49c-47b98e3d6b5f",
     scryfall_id = "47963f87-d5c2-4e5b-8dff-b25735182841",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giltgrove Stalker",
         mana_cost = mana!("{1}{G}"),

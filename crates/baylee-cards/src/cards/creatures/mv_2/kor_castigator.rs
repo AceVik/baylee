@@ -17,7 +17,7 @@ card!(
     oracle_id = "fbb9dafa-b1aa-401a-b26c-c0c7e8b7222f",
     scryfall_id = "f4db2f0e-d7d4-417b-9b94-5ade727907e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Castigator",
         mana_cost = mana!("{1}{W}"),

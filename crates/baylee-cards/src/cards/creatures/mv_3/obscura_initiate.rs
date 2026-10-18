@@ -13,7 +13,7 @@ card!(
     scryfall_id = "67774a11-158b-437c-ac16-2d42fbb5c223",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obscura Initiate",
         mana_cost = mana!("{2}{U}"),

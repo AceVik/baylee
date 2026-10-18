@@ -18,7 +18,7 @@ card!(
     scryfall_id = "84f99d23-5d3e-4f36-b1c7-3a893e4b4c32",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conifer Wurm",
         mana_cost = mana!("{4}{G}"),

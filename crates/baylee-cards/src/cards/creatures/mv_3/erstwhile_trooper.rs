@@ -11,7 +11,7 @@ card!(
     oracle_id = "a1640d9a-367f-4b90-bd4d-18f2c9244ccf",
     scryfall_id = "351ee4ba-882d-48c1-837d-e9eccc5bc50d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Erstwhile Trooper",
         mana_cost = mana!("{1}{B}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "e08d264d-5731-4e2a-ae6d-5a74ef648575",
     scryfall_id = "d117ed81-7b5c-4e29-b958-6126d48ac5a6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Bazaar",
         mana_cost = mana!("{1}{U}"),

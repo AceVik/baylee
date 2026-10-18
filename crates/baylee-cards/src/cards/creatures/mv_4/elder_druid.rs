@@ -13,7 +13,7 @@ card!(
     oracle_id = "a440a4f7-843f-4186-8ca9-df99f6aa321e",
     scryfall_id = "aa88ff5b-44df-40eb-b0bb-37936ae0d854",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elder Druid",
         mana_cost = mana!("{3}{G}"),

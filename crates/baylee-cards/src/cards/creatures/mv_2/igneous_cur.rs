@@ -11,7 +11,7 @@ card!(
     oracle_id = "0d899095-cef7-43d2-aaf7-eb73b62f5ec8",
     scryfall_id = "d2bfec5d-3182-415a-afe8-0b5511cfd656",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Igneous Cur",
         mana_cost = mana!("{1}{R}"),

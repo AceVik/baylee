@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a384cd5b-2c6c-4969-bb62-a017e2fc9794",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kozilek's Shrieker",
         mana_cost = mana!("{2}{B}"),

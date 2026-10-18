@@ -19,7 +19,7 @@ card!(
     oracle_id = "f064e5e3-4772-4f6d-b8fa-4f36d4fcdb42",
     scryfall_id = "361c66c3-b4eb-48aa-a967-255a8db60977",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of New Dawns",
         mana_cost = mana!("{3}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "46a9f5af-b024-497d-9f55-98d17e2ffa76",
     scryfall_id = "98f66c03-cf79-4de0-be55-b921cbdc5038",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pitiless Pontiff",
         mana_cost = mana!("{W}{B}"),

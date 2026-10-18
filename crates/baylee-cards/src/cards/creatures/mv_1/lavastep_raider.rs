@@ -11,7 +11,7 @@ card!(
     oracle_id = "3a96782b-e9c8-4bc5-845d-45f6bf7b8dc4",
     scryfall_id = "2428f13f-c445-4eb4-bab1-309f27cab208",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lavastep Raider",
         mana_cost = mana!("{R}"),

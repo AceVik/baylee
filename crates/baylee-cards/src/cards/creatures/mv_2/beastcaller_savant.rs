@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cca9f5da-986c-43ab-a2ec-efb8b098c17c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beastcaller Savant",
         mana_cost = mana!("{1}{G}"),

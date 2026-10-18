@@ -11,7 +11,7 @@ card!(
     oracle_id = "62e86e38-2f8d-4cee-aa7e-4519add79d4d",
     scryfall_id = "68864836-799e-467d-97cc-38c89f71afcf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drowned Rusalka",
         mana_cost = mana!("{U}"),

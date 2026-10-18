@@ -22,7 +22,7 @@ card!(
     oracle_id = "b292d183-1ba9-40b4-9cba-bd70bf1380ef",
     scryfall_id = "cec0ef55-57fd-404f-b9f6-b5d41e77b58c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abzan Kin-Guard",
         mana_cost = mana!("{3}{G}"),

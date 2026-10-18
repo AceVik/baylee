@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arvad the Cursed",
         mana_cost = mana!("{3}{W}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "ca1dc6f0-3ec2-4f62-a08a-1395201bd93f",
     scryfall_id = "86b225cb-5c45-4da1-a64e-b04091e483e8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hardened Tactician",
         mana_cost = mana!("{1}{W}{B}"),

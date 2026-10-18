@@ -13,7 +13,7 @@ card!(
     oracle_id = "393586d3-1f1a-4f3a-96b8-ed1a8fdf00c6",
     scryfall_id = "7e07929b-450c-45b0-85e6-512ad280a122",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Warlord",
         mana_cost = mana!("{4}{B}"),

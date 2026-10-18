@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5b4e0e11-2f16-42ad-b835-c9410c4bd7e3",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thraben Watcher",
         mana_cost = mana!("{2}{W}{W}"),

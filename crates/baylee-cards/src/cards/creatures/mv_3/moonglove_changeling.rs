@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6955348b-70e9-49c3-9343-9becf977abe8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonglove Changeling",
         mana_cost = mana!("{2}{B}"),

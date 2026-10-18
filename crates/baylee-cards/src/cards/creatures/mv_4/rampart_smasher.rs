@@ -22,7 +22,7 @@ card!(
     oracle_id = "5ece1778-fb19-40d5-8bcc-f23033e1d5c0",
     scryfall_id = "2fb9a632-a56b-48fb-bc24-14572b6a8a55",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rampart Smasher",
         mana_cost = mana!("{R/G}{R/G}{R/G}{R/G}"),

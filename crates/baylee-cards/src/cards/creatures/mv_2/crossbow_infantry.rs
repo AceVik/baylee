@@ -16,7 +16,7 @@ card!(
     oracle_id = "dd99d791-3305-4195-ad12-96d958a28764",
     scryfall_id = "d962926a-e415-4075-b5dd-3db68526bdb9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crossbow Infantry",
         mana_cost = mana!("{1}{W}"),

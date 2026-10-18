@@ -14,7 +14,7 @@ card!(
     scryfall_id = "5ef30b6c-0806-4bf6-9a84-c2aea8d84cf1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Sailor",
         mana_cost = mana!("{U}"),

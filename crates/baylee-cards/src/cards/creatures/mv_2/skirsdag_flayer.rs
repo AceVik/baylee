@@ -16,7 +16,7 @@ card!(
     oracle_id = "38ea058d-f8cd-4bd9-9142-8f0d3d56d571",
     scryfall_id = "274976b0-2bb5-46e6-b62e-b50d80a77e28",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirsdag Flayer",
         mana_cost = mana!("{1}{B}"),

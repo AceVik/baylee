@@ -24,7 +24,7 @@ card!(
     scryfall_id = "a461ca76-ce52-4f6a-bbc0-601c683eaaa0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ulrich's Kindred",
         mana_cost = mana!("{2}{R}"),

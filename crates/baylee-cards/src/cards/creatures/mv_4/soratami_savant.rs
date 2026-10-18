@@ -13,7 +13,7 @@ card!(
     scryfall_id = "43ea2db8-67c6-4bcd-8ba1-f620b8e8a8c4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soratami Savant",
         mana_cost = mana!("{2}{U}{U}"),

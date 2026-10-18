@@ -14,7 +14,7 @@ card!(
     scryfall_id = "15709316-7382-46b9-9b70-53a5147e7051",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Faerie Formation",
         mana_cost = mana!("{4}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a3d4b427-7fef-4a56-91a4-89cfbd881c89",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charging Troll",
         mana_cost = mana!("{2}{G}{W}"),

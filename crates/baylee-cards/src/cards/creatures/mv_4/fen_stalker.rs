@@ -13,7 +13,7 @@ card!(
     oracle_id = "cfd00c0e-d034-4b39-a3d3-f8b8842045dd",
     scryfall_id = "8e7d1125-7eb0-4065-bc2c-764689380fa8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fen Stalker",
         mana_cost = mana!("{3}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d17d4003-e1c9-42be-ac76-3b5500fad485",
     scryfall_id = "d1ab6e14-26e0-4174-b5c6-bc0f5c26b177",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Three Tree Rootweaver",
         mana_cost = mana!("{1}{G}"),

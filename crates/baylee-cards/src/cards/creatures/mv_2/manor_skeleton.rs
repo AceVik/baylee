@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e7b45197-d5c2-48c8-b72e-00236552e338",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manor Skeleton",
         mana_cost = mana!("{1}{B}"),

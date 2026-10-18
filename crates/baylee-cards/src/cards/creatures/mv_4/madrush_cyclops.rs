@@ -11,7 +11,7 @@ card!(
     oracle_id = "f45a2a66-04cc-4622-9c70-f2dfc1391bb1",
     scryfall_id = "21d4fd58-2052-4f97-b634-f89e2139d980",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Madrush Cyclops",
         mana_cost = mana!("{1}{B}{R}{G}"),

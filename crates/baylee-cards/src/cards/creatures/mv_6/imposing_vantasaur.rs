@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b6fa5feb-f5e9-4079-acc9-84e458044769",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imposing Vantasaur",
         mana_cost = mana!("{5}{W}"),

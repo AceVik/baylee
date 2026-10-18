@@ -13,7 +13,7 @@ card!(
     scryfall_id = "67ab8f9a-b17c-452f-b4ef-a3f91909e3de",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undergrowth Leopard",
         mana_cost = mana!("{1}{G}"),

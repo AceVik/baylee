@@ -11,7 +11,7 @@ card!(
     oracle_id = "6a92b011-fd01-4b6a-a17c-73ac1967ff98",
     scryfall_id = "fe3cc41a-adae-4c9b-b4d3-03f3ca862fed",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axgard Cavalry",
         mana_cost = mana!("{1}{R}"),

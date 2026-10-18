@@ -16,7 +16,7 @@ card!(
     oracle_id = "74231a46-7e2d-497f-ae66-b40f8989551c",
     scryfall_id = "6ae04d82-56f5-4c72-b1c1-40c7d9640b7c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sejiri Merfolk",
         mana_cost = mana!("{1}{U}"),

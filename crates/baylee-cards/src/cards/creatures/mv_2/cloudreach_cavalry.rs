@@ -16,7 +16,7 @@ card!(
     oracle_id = "fe4af83a-3554-44cd-94ed-18b773cf6d60",
     scryfall_id = "65680bda-b999-4c2a-99a8-b03287e00807",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudreach Cavalry",
         mana_cost = mana!("{1}{W}"),

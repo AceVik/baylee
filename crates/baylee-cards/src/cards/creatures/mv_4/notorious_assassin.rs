@@ -16,7 +16,7 @@ card!(
     oracle_id = "455138dd-4f76-4b40-9715-f1b1d61f8f23",
     scryfall_id = "239e48d8-e2ba-4e25-88ef-301420c796b4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Notorious Assassin",
         mana_cost = mana!("{3}{B}"),

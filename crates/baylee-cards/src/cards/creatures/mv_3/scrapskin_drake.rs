@@ -15,7 +15,7 @@ card!(
     scryfall_id = "740fc68d-1f08-4e9e-a797-427dcd7733ba",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scrapskin Drake",
         mana_cost = mana!("{2}{U}"),

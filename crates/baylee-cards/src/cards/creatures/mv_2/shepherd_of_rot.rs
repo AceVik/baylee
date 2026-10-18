@@ -13,7 +13,7 @@ card!(
     oracle_id = "af18e496-fef9-4869-867b-bdac653cafd0",
     scryfall_id = "6ee5a529-3223-4982-83d1-eb517c2a258c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shepherd of Rot",
         mana_cost = mana!("{1}{B}"),

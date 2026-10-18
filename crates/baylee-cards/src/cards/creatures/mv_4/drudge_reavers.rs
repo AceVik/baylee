@@ -13,7 +13,7 @@ card!(
     scryfall_id = "03c07d9a-afed-4028-9fa1-ec439b60f08f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drudge Reavers",
         mana_cost = mana!("{3}{B}"),

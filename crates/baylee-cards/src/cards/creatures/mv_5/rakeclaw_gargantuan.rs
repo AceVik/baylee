@@ -13,7 +13,7 @@ card!(
     oracle_id = "8dbb4a8f-78e9-4ceb-824d-bb67bdf939db",
     scryfall_id = "a158bb17-d2e0-416d-840a-5e25fb5ac5c1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakeclaw Gargantuan",
         mana_cost = mana!("{2}{R}{G}{W}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "ddf5db14-f2aa-4088-9894-7bd3a56dfe1e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Page",
         mana_cost = mana!("{1}{W}"),

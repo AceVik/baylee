@@ -16,7 +16,7 @@ card!(
     oracle_id = "f2e22c9d-b0ec-42bb-a520-3c36df546ba0",
     scryfall_id = "f8e798c7-0cbc-444e-8033-629baec7dca8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sigardian Priest",
         mana_cost = mana!("{1}{W}"),

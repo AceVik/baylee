@@ -13,7 +13,7 @@ card!(
     scryfall_id = "de545a92-a489-4695-8a03-c02a8e92f1b6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyshroud Vampire",
         mana_cost = mana!("{3}{B}{B}"),

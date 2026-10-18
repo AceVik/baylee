@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1aff26fc-e6d3-4135-96b9-0da7cb8b6dae",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pteron Ghost",
         mana_cost = mana!("{1}{W}"),

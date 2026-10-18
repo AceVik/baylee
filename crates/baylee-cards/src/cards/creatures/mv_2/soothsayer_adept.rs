@@ -11,7 +11,7 @@ card!(
     oracle_id = "29723d39-aaca-48fd-ba4a-14931e4483e9",
     scryfall_id = "eb93c9d2-88eb-403d-bb67-8e8b0462ac27",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soothsayer Adept",
         mana_cost = mana!("{1}{U}"),

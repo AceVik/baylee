@@ -11,7 +11,7 @@ card!(
     oracle_id = "b14bd895-1d4e-4bd5-9ac1-fed56afb6c90",
     scryfall_id = "33a78207-fd76-4112-a257-54a25da6f818",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weaselback Redcap",
         mana_cost = mana!("{R}"),

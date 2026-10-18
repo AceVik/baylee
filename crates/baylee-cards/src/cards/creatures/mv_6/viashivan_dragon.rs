@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7172ef0b-ca9e-47cf-8ec6-2d8cb18f2283",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashivan Dragon",
         mana_cost = mana!("{2}{R}{R}{G}{G}"),

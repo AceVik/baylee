@@ -13,7 +13,7 @@ card!(
     oracle_id = "21d9ce2c-eb6a-4f43-a79b-0b99b3dc4a00",
     scryfall_id = "b10e1d8b-edae-4b5e-b897-2c0a307e650c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whimwader",
         mana_cost = mana!("{4}{U}"),

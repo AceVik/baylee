@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5fbfdc2a-7bf3-4461-bef7-fa499d29d1b8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whispering Shade",
         mana_cost = mana!("{3}{B}"),

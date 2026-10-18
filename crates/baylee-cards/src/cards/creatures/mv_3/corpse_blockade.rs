@@ -15,7 +15,7 @@ card!(
     scryfall_id = "84234e51-e5d6-43d9-89d0-f0398fc6b7fd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corpse Blockade",
         mana_cost = mana!("{2}{B}"),

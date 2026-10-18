@@ -13,7 +13,7 @@ card!(
     oracle_id = "7734ee04-1d99-4807-be68-b889e75a7551",
     scryfall_id = "16eb5a6b-5e69-497c-a0c9-4165ad0f5d0b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duskmantle Operative",
         mana_cost = mana!("{1}{B}"),

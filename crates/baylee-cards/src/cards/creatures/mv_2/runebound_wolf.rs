@@ -22,7 +22,7 @@ card!(
     oracle_id = "955e4c54-14c4-49bb-94e1-c6cc800c6d91",
     scryfall_id = "8e220cc1-e13f-48da-b59b-91a556829ea5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runebound Wolf",
         mana_cost = mana!("{1}{R}"),

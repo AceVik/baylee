@@ -13,7 +13,7 @@ card!(
     oracle_id = "666af637-9282-4121-962a-048e528f9221",
     scryfall_id = "24d8a688-79d4-49b9-ab0c-c7f5c9b551f4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steel Leaf Champion",
         mana_cost = mana!("{G}{G}{G}"),

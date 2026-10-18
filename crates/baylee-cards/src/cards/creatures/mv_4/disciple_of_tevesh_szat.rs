@@ -12,7 +12,7 @@ card!(
     oracle_id = "3a09c951-9861-4e95-acf1-5ce1a3778493",
     scryfall_id = "8f99ec07-8af7-4e80-9f0e-fa304a94d4b4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disciple of Tevesh Szat",
         mana_cost = mana!("{2}{B}{B}"),

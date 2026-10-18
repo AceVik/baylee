@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6f5df373-5dad-4e33-9e2b-351f1f4bdde4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malach of the Dawn",
         mana_cost = mana!("{2}{W}{W}"),

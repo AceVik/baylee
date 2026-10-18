@@ -13,7 +13,7 @@ card!(
     oracle_id = "e0b3cfc1-68d4-46a8-9ae4-71bdb9c87889",
     scryfall_id = "335867c0-375d-4914-b9ff-032c59079775",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of the White Shield",
         mana_cost = mana!("{W}{W}"),

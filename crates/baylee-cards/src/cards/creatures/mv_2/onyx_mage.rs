@@ -11,7 +11,7 @@ card!(
     oracle_id = "8a398777-2fa5-4cac-adee-4582e59d410d",
     scryfall_id = "eabd38e6-1e59-42d2-bd1a-555c77cf6747",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Onyx Mage",
         mana_cost = mana!("{1}{B}"),

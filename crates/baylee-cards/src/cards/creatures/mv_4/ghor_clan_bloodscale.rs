@@ -13,7 +13,7 @@ card!(
     scryfall_id = "00cab68b-ee26-46eb-a18b-9b42bf2d10e5",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghor-Clan Bloodscale",
         mana_cost = mana!("{3}{R}"),

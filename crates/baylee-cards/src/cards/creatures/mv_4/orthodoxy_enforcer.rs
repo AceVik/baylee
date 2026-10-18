@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8c938a0f-531c-4293-a89c-c7440d5acc5d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orthodoxy Enforcer",
         mana_cost = mana!("{3}{W}"),

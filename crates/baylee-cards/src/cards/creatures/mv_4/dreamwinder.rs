@@ -19,7 +19,7 @@ card!(
     oracle_id = "eb70d548-9769-4569-ae79-cddc0e623aef",
     scryfall_id = "2ae3a000-478c-4185-a8c0-82f29942497b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dreamwinder",
         mana_cost = mana!("{3}{U}"),

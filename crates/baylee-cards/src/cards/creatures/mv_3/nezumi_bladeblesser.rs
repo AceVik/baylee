@@ -14,7 +14,7 @@ card!(
     oracle_id = "408512c7-5016-4df4-b708-b7467bcdf0ae",
     scryfall_id = "9a03d3f5-b32b-4814-b485-25f24e51609c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nezumi Bladeblesser",
         mana_cost = mana!("{2}{B}"),

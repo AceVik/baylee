@@ -16,7 +16,7 @@ card!(
     scryfall_id = "25283518-cabb-4fa6-ab92-c989190ec9f3",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stormcloud Djinn",
         mana_cost = mana!("{4}{U}"),

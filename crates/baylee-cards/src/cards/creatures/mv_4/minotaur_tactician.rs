@@ -26,7 +26,7 @@ card!(
     scryfall_id = "097decb6-03bd-4a84-ab9a-75becf85cae8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Minotaur Tactician",
         mana_cost = mana!("{3}{R}"),

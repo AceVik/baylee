@@ -13,7 +13,7 @@ card!(
     oracle_id = "e6b27729-fea5-46c9-8624-07ba291791df",
     scryfall_id = "097eeb32-cfd5-4adb-ac30-d7762e6ea48f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whisper Squad",
         mana_cost = mana!("{B}"),

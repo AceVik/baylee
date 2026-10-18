@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9d8b7020-ca8f-4867-bc51-13d824daf154",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya Gnats",
         mana_cost = mana!("{2}{G}"),

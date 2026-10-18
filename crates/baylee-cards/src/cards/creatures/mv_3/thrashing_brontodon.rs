@@ -11,7 +11,7 @@ card!(
     oracle_id = "60bc63dc-ac9f-4a2f-aef5-c90d0aa31553",
     scryfall_id = "592364bf-68b5-4ea0-97d6-c7cadce940fd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thrashing Brontodon",
         mana_cost = mana!("{1}{G}{G}"),

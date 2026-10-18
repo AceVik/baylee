@@ -13,7 +13,7 @@ card!(
     oracle_id = "059ed13a-857c-420a-a127-5f720010b9fd",
     scryfall_id = "a5baeff5-40e9-47b6-85a8-3a6548565b5f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stromgald Crusader",
         mana_cost = mana!("{B}{B}"),

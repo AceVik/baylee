@@ -11,7 +11,7 @@ card!(
     oracle_id = "fbdec63e-0679-47e9-b82a-daa56df50481",
     scryfall_id = "7f86e30d-d9e8-48f7-8bd1-f2645f0ab3f4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spinneret Sliver",
         mana_cost = mana!("{1}{G}"),

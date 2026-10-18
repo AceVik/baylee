@@ -17,7 +17,7 @@ card!(
     oracle_id = "69858691-1190-4454-af0a-87c2ac4ab6ec",
     scryfall_id = "e39502fd-193c-4526-8dd8-0cd8c822552c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arisen Gorgon",
         mana_cost = mana!("{1}{B}{B}"),

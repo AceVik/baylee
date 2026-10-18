@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0686843d-6d1e-4488-8c17-7c986a154195",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Niblis of the Breath",
         mana_cost = mana!("{2}{U}"),

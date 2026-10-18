@@ -18,7 +18,7 @@ card!(
     scryfall_id = "7c41afe6-7eed-4cf5-9bbb-ccc9f82cb4fa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Horror",
         mana_cost = mana!("{1}{B}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "71f9252d-241f-45ea-9d80-663150963b59",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightshade Dryad",
         mana_cost = mana!("{1}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "73e40916-3502-448a-a509-f6a6ff3cd73d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flowstone Kavu",
         mana_cost = mana!("{2}{R}"),

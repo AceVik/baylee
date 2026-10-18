@@ -10,7 +10,7 @@ card!(
     index = index::KOZILEK_S_CHANNELER,
     oracle_id = "33826f91-7680-4a4c-be39-db6c2c0bd465",
     scryfall_id = "c550d179-32ec-4ad8-91c2-d79320a21cba",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kozilek's Channeler",
         mana_cost = mana!("{5}"),

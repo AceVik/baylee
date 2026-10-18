@@ -11,7 +11,7 @@ card!(
     oracle_id = "d07f497e-4cf8-4e12-b17e-e3d58ff9df47",
     scryfall_id = "0722fbdf-c092-4e80-913f-29390177cdcb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skittering Heartstopper",
         mana_cost = mana!("{B}"),

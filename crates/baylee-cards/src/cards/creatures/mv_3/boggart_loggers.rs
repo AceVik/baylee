@@ -18,7 +18,7 @@ card!(
     scryfall_id = "9ed9a638-c3f9-48dd-9633-5c52146e0dcd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boggart Loggers",
         mana_cost = mana!("{2}{B}"),

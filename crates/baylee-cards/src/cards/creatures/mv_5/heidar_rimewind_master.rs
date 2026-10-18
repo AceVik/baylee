@@ -17,7 +17,7 @@ card!(
     scryfall_id = "39916d65-60a6-4da6-8675-8a8ef9505772",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heidar, Rimewind Master",
         mana_cost = mana!("{4}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "2d70b4fe-7aaf-4ffd-920c-023b44707e1f",
     scryfall_id = "10b863b8-7780-4bbe-a7f8-46bfdcb34a2b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patron Wizard",
         mana_cost = mana!("{U}{U}{U}"),

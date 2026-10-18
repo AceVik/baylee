@@ -11,7 +11,7 @@ card!(
     oracle_id = "633e91ea-84d4-42ca-a8eb-603db340ebe7",
     scryfall_id = "c908f812-a7ee-411e-89f1-1f84793d095d",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of the Skyward Eye",
         mana_cost = mana!("{1}{W}"),

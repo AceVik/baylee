@@ -11,7 +11,7 @@ card!(
     oracle_id = "0e9864e2-1bb4-4527-b2af-62433a90b669",
     scryfall_id = "bc2e0c36-645a-46c8-bd9e-4b8b591dfb58",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Odious Trow",
         mana_cost = mana!("{B/G}"),

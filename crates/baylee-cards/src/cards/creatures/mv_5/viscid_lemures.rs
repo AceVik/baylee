@@ -11,7 +11,7 @@ card!(
     oracle_id = "738d8d1c-4ceb-4115-89e1-1f2149fb4f5f",
     scryfall_id = "863f04d7-da34-41e3-9153-97891a428889",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viscid Lemures",
         mana_cost = mana!("{4}{B}"),

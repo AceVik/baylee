@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e8472303-b8ee-402b-a9ea-49abe2e01152",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benalish Infantry",
         mana_cost = mana!("{2}{W}"),

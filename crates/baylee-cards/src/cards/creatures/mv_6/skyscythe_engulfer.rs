@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d7898399-3c52-402c-9cd7-baad2cb7f00e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyscythe Engulfer",
         mana_cost = mana!("{5}{G}"),

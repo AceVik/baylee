@@ -13,7 +13,7 @@ card!(
     oracle_id = "42641a05-a6b6-4856-a72c-54181b97c190",
     scryfall_id = "485aeabb-4a9b-4d88-80ad-83e31da6804b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyshroud Archer",
         mana_cost = mana!("{G}"),

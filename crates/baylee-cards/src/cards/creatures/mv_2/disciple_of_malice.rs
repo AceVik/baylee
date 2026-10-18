@@ -12,7 +12,7 @@ card!(
     oracle_id = "63d92baf-0007-4519-a5bc-d189448ea126",
     scryfall_id = "74cc7ab0-a5db-4ae9-af9a-89fd5aaaab57",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disciple of Malice",
         mana_cost = mana!("{1}{B}"),

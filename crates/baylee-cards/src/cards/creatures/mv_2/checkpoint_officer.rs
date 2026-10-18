@@ -11,7 +11,7 @@ card!(
     oracle_id = "03e25120-b4e4-409e-8dbc-7574ea4c78d6",
     scryfall_id = "4a0e12f5-7b15-4a8c-b045-35bcbf1fbb90",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Checkpoint Officer",
         mana_cost = mana!("{1}{W}"),

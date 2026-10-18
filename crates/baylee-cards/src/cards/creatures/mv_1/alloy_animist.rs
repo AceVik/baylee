@@ -17,7 +17,7 @@ card!(
     oracle_id = "4acacdd2-a736-43a2-ad67-891b9bd124f8",
     scryfall_id = "71a49b18-a339-401c-ab77-fcd04772cf69",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alloy Animist",
         mana_cost = mana!("{G}"),

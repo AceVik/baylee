@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0d4ddc45-cd67-4b2c-84d0-4604783fd8e7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Umara Entangler",
         mana_cost = mana!("{1}{U}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "26b0b742-48f7-4ab5-93de-6bd39a7f61ea",
     scryfall_id = "5400ff25-c70e-4095-a228-190601b86043",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thelonite Monk",
         mana_cost = mana!("{2}{G}{G}"),

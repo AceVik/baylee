@@ -17,7 +17,7 @@ card!(
     oracle_id = "78d5ce34-f160-4925-a4ce-25a3546d97c7",
     scryfall_id = "59b675da-f709-4aa3-8967-c9771234f9d8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirk Shaman",
         mana_cost = mana!("{1}{R}{R}"),

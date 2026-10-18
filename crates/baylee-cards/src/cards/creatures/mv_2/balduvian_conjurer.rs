@@ -13,7 +13,7 @@ card!(
     oracle_id = "3eb21641-90e1-4865-b7be-a21d52b7b56b",
     scryfall_id = "bd2f6eb8-eb90-4cee-b409-fb365149031d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Balduvian Conjurer",
         mana_cost = mana!("{1}{U}"),

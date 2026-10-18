@@ -11,7 +11,7 @@ card!(
     oracle_id = "b260b5b4-048b-4a70-ab3a-b0dd1ceb7aa8",
     scryfall_id = "c17ac7c1-6d53-40b4-921f-4e23e4026041",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Mender",
         mana_cost = mana!("{5}{W}"),

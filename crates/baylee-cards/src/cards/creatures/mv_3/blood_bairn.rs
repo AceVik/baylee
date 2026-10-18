@@ -13,7 +13,7 @@ card!(
     oracle_id = "33bea2f0-c5aa-44b5-8714-5f50f7f2bb05",
     scryfall_id = "433821dd-9a38-4ace-b9d2-cd081784e957",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Bairn",
         mana_cost = mana!("{2}{B}"),

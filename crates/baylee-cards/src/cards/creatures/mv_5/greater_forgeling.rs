@@ -11,7 +11,7 @@ card!(
     oracle_id = "c0d51f49-383b-40f1-9192-5925db1cdd1b",
     scryfall_id = "8e4bd21c-f7f1-4a18-894a-80d7b498b57c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greater Forgeling",
         mana_cost = mana!("{3}{R}{R}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "a8e69725-cd57-4340-83b1-498bc0bd77b8",
     scryfall_id = "a85747dd-84c0-4e31-964e-c455c96f87bf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moon-Eating Dog",
         mana_cost = mana!("{3}{U}"),

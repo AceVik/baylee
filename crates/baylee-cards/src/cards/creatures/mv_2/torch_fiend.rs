@@ -11,7 +11,7 @@ card!(
     oracle_id = "15f8049c-f21d-4cd0-aa81-1a533936cf77",
     scryfall_id = "60c3aa66-2436-40a3-a541-185f457bd55a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Torch Fiend",
         mana_cost = mana!("{1}{R}"),

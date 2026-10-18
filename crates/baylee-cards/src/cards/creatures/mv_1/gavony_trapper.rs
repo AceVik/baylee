@@ -11,7 +11,7 @@ card!(
     oracle_id = "d4da20c7-ae4a-44c6-8f03-9e719ccee8c9",
     scryfall_id = "5a1309ea-4411-4116-841f-5aef8611400c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gavony Trapper",
         mana_cost = mana!("{W}"),

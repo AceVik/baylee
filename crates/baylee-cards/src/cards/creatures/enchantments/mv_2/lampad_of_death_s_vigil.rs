@@ -11,7 +11,7 @@ card!(
     oracle_id = "e0f23e7e-2858-4f5e-9dd5-8a0ba934a048",
     scryfall_id = "e8c9ada9-ea25-4a96-a4be-e4cf8f7a014f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lampad of Death's Vigil",
         mana_cost = mana!("{1}{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "4c08b7e3-ebac-485d-9e79-fcc2599e219b",
     scryfall_id = "c69742a8-cc6d-457b-8d99-81d05ab1bf0b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lithatog",
         mana_cost = mana!("{1}{R}{G}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "500663c1-390c-4598-b614-4168c4f7debe",
     scryfall_id = "2b2e6027-598d-4ba0-93ae-f76d031de8af",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hedge Troll",
         mana_cost = mana!("{2}{G}"),

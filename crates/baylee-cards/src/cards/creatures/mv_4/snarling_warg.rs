@@ -24,7 +24,7 @@ card!(
     scryfall_id = "a1ad561c-ccb4-480a-88a4-0555d0ef245e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snarling Warg",
         mana_cost = mana!("{3}{B}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "adea6cb4-1e74-4137-9c80-1dde004a6b26",
     scryfall_id = "253a1d97-ec45-41c9-ba81-bbb6ab584b2b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Village Elder",
         mana_cost = mana!("{G}"),

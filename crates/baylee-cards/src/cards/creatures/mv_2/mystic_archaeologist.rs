@@ -11,7 +11,7 @@ card!(
     oracle_id = "b77dfe2a-ebc9-46b0-9134-2ecb2abdd8be",
     scryfall_id = "c069ff32-6759-48a2-8674-4f729c91dcd0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mystic Archaeologist",
         mana_cost = mana!("{1}{U}"),

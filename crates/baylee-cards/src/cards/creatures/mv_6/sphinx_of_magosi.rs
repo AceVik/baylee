@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a2b4f70d-e922-4ecb-9d5a-6253f7a7716c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx of Magosi",
         mana_cost = mana!("{3}{U}{U}{U}"),

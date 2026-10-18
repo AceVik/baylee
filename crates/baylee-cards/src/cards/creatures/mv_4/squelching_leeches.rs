@@ -16,7 +16,7 @@ card!(
     oracle_id = "662a2158-4176-4b4a-be6a-13f4501d22f9",
     scryfall_id = "694a0e92-8e5c-404e-a8bb-52139884e41a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squelching Leeches",
         mana_cost = mana!("{2}{B}{B}"),

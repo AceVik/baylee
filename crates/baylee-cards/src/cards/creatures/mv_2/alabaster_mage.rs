@@ -11,7 +11,7 @@ card!(
     oracle_id = "ea7a8acb-f01f-4a69-9b3c-954d8f0d3155",
     scryfall_id = "0ef65e86-3759-465d-862b-29516eed46e6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alabaster Mage",
         mana_cost = mana!("{1}{W}"),

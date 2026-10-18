@@ -16,7 +16,7 @@ card!(
     oracle_id = "23dd895c-92bd-4af0-8b1a-7d76ca49178f",
     scryfall_id = "962a16bb-516c-4e74-b8dd-edd4c63c5fff",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Coffers",
         mana_cost = mana!("{4}{B}"),

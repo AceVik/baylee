@@ -12,7 +12,7 @@ card!(
     oracle_id = "67a7bfa4-5004-4838-874d-03fa11f051d0",
     scryfall_id = "ffe8903b-8b22-4463-acf7-ffa539188bc1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spitting Hydra",
         mana_cost = mana!("{3}{R}{R}"),

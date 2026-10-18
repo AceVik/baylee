@@ -13,7 +13,7 @@ card!(
     oracle_id = "a6297680-5d32-41e6-aaaf-b194e6be6b96",
     scryfall_id = "e825cb2d-98d7-423d-9ba1-b4d04027027e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greenside Watcher",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1941f993-41d7-49e3-8891-41b3cecd5a9d",
     scryfall_id = "68cd9cc8-047b-4e0c-b84c-d015d89eb713",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captain of Umbar",
         mana_cost = mana!("{2}{U}"),

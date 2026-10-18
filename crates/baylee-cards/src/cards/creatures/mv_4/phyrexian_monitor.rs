@@ -11,7 +11,7 @@ card!(
     oracle_id = "1eb6c28d-ebac-4016-ad07-c90081ee4983",
     scryfall_id = "571058b0-7e10-4259-8db9-5c8b78c1e13d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Monitor",
         mana_cost = mana!("{3}{B}"),

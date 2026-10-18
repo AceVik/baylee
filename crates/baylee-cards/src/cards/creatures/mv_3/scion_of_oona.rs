@@ -15,7 +15,7 @@ card!(
     scryfall_id = "a29f95fe-2efa-4788-84d8-2bd88d8650b4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scion of Oona",
         mana_cost = mana!("{2}{U}"),

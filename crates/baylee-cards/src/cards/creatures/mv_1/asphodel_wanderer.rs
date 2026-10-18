@@ -11,7 +11,7 @@ card!(
     oracle_id = "a6ffcbc9-0990-4d95-a995-1b2f321256d7",
     scryfall_id = "675112db-c477-43f4-b755-54162445fb49",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Asphodel Wanderer",
         mana_cost = mana!("{B}"),

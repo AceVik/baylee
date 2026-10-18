@@ -16,7 +16,7 @@ card!(
     oracle_id = "02de8fa3-ac8d-47e5-b137-d5a0b7d8e951",
     scryfall_id = "75ec7a31-1893-493c-926b-dc3a8a770e72",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonstorm Forecaster",
         mana_cost = mana!("{U}"),

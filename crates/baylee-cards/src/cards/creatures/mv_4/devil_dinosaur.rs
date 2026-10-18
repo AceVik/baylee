@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devil Dinosaur",
         mana_cost = mana!("{2}{G}{G}"),

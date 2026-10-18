@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f657f2dc-adc8-4a66-b081-a71b3a127389",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mothrider Patrol",
         mana_cost = mana!("{W}"),

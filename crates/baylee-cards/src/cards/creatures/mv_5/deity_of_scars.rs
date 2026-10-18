@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7efc2cc8-2445-4d64-b1c5-26483efbcc30",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deity of Scars",
         mana_cost = mana!("{B/G}{B/G}{B/G}{B/G}{B/G}"),

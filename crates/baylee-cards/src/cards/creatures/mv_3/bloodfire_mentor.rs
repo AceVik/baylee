@@ -11,7 +11,7 @@ card!(
     oracle_id = "2c47319a-4062-4aec-b68a-e8e8f023cf86",
     scryfall_id = "4836fb70-a8f3-44ed-bae4-890ef7d07f88",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodfire Mentor",
         mana_cost = mana!("{2}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "2eb8397a-ba8b-497d-b1f5-a1b09c686597",
     scryfall_id = "d89427f0-08d5-49a1-9684-ebe8769430f6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Syndicate Trafficker",
         mana_cost = mana!("{1}{B}"),

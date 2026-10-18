@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2e1d59d6-7f53-4139-b2f2-3189f24bdc84",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riverwheel Aerialists",
         mana_cost = mana!("{5}{U}"),

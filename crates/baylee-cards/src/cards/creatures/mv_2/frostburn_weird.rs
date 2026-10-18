@@ -11,7 +11,7 @@ card!(
     oracle_id = "f667b4b6-c97f-47fa-9146-c5c1f3f47e92",
     scryfall_id = "32b03336-76f2-4086-b737-7cd6e30014e6",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frostburn Weird",
         mana_cost = mana!("{U/R}{U/R}"),

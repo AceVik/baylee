@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d943b877-805d-4bc8-a3ae-abec00fa51a6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nectar Faerie",
         mana_cost = mana!("{1}{B}"),

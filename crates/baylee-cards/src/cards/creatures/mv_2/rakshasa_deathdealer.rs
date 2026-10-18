@@ -12,7 +12,7 @@ card!(
     oracle_id = "acdc17cf-8f8c-42ee-bede-481ce00cf4bf",
     scryfall_id = "ab4e0b33-dad1-4443-a7c7-a7bab067d04a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakshasa Deathdealer",
         mana_cost = mana!("{B}{G}"),

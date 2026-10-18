@@ -14,7 +14,7 @@ card!(
     oracle_id = "d81ade13-e7c7-4fe3-bb0c-5007ed9f1198",
     scryfall_id = "f8f1a2f2-526d-4b2c-985b-0acfdc21a2ee",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunset Strikemaster",
         mana_cost = mana!("{1}{R}"),

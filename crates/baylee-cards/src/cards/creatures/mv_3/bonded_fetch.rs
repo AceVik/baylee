@@ -13,7 +13,7 @@ card!(
     scryfall_id = "de72afaf-a4b4-431c-8831-86ddfba2403c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bonded Fetch",
         mana_cost = mana!("{2}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d556c71e-ce16-4229-880b-744790f93797",
     scryfall_id = "98e67a2f-7556-47aa-a953-89dcfe57a6ee",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrage Ogre",
         mana_cost = mana!("{3}{R}{R}"),

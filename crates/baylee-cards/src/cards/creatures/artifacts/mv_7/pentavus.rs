@@ -18,7 +18,7 @@ card!(
     index = index::PENTAVUS,
     oracle_id = "1c0d4f28-2494-45b0-acb8-921fee602c01",
     scryfall_id = "abf08ea2-187c-4067-81b6-a63db49b50ab",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pentavus",
         mana_cost = mana!("{7}"),

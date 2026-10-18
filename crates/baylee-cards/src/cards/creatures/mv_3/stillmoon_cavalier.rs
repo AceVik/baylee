@@ -14,7 +14,7 @@ card!(
     oracle_id = "9c430b5a-83b6-4f4f-b1d3-5737e1f61947",
     scryfall_id = "400dc91e-96c0-49bf-b307-677d6f80f3ed",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stillmoon Cavalier",
         mana_cost = mana!("{1}{W/B}{W/B}"),

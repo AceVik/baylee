@@ -13,7 +13,7 @@ card!(
     oracle_id = "313d7b2f-05fb-49f3-8d8a-361be4412d3c",
     scryfall_id = "37066fc5-4cae-46ab-83c6-d1f262c67fac",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of the Sacred Torch",
         mana_cost = mana!("{1}{W}{W}"),

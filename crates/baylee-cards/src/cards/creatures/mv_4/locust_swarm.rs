@@ -14,7 +14,7 @@ card!(
     scryfall_id = "bd269842-4c31-4398-9451-be0d941397ac",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Locust Swarm",
         mana_cost = mana!("{3}{G}"),

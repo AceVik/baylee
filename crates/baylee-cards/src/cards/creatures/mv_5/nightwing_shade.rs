@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a3112a8a-dc80-4099-966c-8fa1807a189b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightwing Shade",
         mana_cost = mana!("{4}{B}"),

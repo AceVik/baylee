@@ -16,7 +16,7 @@ card!(
     oracle_id = "5cf1d7c3-6ebe-440b-88c8-33b7f6aa0d7c",
     scryfall_id = "6e9743dc-031b-4932-80a6-1c8ec1dea069",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shauku's Minion",
         mana_cost = mana!("{1}{B}{R}"),

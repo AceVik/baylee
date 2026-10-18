@@ -11,7 +11,7 @@ card!(
     oracle_id = "a297f9a2-3461-4138-8a3e-75027cbdbe12",
     scryfall_id = "52280963-ba5b-4735-b5cb-67866f8624c9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fathom Fleet Firebrand",
         mana_cost = mana!("{1}{R}"),

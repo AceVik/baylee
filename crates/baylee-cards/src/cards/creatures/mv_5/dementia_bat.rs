@@ -13,7 +13,7 @@ card!(
     scryfall_id = "72ae22c3-2dea-463e-894a-188657849909",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dementia Bat",
         mana_cost = mana!("{4}{B}"),

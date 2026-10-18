@@ -11,7 +11,7 @@ card!(
     oracle_id = "826b83ba-0fe5-4f1d-91c8-799a1100d1e6",
     scryfall_id = "b1cd0757-1b06-4e1b-a236-31271bd0d9a3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodlust Inciter",
         mana_cost = mana!("{R}"),

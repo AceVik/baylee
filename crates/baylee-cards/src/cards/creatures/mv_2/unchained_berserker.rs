@@ -12,7 +12,7 @@ card!(
     oracle_id = "32e7befb-c083-4e17-aaeb-7247f317bbcf",
     scryfall_id = "db5879c5-4b0a-42fa-a44f-580e0221a32b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unchained Berserker",
         mana_cost = mana!("{1}{R}"),

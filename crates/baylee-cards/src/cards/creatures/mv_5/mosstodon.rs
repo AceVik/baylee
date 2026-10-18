@@ -13,7 +13,7 @@ card!(
     oracle_id = "a41b610e-125d-4921-81f9-6391f9214d12",
     scryfall_id = "05afd921-ef3b-40fe-a1a8-582ee94ed3f0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mosstodon",
         mana_cost = mana!("{4}{G}"),

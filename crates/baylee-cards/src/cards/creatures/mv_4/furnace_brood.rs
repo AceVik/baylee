@@ -11,7 +11,7 @@ card!(
     oracle_id = "cc87a268-253b-4377-bdc5-474940de8878",
     scryfall_id = "6e20197d-63e5-4938-87c4-4cbc353062b1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Furnace Brood",
         mana_cost = mana!("{3}{R}"),

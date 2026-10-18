@@ -11,7 +11,7 @@ card!(
     oracle_id = "cae60cf8-cd64-4595-a4dd-946694cf2bb1",
     scryfall_id = "0d61d50b-7ab6-45a9-b207-31d87aa2e555",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Felidar Cub",
         mana_cost = mana!("{1}{W}"),

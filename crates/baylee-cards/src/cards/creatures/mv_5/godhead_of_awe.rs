@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7e34d294-c0ec-4e3c-a731-31b7a29c59b4",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Godhead of Awe",
         mana_cost = mana!("{W/U}{W/U}{W/U}{W/U}{W/U}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "59329155-a423-4e8d-a7d4-c99555ff5ed1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maraxus of Keld",
         mana_cost = mana!("{4}{R}{R}"),

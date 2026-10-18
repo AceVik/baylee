@@ -11,7 +11,7 @@ card!(
     oracle_id = "d0c2ca8a-c5d4-4684-bacb-46c04f47c276",
     scryfall_id = "658b93b5-e16a-4a1a-bd26-74a9f25caffe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sporecrown Thallid",
         mana_cost = mana!("{1}{G}"),

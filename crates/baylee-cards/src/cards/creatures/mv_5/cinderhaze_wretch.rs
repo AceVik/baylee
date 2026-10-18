@@ -12,7 +12,7 @@ card!(
     oracle_id = "df6d9787-b423-4067-adf4-c09dcee1329e",
     scryfall_id = "644319c2-f122-4369-b1f8-56ad7d8ce861",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cinderhaze Wretch",
         mana_cost = mana!("{4}{B}"),

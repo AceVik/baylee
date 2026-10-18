@@ -26,7 +26,7 @@ card!(
     scryfall_id = "4c80032b-daeb-4661-9a66-61abe9d12ddd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defiant Falcon",
         mana_cost = mana!("{1}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1e1d4d81-4a45-41b5-a781-ae2227b4f4c0",
     scryfall_id = "42c9d49d-61eb-4f33-b06b-03bdd990efd0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cho-Arrim Alchemist",
         mana_cost = mana!("{W}"),

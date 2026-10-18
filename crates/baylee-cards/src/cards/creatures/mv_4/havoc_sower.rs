@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f8585871-24a2-41d7-ae12-29aabfbc9ccc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havoc Sower",
         mana_cost = mana!("{3}{B}"),

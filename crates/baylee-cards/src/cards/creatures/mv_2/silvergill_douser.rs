@@ -22,7 +22,7 @@ card!(
     oracle_id = "b24f2917-b96c-4348-b033-4926df3bd4b0",
     scryfall_id = "8875c883-8d56-406b-bd89-42199a6e79f5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silvergill Douser",
         mana_cost = mana!("{1}{U}"),

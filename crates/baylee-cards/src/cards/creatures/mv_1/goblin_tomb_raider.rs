@@ -11,7 +11,7 @@ card!(
     oracle_id = "37ce95bb-8ff5-47b9-85e4-21be7a794940",
     scryfall_id = "018160fe-f602-43f5-8495-241a08eaa69c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Tomb Raider",
         mana_cost = mana!("{R}"),

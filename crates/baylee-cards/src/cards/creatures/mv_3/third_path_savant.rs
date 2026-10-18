@@ -11,7 +11,7 @@ card!(
     oracle_id = "6024cb2d-a6e7-4adc-8b34-7f4e0cac16ce",
     scryfall_id = "793a51ab-59fb-424f-a315-3f63e8990322",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Third Path Savant",
         mana_cost = mana!("{2}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "e52d8e5c-59cf-48bb-80f7-f7996c8a81bc",
     scryfall_id = "6341b73b-a035-45a2-908d-879c8eed4bbd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boggart Sprite-Chaser",
         mana_cost = mana!("{1}{R}"),

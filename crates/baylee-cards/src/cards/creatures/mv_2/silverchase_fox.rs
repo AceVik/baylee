@@ -11,7 +11,7 @@ card!(
     oracle_id = "f277b082-dfc8-45c6-bab5-b63cd218224c",
     scryfall_id = "c5fd3131-a37f-427e-9d4c-08c125ac767a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silverchase Fox",
         mana_cost = mana!("{1}{W}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "18c65823-01ae-4314-a254-d89a1a362633",
     scryfall_id = "8422e109-de8d-46ea-a7f8-d5ccb6340497",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harbor Bandit",
         mana_cost = mana!("{2}{B}"),

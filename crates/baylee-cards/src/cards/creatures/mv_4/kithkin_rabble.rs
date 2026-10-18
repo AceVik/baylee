@@ -18,7 +18,7 @@ card!(
     scryfall_id = "7f9a0afa-50e6-4bce-b261-4559fd31295e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Rabble",
         mana_cost = mana!("{3}{W}"),

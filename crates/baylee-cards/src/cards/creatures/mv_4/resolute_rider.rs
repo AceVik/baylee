@@ -12,7 +12,7 @@ card!(
     oracle_id = "2f8b2bca-991c-4dee-829b-c1cc7deaadfb",
     scryfall_id = "853dbf04-7165-4728-b96c-c9e4ff4d3491",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Resolute Rider",
         mana_cost = mana!("{W/B}{W/B}{W/B}{W/B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "a7ee67a6-0ac7-4079-a947-4e52d09ace8e",
     scryfall_id = "c9b3b785-396e-4240-bfa3-58ab53497686",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axiom Engraver",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b6c8f2fe-b097-49af-ab59-16590dedaf32",
     scryfall_id = "eb00bd3a-833e-4226-a73e-17c9043c0994",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scrapyard Mongrel",
         mana_cost = mana!("{3}{R}"),

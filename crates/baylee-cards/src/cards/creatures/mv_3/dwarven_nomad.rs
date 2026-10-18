@@ -13,7 +13,7 @@ card!(
     oracle_id = "db130ff4-7525-421f-b7e7-200921ecbdec",
     scryfall_id = "30b09e65-5e69-48f8-be9b-a1e9706f18bf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Nomad",
         mana_cost = mana!("{2}{R}"),

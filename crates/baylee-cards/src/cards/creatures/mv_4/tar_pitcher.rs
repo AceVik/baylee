@@ -16,7 +16,7 @@ card!(
     oracle_id = "e6991ab8-36f7-40c4-ad37-06e847d92664",
     scryfall_id = "30f40e38-2fcc-4927-9ce2-2080fa2d832c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tar Pitcher",
         mana_cost = mana!("{3}{R}"),

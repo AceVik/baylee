@@ -22,7 +22,7 @@ card!(
     scryfall_id = "b6f14bbe-2436-4a5a-8e2a-8066b740b715",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kyscu Drake",
         mana_cost = mana!("{3}{G}"),

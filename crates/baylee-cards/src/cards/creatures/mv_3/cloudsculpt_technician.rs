@@ -13,7 +13,7 @@ card!(
     scryfall_id = "51077a54-15cf-4088-8e84-088d72e8e861",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudsculpt Technician",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "59b2edf0-00e4-4cd4-88ac-6dd74e9b1b14",
     scryfall_id = "991e1a6c-914b-45c8-9170-c09e72696117",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Air Marshal",
         mana_cost = mana!("{1}{U}"),

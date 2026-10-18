@@ -13,7 +13,7 @@ card!(
     oracle_id = "bd13392e-e72a-4dbb-ba9d-68f68e47e30e",
     scryfall_id = "2f160c0f-d9c9-4fc1-b61c-a2154bc21879",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Law-Rune Enforcer",
         mana_cost = mana!("{W}"),

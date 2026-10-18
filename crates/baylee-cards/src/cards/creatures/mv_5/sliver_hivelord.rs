@@ -18,7 +18,7 @@ card!(
         Color::White
     ]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sliver Hivelord",
         mana_cost = mana!("{W}{U}{B}{R}{G}"),

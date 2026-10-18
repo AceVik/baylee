@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fba9c76c-1432-4554-88bd-3f5e8709a963",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merciless Enforcers",
         mana_cost = mana!("{1}{B}"),

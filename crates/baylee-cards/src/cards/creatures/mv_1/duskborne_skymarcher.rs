@@ -19,7 +19,7 @@ card!(
     scryfall_id = "baa524bb-0ce7-4c30-93c3-ae15c3b05e92",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duskborne Skymarcher",
         mana_cost = mana!("{W}"),

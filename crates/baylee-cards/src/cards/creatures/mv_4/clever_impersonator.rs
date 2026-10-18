@@ -11,7 +11,7 @@ card!(
     oracle_id = "d4ec0df9-a4a3-48cf-a0aa-b1aea5c49142",
     scryfall_id = "c0516453-3e6a-4b7f-8df6-72a6e207169a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clever Impersonator",
         mana_cost = mana!("{2}{U}{U}"),

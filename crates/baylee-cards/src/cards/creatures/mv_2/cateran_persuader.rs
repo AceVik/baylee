@@ -24,7 +24,7 @@ card!(
     oracle_id = "415e9484-0788-4c00-bb1f-19308511114b",
     scryfall_id = "a98bdbf1-32a6-4d9b-8e57-5d3aca6b05bc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cateran Persuader",
         mana_cost = mana!("{B}{B}"),

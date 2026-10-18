@@ -11,7 +11,7 @@ card!(
     oracle_id = "98deac9e-28ea-4d11-8d75-833bf6d66e6e",
     scryfall_id = "cce6289e-f665-4faa-8285-c843447f3e52",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Keen Glidemaster",
         mana_cost = mana!("{1}{U}"),

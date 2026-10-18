@@ -13,7 +13,7 @@ card!(
     oracle_id = "7b81596b-9487-4be1-a417-6913fa72299d",
     scryfall_id = "d3166b10-5bc3-4db6-bb5b-81045d98e446",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vermin Gorger",
         mana_cost = mana!("{1}{B}"),

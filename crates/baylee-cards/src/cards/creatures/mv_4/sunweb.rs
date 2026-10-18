@@ -16,7 +16,7 @@ card!(
     scryfall_id = "7261bcea-27e0-417f-b3bf-7089c1e8bf1e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunweb",
         mana_cost = mana!("{3}{W}"),

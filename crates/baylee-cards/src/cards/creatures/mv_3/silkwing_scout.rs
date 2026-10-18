@@ -15,7 +15,7 @@ card!(
     scryfall_id = "04f165aa-2986-47d1-912d-d50490a15c0b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silkwing Scout",
         mana_cost = mana!("{2}{U}"),

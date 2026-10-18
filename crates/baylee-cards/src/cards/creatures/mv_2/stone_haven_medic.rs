@@ -11,7 +11,7 @@ card!(
     oracle_id = "e4d6ed72-f40f-4e4a-bec0-19b1d4f99ebe",
     scryfall_id = "3956563b-bde3-4aec-93fe-e03bade49458",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stone Haven Medic",
         mana_cost = mana!("{1}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "53a1faa1-ca67-4027-bee8-0f7c4584d62b",
     scryfall_id = "173675c1-685c-4f4c-a6dc-b42a3ae69137",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blinding Mage",
         mana_cost = mana!("{1}{W}"),

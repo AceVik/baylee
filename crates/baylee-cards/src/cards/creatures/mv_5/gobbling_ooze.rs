@@ -13,7 +13,7 @@ card!(
     oracle_id = "765a12fc-9b66-4bb7-88f6-6e7bd2d2f8c7",
     scryfall_id = "465d8a63-0ced-4aec-be34-2098b72c8af6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gobbling Ooze",
         mana_cost = mana!("{4}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "eee801ea-e2dc-4b03-a9f9-e87566cb2ae8",
     scryfall_id = "ff6c08d7-9b2d-475f-9acb-f8a995e7e804",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thallid Soothsayer",
         mana_cost = mana!("{3}{B}"),

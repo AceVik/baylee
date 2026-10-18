@@ -13,7 +13,7 @@ card!(
     scryfall_id = "018a9c98-1cb4-4c53-a765-c15808c4ab44",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sentry of the Underworld",
         mana_cost = mana!("{3}{W}{B}"),

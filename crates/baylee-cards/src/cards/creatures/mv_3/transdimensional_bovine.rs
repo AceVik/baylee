@@ -13,7 +13,7 @@ card!(
     scryfall_id = "de124563-205c-4f40-8c13-4ae203599912",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Transdimensional Bovine",
         mana_cost = mana!("{2}{G}"),

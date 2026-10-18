@@ -11,7 +11,7 @@ card!(
     oracle_id = "2497cfe2-a85c-47ea-af7a-9a745d84f8b4",
     scryfall_id = "df2ed9f3-50b1-493b-9c14-0f8ddb4d8c57",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simian Brawler",
         mana_cost = mana!("{3}{G}"),

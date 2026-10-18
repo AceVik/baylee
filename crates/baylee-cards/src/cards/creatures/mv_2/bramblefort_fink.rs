@@ -17,7 +17,7 @@ card!(
     oracle_id = "e56a9b7b-ce3f-4f5c-87d0-6f1d50d98ac3",
     scryfall_id = "fc83a142-9d0f-4a39-baeb-4e2f62009204",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bramblefort Fink",
         mana_cost = mana!("{1}{G}"),

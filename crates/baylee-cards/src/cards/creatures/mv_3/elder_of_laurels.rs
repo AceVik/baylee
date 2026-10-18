@@ -11,7 +11,7 @@ card!(
     oracle_id = "0431b67e-ce09-4009-ba5b-9fd41e6f1df4",
     scryfall_id = "32b82ef0-c974-4357-b21a-4c2a28ec7279",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elder of Laurels",
         mana_cost = mana!("{2}{G}"),

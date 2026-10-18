@@ -13,7 +13,7 @@ card!(
     oracle_id = "c5b4bc25-0f32-4e1d-b6fe-f122140f2207",
     scryfall_id = "3260a427-b67f-4908-8c56-5c0fab009598",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viridian Scout",
         mana_cost = mana!("{3}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "2c09ca09-8e62-4fe3-9b3d-61573dd2ffbc",
     scryfall_id = "224af68a-41a6-4e4e-94d0-130be341b788",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gemhide Sliver",
         mana_cost = mana!("{1}{G}"),

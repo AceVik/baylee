@@ -11,7 +11,7 @@ card!(
     oracle_id = "496c852b-ec62-4320-afbb-e19f534954c9",
     scryfall_id = "438683f5-adfa-42ae-a6fb-c4649a8a30ab",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haunter of Nightveil",
         mana_cost = mana!("{3}{U}{B}"),

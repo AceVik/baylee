@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e7b17222-db06-41cc-a4d2-aae625cb1929",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crash of Rhino Beetles",
         mana_cost = mana!("{4}{G}"),

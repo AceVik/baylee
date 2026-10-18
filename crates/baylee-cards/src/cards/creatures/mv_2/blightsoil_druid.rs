@@ -11,7 +11,7 @@ card!(
     oracle_id = "351091cb-1263-4202-9447-021c6019cff1",
     scryfall_id = "d1fd17d4-96e1-4b53-8375-57f800dc661a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blightsoil Druid",
         mana_cost = mana!("{1}{B}"),

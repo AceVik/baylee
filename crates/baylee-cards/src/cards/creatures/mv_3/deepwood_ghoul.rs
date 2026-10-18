@@ -11,7 +11,7 @@ card!(
     oracle_id = "d99cd2d0-32b8-4edc-8089-557c48dd4be0",
     scryfall_id = "cd4c5c2f-0c1e-44e8-a7f8-2dc2954eacd8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deepwood Ghoul",
         mana_cost = mana!("{2}{B}"),

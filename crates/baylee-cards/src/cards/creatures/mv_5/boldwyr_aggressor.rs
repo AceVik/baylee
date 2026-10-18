@@ -13,7 +13,7 @@ card!(
     scryfall_id = "76bbccd2-8a90-49a7-921a-6565b495efdf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boldwyr Aggressor",
         mana_cost = mana!("{3}{R}{R}"),

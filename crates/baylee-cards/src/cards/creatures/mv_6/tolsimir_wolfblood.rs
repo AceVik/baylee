@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d027f4be-e24f-4960-97bd-554e147df7a5",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tolsimir Wolfblood",
         mana_cost = mana!("{4}{G}{W}"),

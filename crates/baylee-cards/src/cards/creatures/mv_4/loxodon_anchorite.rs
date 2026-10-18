@@ -11,7 +11,7 @@ card!(
     oracle_id = "c70dded8-658b-4250-8057-54894350455c",
     scryfall_id = "a55f0113-3ced-49c7-9fa8-f1cc873bdc4c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Anchorite",
         mana_cost = mana!("{2}{W}{W}"),

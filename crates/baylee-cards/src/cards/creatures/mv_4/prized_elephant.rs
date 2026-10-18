@@ -17,7 +17,7 @@ card!(
     oracle_id = "4b1674b1-2176-493f-a463-936e715d51a2",
     scryfall_id = "01597ede-94e7-44a4-93c2-7fd1db11e92a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prized Elephant",
         mana_cost = mana!("{3}{W}"),

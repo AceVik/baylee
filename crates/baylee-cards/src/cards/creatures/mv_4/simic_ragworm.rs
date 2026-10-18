@@ -11,7 +11,7 @@ card!(
     oracle_id = "5d8c4172-eb14-47a4-993a-6d68906a26c5",
     scryfall_id = "fa1f4b84-dd5d-4f5f-808e-26ef9414b38a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simic Ragworm",
         mana_cost = mana!("{3}{G}"),

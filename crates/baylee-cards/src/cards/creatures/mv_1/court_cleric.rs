@@ -19,7 +19,7 @@ card!(
     scryfall_id = "dc2e1a93-4b5c-4f89-9e11-1693dee64b63",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Court Cleric",
         mana_cost = mana!("{W}"),

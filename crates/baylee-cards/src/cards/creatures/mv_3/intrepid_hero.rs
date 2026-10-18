@@ -13,7 +13,7 @@ card!(
     oracle_id = "63c1dfcc-9d47-4dee-b4e6-1f50e716cf9e",
     scryfall_id = "43ec71e9-0024-4f8f-b499-541fb7607fcd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Intrepid Hero",
         mana_cost = mana!("{2}{W}"),

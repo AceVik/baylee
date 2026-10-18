@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d95dcb2e-8945-47dd-ad40-b5bdcc3ea742",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Belbe's Percher",
         mana_cost = mana!("{2}{B}"),

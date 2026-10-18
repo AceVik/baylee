@@ -11,7 +11,7 @@ card!(
     oracle_id = "c72ab66b-2011-449c-93a6-1808669653f0",
     scryfall_id = "be72ff91-f810-46c3-884f-6e65827824bc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodwraith Strangler",
         mana_cost = mana!("{2}{B}{G}"),

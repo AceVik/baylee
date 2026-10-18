@@ -11,7 +11,7 @@ card!(
     oracle_id = "6ad18589-ece4-4809-80f6-6764d2822372",
     scryfall_id = "2047c2e5-8b3b-4c6b-91cf-3484f21e52f0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desert Cerodon",
         mana_cost = mana!("{5}{R}"),

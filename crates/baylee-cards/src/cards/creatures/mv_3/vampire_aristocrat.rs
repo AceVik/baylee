@@ -11,7 +11,7 @@ card!(
     oracle_id = "c14739b0-5c19-4873-b027-314225a10f7b",
     scryfall_id = "7f9a6d22-2e87-410c-b42a-6b54d83a7d30",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Aristocrat",
         mana_cost = mana!("{2}{B}"),

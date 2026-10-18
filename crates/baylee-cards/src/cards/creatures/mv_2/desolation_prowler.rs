@@ -11,7 +11,7 @@ card!(
     oracle_id = "ed9d4bb1-7335-45fd-b2ea-97b1f6491d7a",
     scryfall_id = "63c87009-ff1b-44b9-88b1-e26219094c67",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desolation Prowler",
         mana_cost = mana!("{1}{B}"),

@@ -24,7 +24,7 @@ card!(
     oracle_id = "9b0a14b9-977d-4e25-a519-eaddb0f94b6a",
     scryfall_id = "ef2b036d-5721-4a6e-bf43-69148b90da10",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ramosian Sergeant",
         mana_cost = mana!("{W}"),

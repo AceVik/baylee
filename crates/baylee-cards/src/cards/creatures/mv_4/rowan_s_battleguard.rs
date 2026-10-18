@@ -19,7 +19,7 @@ card!(
     scryfall_id = "9c8a3119-ce9b-4fe5-aea3-871a7eee216e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rowan's Battleguard",
         mana_cost = mana!("{3}{R}"),

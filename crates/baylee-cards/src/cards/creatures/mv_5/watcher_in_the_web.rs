@@ -13,7 +13,7 @@ card!(
     scryfall_id = "be1ee2d4-5992-4081-9907-4bc26750aff0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watcher in the Web",
         mana_cost = mana!("{4}{G}"),

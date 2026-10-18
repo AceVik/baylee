@@ -11,7 +11,7 @@ card!(
     oracle_id = "c9cb34df-75b1-4dda-8f22-daadf59c5332",
     scryfall_id = "31a2a6d8-52de-4796-b299-69b586fa0b92",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dowsing Shaman",
         mana_cost = mana!("{4}{G}"),

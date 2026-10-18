@@ -11,7 +11,7 @@ card!(
     oracle_id = "a0c3c26e-e9e8-424d-922e-a692bb479ebd",
     scryfall_id = "a51ea7d3-a9d7-4b1d-bf3b-3fcfb6a49624",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ridged Kusite",
         mana_cost = mana!("{B}"),

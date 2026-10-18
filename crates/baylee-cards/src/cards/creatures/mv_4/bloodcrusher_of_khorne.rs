@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f7cf91a9-ec68-43b1-ae88-a907d49bf8aa",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodcrusher of Khorne",
         mana_cost = mana!("{3}{R}"),

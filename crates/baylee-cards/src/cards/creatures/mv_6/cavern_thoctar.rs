@@ -11,7 +11,7 @@ card!(
     oracle_id = "4a1b8db2-8814-45b3-ab8a-a1c8522d7fa1",
     scryfall_id = "34748acb-7045-42b6-a93f-a3f11a1bc839",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cavern Thoctar",
         mana_cost = mana!("{5}{G}"),

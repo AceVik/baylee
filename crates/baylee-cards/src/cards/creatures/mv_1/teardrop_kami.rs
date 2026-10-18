@@ -11,7 +11,7 @@ card!(
     oracle_id = "6f47a67e-1fcd-4f3f-81d0-1a6868606390",
     scryfall_id = "b015ae03-c083-4e4a-b4a2-88e55aef9001",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teardrop Kami",
         mana_cost = mana!("{U}"),

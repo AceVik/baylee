@@ -11,7 +11,7 @@ card!(
     oracle_id = "f2e081be-87ef-457a-a5cb-2c2ff10cbcf5",
     scryfall_id = "73597c90-a527-4338-9668-126c6cf15927",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ivy Dancer",
         mana_cost = mana!("{2}{G}"),

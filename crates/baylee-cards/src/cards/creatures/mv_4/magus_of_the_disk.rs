@@ -12,7 +12,7 @@ card!(
     oracle_id = "3996aa0c-3322-43be-bbaf-7b66836a8ff4",
     scryfall_id = "70cdad7a-f041-4bbe-87ed-876ac6d0c31b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magus of the Disk",
         mana_cost = mana!("{2}{W}{W}"),

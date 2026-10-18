@@ -13,7 +13,7 @@ card!(
     scryfall_id = "98c55aff-baed-4fb5-a490-abd59b8df5e7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Furtive Analyst",
         mana_cost = mana!("{2}{U}"),

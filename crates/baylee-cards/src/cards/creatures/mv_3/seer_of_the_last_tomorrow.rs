@@ -11,7 +11,7 @@ card!(
     oracle_id = "dc5cb189-9eff-4b4e-a46d-7a8e62529c89",
     scryfall_id = "7e897f14-8775-4bc3-a3b2-b149f79ec702",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seer of the Last Tomorrow",
         mana_cost = mana!("{2}{U}"),

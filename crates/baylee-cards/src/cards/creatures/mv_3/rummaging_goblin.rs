@@ -11,7 +11,7 @@ card!(
     oracle_id = "2055eb91-ee36-4752-a6dc-581eaef335c8",
     scryfall_id = "254391a3-c12a-4944-9da5-ae166094480f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rummaging Goblin",
         mana_cost = mana!("{2}{R}"),

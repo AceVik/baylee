@@ -11,7 +11,7 @@ card!(
     oracle_id = "67821712-e58f-4fee-81af-021059ac72ea",
     scryfall_id = "b3872341-d711-407b-85e4-46ccb99988e1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gravblade Heavy",
         mana_cost = mana!("{3}{B}"),

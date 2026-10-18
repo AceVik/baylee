@@ -12,7 +12,7 @@ card!(
     scryfall_id = "af648aaf-a8e0-4291-acf9-5f8533728f92",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Visionary",
         mana_cost = mana!("{1}{R}"),

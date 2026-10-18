@@ -19,7 +19,7 @@ card!(
     oracle_id = "39375b5d-f509-4482-8d34-797dae17d38b",
     scryfall_id = "33d7de75-b6e1-44f5-ae1c-e095b41e8d0b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paragon of Open Graves",
         mana_cost = mana!("{3}{B}"),

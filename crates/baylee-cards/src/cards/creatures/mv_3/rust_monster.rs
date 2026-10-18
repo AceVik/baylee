@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6a7c6b2c-9ba0-4fc1-9922-0988acf2dfde",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rust Monster",
         mana_cost = mana!("{2}{R}"),

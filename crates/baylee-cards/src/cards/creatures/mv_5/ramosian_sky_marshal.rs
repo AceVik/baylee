@@ -26,7 +26,7 @@ card!(
     scryfall_id = "16638976-8a78-4233-8ebc-42ea9bb49e0a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ramosian Sky Marshal",
         mana_cost = mana!("{3}{W}{W}"),

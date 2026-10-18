@@ -17,7 +17,7 @@ card!(
     oracle_id = "396efb56-7a54-4d91-b2ce-7f3c62c3238b",
     scryfall_id = "379c3c08-a91d-48cc-8837-993614b6a32e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Amrou Seekers",
         mana_cost = mana!("{2}{W}"),

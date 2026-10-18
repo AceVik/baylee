@@ -12,7 +12,7 @@ card!(
     oracle_id = "b47fd32d-1a56-414f-9d91-ddd46d4b5ac7",
     scryfall_id = "08598b2b-6fd2-4a1d-8d74-7ca6d93ad382",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Centaur's Herald",
         mana_cost = mana!("{G}"),

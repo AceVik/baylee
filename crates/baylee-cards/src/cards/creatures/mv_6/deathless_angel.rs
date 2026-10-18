@@ -13,7 +13,7 @@ card!(
     scryfall_id = "049fb314-184c-4411-9035-f04215659056",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathless Angel",
         mana_cost = mana!("{4}{W}{W}"),

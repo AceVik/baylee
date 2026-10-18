@@ -17,7 +17,7 @@ card!(
     oracle_id = "b49791f9-525c-4b04-954d-d7678c5565e3",
     scryfall_id = "7c51c6bd-2ecc-4d92-a406-fcb31e889b45",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vivien's Crocodile",
         mana_cost = mana!("{2}{G}"),

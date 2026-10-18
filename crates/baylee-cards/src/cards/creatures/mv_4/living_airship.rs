@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b0441eef-392e-4af4-b189-2f1fb8bf3fca",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Living Airship",
         mana_cost = mana!("{3}{U}"),

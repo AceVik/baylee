@@ -12,7 +12,7 @@ card!(
     oracle_id = "1a8d7714-a566-4195-8605-550929584c61",
     scryfall_id = "b3fd4ccb-e632-4fa0-8e36-6103806f020c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patrol Signaler",
         mana_cost = mana!("{1}{W}"),

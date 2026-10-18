@@ -11,7 +11,7 @@ card!(
     oracle_id = "3315aa42-d3ae-425e-9c12-191d26e67a0a",
     scryfall_id = "73c755ff-3fbb-4128-9357-0874eb61ff4c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frilled Sandwalla",
         mana_cost = mana!("{G}"),

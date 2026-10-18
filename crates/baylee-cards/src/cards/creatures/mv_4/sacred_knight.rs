@@ -22,7 +22,7 @@ card!(
     oracle_id = "fe8f5cc0-5849-437f-8d1f-cb191f2fc638",
     scryfall_id = "57b19990-c4a2-433d-a9ce-005216e9e4ac",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sacred Knight",
         mana_cost = mana!("{3}{W}"),

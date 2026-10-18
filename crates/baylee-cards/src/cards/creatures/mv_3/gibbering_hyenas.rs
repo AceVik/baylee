@@ -13,7 +13,7 @@ card!(
     oracle_id = "2a073f00-0d03-43d0-a0a8-f5bcee0855fc",
     scryfall_id = "a252a1f5-bba5-4525-8141-57caea9624e9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gibbering Hyenas",
         mana_cost = mana!("{2}{G}"),

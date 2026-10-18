@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1d68eb62-9f86-4c85-8696-46a248c744ff",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colos Yearling",
         mana_cost = mana!("{2}{R}"),

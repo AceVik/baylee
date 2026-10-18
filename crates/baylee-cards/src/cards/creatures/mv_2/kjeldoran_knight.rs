@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d5b9db8f-93b5-44e3-9e2b-728c80dfbb37",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran Knight",
         mana_cost = mana!("{W}{W}"),

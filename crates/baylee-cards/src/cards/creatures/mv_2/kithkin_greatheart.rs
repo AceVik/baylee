@@ -16,7 +16,7 @@ card!(
     oracle_id = "6034e7c1-b3ec-4927-b517-f8e3ca87252e",
     scryfall_id = "777d091f-7718-434f-894d-2fe40e0e67dd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Greatheart",
         mana_cost = mana!("{1}{W}"),

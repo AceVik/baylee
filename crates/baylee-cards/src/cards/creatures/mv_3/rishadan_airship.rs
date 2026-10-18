@@ -15,7 +15,7 @@ card!(
     scryfall_id = "b3ea87f1-fbe2-4905-8a97-ceef9d3d0faf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rishadan Airship",
         mana_cost = mana!("{2}{U}"),

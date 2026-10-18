@@ -11,7 +11,7 @@ card!(
     oracle_id = "cb690399-0fb8-4bd8-a73d-5e0e594ff2ae",
     scryfall_id = "4dc2da75-160d-47f9-b978-e153262ec1fc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fallaji Chaindancer",
         mana_cost = mana!("{3}{R}"),

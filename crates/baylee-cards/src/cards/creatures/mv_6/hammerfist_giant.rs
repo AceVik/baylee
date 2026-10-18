@@ -16,7 +16,7 @@ card!(
     oracle_id = "ce916c92-350c-4546-882b-555dc450413d",
     scryfall_id = "4fc5a36a-b572-4689-84b9-c5fb87d954c2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hammerfist Giant",
         mana_cost = mana!("{4}{R}{R}"),

@@ -26,7 +26,7 @@ card!(
     scryfall_id = "6fc59fa5-144f-49e6-b6bd-2ba6d3f2eff2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rathi Intimidator",
         mana_cost = mana!("{1}{B}{B}"),

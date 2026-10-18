@@ -18,7 +18,7 @@ card!(
     scryfall_id = "b9980835-cd32-4870-88df-c79cd5534968",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vine Mare",
         mana_cost = mana!("{2}{G}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ee491709-53fc-49f7-bf26-07e39f9d201f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::BANDING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield Bearer",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "e120f341-4445-4b96-9777-2290471832bf",
     scryfall_id = "5305b5c6-2af6-4b5c-9a57-0a2d2628e2f4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goldmeadow Dodger",
         mana_cost = mana!("{W}"),

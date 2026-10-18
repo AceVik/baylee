@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ed363208-cf66-4205-8512-b999b67227d3",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Judge's Familiar",
         mana_cost = mana!("{W/U}"),

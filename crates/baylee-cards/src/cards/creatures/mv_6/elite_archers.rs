@@ -16,7 +16,7 @@ card!(
     oracle_id = "2230ec18-4dcf-435e-b495-1905cb94e8b8",
     scryfall_id = "b2341478-2a91-4ce8-881a-21e826b55c34",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Archers",
         mana_cost = mana!("{5}{W}"),

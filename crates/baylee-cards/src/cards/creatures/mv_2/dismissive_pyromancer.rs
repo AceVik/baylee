@@ -12,7 +12,7 @@ card!(
     oracle_id = "f040310d-d6ac-4d77-9f76-ca325eddf306",
     scryfall_id = "a0d0a9fa-75c9-4492-accd-bc9f79407453",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dismissive Pyromancer",
         mana_cost = mana!("{1}{R}"),

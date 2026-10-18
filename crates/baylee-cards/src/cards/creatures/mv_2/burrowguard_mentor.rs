@@ -13,7 +13,7 @@ card!(
     scryfall_id = "87138ace-3594-499e-bad5-ec76148613ea",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burrowguard Mentor",
         mana_cost = mana!("{G}{W}"),

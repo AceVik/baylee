@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8110eb0a-63dc-43df-b55a-9241f45b1cc6",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scaldkin",
         mana_cost = mana!("{3}{U}"),

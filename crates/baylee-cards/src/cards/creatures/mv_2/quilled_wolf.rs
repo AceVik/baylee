@@ -11,7 +11,7 @@ card!(
     oracle_id = "607f9177-fea0-464c-a15f-65842865546a",
     scryfall_id = "fa1569b5-94ef-4ba5-98c6-f1bd4f73c7d5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quilled Wolf",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "fd65468c-d75a-4be2-8a0c-9c4e808e3dd0",
     scryfall_id = "96ae491d-deb9-4342-be39-2146c808584a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shambling Strider",
         mana_cost = mana!("{4}{G}{G}"),

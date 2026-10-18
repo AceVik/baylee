@@ -18,7 +18,7 @@ card!(
     scryfall_id = "8d134465-8d7d-458b-99e5-e6aa6d285214",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drove of Elves",
         mana_cost = mana!("{3}{G}"),

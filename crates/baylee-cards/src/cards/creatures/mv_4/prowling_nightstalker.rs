@@ -16,7 +16,7 @@ card!(
     oracle_id = "6279078a-5c77-4a9e-8e9b-e99310363b6f",
     scryfall_id = "c17d83ad-d078-4c72-9ff2-d068fc6fcdd3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowling Nightstalker",
         mana_cost = mana!("{3}{B}"),

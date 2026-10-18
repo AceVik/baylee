@@ -11,7 +11,7 @@ card!(
     oracle_id = "ff8fb796-af5d-4d64-ab3c-7f2469dfa6bf",
     scryfall_id = "60f42969-bb5c-4183-8bd3-ba87f008391d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildheart Invoker",
         mana_cost = mana!("{2}{G}{G}"),

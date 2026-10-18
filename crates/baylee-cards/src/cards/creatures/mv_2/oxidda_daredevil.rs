@@ -11,7 +11,7 @@ card!(
     oracle_id = "4be254e7-d082-4c10-8495-1ef8b80721e1",
     scryfall_id = "4b0bde7b-dc2d-45d2-b124-69b4b51ef3d9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oxidda Daredevil",
         mana_cost = mana!("{1}{R}"),

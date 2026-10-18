@@ -12,7 +12,7 @@ card!(
     oracle_id = "184c763c-b52a-471c-bd87-d01729ebe5e4",
     scryfall_id = "1a3d70d2-0604-41b3-8dd1-bfeb05832271",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glittermonger",
         mana_cost = mana!("{3}{G}"),

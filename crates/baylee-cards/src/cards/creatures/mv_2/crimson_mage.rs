@@ -11,7 +11,7 @@ card!(
     oracle_id = "d7bf23c4-172a-42fd-b826-3b074a588610",
     scryfall_id = "52f544fa-170f-4da4-bd28-72f713a045ba",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crimson Mage",
         mana_cost = mana!("{1}{R}"),

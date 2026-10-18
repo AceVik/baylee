@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::TRAMPLE
         .union(KeywordSet::HASTE)
         .union(KeywordSet::SHROUD),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giant Solifuge",
         mana_cost = mana!("{2}{R/G}{R/G}"),

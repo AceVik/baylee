@@ -15,7 +15,7 @@ card!(
     scryfall_id = "5b9fa774-fb6d-4a2f-96d5-a449a423312e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ethereal Whiskergill",
         mana_cost = mana!("{3}{U}"),

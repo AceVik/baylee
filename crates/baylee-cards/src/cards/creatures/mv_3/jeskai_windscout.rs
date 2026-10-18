@@ -13,7 +13,7 @@ card!(
     scryfall_id = "66356e38-38e1-4b09-80c2-be26007ff99c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PROWESS),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeskai Windscout",
         mana_cost = mana!("{2}{U}"),

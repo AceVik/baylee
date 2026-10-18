@@ -13,7 +13,7 @@ card!(
     oracle_id = "637a10e8-4384-49a0-ad78-03da8930811e",
     scryfall_id = "484b2978-2da5-41cf-85d4-128e9dae75c0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armored Galleon",
         mana_cost = mana!("{4}{U}"),

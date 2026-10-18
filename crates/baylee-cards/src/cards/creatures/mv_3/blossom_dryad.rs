@@ -11,7 +11,7 @@ card!(
     oracle_id = "53929852-6359-4e7a-8f2c-a5954c76ffcc",
     scryfall_id = "66a3645f-2b71-4816-a1f2-6cd4e987882f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blossom Dryad",
         mana_cost = mana!("{2}{G}"),

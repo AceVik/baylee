@@ -11,7 +11,7 @@ card!(
     oracle_id = "334c0913-0ce0-4934-979d-64dbc1ec4aa2",
     scryfall_id = "3e8a25fd-985f-49e5-b5b9-388571dfaec3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Erratic Visionary",
         mana_cost = mana!("{1}{U}"),

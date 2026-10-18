@@ -31,7 +31,7 @@ card!(
     oracle_id = "1ea0c775-fde0-4a21-b4c2-8bcec0e4f4f8",
     scryfall_id = "3e3597c3-3053-49f8-ab7e-a774e2fb082f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rathi Assassin",
         mana_cost = mana!("{2}{B}{B}"),

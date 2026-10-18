@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0368e91c-31ee-4b81-a361-30a4555b1a42",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattered Apparition",
         mana_cost = mana!("{3}{B}"),

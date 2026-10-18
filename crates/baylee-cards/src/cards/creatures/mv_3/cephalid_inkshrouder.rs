@@ -11,7 +11,7 @@ card!(
     oracle_id = "a3add0d7-2610-4b4e-9d43-3f04a5cd8259",
     scryfall_id = "2c3e8c80-690b-4d79-9dee-99d1a3876160",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cephalid Inkshrouder",
         mana_cost = mana!("{2}{U}"),

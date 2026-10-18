@@ -14,7 +14,7 @@ card!(
     scryfall_id = "9185371c-2dde-48ad-ab27-08be04b3c522",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snapping Voidcraw",
         mana_cost = mana!("{1}{G}{U}"),

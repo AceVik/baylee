@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0a818fdf-2cbc-451a-9893-36da510d63e4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lionheart Maverick",
         mana_cost = mana!("{W}"),

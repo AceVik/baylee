@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c7f39361-2e6d-484b-b3ed-5e1426a61680",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Masked Blackguard",
         mana_cost = mana!("{1}{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "85488433-3c23-4a29-b063-53dba71f26c4",
     scryfall_id = "aa625ab0-1e79-4497-a5da-98fe1abfd024",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Furnace Strider",
         mana_cost = mana!("{4}{R}"),

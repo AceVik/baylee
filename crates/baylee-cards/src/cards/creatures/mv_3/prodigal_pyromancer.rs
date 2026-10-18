@@ -11,7 +11,7 @@ card!(
     oracle_id = "29b3cb3e-aeb1-43eb-8095-9f7881aa34bd",
     scryfall_id = "cf16600a-c2a5-49e4-89e2-260cfaf58b52",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prodigal Pyromancer",
         mana_cost = mana!("{2}{R}"),

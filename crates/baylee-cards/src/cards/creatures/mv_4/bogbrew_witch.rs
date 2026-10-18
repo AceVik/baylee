@@ -16,7 +16,7 @@ card!(
     oracle_id = "ad138184-ab2d-407a-9f9c-94b0675be19d",
     scryfall_id = "6ce1aa49-fe00-4390-8c4b-d1203cc337cd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bogbrew Witch",
         mana_cost = mana!("{3}{B}"),

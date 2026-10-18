@@ -18,7 +18,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lyra Dawnbringer",
         mana_cost = mana!("{3}{W}{W}"),

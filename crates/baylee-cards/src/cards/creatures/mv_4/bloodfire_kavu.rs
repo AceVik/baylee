@@ -11,7 +11,7 @@ card!(
     oracle_id = "a12880c4-1987-42af-8595-0b88981e1091",
     scryfall_id = "4b215c35-9d76-4a0e-8d01-fdc080d46b5a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodfire Kavu",
         mana_cost = mana!("{2}{R}{R}"),

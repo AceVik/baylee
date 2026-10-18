@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9920e91d-58c1-4c1a-a177-43423db96842",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crypt Ripper",
         mana_cost = mana!("{2}{B}{B}"),

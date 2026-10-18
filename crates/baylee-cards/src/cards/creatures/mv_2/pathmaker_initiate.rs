@@ -13,7 +13,7 @@ card!(
     oracle_id = "c0247a19-9c8f-422c-88cf-9f298c3a8c96",
     scryfall_id = "a2cfcb26-565d-451c-9a99-00a8a84a033d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pathmaker Initiate",
         mana_cost = mana!("{1}{R}"),

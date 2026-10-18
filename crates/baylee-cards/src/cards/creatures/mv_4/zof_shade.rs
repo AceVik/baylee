@@ -11,7 +11,7 @@ card!(
     oracle_id = "8e4b8fe8-882c-4d0f-8fec-0256c62a0df0",
     scryfall_id = "98b39bdf-445c-40a8-8999-1e8fbbda4ae9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zof Shade",
         mana_cost = mana!("{3}{B}"),

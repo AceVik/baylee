@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8aa585b7-cf7e-4f04-9490-1e6c53631647",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steam Spitter",
         mana_cost = mana!("{4}{G}"),
