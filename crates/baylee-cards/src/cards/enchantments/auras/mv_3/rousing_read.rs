@@ -13,7 +13,7 @@ card!(
     oracle_id = "306549ad-84c7-4983-840b-9663799e9f40",
     scryfall_id = "c82be2ca-8350-4cf5-83b6-e8b60a9e21c6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rousing Read",
         mana_cost = mana!("{2}{U}"),

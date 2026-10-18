@@ -12,7 +12,7 @@ card!(
     oracle_id = "a49a9418-72d1-4ab1-89d9-a1f65ae23d35",
     scryfall_id = "fbd17ef9-9f1b-4937-a60a-d7175f04eef2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Siegecraft",
         mana_cost = mana!("{3}{W}"),

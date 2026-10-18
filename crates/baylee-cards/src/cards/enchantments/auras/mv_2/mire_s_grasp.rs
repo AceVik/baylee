@@ -12,7 +12,7 @@ card!(
     oracle_id = "1009d2a2-a145-46e1-ba14-7a42735062fc",
     scryfall_id = "0ae0c536-612d-4916-a8da-5aaaf14218b1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mire's Grasp",
         mana_cost = mana!("{1}{B}"),

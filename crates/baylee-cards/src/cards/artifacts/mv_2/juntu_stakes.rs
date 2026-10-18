@@ -9,7 +9,7 @@ card!(
     index = index::JUNTU_STAKES,
     oracle_id = "efd73b8a-1caa-4fc8-855a-cad33ea54097",
     scryfall_id = "3ab7cf53-f62d-47e1-af70-ab12be0d22e2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Juntu Stakes",
         mana_cost = mana!("{2}"),

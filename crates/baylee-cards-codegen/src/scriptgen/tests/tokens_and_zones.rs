@@ -22,6 +22,41 @@ fn a_zone_change_is_read_as_the_pair_it_is() {
          A:AB$ ChangeZone | Cost$ T | Origin$ Battlefield | Destination$ Exile | Defined$ Self\n",
     );
     assert!(body.abilities.join("").contains("Effect::ExileSource"));
+
+    // Cyclopean Snare: a sub-ability `DB$ ChangeZone` with neither its own
+    // `ValidTgts$` nor `Defined$` bounces the source (`TargetSpec::ThisObject`),
+    // not the parent ability's creature target.
+    let snare = read(
+        "Name:Cyclopean Snare\nTypes:Artifact\n\
+         A:AB$ Tap | Cost$ 3 T | ValidTgts$ Creature | SubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand\n",
+    );
+    assert!(
+        snare
+            .abilities
+            .join("")
+            .contains("Effect::bounce(TargetSpec::ThisObject)"),
+        "{:?}",
+        snare.abilities
+    );
+
+    // Tractor Beam: `Description$ Enchanted permanent doesn't untap…` overrides
+    // the corpus's `ValidCard$ Creature.EnchantedBy` so an uncrewed Spacecraft
+    // is also kept tapped.
+    let beam = read(
+        "Name:Tractor Beam\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature,Artifact:creature or artifact\n\
+         R:Event$ Untap | ActiveZones$ Battlefield | ValidCard$ Creature.EnchantedBy \
+         | ValidStepTurnToController$ You | Layer$ CantHappen \
+         | Description$ Enchanted permanent doesn't untap during its controller's untap step.\n",
+    );
+    assert!(
+        beam.abilities.contains(
+            &"static_ability!(Filter::AttachedToBySource, Modifier::DoesNotUntap)".to_string()
+        ),
+        "{:?}",
+        beam.abilities
+    );
 }
 
 #[test]

@@ -16,7 +16,7 @@ card!(
     index = index::CHIMERIC_EGG,
     oracle_id = "3fd23519-ef40-4c84-9407-2626d0c0d792",
     scryfall_id = "d516f267-e72b-453c-bceb-4766582568d2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chimeric Egg",
         mana_cost = mana!("{3}"),

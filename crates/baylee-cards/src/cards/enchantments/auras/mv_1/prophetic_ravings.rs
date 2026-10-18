@@ -12,7 +12,7 @@ card!(
     oracle_id = "69af7bff-fb8c-4f59-88a1-6bfa87ba400a",
     scryfall_id = "f9e58861-a548-4344-a37b-1c5764b144d9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prophetic Ravings",
         mana_cost = mana!("{R}"),

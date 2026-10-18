@@ -12,7 +12,7 @@ card!(
     oracle_id = "567a3fa7-5ca9-4812-b81d-4953c401c83d",
     scryfall_id = "734be7fa-0998-4771-9b97-4989b3fc1471",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steal Enchantment",
         mana_cost = mana!("{U}{U}"),

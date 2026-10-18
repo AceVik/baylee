@@ -11,7 +11,7 @@ card!(
     oracle_id = "434a20f8-3f87-4004-9155-0f196fc2257e",
     scryfall_id = "d4fbcac6-8ac9-44a8-9d1a-03d0799ac253",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rising of the Day",
         mana_cost = mana!("{2}{R}"),

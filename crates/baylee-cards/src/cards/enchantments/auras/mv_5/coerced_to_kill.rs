@@ -13,7 +13,7 @@ card!(
     oracle_id = "3a007dbd-18fd-44d1-a305-7cc8dd6231eb",
     scryfall_id = "2dc9f352-5076-4b5f-9815-cf47abb63d5b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coerced to Kill",
         mana_cost = mana!("{3}{U}{B}"),

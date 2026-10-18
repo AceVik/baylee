@@ -12,7 +12,7 @@ card!(
     oracle_id = "78a9cb8d-52bb-4182-ad7d-e4f8f0bb9797",
     scryfall_id = "2a25a472-495e-4062-b66f-c37f148b494f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dying Wail",
         mana_cost = mana!("{1}{B}"),

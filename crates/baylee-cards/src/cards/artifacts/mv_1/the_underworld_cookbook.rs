@@ -12,7 +12,7 @@ card!(
     index = index::THE_UNDERWORLD_COOKBOOK,
     oracle_id = "37d5c720-d090-44bc-91df-0a7bab79a03e",
     scryfall_id = "039d62b0-3309-4424-a2ea-5a0d88d4bd72",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Underworld Cookbook",
         mana_cost = mana!("{1}"),

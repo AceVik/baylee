@@ -9,7 +9,7 @@ card!(
     index = index::IMI_STATUE,
     oracle_id = "1201520a-d76a-4c8a-be5c-ff37ffd2c024",
     scryfall_id = "91c33332-8a72-4b81-a8e9-a73aaac6013c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imi Statue",
         mana_cost = mana!("{3}"),

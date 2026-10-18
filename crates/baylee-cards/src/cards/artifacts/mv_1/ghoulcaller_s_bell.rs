@@ -9,7 +9,7 @@ card!(
     index = index::GHOULCALLER_S_BELL,
     oracle_id = "36e1485d-3b8c-4c23-9d12-6937fd216b25",
     scryfall_id = "863e7c2a-698c-4dce-a10b-ca58e4affa57",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghoulcaller's Bell",
         mana_cost = mana!("{1}"),

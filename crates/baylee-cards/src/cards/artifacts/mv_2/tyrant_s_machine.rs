@@ -9,7 +9,7 @@ card!(
     index = index::TYRANT_S_MACHINE,
     oracle_id = "d9cb3d86-cb3a-4e2e-a24e-ed3cfe5233d0",
     scryfall_id = "2c697b0b-edba-491a-b40e-f88572a6e955",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tyrant's Machine",
         mana_cost = mana!("{2}"),

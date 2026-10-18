@@ -14,7 +14,7 @@ card!(
     index = index::SONIC_SCREWDRIVER,
     oracle_id = "cd68cc31-12fd-48ff-b37b-bccfe4172974",
     scryfall_id = "f131027a-9776-41fa-8a5f-d9ef80e0dc2e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sonic Screwdriver",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     index = index::KITE_SHIELD,
     oracle_id = "24f9c64a-6ce6-41cd-948e-11554d7f17fb",
     scryfall_id = "1a00d1e1-aaa4-4f4d-a887-1e477820d2c6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kite Shield",
         mana_cost = mana!("{0}"),

@@ -10,7 +10,7 @@ card!(
     index = index::ANGEL_S_TOMB,
     oracle_id = "de3ed52e-7cc2-49ea-96d9-4254aac46168",
     scryfall_id = "b465d09e-efad-48b6-a89a-f7da0c572991",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel's Tomb",
         mana_cost = mana!("{3}"),

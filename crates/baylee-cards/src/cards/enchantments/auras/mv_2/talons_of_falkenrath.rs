@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f8e38239-a9ec-4149-9c90-74dcd46ed95d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talons of Falkenrath",
         mana_cost = mana!("{1}{R}"),

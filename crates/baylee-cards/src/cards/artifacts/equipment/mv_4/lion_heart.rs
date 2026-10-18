@@ -12,7 +12,7 @@ card!(
     index = index::LION_HEART,
     oracle_id = "bd4151cc-743a-40f0-9e51-1f67555d9ab3",
     scryfall_id = "04d327a3-1699-4556-b681-a957671ad142",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lion Heart",
         mana_cost = mana!("{4}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "cb33edaf-b604-48b8-8b9c-d6e462a8bebb",
     scryfall_id = "7d171802-2604-45a5-a0f2-ab5afa1db5d5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charmed Sleep",
         mana_cost = mana!("{1}{U}{U}"),

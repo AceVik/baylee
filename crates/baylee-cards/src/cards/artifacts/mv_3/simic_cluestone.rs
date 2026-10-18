@@ -11,7 +11,7 @@ card!(
     oracle_id = "0b65050d-a9cd-4b6c-9114-af89bfa6682f",
     scryfall_id = "e3c47552-afed-463d-bd24-13eb1cd724fc",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simic Cluestone",
         mana_cost = mana!("{3}"),

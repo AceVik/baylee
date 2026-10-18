@@ -17,7 +17,7 @@ card!(
     oracle_id = "ca21d597-40a5-4724-9d53-1ab6e6c6e767",
     scryfall_id = "de829013-dd6a-47a7-afd4-a2bda0da6ac5",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leonin Bladetrap",
         mana_cost = mana!("{3}"),

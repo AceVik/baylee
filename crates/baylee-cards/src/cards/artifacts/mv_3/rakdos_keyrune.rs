@@ -12,7 +12,7 @@ card!(
     oracle_id = "3986b284-f943-4570-ba26-3419910feeef",
     scryfall_id = "f6124b4c-49a1-42e3-a6ff-62de231c7823",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Keyrune",
         mana_cost = mana!("{3}"),

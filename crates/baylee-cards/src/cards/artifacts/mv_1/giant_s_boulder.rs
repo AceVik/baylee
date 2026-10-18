@@ -11,7 +11,7 @@ card!(
     index = index::GIANT_S_BOULDER,
     oracle_id = "80433c2c-5196-42e0-b9fa-d7b12783f5fd",
     scryfall_id = "ce254758-c928-4b43-a952-13fac1845668",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giant's Boulder",
         mana_cost = mana!("{1}"),

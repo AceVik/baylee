@@ -10,7 +10,7 @@ card!(
     index = index::GOLDEN_URN,
     oracle_id = "ddb19cac-20b0-4ab8-a31d-c5c155491780",
     scryfall_id = "ec7abeca-da01-4962-b107-dd7a77469753",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golden Urn",
         mana_cost = mana!("{1}"),

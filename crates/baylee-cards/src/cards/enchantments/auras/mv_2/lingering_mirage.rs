@@ -13,7 +13,7 @@ card!(
     oracle_id = "cce17310-585d-4738-8d5b-bbad65008c37",
     scryfall_id = "050b4a82-a1d5-4dcc-9264-96005fdf53f5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lingering Mirage",
         mana_cost = mana!("{1}{U}"),

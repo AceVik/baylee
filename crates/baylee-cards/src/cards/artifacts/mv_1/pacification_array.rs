@@ -9,7 +9,7 @@ card!(
     index = index::PACIFICATION_ARRAY,
     oracle_id = "b2c14195-2747-490e-99ef-5b71048ff51a",
     scryfall_id = "8bed742a-a12a-4728-a771-07e3d1417419",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pacification Array",
         mana_cost = mana!("{1}"),

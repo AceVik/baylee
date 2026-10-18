@@ -10,7 +10,7 @@ card!(
     index = index::GRINDCLOCK,
     oracle_id = "6b7de1c0-4b97-47e1-8ea7-ba55a8d16a9b",
     scryfall_id = "53498863-2e69-4b98-b0f0-7ae13dc1033e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grindclock",
         mana_cost = mana!("{2}"),

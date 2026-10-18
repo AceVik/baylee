@@ -10,7 +10,7 @@ card!(
     oracle_id = "c5a4d485-ab9c-48bb-866f-448b1f7707cc",
     scryfall_id = "81647b86-2c84-4a14-8d5a-919f7a5b8bc7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vessel of Volatility",
         mana_cost = mana!("{1}{R}"),

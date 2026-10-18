@@ -11,7 +11,7 @@ card!(
     index = index::NACRE_TALISMAN,
     oracle_id = "f87aaed9-7f78-4f8b-8af5-44d4be1d6f30",
     scryfall_id = "06912236-8225-4eb0-8086-c6a163c69892",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nacre Talisman",
         mana_cost = mana!("{2}"),

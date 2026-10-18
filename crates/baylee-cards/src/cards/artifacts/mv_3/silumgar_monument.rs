@@ -12,7 +12,7 @@ card!(
     oracle_id = "0b88268c-7fcb-4fd2-96cd-f93b37413283",
     scryfall_id = "3243e300-1420-4e96-a3d3-610c3723a11f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silumgar Monument",
         mana_cost = mana!("{3}"),

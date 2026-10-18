@@ -9,7 +9,7 @@ card!(
     index = index::TRIP_NOOSE,
     oracle_id = "456f2991-ab64-41bc-9bd1-a1b1e7993ed6",
     scryfall_id = "ac039d9a-d248-497f-ac84-16ccc568f283",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trip Noose",
         mana_cost = mana!("{2}"),

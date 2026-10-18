@@ -11,7 +11,7 @@ card!(
     oracle_id = "36a247d6-0d40-4f61-935c-60f42aa98562",
     scryfall_id = "fafd3018-1cfe-4c41-a08c-5c2ba3528c7e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Halcyon Glaze",
         mana_cost = mana!("{1}{U}{U}"),

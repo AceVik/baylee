@@ -13,7 +13,7 @@ card!(
     oracle_id = "aad212b2-57ba-4e70-869b-636842eb7a88",
     scryfall_id = "cbe656e7-ae71-45c2-a263-588b73f70d73",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stab Wound",
         mana_cost = mana!("{2}{B}"),

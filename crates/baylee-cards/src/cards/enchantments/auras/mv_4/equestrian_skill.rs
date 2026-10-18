@@ -13,7 +13,7 @@ card!(
     oracle_id = "8c8c12ff-24ff-4279-9bde-da8899d2c2d5",
     scryfall_id = "f9af14d1-a304-4744-9d6f-9ff5fcd92ad3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Equestrian Skill",
         mana_cost = mana!("{3}{G}"),

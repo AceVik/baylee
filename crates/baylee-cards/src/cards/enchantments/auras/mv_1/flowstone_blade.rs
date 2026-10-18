@@ -12,7 +12,7 @@ card!(
     oracle_id = "77a77622-dc5b-4ff2-a98b-732d44c8856e",
     scryfall_id = "e8630702-f973-4c08-8f45-84a3893499ad",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flowstone Blade",
         mana_cost = mana!("{R}"),

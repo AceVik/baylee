@@ -10,7 +10,7 @@ card!(
     index = index::WHIRLERMAKER,
     oracle_id = "bdf28770-0962-4317-822f-c187bc6706d1",
     scryfall_id = "ff1a1246-d5a0-43dc-825a-062a3bb4def9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirlermaker",
         mana_cost = mana!("{3}"),

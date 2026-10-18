@@ -14,7 +14,7 @@ card!(
     scryfall_id = "26836ff5-b3c3-4b10-af1e-df3658781cb2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ophidian Eye",
         mana_cost = mana!("{2}{U}"),

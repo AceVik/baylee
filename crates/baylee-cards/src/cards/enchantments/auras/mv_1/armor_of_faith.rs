@@ -13,7 +13,7 @@ card!(
     oracle_id = "1c482b20-b423-48ef-b162-53960d43b4f7",
     scryfall_id = "4b2a5df9-cec9-4f93-b0e3-d6181eb893b1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armor of Faith",
         mana_cost = mana!("{W}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "68c53625-6928-494a-af87-7eee2f6643a5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starlit Mantle",
         mana_cost = mana!("{1}{U}"),

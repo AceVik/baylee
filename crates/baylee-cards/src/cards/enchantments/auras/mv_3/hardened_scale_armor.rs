@@ -12,7 +12,7 @@ card!(
     oracle_id = "9eb58db8-7934-485c-8606-fb1a6cc60d42",
     scryfall_id = "708e7438-b449-490e-820f-9ecd3199541b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hardened-Scale Armor",
         mana_cost = mana!("{2}{G}"),

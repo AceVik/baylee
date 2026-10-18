@@ -12,7 +12,7 @@ card!(
     oracle_id = "3d95e8b1-0ddb-4bd3-b4cc-de55b6f8c403",
     scryfall_id = "2dd518e8-047a-4df0-a0b8-ba116d048fa8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primal Visitation",
         mana_cost = mana!("{3}{R}{G}"),

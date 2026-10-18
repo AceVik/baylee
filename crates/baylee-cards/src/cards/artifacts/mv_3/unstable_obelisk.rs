@@ -10,7 +10,7 @@ card!(
     index = index::UNSTABLE_OBELISK,
     oracle_id = "060ae1bb-956a-4264-b405-a33151f31493",
     scryfall_id = "94eba26e-7c9e-46f3-ad13-aa684f3365cb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unstable Obelisk",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     index = index::GOLEM_FOUNDRY,
     oracle_id = "8e96c09f-c064-4dd8-85ee-0f48d86ab670",
     scryfall_id = "18724f37-d50b-4b00-bd47-c5bc6e62697a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golem Foundry",
         mana_cost = mana!("{3}"),

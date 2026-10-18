@@ -12,7 +12,7 @@ card!(
     oracle_id = "7d2fcdac-c8d5-43ca-81bc-130744ed8d3d",
     scryfall_id = "2d718421-c742-489c-a243-3adb19f6716a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cave Sense",
         mana_cost = mana!("{1}{R}"),

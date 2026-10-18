@@ -11,7 +11,7 @@ card!(
     index = index::TERRARION,
     oracle_id = "9e7ade56-ab68-42ab-8a6f-bc38957f1563",
     scryfall_id = "48eda056-e00f-4e28-ad26-9150a4704d21",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terrarion",
         mana_cost = mana!("{1}"),

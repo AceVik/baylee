@@ -14,7 +14,7 @@ card!(
     oracle_id = "b9176173-c4a1-45ae-8f34-bd6b31c141fe",
     scryfall_id = "90eaf94e-85a7-4958-aa58-8e2fe44db58d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cartouche of Solidarity",
         mana_cost = mana!("{W}"),

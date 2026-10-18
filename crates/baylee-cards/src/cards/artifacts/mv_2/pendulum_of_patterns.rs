@@ -10,7 +10,7 @@ card!(
     index = index::PENDULUM_OF_PATTERNS,
     oracle_id = "992075d5-f413-4896-b75e-7bb2d589c50e",
     scryfall_id = "7ad452a4-be42-4d2f-a161-2b327f423b9c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pendulum of Patterns",
         mana_cost = mana!("{2}"),

@@ -10,7 +10,7 @@ card!(
     index = index::SEER_S_LANTERN,
     oracle_id = "4b3dd7e5-e0b5-4773-bb16-37b757ae74d8",
     scryfall_id = "09bcfd12-6b50-4fdf-9bda-6d52bba2f897",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seer's Lantern",
         mana_cost = mana!("{3}"),

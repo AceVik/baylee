@@ -13,7 +13,7 @@ card!(
     oracle_id = "16ef24ea-4d84-43e5-bd4f-b6efadc87616",
     scryfall_id = "ffd079d8-b191-4f54-bb04-427b3736f745",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Edge of the Divinity",
         mana_cost = mana!("{W/B}"),

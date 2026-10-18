@@ -10,7 +10,7 @@ card!(
     oracle_id = "42cffe5d-6e6b-4ac4-b539-36a7b3bc9a65",
     scryfall_id = "22f07614-63f9-4270-9dc6-e47a7f806066",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elemental Augury",
         mana_cost = mana!("{U}{B}{R}"),

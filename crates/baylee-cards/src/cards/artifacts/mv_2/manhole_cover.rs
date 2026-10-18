@@ -12,7 +12,7 @@ card!(
     oracle_id = "38f7ff90-4cdf-4403-ad10-1400e05c32e9",
     scryfall_id = "5eeb4a0e-20d4-461b-954e-ef65c8612f68",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manhole Cover",
         mana_cost = mana!("{2}"),

@@ -9,7 +9,7 @@ card!(
     index = index::PRISTINE_TALISMAN,
     oracle_id = "1b3d7fce-e9fe-4176-9d9a-472415826cdd",
     scryfall_id = "6b6307f3-bc63-463c-8ffc-a8b8b829e5d7",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pristine Talisman",
         mana_cost = mana!("{3}"),

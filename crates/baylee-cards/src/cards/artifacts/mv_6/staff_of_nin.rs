@@ -10,7 +10,7 @@ card!(
     index = index::STAFF_OF_NIN,
     oracle_id = "48d9f488-4ebb-4fdb-a568-6930fc2f5416",
     scryfall_id = "4eca883f-4e6e-4ccc-ad69-a706e24ee151",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Staff of Nin",
         mana_cost = mana!("{6}"),

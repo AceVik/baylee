@@ -11,7 +11,7 @@ card!(
     index = index::MIMIC,
     oracle_id = "ba8156cd-2e78-4763-b61d-8bc85b2f3657",
     scryfall_id = "9da96aab-cf84-4150-b9d0-a4b84fcf585f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mimic",
         mana_cost = mana!("{2}"),

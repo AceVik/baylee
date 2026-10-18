@@ -15,7 +15,7 @@ card!(
     oracle_id = "9ae2bf71-c443-4814-b7c3-b3b82d595983",
     scryfall_id = "69ed2b52-2862-423c-8ce3-6c8232d9d92c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magma Vein",
         mana_cost = mana!("{2}{R}"),

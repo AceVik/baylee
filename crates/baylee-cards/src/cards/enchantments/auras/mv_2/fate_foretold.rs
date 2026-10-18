@@ -13,7 +13,7 @@ card!(
     oracle_id = "d578ef54-6a6b-4839-a059-261728fdaef1",
     scryfall_id = "90d3ef99-6c86-4d70-a9a4-9c3cd4eb9538",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fate Foretold",
         mana_cost = mana!("{1}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "24cd21f5-94fd-4609-9e6a-d052aa81fe57",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Capture Sphere",
         mana_cost = mana!("{3}{U}"),

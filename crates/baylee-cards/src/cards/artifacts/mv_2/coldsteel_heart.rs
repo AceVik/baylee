@@ -11,7 +11,7 @@ card!(
     index = index::COLDSTEEL_HEART,
     oracle_id = "21d700e8-0255-418e-96a0-6fe05b3f836d",
     scryfall_id = "b2548ad2-3c62-4ed1-899c-1002b46cdd8f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coldsteel Heart",
         mana_cost = mana!("{2}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "53e88e64-6f82-4154-a66e-6aeb0154b368",
     scryfall_id = "a1f4e79b-b103-4380-afa0-61a2b1773c9e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rule of Law",
         mana_cost = mana!("{2}{W}"),

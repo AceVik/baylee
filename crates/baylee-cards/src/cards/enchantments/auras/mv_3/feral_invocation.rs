@@ -14,7 +14,7 @@ card!(
     scryfall_id = "190ad379-1a0f-4598-b5b1-453955846597",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Invocation",
         mana_cost = mana!("{2}{G}"),

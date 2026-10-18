@@ -15,7 +15,7 @@ card!(
     scryfall_id = "e945fa91-21c6-4a23-83ac-26f04c917908",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gift of Strands",
         mana_cost = mana!("{3}{G}"),

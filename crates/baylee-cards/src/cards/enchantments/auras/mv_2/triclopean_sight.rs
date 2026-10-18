@@ -15,7 +15,7 @@ card!(
     scryfall_id = "444b5d72-ac5b-43d2-b5dc-0cc4bf63e43d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Triclopean Sight",
         mana_cost = mana!("{1}{W}"),

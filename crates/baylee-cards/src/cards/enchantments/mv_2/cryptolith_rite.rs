@@ -10,7 +10,7 @@ card!(
     oracle_id = "043f869d-b11c-4c0d-9591-2bf0df7bde55",
     scryfall_id = "0a4e707f-b760-434d-ba97-a0fe651f3f6a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cryptolith Rite",
         mana_cost = mana!("{1}{G}"),

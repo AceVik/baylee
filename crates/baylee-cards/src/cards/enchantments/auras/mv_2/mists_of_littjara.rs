@@ -19,7 +19,7 @@ card!(
     scryfall_id = "6cfd4944-790f-4835-a8a1-c23ef7047648",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mists of Littjara",
         mana_cost = mana!("{1}{U}"),

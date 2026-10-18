@@ -11,7 +11,7 @@ card!(
     index = index::ACCORDER_S_SHIELD,
     oracle_id = "dd70d439-bd60-43d1-ac26-13b744cc4a37",
     scryfall_id = "c5a4c2ab-c5bc-4e07-8671-a688ebd5471c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Accorder's Shield",
         mana_cost = mana!("{0}"),

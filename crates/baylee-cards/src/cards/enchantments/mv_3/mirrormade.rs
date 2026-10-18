@@ -15,7 +15,7 @@ card!(
     oracle_id = "79a71fe5-38ce-4bb5-aea0-c9b9a856d397",
     scryfall_id = "a26cbfbe-fbb8-4804-b065-ab2c42ddad9b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirrormade",
         mana_cost = mana!("{1}{U}{U}"),

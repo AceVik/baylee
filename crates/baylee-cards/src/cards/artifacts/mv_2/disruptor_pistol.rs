@@ -9,7 +9,7 @@ card!(
     index = index::DISRUPTOR_PISTOL,
     oracle_id = "bb8c2c0f-fc63-40c6-98c6-691e42b3b8c9",
     scryfall_id = "2b3ba275-0671-4328-a337-9de498ec2d99",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disruptor Pistol",
         mana_cost = mana!("{2}"),

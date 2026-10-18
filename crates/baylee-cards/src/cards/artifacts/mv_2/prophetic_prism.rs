@@ -10,7 +10,7 @@ card!(
     index = index::PROPHETIC_PRISM,
     oracle_id = "134a9877-5cfb-4a2a-a0f0-930dce45f58b",
     scryfall_id = "1fae351c-b918-4648-a361-d5239ae63156",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prophetic Prism",
         mana_cost = mana!("{2}"),

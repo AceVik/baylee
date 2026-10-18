@@ -12,7 +12,7 @@ card!(
     oracle_id = "833fe5f4-cfab-46ce-a4fe-250673896350",
     scryfall_id = "dd3a0128-4499-498d-9721-b1fd70ea84b4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Epiphany Storm",
         mana_cost = mana!("{R}"),

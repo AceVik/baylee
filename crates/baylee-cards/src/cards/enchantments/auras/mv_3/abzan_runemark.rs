@@ -24,7 +24,7 @@ card!(
     oracle_id = "0a9276fc-387c-4bde-a6d6-b0dd7abee94b",
     scryfall_id = "fe356261-3126-41f1-ae71-b69ca5641f84",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abzan Runemark",
         mana_cost = mana!("{2}{W}"),

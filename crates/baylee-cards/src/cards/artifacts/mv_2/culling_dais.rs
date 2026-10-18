@@ -10,7 +10,7 @@ card!(
     index = index::CULLING_DAIS,
     oracle_id = "42b03dd7-e796-47c3-b596-87960d72818b",
     scryfall_id = "54dc8c2a-928d-465e-8f76-82a90cc66854",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Culling Dais",
         mana_cost = mana!("{2}"),

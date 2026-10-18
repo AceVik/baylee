@@ -10,7 +10,7 @@ card!(
     index = index::FOUNTAIN_OF_RENEWAL,
     oracle_id = "df024c55-c008-48ec-a1a5-02ce336e3de6",
     scryfall_id = "26894980-8961-4479-85dd-5f01c899718b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fountain of Renewal",
         mana_cost = mana!("{1}"),

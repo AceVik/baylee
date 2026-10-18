@@ -14,7 +14,7 @@ card!(
     oracle_id = "cd69b2c7-2be7-4915-9d17-4fd400ace6b8",
     scryfall_id = "83a786fa-4b86-40f7-ac58-1a05fb38fcdb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mantle of the Wolf",
         mana_cost = mana!("{3}{G}"),

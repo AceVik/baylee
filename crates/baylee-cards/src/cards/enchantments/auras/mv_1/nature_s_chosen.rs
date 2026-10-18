@@ -22,7 +22,7 @@ card!(
     oracle_id = "7f425406-2746-45a1-86bf-f9645015ffc2",
     scryfall_id = "7bd0b831-9d7e-40ce-8514-e852daee1a9e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Chosen",
         mana_cost = mana!("{G}"),

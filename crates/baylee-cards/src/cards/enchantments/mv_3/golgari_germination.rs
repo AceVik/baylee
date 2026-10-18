@@ -17,7 +17,7 @@ card!(
     oracle_id = "3f9cf871-7df6-49d5-aab3-ad945571b707",
     scryfall_id = "8d03f6eb-a146-45e8-a8e0-a46ec0c20c1d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Germination",
         mana_cost = mana!("{1}{B}{G}"),

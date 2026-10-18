@@ -11,7 +11,7 @@ card!(
     index = index::BONE_SAW,
     oracle_id = "16e555f2-5aa8-4100-a036-eed48db0e84a",
     scryfall_id = "dc3d19ff-b618-4b07-99a8-ea6e7ee72459",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bone Saw",
         mana_cost = mana!("{0}"),

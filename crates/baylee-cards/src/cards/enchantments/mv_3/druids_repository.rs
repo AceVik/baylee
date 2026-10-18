@@ -11,7 +11,7 @@ card!(
     oracle_id = "cbbc530f-e51b-423e-b219-23bb580fd834",
     scryfall_id = "57e6fb62-7ee3-444d-8fd4-c1f44014a05c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Druids' Repository",
         mana_cost = mana!("{1}{G}{G}"),

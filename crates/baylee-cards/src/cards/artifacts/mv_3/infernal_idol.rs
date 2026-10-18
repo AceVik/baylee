@@ -11,7 +11,7 @@ card!(
     oracle_id = "a0802918-e18a-4716-befb-96ae6667f2f3",
     scryfall_id = "21a72531-329c-43fd-adc1-a671b3b1edc4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infernal Idol",
         mana_cost = mana!("{3}"),

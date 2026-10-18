@@ -12,7 +12,7 @@ card!(
     oracle_id = "dcb6d317-5c55-4973-8e3d-2e98211dc30e",
     scryfall_id = "da824204-a7ed-46f1-b890-f21fcc39ce7e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gift of Orzhova",
         mana_cost = mana!("{1}{W/B}{W/B}"),

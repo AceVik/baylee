@@ -14,7 +14,7 @@ card!(
     scryfall_id = "ecf01cbe-9fcb-4f35-bc6b-2280620b06ff",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twinblade Blessing",
         mana_cost = mana!("{1}{W}{W}"),

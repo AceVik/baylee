@@ -13,7 +13,7 @@ card!(
     oracle_id = "e0930791-72b0-4d8b-b242-7b4094fed14e",
     scryfall_id = "358c18b7-5321-4793-b54a-e48e39548b9c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Failed Conversion",
         mana_cost = mana!("{4}{B}"),

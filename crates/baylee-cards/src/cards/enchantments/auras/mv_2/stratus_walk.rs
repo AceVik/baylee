@@ -16,7 +16,7 @@ card!(
     oracle_id = "eda37caa-d676-460a-804b-3ba9d8a8d044",
     scryfall_id = "947bb8f3-51f5-4fbe-9098-7e48f9fe1452",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stratus Walk",
         mana_cost = mana!("{1}{U}"),

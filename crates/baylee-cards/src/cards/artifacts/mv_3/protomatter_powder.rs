@@ -10,7 +10,7 @@ card!(
     oracle_id = "22d57bc8-e473-47c5-8e48-c0fb98e66948",
     scryfall_id = "273e2198-5549-4e82-8580-8769284d729d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Protomatter Powder",
         mana_cost = mana!("{2}{U}"),

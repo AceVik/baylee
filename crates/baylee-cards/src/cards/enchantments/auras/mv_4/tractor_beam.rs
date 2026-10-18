@@ -19,7 +19,7 @@ card!(
     oracle_id = "ed99a0b8-d82d-4c80-af97-cabd333620df",
     scryfall_id = "efc96d54-d6e1-49b6-b4c2-70b997776548",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tractor Beam",
         mana_cost = mana!("{2}{U}{U}"),
@@ -40,9 +40,6 @@ card!(
             }]
         ),
         static_ability!(Filter::AttachedToBySource, Modifier::GainControl),
-        static_ability!(
-            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
-            Modifier::DoesNotUntap
-        ),
+        static_ability!(Filter::AttachedToBySource, Modifier::DoesNotUntap),
     ],
 );

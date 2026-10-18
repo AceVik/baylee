@@ -10,7 +10,7 @@ card!(
     oracle_id = "60bf80f9-78b1-4869-afd9-e769b1b0f5ea",
     scryfall_id = "888bc7ca-f9fa-4da4-b466-b9dc273d5319",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scepter of Dominance",
         mana_cost = mana!("{1}{W}{W}"),

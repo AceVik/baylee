@@ -10,7 +10,7 @@ card!(
     oracle_id = "cebc9fcc-25ec-4366-a914-b95afbd134b0",
     scryfall_id = "ef327629-9831-4a0c-bd61-7542b0713ea8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hatching Plans",
         mana_cost = mana!("{1}{U}"),

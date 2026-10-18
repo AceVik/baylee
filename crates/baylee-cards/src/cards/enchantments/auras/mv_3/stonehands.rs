@@ -13,7 +13,7 @@ card!(
     oracle_id = "8beccaff-d30f-4164-a264-cb7119cee4f1",
     scryfall_id = "888746d8-6322-4554-8acb-ce88eba55c51",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonehands",
         mana_cost = mana!("{2}{R}"),

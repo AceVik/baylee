@@ -19,7 +19,7 @@ card!(
     oracle_id = "31324235-8a2b-4ce4-b0d4-6d947489b930",
     scryfall_id = "b870c742-e799-4276-bb3d-f2c288ce0db8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowess of the Fair",
         mana_cost = mana!("{1}{B}"),

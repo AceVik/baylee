@@ -9,7 +9,7 @@ card!(
     index = index::TEMPLE_BELL,
     oracle_id = "fc8032e9-c83a-4cf9-92e1-b1d2d9642695",
     scryfall_id = "6bb63a40-2cce-439f-bd97-d25340ead6ca",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temple Bell",
         mana_cost = mana!("{3}"),

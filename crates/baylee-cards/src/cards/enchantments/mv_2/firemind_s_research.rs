@@ -17,7 +17,7 @@ card!(
     oracle_id = "edac6c23-cff5-4ee2-9227-756b1dc6ab0c",
     scryfall_id = "4bc926b2-1e54-4c62-8b6c-fce4ef013abc",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firemind's Research",
         mana_cost = mana!("{U}{R}"),

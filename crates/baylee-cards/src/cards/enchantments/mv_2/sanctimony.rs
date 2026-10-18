@@ -13,7 +13,7 @@ card!(
     oracle_id = "2fc7740a-dfa4-4279-8822-3f7c93e6b685",
     scryfall_id = "74733902-f177-4551-bc39-72f58860c890",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanctimony",
         mana_cost = mana!("{1}{W}"),

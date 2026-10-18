@@ -10,7 +10,7 @@ card!(
     index = index::CODEX_SHREDDER,
     oracle_id = "ef7b11ab-24e7-4e7c-91a7-920bade6e60b",
     scryfall_id = "4f5a3293-f3e7-4f68-af6a-b478959226c1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Codex Shredder",
         mana_cost = mana!("{1}"),

@@ -20,7 +20,7 @@ card!(
         Color::Blue,
         Color::White
     ]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Courier's Briefcase",
         mana_cost = mana!("{1}{G}"),

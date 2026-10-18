@@ -12,7 +12,7 @@ card!(
     oracle_id = "20d30d4d-cf38-41fe-a2ce-8327f7c87c01",
     scryfall_id = "24bb97c6-d2ff-459f-986e-73e30534d865",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boon of Emrakul",
         mana_cost = mana!("{2}{B}"),

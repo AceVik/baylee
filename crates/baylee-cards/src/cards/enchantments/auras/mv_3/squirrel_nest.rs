@@ -13,7 +13,7 @@ card!(
     oracle_id = "2d584333-b25e-4291-a2c9-80c6d9f8732a",
     scryfall_id = "6f2aa025-e041-4ed5-a046-9debc474fda0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squirrel Nest",
         mana_cost = mana!("{1}{G}{G}"),

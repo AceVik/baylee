@@ -26,7 +26,7 @@ card!(
     scryfall_id = "bcad5bd9-3236-48d4-920f-c3ed12d5f329",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Encase in Ice",
         mana_cost = mana!("{1}{U}"),

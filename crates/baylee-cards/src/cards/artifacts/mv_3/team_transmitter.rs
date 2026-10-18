@@ -16,7 +16,7 @@ card!(
     index = index::TEAM_TRANSMITTER,
     oracle_id = "23714aed-0b26-4e21-b290-36c21815471c",
     scryfall_id = "7a08a1b6-2319-4a1d-be13-411989dd2ac2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Team Transmitter",
         mana_cost = mana!("{3}"),

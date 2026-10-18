@@ -12,7 +12,7 @@ card!(
     oracle_id = "cd1e6225-31b7-4a70-81ab-681abe860328",
     scryfall_id = "8321857e-7977-46dd-8357-d732312e5261",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tinker's Tote",
         mana_cost = mana!("{2}{W}"),

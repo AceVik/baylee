@@ -12,7 +12,7 @@ card!(
     oracle_id = "0a576352-ed10-4a54-b886-d664432277c2",
     scryfall_id = "05c98408-7fe5-4aaf-ba47-38536b2982bf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "River's Favor",
         mana_cost = mana!("{U}"),

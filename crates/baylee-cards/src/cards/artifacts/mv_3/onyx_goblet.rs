@@ -10,7 +10,7 @@ card!(
     oracle_id = "3e070d7a-6a1e-4cce-b196-73f4052c049c",
     scryfall_id = "3686eb57-e9c8-480f-8ab4-2894e1b5fe20",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Onyx Goblet",
         mana_cost = mana!("{2}{B}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "83419229-c266-4022-8297-d1b05ec5ee20",
     scryfall_id = "37a71160-aa29-4662-8d7b-590771b42635",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wurmweaver Coil",
         mana_cost = mana!("{4}{G}{G}"),

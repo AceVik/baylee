@@ -12,7 +12,7 @@ card!(
     oracle_id = "89560e1c-b7fb-46b7-955e-647e3ae9091b",
     scryfall_id = "5fc332da-e93f-45b1-912c-06af41b412e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thunder Totem",
         mana_cost = mana!("{3}"),

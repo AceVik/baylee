@@ -12,7 +12,7 @@ card!(
     index = index::THROR_S_MAP,
     oracle_id = "925cacdc-6d09-4fbd-9258-9f0539da180c",
     scryfall_id = "ad0dba36-d056-4bc1-987a-391da26ad267",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thrór's Map",
         mana_cost = mana!("{2}"),

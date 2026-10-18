@@ -12,7 +12,7 @@ card!(
     oracle_id = "1521f26b-9972-4e95-9e14-3ccbb078a1c8",
     scryfall_id = "eca4d77a-0bb2-464c-a85f-a22b3d15d7cd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serra's Boon",
         mana_cost = mana!("{2}{W}"),

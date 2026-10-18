@@ -23,7 +23,7 @@ card!(
     oracle_id = "2e29efee-1eed-4bef-8574-0f6ff99d3cda",
     scryfall_id = "e4c7919a-de62-46df-a937-593647473ef5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twisted Embrace",
         mana_cost = mana!("{2}{B}{B}"),

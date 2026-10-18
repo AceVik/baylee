@@ -15,7 +15,7 @@ card!(
     oracle_id = "3dd81e3e-e57a-4b6f-9043-bba0cebb3e90",
     scryfall_id = "1f9d8d87-e32f-4ad9-8d72-d1b88cd14510",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Veil of Assimilation",
         mana_cost = mana!("{1}{W}"),

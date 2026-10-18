@@ -12,7 +12,7 @@ card!(
     oracle_id = "550abd9b-9aae-4812-9bc0-7f131d6dcde8",
     scryfall_id = "caccbba0-80b1-461c-b548-33d7f3a48342",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Untamed Hunger",
         mana_cost = mana!("{2}{B}"),

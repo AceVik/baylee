@@ -15,7 +15,7 @@ card!(
     scryfall_id = "94778e17-87c4-4765-b2f0-40455069f2c4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Military Discipline",
         mana_cost = mana!("{W}"),

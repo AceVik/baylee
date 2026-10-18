@@ -15,7 +15,7 @@ card!(
     index = index::SERUM_TANK,
     oracle_id = "62a3f892-11cf-4064-8186-381ae0f9aa23",
     scryfall_id = "0a2ad5c8-0dca-4082-97b9-3d788f553cdf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serum Tank",
         mana_cost = mana!("{3}"),

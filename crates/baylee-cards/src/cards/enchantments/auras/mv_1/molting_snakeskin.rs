@@ -12,7 +12,7 @@ card!(
     oracle_id = "1a668556-da98-4f1e-b1f7-26b7d63357a1",
     scryfall_id = "b781cbcf-dbba-41c1-be02-2396b824a217",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molting Snakeskin",
         mana_cost = mana!("{B}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "de0ba1cf-d913-4285-9d8b-38acf78cc45e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blessing of Leeches",
         mana_cost = mana!("{2}{B}"),

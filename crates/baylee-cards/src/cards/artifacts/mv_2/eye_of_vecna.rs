@@ -10,7 +10,7 @@ card!(
     index = index::EYE_OF_VECNA,
     oracle_id = "371a7bbf-5890-46d8-ae57-f020c103b465",
     scryfall_id = "b91e2431-500e-441a-881d-094ebef62283",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eye of Vecna",
         mana_cost = mana!("{2}"),

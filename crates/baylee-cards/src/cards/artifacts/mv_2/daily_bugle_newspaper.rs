@@ -10,7 +10,7 @@ card!(
     index = index::DAILY_BUGLE_NEWSPAPER,
     oracle_id = "d2a3f735-9523-4ddd-96a9-b0a5ecd39284",
     scryfall_id = "46155477-758e-47a0-9fb9-dec7869978d9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daily Bugle Newspaper",
         mana_cost = mana!("{2}"),

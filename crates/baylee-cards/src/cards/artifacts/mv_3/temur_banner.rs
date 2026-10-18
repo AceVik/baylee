@@ -11,7 +11,7 @@ card!(
     oracle_id = "8a35f23d-f59a-4677-9736-035c60c22a2b",
     scryfall_id = "9990bdff-c27a-447f-b530-d8b7614fe9a0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temur Banner",
         mana_cost = mana!("{3}"),

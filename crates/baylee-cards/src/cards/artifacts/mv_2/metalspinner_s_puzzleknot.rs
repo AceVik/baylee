@@ -11,7 +11,7 @@ card!(
     oracle_id = "c19d2f54-2c3a-4cbe-8328-061d4b51f574",
     scryfall_id = "6a3e1c7a-5672-4f76-9e04-a18cf0089fa7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metalspinner's Puzzleknot",
         mana_cost = mana!("{2}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "b9bd1833-d4f9-46c0-bb94-331c456193fc",
     scryfall_id = "fa167147-68ca-49af-98d3-538474ea1158",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eternity Snare",
         mana_cost = mana!("{5}{U}"),

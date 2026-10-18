@@ -12,7 +12,7 @@ card!(
     oracle_id = "4a9dc9ef-a603-467a-aeed-32cc111394b0",
     scryfall_id = "ba77b1ff-e73d-4181-9564-d71df348b2fe",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Madcap Skills",
         mana_cost = mana!("{1}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "94fa21f1-826a-4d51-9ccd-d72e5cf13f3d",
     scryfall_id = "b51438f5-c4d4-434a-b7ea-dee0b60303e4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gremlin Infestation",
         mana_cost = mana!("{3}{R}"),

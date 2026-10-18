@@ -9,7 +9,7 @@ card!(
     index = index::MEDICINE_BAG,
     oracle_id = "5801f773-e214-413d-968d-b84bf99f0642",
     scryfall_id = "399c06d5-af2a-47a1-9239-ff14224a026b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Medicine Bag",
         mana_cost = mana!("{3}"),

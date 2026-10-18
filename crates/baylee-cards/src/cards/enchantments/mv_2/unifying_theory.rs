@@ -10,7 +10,7 @@ card!(
     oracle_id = "77c923ac-98f1-437c-a711-8c265756e53b",
     scryfall_id = "8aa4bf82-65e7-4b0c-9f96-dd84a67dcfb2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unifying Theory",
         mana_cost = mana!("{1}{U}"),

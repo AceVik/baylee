@@ -10,7 +10,7 @@ card!(
     index = index::XANTHIC_STATUE,
     oracle_id = "a8de92c4-84cb-40e7-8e34-428380726ed4",
     scryfall_id = "8becb285-cd91-4de0-af59-ddaa7d8c5366",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Xanthic Statue",
         mana_cost = mana!("{8}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d7b5231b-aed9-4b88-aba5-43e57a705dc5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gift of Granite",
         mana_cost = mana!("{W}"),

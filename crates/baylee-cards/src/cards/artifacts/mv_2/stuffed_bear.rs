@@ -10,7 +10,7 @@ card!(
     index = index::STUFFED_BEAR,
     oracle_id = "1402c116-194e-49ca-a8c1-09ca659c220c",
     scryfall_id = "4cd40276-016b-475f-906f-74d31dceaf70",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stuffed Bear",
         mana_cost = mana!("{2}"),

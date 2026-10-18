@@ -12,7 +12,7 @@ card!(
     oracle_id = "d2f0a918-4435-4d43-811d-2da659086ef5",
     scryfall_id = "26913c27-5794-42c7-a2a2-af565ce84fd1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aura of Dominion",
         mana_cost = mana!("{U}{U}"),

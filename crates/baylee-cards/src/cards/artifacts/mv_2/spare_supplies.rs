@@ -11,7 +11,7 @@ card!(
     index = index::SPARE_SUPPLIES,
     oracle_id = "088fb5dc-65eb-42bf-8a32-76fa6b79b79f",
     scryfall_id = "a53baf25-1782-427b-a9dd-fc9b8dc6444f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spare Supplies",
         mana_cost = mana!("{2}"),

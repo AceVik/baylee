@@ -15,7 +15,7 @@ card!(
     index = index::STATIC_ORB,
     oracle_id = "0004ebd0-dfd6-4276-b4a6-de0003e94237",
     scryfall_id = "86bf43b1-8d4e-4759-bb2d-0b2e03ba7012",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Static Orb",
         mana_cost = mana!("{3}"),

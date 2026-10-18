@@ -12,7 +12,7 @@ card!(
     oracle_id = "a06c7c1a-8534-40fb-8bb8-59f8f2530567",
     scryfall_id = "5266595d-5320-4dea-8e4a-dd6c1a032871",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle Mastery",
         mana_cost = mana!("{2}{W}"),

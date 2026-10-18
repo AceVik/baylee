@@ -20,7 +20,7 @@ card!(
     oracle_id = "39229fbc-1296-4ac7-9f79-65c6f0d09991",
     scryfall_id = "a7a39186-8a8d-4297-ac9e-fdb8232a85df",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caribou Range",
         mana_cost = mana!("{2}{W}{W}"),

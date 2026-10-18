@@ -16,7 +16,7 @@ card!(
     oracle_id = "413e880a-bdc8-41bc-923a-566b08e68d0b",
     scryfall_id = "3323c86c-73bd-4e23-9f80-54bf5c1dd0bc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crackling Perimeter",
         mana_cost = mana!("{1}{R}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "0b0c98ba-3505-40aa-b0f2-e03c9790f51e",
     scryfall_id = "daa83dc2-4ec0-4e4f-8bfd-4f6d6df06a2d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glaring Aegis",
         mana_cost = mana!("{W}"),

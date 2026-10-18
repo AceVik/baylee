@@ -9,3 +9,4 @@ mod mv_3;
 mod mv_4;
 mod mv_5;
 mod mv_7;
+mod pkg3_auras;

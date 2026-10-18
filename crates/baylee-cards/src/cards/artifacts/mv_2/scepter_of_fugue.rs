@@ -10,7 +10,7 @@ card!(
     oracle_id = "f0b1dcdc-4fbb-4bcb-a4b0-1aa5928347f9",
     scryfall_id = "21f7e17c-45df-45e9-8dcf-7fc90fa4d65d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scepter of Fugue",
         mana_cost = mana!("{B}{B}"),

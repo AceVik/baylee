@@ -14,7 +14,7 @@ card!(
     scryfall_id = "0cd5486b-c6f4-4cfc-9590-8ffc78b48b0a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oblivion Crown",
         mana_cost = mana!("{1}{B}"),

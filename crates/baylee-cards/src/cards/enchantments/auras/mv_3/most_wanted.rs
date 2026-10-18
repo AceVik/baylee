@@ -16,7 +16,7 @@ card!(
     scryfall_id = "573c0f68-9ed8-4657-b709-b7f3804aaa68",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Most Wanted",
         mana_cost = mana!("{2}{G}"),

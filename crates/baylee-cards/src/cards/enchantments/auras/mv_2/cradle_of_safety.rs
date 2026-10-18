@@ -15,7 +15,7 @@ card!(
     scryfall_id = "42cbad81-152a-435f-9289-f4b6483a059b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cradle of Safety",
         mana_cost = mana!("{1}{U}"),

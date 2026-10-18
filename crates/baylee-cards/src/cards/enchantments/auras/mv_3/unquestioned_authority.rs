@@ -13,7 +13,7 @@ card!(
     oracle_id = "3d50266f-5a2f-4a48-ab15-87e733624fd4",
     scryfall_id = "829710f9-6554-4391-bdb1-2ccdefc2caf5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unquestioned Authority",
         mana_cost = mana!("{2}{W}"),

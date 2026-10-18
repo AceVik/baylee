@@ -12,7 +12,7 @@ card!(
     oracle_id = "ed11efb6-1423-4ce0-be1d-9e0320124758",
     scryfall_id = "82e836c8-4371-402f-8f90-81325a9879b8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sea's Claim",
         mana_cost = mana!("{U}"),

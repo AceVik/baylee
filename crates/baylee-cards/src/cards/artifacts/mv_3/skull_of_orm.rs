@@ -9,7 +9,7 @@ card!(
     index = index::SKULL_OF_ORM,
     oracle_id = "67601399-089b-44fe-82db-c319729c75bf",
     scryfall_id = "ccc3a7b4-ff44-4909-ab8d-35ba5d187815",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skull of Orm",
         mana_cost = mana!("{3}"),

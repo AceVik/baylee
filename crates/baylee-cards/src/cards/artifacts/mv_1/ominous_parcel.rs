@@ -12,7 +12,7 @@ card!(
     index = index::OMINOUS_PARCEL,
     oracle_id = "be3c138b-045b-4b08-a12f-a5679d972051",
     scryfall_id = "e1691374-e9f2-4a8b-abdb-0bb1dbc96715",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ominous Parcel",
         mana_cost = mana!("{1}"),

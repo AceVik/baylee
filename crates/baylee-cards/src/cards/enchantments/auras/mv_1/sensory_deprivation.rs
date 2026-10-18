@@ -12,7 +12,7 @@ card!(
     oracle_id = "0006faf6-7a61-426c-9034-579f2cfcfa83",
     scryfall_id = "7050735c-b232-47a6-a342-01795bfd0d46",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sensory Deprivation",
         mana_cost = mana!("{U}"),

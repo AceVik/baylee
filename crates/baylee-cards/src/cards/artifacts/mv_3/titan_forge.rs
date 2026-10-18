@@ -11,7 +11,7 @@ card!(
     index = index::TITAN_FORGE,
     oracle_id = "3b02dfca-bcaa-4e22-b143-401ed250d016",
     scryfall_id = "91a3c3ba-6dbb-454c-86ad-064875382499",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Titan Forge",
         mana_cost = mana!("{3}"),

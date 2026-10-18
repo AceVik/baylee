@@ -18,7 +18,7 @@ card!(
     oracle_id = "ac6cf9a7-732d-4ff0-9e88-aae97a2ff169",
     scryfall_id = "e1a4e33f-53f0-4919-98a1-c832dcd32efb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Siege Modification",
         mana_cost = mana!("{1}{R}{R}"),

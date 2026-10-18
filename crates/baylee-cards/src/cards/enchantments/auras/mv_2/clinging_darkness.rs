@@ -12,7 +12,7 @@ card!(
     oracle_id = "5ad3abf3-1ae5-4c4c-9950-ba7bff0d75ad",
     scryfall_id = "2a939a4e-5a9e-454f-8716-cee7470f05e2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clinging Darkness",
         mana_cost = mana!("{1}{B}"),

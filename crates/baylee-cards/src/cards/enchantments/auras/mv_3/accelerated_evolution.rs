@@ -15,7 +15,7 @@ card!(
     scryfall_id = "2b13c4de-241c-4c34-a140-0b599c61226d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Accelerated Evolution",
         mana_cost = mana!("{2}{G}"),

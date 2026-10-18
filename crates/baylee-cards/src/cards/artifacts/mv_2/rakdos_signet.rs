@@ -10,7 +10,7 @@ card!(
     oracle_id = "3adb7681-977f-4a32-9ec8-51481b958268",
     scryfall_id = "a263e71d-953f-4648-b326-33133cfa7e00",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Signet",
         mana_cost = mana!("{2}"),

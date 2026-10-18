@@ -11,7 +11,7 @@ card!(
     oracle_id = "8e90300b-c0da-4484-b065-e2fafa4e1b15",
     scryfall_id = "3ec85cca-ac2c-4b1b-850b-6a762df72bd0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call the Bloodline",
         mana_cost = mana!("{1}{B}"),

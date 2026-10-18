@@ -12,7 +12,7 @@ card!(
     oracle_id = "8ea941aa-ee0c-4830-912a-0c672546aa0c",
     scryfall_id = "0fe92f08-5748-4b5c-b74b-d6ef73fbd3fa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul Kiss",
         mana_cost = mana!("{2}{B}"),

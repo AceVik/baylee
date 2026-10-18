@@ -13,7 +13,7 @@ card!(
     oracle_id = "d053ea00-e727-4030-8c64-0d32ae57f169",
     scryfall_id = "45cba87d-3c8c-4f38-bdd8-51072ba6365b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foriysian Totem",
         mana_cost = mana!("{3}"),

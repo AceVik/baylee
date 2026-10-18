@@ -12,7 +12,7 @@ card!(
     oracle_id = "1a128c02-febf-4ce6-b4d1-28274b5c4ff0",
     scryfall_id = "e315c1c2-436e-48ff-9214-938697178393",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancient Runes",
         mana_cost = mana!("{2}{R}"),

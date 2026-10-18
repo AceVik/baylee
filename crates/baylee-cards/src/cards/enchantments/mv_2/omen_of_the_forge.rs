@@ -13,7 +13,7 @@ card!(
     scryfall_id = "70388773-709b-4cd8-a8b7-56093fd77a1d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Omen of the Forge",
         mana_cost = mana!("{1}{R}"),

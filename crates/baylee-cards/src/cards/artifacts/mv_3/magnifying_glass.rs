@@ -11,7 +11,7 @@ card!(
     index = index::MAGNIFYING_GLASS,
     oracle_id = "f2ce9e55-07c0-4f36-a59e-127693fc0f62",
     scryfall_id = "c606a71f-8fb0-486b-955f-727ebf436946",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magnifying Glass",
         mana_cost = mana!("{3}"),

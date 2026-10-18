@@ -13,7 +13,7 @@ card!(
     oracle_id = "b6bde4eb-15f0-4e6e-9d25-459a2f75ccf2",
     scryfall_id = "915dd4c2-0e9f-440c-8e4c-80db351a5eba",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sheltering Boughs",
         mana_cost = mana!("{2}{G}"),

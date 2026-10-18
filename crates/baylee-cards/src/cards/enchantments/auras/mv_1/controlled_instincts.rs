@@ -23,7 +23,7 @@ card!(
     oracle_id = "7d56d2e2-e83b-4505-af8e-1fd207e161af",
     scryfall_id = "b04e58e8-cb01-49b0-89b7-26536eb44e97",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Controlled Instincts",
         mana_cost = mana!("{U}"),

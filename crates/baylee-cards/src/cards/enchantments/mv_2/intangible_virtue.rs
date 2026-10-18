@@ -10,7 +10,7 @@ card!(
     oracle_id = "d21c3c8f-d105-4ba9-bf69-e5f26f0f8ec5",
     scryfall_id = "716d82a1-fb5d-4607-b1fa-e8e9edd4dd77",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Intangible Virtue",
         mana_cost = mana!("{1}{W}"),

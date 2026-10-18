@@ -12,7 +12,7 @@ card!(
     oracle_id = "3b172be8-1bac-441e-98cc-f5af8da6005b",
     scryfall_id = "1135f3b7-8c6b-47ff-b895-b7127836b0bf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trigon of Rage",
         mana_cost = mana!("{2}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "9805b7b3-086a-4c91-810f-52c8f8f95f6a",
     scryfall_id = "fe10c56d-a8e1-495d-a03a-0b920b44182f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mardu Banner",
         mana_cost = mana!("{3}"),

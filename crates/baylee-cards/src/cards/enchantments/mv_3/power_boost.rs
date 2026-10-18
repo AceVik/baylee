@@ -10,7 +10,7 @@ card!(
     oracle_id = "fed58ccc-db56-4094-8b56-bd29b00e9327",
     scryfall_id = "b562c7d0-60f6-4db3-a427-f553aefdd86d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Power Boost",
         mana_cost = mana!("{2}{R}"),

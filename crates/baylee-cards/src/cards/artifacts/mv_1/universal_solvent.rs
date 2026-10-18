@@ -9,7 +9,7 @@ card!(
     index = index::UNIVERSAL_SOLVENT,
     oracle_id = "f34ba913-cf9a-48fe-b5fe-68bf504693b2",
     scryfall_id = "e142122f-3a04-436e-a958-dc2224b4fc6d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Universal Solvent",
         mana_cost = mana!("{1}"),

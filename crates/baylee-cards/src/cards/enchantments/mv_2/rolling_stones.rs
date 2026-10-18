@@ -11,7 +11,7 @@ card!(
     oracle_id = "7ce533d0-8b6e-46d8-b21e-a2932bdffb67",
     scryfall_id = "0dcb50bf-7e77-4b8e-a030-e575d0418a00",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rolling Stones",
         mana_cost = mana!("{1}{W}"),

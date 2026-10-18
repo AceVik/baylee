@@ -10,7 +10,7 @@ card!(
     index = index::HIEROPHANT_S_CHALICE,
     oracle_id = "52732f93-b951-43c3-bb02-c254996606e5",
     scryfall_id = "6e8be52c-25ce-49da-8435-58797550f058",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hierophant's Chalice",
         mana_cost = mana!("{3}"),

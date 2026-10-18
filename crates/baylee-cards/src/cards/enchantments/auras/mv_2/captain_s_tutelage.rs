@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0c340eba-645d-416a-9ed4-f2303aa8c919",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captain's Tutelage",
         mana_cost = mana!("{1}{R}"),

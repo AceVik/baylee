@@ -13,7 +13,7 @@ card!(
     oracle_id = "4eb8d877-ee46-4bbe-99da-fee9e238ca58",
     scryfall_id = "40b0813a-38cf-4a07-81d6-91d24af8b549",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Audacity",
         mana_cost = mana!("{G}"),

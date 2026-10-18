@@ -10,7 +10,7 @@ card!(
     oracle_id = "4aeaf1cd-7346-4492-847d-1c4dad14fafd",
     scryfall_id = "25de3481-9b0d-4747-a97b-171b6aa41073",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Font of Fortunes",
         mana_cost = mana!("{1}{U}"),

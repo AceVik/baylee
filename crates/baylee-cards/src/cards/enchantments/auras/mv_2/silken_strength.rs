@@ -20,7 +20,7 @@ card!(
     scryfall_id = "ce0e1ded-9b00-4d7b-884c-70a429783b1f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silken Strength",
         mana_cost = mana!("{1}{G}"),

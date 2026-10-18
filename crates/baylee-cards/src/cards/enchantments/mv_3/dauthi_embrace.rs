@@ -10,7 +10,7 @@ card!(
     oracle_id = "b19a7ae7-3af5-4aa6-80e1-8888054427de",
     scryfall_id = "7e84bb94-d654-4d69-89d9-0a398a940125",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Embrace",
         mana_cost = mana!("{2}{B}"),

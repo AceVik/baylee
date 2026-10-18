@@ -12,7 +12,7 @@ card!(
     oracle_id = "e01ab6d8-8419-436e-a8fb-10aa46ca3d05",
     scryfall_id = "f110698e-a343-4eff-ba23-ed7ac5a3f87b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akki War Paint",
         mana_cost = mana!("{R}"),

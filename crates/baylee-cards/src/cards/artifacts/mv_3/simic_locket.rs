@@ -11,7 +11,7 @@ card!(
     oracle_id = "c567fed8-df00-4579-901e-8754079105bf",
     scryfall_id = "29c65978-e5b0-428e-aace-f99768ca6106",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simic Locket",
         mana_cost = mana!("{3}"),

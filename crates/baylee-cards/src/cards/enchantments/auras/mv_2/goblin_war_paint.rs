@@ -12,7 +12,7 @@ card!(
     oracle_id = "67ca79d7-9064-4605-8625-b1cfe5cb1b45",
     scryfall_id = "b6ff3183-c273-4a61-ad25-526db29111c8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin War Paint",
         mana_cost = mana!("{1}{R}"),

@@ -9,7 +9,7 @@ card!(
     index = index::MOGG_CANNON,
     oracle_id = "710a51e1-a305-49b5-a429-0ff1a10244fa",
     scryfall_id = "5ee64a77-5308-45c7-b865-400820968c74",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mogg Cannon",
         mana_cost = mana!("{2}"),

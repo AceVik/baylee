@@ -12,7 +12,7 @@ card!(
     oracle_id = "13aeccd5-cca2-4249-904d-d5516f977440",
     scryfall_id = "e150896e-8745-42ac-894b-8f42a92bd7a7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deviant Glee",
         mana_cost = mana!("{B}"),

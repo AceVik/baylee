@@ -10,7 +10,7 @@ card!(
     index = index::BIRTHING_BOUGHS,
     oracle_id = "c6836d78-ca71-4413-aced-d4de19976221",
     scryfall_id = "1345ee24-ffa3-44d1-a983-f25f54cda3f3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Birthing Boughs",
         mana_cost = mana!("{3}"),

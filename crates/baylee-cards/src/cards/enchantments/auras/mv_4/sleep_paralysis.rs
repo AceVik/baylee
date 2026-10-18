@@ -13,7 +13,7 @@ card!(
     oracle_id = "5a8bd4a4-8b10-4eef-8341-28be2afa2c00",
     scryfall_id = "2babef35-27ab-45aa-88cd-f21dccae5125",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sleep Paralysis",
         mana_cost = mana!("{3}{U}"),

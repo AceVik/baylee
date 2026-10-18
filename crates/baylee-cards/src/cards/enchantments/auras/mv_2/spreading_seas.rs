@@ -13,7 +13,7 @@ card!(
     oracle_id = "af32757c-9d3c-4f6c-a6fa-d5729a440382",
     scryfall_id = "37454c1c-4098-4ac2-884e-3f65f1384bdb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spreading Seas",
         mana_cost = mana!("{1}{U}"),

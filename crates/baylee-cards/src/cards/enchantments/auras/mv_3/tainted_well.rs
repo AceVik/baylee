@@ -13,7 +13,7 @@ card!(
     oracle_id = "b35b3ea6-ae9c-4128-a47f-069d88ee49c2",
     scryfall_id = "2eec00a1-7e12-42d2-8f46-de8ab7323c2c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tainted Well",
         mana_cost = mana!("{2}{B}"),

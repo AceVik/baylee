@@ -15,7 +15,7 @@ card!(
     scryfall_id = "8c5722d9-d1a4-4ad2-bf85-db666d4a30d9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpent Skin",
         mana_cost = mana!("{2}{G}"),

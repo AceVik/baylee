@@ -12,7 +12,7 @@ card!(
     oracle_id = "f3f2db4b-4a07-453c-ae18-aeec0adc8d3d",
     scryfall_id = "5d797e91-3fc7-4f62-8cd8-dbd5f445e69c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Covenant",
         mana_cost = mana!("{1}{B}"),

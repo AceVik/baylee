@@ -13,7 +13,7 @@ card!(
     oracle_id = "ddb44519-1345-4990-a8a5-30e91d274a35",
     scryfall_id = "89920480-9b39-47dd-988a-c040067da7fb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattoo Ward",
         mana_cost = mana!("{2}{W}"),

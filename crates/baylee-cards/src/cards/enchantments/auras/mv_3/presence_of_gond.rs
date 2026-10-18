@@ -13,7 +13,7 @@ card!(
     oracle_id = "ab42398c-f0a1-4b94-ac5f-b8768e1b4e05",
     scryfall_id = "bba661af-c4a8-4230-830e-a9ee22b25d6b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Presence of Gond",
         mana_cost = mana!("{2}{G}"),

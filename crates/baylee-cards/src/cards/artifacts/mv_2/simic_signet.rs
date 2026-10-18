@@ -10,7 +10,7 @@ card!(
     oracle_id = "44503105-3e13-408d-a44f-37d503c61d72",
     scryfall_id = "bf222c78-f12e-4857-93da-fade99c740b8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Simic Signet",
         mana_cost = mana!("{2}"),

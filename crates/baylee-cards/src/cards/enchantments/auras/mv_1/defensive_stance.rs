@@ -12,7 +12,7 @@ card!(
     oracle_id = "19959b6d-eb8f-4273-94c8-65210e1998ab",
     scryfall_id = "d0670653-d4fe-4fac-b769-d19ca4698c97",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defensive Stance",
         mana_cost = mana!("{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "c7f33cea-2ec8-4081-9208-a5b1d86721b3",
     scryfall_id = "6fe6ccad-e303-48f9-9dfa-0db7c1878031",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bastion of Remembrance",
         mana_cost = mana!("{2}{B}"),

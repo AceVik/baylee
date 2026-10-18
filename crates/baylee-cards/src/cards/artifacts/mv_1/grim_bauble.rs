@@ -11,7 +11,7 @@ card!(
     oracle_id = "431d6a2b-e22c-4921-a5f1-dd672f764f78",
     scryfall_id = "9bfdf60a-6f67-4872-8961-d63776b192c3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grim Bauble",
         mana_cost = mana!("{B}"),

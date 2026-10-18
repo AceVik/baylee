@@ -12,7 +12,7 @@ card!(
     oracle_id = "b960d17b-3679-4dc5-9a5d-c8e7fd81fa9a",
     scryfall_id = "e2f31943-e26c-4bd2-bdbd-d980836f99b9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weight of the Underworld",
         mana_cost = mana!("{3}{B}"),

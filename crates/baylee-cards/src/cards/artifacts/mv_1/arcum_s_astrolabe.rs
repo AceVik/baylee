@@ -11,7 +11,7 @@ card!(
     index = index::ARCUM_S_ASTROLABE,
     oracle_id = "ec463bde-dadf-4044-8e41-71338fd4d62f",
     scryfall_id = "c2462fdf-a594-47d0-8e10-b55901e350d9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcum's Astrolabe",
         mana_cost = mana!("{S}"),

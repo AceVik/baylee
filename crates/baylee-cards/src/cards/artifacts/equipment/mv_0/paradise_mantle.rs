@@ -11,7 +11,7 @@ card!(
     index = index::PARADISE_MANTLE,
     oracle_id = "c1121b83-1ba2-473d-89c9-e3bbd4529072",
     scryfall_id = "19cd6bcc-ca47-47cc-9fe4-c29e9c176485",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paradise Mantle",
         mana_cost = mana!("{0}"),

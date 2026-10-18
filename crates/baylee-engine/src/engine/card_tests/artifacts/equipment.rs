@@ -6,3 +6,4 @@ use super::*;
 mod mv_1;
 mod mv_2;
 mod mv_3;
+mod pkg3_equipment;

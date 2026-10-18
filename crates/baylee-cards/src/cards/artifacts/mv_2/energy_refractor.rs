@@ -10,7 +10,7 @@ card!(
     index = index::ENERGY_REFRACTOR,
     oracle_id = "fd9dde4c-bacd-48d8-b4c9-a6a04f0b3338",
     scryfall_id = "cc2a81fb-5045-4b7b-8cfb-b90c4f4a1f51",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Energy Refractor",
         mana_cost = mana!("{2}"),

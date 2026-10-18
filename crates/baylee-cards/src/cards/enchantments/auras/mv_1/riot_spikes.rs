@@ -13,7 +13,7 @@ card!(
     oracle_id = "3df676fe-c4f8-41c0-9743-781090bdc547",
     scryfall_id = "63d0f909-9906-4ff7-9b10-9d817f20d8a9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riot Spikes",
         mana_cost = mana!("{B/R}"),

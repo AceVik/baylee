@@ -12,7 +12,7 @@ card!(
     index = index::MANIFOLD_KEY,
     oracle_id = "370c37f7-2484-40e8-8fd9-c10cf6f5d5f2",
     scryfall_id = "0f5a15cd-a359-48c9-9280-ce139f1fb061",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manifold Key",
         mana_cost = mana!("{1}"),

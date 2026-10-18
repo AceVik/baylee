@@ -12,7 +12,7 @@ card!(
     oracle_id = "71af7e54-e22d-4354-a35c-80e4e5f4031c",
     scryfall_id = "a014dd06-626d-4917-8981-e0064718b571",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tightening Coils",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "81c223a5-5ff2-43e5-bd0b-25c4f72b2150",
     scryfall_id = "c76352ea-e3d2-4221-8ebe-e953301c35ab",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Multani's Harmony",
         mana_cost = mana!("{G}"),

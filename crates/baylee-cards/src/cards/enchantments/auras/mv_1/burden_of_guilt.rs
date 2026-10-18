@@ -12,7 +12,7 @@ card!(
     oracle_id = "1ae88ba6-4973-45d1-a251-4d924ab4bc73",
     scryfall_id = "d7440288-6c55-4502-bf20-3c5b50a2de5a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burden of Guilt",
         mana_cost = mana!("{W}"),

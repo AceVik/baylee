@@ -13,7 +13,7 @@ card!(
     oracle_id = "d5cb0370-a6f0-40c0-8b8f-553fca23778d",
     scryfall_id = "1ac29eb6-2770-4723-942b-b393c2abc02b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya's Embrace",
         mana_cost = mana!("{5}{G}{U}{U}"),

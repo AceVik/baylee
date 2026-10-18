@@ -14,7 +14,7 @@ card!(
     scryfall_id = "16b9fdaa-9da9-48ff-b271-e6a41aabf073",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stoneskin",
         mana_cost = mana!("{2}{W}"),

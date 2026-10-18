@@ -15,7 +15,7 @@ card!(
     scryfall_id = "eb871985-a11b-4dfe-b0e3-898888c86277",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reach for the Sky",
         mana_cost = mana!("{3}{G}"),

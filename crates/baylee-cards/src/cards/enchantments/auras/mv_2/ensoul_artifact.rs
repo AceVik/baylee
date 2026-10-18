@@ -12,7 +12,7 @@ card!(
     oracle_id = "02628058-c9d8-4265-afd1-3fb697ec89f7",
     scryfall_id = "8351efc5-a392-4ec8-877f-15d5b3dc0929",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ensoul Artifact",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "fc5bde87-231e-424a-a8fa-cd9910a09d43",
     scryfall_id = "a30f26f7-5181-4bf1-9084-5563b4996a3c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iona's Blessing",
         mana_cost = mana!("{3}{W}"),

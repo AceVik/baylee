@@ -13,7 +13,7 @@ card!(
     oracle_id = "de68a69a-0c4e-43b9-821d-2fe2269b5e48",
     scryfall_id = "8c540e42-22e2-4127-bbd9-2e9200023fec",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mightstone's Animation",
         mana_cost = mana!("{3}{U}"),

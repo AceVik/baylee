@@ -13,7 +13,7 @@ card!(
     oracle_id = "d33c7ea2-4d17-4cdb-aa58-c25c57836297",
     scryfall_id = "5a92ec45-3eb5-4212-bdbd-073cbd0299d7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Containment Protocol",
         mana_cost = mana!("{2}{U}"),

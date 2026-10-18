@@ -23,7 +23,7 @@ card!(
     oracle_id = "65260087-48b5-4968-8584-7cc561bb312c",
     scryfall_id = "dbc9062e-ddd9-41ac-a88a-33f5a7b22103",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Escape Routes",
         mana_cost = mana!("{2}{U}"),

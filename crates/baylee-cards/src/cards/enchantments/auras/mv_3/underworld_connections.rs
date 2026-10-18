@@ -12,7 +12,7 @@ card!(
     oracle_id = "39c10798-9dfc-47a2-9da3-b4038509aebe",
     scryfall_id = "1df71add-7bb6-4687-bb69-cf4450adb7dc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Underworld Connections",
         mana_cost = mana!("{1}{B}{B}"),

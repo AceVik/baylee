@@ -15,7 +15,7 @@ card!(
     oracle_id = "575f032a-6ae8-4f4f-ab0b-983e7c76ad7f",
     scryfall_id = "09c64d2e-1fbf-4858-8fa7-82bf2e41fe1f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glint Hawk Idol",
         mana_cost = mana!("{2}"),

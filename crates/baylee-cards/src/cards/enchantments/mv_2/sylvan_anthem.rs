@@ -17,7 +17,7 @@ card!(
     oracle_id = "5ab5eefd-47bf-4cdf-bc29-b517e4f6adc0",
     scryfall_id = "a119edc2-9e0f-43d1-a13d-25827f86e3e3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvan Anthem",
         mana_cost = mana!("{G}{G}"),

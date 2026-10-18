@@ -9,7 +9,7 @@ card!(
     index = index::HERBAL_POULTICE,
     oracle_id = "4a8e1f8e-3740-4ff3-b7fa-390ea278fb95",
     scryfall_id = "b20925a3-dd4f-477c-806a-a3ec0fd2e00d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Herbal Poultice",
         mana_cost = mana!("{0}"),

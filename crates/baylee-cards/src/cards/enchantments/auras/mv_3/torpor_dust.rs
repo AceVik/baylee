@@ -14,7 +14,7 @@ card!(
     scryfall_id = "8840551f-d43a-487f-a960-9b220dec5df4",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Torpor Dust",
         mana_cost = mana!("{2}{U/B}"),

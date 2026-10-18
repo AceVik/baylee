@@ -11,7 +11,7 @@ card!(
     oracle_id = "5f2a3797-28aa-4c7a-ba2b-fd243a1747fd",
     scryfall_id = "cfb90c0c-50e7-4602-a64b-eeba9ec32e17",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lifecrafter's Bestiary",
         mana_cost = mana!("{3}"),

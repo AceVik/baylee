@@ -13,7 +13,7 @@ card!(
     oracle_id = "7d3c25bb-5175-4fb1-992f-62a44722f535",
     scryfall_id = "27157f01-8aed-4485-9f0f-9e7486492e6e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aspect of Lamprey",
         mana_cost = mana!("{3}{B}"),

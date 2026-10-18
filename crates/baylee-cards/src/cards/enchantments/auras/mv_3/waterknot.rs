@@ -13,7 +13,7 @@ card!(
     oracle_id = "002100cd-1ab1-44da-93a0-1269d47a712a",
     scryfall_id = "ada68b91-3379-483e-93a0-b6c7c675c1dc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waterknot",
         mana_cost = mana!("{1}{U}{U}"),

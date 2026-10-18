@@ -14,7 +14,7 @@ card!(
     oracle_id = "cc261487-060f-47e6-ac5e-a204254058b3",
     scryfall_id = "d5acb8ef-5a57-4d10-b59c-2dbf84635084",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riddleform",
         mana_cost = mana!("{1}{U}"),

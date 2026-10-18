@@ -24,7 +24,7 @@ card!(
     oracle_id = "59410454-93ff-41f0-ab62-cdaf156163d0",
     scryfall_id = "98d73ae0-de01-4a70-a51c-b990687561a1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sultai Runemark",
         mana_cost = mana!("{2}{B}"),

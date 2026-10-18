@@ -13,7 +13,7 @@ card!(
     oracle_id = "03d32ace-dd99-48c6-bcae-9b915d041aef",
     scryfall_id = "c47ee6f6-50c1-4f56-b9ce-4c309bfb92ca",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Freed from the Real",
         mana_cost = mana!("{2}{U}"),

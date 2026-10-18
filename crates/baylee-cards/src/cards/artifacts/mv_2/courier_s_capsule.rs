@@ -10,7 +10,7 @@ card!(
     oracle_id = "4e694613-e2e1-4ae3-baa8-f372259e91cf",
     scryfall_id = "39ae12ff-8039-4aac-aa50-f879376888a1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Courier's Capsule",
         mana_cost = mana!("{1}{U}"),

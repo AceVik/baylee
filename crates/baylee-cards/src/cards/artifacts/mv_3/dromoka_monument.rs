@@ -12,7 +12,7 @@ card!(
     oracle_id = "1c587200-02cc-4c5f-86fe-d13cc7bdad8b",
     scryfall_id = "d4df975f-b6ef-4e8e-8be8-529c0ffd8a37",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dromoka Monument",
         mana_cost = mana!("{3}"),

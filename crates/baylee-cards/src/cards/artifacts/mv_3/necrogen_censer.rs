@@ -10,7 +10,7 @@ card!(
     index = index::NECROGEN_CENSER,
     oracle_id = "f1feac23-8ba3-440c-828c-590f88008c31",
     scryfall_id = "4f707119-ede9-4697-b723-d6cea96e6f2b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necrogen Censer",
         mana_cost = mana!("{3}"),

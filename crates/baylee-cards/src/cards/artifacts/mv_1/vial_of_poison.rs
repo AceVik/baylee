@@ -9,7 +9,7 @@ card!(
     index = index::VIAL_OF_POISON,
     oracle_id = "3d51077f-4ce5-475a-9e65-e9076d779825",
     scryfall_id = "7769159b-5a6a-45e5-b69b-8db2a6ef5418",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vial of Poison",
         mana_cost = mana!("{1}"),

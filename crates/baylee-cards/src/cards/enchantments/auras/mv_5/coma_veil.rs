@@ -12,7 +12,7 @@ card!(
     oracle_id = "c062bd12-34cf-4177-92d4-8ce91206989d",
     scryfall_id = "2d5b820c-fd07-4e1f-9451-da9267347acd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coma Veil",
         mana_cost = mana!("{4}{U}"),

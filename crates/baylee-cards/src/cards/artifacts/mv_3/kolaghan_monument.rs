@@ -12,7 +12,7 @@ card!(
     oracle_id = "d8b79fed-9817-4b91-ac2e-e9fa955dd43c",
     scryfall_id = "3efb210e-00a9-470e-ac30-4036a7befd4c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kolaghan Monument",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "8c34b089-aad1-476e-958a-3077bf1bbb51",
     scryfall_id = "8388c4e8-bda1-47e5-8df2-ddec5babcaf9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talisman of Curiosity",
         mana_cost = mana!("{2}"),

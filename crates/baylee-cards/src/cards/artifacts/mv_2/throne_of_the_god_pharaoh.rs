@@ -11,7 +11,7 @@ card!(
     index = index::THRONE_OF_THE_GOD_PHARAOH,
     oracle_id = "ea750169-1f6f-40c2-96e9-55719e103a63",
     scryfall_id = "fe402b8e-f966-4971-90a5-950d8cff5025",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Throne of the God-Pharaoh",
         mana_cost = mana!("{2}"),

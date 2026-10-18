@@ -14,7 +14,7 @@ card!(
     oracle_id = "61b3ad9d-485f-4479-b18f-506847af43f2",
     scryfall_id = "12630ac5-a6c4-4852-abd9-5a0bc71bbf83",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thirst",
         mana_cost = mana!("{2}{U}"),

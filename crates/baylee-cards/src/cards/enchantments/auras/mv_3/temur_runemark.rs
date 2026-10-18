@@ -24,7 +24,7 @@ card!(
     oracle_id = "590c2455-90f7-4ff6-a6cf-5d0d25575cda",
     scryfall_id = "ddd76874-842e-4f4c-b18e-0e441dae59d7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temur Runemark",
         mana_cost = mana!("{2}{G}"),

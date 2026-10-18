@@ -13,7 +13,7 @@ card!(
     oracle_id = "5396045d-744b-435e-8324-a1bfbb03449d",
     scryfall_id = "324b5234-ffbf-4801-a475-8f693679ae2f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clachan Festival",
         mana_cost = mana!("{2}{W}"),

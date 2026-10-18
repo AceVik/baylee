@@ -10,7 +10,7 @@ card!(
     oracle_id = "f1d8e9a6-1903-4be5-8609-1009a463f393",
     scryfall_id = "42fe3a40-9cbe-4235-86f9-32576aaebba8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anthem of Champions",
         mana_cost = mana!("{G}{W}"),

@@ -11,7 +11,7 @@ card!(
     index = index::MURMURING_VOLUME,
     oracle_id = "4baa7847-dfcc-4aa3-aa64-2deeaa3f013b",
     scryfall_id = "d68eab2e-89dd-4377-b7af-01512b1804a0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murmuring Volume",
         mana_cost = mana!("{3}"),

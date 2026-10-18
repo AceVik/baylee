@@ -13,7 +13,7 @@ card!(
     oracle_id = "81a47019-1343-4a63-893a-0d8ba5e848d5",
     scryfall_id = "cc830040-543e-4d19-8601-4b687ee49122",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thrull Retainer",
         mana_cost = mana!("{B}"),

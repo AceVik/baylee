@@ -13,7 +13,7 @@ card!(
     oracle_id = "04a0382f-7e4e-4450-ae70-18999379d875",
     scryfall_id = "a26064bb-c568-4ed6-86db-3aab69b050db",
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nutrient Block",
         mana_cost = mana!("{1}"),

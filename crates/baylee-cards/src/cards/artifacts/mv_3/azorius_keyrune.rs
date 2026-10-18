@@ -12,7 +12,7 @@ card!(
     oracle_id = "7266b491-54e6-4393-a448-d5ae99d965c6",
     scryfall_id = "a8755662-b329-4c5b-8bf7-c9e1702e5979",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Azorius Keyrune",
         mana_cost = mana!("{3}"),

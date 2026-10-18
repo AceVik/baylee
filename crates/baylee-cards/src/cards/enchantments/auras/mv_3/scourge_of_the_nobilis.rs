@@ -13,7 +13,7 @@ card!(
     oracle_id = "4a1126a3-f8ce-4790-aa51-1e3f4b63eb18",
     scryfall_id = "6adccc97-3774-4c57-aa78-dcb9fbbe9324",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scourge of the Nobilis",
         mana_cost = mana!("{2}{R/W}"),

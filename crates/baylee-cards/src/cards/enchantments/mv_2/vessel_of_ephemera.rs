@@ -11,7 +11,7 @@ card!(
     oracle_id = "bfddc488-ab38-4e6d-8dfc-22bf1a8e03fa",
     scryfall_id = "f4051020-688c-473a-9a08-b62f0fd75675",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vessel of Ephemera",
         mana_cost = mana!("{1}{W}"),

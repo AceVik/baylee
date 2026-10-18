@@ -9,7 +9,7 @@ card!(
     index = index::SHIELD_OF_THE_AGES,
     oracle_id = "65164450-b477-4096-8146-ebb80a709787",
     scryfall_id = "b4afbc5a-9084-48be-9a33-0aa013775d34",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield of the Ages",
         mana_cost = mana!("{2}"),

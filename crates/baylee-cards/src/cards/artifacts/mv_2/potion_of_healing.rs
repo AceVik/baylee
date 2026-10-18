@@ -11,7 +11,7 @@ card!(
     oracle_id = "11fb3fee-ae84-4bf3-b834-63d3b8987df3",
     scryfall_id = "d5edb608-c7d7-4fa9-b969-262c9789fc17",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Potion of Healing",
         mana_cost = mana!("{1}{W}"),

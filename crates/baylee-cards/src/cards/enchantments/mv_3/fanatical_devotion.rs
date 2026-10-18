@@ -10,7 +10,7 @@ card!(
     oracle_id = "34e56412-4649-481d-be51-357b331d0b75",
     scryfall_id = "be0ed1fb-d380-4e3e-a43f-c39660a996e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fanatical Devotion",
         mana_cost = mana!("{2}{W}"),

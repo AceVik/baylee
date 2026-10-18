@@ -10,7 +10,7 @@ card!(
     oracle_id = "7d881c57-0bd9-4c57-aa4a-b10808b86143",
     scryfall_id = "0862060d-3198-4eeb-af8c-efeb27f42a99",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dimir Signet",
         mana_cost = mana!("{2}"),

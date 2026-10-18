@@ -19,7 +19,7 @@ card!(
     oracle_id = "385d70ed-07ab-4e01-a473-4408f4bcf6d0",
     scryfall_id = "9bc42032-8727-4f78-b369-ba103d965b73",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oath of the Ancient Wood",
         mana_cost = mana!("{2}{G}"),

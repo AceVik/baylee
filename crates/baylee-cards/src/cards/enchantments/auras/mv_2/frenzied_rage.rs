@@ -12,7 +12,7 @@ card!(
     oracle_id = "1a04c31c-f5e4-43ff-a5b5-207426b8dca6",
     scryfall_id = "f9ca9c16-5720-4531-88ea-48b48d189479",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frenzied Rage",
         mana_cost = mana!("{1}{R}"),

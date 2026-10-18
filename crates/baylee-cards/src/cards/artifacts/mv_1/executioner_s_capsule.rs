@@ -15,7 +15,7 @@ card!(
     oracle_id = "c9cd266c-7ecf-4beb-b9da-69b88f33abd3",
     scryfall_id = "032ea333-96e1-4ad8-8947-21d6bc3a9f91",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Executioner's Capsule",
         mana_cost = mana!("{B}"),

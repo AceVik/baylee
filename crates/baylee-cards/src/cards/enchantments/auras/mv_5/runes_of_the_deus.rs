@@ -13,7 +13,7 @@ card!(
     oracle_id = "674b9469-3213-4cb0-be7e-db209bc09f92",
     scryfall_id = "0a5a84c7-c27f-49a2-8ae8-cb8e34ce0766",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runes of the Deus",
         mana_cost = mana!("{4}{R/G}"),

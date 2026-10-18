@@ -12,7 +12,7 @@ card!(
     oracle_id = "c1459d75-2bc2-4dae-8c7e-4e759a4dffc9",
     scryfall_id = "3dfd97b3-d83e-406f-af45-40eec6347462",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paralyzing Grasp",
         mana_cost = mana!("{2}{U}"),

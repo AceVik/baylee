@@ -13,7 +13,7 @@ card!(
     oracle_id = "62d8c8c8-bc24-42f2-9e2e-9efd08e47bb1",
     scryfall_id = "05846389-4ee3-4e41-a6dd-0809bfc299f8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Claustrophobia",
         mana_cost = mana!("{1}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "56568fc4-7133-40e2-833c-29ecc1f953d6",
     scryfall_id = "9bf061f8-3aec-429a-bde7-7c110f872416",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Favor of the Overbeing",
         mana_cost = mana!("{1}{G/U}"),

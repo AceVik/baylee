@@ -12,7 +12,7 @@ card!(
     oracle_id = "96e244ef-21b9-4795-a881-c3db23b60cc9",
     scryfall_id = "88179748-5491-489d-a074-7885bb47e099",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cursed Flesh",
         mana_cost = mana!("{B}"),

@@ -10,7 +10,7 @@ card!(
     index = index::SHRIEKHORN,
     oracle_id = "571c1923-790f-48b7-86d2-70c3e79fdba3",
     scryfall_id = "bb41269f-007d-43ba-a682-d3929cc69696",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shriekhorn",
         mana_cost = mana!("{1}"),

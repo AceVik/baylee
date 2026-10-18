@@ -14,7 +14,7 @@ card!(
     oracle_id = "170cc0c4-0fba-4751-8613-e934b0438364",
     scryfall_id = "35bb73df-f488-468c-a9ad-72f52c8da3dc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Keldon Mantle",
         mana_cost = mana!("{1}{R}"),

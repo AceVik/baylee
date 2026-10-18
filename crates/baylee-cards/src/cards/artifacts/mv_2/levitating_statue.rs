@@ -15,7 +15,7 @@ card!(
     oracle_id = "259ca16d-7753-402b-bcd0-2425500dee99",
     scryfall_id = "9c0a17e2-e019-4686-9795-651da2d2955c",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Levitating Statue",
         mana_cost = mana!("{2}"),

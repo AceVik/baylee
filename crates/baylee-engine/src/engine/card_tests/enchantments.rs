@@ -24,6 +24,7 @@ mod mv_4;
 mod mv_5;
 mod mv_6;
 mod mv_8;
+mod pkg3_enchantments;
 mod rooms;
 mod sagas;
 

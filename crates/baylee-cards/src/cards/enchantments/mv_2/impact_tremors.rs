@@ -10,7 +10,7 @@ card!(
     oracle_id = "9242cd3e-1a71-4700-8182-9c1005616033",
     scryfall_id = "d0b7cecf-b51b-4d30-b7e9-cd7976271e07",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impact Tremors",
         mana_cost = mana!("{1}{R}"),

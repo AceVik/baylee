@@ -11,7 +11,7 @@ card!(
     oracle_id = "0de18ba2-84a7-4e07-84b2-771761d77aaf",
     scryfall_id = "7a1c11ca-c81b-451e-a767-68865827e06d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fireforger's Puzzleknot",
         mana_cost = mana!("{2}"),

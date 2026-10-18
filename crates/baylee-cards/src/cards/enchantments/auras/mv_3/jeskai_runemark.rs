@@ -24,7 +24,7 @@ card!(
     oracle_id = "5fe13418-c63c-4f3c-9a42-7ab06949e3cd",
     scryfall_id = "2ada6302-326b-4ab1-a9a3-ae4fa6a9001c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeskai Runemark",
         mana_cost = mana!("{2}{U}"),

@@ -16,7 +16,7 @@ card!(
     index = index::RELIC_OF_LEGENDS,
     oracle_id = "4d9554de-c005-41ab-a941-39328ebff9de",
     scryfall_id = "89691cda-e38b-4f53-bee6-4c234186e6ad",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Relic of Legends",
         mana_cost = mana!("{3}"),

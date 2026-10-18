@@ -10,7 +10,7 @@ card!(
     index = index::PRISMATIC_LENS,
     oracle_id = "e3056f28-868b-401a-a528-7528d639bdeb",
     scryfall_id = "74e8d3a8-5937-4108-b2fe-23e049379345",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prismatic Lens",
         mana_cost = mana!("{2}"),

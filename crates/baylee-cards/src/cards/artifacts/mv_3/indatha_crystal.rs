@@ -11,7 +11,7 @@ card!(
     oracle_id = "3617c4ec-dc70-4fa8-94f3-fbc48abcaeea",
     scryfall_id = "bdace59f-f025-4717-8eb4-3d1e13b31d2b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Indatha Crystal",
         mana_cost = mana!("{3}"),

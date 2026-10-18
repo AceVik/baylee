@@ -10,7 +10,7 @@ card!(
     oracle_id = "caa208bd-92e9-40ec-95c0-86e89d4facbb",
     scryfall_id = "c3d44c0e-733b-4ad3-b45b-6a3b09c12fb0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Copy Land",
         mana_cost = mana!("{2}{U}"),

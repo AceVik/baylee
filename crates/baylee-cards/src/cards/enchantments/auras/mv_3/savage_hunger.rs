@@ -13,7 +13,7 @@ card!(
     oracle_id = "0e608f48-d3a6-422c-839d-f06bb8a32014",
     scryfall_id = "0367fac8-6990-4544-ac7d-ed363b55a9cf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savage Hunger",
         mana_cost = mana!("{2}{G}"),

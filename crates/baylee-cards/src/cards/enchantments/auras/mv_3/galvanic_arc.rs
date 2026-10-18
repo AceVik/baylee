@@ -13,7 +13,7 @@ card!(
     oracle_id = "72a8620e-1ba2-40a8-9b22-11cc57864adf",
     scryfall_id = "64d816df-51e5-46f8-ad9a-68f3f656dbcd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Galvanic Arc",
         mana_cost = mana!("{2}{R}"),

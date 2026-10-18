@@ -16,7 +16,7 @@ card!(
     oracle_id = "cac95494-0db0-4bec-8665-998431a6f76b",
     scryfall_id = "db1cadc7-f79e-4cc9-855b-68cb1ef25d5f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossal Majesty",
         mana_cost = mana!("{2}{G}"),

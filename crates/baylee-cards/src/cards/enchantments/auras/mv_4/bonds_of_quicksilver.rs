@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f01c9fe7-35a4-4f64-b527-5311872b13fd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bonds of Quicksilver",
         mana_cost = mana!("{3}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "e649614a-ff23-4234-92f4-6f564cbfe648",
     scryfall_id = "6c883e75-5c37-44bb-a6c8-f97aa704c739",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ocular Halo",
         mana_cost = mana!("{3}{U}"),

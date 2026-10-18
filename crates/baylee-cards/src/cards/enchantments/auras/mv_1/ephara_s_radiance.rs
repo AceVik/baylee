@@ -12,7 +12,7 @@ card!(
     oracle_id = "0870e9f8-9e02-4997-9554-41a4e8eec4cb",
     scryfall_id = "e0741582-0c7b-4d5b-83a9-dd8862de1f24",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ephara's Radiance",
         mana_cost = mana!("{W}"),

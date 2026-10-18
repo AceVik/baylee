@@ -11,7 +11,7 @@ card!(
     oracle_id = "34993bd9-53bf-46b2-bc20-b6daf82382d9",
     scryfall_id = "0950bfe7-2600-4e01-8f54-f03a5c023520",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necrogen Spellbomb",
         mana_cost = mana!("{1}"),

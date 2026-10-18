@@ -14,7 +14,7 @@ card!(
     oracle_id = "c77dc11e-d95d-4e7e-bb24-d971c179e9b0",
     scryfall_id = "5a077de0-1893-40d0-a499-ee2e6e2258f1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Legion Extruder",
         mana_cost = mana!("{1}{R}"),

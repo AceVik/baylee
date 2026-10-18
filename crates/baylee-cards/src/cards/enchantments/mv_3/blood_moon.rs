@@ -11,7 +11,7 @@ card!(
     oracle_id = "94fac5fe-97d5-4c12-a80c-8efff9d853ae",
     scryfall_id = "d072e9ca-aae7-45dc-8025-3ce590bae63f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Moon",
         mana_cost = mana!("{2}{R}"),

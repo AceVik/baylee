@@ -16,7 +16,7 @@ card!(
     index = index::SCRAP_COMPACTOR,
     oracle_id = "7f113875-a411-463b-8b4d-91d1dee95c2a",
     scryfall_id = "12ccd555-60d4-49a1-b022-1e119344172a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scrap Compactor",
         mana_cost = mana!("{1}"),

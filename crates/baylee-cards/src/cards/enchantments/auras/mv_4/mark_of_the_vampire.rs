@@ -12,7 +12,7 @@ card!(
     oracle_id = "af942d30-a191-4306-846d-6c26755ca3e6",
     scryfall_id = "d908bf00-86ba-4911-b15b-1af2a79dff85",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mark of the Vampire",
         mana_cost = mana!("{3}{B}"),

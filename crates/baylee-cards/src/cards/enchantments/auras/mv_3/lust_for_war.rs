@@ -13,7 +13,7 @@ card!(
     oracle_id = "0ba206f3-c3f3-4e53-b072-e5e70feaa00d",
     scryfall_id = "9c8fa150-383d-448c-8e14-f24f65e13770",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lust for War",
         mana_cost = mana!("{2}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "42b8aa14-10bc-4bd6-88d9-4bb287eadd19",
     scryfall_id = "eff598b0-0b32-41d0-b980-584576e58626",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talisman of Resilience",
         mana_cost = mana!("{2}"),

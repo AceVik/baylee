@@ -11,7 +11,7 @@ card!(
     index = index::CATHAR_S_SHIELD,
     oracle_id = "b270d091-ea4c-4dfd-9c50-48b45bbc396e",
     scryfall_id = "61c18ffa-ffff-4dc4-9db0-d5f183c35e17",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cathar's Shield",
         mana_cost = mana!("{0}"),

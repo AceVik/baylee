@@ -14,7 +14,7 @@ card!(
     scryfall_id = "bbd9d35d-7fd0-4193-9f7e-b8a59fae4ac5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frantic Strength",
         mana_cost = mana!("{2}{G}"),

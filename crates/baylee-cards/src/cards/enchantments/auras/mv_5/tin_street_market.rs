@@ -12,7 +12,7 @@ card!(
     oracle_id = "5102b7c8-6886-4004-9992-416d22b4fce7",
     scryfall_id = "1c1f543b-2222-4ef5-b4f7-2c3d2ea27fdc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tin Street Market",
         mana_cost = mana!("{4}{R}"),

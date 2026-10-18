@@ -18,7 +18,7 @@ card!(
     oracle_id = "76905904-b3e4-44ee-bfcb-e518f0815af5",
     scryfall_id = "ab6e99a5-b105-489e-aff6-7d2ca50d8ba9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iroas's Blessing",
         mana_cost = mana!("{3}{R}"),

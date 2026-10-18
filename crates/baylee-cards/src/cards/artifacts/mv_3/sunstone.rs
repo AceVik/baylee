@@ -15,7 +15,7 @@ card!(
     index = index::SUNSTONE,
     oracle_id = "300ad0f7-92a7-450d-a9de-b658836fe3cb",
     scryfall_id = "3c1c67fa-ff88-4a61-b8a5-8a872b3dc44f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunstone",
         mana_cost = mana!("{3}"),

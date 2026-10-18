@@ -14,7 +14,7 @@ card!(
     oracle_id = "49e22e88-d4d9-4781-81e3-bf77b76b132b",
     scryfall_id = "2c419a2b-4389-49bc-91f1-a613ffcbfa0b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wolfkin Bond",
         mana_cost = mana!("{4}{G}"),

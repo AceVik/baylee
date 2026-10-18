@@ -12,7 +12,7 @@ card!(
     oracle_id = "97e7ada6-dee1-4bb3-a42d-38a61d946bd4",
     scryfall_id = "28b817f7-ae05-4d31-8a2c-29d8082b4132",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Asha's Favor",
         mana_cost = mana!("{2}{W}"),

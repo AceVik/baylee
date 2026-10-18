@@ -9,7 +9,7 @@ card!(
     index = index::WELDING_JAR,
     oracle_id = "e4a6c421-bef1-4360-a2dc-ae9c61d86b2f",
     scryfall_id = "275ec0c4-1c59-4818-9999-b2389d17c2e7",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Welding Jar",
         mana_cost = mana!("{0}"),

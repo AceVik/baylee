@@ -13,7 +13,7 @@ card!(
     oracle_id = "1e4de77b-27cb-4afd-8d4b-1cc89f2a6986",
     scryfall_id = "9223ac16-e6fc-4ba6-91d9-7ff27cc17271",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Diadem",
         mana_cost = mana!("{5}{R}"),

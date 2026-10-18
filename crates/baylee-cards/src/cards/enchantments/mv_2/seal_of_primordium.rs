@@ -10,7 +10,7 @@ card!(
     oracle_id = "f14dbb39-c9f9-4f64-b22a-38dba28f5b1e",
     scryfall_id = "fd5592ab-6883-4c5a-8d50-d9530d905b19",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seal of Primordium",
         mana_cost = mana!("{1}{G}"),

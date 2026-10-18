@@ -9,7 +9,7 @@ card!(
     index = index::PUPPET_STRINGS,
     oracle_id = "eb810d5c-903e-4ab4-874c-e49a686ca367",
     scryfall_id = "53e0bb82-c64a-4ae6-962a-7a0c45329159",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Puppet Strings",
         mana_cost = mana!("{3}"),

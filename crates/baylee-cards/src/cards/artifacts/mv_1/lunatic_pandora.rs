@@ -10,7 +10,7 @@ card!(
     index = index::LUNATIC_PANDORA,
     oracle_id = "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
     scryfall_id = "d6e1e3e7-20d4-42cb-ad22-60356b9e8fdc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lunatic Pandora",
         mana_cost = mana!("{1}"),

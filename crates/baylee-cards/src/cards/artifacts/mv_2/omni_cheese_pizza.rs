@@ -12,7 +12,7 @@ card!(
     index = index::OMNI_CHEESE_PIZZA,
     oracle_id = "73144877-1d37-4c7a-8493-3cef191b9211",
     scryfall_id = "f2c8397c-2014-4a43-9ed7-41795880011f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Omni-Cheese Pizza",
         mana_cost = mana!("{2}"),

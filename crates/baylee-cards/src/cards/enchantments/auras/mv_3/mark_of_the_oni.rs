@@ -18,7 +18,7 @@ card!(
     oracle_id = "4ce00fdf-c4da-492a-81c9-8c93dd0bf620",
     scryfall_id = "632679e5-7368-4660-a765-07be196c3c35",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mark of the Oni",
         mana_cost = mana!("{2}{B}"),

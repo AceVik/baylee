@@ -11,7 +11,7 @@ card!(
     oracle_id = "b693c3de-2eaf-4850-b405-e79d00adefda",
     scryfall_id = "0c959368-2f58-48de-b7a5-2bab408652b5",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talisman of Hierarchy",
         mana_cost = mana!("{2}"),

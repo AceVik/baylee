@@ -10,7 +10,7 @@ card!(
     oracle_id = "f5e3c26c-c28c-455f-a682-2597e4b92d10",
     scryfall_id = "f9e3bcd7-60f8-472a-ada0-c3147cf06588",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcane Laboratory",
         mana_cost = mana!("{2}{U}"),

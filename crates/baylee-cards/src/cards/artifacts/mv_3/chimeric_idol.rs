@@ -10,7 +10,7 @@ card!(
     index = index::CHIMERIC_IDOL,
     oracle_id = "78b364b7-d180-484c-a1d9-9d7a4e8abb57",
     scryfall_id = "063990db-559d-4bfa-83af-b73fdc4cb038",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chimeric Idol",
         mana_cost = mana!("{3}"),

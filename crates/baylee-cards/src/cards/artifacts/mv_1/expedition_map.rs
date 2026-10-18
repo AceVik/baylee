@@ -9,7 +9,7 @@ card!(
     index = index::EXPEDITION_MAP,
     oracle_id = "8fcf50cd-e6d0-4516-850f-d42ee75dcc3a",
     scryfall_id = "08e66835-c228-48fa-bcaa-eb96edbd4f5a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Expedition Map",
         mana_cost = mana!("{1}"),

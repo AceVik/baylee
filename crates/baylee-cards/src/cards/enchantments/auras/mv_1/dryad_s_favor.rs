@@ -12,7 +12,7 @@ card!(
     oracle_id = "af740170-af87-487c-abab-a6ccdea82d97",
     scryfall_id = "c259509e-9f95-4566-b78a-ba34107539f7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dryad's Favor",
         mana_cost = mana!("{G}"),

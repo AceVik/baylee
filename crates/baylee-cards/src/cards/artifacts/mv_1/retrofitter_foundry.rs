@@ -24,7 +24,7 @@ card!(
     index = index::RETROFITTER_FOUNDRY,
     oracle_id = "aaadfe41-b2be-4183-b45e-a70e53a59d2e",
     scryfall_id = "5da578b8-19e6-4068-9336-e7cd33c585f1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Retrofitter Foundry",
         mana_cost = mana!("{1}"),

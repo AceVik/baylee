@@ -19,7 +19,7 @@ card!(
     oracle_id = "c4fe854e-8783-492e-bb2e-9f242ada8a5b",
     scryfall_id = "dc060028-e01c-4bc7-8b52-7d0e2a350061",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blight Mound",
         mana_cost = mana!("{2}{B}"),

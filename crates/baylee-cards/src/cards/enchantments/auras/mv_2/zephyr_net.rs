@@ -12,7 +12,7 @@ card!(
     oracle_id = "cd510cf2-df54-4024-919b-e4377cdb2be1",
     scryfall_id = "817b8996-388f-4704-a4c8-ef99d4701805",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zephyr Net",
         mana_cost = mana!("{1}{U}"),

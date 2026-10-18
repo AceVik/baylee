@@ -10,7 +10,7 @@ card!(
     index = index::RETRIBUTIVE_WAND,
     oracle_id = "b550a94d-3a92-416e-b651-510cdbdd05f1",
     scryfall_id = "5521cb92-03b0-44ab-a141-40dc0eb5a79f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Retributive Wand",
         mana_cost = mana!("{3}"),

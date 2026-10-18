@@ -13,7 +13,7 @@ card!(
     oracle_id = "2283e409-c6c7-4de9-899b-2b3caea5f35e",
     scryfall_id = "ef7011f4-fc08-4b15-973d-d15357cbe744",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Instant Ramen",
         mana_cost = mana!("{2}"),

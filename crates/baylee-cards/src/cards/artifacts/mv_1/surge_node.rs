@@ -10,7 +10,7 @@ card!(
     index = index::SURGE_NODE,
     oracle_id = "3b30f043-aa79-4262-b13f-6cd794b1920b",
     scryfall_id = "743fc231-2ab3-42f1-9dd3-af42241229aa",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Surge Node",
         mana_cost = mana!("{1}"),

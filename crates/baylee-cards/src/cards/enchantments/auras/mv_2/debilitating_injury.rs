@@ -12,7 +12,7 @@ card!(
     oracle_id = "52eab77d-9a07-4e14-8872-72681d3b3d0e",
     scryfall_id = "09b2b263-34db-4961-bf41-1eaaba3701da",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Debilitating Injury",
         mana_cost = mana!("{1}{B}"),

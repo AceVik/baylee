@@ -13,7 +13,7 @@ card!(
     oracle_id = "6e412163-a93a-4738-a8f0-a4d27c960360",
     scryfall_id = "7c8ce6d6-014f-46c2-baf3-f250e9dc3085",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clout of the Dominus",
         mana_cost = mana!("{U/R}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "55e04860-f4f5-445b-81f2-b500fa9b456a",
     scryfall_id = "c2384356-0a62-499a-8b28-085974331368",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Contaminated Ground",
         mana_cost = mana!("{1}{B}"),

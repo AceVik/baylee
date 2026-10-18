@@ -12,7 +12,7 @@ card!(
     oracle_id = "b1804304-fac1-4b19-a48d-6ade9407972a",
     scryfall_id = "82e6b971-3f5b-47e7-8209-98d72ee781fc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dead Weight",
         mana_cost = mana!("{B}"),

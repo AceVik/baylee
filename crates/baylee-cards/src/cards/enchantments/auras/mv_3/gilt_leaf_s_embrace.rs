@@ -15,7 +15,7 @@ card!(
     scryfall_id = "739e5ab5-d562-407a-906e-c5c5173ad325",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilt-Leaf's Embrace",
         mana_cost = mana!("{2}{G}"),

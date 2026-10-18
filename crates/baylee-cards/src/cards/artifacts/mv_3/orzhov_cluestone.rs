@@ -11,7 +11,7 @@ card!(
     oracle_id = "09650a76-05c4-40a0-b861-d146b3ba87d6",
     scryfall_id = "338ee065-a4a6-4120-b0bd-3e940f458294",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orzhov Cluestone",
         mana_cost = mana!("{3}"),

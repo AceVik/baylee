@@ -11,7 +11,7 @@ card!(
     oracle_id = "ae4a8470-4517-42c7-a7f6-ef7635e10fe5",
     scryfall_id = "c5bce0fb-53d6-47ee-8c5a-a99e50f67fc9",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raugrin Crystal",
         mana_cost = mana!("{3}"),

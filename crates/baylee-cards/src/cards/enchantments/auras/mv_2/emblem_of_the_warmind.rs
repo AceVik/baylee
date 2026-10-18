@@ -12,7 +12,7 @@ card!(
     oracle_id = "86e88219-0f8e-405d-8439-c3b4acf11330",
     scryfall_id = "03ab2a41-315b-439c-b02c-f12335fc903a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emblem of the Warmind",
         mana_cost = mana!("{1}{R}"),

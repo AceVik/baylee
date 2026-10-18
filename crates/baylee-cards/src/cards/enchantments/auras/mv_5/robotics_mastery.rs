@@ -16,7 +16,7 @@ card!(
     scryfall_id = "b5ed3c76-946a-4140-8c7b-2011e72a7d54",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Robotics Mastery",
         mana_cost = mana!("{4}{U}"),

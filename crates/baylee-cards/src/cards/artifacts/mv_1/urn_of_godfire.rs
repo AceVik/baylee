@@ -12,7 +12,7 @@ card!(
     index = index::URN_OF_GODFIRE,
     oracle_id = "420290d9-7bb9-4e5a-82ec-c777152ccc72",
     scryfall_id = "ff5f302e-d884-4995-ba3c-8c22f9045318",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urn of Godfire",
         mana_cost = mana!("{1}"),

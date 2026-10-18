@@ -16,7 +16,7 @@ card!(
     oracle_id = "e10065ba-fe24-4974-a500-d4151397a4d9",
     scryfall_id = "4b150797-ee8d-42f8-adcb-2f4b1783c074",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trail of Evidence",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "321c4586-d27e-45ae-ba1f-3efea334a697",
     scryfall_id = "e0d0094e-07ff-4b47-8c6e-500adabf12e4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancestral Vengeance",
         mana_cost = mana!("{B}{B}"),

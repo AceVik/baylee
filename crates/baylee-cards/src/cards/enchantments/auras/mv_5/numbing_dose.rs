@@ -13,7 +13,7 @@ card!(
     oracle_id = "e42d087e-c999-4f9a-bdc5-4327e8ce94b6",
     scryfall_id = "8f28a0f4-43e1-46df-8b6a-d588c5cceb88",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Numbing Dose",
         mana_cost = mana!("{3}{U}{U}"),

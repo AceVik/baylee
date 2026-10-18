@@ -11,7 +11,7 @@ card!(
     oracle_id = "6c326439-5620-4ec6-a56a-fe9c3d5d2a46",
     scryfall_id = "a365885c-f7d9-4ea1-9125-5265055e5570",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talisman of Conviction",
         mana_cost = mana!("{2}"),

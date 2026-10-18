@@ -9,7 +9,7 @@ card!(
     index = index::SPRINGLEAF_DRUM,
     oracle_id = "bdeb440d-a714-40e8-9038-f651e6ae45fb",
     scryfall_id = "e15ab0aa-4059-4923-9816-6f7a9e5b5a18",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Springleaf Drum",
         mana_cost = mana!("{1}"),

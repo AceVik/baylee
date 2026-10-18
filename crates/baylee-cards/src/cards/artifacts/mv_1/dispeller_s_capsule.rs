@@ -10,7 +10,7 @@ card!(
     oracle_id = "91fc862d-fdde-45ea-a05d-30d38e7a735c",
     scryfall_id = "ebecd3d1-15ed-4501-89af-4718a212332d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dispeller's Capsule",
         mana_cost = mana!("{W}"),

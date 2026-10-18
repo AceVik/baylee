@@ -12,7 +12,7 @@ card!(
     oracle_id = "7ebaeef0-4e4c-4bf0-85dd-07c6b6be0741",
     scryfall_id = "8bad1d13-c4f6-4440-9988-e1db40039f02",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reduce in Stature",
         mana_cost = mana!("{2}{U}"),

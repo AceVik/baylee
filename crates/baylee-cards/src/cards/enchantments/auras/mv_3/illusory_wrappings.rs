@@ -12,7 +12,7 @@ card!(
     oracle_id = "bda363b6-4be1-4415-8b3e-92882df1f630",
     scryfall_id = "a67aefde-2c91-4974-b89d-84333a2874eb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Illusory Wrappings",
         mana_cost = mana!("{2}{U}"),

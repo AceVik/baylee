@@ -11,7 +11,7 @@ card!(
     index = index::LAPIS_LAZULI_TALISMAN,
     oracle_id = "83447e57-06f7-4e7b-91d4-7b8f71ea0676",
     scryfall_id = "ce00bb19-983e-427d-be54-ae6daf0ccdde",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lapis Lazuli Talisman",
         mana_cost = mana!("{2}"),

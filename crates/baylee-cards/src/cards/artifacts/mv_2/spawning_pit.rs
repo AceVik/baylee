@@ -11,7 +11,7 @@ card!(
     index = index::SPAWNING_PIT,
     oracle_id = "ea7b0704-7715-4f8a-b32f-d2d2f3b36054",
     scryfall_id = "e9a8ca49-fc8f-49c1-a7c6-c8326b2deb52",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spawning Pit",
         mana_cost = mana!("{2}"),

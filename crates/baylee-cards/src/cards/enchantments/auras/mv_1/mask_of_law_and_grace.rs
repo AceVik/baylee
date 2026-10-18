@@ -12,7 +12,7 @@ card!(
     oracle_id = "21474195-5d91-466d-8874-4818c900dea7",
     scryfall_id = "6bd97150-b405-4bb5-b5a8-fceda4a45ebb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mask of Law and Grace",
         mana_cost = mana!("{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a5f30ecd-d009-4d44-aef4-c926ed55a521",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Omen of the Sea",
         mana_cost = mana!("{1}{U}"),

@@ -15,7 +15,7 @@ card!(
     oracle_id = "350b3c1c-b37e-4279-9b49-0fb93c5e7e33",
     scryfall_id = "f7bb0716-e0fc-415d-8fc3-d3f5ee31e9c5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eyes of the Watcher",
         mana_cost = mana!("{2}{U}"),

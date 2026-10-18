@@ -18,7 +18,7 @@ card!(
     oracle_id = "290cd0b1-55d6-4b30-962d-075a6f75d562",
     scryfall_id = "b89cab47-25fb-49ea-bb43-90a0089b6b20",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Modification",
         mana_cost = mana!("{4}{W}"),

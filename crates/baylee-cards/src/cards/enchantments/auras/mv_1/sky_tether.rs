@@ -12,7 +12,7 @@ card!(
     oracle_id = "06548af1-4fda-435c-ac32-bbf7afafb34e",
     scryfall_id = "ec7b4430-95c0-424b-a365-4ae467bb303d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sky Tether",
         mana_cost = mana!("{W}"),

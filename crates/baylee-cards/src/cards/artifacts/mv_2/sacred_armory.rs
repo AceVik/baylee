@@ -9,7 +9,7 @@ card!(
     index = index::SACRED_ARMORY,
     oracle_id = "37d74df9-cf87-4b82-842a-3941064078fb",
     scryfall_id = "b05fde97-ab24-40c9-a1db-8844c3e62fc3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sacred Armory",
         mana_cost = mana!("{2}"),

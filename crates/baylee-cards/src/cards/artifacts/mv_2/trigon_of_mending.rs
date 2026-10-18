@@ -12,7 +12,7 @@ card!(
     oracle_id = "17b1c870-ef94-49af-8f9b-a8765f1b54db",
     scryfall_id = "241142e0-3a79-4bce-8535-18ae7e392f5e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trigon of Mending",
         mana_cost = mana!("{2}"),

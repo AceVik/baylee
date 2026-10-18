@@ -12,7 +12,7 @@ card!(
     oracle_id = "2065e9d0-c6e9-4270-898e-9822b532d467",
     scryfall_id = "00d594df-c51b-4936-9af1-536dab1792ae",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cogworker's Puzzleknot",
         mana_cost = mana!("{2}"),

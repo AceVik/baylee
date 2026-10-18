@@ -13,7 +13,7 @@ card!(
     oracle_id = "e41162bf-1a4f-4e69-870a-faf9836c56d5",
     scryfall_id = "8a42fcd6-32ce-4a20-af4d-83bd32a7ed3e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shiv's Embrace",
         mana_cost = mana!("{2}{R}{R}"),

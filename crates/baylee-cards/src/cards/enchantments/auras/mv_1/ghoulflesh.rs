@@ -12,7 +12,7 @@ card!(
     oracle_id = "640c0424-b862-438f-a527-ff606151040a",
     scryfall_id = "2eed3d1b-3142-437c-99e9-85ba76e23e6d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghoulflesh",
         mana_cost = mana!("{B}"),

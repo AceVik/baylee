@@ -12,7 +12,7 @@ card!(
     oracle_id = "aa21315d-4da9-4bbd-9604-c406b83c0db2",
     scryfall_id = "93d7f033-217f-4fb3-a57b-e32291257ec8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Messenger's Speed",
         mana_cost = mana!("{R}"),

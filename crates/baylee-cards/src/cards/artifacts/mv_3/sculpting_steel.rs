@@ -9,7 +9,7 @@ card!(
     index = index::SCULPTING_STEEL,
     oracle_id = "6c85271c-c711-49b0-a72e-9e576c33714d",
     scryfall_id = "d1958f01-77e9-4976-b7f8-f9b62aa78edc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sculpting Steel",
         mana_cost = mana!("{3}"),

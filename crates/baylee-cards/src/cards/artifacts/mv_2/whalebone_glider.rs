@@ -11,7 +11,7 @@ card!(
     index = index::WHALEBONE_GLIDER,
     oracle_id = "a65fadeb-c9bc-409f-8e90-ff8e55485a4c",
     scryfall_id = "4b75adf0-9501-4776-a213-456c2b821070",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whalebone Glider",
         mana_cost = mana!("{2}"),

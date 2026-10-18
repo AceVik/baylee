@@ -11,7 +11,7 @@ card!(
     index = index::WORLDSLAYER,
     oracle_id = "31be715f-9ad3-435c-9e52-e108fe96b969",
     scryfall_id = "db6c6b15-40f3-4556-978f-878bedb13762",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Worldslayer",
         mana_cost = mana!("{5}"),

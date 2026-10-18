@@ -12,7 +12,7 @@ card!(
     oracle_id = "ea8c4a7d-f7fb-4620-b3a4-ae8280dd60d9",
     scryfall_id = "be18c2d9-60c4-454b-b6c7-7c22ed2985fb",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magefire Wings",
         mana_cost = mana!("{U}{R}"),

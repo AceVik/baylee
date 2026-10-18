@@ -13,7 +13,7 @@ card!(
     oracle_id = "b5ff42a1-1ac4-472b-8479-5e3749845305",
     scryfall_id = "5f74cf11-8deb-4623-9c1e-1e86e98bd831",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leafdrake Roost",
         mana_cost = mana!("{3}{G}{U}"),

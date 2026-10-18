@@ -13,7 +13,7 @@ card!(
     oracle_id = "1961dd92-db0b-4f02-b9c8-08f760f4051b",
     scryfall_id = "46106777-e366-47da-b8ba-b010ac96f1fe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spawning Grounds",
         mana_cost = mana!("{6}{G}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "1cf51f50-24e4-48d0-95b3-1dad3ffa4bf5",
     scryfall_id = "95103b4c-d0c0-40fa-9ddd-c7416455ca0c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Signet",
         mana_cost = mana!("{2}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "2bda1fb1-528c-4e66-89f1-bb1a85e9181e",
     scryfall_id = "0fd8c918-62d9-41be-a3e1-32ddac71b7e7",
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darksteel Relic",
         mana_cost = mana!("{0}"),

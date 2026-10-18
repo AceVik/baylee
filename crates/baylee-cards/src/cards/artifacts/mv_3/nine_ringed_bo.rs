@@ -15,7 +15,7 @@ card!(
     index = index::NINE_RINGED_BO,
     oracle_id = "f5dc3dbd-7eab-40f3-afe2-1e88a0c00538",
     scryfall_id = "445e60aa-1a0a-499e-9887-7d17a1f80a02",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nine-Ringed Bo",
         mana_cost = mana!("{3}"),

@@ -23,7 +23,7 @@ card!(
     oracle_id = "28a2ad5b-d637-4634-8d4b-889e1fc88319",
     scryfall_id = "06b7675e-e665-49cb-a8d9-7092a654d464",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Northern Air Temple",
         mana_cost = mana!("{B}"),

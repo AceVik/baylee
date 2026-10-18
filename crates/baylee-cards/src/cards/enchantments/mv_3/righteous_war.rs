@@ -11,7 +11,7 @@ card!(
     oracle_id = "acaab3fe-8b12-4f11-9714-7ca278674975",
     scryfall_id = "bbcacb8e-1aff-4807-b70c-a17d6703d279",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Righteous War",
         mana_cost = mana!("{1}{W}{B}"),

@@ -15,7 +15,7 @@ card!(
     index = index::POWERSTONE_SHARD,
     oracle_id = "769c45ae-5d49-4815-944e-98790ad4efb0",
     scryfall_id = "d62fd366-c287-48c3-9ded-5dc63a34518c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Powerstone Shard",
         mana_cost = mana!("{3}"),

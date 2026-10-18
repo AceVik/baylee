@@ -12,7 +12,7 @@ card!(
     index = index::GOLDEN_EGG,
     oracle_id = "25977c02-e2d4-4afd-b12d-37ce4d58f453",
     scryfall_id = "525142c3-f17c-4e02-a02d-fa385215aa12",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golden Egg",
         mana_cost = mana!("{2}"),

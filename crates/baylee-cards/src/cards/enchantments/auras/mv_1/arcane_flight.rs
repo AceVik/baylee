@@ -12,7 +12,7 @@ card!(
     oracle_id = "40eee955-bec6-455a-addf-68cdb84c76b9",
     scryfall_id = "09fbb1c0-ba57-4a5a-8ad6-77fbc6aeeec9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcane Flight",
         mana_cost = mana!("{U}"),

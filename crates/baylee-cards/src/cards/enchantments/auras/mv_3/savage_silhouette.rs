@@ -12,7 +12,7 @@ card!(
     oracle_id = "bc243497-d95a-44e0-b7e3-c56b4ff7cd69",
     scryfall_id = "8b8547e0-2928-4edc-a15a-a613cb4d1eac",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savage Silhouette",
         mana_cost = mana!("{2}{G}"),

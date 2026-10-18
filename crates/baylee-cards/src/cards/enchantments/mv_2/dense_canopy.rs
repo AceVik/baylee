@@ -12,7 +12,7 @@ card!(
     oracle_id = "d182ab7d-77bd-49d1-9001-9b4016350181",
     scryfall_id = "9d1480d4-51f8-4233-874c-94502726fe0d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dense Canopy",
         mana_cost = mana!("{1}{G}"),

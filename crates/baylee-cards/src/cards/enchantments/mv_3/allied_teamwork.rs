@@ -13,7 +13,7 @@ card!(
     oracle_id = "ceddea59-de47-4ddd-b424-6e1dcb13ab79",
     scryfall_id = "8a347283-eb16-4339-945e-316a5ce9e2c5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Allied Teamwork",
         mana_cost = mana!("{2}{W}"),

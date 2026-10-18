@@ -11,7 +11,7 @@ card!(
     oracle_id = "0e5f97b5-bb8c-4688-a141-5db4d4eeccf0",
     scryfall_id = "a50feebf-c660-43f1-9fae-75294703b346",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Futurist Forge",
         mana_cost = mana!("{1}{U}"),

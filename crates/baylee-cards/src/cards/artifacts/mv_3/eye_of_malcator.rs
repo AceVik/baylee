@@ -15,7 +15,7 @@ card!(
     oracle_id = "7270b5b6-a571-4e6d-91de-03f7cc035b3c",
     scryfall_id = "7cc4246b-ff59-44b2-acff-c0bb6e4cd6ac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eye of Malcator",
         mana_cost = mana!("{2}{U}"),

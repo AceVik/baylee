@@ -24,7 +24,7 @@ card!(
     oracle_id = "a912834b-e4bc-4ccc-ae13-915ebe5acd00",
     scryfall_id = "333df10b-7db4-4f8a-a754-e8a630b26cac",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mardu Runemark",
         mana_cost = mana!("{2}{R}"),

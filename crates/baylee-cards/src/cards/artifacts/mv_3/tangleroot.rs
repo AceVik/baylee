@@ -10,7 +10,7 @@ card!(
     oracle_id = "b94efd70-705d-4cdf-9990-3a065a541f28",
     scryfall_id = "87ff2c28-770b-49cb-be10-35429233e048",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tangleroot",
         mana_cost = mana!("{3}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "81a51328-b995-4f3b-90bc-a20ae21dd254",
     scryfall_id = "8ac5a048-e8aa-48e8-b51b-b4e9a5b63ea6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit Mantle",
         mana_cost = mana!("{1}{W}"),

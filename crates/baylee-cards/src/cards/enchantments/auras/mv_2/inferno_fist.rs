@@ -13,7 +13,7 @@ card!(
     oracle_id = "0ccc75a0-1bc2-461f-ab6f-0f182328a863",
     scryfall_id = "721a42f4-5884-418f-b1f9-7cb651559ad0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inferno Fist",
         mana_cost = mana!("{1}{R}"),

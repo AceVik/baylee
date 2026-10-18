@@ -12,7 +12,7 @@ card!(
     oracle_id = "be14b10a-7cac-47fc-a954-685091990291",
     scryfall_id = "abe37c88-afd7-45ac-9f84-f4bd881a1462",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Artificer's Intuition",
         mana_cost = mana!("{1}{U}"),

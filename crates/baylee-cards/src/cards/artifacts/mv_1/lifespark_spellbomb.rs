@@ -11,7 +11,7 @@ card!(
     oracle_id = "3f351696-1402-4b69-b924-f0ba14320287",
     scryfall_id = "0adde668-67af-4a08-a36a-2a49893ab20d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lifespark Spellbomb",
         mana_cost = mana!("{1}"),

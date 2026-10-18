@@ -16,7 +16,7 @@ card!(
     oracle_id = "0cb76b04-d9c3-46fc-a3f2-5f0cb0d91761",
     scryfall_id = "174bcea4-4e9c-4de5-b001-6a9df2242e37",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Honden of Infinite Rage",
         mana_cost = mana!("{2}{R}"),

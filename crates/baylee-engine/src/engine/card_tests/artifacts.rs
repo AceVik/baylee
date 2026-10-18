@@ -17,6 +17,7 @@ mod mv_5;
 mod mv_6;
 mod mv_8;
 mod mv_9;
+mod pkg3_artifacts;
 mod sunglasses_of_urza;
 mod time_vault;
 mod vehicles;

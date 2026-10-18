@@ -38,7 +38,7 @@ card!(
     scryfall_id = "e6b44ffe-db9e-4db5-9806-098411c9ece0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kozilek's Unsealing",
         mana_cost = mana!("{2}{U}"),

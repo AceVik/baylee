@@ -14,7 +14,7 @@ card!(
     oracle_id = "8b476e35-77df-4332-b29d-8bf6f1bbbc3e",
     scryfall_id = "e05a4ce4-dbd5-4c47-8b40-c145c7f5d06c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimmerdust Nap",
         mana_cost = mana!("{2}{U}"),

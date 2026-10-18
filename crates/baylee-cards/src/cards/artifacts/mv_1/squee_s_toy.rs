@@ -9,7 +9,7 @@ card!(
     index = index::SQUEE_S_TOY,
     oracle_id = "d0e33a3f-659a-4889-98f6-d0f385e259f1",
     scryfall_id = "2b524ae7-cb24-41af-b41b-3cb3ee8cf3b0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squee's Toy",
         mana_cost = mana!("{1}"),

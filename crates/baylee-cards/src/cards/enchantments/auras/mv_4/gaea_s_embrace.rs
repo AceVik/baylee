@@ -13,7 +13,7 @@ card!(
     oracle_id = "b44e3f2e-3185-40d5-b50c-d3a1e473120c",
     scryfall_id = "d6714440-0f84-4a72-9332-274216b36ed0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gaea's Embrace",
         mana_cost = mana!("{2}{G}{G}"),

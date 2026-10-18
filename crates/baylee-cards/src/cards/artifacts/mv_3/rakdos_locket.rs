@@ -11,7 +11,7 @@ card!(
     oracle_id = "ab784412-0722-4501-9aa0-fd68d307f6fd",
     scryfall_id = "ae74a4a0-b95b-4ddd-80df-cbec1c469025",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Locket",
         mana_cost = mana!("{3}"),

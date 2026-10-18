@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b5e4087b-e692-4eb2-bb59-ff2a001d6dd4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dictate of Kruphix",
         mana_cost = mana!("{1}{U}{U}"),

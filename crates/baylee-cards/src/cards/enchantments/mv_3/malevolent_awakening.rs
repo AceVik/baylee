@@ -10,7 +10,7 @@ card!(
     oracle_id = "522fc178-d11a-4919-83b0-e58453e3a160",
     scryfall_id = "35d94052-aae3-4ced-9309-fc4a0d1f159d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malevolent Awakening",
         mana_cost = mana!("{1}{B}{B}"),

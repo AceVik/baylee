@@ -12,7 +12,7 @@ card!(
     oracle_id = "699380f9-a032-4838-baf1-1575f37eb642",
     scryfall_id = "1ac43a3e-962a-4391-8fcb-6b1575cf7893",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Reward",
         mana_cost = mana!("{3}{W}{W}"),

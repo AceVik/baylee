@@ -13,7 +13,7 @@ card!(
     oracle_id = "897c2c66-fedc-4201-b187-db79414583fb",
     scryfall_id = "c95efd3d-ee88-4908-908a-830595f03c5d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strands of Undeath",
         mana_cost = mana!("{3}{B}"),

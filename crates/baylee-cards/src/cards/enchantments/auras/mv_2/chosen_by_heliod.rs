@@ -13,7 +13,7 @@ card!(
     oracle_id = "f6475b40-e694-4aac-a25c-bbd48d45127d",
     scryfall_id = "d8ead499-920c-465a-a23d-f08710d7e9bc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chosen by Heliod",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "3b5b87da-5a00-449a-97ef-fa1e2c1c4b4b",
     scryfall_id = "5973cd53-f6cd-4edc-b952-f6d3eef97988",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyrostatic Pillar",
         mana_cost = mana!("{1}{R}"),

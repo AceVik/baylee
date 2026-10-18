@@ -12,7 +12,7 @@ card!(
     oracle_id = "b638c475-778c-4251-8dac-6a18c3394ae5",
     scryfall_id = "098bfd71-a47f-4dfc-b516-b88a388fb7b5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tall as a Beanstalk",
         mana_cost = mana!("{3}{G}"),

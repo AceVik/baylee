@@ -13,7 +13,7 @@ card!(
     oracle_id = "f0691d46-5bf4-4617-8a0a-19d17afb7219",
     scryfall_id = "74fb19b2-4f6c-4cbd-8756-a7eb5c7c9ef6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starlight Snare",
         mana_cost = mana!("{2}{U}"),

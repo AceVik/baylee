@@ -13,7 +13,7 @@ card!(
     oracle_id = "8a5e925f-320d-4bb7-9374-0384e7ac41e7",
     scryfall_id = "1aac9a8a-7594-4270-a8b6-57b4f8f2a390",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sinking Feeling",
         mana_cost = mana!("{2}{U}"),

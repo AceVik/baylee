@@ -14,7 +14,7 @@ card!(
     scryfall_id = "265960a9-bea6-4111-b9a7-b6a37194b1c5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feebleness",
         mana_cost = mana!("{1}{B}"),

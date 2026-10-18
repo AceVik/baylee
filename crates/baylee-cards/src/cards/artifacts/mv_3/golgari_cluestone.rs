@@ -11,7 +11,7 @@ card!(
     oracle_id = "e917ad3d-df8e-442b-918c-3aa7a10f3cc4",
     scryfall_id = "ff77e1ee-7fa3-4370-a0c9-ec008b63302f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Cluestone",
         mana_cost = mana!("{3}"),

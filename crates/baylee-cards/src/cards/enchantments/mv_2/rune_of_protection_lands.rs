@@ -11,7 +11,7 @@ card!(
     oracle_id = "605dd1b5-8946-4bd0-b31b-e99bf63a1bc4",
     scryfall_id = "4e874700-8002-41e7-8861-b4ce29ba6d9e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rune of Protection: Lands",
         mana_cost = mana!("{1}{W}"),

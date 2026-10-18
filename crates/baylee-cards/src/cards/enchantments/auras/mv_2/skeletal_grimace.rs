@@ -12,7 +12,7 @@ card!(
     oracle_id = "99e03fa0-8e0c-4b5d-880f-d7de201d5f41",
     scryfall_id = "b9b28f37-d6b8-4d35-95e9-9533aea0a071",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeletal Grimace",
         mana_cost = mana!("{1}{B}"),

@@ -4887,3 +4887,42 @@ resolved battle-damage holds:
     changeling, devoid, and all 66 `protection from ...` creatures (colors,
     artifacts, enchantments, creatures, lands, Arcane spells, and creature subtypes).
 
+## 2026-10-18 — Package 3 (627 non-creature permanents: 10 Equipment, 277 Auras, 117 Enchantments, 223 Artifacts) and scriptgen fixes
+
+- Auditing all 627 non-creature permanents (`artifacts/equipment/`,
+  `enchantments/auras/`, `enchantments/`, `artifacts/`) against Scryfall Oracle
+  specifications exposed two `scriptgen` defects:
+  - `Tractor Beam` (`{2}{U}{U}`, `Enchant creature or Spacecraft`, `"When this
+    Aura enters, tap enchanted permanent. / You control enchanted permanent. /
+    Enchanted permanent doesn't untap during its controller's untap step."`):
+    the corpus `CantUntap` static had `ValidCard$ Creature.EnchantedBy` even
+    though `Description$` said `"Enchanted permanent doesn't untap during its
+    controller's untap step."` `scriptgen::Tx::does_not_untap` now emits
+    `Filter::AttachedToBySource` when `valid == "Creature.EnchantedBy"` and
+    `Description$` starts with `"Enchanted permanent"`, so an enchanted
+    uncrewed `Spacecraft` (`Inspirit, Flagship Vessel`) stays tapped during its
+    controller's untap step.
+  - `Cyclopean Snare` (`{2}`, `"{3}, {T}: Tap target creature, then return this
+    artifact to its owner's hand."`): the chained `DB$ ChangeZone` (`Origin$
+    Battlefield | Destination$ Hand`) omitted `Defined$ Self` on an ability
+    whose parent `A:` line carried `ValidTgts$ Creature`. `scriptgen::Tx::change_zone`
+    now takes `targets_here: bool` and treats `Defined$: None` as `itself = true`
+    (`Effect::bounce(TargetSpec::ThisObject)`) when `!targets_here && !p.has("Hidden")`,
+    instead of inheriting the parent ability's target filter and bouncing the
+    targeted creature.
+- Key engine testing invariants verified across the 627 cards:
+  - Granted mana abilities (`Modifier::GrantActivated { mana_ability: true, .. }`,
+    e.g., `Paradise Mantle`, `Enduring Vitality`) appear in `legal.abilities`
+    at `granted_activated(engine.state(), host).next().unwrap().id` and are
+    activated via `PlayerAction::ActivateAbility`, whereas `legal.mana_abilities`
+    is reserved for the CR 305.6 basic land / intrinsic mana shortcut.
+  - Snow mana costs (`{S}`, `Arcum's Astrolabe`) reject ordinary colorless mana
+    in `legal.castable` and require snow-flagged mana in `ManaPool` (`add_snow`
+    or tapping a `SupertypeSet::SNOW` permanent).
+  - `AbilityDef::CopyOnEnter` (`Mirrormade`, `Copy Enchantment`, `Copy Land`,
+    `Sculpting Steel`) raises `Pending::ChooseTargets` with `min: 0` and
+    `reason: TargetReason::CopyOf`; `Copy Land` also applies
+    `CopyMod::AddTypes(TypeSet::ENCHANTMENT)` so the resulting permanent has
+    `TypeSet::LAND | TypeSet::ENCHANTMENT`.
+- Promoted all 627 non-creature permanents from `Coverage::Generated` to
+  `Coverage::Implemented` (`1,427 / 4,969` completed, `3,542` remaining).

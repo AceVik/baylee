@@ -15,7 +15,7 @@ card!(
     scryfall_id = "f67d0091-1925-44a5-89f3-21c2afd5665c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aspect of Manticore",
         mana_cost = mana!("{2}{R}"),

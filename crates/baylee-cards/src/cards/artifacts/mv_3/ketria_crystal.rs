@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ee5d7b6-0263-4239-a5fb-de1e1a220c55",
     scryfall_id = "7df435cb-3aeb-490a-8fca-91f3b6936965",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ketria Crystal",
         mana_cost = mana!("{3}"),

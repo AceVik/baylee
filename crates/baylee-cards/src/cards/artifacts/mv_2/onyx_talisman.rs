@@ -11,7 +11,7 @@ card!(
     index = index::ONYX_TALISMAN,
     oracle_id = "d19a19ed-33f9-400d-9669-c393d7127652",
     scryfall_id = "a89b2368-1180-4821-bcb8-8161c18e5538",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Onyx Talisman",
         mana_cost = mana!("{2}"),

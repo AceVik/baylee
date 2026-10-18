@@ -60,6 +60,9 @@ impl Tx<'_> {
     /// replacement, and `Secondary$` a reference-side marker that is not on
     /// the prose list and will not be put there to move a number.
     pub(super) fn does_not_untap(&mut self, p: &mut Params) -> Option<()> {
+        let enchanted_permanent = p
+            .peek("Description")
+            .is_some_and(|d| d.starts_with("Enchanted permanent"));
         p.drop_prose();
         // The battlefield is where a permanent untaps, and it is CR 113.6's
         // default — written out on 96 of the scripts and left off the other
@@ -100,6 +103,11 @@ impl Tx<'_> {
         // context.
         let filter = if valid == "Card.Self" {
             "Filter::This".to_string()
+        } else if enchanted_permanent && valid == "Creature.EnchantedBy" {
+            // Tractor Beam writes `ValidCard$ Creature.EnchantedBy` beside
+            // `Description$ Enchanted permanent doesn't untap…`; an uncrewed
+            // Spacecraft is not a creature, so follow the printed noun.
+            "Filter::AttachedToBySource".to_string()
         } else {
             self.filter_expr(&valid)?
         };

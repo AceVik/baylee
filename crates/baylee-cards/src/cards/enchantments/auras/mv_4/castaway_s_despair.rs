@@ -13,7 +13,7 @@ card!(
     oracle_id = "9dc4b172-da33-40c0-ab29-d68807dbe93f",
     scryfall_id = "b3a26ba9-84b8-4f54-918c-f75d4cacad0b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Castaway's Despair",
         mana_cost = mana!("{3}{U}"),

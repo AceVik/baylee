@@ -16,7 +16,7 @@ card!(
     index = index::PATRIAR_S_SEAL,
     oracle_id = "ad95eac2-5b48-4102-9988-a6d7b1ec30e0",
     scryfall_id = "37f920f0-4dfc-477b-af7e-a17dfc9ba455",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patriar's Seal",
         mana_cost = mana!("{3}"),

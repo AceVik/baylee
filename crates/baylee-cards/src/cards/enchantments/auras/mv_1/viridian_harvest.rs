@@ -12,7 +12,7 @@ card!(
     oracle_id = "48dc8f34-8c73-4155-8a3d-b26a35260e6b",
     scryfall_id = "666eb9a5-b105-45c1-be3e-7ac5cc650338",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viridian Harvest",
         mana_cost = mana!("{G}"),

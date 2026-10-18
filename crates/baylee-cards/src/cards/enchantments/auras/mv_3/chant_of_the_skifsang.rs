@@ -12,7 +12,7 @@ card!(
     oracle_id = "5c902588-b16e-4679-b89e-7b11c928061f",
     scryfall_id = "6e604b2e-f257-465d-9342-6eb55b2334c5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chant of the Skifsang",
         mana_cost = mana!("{2}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "4e89bd75-f59d-4f08-be51-5660fbbba3c2",
     scryfall_id = "09ab8b60-cdb1-43a8-b180-b562bb89b5a1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brave the Sands",
         mana_cost = mana!("{1}{W}"),

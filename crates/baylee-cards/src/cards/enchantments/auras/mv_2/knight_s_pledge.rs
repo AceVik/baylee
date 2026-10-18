@@ -12,7 +12,7 @@ card!(
     oracle_id = "63604320-68de-415e-b1f9-dd0f85c5d8a3",
     scryfall_id = "4e786d0e-d6bf-4c6b-b989-28ca1ed53e2e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight's Pledge",
         mana_cost = mana!("{1}{W}"),

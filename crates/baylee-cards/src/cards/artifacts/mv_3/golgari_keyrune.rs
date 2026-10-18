@@ -12,7 +12,7 @@ card!(
     oracle_id = "ec970eba-230a-4c41-874a-4a74abf3214e",
     scryfall_id = "913b803f-ba82-4660-86be-49677d1e32c9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Keyrune",
         mana_cost = mana!("{3}"),

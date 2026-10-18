@@ -10,7 +10,7 @@ card!(
     oracle_id = "f6894486-0bac-4b72-92b7-5ce99fa426e6",
     scryfall_id = "b4596140-1113-4349-aabe-4e828ea574e8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vessel of Paramnesia",
         mana_cost = mana!("{1}{U}"),

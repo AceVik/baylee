@@ -78,7 +78,13 @@ impl Tx<'_> {
         let Some(mut effects) = (if chain.second_target.is_some() {
             self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
         } else {
-            self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
+            self.effect_of(
+                &api,
+                &mut p,
+                target.as_deref(),
+                targets_here,
+                targets_a_player,
+            )
         }) else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
@@ -387,6 +393,7 @@ impl Tx<'_> {
         api: &str,
         p: &mut Params,
         target: Option<&str>,
+        targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         // What the effects below aim at when they take a target. `target` is
@@ -725,7 +732,7 @@ impl Tx<'_> {
             "Phases" => self.phase_your_permanents(p)?,
             "Pump" => self.pump_effect(p, aimed, false)?,
             "Effect" => self.static_effect(p, target)?,
-            "ChangeZone" => self.change_zone(p, target)?,
+            "ChangeZone" => self.change_zone(p, target, targets_here)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
             // "Look at the top three cards of target player's library and
             // put them back in any order. You may have that player shuffle"

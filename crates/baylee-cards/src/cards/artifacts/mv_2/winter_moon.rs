@@ -9,7 +9,7 @@ card!(
     index = index::WINTER_MOON,
     oracle_id = "b922f057-1c91-43eb-b74a-8a933b1be2d2",
     scryfall_id = "f76bc2da-8f4b-4153-8a7b-c601b19affaf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winter Moon",
         mana_cost = mana!("{2}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "2f6a5278-23bf-47b2-a2b9-dfff7d96f3dd",
     scryfall_id = "862a2871-57be-42f5-9097-d821013d3b58",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fists of Ironwood",
         mana_cost = mana!("{1}{G}"),

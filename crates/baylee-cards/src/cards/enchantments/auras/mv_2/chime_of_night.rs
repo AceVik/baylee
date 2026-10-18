@@ -17,7 +17,7 @@ card!(
     oracle_id = "09b41783-0583-4486-99e8-3f8a11ae37fd",
     scryfall_id = "1ec7c917-b254-4643-afc2-b6387f267469",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chime of Night",
         mana_cost = mana!("{1}{B}"),

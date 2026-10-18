@@ -9,7 +9,7 @@ card!(
     index = index::AKROMA_S_MEMORIAL,
     oracle_id = "967e8b3f-8266-4d9a-a38b-d0e10184e1e4",
     scryfall_id = "950ee61d-0bc1-4d7b-ba68-157061aa98eb",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroma's Memorial",
         mana_cost = mana!("{7}"),

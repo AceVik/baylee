@@ -12,7 +12,7 @@ card!(
     oracle_id = "605624ee-b7ca-4728-993f-e13b18cc57f3",
     scryfall_id = "c04e6915-39b0-4fbc-9114-2ecf371b6f72",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pin to the Earth",
         mana_cost = mana!("{1}{U}"),

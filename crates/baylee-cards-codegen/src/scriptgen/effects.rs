@@ -679,6 +679,7 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         target: Option<&str>,
+        targets_here: bool,
     ) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
@@ -692,7 +693,12 @@ impl Tx<'_> {
         }
         let target = target.unwrap_or("TargetSpec::AnyPlayer");
         let itself = match p.take("Defined").as_deref() {
-            None => false,
+            // A sub-ability `DB$ ChangeZone` that declares neither its own
+            // `ValidTgts$` nor `Defined$` nor `Hidden$` defaults in the corpus
+            // to `Self` (Cyclopean Snare's `SVar:DBBounce:DB$ ChangeZone |
+            // Origin$ Battlefield | Destination$ Hand`), never the parent
+            // ability's target.
+            None => !targets_here && !p.has("Hidden") && target != "TargetSpec::AnyPlayer",
             Some("Self") => true,
             Some(other) => {
                 self.note(format!("`ChangeZone` of `Defined$ {other}`"));
@@ -715,6 +721,9 @@ impl Tx<'_> {
             return None;
         }
         Some(match (origin.as_str(), destination.as_str(), itself) {
+            ("Battlefield", "Hand", true) => {
+                vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
+            }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],

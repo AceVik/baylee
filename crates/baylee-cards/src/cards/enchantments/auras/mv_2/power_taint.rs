@@ -13,7 +13,7 @@ card!(
     oracle_id = "585a1c82-8a6c-4770-be9c-3a4916b74a9f",
     scryfall_id = "13d0296c-c0f5-491e-9e61-be8f5af2e631",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Power Taint",
         mana_cost = mana!("{1}{U}"),

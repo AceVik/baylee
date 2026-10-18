@@ -16,7 +16,7 @@ card!(
     scryfall_id = "74fe0fb5-e994-41b1-a73d-4e68f7afdf34",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Short Circuit",
         mana_cost = mana!("{1}{U}"),

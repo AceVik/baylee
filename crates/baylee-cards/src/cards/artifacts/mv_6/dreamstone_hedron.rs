@@ -10,7 +10,7 @@ card!(
     index = index::DREAMSTONE_HEDRON,
     oracle_id = "0e2575be-c596-4c8c-bf07-7941ca065721",
     scryfall_id = "d0a27816-7ee9-4fa1-aa01-78796ad62337",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dreamstone Hedron",
         mana_cost = mana!("{6}"),

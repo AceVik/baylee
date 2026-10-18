@@ -11,7 +11,7 @@ card!(
     oracle_id = "3c76bb90-92fb-428b-8e94-def4cf4b6f2d",
     scryfall_id = "8cf63def-e2cc-48c7-8409-c08a36eddf93",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Izzet Cluestone",
         mana_cost = mana!("{3}"),

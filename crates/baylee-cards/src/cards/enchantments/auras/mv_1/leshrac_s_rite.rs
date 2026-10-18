@@ -12,7 +12,7 @@ card!(
     oracle_id = "ced4538a-4919-4ef8-8bf2-2de9e0388587",
     scryfall_id = "e4d37d29-b667-4124-907d-5636a6db044f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leshrac's Rite",
         mana_cost = mana!("{B}"),

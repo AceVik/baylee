@@ -11,7 +11,7 @@ card!(
     index = index::ALTAR_OF_THE_BROOD,
     oracle_id = "c3aafcdd-c890-4971-b8a9-5bfcad794c0b",
     scryfall_id = "8d59d264-87ee-4305-bffb-110549331a82",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Altar of the Brood",
         mana_cost = mana!("{1}"),

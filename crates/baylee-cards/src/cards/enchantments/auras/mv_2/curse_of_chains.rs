@@ -12,7 +12,7 @@ card!(
     oracle_id = "be951382-5173-4fb6-9dda-2c5f7fddc863",
     scryfall_id = "26146dec-135b-4b4e-9d85-dcc1df9b5a09",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Curse of Chains",
         mana_cost = mana!("{1}{W/U}"),

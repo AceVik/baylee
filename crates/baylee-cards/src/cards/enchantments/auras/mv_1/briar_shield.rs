@@ -13,7 +13,7 @@ card!(
     oracle_id = "9d437391-d476-4976-8714-6a1d3185ab52",
     scryfall_id = "68100ac2-9677-4eb5-93dc-54e49b15985d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Briar Shield",
         mana_cost = mana!("{G}"),

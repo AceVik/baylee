@@ -10,7 +10,7 @@ card!(
     index = index::HIVESTONE,
     oracle_id = "72aeed80-653b-4c53-ba65-a339aad14b9a",
     scryfall_id = "69e62171-713c-49c0-8e16-b193ff181dcd",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hivestone",
         mana_cost = mana!("{2}"),

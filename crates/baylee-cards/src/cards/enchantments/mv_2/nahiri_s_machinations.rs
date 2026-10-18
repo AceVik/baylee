@@ -13,7 +13,7 @@ card!(
     oracle_id = "b119e0de-6af4-4b5b-9920-187f0a414231",
     scryfall_id = "a9ba0f1c-8641-4f5a-8f2e-f969fc7a058a",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nahiri's Machinations",
         mana_cost = mana!("{1}{W}"),

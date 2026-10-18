@@ -14,7 +14,7 @@ card!(
     oracle_id = "b4b397a9-85cb-4bdf-8c2e-a151a02a4208",
     scryfall_id = "e6250b31-8592-48b2-a877-3637c9ee7d49",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Security Blockade",
         mana_cost = mana!("{2}{W}"),

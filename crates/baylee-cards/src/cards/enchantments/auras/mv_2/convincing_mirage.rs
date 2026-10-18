@@ -13,7 +13,7 @@ card!(
     oracle_id = "685c4665-e04c-4012-aa5b-888a042c2a21",
     scryfall_id = "fb757102-4636-46ae-b202-c2095aeb187c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Convincing Mirage",
         mana_cost = mana!("{1}{U}"),

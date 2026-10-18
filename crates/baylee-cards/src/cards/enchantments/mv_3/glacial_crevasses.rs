@@ -17,7 +17,7 @@ card!(
     oracle_id = "88e0551a-ada0-41d9-b5c3-39257ce56c3e",
     scryfall_id = "f69662bd-206e-4bd7-9145-eb5c24a31d3a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glacial Crevasses",
         mana_cost = mana!("{2}{R}"),

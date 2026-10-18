@@ -15,7 +15,7 @@ card!(
     scryfall_id = "32dc1bf4-a135-449f-848f-361a5360fae1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire-Rim Form",
         mana_cost = mana!("{1}{R}"),

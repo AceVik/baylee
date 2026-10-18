@@ -13,7 +13,7 @@ card!(
     oracle_id = "15b618f0-281f-4745-8504-bd70e7b4a267",
     scryfall_id = "d8823bdc-0467-47f1-9bef-a281b4a7071d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit Away",
         mana_cost = mana!("{5}{U}{U}"),

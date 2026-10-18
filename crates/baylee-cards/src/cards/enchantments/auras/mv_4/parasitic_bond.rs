@@ -12,7 +12,7 @@ card!(
     oracle_id = "9d973df5-b2e8-4af8-8379-0f8282e1e62a",
     scryfall_id = "47bd3995-3013-468e-b586-0c5720a0bde6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Parasitic Bond",
         mana_cost = mana!("{3}{B}"),

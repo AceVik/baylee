@@ -10,7 +10,7 @@ card!(
     index = index::COLLECTOR_S_VAULT,
     oracle_id = "f460ff80-8175-43f7-9810-540cf3817085",
     scryfall_id = "967a4f27-8cd6-437d-8c05-8aedbc7ddc4b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Collector's Vault",
         mana_cost = mana!("{2}"),

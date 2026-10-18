@@ -14,7 +14,7 @@ card!(
     scryfall_id = "592d7349-d066-49b0-9920-c1ec1595e00d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spiteful Motives",
         mana_cost = mana!("{3}{R}"),

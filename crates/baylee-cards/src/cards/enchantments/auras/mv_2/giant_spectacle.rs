@@ -12,7 +12,7 @@ card!(
     oracle_id = "97e34c3a-070e-406a-8505-657f4d57def8",
     scryfall_id = "7c425337-6f1f-494e-a7ae-7d533d7a0b4e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giant Spectacle",
         mana_cost = mana!("{1}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "9d86735c-12e5-457a-beb4-057ab220d18b",
     scryfall_id = "999440a5-9659-4218-8594-1950f1155975",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Threads of Disloyalty",
         mana_cost = mana!("{1}{U}{U}"),

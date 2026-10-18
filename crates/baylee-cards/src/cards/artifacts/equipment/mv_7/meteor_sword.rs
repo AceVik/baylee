@@ -12,7 +12,7 @@ card!(
     index = index::METEOR_SWORD,
     oracle_id = "181965fb-e685-4b1f-9bd6-3a33bed933b2",
     scryfall_id = "68b1c746-a4b8-4a45-9f0e-3962f0ae40e3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meteor Sword",
         mana_cost = mana!("{7}"),

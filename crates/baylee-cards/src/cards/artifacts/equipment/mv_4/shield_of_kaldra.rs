@@ -12,7 +12,7 @@ card!(
     index = index::SHIELD_OF_KALDRA,
     oracle_id = "4fdd570f-dbe0-486f-9843-f77f80956307",
     scryfall_id = "d3e09c8a-6c55-491b-96e9-6cf05f673ac3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield of Kaldra",
         mana_cost = mana!("{4}"),

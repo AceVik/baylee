@@ -11,7 +11,7 @@ card!(
     oracle_id = "14d2979d-5728-42d7-a027-0eb1f754655d",
     scryfall_id = "d4ba86c8-8052-4c9e-a0d0-ac6ad0b2679c",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talisman of Creativity",
         mana_cost = mana!("{2}"),

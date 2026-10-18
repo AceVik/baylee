@@ -11,7 +11,7 @@ card!(
     oracle_id = "fc338ba2-c3a4-45d6-895f-af7f72bf7a94",
     scryfall_id = "fd466b20-d11d-419e-8765-9befb9590299",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ior Ruin Expedition",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "494895db-3da1-4a19-b7a5-ea47817f4e4f",
     scryfall_id = "8c934b09-726a-49c7-88fa-8b2e7ebf87b7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necromantic Thirst",
         mana_cost = mana!("{2}{B}{B}"),

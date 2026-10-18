@@ -12,7 +12,7 @@ card!(
     oracle_id = "617eae63-b5f8-4014-8269-7c66f4388ac7",
     scryfall_id = "564a9bff-969f-49c1-be02-40cb45858f19",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Almost Perfect",
         mana_cost = mana!("{4}{G}{W}"),

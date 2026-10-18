@@ -15,7 +15,7 @@ card!(
     index = index::MOX_JASPER,
     oracle_id = "d5fca77c-377f-41b4-a9e9-e91a89d351cc",
     scryfall_id = "a851d2d3-7e93-4887-bee5-4d6c9aaf9419",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mox Jasper",
         mana_cost = mana!("{0}"),

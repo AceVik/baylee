@@ -10,7 +10,7 @@ card!(
     index = index::MAGMA_MINE,
     oracle_id = "8a2726a4-29b7-4836-bd0a-9c0d914ed915",
     scryfall_id = "1aecc3df-7ce6-419c-b3d6-60fc28bfe941",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magma Mine",
         mana_cost = mana!("{1}"),

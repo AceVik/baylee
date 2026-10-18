@@ -15,7 +15,7 @@ card!(
     oracle_id = "25c8a3b0-c393-4fc6-a373-808cd8e9850c",
     scryfall_id = "a7363c6f-53a3-4f41-b451-8120bc24f1ee",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Air Bladder",
         mana_cost = mana!("{U}"),

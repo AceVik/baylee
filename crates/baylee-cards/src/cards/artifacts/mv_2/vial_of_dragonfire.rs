@@ -9,7 +9,7 @@ card!(
     index = index::VIAL_OF_DRAGONFIRE,
     oracle_id = "17be934e-1e33-4b95-a984-242fa018e280",
     scryfall_id = "c924502b-a49e-4bf6-9e1a-9aa83f279228",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vial of Dragonfire",
         mana_cost = mana!("{2}"),

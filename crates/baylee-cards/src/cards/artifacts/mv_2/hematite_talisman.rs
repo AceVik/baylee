@@ -11,7 +11,7 @@ card!(
     index = index::HEMATITE_TALISMAN,
     oracle_id = "586601dd-ac73-4451-848d-f21e64feb6a9",
     scryfall_id = "83585337-56a9-44d2-9ed1-8a959bcfb010",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hematite Talisman",
         mana_cost = mana!("{2}"),

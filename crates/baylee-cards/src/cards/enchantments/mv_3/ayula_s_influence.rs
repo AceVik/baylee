@@ -11,7 +11,7 @@ card!(
     oracle_id = "25d955e3-2b98-4a75-bb51-6072000111be",
     scryfall_id = "1b9296ca-39a8-4aad-be92-0a56c704e950",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ayula's Influence",
         mana_cost = mana!("{G}{G}{G}"),

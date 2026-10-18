@@ -12,7 +12,7 @@ card!(
     oracle_id = "cdce8b86-81e3-443c-af91-f6b4f62f5b59",
     scryfall_id = "37a6290c-a0a8-4032-972b-84a7eef04dae",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pursuit of Flight",
         mana_cost = mana!("{1}{R}"),

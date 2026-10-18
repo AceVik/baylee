@@ -10,7 +10,7 @@ card!(
     oracle_id = "a5827d57-ae8b-44b0-a81b-3d191a0ba2fa",
     scryfall_id = "3389d6c7-2a8a-48d6-a09d-aa195d830576",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unfulfilled Desires",
         mana_cost = mana!("{1}{U}{B}"),

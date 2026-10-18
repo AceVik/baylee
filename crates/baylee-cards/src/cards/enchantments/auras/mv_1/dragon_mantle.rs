@@ -13,7 +13,7 @@ card!(
     oracle_id = "0cc5aaa1-07bf-4872-ac72-303cef9fb143",
     scryfall_id = "ca32fd66-f7f1-4e50-817f-bb259f690f00",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Mantle",
         mana_cost = mana!("{R}"),

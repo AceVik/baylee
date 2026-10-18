@@ -12,7 +12,7 @@ card!(
     oracle_id = "0e969a27-1609-4ab4-b0db-46b1af8066a9",
     scryfall_id = "a1201875-b3d8-4f95-801e-bf18ee77919b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unflinching Courage",
         mana_cost = mana!("{1}{G}{W}"),

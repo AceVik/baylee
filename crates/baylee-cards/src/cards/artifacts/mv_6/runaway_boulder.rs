@@ -12,7 +12,7 @@ card!(
     oracle_id = "57f15861-82cf-4faf-827c-9bc7f4844d2a",
     scryfall_id = "06d47a3b-dc66-48d8-981b-dde0ccc34ad5",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runaway Boulder",
         mana_cost = mana!("{6}"),

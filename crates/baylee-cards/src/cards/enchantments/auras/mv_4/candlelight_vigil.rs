@@ -12,7 +12,7 @@ card!(
     oracle_id = "7153bf15-53f8-445e-acbb-35b4f4b3d551",
     scryfall_id = "e920a75f-7dec-4815-a358-e174401da83b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Candlelight Vigil",
         mana_cost = mana!("{3}{W}"),

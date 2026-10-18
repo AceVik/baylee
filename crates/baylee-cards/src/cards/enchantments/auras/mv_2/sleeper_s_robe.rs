@@ -13,7 +13,7 @@ card!(
     oracle_id = "d82783d9-9bfe-4fcd-a7d2-6e2477f99edc",
     scryfall_id = "3411f0fd-8b85-4d0d-a202-701a24ffac9f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sleeper's Robe",
         mana_cost = mana!("{U}{B}"),

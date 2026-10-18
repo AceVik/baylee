@@ -11,7 +11,7 @@ card!(
     index = index::SPIDERSILK_NET,
     oracle_id = "04979f18-1ba8-47a3-a078-ab6b84bfac72",
     scryfall_id = "9561b47c-b863-463a-8a10-56fede2cb42c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spidersilk Net",
         mana_cost = mana!("{0}"),

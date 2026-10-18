@@ -17,7 +17,7 @@ card!(
     index = index::BAG_END_BANQUET,
     oracle_id = "2522a9dd-bcf3-4b84-abff-52b9e6dbde34",
     scryfall_id = "028f284b-4b4c-44e2-8ded-bc59ec71250f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bag End Banquet",
         mana_cost = mana!("{6}"),

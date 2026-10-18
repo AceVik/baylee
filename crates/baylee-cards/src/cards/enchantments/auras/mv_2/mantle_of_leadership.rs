@@ -14,7 +14,7 @@ card!(
     scryfall_id = "9ef5d122-cf18-42c3-be24-cfd92bd18be9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mantle of Leadership",
         mana_cost = mana!("{1}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "a5ce8125-da02-48b0-83cd-871c934352b0",
     scryfall_id = "9bad0759-4132-42b5-9a26-0fcf321a60e0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terra Eternal",
         mana_cost = mana!("{2}{W}"),

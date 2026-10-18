@@ -14,7 +14,7 @@ card!(
     scryfall_id = "8275ecd7-f119-4cca-bef1-626a3272dd2c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jolrael's Favor",
         mana_cost = mana!("{1}{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "9e830359-ab92-4bfd-82b3-d9c67ac80cf7",
     scryfall_id = "10874416-fa4c-4aa3-b885-4351d011d208",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Air Nomad Legacy",
         mana_cost = mana!("{W}{U}"),

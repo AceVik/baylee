@@ -9,7 +9,7 @@ card!(
     index = index::CYCLOPEAN_SNARE,
     oracle_id = "6f5a86bf-caa7-48c9-a59f-b13fb483a9d4",
     scryfall_id = "22ba776a-c959-4d15-aa36-9fba1fcb512d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cyclopean Snare",
         mana_cost = mana!("{2}"),
@@ -17,10 +17,7 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{3}", TapSelf),
-        &[
-            Effect::TapTarget,
-            Effect::bounce(TargetSpec::Object(&Filter::CREATURE))
-        ],
+        &[Effect::TapTarget, Effect::bounce(TargetSpec::ThisObject)],
         target = Some(TargetSpec::Object(&Filter::CREATURE))
     ),],
 );

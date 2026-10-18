@@ -13,7 +13,7 @@ card!(
     oracle_id = "488696c2-b0c7-49be-a5a1-e833b6fd8751",
     scryfall_id = "d806458e-81cd-4413-bba0-14d957bece79",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cartouche of Knowledge",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     index = index::NETWORK_TERMINAL,
     oracle_id = "a0eb1d5b-2c54-44fa-b7ad-bdd4b1147929",
     scryfall_id = "d61e596f-97ef-4eb3-af42-ddfe50d07667",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Network Terminal",
         mana_cost = mana!("{3}"),

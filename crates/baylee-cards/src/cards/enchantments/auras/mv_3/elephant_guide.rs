@@ -14,7 +14,7 @@ card!(
     oracle_id = "c138bd7f-8751-4e96-b54a-d5082e1a491f",
     scryfall_id = "c997fe6c-cb57-4e0e-9267-42bd12cc3b03",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elephant Guide",
         mana_cost = mana!("{2}{G}"),

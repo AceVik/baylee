@@ -11,7 +11,7 @@ card!(
     oracle_id = "80911151-1e72-4d10-b00a-9fcff2dd131a",
     scryfall_id = "bc47d1fe-8ab2-42f6-bcab-4bc2084ceba7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gruul Cluestone",
         mana_cost = mana!("{3}"),

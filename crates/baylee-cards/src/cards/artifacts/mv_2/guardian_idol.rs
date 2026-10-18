@@ -12,7 +12,7 @@ card!(
     index = index::GUARDIAN_IDOL,
     oracle_id = "829d2e11-192f-4093-99f8-e13767b321a2",
     scryfall_id = "393ef742-6968-4266-ae07-a4564b7f6ede",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Idol",
         mana_cost = mana!("{2}"),

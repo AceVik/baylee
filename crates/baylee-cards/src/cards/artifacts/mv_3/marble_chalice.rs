@@ -10,7 +10,7 @@ card!(
     oracle_id = "236f318e-9bd1-4eb0-8b19-af015b3a74ea",
     scryfall_id = "b76e9580-9154-476b-923f-b23bf55db026",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marble Chalice",
         mana_cost = mana!("{2}{W}"),

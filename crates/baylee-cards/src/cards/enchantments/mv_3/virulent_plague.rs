@@ -10,7 +10,7 @@ card!(
     oracle_id = "adfba95e-c73c-415d-adea-edcd04372ba4",
     scryfall_id = "3c5f82b6-53d9-43ce-8a17-c680c443e586",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Virulent Plague",
         mana_cost = mana!("{2}{B}"),

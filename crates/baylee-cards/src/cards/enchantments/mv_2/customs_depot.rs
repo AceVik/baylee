@@ -10,7 +10,7 @@ card!(
     oracle_id = "de64eab5-9d7a-4408-8358-47d30a14ce40",
     scryfall_id = "067d8c46-c334-4b00-af06-2e28b6086c58",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Customs Depot",
         mana_cost = mana!("{1}{U}"),

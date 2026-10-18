@@ -10,7 +10,7 @@ card!(
     index = index::CHROMATIC_STAR,
     oracle_id = "fedbd40b-e3a5-449c-a8a3-b42e9da191a9",
     scryfall_id = "c2e8d492-2c67-410b-b556-c157a14c4cec",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chromatic Star",
         mana_cost = mana!("{1}"),

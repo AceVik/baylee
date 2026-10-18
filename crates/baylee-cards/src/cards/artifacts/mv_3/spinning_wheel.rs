@@ -10,7 +10,7 @@ card!(
     index = index::SPINNING_WHEEL,
     oracle_id = "e0935a0f-7087-40cd-a094-89f200da6ef0",
     scryfall_id = "070ff479-9d87-4ab6-aaaa-e96b9df0bac4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spinning Wheel",
         mana_cost = mana!("{3}"),

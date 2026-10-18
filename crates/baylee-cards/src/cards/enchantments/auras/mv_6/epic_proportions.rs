@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7412373a-da0f-4bec-866c-5e1087f49914",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Epic Proportions",
         mana_cost = mana!("{4}{G}{G}"),

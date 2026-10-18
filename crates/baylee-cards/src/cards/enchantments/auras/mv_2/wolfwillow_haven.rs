@@ -14,7 +14,7 @@ card!(
     oracle_id = "7579f57d-c76e-4703-a030-34fb7160cb23",
     scryfall_id = "72b886c3-234c-49ce-9a11-456c1e8f092f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wolfwillow Haven",
         mana_cost = mana!("{1}{G}"),

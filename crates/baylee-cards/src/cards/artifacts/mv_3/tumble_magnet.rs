@@ -12,7 +12,7 @@ card!(
     index = index::TUMBLE_MAGNET,
     oracle_id = "0481adcd-b66d-432e-80ba-3a4718bb3a7d",
     scryfall_id = "74baa632-d046-401a-9172-1ab6284240bc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tumble Magnet",
         mana_cost = mana!("{3}"),

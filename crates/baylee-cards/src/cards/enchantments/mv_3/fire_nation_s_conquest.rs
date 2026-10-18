@@ -10,7 +10,7 @@ card!(
     oracle_id = "8893af49-2f90-4aed-bcaf-905bb9e8ed8f",
     scryfall_id = "b6fcdc4c-547a-4df4-93c8-911fd400c837",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Nation's Conquest",
         mana_cost = mana!("{2}{R}"),

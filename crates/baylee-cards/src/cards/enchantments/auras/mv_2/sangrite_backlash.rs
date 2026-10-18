@@ -12,7 +12,7 @@ card!(
     oracle_id = "03220765-8a9d-4d4a-88d5-98df975ce13c",
     scryfall_id = "fa56b15e-d02d-4306-82a6-ced778fee90f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sangrite Backlash",
         mana_cost = mana!("{B/G}{R}"),

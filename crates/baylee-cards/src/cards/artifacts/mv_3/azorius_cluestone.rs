@@ -11,7 +11,7 @@ card!(
     oracle_id = "27e04c41-f42c-4d60-8a71-ec2d7c326f64",
     scryfall_id = "09eeb301-bc28-4515-ad69-0b1b5164a5bc",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Azorius Cluestone",
         mana_cost = mana!("{3}"),

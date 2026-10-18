@@ -13,7 +13,7 @@ card!(
     oracle_id = "3ff3b9c4-80ec-44d9-99ec-6fea3a86468b",
     scryfall_id = "1947f64a-5ca0-4dda-8bbd-8472e72ecf18",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Setessan Training",
         mana_cost = mana!("{1}{G}"),

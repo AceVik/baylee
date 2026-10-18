@@ -13,7 +13,7 @@ card!(
     oracle_id = "3548489b-053e-4f81-a0be-07422cbe357d",
     scryfall_id = "ee2dba5c-2f00-4a44-9093-3b845a8bf552",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gift of the Deity",
         mana_cost = mana!("{4}{B/G}"),

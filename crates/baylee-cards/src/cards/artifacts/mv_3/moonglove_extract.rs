@@ -9,7 +9,7 @@ card!(
     index = index::MOONGLOVE_EXTRACT,
     oracle_id = "ac2711b7-318d-478a-b69c-d44baff46f2d",
     scryfall_id = "2d016c5f-265b-4426-8dd8-87872f075f33",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonglove Extract",
         mana_cost = mana!("{3}"),

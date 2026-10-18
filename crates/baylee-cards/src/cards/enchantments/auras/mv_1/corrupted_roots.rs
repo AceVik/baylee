@@ -17,7 +17,7 @@ card!(
     oracle_id = "0c6f343a-0088-477a-a6b5-256783ad0c27",
     scryfall_id = "c8a7fe66-db40-4eca-8953-0eb2cf98e4e8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corrupted Roots",
         mana_cost = mana!("{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ae4b679-2e3c-4f60-bcf4-b279917cdc54",
     scryfall_id = "08e3dd7a-8378-4368-a5e4-a1ca7899a67b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dimir Locket",
         mana_cost = mana!("{3}"),

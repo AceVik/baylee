@@ -12,7 +12,7 @@ card!(
     oracle_id = "9594b8e0-a176-447a-a52e-e1a77175b748",
     scryfall_id = "82a5d3e9-bada-448b-894d-9d4e7e0463c7",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Supply Drop",
         mana_cost = mana!("{3}"),

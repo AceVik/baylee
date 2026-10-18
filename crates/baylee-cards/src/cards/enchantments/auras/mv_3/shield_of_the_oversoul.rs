@@ -13,7 +13,7 @@ card!(
     oracle_id = "9b598025-80a3-4144-be9a-863165161594",
     scryfall_id = "54040bc6-dd7c-4933-bfac-d0d6d2c78157",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield of the Oversoul",
         mana_cost = mana!("{2}{G/W}"),

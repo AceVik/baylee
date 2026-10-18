@@ -11,7 +11,7 @@ card!(
     index = index::FOUNTAIN_OF_ICHOR,
     oracle_id = "9082d364-9fe4-47bd-9097-8888ae75b2e1",
     scryfall_id = "b022a628-4883-427a-8477-0e87d1a71028",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fountain of Ichor",
         mana_cost = mana!("{3}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d60731c6-7a25-4f2b-8ed1-2469a2d300c6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Etherium Astrolabe",
         mana_cost = mana!("{2}{U}"),

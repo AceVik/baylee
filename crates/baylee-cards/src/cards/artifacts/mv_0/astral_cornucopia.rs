@@ -10,7 +10,7 @@ card!(
     index = index::ASTRAL_CORNUCOPIA,
     oracle_id = "1bc42024-52da-4d93-8b47-544f0a4a72a1",
     scryfall_id = "15175742-11ae-4819-a5bd-412084b0b686",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Astral Cornucopia",
         mana_cost = mana!("{X}{X}{X}"),

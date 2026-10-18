@@ -12,7 +12,7 @@ card!(
     oracle_id = "4b65276e-7d03-4700-834c-48178fe98353",
     scryfall_id = "be8956d0-5502-415d-bead-d8bbddf9871d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aspect of Gorgon",
         mana_cost = mana!("{2}{B}"),

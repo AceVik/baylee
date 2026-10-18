@@ -15,7 +15,7 @@ card!(
     scryfall_id = "96cc4428-3f86-4359-927d-4009ada52c5d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mystic Restraints",
         mana_cost = mana!("{2}{U}{U}"),

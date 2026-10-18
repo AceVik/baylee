@@ -10,7 +10,7 @@ card!(
     index = index::BARRELS_OF_BLASTING_JELLY,
     oracle_id = "c6cd520c-106b-4ee5-bc02-6c5fbdbc78dd",
     scryfall_id = "4fd83083-3779-41f0-90a0-a00e3270e4e6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrels of Blasting Jelly",
         mana_cost = mana!("{1}"),

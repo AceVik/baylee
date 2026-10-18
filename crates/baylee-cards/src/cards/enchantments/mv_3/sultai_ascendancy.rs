@@ -10,7 +10,7 @@ card!(
     oracle_id = "06e92ab3-c781-4f32-9ada-09a388047067",
     scryfall_id = "3314d77a-039f-43e4-a457-6ceba20c0ffe",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sultai Ascendancy",
         mana_cost = mana!("{B}{G}{U}"),

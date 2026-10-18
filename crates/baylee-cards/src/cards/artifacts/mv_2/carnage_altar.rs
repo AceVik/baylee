@@ -9,7 +9,7 @@ card!(
     index = index::CARNAGE_ALTAR,
     oracle_id = "aa05900f-0f04-407e-931c-fea8f91e78e3",
     scryfall_id = "c08486d3-3d94-49c7-b8c9-61eb8a3e6428",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carnage Altar",
         mana_cost = mana!("{2}"),

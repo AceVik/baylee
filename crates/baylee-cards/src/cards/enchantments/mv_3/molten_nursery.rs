@@ -14,7 +14,7 @@ card!(
     scryfall_id = "3db8aaf5-e2bf-40ea-bd5d-663017cfd4a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten Nursery",
         mana_cost = mana!("{2}{R}"),

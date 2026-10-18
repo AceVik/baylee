@@ -11,7 +11,7 @@ card!(
     index = index::MALACHITE_TALISMAN,
     oracle_id = "0be4877d-72ff-4951-aa52-f4f816abc844",
     scryfall_id = "63fb8a24-ce53-4a69-be2a-55c6dbba5ee7",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malachite Talisman",
         mana_cost = mana!("{2}"),

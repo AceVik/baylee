@@ -12,7 +12,7 @@ card!(
     oracle_id = "15d63e5d-dc4d-4e5f-8043-78039a49732b",
     scryfall_id = "ba2b0966-4e9e-44dc-9145-3c1e644578bc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prodigious Growth",
         mana_cost = mana!("{4}{G}{G}"),

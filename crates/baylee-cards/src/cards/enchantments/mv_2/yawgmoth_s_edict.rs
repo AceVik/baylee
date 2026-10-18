@@ -15,7 +15,7 @@ card!(
     oracle_id = "544eca0d-63cd-4cc5-9318-c2006cdec170",
     scryfall_id = "f72ed0e5-37a0-4909-a37e-ba4745bfae3b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yawgmoth's Edict",
         mana_cost = mana!("{1}{B}"),

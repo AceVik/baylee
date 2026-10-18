@@ -14,7 +14,7 @@ card!(
     oracle_id = "4770ad4a-a346-4108-8f61-a077155d4bd1",
     scryfall_id = "91de07da-564d-42f3-987d-a2321c3216bc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squire's Devotion",
         mana_cost = mana!("{2}{W}"),

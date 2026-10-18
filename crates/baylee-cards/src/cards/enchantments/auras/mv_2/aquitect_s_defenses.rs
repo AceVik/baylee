@@ -15,7 +15,7 @@ card!(
     scryfall_id = "9af9a907-fd2e-4ae0-ac7b-529074b79a14",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aquitect's Defenses",
         mana_cost = mana!("{1}{U}"),

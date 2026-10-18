@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c0dc4c08-ed18-454b-b061-8901c253005c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Howlpack Resurgence",
         mana_cost = mana!("{2}{G}"),

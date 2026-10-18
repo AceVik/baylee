@@ -11,7 +11,7 @@ card!(
     index = index::OROCHI_HATCHERY,
     oracle_id = "65fb1945-ed7a-4f1b-bc6b-166cbec1d8ec",
     scryfall_id = "5d3804ed-192d-47a1-ae7e-60b6827e2a72",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orochi Hatchery",
         mana_cost = mana!("{X}{X}"),

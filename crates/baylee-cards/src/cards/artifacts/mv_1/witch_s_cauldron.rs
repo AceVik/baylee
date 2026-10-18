@@ -10,7 +10,7 @@ card!(
     oracle_id = "cb65ee08-bfdb-4c18-8967-8bcf31fcabfa",
     scryfall_id = "51c15046-dd24-41aa-96f3-fb008a6988dd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Witch's Cauldron",
         mana_cost = mana!("{B}"),

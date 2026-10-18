@@ -15,7 +15,7 @@ card!(
     oracle_id = "71d54ba3-91fe-4a14-8b99-c284b4c75013",
     scryfall_id = "3647ef4a-fbf3-4f64-8376-72c9247bbc22",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seal of Doom",
         mana_cost = mana!("{2}{B}"),

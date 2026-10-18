@@ -16,7 +16,7 @@ card!(
     oracle_id = "d9a7e5a6-3e41-4fc6-987a-18fe1b9d67dd",
     scryfall_id = "8efbc925-54ac-4dda-82af-9091b1cf2fda",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elemental Bond",
         mana_cost = mana!("{2}{G}"),

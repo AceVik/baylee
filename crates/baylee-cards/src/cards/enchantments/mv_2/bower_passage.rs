@@ -12,7 +12,7 @@ card!(
     oracle_id = "f91ef713-5289-4901-9291-0a5afe6f997b",
     scryfall_id = "b9f0048f-aaa0-4597-b898-ee754d0bbe4b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bower Passage",
         mana_cost = mana!("{1}{G}"),

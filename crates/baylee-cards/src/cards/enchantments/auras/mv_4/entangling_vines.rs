@@ -14,7 +14,7 @@ card!(
     oracle_id = "51e7405e-a714-4c76-8913-10d626d2361e",
     scryfall_id = "f717a468-696c-4a84-b943-75046138f2bf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Entangling Vines",
         mana_cost = mana!("{3}{G}"),

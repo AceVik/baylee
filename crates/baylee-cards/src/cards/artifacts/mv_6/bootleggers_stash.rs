@@ -11,7 +11,7 @@ card!(
     oracle_id = "d1deba03-b26a-4a0d-b242-24bb3a3f9ea6",
     scryfall_id = "80b5b7e1-52c2-4453-b3c0-efe2cebad6ce",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bootleggers' Stash",
         mana_cost = mana!("{5}{G}"),

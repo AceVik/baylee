@@ -9,7 +9,7 @@ card!(
     index = index::PLANAR_BRIDGE,
     oracle_id = "853c6cc0-ed2b-4d65-add1-2449ade8cf68",
     scryfall_id = "30879758-841c-46a9-a0b6-179ac163f0ac",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Planar Bridge",
         mana_cost = mana!("{6}"),

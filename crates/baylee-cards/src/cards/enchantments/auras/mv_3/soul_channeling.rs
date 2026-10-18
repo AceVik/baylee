@@ -12,7 +12,7 @@ card!(
     oracle_id = "7041b3d5-c61a-4b94-811c-c5eb9f1ba664",
     scryfall_id = "55cd09ef-1655-4a62-b6c5-6eda33d2607a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul Channeling",
         mana_cost = mana!("{2}{B}"),

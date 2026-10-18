@@ -10,7 +10,7 @@ card!(
     oracle_id = "de3dcb5d-775a-479f-99f5-d1883ed9b1b5",
     scryfall_id = "90894726-1940-4291-a05c-b85cefbfa344",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orzhov Signet",
         mana_cost = mana!("{2}"),

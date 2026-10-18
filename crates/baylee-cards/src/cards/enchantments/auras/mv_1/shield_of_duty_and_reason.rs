@@ -12,7 +12,7 @@ card!(
     oracle_id = "1c64ab87-1da1-4b07-a3f2-73631ae3d501",
     scryfall_id = "4ddf4ee0-75d6-48a5-955c-97faf73b899f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shield of Duty and Reason",
         mana_cost = mana!("{W}"),

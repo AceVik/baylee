@@ -11,7 +11,7 @@ card!(
     oracle_id = "792d4afd-b3de-4be2-b68a-03a5be7b9627",
     scryfall_id = "34ad5631-439a-43e2-b00a-04f78d66b8e6",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selesnya Cluestone",
         mana_cost = mana!("{3}"),

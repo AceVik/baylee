@@ -12,7 +12,7 @@ card!(
     oracle_id = "0f35e73b-6a38-4185-a7d3-d237d67ba1cd",
     scryfall_id = "5dae4042-8806-437c-8fc1-2d6996ff38c6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimbus Wings",
         mana_cost = mana!("{1}{W}"),

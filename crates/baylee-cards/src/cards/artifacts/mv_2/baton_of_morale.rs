@@ -9,7 +9,7 @@ card!(
     index = index::BATON_OF_MORALE,
     oracle_id = "879011c6-550e-4e33-a664-fffb655321d9",
     scryfall_id = "8bc29872-b1a2-4851-9eca-f3e67ae6e14c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Baton of Morale",
         mana_cost = mana!("{2}"),

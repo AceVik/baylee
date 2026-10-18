@@ -17,7 +17,7 @@ card!(
     oracle_id = "8e7b31eb-7a91-4992-b24a-d81173e1dbc8",
     scryfall_id = "a624ef59-69e6-4a41-b41a-3d19e287fe08",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deeproot Waters",
         mana_cost = mana!("{2}{U}"),

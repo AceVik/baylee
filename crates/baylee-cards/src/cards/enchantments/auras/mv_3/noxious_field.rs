@@ -12,7 +12,7 @@ card!(
     oracle_id = "c75ec3c6-2786-4386-b758-ac03610f2a99",
     scryfall_id = "10c84d09-555c-472b-b445-5dd5a44cd555",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Field",
         mana_cost = mana!("{1}{B}{B}"),

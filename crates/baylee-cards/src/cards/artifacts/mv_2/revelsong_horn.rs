@@ -9,7 +9,7 @@ card!(
     index = index::REVELSONG_HORN,
     oracle_id = "d80d87f5-af9e-404b-88e3-7a4b419dc32c",
     scryfall_id = "10a4801c-fa69-47a0-bdfa-f5f110fd0976",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revelsong Horn",
         mana_cost = mana!("{2}"),

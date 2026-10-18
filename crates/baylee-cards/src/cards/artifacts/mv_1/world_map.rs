@@ -12,7 +12,7 @@ card!(
     index = index::WORLD_MAP,
     oracle_id = "51d4f95e-aad2-4e5f-9f15-a68bbdf9ab3e",
     scryfall_id = "70d9ab99-ec8a-402e-ba1d-ffa6c4c84a3f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "World Map",
         mana_cost = mana!("{1}"),

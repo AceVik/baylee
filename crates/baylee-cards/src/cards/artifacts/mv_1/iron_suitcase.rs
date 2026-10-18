@@ -11,7 +11,7 @@ card!(
     index = index::IRON_SUITCASE,
     oracle_id = "d2ba20a0-7c08-49ed-b960-4b3154a8c025",
     scryfall_id = "018d8d89-c90e-4245-93d3-6f8af4c95f81",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iron Suitcase",
         mana_cost = mana!("{1}"),

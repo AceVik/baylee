@@ -15,7 +15,7 @@ card!(
     index = index::PIT_TRAP,
     oracle_id = "671c4677-fe0a-4bda-9674-f4dcd9069bfd",
     scryfall_id = "b6fc051a-df87-46d9-bc45-8b7b2721b374",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pit Trap",
         mana_cost = mana!("{2}"),

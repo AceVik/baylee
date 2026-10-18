@@ -12,7 +12,7 @@ card!(
     oracle_id = "eb287c04-97f5-4e47-beb1-66cc7d15e748",
     scryfall_id = "63d52217-a340-4567-9b07-28092a7dc561",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Atarka Monument",
         mana_cost = mana!("{3}"),

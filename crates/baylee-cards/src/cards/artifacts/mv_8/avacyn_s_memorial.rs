@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c8134a08-4c7f-419e-940d-95bc9f630ae2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::INDESTRUCTIBLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avacyn's Memorial",
         mana_cost = mana!("{5}{W}{W}{W}"),

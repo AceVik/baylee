@@ -11,7 +11,7 @@ card!(
     oracle_id = "baadfc17-42fd-4771-aabe-027ef7b3bf69",
     scryfall_id = "d2f028cd-1cb4-4a5b-b989-4acd8777ac5c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Witching Well",
         mana_cost = mana!("{U}"),

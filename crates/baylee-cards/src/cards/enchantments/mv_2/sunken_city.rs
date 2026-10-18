@@ -11,7 +11,7 @@ card!(
     oracle_id = "17841133-c526-42a3-a1d2-a874e9bb7138",
     scryfall_id = "2262d907-2801-4314-813b-d9e14aba4826",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunken City",
         mana_cost = mana!("{U}{U}"),

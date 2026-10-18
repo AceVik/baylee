@@ -12,7 +12,7 @@ card!(
     oracle_id = "3a018a54-6094-42bb-af6a-ef436c09f0b4",
     scryfall_id = "73b92320-6f83-4731-93c8-7eb9fd90ee83",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodshed Fever",
         mana_cost = mana!("{R}"),

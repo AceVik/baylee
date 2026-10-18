@@ -11,7 +11,7 @@ card!(
     oracle_id = "e787ec12-ba0f-4a85-af6b-422423c90155",
     scryfall_id = "b0193151-0f5f-457b-a6b2-08f66b53c9b2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haunted Library",
         mana_cost = mana!("{1}{W}"),

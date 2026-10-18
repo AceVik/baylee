@@ -10,7 +10,7 @@ card!(
     index = index::MAGISTRATE_S_SCEPTER,
     oracle_id = "487485a6-cf79-48c0-bea9-0ec6b3ee253c",
     scryfall_id = "ecf1f24f-d910-4ec6-95d2-0ecaf9f051aa",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magistrate's Scepter",
         mana_cost = mana!("{3}"),

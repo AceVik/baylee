@@ -14,7 +14,7 @@ card!(
     oracle_id = "c5323a43-82de-4340-8578-b3ffcc66f8fa",
     scryfall_id = "39b8cf5e-10f6-49aa-82eb-2f56cc29d393",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Griffin Guide",
         mana_cost = mana!("{2}{W}"),

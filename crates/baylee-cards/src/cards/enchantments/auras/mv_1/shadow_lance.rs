@@ -13,7 +13,7 @@ card!(
     oracle_id = "f1a2a78c-2794-4bc9-9b06-49306378ef69",
     scryfall_id = "02b5590f-d964-49cb-8e2e-94b067112c8e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadow Lance",
         mana_cost = mana!("{W}"),

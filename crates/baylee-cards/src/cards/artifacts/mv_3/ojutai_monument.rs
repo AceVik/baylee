@@ -12,7 +12,7 @@ card!(
     oracle_id = "d6b4810f-2bee-4c83-b13d-c46fb7dd8e08",
     scryfall_id = "8ef29942-a7e3-4e47-9f95-527a5d7e4f1d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ojutai Monument",
         mana_cost = mana!("{3}"),

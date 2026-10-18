@@ -11,7 +11,7 @@ card!(
     oracle_id = "56a55f45-2cc6-407d-b212-5619c98456d9",
     scryfall_id = "eeebc0ab-89fb-47d5-a20f-8f1fe5e3c149",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Norn's Wellspring",
         mana_cost = mana!("{1}{W}"),

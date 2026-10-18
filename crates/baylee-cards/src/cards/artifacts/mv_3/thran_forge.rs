@@ -11,7 +11,7 @@ card!(
     index = index::THRAN_FORGE,
     oracle_id = "cb4414a6-27d0-4922-938b-391283535f24",
     scryfall_id = "b9c9691b-bee8-4251-8275-5f6ba14a8ecd",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thran Forge",
         mana_cost = mana!("{3}"),

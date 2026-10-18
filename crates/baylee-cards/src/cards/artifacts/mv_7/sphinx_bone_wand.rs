@@ -14,7 +14,7 @@ card!(
     index = index::SPHINX_BONE_WAND,
     oracle_id = "4b9e529c-4fbd-4944-828d-7fbc8f26c991",
     scryfall_id = "df04c110-25f8-4989-ab82-265fb9cb89e5",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx-Bone Wand",
         mana_cost = mana!("{7}"),

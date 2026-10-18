@@ -15,7 +15,7 @@ card!(
     oracle_id = "4bc34109-2050-4736-8247-ba06f0a9114a",
     scryfall_id = "135db79f-6f07-486c-ae3a-d4244aaf6dc8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "So Shiny",
         mana_cost = mana!("{2}{U}"),

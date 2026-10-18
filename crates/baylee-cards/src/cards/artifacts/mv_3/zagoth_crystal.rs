@@ -11,7 +11,7 @@ card!(
     oracle_id = "87edb566-8929-4961-9c03-d3657a8c6feb",
     scryfall_id = "9138a442-8e8b-465f-bb76-b6af7e6dab6f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zagoth Crystal",
         mana_cost = mana!("{3}"),

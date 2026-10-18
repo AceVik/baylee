@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b6263410-20c5-43b4-8183-3c02c10d07fb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slimebind",
         mana_cost = mana!("{1}{U}"),

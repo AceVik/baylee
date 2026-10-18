@@ -11,7 +11,7 @@ card!(
     oracle_id = "cd0c1165-673d-4936-8254-deedd0ebbe97",
     scryfall_id = "6954a5c1-89b1-4edd-814e-8f88fd49cda3",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savai Crystal",
         mana_cost = mana!("{3}"),
