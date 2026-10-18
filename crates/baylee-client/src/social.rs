@@ -36,6 +36,9 @@ pub(crate) mod rows;
 pub(crate) mod sheet;
 pub(crate) mod toasts;
 mod transport;
+pub(crate) mod vault_access;
+#[cfg(not(target_arch = "wasm32"))]
+mod vault_ui;
 pub(crate) mod window;
 pub(crate) mod zoom;
 
@@ -135,6 +138,8 @@ pub struct SocialHost {
     idle: f32,
     /// The keep-days the gateway said, for the notice.
     keep_days: u32,
+    /// Password vault lifecycle; no OS store is opened on startup.
+    vault: vault_access::Access,
 }
 
 impl SocialHost {
@@ -205,8 +210,14 @@ impl SocialHost {
                 }
             }
             Effect::ForgetSecrets => {
-                if let (Some(store), Some(machine)) = (self.store.as_ref(), self.machine.as_ref()) {
-                    let _ = store.forget(&machine.secret_slot());
+                if let (Some(store), Some(machine)) = (self.store.take(), self.machine.as_ref()) {
+                    let slot = machine.secret_slot();
+                    #[cfg(not(target_arch = "wasm32"))]
+                    std::thread::spawn(move || {
+                        let _ = store.forget(&slot);
+                    });
+                    #[cfg(target_arch = "wasm32")]
+                    let _ = store.forget(&slot);
                 }
             }
             Effect::SaveState(bytes) => self.save = Some((SAVE_DEBOUNCE, bytes)),
@@ -243,6 +254,11 @@ impl SocialHost {
         self.socket.hang();
         self.socket = Socket::default();
         self.machine = None;
+        self.store = None;
+        self.disk = None;
+        self.vault = vault_access::Access::default();
+        self.copy = None;
+        self.sounds.clear();
         self.session = None;
         self.info = InfoState::Unknown;
         self.mailbox = Mailbox::default();
@@ -259,62 +275,40 @@ impl SocialHost {
         }
     }
 
-    /// Starts the machine for the session, now that the gateway said it
-    /// has chat.
+    /// Starts only the memory-only guest/browser session here. Native account
+    /// vaults are prepared off the render thread by `vault_access`.
     fn start(&mut self, keep_days: u32, prefs: social::ChatPrefs) {
+        self.keep_days = keep_days;
+        self.vault.prefs = prefs;
         let Some(session) = self.session.clone() else {
             return;
         };
-        let Some((disk, store)) = chat_home(&session) else {
+        if cfg!(not(target_arch = "wasm32")) && !session.guest {
             return;
-        };
-        let slot = social::SecretSlot::new(&session.tag, &session.gateway);
-        let secrets = match store.load(&slot) {
-            Ok(value) => value,
-            Err(why) => {
-                warn!("the chat's keys could not be read: {why}");
-                None
-            }
-        };
-        let stored = disk.read(social::disk::STATE_FILE);
+        }
+        let disk: ChatHome = Box::new(social::disk::MemoryDisk::new());
+        let store = Box::new(social::vault::MemorySecrets::new());
         let me = Me {
-            tag: session.tag.clone(),
-            handle: session.handle.clone(),
+            tag: session.tag,
+            handle: session.handle,
             guest: session.guest,
-            gateway: session.gateway.clone(),
+            gateway: session.gateway,
         };
-        let now = now_ms();
-        let (mut machine, effects) = Social::start(me, stored, secrets, prefs, now, &mut OsEntropy);
-        machine.set_key_home(store.home());
+        let (mut machine, effects) = Social::start(
+            me,
+            None,
+            None,
+            self.vault.prefs.clone(),
+            now_ms(),
+            &mut OsEntropy,
+        );
+        machine.set_key_home(social::KeyHome::Memory);
         machine.set_keep_days(keep_days);
-        let restored = machine.restore(&*disk, now, &mut OsEntropy);
-        self.keep_days = keep_days;
         self.store = Some(store);
         self.disk = Some(disk);
         self.machine = Some(machine);
         self.carry_out(effects);
-        self.carry_out(restored);
     }
-}
-
-/// Where the chat keeps its history and its keys: the chat folder in the
-/// config directory and the OS credential store (or the key file beside
-/// it); `None` in a process that never opened the settings store (a test).
-#[cfg(not(target_arch = "wasm32"))]
-fn chat_home(session: &Session) -> Option<(ChatHome, Box<dyn social::SecretStore>)> {
-    let folder = config_dir()?.join(social::disk::chat_folder(&session.gateway, &session.tag));
-    let store = open_store(&folder);
-    Some((Box::new(social::disk::DirDisk::new(&folder)), store))
-}
-
-/// In a browser the chat keeps both in memory: a tab's history and keys
-/// last as long as the tab (a page has no file to keep them in yet).
-#[cfg(target_arch = "wasm32")]
-fn chat_home(_session: &Session) -> Option<(ChatHome, Box<dyn social::SecretStore>)> {
-    Some((
-        Box::new(social::disk::MemoryDisk::new()),
-        Box::new(social::vault::MemorySecrets::new()),
-    ))
 }
 
 /// The chat's disk, behind the one interface every platform's has.
@@ -331,19 +325,6 @@ fn config_dir() -> Option<std::path::PathBuf> {
     user_dir(Kind::Config, Os::current(), &real_env)
 }
 
-/// The OS credential store, or the `0600` key file beside the chat folder
-/// where it does not open. `BAYLEE_KEY_STORE=off` takes the file even where
-/// the store would open (a live check whose rebuilt binary the Keychain
-/// would ask about on every start).
-#[cfg(not(target_arch = "wasm32"))]
-fn open_store(folder: &std::path::Path) -> Box<dyn social::SecretStore> {
-    let file = folder.join(social::vault::KEY_FILE);
-    if std::env::var("BAYLEE_KEY_STORE").is_ok_and(|v| v == "off") {
-        return Box::new(social::vault::FileSecrets::new(file));
-    }
-    social::vault::open_store(file)
-}
-
 /// What the chat window shows, per device and per session.
 #[derive(Resource, Debug)]
 #[allow(clippy::struct_excessive_bools)] // independent switches of one window
@@ -351,6 +332,8 @@ pub struct ChatUi {
     /// Whether the panel stands (the table: state 2 or 3; the lobby: not
     /// hidden to the pill).
     pub open: bool,
+    /// Native password-vault sheet holds input independently of chat.
+    pub(crate) vault_open: bool,
     /// The tab shown.
     pub tab: ChatTab,
     /// The last chat tab used (where the chat door lands).
@@ -410,6 +393,7 @@ impl Default for ChatUi {
     fn default() -> Self {
         Self {
             open: false,
+            vault_open: false,
             tab: ChatTab::Log,
             last_chat_tab: None,
             typing: false,
@@ -443,7 +427,7 @@ impl ChatUi {
     /// the chat's boxes has the caret, or let go of it this frame).
     #[must_use]
     pub fn holds_keyboard(&self) -> bool {
-        self.typing || self.swallow
+        self.typing || self.swallow || self.vault_open
     }
 }
 
@@ -688,6 +672,8 @@ pub(crate) fn install(app: &mut App) {
     drawer::install(app);
     toasts::install(app);
     sheet::install(app);
+    #[cfg(not(target_arch = "wasm32"))]
+    vault_ui::install(app);
 }
 
 /// The lobby's chat grows with the shell past 1920 × 1080 and with the text
@@ -761,7 +747,7 @@ fn wanted_session(lobby: &LobbyState) -> Option<Session> {
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each input in turn
 fn drive(
     time: Res<Time>,
-    lobby: Res<LobbyState>,
+    mut lobby: ResMut<LobbyState>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut host: ResMut<SocialHost>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -776,6 +762,7 @@ fn drive(
         }
         host.session = wanted;
     }
+    vault_access::discard_stale_login(&mut lobby);
     let Some(session) = host.session.clone() else {
         return;
     };
@@ -818,6 +805,7 @@ fn drive(
             }
         }
     }
+    vault_access::follow(host, &mut lobby);
     if host.machine.is_none() {
         return;
     }

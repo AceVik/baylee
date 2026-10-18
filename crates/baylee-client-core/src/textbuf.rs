@@ -140,7 +140,7 @@ impl TextBuffer {
 
     /// Empties it and takes the caret home.
     pub fn clear(&mut self) {
-        self.text.clear();
+        zeroize::Zeroize::zeroize(&mut self.text);
         self.cursor = 0;
         self.anchor = None;
     }

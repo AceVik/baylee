@@ -359,6 +359,7 @@ dependencies = [
  "blake2",
  "cpufeatures 0.3.1",
  "password-hash",
+ "zeroize",
 ]
 
 [[package]]
@@ -977,6 +978,7 @@ dependencies = [
  "baylee-engine",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-seal",
  "baylee-update",
  "baylee-view",
  "bevy",
@@ -1016,6 +1018,7 @@ dependencies = [
  "windows-sys 0.61.2",
  "winit",
  "winresource",
+ "zeroize",
 ]
 
 [[package]]
@@ -1030,6 +1033,7 @@ dependencies = [
 name = "baylee-client-core"
 version = "0.1.0-beta.7b"
 dependencies = [
+ "argon2",
  "baylee-cards-dsl",
  "baylee-cardtext",
  "baylee-core",
@@ -1038,14 +1042,21 @@ dependencies = [
  "baylee-protocol",
  "baylee-seal",
  "baylee-view",
+ "chacha20poly1305",
  "criterion",
  "flate2",
+ "getrandom 0.4.3",
  "glam",
  "keyring",
+ "libc",
+ "rustix 1.1.5",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "time",
+ "url",
+ "uuid",
+ "windows-sys 0.61.2",
  "zeroize",
 ]
 

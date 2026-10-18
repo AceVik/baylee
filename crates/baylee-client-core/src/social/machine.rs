@@ -197,8 +197,13 @@ impl Social {
         now_ms: u64,
         rng: &mut dyn Entropy,
     ) -> (Self, Vec<Effect>) {
+        let secrets = secrets.map(Zeroizing::new);
         let mut out = Vec::new();
-        let device = if let Some(device) = secrets.as_deref().and_then(vault::decode_secrets) {
+        let device = if let Some(device) = secrets
+            .as_deref()
+            .map(String::as_str)
+            .and_then(vault::decode_secrets)
+        {
             device
         } else {
             let device = DeviceSecrets::generate(rng);

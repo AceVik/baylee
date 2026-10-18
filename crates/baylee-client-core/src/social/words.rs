@@ -6,6 +6,46 @@ use crate::i18n::{Lang, messages};
 messages! {
     /// One thing the chat says.
     ChatPhrase;
+    /// Local encrypted vault.
+    VaultTitle { en: "Encrypted local vault", de: "Verschlüsselter lokaler Tresor" },
+    /// Local encrypted vault.
+    VaultExplain { en: "The account password unlocks local chat keys. After a password reset, use the original vault password. An optional new password rewraps the same keys. Imports preserve their sources. A new vault creates a new chat device; previous keys and history remain untouched. Guests and browser tabs keep keys in memory only.", de: "Das Kontopasswort öffnet lokale Chatschlüssel. Nach einem Passwortreset brauchst du das bisherige Tresorpasswort. Ein optionales neues Passwort schützt dieselben Schlüssel neu. Importquellen bleiben erhalten. Ein neuer Tresor erstellt ein neues Chatgerät; bisherige Schlüssel und Verläufe bleiben unangetastet. Gäste und Browsertabs speichern Schlüssel nur im Arbeitsspeicher." },
+    /// Local encrypted vault.
+    VaultOpen { en: "Unlock chat", de: "Chat entsperren" },
+    /// Local encrypted vault.
+    VaultLock { en: "Lock chat", de: "Chat sperren" },
+    /// Local encrypted vault.
+    VaultPassword { en: "Vault password", de: "Tresorpasswort" },
+    /// Repeated new wrapping password prevents accidental lockout.
+    VaultPasswordAgain { en: "Repeat new vault password", de: "Neues Tresorpasswort wiederholen" },
+    /// Two copies of the new password differ.
+    VaultPasswordMismatch { en: "The two new vault passwords differ.", de: "Die neuen Tresorpasswörter stimmen nicht überein." },
+    /// Local encrypted vault.
+    VaultNewPassword { en: "New vault password (optional)", de: "Neues Tresorpasswort (optional)" },
+    /// Local encrypted vault.
+    VaultUnlock { en: "Unlock / change vault password", de: "Entsperren / Tresorpasswort ändern" },
+    /// Local encrypted vault.
+    VaultImportFile { en: "Import legacy key file", de: "Bisherige Schlüsseldatei importieren" },
+    /// Local encrypted vault.
+    VaultImportKeychain { en: "Import from system keychain (may ask for access)", de: "Aus System-Schlüsselbund importieren (kann Zugriff erfragen)" },
+    /// Local encrypted vault.
+    VaultCreate { en: "Create new encrypted vault", de: "Neuen verschlüsselten Tresor erstellen" },
+    /// Local encrypted vault.
+    VaultConfirmCreate { en: "Confirm: create a new chat device", de: "Bestätigen: neues Chatgerät erstellen" },
+    /// Local encrypted vault.
+    VaultLater { en: "Continue without chat · Esc", de: "Ohne Chat fortfahren · Esc" },
+    /// Local encrypted vault.
+    VaultWorking { en: "Unlocking… You can continue playing while this finishes.", de: "Wird entsperrt… Du kannst währenddessen weiterspielen." },
+    /// Local encrypted vault.
+    VaultWrongPassword { en: "Cannot unlock: wrong original password or damaged vault. Nothing was replaced.", de: "Entsperren fehlgeschlagen: bisheriges Passwort falsch oder Tresor beschädigt. Nichts wurde ersetzt." },
+    /// Local encrypted vault.
+    VaultMissing { en: "No encrypted vault or importable key was found. Choose an import or explicitly create a new device.", de: "Kein verschlüsselter Tresor oder importierbarer Schlüssel gefunden. Wähle einen Import oder erstelle ausdrücklich ein neues Gerät." },
+    /// Local encrypted vault.
+    VaultBusy { en: "Another vault operation or Baylee process is still using the vault.", de: "Ein anderer Tresorvorgang oder Baylee-Prozess verwendet den Tresor noch." },
+    /// Local encrypted vault.
+    VaultExists { en: "Existing vault or chat data found. Unlock or import it; it will not be overwritten.", de: "Vorhandener Tresor oder Chatdaten gefunden. Entsperre oder importiere sie; sie werden nicht überschrieben." },
+    /// Local encrypted vault.
+    VaultFailed { en: "The vault could not be safely read or saved. Existing data was preserved.", de: "Der Tresor konnte nicht sicher gelesen oder gespeichert werden. Vorhandene Daten bleiben erhalten." },
     /// A line that failed its signature, wrap or body check.
     MessageDropped { en: "A message failed its check and was dropped", de: "Eine Nachricht hat die Prüfung nicht bestanden und wurde verworfen" },
     /// A line from a device this client couldn't find.
@@ -114,7 +154,9 @@ messages! {
     NoticeBody { en: "Messages are end-to-end encrypted. Only the people in a conversation can read them, on the devices they use Baylee on, as long as those devices are really theirs: compare safety numbers to be sure. The server passes messages on and keeps them, encrypted, for up to {0} days until they are delivered. It cannot read them. It does see who writes to whom and when, who is in a group and its name, and who is online. Table chat goes to the players seated at the table; spectators and computer players never receive it. If you report a message, you send that one message to the moderators. Anyone who can use your device can read the chat history kept on it.", de: "Nachrichten sind Ende-zu-Ende-verschlüsselt. Nur die Personen in einem Gespräch können sie lesen, auf den Geräten, auf denen sie Baylee nutzen – solange diese Geräte wirklich ihre sind: Vergleicht die Sicherheitsnummern, um sicherzugehen. Der Server leitet Nachrichten weiter und bewahrt sie verschlüsselt bis zu {0} Tage auf, bis sie zugestellt sind. Lesen kann er sie nicht. Er sieht aber, wer wem wann schreibt, wer in einer Gruppe ist und wie sie heißt, und wer online ist. Tischchat geht an die Personen, die am Tisch sitzen; Zuschauer und Computerspieler bekommen ihn nie. Wenn du eine Nachricht meldest, schickst du genau diese eine Nachricht an die Moderation. Wer dein Gerät benutzen kann, kann den darauf gespeicherten Chatverlauf lesen." },
     /// Where the keys are: the keychain.
     KeysInKeychain { en: "Your keys are kept in this computer's keychain.", de: "Deine Schlüssel liegen im Schlüsselbund dieses Computers." },
-    /// Where the keys are: a file.
+    /// Password-wrapped random local encryption key.
+    KeysInPasswordVault { en: "Your keys are encrypted locally. Your account password unlocks the vault; a password reset cannot recover it. Keep your original password until you have changed the vault password too.", de: "Deine Schlüssel sind lokal verschlüsselt. Dein Kontopasswort öffnet den Tresor; ein Passwortreset kann ihn nicht wiederherstellen. Bewahre das bisherige Passwort auf, bis du auch das Tresorpasswort geändert hast." },
+    /// Legacy key file, only available for explicit import.
     KeysInFile { en: "Your keys are kept in a file only your user account can read (the system keychain was not available).", de: "Deine Schlüssel liegen in einer Datei, die nur dein Benutzerkonto lesen kann (der Schlüsselbund des Systems war nicht verfügbar)." },
     /// Where the keys are: memory.
     KeysInMemory { en: "Your keys are kept in memory only and are lost when Baylee closes.", de: "Deine Schlüssel liegen nur im Arbeitsspeicher und gehen verloren, wenn Baylee geschlossen wird." },

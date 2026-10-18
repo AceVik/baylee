@@ -480,6 +480,8 @@ pub struct LobbyState {
     /// session; `Some(friends)` with one, `friends` for a registered
     /// account. Written by `social` only when it changes.
     pub(crate) chat_header: Option<bool>,
+    /// One successful sign-in password, consumed by the local vault worker.
+    pub(crate) vault_login: Option<crate::social::vault_access::Login>,
     /// The terms sheet (WG-1, `DESIGN-v5` §11): up after a sign-in the
     /// gateway marks stale, or a kept guest's return to newer terms.
     pub(crate) terms: client_core::terms::Terms,
@@ -765,6 +767,7 @@ impl LobbyState {
             bell: client_core::lobby::strips::Bell::default(),
             shell_asks: Vec::new(),
             chat_header: None,
+            vault_login: None,
             terms: client_core::terms::Terms::default(),
             terms_stale: None,
             about_open: false,
@@ -825,6 +828,8 @@ enum Reply {
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].
     Event(LobbyEvent),
+    /// A successful authentication's one-shot local-vault handoff.
+    VaultLogin(crate::social::vault_access::Login),
     /// Public catalog completion; never starts a second fallback lookup.
     PrintingCatalog(LobbyEvent),
     PoolLanguage(Lang, LobbyEvent),

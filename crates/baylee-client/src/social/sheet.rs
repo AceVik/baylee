@@ -484,6 +484,7 @@ fn sync(
     let mut kids = vec![head];
     let note = machine.encryption_note();
     let home = match note.home {
+        KeyHome::Password => ChatPhrase::KeysInPasswordVault,
         KeyHome::Keychain => ChatPhrase::KeysInKeychain,
         KeyHome::File => ChatPhrase::KeysInFile,
         KeyHome::Memory | KeyHome::Unknown => ChatPhrase::KeysInMemory,

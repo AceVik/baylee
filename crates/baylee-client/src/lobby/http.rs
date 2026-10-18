@@ -44,6 +44,7 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         }
         return;
     }
+    let login = crate::social::vault_access::Login::from_request(&state.gateway, &request);
     let token = state.lobby.token();
     // The builder marks the cards this gateway blocked (`GET
     // /cards/blocked`); asked beside the pool, off the one-request chain,
@@ -66,6 +67,7 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         token.is_some(),
         state.gateway_epoch,
         mailbox,
+        login,
     );
 }
 
@@ -420,6 +422,7 @@ fn fetch(
     signed: bool,
     epoch: u64,
     mailbox: &Mailbox,
+    mut login: Option<crate::social::vault_access::Login>,
 ) {
     let box_ = Arc::clone(&mailbox.0);
     let library = matches!(expect, Expect::Library(_));
@@ -498,6 +501,12 @@ fn fetch(
                     epoch,
                     Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
                 ));
+            }
+            if let Reply::Event(LobbyEvent::LoggedIn { token, .. }) = &reply
+                && let Some(mut login) = login.take()
+            {
+                login.accept(token);
+                box_.push(Reply::Remote(epoch, Box::new(Reply::VaultLogin(login))));
             }
             box_.push(Reply::Remote(epoch, Box::new(reply)));
         }

@@ -37,6 +37,8 @@ baylee-view.workspace = true
 accesskit = "0.24"
 bevy = { workspace = true, features = ["bevy_clipboard"] }
 getrandom.workspace = true
+zeroize.workspace = true
+baylee-seal.workspace = true
 # The keyword rail's marks, baked from the Mana font at startup; see
 # `markatlas.rs`.
 swash.workspace = true

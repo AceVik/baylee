@@ -83,6 +83,7 @@ pub(super) fn poll(
         };
         match reply {
             Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
+            Reply::VaultLogin(login) => state.vault_login = Some(login),
             Reply::Event(event) => {
                 if let LobbyEvent::Games(listing) = &event
                     && !state.lobby.busy()

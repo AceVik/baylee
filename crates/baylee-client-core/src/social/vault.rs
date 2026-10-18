@@ -1,14 +1,5 @@
-//! Where a device's secrets are kept (§2, §11.1): the OS credential store
-//! (the Keychain, the Credential Manager, the Secret Service) under service
-//! `baylee-chat` and entry `{tag}@{host[:port]}`, or, where no store opens,
-//! a file only the user's account may read. The value is base64url of the
-//! 96 bytes `ik_seed ‖ dk_seed ‖ vault_key`; nothing else holds them.
-//!
-//! The social machine never opens a store itself: it answers
-//! [`super::Effect::StoreSecrets`] and [`super::Effect::ForgetSecrets`],
-//! which the client carries out on the [`SecretStore`] it chose with
-//! [`open_store`], and is told where the keys live with
-//! [`super::Social::set_key_home`] so the notice can say it truthfully.
+//! Legacy secret-store adapters and the password-encrypted local vault.
+//! Normal client startup uses [`password`], never the OS credential store.
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -17,6 +8,8 @@ use baylee_seal::DeviceSecrets;
 use baylee_seal::b64::url;
 use zeroize::Zeroizing;
 
+pub mod password;
+
 /// The credential store's service name for chat keys.
 pub const SERVICE: &str = "baylee-chat";
 
@@ -24,12 +17,14 @@ pub const SERVICE: &str = "baylee-chat";
 pub const KEY_FILE: &str = "device.key";
 
 /// One device's entry in a store.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecretSlot {
     /// Always [`SERVICE`].
     pub service: &'static str,
     /// `{tag}@{host[:port]}`.
     pub account: String,
+    /// Full context for modern stores; `account` retains the legacy OS entry.
+    binding: Option<password::Scope>,
 }
 
 impl SecretSlot {
@@ -40,6 +35,7 @@ impl SecretSlot {
         Self {
             service: SERVICE,
             account: format!("{tag}@{}", host_of(gateway)),
+            binding: password::Scope::new(tag, gateway).ok(),
         }
     }
 }
@@ -67,6 +63,8 @@ pub enum KeyHome {
     Unknown,
     /// The operating system's credential store.
     Keychain,
+    /// Authenticated ciphertext protected by the account password.
+    Password,
     /// A file only the user's account can read: no store opened.
     File,
     /// Memory only (tests, or a platform with neither).
@@ -109,7 +107,11 @@ pub fn encode_secrets(secrets: &DeviceSecrets) -> Zeroizing<String> {
 /// The secrets from a store's value; `None` for anything else.
 #[must_use]
 pub fn decode_secrets(value: &str) -> Option<DeviceSecrets> {
-    let bytes = Zeroizing::new(url::decode(value.trim()).ok()?);
+    let value = value.trim();
+    if value.len() != 128 {
+        return None;
+    }
+    let bytes = Zeroizing::new(url::decode(value).ok()?);
     let array: &[u8; baylee_seal::SECRETS_LEN] = bytes.as_slice().try_into().ok()?;
     Some(DeviceSecrets::from_bytes(array))
 }
@@ -117,7 +119,7 @@ pub fn decode_secrets(value: &str) -> Option<DeviceSecrets> {
 /// A store in memory, for tests and for C's fake transport.
 #[derive(Default)]
 pub struct MemorySecrets {
-    values: Mutex<BTreeMap<String, Zeroizing<String>>>,
+    values: Mutex<BTreeMap<SecretSlot, Zeroizing<String>>>,
 }
 
 impl MemorySecrets {
@@ -138,7 +140,7 @@ impl SecretStore for MemorySecrets {
             .values
             .lock()
             .map_err(|_| "the store is poisoned".to_string())?;
-        Ok(values.get(&slot.account).map(|v| v.to_string()))
+        Ok(values.get(slot).map(|v| v.to_string()))
     }
 
     fn store(&self, slot: &SecretSlot, value: &str) -> Result<(), String> {
@@ -146,7 +148,7 @@ impl SecretStore for MemorySecrets {
             .values
             .lock()
             .map_err(|_| "the store is poisoned".to_string())?;
-        values.insert(slot.account.clone(), Zeroizing::new(value.to_string()));
+        values.insert(slot.clone(), Zeroizing::new(value.to_string()));
         Ok(())
     }
 
@@ -155,7 +157,7 @@ impl SecretStore for MemorySecrets {
             .values
             .lock()
             .map_err(|_| "the store is poisoned".to_string())?;
-        values.remove(&slot.account);
+        values.remove(slot);
         Ok(())
     }
 }
@@ -167,6 +169,8 @@ impl SecretStore for MemorySecrets {
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
 pub struct FileSecrets {
+    // The legacy plaintext fallback was Unix-only; retained solely for import.
+    #[cfg_attr(not(unix), allow(dead_code))]
     path: std::path::PathBuf,
 }
 
@@ -226,13 +230,17 @@ impl SecretStore for FileSecrets {
     }
 
     fn load(&self, _slot: &SecretSlot) -> Result<Option<String>, String> {
+        use std::io::Read as _;
         if !self.trusted()? {
             return Ok(None);
         }
-        let text = Zeroizing::new(
-            std::fs::read_to_string(&self.path)
-                .map_err(|e| format!("the key file could not be read: {}", e.kind()))?,
-        );
+        let mut text = Zeroizing::new(String::new());
+        std::fs::File::open(&self.path)
+            .and_then(|file| file.take(4097).read_to_string(&mut text))
+            .map_err(|e| format!("the key file could not be read: {}", e.kind()))?;
+        if text.len() > 4096 {
+            return Err("the legacy key file is too large".into());
+        }
         let value = text.trim();
         Ok((!value.is_empty()).then(|| value.to_string()))
     }
@@ -347,17 +355,4 @@ impl SecretStore for OsSecrets {
             Err(e) => Err(said(&e)),
         }
     }
-}
-
-/// The store a desktop client uses: the OS credential store when it opens,
-/// else the `0600` file at `fallback`. Its [`SecretStore::home`] says which,
-/// for [`super::Social::set_key_home`].
-#[cfg(not(target_arch = "wasm32"))]
-#[must_use]
-pub fn open_store(fallback: impl Into<std::path::PathBuf>) -> Box<dyn SecretStore> {
-    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
-    if OsSecrets::available() {
-        return Box::new(OsSecrets);
-    }
-    Box::new(FileSecrets::new(fallback))
 }
