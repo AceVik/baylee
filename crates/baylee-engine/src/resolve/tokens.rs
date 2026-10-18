@@ -33,6 +33,67 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenLinkedBidirectionalLtb { token } => {
+            static EXILE_EVENT_OBJECT: &[Effect] = &[Effect::Exile {
+                target: TargetSpec::EventObject,
+            }];
+            static SACRIFICE_EVENT_OBJECT: &[Effect] = &[Effect::SacrificeObject {
+                target: TargetSpec::EventObject,
+            }];
+            let created = create_tokens_with_text(state, you, token, None, 1, res.text);
+            let source_version = super::source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version))
+                .unwrap_or(0);
+            let source_on_bf =
+                subjects::source(state, res).is_some_and(|s| subjects::on_battlefield(state, s));
+            let after = state.journal.last_seq();
+            for token_id in created {
+                let Some(token_version) = state
+                    .object(token_id)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.version)
+                else {
+                    continue;
+                };
+                if source_on_bf {
+                    state.delayed.push(crate::state::DelayedTrigger {
+                        controller: you,
+                        when: crate::state::DelayedWhen::LeavesBattlefield {
+                            card: res.source,
+                            version: source_version,
+                            after,
+                        },
+                        action: crate::state::DelayedAction::TriggerAbout {
+                            source: res.source,
+                            source_version,
+                            effects: EXILE_EVENT_OBJECT,
+                            text: res.text,
+                            object: token_id,
+                            version: token_version,
+                            subject: None,
+                        },
+                    });
+                }
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::LeavesBattlefield {
+                        card: token_id,
+                        version: token_version,
+                        after,
+                    },
+                    action: crate::state::DelayedAction::TriggerAbout {
+                        source: res.source,
+                        source_version,
+                        effects: SACRIFICE_EVENT_OBJECT,
+                        text: res.text,
+                        object: res.source,
+                        version: source_version,
+                        subject: None,
+                    },
+                });
+            }
+            None
+        }
         Effect::Amass {
             token,
             subtype,

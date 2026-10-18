@@ -418,6 +418,10 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ExileAndCastCopies",
         "MayCastTargetAnyMana",
         "MayPutFromHandOntoBattlefieldAttachIfEquipment",
+        "MayExileFromYourGraveyardThen",
+        "MayRemoveCountersSelfCreateTokens",
+        "MayExileTokensCreatedWithThisForCounters",
+        "OpeningHandBattlefieldWithLuckCounterExilingHandCard",
     ];
     if !def.is_fully_read() {
         return;

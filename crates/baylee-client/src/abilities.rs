@@ -1034,11 +1034,10 @@ fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<Strin
     }
     if index == baylee_engine::choice::TURN_FACE_UP {
         let card = view.object(object)?.card?;
-        return baylee_cards::by_index(card.index)?
+        let face = baylee_cards::by_index(card.index)?
             .faces
-            .get(usize::from(card.face))?
-            .disguise
-            .map(|c| c.to_string());
+            .get(usize::from(card.face))?;
+        return face.disguise.or(face.morph).map(|c| c.to_string());
     }
     if index == baylee_engine::choice::PREPARED_CAST {
         prepared_of(view, object).and_then(spell_cost)

@@ -600,6 +600,7 @@ pub struct AttackRules<'a> {
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
+    max_attackers: Option<usize>,
 }
 
 impl<'a> AttackRules<'a> {
@@ -613,6 +614,7 @@ impl<'a> AttackRules<'a> {
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
         let mut attack_tax_life = Vec::new();
+        let mut max_attackers: Option<usize> = None;
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
@@ -621,6 +623,12 @@ impl<'a> AttackRules<'a> {
                 Modifier::AttacksEachCombat => requirements.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
+                Modifier::MaxAttackersPerCombat(n)
+                    if crate::effects::source_is_present(state, fx) =>
+                {
+                    let cap = usize::from(n);
+                    max_attackers = Some(max_attackers.map_or(cap, |cur| cur.min(cap)));
+                }
                 _ => {}
             }
         }
@@ -632,7 +640,14 @@ impl<'a> AttackRules<'a> {
             idle_defenders,
             cant_attack_you,
             attack_tax_life,
+            max_attackers,
         }
+    }
+
+    /// Maximum number of creatures that may attack this combat, if capped.
+    #[must_use]
+    pub const fn max_attackers(&self) -> Option<usize> {
+        self.max_attackers
     }
 
     /// Whether `creature` attacks each combat if able (CR 508.1d).
@@ -1198,6 +1213,7 @@ pub struct BlockRules<'a> {
     any_number: Vec<&'a crate::effects::ContinuousEffect>,
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
+    max_blockers: Option<usize>,
 }
 
 impl<'a> BlockRules<'a> {
@@ -1211,6 +1227,7 @@ impl<'a> BlockRules<'a> {
             any_number: Vec::new(),
             lures: Vec::new(),
             each: Vec::new(),
+            max_blockers: None,
         };
         for fx in state.effects.iter() {
             match fx.modifier {
@@ -1220,10 +1237,22 @@ impl<'a> BlockRules<'a> {
                     rules.lures.push(fx);
                 }
                 Modifier::BlocksEachAttackerIfAble => rules.each.push(fx),
+                Modifier::MaxBlockersPerCombat(n)
+                    if crate::effects::source_is_present(state, fx) =>
+                {
+                    let cap = usize::from(n);
+                    rules.max_blockers = Some(rules.max_blockers.map_or(cap, |cur| cur.min(cap)));
+                }
                 _ => {}
             }
         }
         rules
+    }
+
+    /// Maximum number of creatures that may block this combat, if capped.
+    #[must_use]
+    pub const fn max_blockers(&self) -> Option<usize> {
+        self.max_blockers
     }
 
     /// Whether any block requirement is in force. Without one, every
@@ -1323,8 +1352,23 @@ impl<'a> BlockRules<'a> {
         }
         let menace = |attacker: ObjectId| has_keyword(self.state, attacker, K::MENACE);
         let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
+        let mut distinct_blockers: std::collections::BTreeSet<ObjectId> = self
+            .state
+            .combat
+            .blockers
+            .iter()
+            .map(|b| b.blocker)
+            .collect();
+        let can_add_blocker =
+            |set: &std::collections::BTreeSet<ObjectId>, b: ObjectId| match self.max_blockers {
+                Some(max) => set.contains(&b) || set.len() < max,
+                None => true,
+            };
         let mut chosen: Vec<(ObjectId, ObjectId)> = Vec::new();
         for option in options {
+            if !can_add_blocker(&distinct_blockers, option.blocker) {
+                continue;
+            }
             let mut asked: Vec<(bool, std::cmp::Reverse<usize>, ObjectId)> = option
                 .attackers
                 .iter()
@@ -1338,12 +1382,16 @@ impl<'a> BlockRules<'a> {
                 })
                 .collect();
             asked.sort_by_key(|(menace, demands, _)| (*menace, *demands));
+            let before = chosen.len();
             chosen.extend(
                 asked
                     .into_iter()
                     .take(room(option.blocker))
                     .map(|(_, _, attacker)| (option.blocker, attacker)),
             );
+            if chosen.len() > before {
+                distinct_blockers.insert(option.blocker);
+            }
         }
         let menacing: Vec<ObjectId> = chosen
             .iter()
@@ -1357,11 +1405,15 @@ impl<'a> BlockRules<'a> {
             };
             let helper = options.iter().find(|o| {
                 o.blocker != lone
+                    && can_add_blocker(&distinct_blockers, o.blocker)
                     && o.attackers.contains(&attacker)
                     && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
             });
             match helper {
-                Some(helper) => chosen.push((helper.blocker, attacker)),
+                Some(helper) => {
+                    distinct_blockers.insert(helper.blocker);
+                    chosen.push((helper.blocker, attacker));
+                }
                 None => chosen.retain(|pair| *pair != (lone, attacker)),
             }
         }
@@ -1483,11 +1535,24 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
         .max(0)
 }
 
-/// Whether a creature has banding as damage is assigned, which is when
-/// CR 702.22j–k ask: a band formed while it had banding is still a band
-/// without it (CR 702.22e), but who divides the damage is read now.
-fn has_banding(state: &GameState, id: ObjectId) -> bool {
-    has_keyword(state, id, K::BANDING)
+/// Whether a creature has banding or "bands with other [quality]" paired with
+/// a matching creature in `group` as damage is assigned (CR 702.22j–k).
+fn has_banding_in_group(state: &GameState, id: ObjectId, group: &[ObjectId]) -> bool {
+    if has_keyword(state, id, K::BANDING) {
+        return true;
+    }
+    let filters = bands_with_other_filters(state, id);
+    if filters.is_empty() {
+        return false;
+    }
+    group.iter().any(|&other| {
+        other != id
+            && state.object(other).is_some_and(|obj| {
+                filters
+                    .iter()
+                    .any(|f| crate::eval::matches(f, state, obj, obj.controller, id))
+            })
+    })
 }
 
 /// The creatures blocking `attacker` that are still there, in declaration
@@ -1562,7 +1627,7 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
         // Every blocker is the defending player's: only they declare blocks.
         let banding = blockers
             .iter()
-            .find(|b| has_banding(state, **b))
+            .find(|b| has_banding_in_group(state, **b, &blockers))
             .and_then(|b| state.object(*b))
             .map(|o| o.controller);
         let chooser = match banding {
@@ -1590,7 +1655,10 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
         if amount <= 0 || blocked.len() < 2 || state.combat.division(blocker).is_some() {
             continue;
         }
-        let chooser = if blocked.iter().any(|a| has_banding(state, *a)) {
+        let chooser = if blocked
+            .iter()
+            .any(|a| has_banding_in_group(state, *a, &blocked))
+        {
             state.turn.active
         } else {
             let Some(controller) = state.object(blocker).map(|o| o.controller) else {
@@ -1710,7 +1778,7 @@ fn assign_attacker_damage(
     }
     let trample = has_keyword(state, attacker, K::TRAMPLE);
     let live = live_blockers(state, attacker);
-    if blocked && (!trample || live.iter().any(|b| has_banding(state, *b))) {
+    if blocked && (!trample || live.iter().any(|b| has_banding_in_group(state, *b, &live))) {
         for (blocker, amount) in shares(state, attacker, &live, power) {
             assign(out, attacker, DamageTarget::Object(blocker), amount);
         }
@@ -1830,6 +1898,60 @@ fn landwalk_removed(state: &GameState, object: &crate::object::GameObject, times
         ) && removal.timestamp >= timestamp
             && crate::effects::applies_to(state, removal, object)
     })
+}
+
+/// A resolved removal suppresses older "bands with other" abilities, never later ones.
+fn bands_with_other_removed(
+    state: &GameState,
+    object: &crate::object::GameObject,
+    timestamp: u64,
+) -> bool {
+    object.characteristics().abilities_lost.is_some()
+        || state.effects.iter().any(|removal| {
+            matches!(
+                removal.modifier,
+                baylee_cards_dsl::Modifier::LoseAllBandsWithOther
+                    | baylee_cards_dsl::Modifier::LoseAllAbilities
+            ) && removal.timestamp >= timestamp
+                && crate::effects::applies_to(state, removal, object)
+        })
+}
+
+/// Active "bands with other [quality]" filters on `id` (CR 702.22c).
+pub(crate) fn bands_with_other_filters(
+    state: &GameState,
+    id: ObjectId,
+) -> Vec<&'static baylee_cards_dsl::Filter> {
+    let Some(object) = state.object(id) else {
+        return Vec::new();
+    };
+    state
+        .effects
+        .iter()
+        .filter_map(|fx| {
+            let baylee_cards_dsl::Modifier::BandsWithOther(filter) = fx.modifier else {
+                return None;
+            };
+            (crate::effects::applies_to(state, fx, object)
+                && !bands_with_other_removed(state, object, fx.timestamp))
+            .then_some(filter)
+        })
+        .collect()
+}
+
+/// Whether `leader` has an active "bands with other [quality]" ability that
+/// matches `mate` (CR 702.22c).
+pub(crate) fn can_band_with_other(state: &GameState, leader: ObjectId, mate: ObjectId) -> bool {
+    if leader == mate {
+        return false;
+    }
+    let Some(mate_obj) = state.object(mate) else {
+        return false;
+    };
+    let filters = bands_with_other_filters(state, leader);
+    filters
+        .into_iter()
+        .any(|filter| crate::eval::matches(filter, state, mate_obj, mate_obj.controller, leader))
 }
 
 /// Whether declaring this creature as an attacker taps it.

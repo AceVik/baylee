@@ -17,9 +17,14 @@ fn is_generated(token: &TokenDef) -> bool {
 /// image asset. Both use the existing text face, as recorded in
 /// `docs/legal.md`, instead of borrowing another token's identity or art.
 fn uses_documented_face_fallback(token: &TokenDef) -> bool {
-    [&SNAKE_1_1_ARTIFACT_POISON, &JACE_PLANESWALKER_BLUE]
-        .into_iter()
-        .any(|fallback| std::ptr::eq(token, fallback))
+    [
+        &SNAKE_1_1_ARTIFACT_POISON,
+        &JACE_PLANESWALKER_BLUE,
+        &TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING,
+        &WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+    ]
+    .into_iter()
+    .any(|fallback| std::ptr::eq(token, fallback))
 }
 
 /// Every token this file declares has to be in the ledger, or it has no

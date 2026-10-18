@@ -79,6 +79,8 @@ pub enum TriggerZone {
     Battlefield,
     /// In the card owner's graveyard (CR 113.6b, 113.6m).
     Graveyard,
+    /// In exile (CR 113.6b, All Hallow's Eve).
+    Exile,
 }
 
 /// Steps a trigger can listen to, and a step a timing restriction names.
@@ -807,6 +809,8 @@ pub enum Trigger {
     DealsCombatDamage(&'static Filter),
     /// A player gains life (Professor Dellian Fel).
     GainsLife(crate::effect::PlayerRel),
+    /// "Whenever this creature mutates" (Gemrazer, CR 702.140d).
+    Mutates,
 }
 
 impl Trigger {

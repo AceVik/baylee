@@ -611,7 +611,10 @@ impl HeuristicAgent {
             ZoneSel::LibraryYou if matches!(filter, Filter::Any) => {
                 return view.seat(view.seat).map(|s| i64::from(s.library_count));
             }
-            ZoneSel::HandYou | ZoneSel::HandActivePlayer | ZoneSel::LibraryYou => return None,
+            ZoneSel::HandYou
+            | ZoneSel::HandActivePlayer
+            | ZoneSel::LibraryYou
+            | ZoneSel::LinkedExile => return None,
         };
         objects.into_iter().try_fold(0i64, |n, o| {
             Some(n + i64::from(self.filter_matches(filter, view, o, zone, Some(origin.id))?))

@@ -369,7 +369,7 @@ fn no_card_file_spells_a_counter_id_as_a_number() {
     // the sweep above has them: a stripper that took everything would
     // find nothing, and one that took nothing would count the comments.
     assert!(
-        (34..=68).contains(&naming),
+        (34..=80).contains(&naming),
         "{naming} card files say `counters::` outside a comment; the \
          reader is not reading the pool's cards"
     );

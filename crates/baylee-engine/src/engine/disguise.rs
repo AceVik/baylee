@@ -47,11 +47,12 @@ impl<L: CardLookup> Engine<L> {
         if o.zone != Zone::Battlefield || !o.status.contains(Status::FACE_DOWN) {
             return None;
         }
-        self.lookup
+        let face = self
+            .lookup
             .card(o.card?.index)?
             .faces
-            .get(usize::from(o.face_index))?
-            .disguise
+            .get(usize::from(o.face_index))?;
+        face.disguise.or(face.morph)
     }
 
     pub(super) fn turn_face_up(

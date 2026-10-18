@@ -912,6 +912,9 @@ impl<L: CardLookup> Engine<L> {
             }
             attackers.push(id);
         }
+        if let Some(max) = rules.max_attackers() {
+            required.truncate(max);
+        }
         Pending::ChooseAttackers {
             player: attacker,
             attackers,

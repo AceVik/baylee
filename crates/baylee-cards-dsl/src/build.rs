@@ -1030,7 +1030,7 @@ pub mod prelude {
         ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest,
         SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
     };
-    pub use crate::filter::{Filter, ZoneRef};
+    pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
     pub use crate::static_ability::{
         DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
         StaticAbility,

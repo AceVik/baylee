@@ -45,17 +45,43 @@ pub(crate) fn graveyard_destination(
 ) -> (
     crate::zone::ZoneLocation,
     Option<baylee_cards_dsl::CounterKind>,
+    bool,
 ) {
     use crate::{
         object::{Rider, Status},
         zone::ZoneLocation,
     };
     let ZoneLocation::Graveyard(player) = to else {
-        return (to, None);
+        return (to, None, false);
     };
     let Some(card) = state.object(id) else {
-        return (to, None);
+        return (to, None, false);
     };
+    // "If this creature would die, return Firestorm Phoenix to its owner's
+    // hand instead. Until that player's next turn, that player plays with
+    // that card revealed in their hand and can't play it."
+    let return_hand_rule = |entry: &&crate::state::ReplacementEntry| {
+        entry.source == id
+            && entry.rule
+                == baylee_cards_dsl::ReplacementRule::ReturnSelfToHandRevealedCantPlayUntilOwnersNextTurn
+    };
+    if card.zone == crate::zone::Zone::Battlefield
+        && card.is_card()
+        && card
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+        && state
+            .replacement_rules
+            .iter()
+            .any(|entry| return_hand_rule(&entry))
+    {
+        #[cfg(test)]
+        if let Some(entry) = state.replacement_rules.iter().find(return_hand_rule) {
+            crate::ability_log::replaced(entry);
+        }
+        return (ZoneLocation::Hand(card.owner), None, true);
+    }
     // "If that creature would die this turn, exile it instead" (Mawloc),
     // for that object only. Before the token test below: a token is exiled
     // instead as well, and so does not die.
@@ -63,10 +89,10 @@ pub(crate) fn graveyard_destination(
         && (state.per_turn.exile_if_dies.contains(&(id, card.version))
             || card.counters.get(baylee_cards_dsl::CounterKind::Finality) != 0)
     {
-        return (ZoneLocation::Exile(card.owner), None);
+        return (ZoneLocation::Exile(card.owner), None, false);
     }
     if !card.is_card() {
-        return (to, None);
+        return (to, None, false);
     }
     // Its own "exile it instead": on the stack as a rider, on the
     // battlefield as the rule its face registered.
@@ -82,7 +108,7 @@ pub(crate) fn graveyard_destination(
         if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
             crate::ability_log::replaced(entry);
         }
-        return (ZoneLocation::Exile(card.owner), None);
+        return (ZoneLocation::Exile(card.owner), None, false);
     }
     // "If a card would be put into your graveyard from anywhere this turn,
     // exile it instead" (Forgotten Cellar): a replacement a resolving ability
@@ -92,7 +118,7 @@ pub(crate) fn graveyard_destination(
         fx.controller == player
             && fx.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfYourGraveyard
     }) {
-        return (ZoneLocation::Exile(card.owner), None);
+        return (ZoneLocation::Exile(card.owner), None, false);
     }
     for entry in &state.replacement_rules {
         if let baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter } = entry.rule
@@ -103,10 +129,10 @@ pub(crate) fn graveyard_destination(
         {
             #[cfg(test)]
             crate::ability_log::replaced(entry);
-            return (ZoneLocation::Exile(card.owner), counter);
+            return (ZoneLocation::Exile(card.owner), counter, false);
         }
     }
-    (to, None)
+    (to, None, false)
 }
 
 /// Drops the rules of every source that is no longer on the battlefield, at

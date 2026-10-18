@@ -127,15 +127,69 @@ pub(super) fn resume_inner(
                     })
                 })
             {
+                let source_version = super::source_version(state, res)
+                    .or_else(|| state.object(res.source).map(|o| o.version));
                 for &card in chosen {
+                    let owner = state.object(card).map_or(you, |o| o.owner);
+                    if let Some(obj) = state.object_mut(card) {
+                        obj.riders.push(crate::object::Rider::Linked {
+                            host: res.source,
+                            until: None,
+                        });
+                    }
                     let _ = state.move_object(
                         card,
-                        ZoneLocation::Exile(you),
+                        ZoneLocation::Exile(owner),
                         ZonePosition::Top,
                         Cause::Effect,
                     );
+                    if let Some(version) = source_version {
+                        state.remember_link(
+                            card,
+                            baylee_core::ids::DamageSourceRef {
+                                object: res.source,
+                                version,
+                            },
+                        );
+                    }
                 }
                 return run_fallback(state, res, then);
+            }
+        }
+        AwaitingOp::ReturnChosenLinked {
+            all_linked,
+            other_to_hand,
+        } => {
+            let you = res.controller;
+            let picked = chosen.first().copied().filter(|id| all_linked.contains(id));
+            if let Some(card) = picked {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = crate::object::ObjectKind::Permanent;
+                    obj.set_controller(you);
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            if other_to_hand {
+                for other in all_linked {
+                    if Some(other) != picked
+                        && let Some(owner) = state
+                            .object(other)
+                            .filter(|o| o.zone == crate::zone::Zone::Exile)
+                            .map(|o| o.owner)
+                    {
+                        let _ = state.move_object(
+                            other,
+                            ZoneLocation::Hand(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                    }
+                }
             }
         }
         AwaitingOp::SacrificeAndIf { check, effect } => {
@@ -940,6 +994,71 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ExileTokensCreatedWithThisForCounters { source, kind } => {
+            let mut exiled = 0_u32;
+            for &id in chosen {
+                if state.object(id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && !o.status.contains(crate::object::Status::PHASED_OUT)
+                        && o.card.is_none()
+                        && o.riders.contains(&crate::object::Rider::CreatedBy(source))
+                }) && state
+                    .move_object(
+                        id,
+                        ZoneLocation::Exile(res.controller),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )
+                    .is_ok()
+                {
+                    exiled += 1;
+                }
+            }
+            if exiled > 0 && subjects::on_battlefield(state, source) {
+                crate::replacement::put_counters_by(
+                    state,
+                    res.controller,
+                    source.object,
+                    kind,
+                    u16::try_from(exiled).unwrap_or(u16::MAX),
+                );
+            }
+        }
+        AwaitingOp::Eureka {
+            player,
+            remaining_in_round,
+            mut any_put_this_round,
+        } => {
+            if let Some(&card) = chosen.first()
+                && state.object(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Hand
+                        && o.zone_owner == Some(player)
+                        && o.is_card()
+                        && o.characteristics().types.is_permanent()
+                })
+                && !state.has_left(player)
+            {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.set_controller(player);
+                }
+                state
+                    .entries
+                    .begin_event(state.journal.last_seq(), Some(player));
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                any_put_this_round = true;
+            }
+            if let Some(pending) =
+                choices::advance_eureka(state, res, remaining_in_round, any_put_this_round)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::DiscardChain {
             player,
             count,
@@ -1103,6 +1222,29 @@ pub(super) fn resume_inner(
         AwaitingOp::AttachAura { aura } => {
             crate::aura_bindings::resume_attach(state, aura, chosen);
         }
+        AwaitingOp::TakklemaggotAttach { aura } => {
+            if let Some(&host) = chosen.first()
+                && subjects::is_current(state, aura)
+                && state
+                    .object(aura.object)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard && o.is_card())
+                && crate::aura_bindings::can_attach(state, aura.object, host)
+            {
+                if let Some(obj) = state.object_mut(aura.object) {
+                    let owner = obj.owner;
+                    obj.kind = crate::object::ObjectKind::Permanent;
+                    obj.set_controller(owner);
+                    obj.attached_to = Some(host);
+                }
+                state.set_tapped(aura.object, false);
+                let _ = state.move_object(
+                    aura.object,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         // The chosen permanent is what `then` is about, so it runs as a
         // list of its own with the choice as its object — `Filter::This`
         // names it there, as it names a target, which is what `targeted`
@@ -1135,11 +1277,13 @@ pub(super) fn resume_inner(
         | AwaitingOp::Scry { .. }
         | AwaitingOp::DiscardDestination { .. }
         | AwaitingOp::Surveil
+        | AwaitingOp::ExploreScry { .. }
         | AwaitingOp::Explore { .. } => {
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ChooseCardName { .. }
         | AwaitingOp::ChooseNumber
+        | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
         | AwaitingOp::ChooseEffect { .. }
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast

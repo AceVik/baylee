@@ -48,6 +48,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             }
             Effect::ReflectNextChosenSourceDamage
             | Effect::ExileSourceThenCastTransformed { .. }
+            | Effect::TakklemaggotDeath
+            | Effect::MeldWithNamed { .. }
+            | Effect::MoveSourceToOwnerGraveyard
             | Effect::PutSourceFromHandOntoBattlefield
             | Effect::SacrificeSelf
             | Effect::UntapSelf
@@ -77,22 +80,30 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
     Effect::walk(effects, &mut 0, &mut |effect| {
         moves |= matches!(
             effect,
-            Effect::ReturnToHand {
-                target: TargetSpec::ThisObject
-            } | Effect::GraveyardToBattlefieldLinked {
-                target: TargetSpec::ThisObject,
-            } | Effect::GraveyardToBattlefield {
-                target: TargetSpec::ThisObject,
-                ..
-            } | Effect::GraveyardToHand {
-                target: TargetSpec::ThisObject
-            } | Effect::GraveyardToTop {
-                target: TargetSpec::ThisObject
-            } | Effect::ReturnToBattlefieldTapped {
-                target: TargetSpec::ThisObject
-            } | Effect::PutOnBottomOfLibraryFromGraveyard {
-                target: TargetSpec::ThisObject
-            }
+            Effect::TakklemaggotDeath
+                | Effect::MeldWithNamed { .. }
+                | Effect::ReturnToHand {
+                    target: TargetSpec::ThisObject
+                }
+                | Effect::GraveyardToBattlefieldLinked {
+                    target: TargetSpec::ThisObject,
+                }
+                | Effect::GraveyardToBattlefield {
+                    target: TargetSpec::ThisObject,
+                    ..
+                }
+                | Effect::GraveyardToHand {
+                    target: TargetSpec::ThisObject
+                }
+                | Effect::GraveyardToTop {
+                    target: TargetSpec::ThisObject
+                }
+                | Effect::ReturnToBattlefieldTapped {
+                    target: TargetSpec::ThisObject
+                }
+                | Effect::PutOnBottomOfLibraryFromGraveyard {
+                    target: TargetSpec::ThisObject
+                }
         );
     });
     moves

@@ -592,6 +592,47 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        Effect::ReturnChosenLinkedToBattlefield {
+            filter,
+            other_to_hand,
+        } => {
+            let version = super::source_version(state, res);
+            let all_linked = eval::linked_exile_cards(
+                state,
+                you,
+                res.rule_context(),
+                version,
+                &baylee_cards_dsl::Filter::Any,
+            );
+            let options = eval::linked_exile_cards(state, you, res.rule_context(), version, filter);
+            if options.is_empty() {
+                if other_to_hand {
+                    for card in all_linked {
+                        if let Some(owner) = state.object(card).map(|o| o.owner) {
+                            let _ = state.move_object(
+                                card,
+                                ZoneLocation::Hand(owner),
+                                ZonePosition::Top,
+                                Cause::Effect,
+                            );
+                        }
+                    }
+                }
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ReturnChosenLinked {
+                all_linked,
+                other_to_hand,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         Effect::PlayerMaySacrificeNOr {
             player,
             filter,
@@ -833,6 +874,117 @@ pub(super) fn exec_choice(
                 }),
             })
         }
+        Effect::MayRemoveCountersSelfCreateTokens { kind, token } => {
+            let source = subjects::source(state, res)
+                .filter(|source| subjects::on_battlefield(state, *source))?;
+            let max = u32::from(state.object(source.object)?.counters.get(kind));
+            if max == 0 {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RemoveCountersSelfCreateTokens {
+                source,
+                kind,
+                token,
+            });
+            Some(Pending::ChooseNumber {
+                player: you,
+                min: 0,
+                max,
+                reason: crate::choice::NumberPrompt::Counters {
+                    target: source.object,
+                    kind,
+                },
+            })
+        }
+        Effect::MayExileTokensCreatedWithThisForCounters { kind } => {
+            let source = subjects::source(state, res)?;
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.card.is_none()
+                            && o.riders.contains(&crate::object::Rider::CreatedBy(source))
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+            res.awaiting = Some(AwaitingOp::ExileTokensCreatedWithThisForCounters { source, kind });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+        Effect::Eureka => {
+            let seats = state.players.len();
+            let initial_round: Vec<PlayerId> = (0..seats)
+                .map(|offset| PlayerId::new(((usize::from(you.get()) + offset) % seats) as u8))
+                .filter(|&p| !state.has_left(p))
+                .collect();
+            advance_eureka(state, res, initial_round, false)
+        }
         _ => unreachable!("not a choice op"),
+    }
+}
+
+pub(super) fn advance_eureka(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut remaining_in_round: Vec<PlayerId>,
+    mut any_put_this_round: bool,
+) -> Option<Pending> {
+    loop {
+        while let Some(player) = remaining_in_round.first().copied() {
+            remaining_in_round.remove(0);
+            if state.has_left(player) {
+                continue;
+            }
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| o.is_card() && o.characteristics().types.is_permanent())
+                })
+                .collect();
+            if !options.is_empty() {
+                res.awaiting = Some(AwaitingOp::Eureka {
+                    player,
+                    remaining_in_round,
+                    any_put_this_round,
+                });
+                return Some(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                    total: None,
+                });
+            }
+        }
+        if !any_put_this_round {
+            return None;
+        }
+        let seats = state.players.len();
+        remaining_in_round = (0..seats)
+            .map(|offset| {
+                PlayerId::new(((usize::from(res.controller.get()) + offset) % seats) as u8)
+            })
+            .filter(|&p| !state.has_left(p))
+            .collect();
+        any_put_this_round = false;
+        if remaining_in_round.is_empty() {
+            return None;
+        }
     }
 }

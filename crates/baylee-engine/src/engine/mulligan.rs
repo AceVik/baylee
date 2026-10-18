@@ -34,11 +34,17 @@ const HAND: u8 = 7;
 /// One seat's place in the opening mulligans.
 #[derive(Clone, Debug)]
 pub(crate) struct SeatMulligan {
-    /// What this seat is being asked, a `Mulligan` or a `MulliganBottom`;
-    /// `None` once it has kept or left.
+    /// What this seat is being asked, a `Mulligan`, `MulliganBottom`, or
+    /// an opening-hand action (CR 103.6); `None` once it has kept or left.
     question: Option<Pending>,
     /// The stream this seat's mulligans shuffle with.
     rng: GameRng,
+    /// Whether this seat's kept opening hand has been scanned for CR 103.6 actions.
+    opening_hand_scanned: bool,
+    /// Remaining opening-hand cards with CR 103.6 actions to offer this seat.
+    opening_hand_queue: std::collections::VecDeque<baylee_core::ids::ObjectId>,
+    /// The opening-hand card currently being asked about.
+    opening_hand_current: Option<baylee_core::ids::ObjectId>,
 }
 
 impl SeatMulligan {
@@ -46,7 +52,13 @@ impl SeatMulligan {
     /// folded for [`Engine::snapshot_hash`]. Every field is named, so a new
     /// one does not compile until it is folded or left out on purpose.
     pub(crate) fn fingerprint(&self) -> u64 {
-        let Self { question, rng } = self;
+        let Self {
+            question,
+            rng,
+            opening_hand_scanned,
+            opening_hand_queue,
+            opening_hand_current,
+        } = self;
         let (asked, taken, free, count) = match question {
             None => (0, 0, false, 0),
             Some(Pending::Mulligan {
@@ -55,9 +67,16 @@ impl SeatMulligan {
                 ..
             }) => (1, *taken, *next_is_free, 0),
             Some(Pending::MulliganBottom { count, .. }) => (2, 0, false, *count),
+            Some(Pending::YesNo { .. }) => (3, 0, false, 0),
+            Some(Pending::ChooseCards { min, max, .. }) => (4, *min, false, *max),
             Some(other) => unreachable!("a mulligan window asked {other:?}"),
         };
         let word_pos = rng.word_pos();
+        let queue_hash = crate::state::structural_fingerprint(&(
+            opening_hand_scanned,
+            opening_hand_queue,
+            opening_hand_current,
+        ));
         [
             asked,
             u64::from(taken),
@@ -66,6 +85,7 @@ impl SeatMulligan {
             word_pos as u64,
             (word_pos >> 64) as u64,
             rng.calls(),
+            queue_hash,
         ]
         .into_iter()
         .fold(0, |acc: u64, v| acc.wrapping_mul(31).wrapping_add(v))
@@ -84,6 +104,9 @@ pub(crate) fn open(table: &GameRng, seats: usize, free_first: bool) -> Vec<SeatM
                 can_take: true,
             }),
             rng: table.for_seat(seat as u8),
+            opening_hand_scanned: false,
+            opening_hand_queue: std::collections::VecDeque::new(),
+            opening_hand_current: None,
         })
         .collect()
 }
@@ -140,6 +163,7 @@ impl<L: CardLookup> Engine<L> {
     /// An answer while the mulligans are open: a seat's own mulligan
     /// question, or a concession (CR 104.3a). Nothing else is legal before
     /// turn 1.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn apply_in_mulligans(
         &mut self,
         player: PlayerId,
@@ -213,6 +237,73 @@ impl<L: CardLookup> Engine<L> {
                 }
                 None
             }
+            (Some(Pending::YesNo { .. }), PlayerAction::YesNo(yes)) => {
+                let caverns = self
+                    .mulligans
+                    .as_mut()
+                    .and_then(|w| w.get_mut(seat))
+                    .and_then(|s| s.opening_hand_current.take());
+                if yes
+                    && let Some(caverns) = caverns
+                    && self.in_hand(player, caverns)
+                {
+                    if let Some(obj) = self.state.object_mut(caverns) {
+                        obj.kind = crate::object::ObjectKind::Permanent;
+                        obj.set_controller(player);
+                    }
+                    self.state.move_object(
+                        caverns,
+                        ZoneLocation::Battlefield,
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )?;
+                    if self
+                        .state
+                        .object(caverns)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        crate::replacement::put_counters_by(
+                            &mut self.state,
+                            player,
+                            caverns,
+                            baylee_cards_dsl::counters::LUCK,
+                            1,
+                        );
+                    }
+                    let options = self.state.zones.list(ZoneLocation::Hand(player)).clone();
+                    if options.is_empty() {
+                        None
+                    } else {
+                        Some(Pending::ChooseCards {
+                            player,
+                            options,
+                            min: 1,
+                            max: 1,
+                            prompt: crate::choice::ChoicePrompt::Generic,
+                            total: None,
+                        })
+                    }
+                } else {
+                    None
+                }
+            }
+            (Some(Pending::ChooseCards { .. }), PlayerAction::ChooseObjects { objects }) => {
+                if !objects.iter().all(|card| self.in_hand(player, *card)) {
+                    return Err(EngineError::IllegalAction("card not in hand"));
+                }
+                for card in objects {
+                    self.state.move_object(
+                        card,
+                        ZoneLocation::Exile(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )?;
+                    if let Some(window) = self.mulligans.as_mut() {
+                        window[seat].opening_hand_queue.retain(|&c| c != card);
+                    }
+                }
+                None
+            }
             (Some(_), _) => return Err(EngineError::MismatchedAction),
             (None, _) => {
                 return Err(EngineError::IllegalAction(
@@ -253,6 +344,71 @@ impl<L: CardLookup> Engine<L> {
             self.pending = question;
             self.awaiting_answer = true;
             return;
+        }
+        // CR 103.6a: after all mulligans are complete, players may take
+        // opening-hand actions in turn order starting with the starting player.
+        let starting = self.state.turn.active;
+        let seats = self.state.players.len();
+        for offset in 0..seats {
+            let seat_idx = (usize::from(starting.get()) + offset) % seats;
+            let p = PlayerId::new(seat_idx as u8);
+            if self.state.has_left(p) {
+                continue;
+            }
+            let scanned = self
+                .mulligans
+                .as_ref()
+                .is_some_and(|w| w[seat_idx].opening_hand_scanned);
+            if !scanned {
+                let mut candidates = std::collections::VecDeque::new();
+                if p != starting {
+                    for &card in self.state.zones.list(ZoneLocation::Hand(p)) {
+                        let has_caverns = self.state.object(card).is_some_and(|o| {
+                            o.abilities(&self.lookup).iter().any(|a| {
+                                matches!(
+                                    a,
+                                    baylee_cards_dsl::AbilityDef::Replacement(
+                                        baylee_cards_dsl::ReplacementRule::OpeningHandBattlefieldWithLuckCounterExilingHandCard,
+                                    )
+                                )
+                            })
+                        });
+                        if has_caverns {
+                            candidates.push_back(card);
+                        }
+                    }
+                }
+                if let Some(w) = self.mulligans.as_mut() {
+                    w[seat_idx].opening_hand_scanned = true;
+                    w[seat_idx].opening_hand_queue = candidates;
+                }
+            }
+            while let Some(caverns) = self
+                .mulligans
+                .as_mut()
+                .and_then(|w| w[seat_idx].opening_hand_queue.pop_front())
+            {
+                if !self.in_hand(p, caverns) {
+                    continue;
+                }
+                let source = self
+                    .state
+                    .object(caverns)
+                    .and_then(|o| o.card)
+                    .map(|c| baylee_core::ids::AbilityRef::new(c.index, 0));
+                let q = Pending::YesNo {
+                    player: p,
+                    prompt: crate::choice::YesNoPrompt::Generic,
+                    source,
+                };
+                if let Some(w) = self.mulligans.as_mut() {
+                    w[seat_idx].opening_hand_current = Some(caverns);
+                    w[seat_idx].question = Some(q.clone());
+                }
+                self.pending = q;
+                self.awaiting_answer = true;
+                return;
+            }
         }
         self.mulligans = None;
         // CR 800.4k: a player who has left does not begin a turn, and the

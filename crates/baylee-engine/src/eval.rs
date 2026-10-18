@@ -118,6 +118,9 @@ pub fn matches_projected_with_context(
         // CR 201.2: the name an object has *now*, read off its projected
         // characteristics, so a clone answers to what it copied.
         Filter::Named(name) => state.names.get(chars.name) == *name,
+        Filter::NameOriginallyPrintedIn(expansion) => {
+            expansion.contains_name(state.names.get(chars.name))
+        }
         Filter::NotTargetedByAnotherNamed(name) => !state
             .zones
             .list(crate::zone::ZoneLocation::Stack)
@@ -1007,8 +1010,66 @@ fn basic_land_types(
         .count() as u32
 }
 
+/// Cards in exile linked to `context.source` (at `source_version` if given,
+/// or its current version otherwise) that match `filter`.
+pub(crate) fn linked_exile_cards(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    source_version: Option<u32>,
+    filter: &Filter,
+) -> Vec<ObjectId> {
+    let source = context.source;
+    let source_ref = source_version
+        .map(|version| baylee_core::ids::DamageSourceRef {
+            object: source,
+            version,
+        })
+        .or_else(|| state.source_identity(source));
+    let mut out = Vec::new();
+    for player in &state.players {
+        for &id in state.zones.list(ZoneLocation::Exile(player.id)) {
+            if let Some(obj) = state.object(id)
+                && obj.is_card()
+                && obj.riders.iter().any(|r| match *r {
+                    crate::object::Rider::Linked { host, .. } => {
+                        host == source
+                            && source_ref.is_none_or(|s| {
+                                state
+                                    .source_memory
+                                    .linked
+                                    .get(&baylee_core::ids::DamageSourceRef {
+                                        object: obj.id,
+                                        version: obj.version,
+                                    })
+                                    .is_none_or(|&linked| linked == s)
+                            })
+                    }
+                    crate::object::Rider::ExiledWith { host, version } => {
+                        host == source
+                            && source_ref.is_none_or(|s| {
+                                version == u16::try_from(s.version).unwrap_or(u16::MAX)
+                            })
+                    }
+                    _ => false,
+                })
+                && matches_with_context(filter, state, obj, you, context)
+            {
+                out.push(id);
+            }
+        }
+    }
+    out
+}
+
 /// Visits visible objects in a selected zone without copying its index.
-fn visit_zone(zone: ZoneSel, state: &GameState, you: PlayerId, mut visit: impl FnMut(ObjectId)) {
+fn visit_zone(
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    mut visit: impl FnMut(ObjectId),
+) {
     let location = match zone {
         ZoneSel::Battlefield => {
             state.battlefield_seen().for_each(visit);
@@ -1019,6 +1080,12 @@ fn visit_zone(zone: ZoneSel, state: &GameState, you: PlayerId, mut visit: impl F
                 for &id in state.zones.list(ZoneLocation::Graveyard(player.id)) {
                     visit(id);
                 }
+            }
+            return;
+        }
+        ZoneSel::LinkedExile => {
+            for id in linked_exile_cards(state, you, context, None, &Filter::Any) {
+                visit(id);
             }
             return;
         }
@@ -1041,7 +1108,7 @@ pub(crate) fn colors_in_zone(
     context: RuleContext,
 ) -> baylee_core::color::ColorSet {
     let mut colors = baylee_core::color::ColorSet::EMPTY;
-    visit_zone(zone, state, you, |id| {
+    visit_zone(zone, state, you, context, |id| {
         if let Some(object) = state.object(id)
             && matches_with_context(filter, state, object, you, context)
         {
@@ -1060,7 +1127,7 @@ fn count_in_zone(
     context: RuleContext,
 ) -> u32 {
     let mut count = 0u32;
-    visit_zone(zone, state, you, |id| {
+    visit_zone(zone, state, you, context, |id| {
         if state
             .object(id)
             .is_some_and(|object| matches_with_context(filter, state, object, you, context))
@@ -1588,8 +1655,8 @@ pub fn controlled_matching_with_context(
 }
 
 /// The permanents on the battlefield `filter` matches, whoever controls them,
-/// each asked with its own id as the filter's object — the reading
-/// [`Condition::ControlCount`] gives one side of the table.
+/// asked with the ability's source as `this` so `Filter::Another` excludes
+/// the source itself (City in a Bottle).
 ///
 /// A phased-out permanent is treated as though it does not exist (CR
 /// 702.26b), so it is not on the battlefield this counts.
@@ -1602,18 +1669,9 @@ fn battlefield_count(
     state
         .battlefield_seen()
         .filter(|id| {
-            state.object(*id).is_some_and(|o| {
-                matches_with_context(
-                    filter,
-                    state,
-                    o,
-                    you,
-                    RuleContext {
-                        source: *id,
-                        ..context
-                    },
-                )
-            })
+            state
+                .object(*id)
+                .is_some_and(|o| matches_with_context(filter, state, o, you, context))
         })
         .count()
 }
@@ -1944,11 +2002,11 @@ pub fn permits_enchantment(state: &GameState, host: ObjectId, aura: ObjectId) ->
         return false;
     };
     !state.effects.iter().any(|fx| {
-        matches!(
-            fx.modifier,
-            baylee_cards_dsl::Modifier::CantBeEnchantedExceptSource
-        ) && fx.source != Some(aura)
-            && crate::effects::applies_to(state, fx, object)
+        (match fx.modifier {
+            baylee_cards_dsl::Modifier::CantBeEnchanted => true,
+            baylee_cards_dsl::Modifier::CantBeEnchantedExceptSource => fx.source != Some(aura),
+            _ => false,
+        }) && crate::effects::applies_to(state, fx, object)
     })
 }
 

@@ -408,6 +408,32 @@ pub fn play_permission(
     })
 }
 
+/// Whether a continuous effect forbids playing `obj` as a land ("Players
+/// can't play cards originally printed in the Arabian Nights expansion",
+/// CR 101.2 / 305.2b).
+pub(crate) fn land_play_is_forbidden(state: &GameState, obj: &crate::object::GameObject) -> bool {
+    if obj.zone == crate::zone::Zone::Hand
+        && obj
+            .riders
+            .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+    {
+        return true;
+    }
+    state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::PlayersCantPlay(filter) = fx.modifier else {
+                return false;
+            };
+            crate::eval::matches(
+                filter,
+                state,
+                obj,
+                fx.controller,
+                fx.source.unwrap_or(obj.id),
+            )
+        })
+}
+
 /// The zone permission plus the particular card restriction. A library
 /// permission never grants access to a card below the top. A permission for
 /// the card itself ([`play_permission`]) opens it wherever it lies, an
@@ -415,7 +441,13 @@ pub fn play_permission(
 /// else (Ragavan, Nimble Pilferer), which plays no land (CR 601.1a).
 #[must_use]
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
-    let version = state.object(card).map(|o| o.version);
+    let Some(obj) = state.object(card) else {
+        return false;
+    };
+    if land_play_is_forbidden(state, obj) {
+        return false;
+    }
+    let version = Some(obj.version);
     if state
         .play_permissions
         .iter()
@@ -423,21 +455,19 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
     {
         return true;
     }
-    mayhem_land_permission(state, player, card)
-        || adventure_permission(state, player, card)
-        || state.object(card).is_some_and(|obj| {
-            if obj.zone == Zone::Exile
-                && obj
-                    .riders
-                    .contains(&crate::object::Rider::PlayableFromExileFor(player))
-            {
-                return true;
-            }
-            obj.zone_owner == Some(player)
-                && land_zone_open(state, player, obj.zone)
-                && (obj.zone != Zone::Library
-                    || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
-        })
+    mayhem_land_permission(state, player, card) || adventure_permission(state, player, card) || {
+        if obj.zone == Zone::Exile
+            && obj
+                .riders
+                .contains(&crate::object::Rider::PlayableFromExileFor(player))
+        {
+            return true;
+        }
+        obj.zone_owner == Some(player)
+            && land_zone_open(state, player, obj.zone)
+            && (obj.zone != Zone::Library
+                || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
+    }
 }
 
 /// Native costless Mayhem applies only to the exact discarded land incarnation.

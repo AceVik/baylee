@@ -40,7 +40,10 @@ impl<L: CardLookup> Engine<L> {
                 .map_or(attackers.len(), |at| at + 1)
         });
         for leader in &attackers[start..] {
-            if leader.band.is_some() || !self.has_banding(leader.creature) {
+            let has_banding = self.has_banding(leader.creature);
+            let has_bands_with =
+                !crate::combat::bands_with_other_filters(&self.state, leader.creature).is_empty();
+            if leader.band.is_some() || (!has_banding && !has_bands_with) {
                 continue;
             }
             // CR 702.22d: every creature in a band attacks the same player
@@ -51,6 +54,12 @@ impl<L: CardLookup> Engine<L> {
                     a.creature != leader.creature
                         && a.band.is_none()
                         && a.defending == leader.defending
+                        && (has_banding
+                            || crate::combat::can_band_with_other(
+                                &self.state,
+                                leader.creature,
+                                a.creature,
+                            ))
                 })
                 .map(|a| a.creature)
                 .collect();
@@ -90,8 +99,14 @@ impl<L: CardLookup> Engine<L> {
         leader: ObjectId,
         members: Vec<ObjectId>,
     ) -> Result<(), EngineError> {
-        let without = members.iter().filter(|m| !self.has_banding(**m)).count();
-        if without > 1 {
+        let without = members
+            .iter()
+            .filter(|m| {
+                !self.has_banding(**m)
+                    && !crate::combat::can_band_with_other(&self.state, leader, **m)
+            })
+            .count();
+        if without > 1 || (!self.has_banding(leader) && without > 0) {
             self.pending_plan = Some(PlanKind::Band { leader });
             return Err(EngineError::IllegalAction(
                 "a band holds at most one creature without banding",

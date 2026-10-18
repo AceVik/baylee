@@ -31,5 +31,7 @@ mod vengeance;
 mod wrath_of_god;
 
 mod agonizing_syphon;
+mod all_hallow_s_eve;
 
 mod ancestral_reminiscence;
+mod eureka;

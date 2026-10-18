@@ -104,6 +104,7 @@ mod breeding_pit;
 mod builder_s_blessing;
 mod burning_earth;
 mod castle;
+mod caverns_of_despair;
 mod coastal_piracy;
 mod conversion;
 mod crucible_of_fire;

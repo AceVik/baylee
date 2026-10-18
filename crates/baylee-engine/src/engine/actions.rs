@@ -528,6 +528,7 @@ impl<L: CardLookup> Engine<L> {
                                 | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
+                                | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
                         )
                     )
                 }) {
@@ -2339,6 +2340,11 @@ impl<L: CardLookup> Engine<L> {
         // attackers cost 190 ms in self-play, r001 game 431).
         let mut seen = std::collections::BTreeSet::new();
         let rules = combat::AttackRules::new(&self.state);
+        if let Some(max) = rules.max_attackers()
+            && attackers.len() > max
+        {
+            return Err(EngineError::IllegalAction("too many attackers declared"));
+        }
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -2356,22 +2362,26 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
         }
-        // CR 508.1d: every creature that attacks if able, and can, does.
-        // No restriction the engine knows makes one requirement cost
-        // another, so the most that can be obeyed is all of them. A player is
+        // CR 508.1d: every creature that attacks if able, and can, does, up to
+        // any cap on how many creatures may attack (CR 508.1c). A player is
         // never required to pay a cost to declare an attacker (CR 508.1d), so
         // only defenders with zero life tax count toward a requirement.
-        let shirking = self
+        let required_able = self
             .state
             .battlefield_seen()
-            .filter(|id| rules.must_attack(*id) && !seen.contains(id))
-            .any(|id| {
-                combat::can_attack(&self.state, player, id)
+            .filter(|id| {
+                rules.must_attack(*id)
+                    && combat::can_attack(&self.state, player, *id)
                     && legal
                         .iter()
-                        .any(|d| rules.allows(id, *d) && rules.life_tax(id, *d) == 0)
-            });
-        if shirking {
+                        .any(|d| rules.allows(*id, *d) && rules.life_tax(*id, *d) == 0)
+            })
+            .count();
+        let required_target = rules
+            .max_attackers()
+            .map_or(required_able, |max| required_able.min(max));
+        let required_declared = seen.iter().filter(|id| rules.must_attack(**id)).count();
+        if required_declared < required_target {
             return Err(crate::choice::AnswerFault::MustAttack.into());
         }
         let total_life_tax = attackers
@@ -2464,6 +2474,19 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction(
                     "creature cannot block that many attackers",
                 ));
+            }
+        }
+        if let Some(max) = rules.max_blockers() {
+            let mut distinct_blockers: std::collections::BTreeSet<ObjectId> = self
+                .state
+                .combat
+                .blockers
+                .iter()
+                .map(|b| b.blocker)
+                .collect();
+            distinct_blockers.extend(blocks.keys().copied());
+            if distinct_blockers.len() > max {
+                return Err(EngineError::IllegalAction("too many blockers declared"));
             }
         }
         // The counts the declaration is held to as a whole (CR 509.1b),

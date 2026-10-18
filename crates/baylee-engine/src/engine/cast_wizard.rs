@@ -1538,6 +1538,9 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|c| self.lookup.card(c.index))
             .expect("wizard card known");
         let face_index = wizard.face_index().min(def.faces.len() - 1);
+        if wizard.option == Some(CastModeKind::Mutate) {
+            return Some(casting::MUTATE_TARGET_REQ);
+        }
         if wizard.kicked
             && let Some(req) = def.faces[face_index].kicked_targets
         {

@@ -50,7 +50,7 @@ pub use effect::{
     ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider,
     TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
-pub use filter::{Filter, ZoneRef};
+pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
     SimpleMana, mana_bundle, mana_made, mana_offer, mana_shape, mana_with_riders, mana_written,
     simple_mana, tap_only,
@@ -441,6 +441,10 @@ pub struct FaceDef {
     pub freerunning: Option<ManaCost>,
     /// "As an additional cost to cast this spell, behold a [filter] or pay [cost]" (CR 701.60a).
     pub behold_or_pay: Option<BeholdOrPay>,
+    /// Morph cost to turn this permanent face up (CR 702.37).
+    pub morph: Option<ManaCost>,
+    /// Mutate cost to cast this creature spell merging with a non-Human creature you own (CR 702.140).
+    pub mutate: Option<ManaCost>,
 }
 
 impl FaceDef {
@@ -491,6 +495,8 @@ impl FaceDef {
         escape: None,
         freerunning: None,
         behold_or_pay: None,
+        morph: None,
+        mutate: None,
     };
 }
 

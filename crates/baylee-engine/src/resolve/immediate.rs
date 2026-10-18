@@ -42,6 +42,15 @@ pub(super) fn exec_immediate(
         }
 
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
+        Effect::TakklemaggotDeath => takklemaggot_death(state, res),
+        Effect::MeldWithNamed {
+            partner_name,
+            melded,
+        } => {
+            meld_with_named(state, res, partner_name, melded);
+            None
+        }
+        Effect::VentureIntoTheDungeon => venture_into_the_dungeon(state, res),
         Effect::DestroyEventThenMayReattach { to } => {
             crate::aura_bindings::destroy_event_and_offer(state, res, to)
         }
@@ -288,12 +297,15 @@ pub(super) fn exec_immediate(
         | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
         | Effect::PhaseOut { .. }
+        | Effect::PhaseOutUntilSourceLeaves { .. }
         | Effect::PhaseOutFilter(_)
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf
+        | Effect::SacrificeAll { .. }
         | Effect::SacrificeObject { .. }
         | Effect::PutTargetOnBottomOfLibrary
+        | Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
@@ -321,11 +333,16 @@ pub(super) fn exec_immediate(
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
+        | Effect::EachPlayerGraveyardCreaturesToBattlefield
         | Effect::YourGraveyardToBattlefield { .. }
         | Effect::ReturnToBattlefieldTapped { .. }
         | Effect::TransformSource
         | Effect::TransformSourceAtNextUpkeep
         | Effect::ExileSelfReturnAsFace { .. }
+        | Effect::ExileSourceWithCounters { .. }
+        | Effect::MoveSourceToOwnerGraveyard
+        | Effect::TawnossCoffinExile
+        | Effect::ReturnTawnossCoffinExile
         | Effect::ReturnLinkedToBattlefield
         | Effect::ExileTargetsCreateTokens { .. }
         | Effect::CounterTargetAbility
@@ -360,6 +377,7 @@ pub(super) fn exec_immediate(
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),
         Effect::CreateTokenForTargetController { .. }
+        | Effect::CreateTokenLinkedBidirectionalLtb { .. }
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }
         | Effect::Populate
@@ -653,11 +671,12 @@ pub(super) fn exec_immediate(
         }
         Effect::IfNoCountersOnSelf { kind, then } => {
             // `is_some_and` and not `map_or(true, …)`: a source that is no
-            // longer on the battlefield has not run out of counters, it has
-            // stopped being a thing the sentence is about.
-            if state
-                .object(res.source)
-                .is_some_and(|o| o.counters.get(kind) == 0)
+            // longer on the battlefield or in exile has not run out of
+            // counters, it has stopped being a thing the sentence is about.
+            if subjects::source(state, res).is_some_and(|r| subjects::is_current(state, r))
+                && state
+                    .object(res.source)
+                    .is_some_and(|o| o.counters.get(kind) == 0)
             {
                 return run_nested(state, res, then);
             }
@@ -2544,6 +2563,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }
+        | Effect::ReturnChosenLinkedToBattlefield { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
@@ -2565,6 +2585,9 @@ pub(super) fn exec_immediate(
         | Effect::MayDoFor { .. }
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
+        | Effect::MayRemoveCountersSelfCreateTokens { .. }
+        | Effect::MayExileTokensCreatedWithThisForCounters { .. }
+        | Effect::Eureka
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -2675,4 +2698,216 @@ fn discover(state: &mut GameState, res: &Resolution, mana_value: u32) -> Option<
         state.discovered.push((you, card, version));
     }
     None
+}
+
+static TAKKLEMAGGOT_PING: &[baylee_cards_dsl::AbilityDef] = &[baylee_cards_dsl::triggered!(
+    baylee_cards_dsl::Trigger::StepBeginChosenOpponent {
+        step: baylee_cards_dsl::StepKind::Upkeep,
+    },
+    &[Effect::DealDamage {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+        target: TargetSpec::Player(PlayerRel::ActivePlayer),
+    }]
+)];
+
+fn takklemaggot_death(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    let you = res.controller;
+    let chooser = *players_of(PlayerRel::ControllerOfEvent, state, you, res).first()?;
+    let aura = subjects::moving_source(state, res)?;
+    if !state
+        .object(aura.object)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard && o.is_card())
+    {
+        return None;
+    }
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&host| crate::aura_bindings::can_attach(state, aura.object, host))
+        .collect();
+    if !options.is_empty() {
+        res.awaiting = Some(AwaitingOp::TakklemaggotAttach { aura });
+        return Some(Pending::ChooseCards {
+            player: chooser,
+            options,
+            min: 1,
+            max: 1,
+            prompt: crate::choice::ChoicePrompt::NewHost { aura: aura.object },
+            total: None,
+        });
+    }
+    let printed = state.object(aura.object).and_then(GameObject::printed_face);
+    let abilities = crate::object::AbilityList::from_static(TAKKLEMAGGOT_PING, printed, None);
+    if let Some(obj) = state.object_mut(aura.object) {
+        let owner = obj.owner;
+        obj.kind = ObjectKind::Permanent;
+        obj.set_controller(owner);
+        obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+        obj.base_mut()
+            .subtypes
+            .remove(baylee_core::generated::subtypes::enchantment::AURA);
+        obj.cache.clear();
+        obj.set_chosen_opponent(Some(chooser));
+        obj.take_abilities(abilities);
+        obj.riders.push(crate::object::Rider::EntryCopyApplied);
+    }
+    state.set_tapped(aura.object, false);
+    let _ = state.move_object(
+        aura.object,
+        ZoneLocation::Battlefield,
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    None
+}
+
+fn meld_with_named(
+    state: &mut GameState,
+    res: &mut Resolution,
+    partner_name: &'static str,
+    melded: &'static baylee_cards_dsl::TokenDef,
+) {
+    let you = res.controller;
+    if state.has_left(you) {
+        return;
+    }
+    let Some(source) = subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+    else {
+        return;
+    };
+    if !state
+        .object(source.object)
+        .is_some_and(|o| o.owner == you && o.controller == you)
+    {
+        return;
+    }
+    let Some(partner) = state.battlefield_seen().find(|&id| {
+        id != source.object
+            && state.object(id).is_some_and(|o| {
+                o.owner == you
+                    && o.controller == you
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && state.names.get(o.characteristics().name) == partner_name
+            })
+    }) else {
+        return;
+    };
+    if let Some(obj) = state.object_mut(source.object) {
+        obj.kind = ObjectKind::Card;
+    }
+    if let Some(obj) = state.object_mut(partner) {
+        obj.kind = ObjectKind::Card;
+    }
+    let _ = state.move_object(
+        source.object,
+        ZoneLocation::Exile(you),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    let _ = state.move_object(
+        partner,
+        ZoneLocation::Exile(you),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    if !state
+        .object(source.object)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+        || !state
+            .object(partner)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+    {
+        return;
+    }
+    let _ = state.move_object(
+        partner,
+        ZoneLocation::Command(you),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    let base = state.token_base(melded, None);
+    let printed = state
+        .object(source.object)
+        .and_then(GameObject::printed_face);
+    let abilities = crate::object::AbilityList::from_static(melded.abilities, printed, None);
+    if let Some(obj) = state.object_mut(source.object) {
+        obj.kind = ObjectKind::Permanent;
+        obj.set_controller(you);
+        obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+        obj.base = base;
+        obj.take_abilities(abilities);
+        obj.riders.push(crate::object::Rider::EntryCopyApplied);
+        obj.riders
+            .push(crate::object::Rider::MergedComponent(partner));
+        obj.cache.clear();
+    }
+    state.set_tapped(source.object, false);
+    let _ = state.move_object(
+        source.object,
+        ZoneLocation::Battlefield,
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+}
+
+static DUNGEON_TREASURE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Treasure",
+    types: baylee_core::types::TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::TREASURE],
+    abilities: &[baylee_cards_dsl::mana_ability!(
+        baylee_cards_dsl::cost!(TapSelf, SacrificeSelf),
+        &[Effect::mana_choice(&[
+            baylee_core::mana::ManaColor::White,
+            baylee_core::mana::ManaColor::Blue,
+            baylee_core::mana::ManaColor::Black,
+            baylee_core::mana::ManaColor::Red,
+            baylee_core::mana::ManaColor::Green,
+        ])]
+    )],
+    scryfall_id: "0559f9f3-eff0-465d-93c1-e875a8afe87f",
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static CAVE_ENTRANCE: &[Effect] = &[Effect::scry(1)];
+static MINE_TUNNELS: &[Effect] = &[Effect::CreateToken {
+    token: &DUNGEON_TREASURE,
+}];
+static DARK_POOL: &[Effect] = &[
+    Effect::LoseLife {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+        target: PlayerRel::EachOpponent,
+    },
+    Effect::gain_life(1),
+];
+static TEMPLE_OF_DUMATHOIN: &[Effect] = &[Effect::draw(1)];
+
+fn venture_into_the_dungeon(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let seat = usize::from(you.get());
+    let room = state.players[seat].dungeon_room;
+    let room_effects: &'static [Effect] = match room {
+        0 => {
+            state.players[seat].dungeon_room = 1;
+            CAVE_ENTRANCE
+        }
+        1 => {
+            state.players[seat].dungeon_room = 2;
+            MINE_TUNNELS
+        }
+        2 => {
+            state.players[seat].dungeon_room = 3;
+            DARK_POOL
+        }
+        _ => {
+            state.players[seat].dungeon_room = 0;
+            state.players[seat].dungeons_completed =
+                state.players[seat].dungeons_completed.saturating_add(1);
+            TEMPLE_OF_DUMATHOIN
+        }
+    };
+    run_nested(state, res, room_effects)
 }

@@ -92,8 +92,10 @@ pub(crate) fn permits_new_enchantment(state: &GameState, host: ObjectId, aura: O
         return false;
     };
     !state.effects.iter().any(|effect| {
-        effect.modifier == Modifier::CantBecomeEnchanted
-            && guards(state, object, object.characteristics(), effect)
+        matches!(
+            effect.modifier,
+            Modifier::CantBecomeEnchanted | Modifier::CantBeEnchanted
+        ) && guards(state, object, object.characteristics(), effect)
     })
 }
 

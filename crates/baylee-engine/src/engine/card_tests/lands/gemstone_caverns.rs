@@ -2,20 +2,103 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::choice::YesNoPrompt;
 
-/// Gemstone Caverns is `Coverage::Partial`: the pre-game luck counter that
-/// would turn its tap into "one mana of any color" cannot be expressed, and
-/// what is built is the plain `{T}: Add {C}` on a legendary nonbasic land.
-/// So the whole supported half is one play — put the land down and tap it —
-/// and the pool afterwards holds exactly one *colourless* mana, which is the
-/// negative that tells "Add {C}" apart from the unimplemented replacement:
-/// nothing was ever asked to name a color.
-/// The Caverns is the only permanent on the board (the 60-card backing deck
-/// is a library and no land of it was played), so the colourless mana has no
-/// other source to have come from, and the printed `{T}` is paid by the land
-/// itself rather than through the basic-land-type shortcut of CR 305.6.
+/// Gemstone Caverns:
+/// - "If this card is in your opening hand and you're not the starting player,
+///   you may begin the game with Gemstone Caverns on the battlefield with a
+///   luck counter on it. If you do, exile a card from your hand."
+/// - "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add
+///   one mana of any color."
 #[test]
-fn gemstone_caverns_taps_for_one_colourless_and_names_no_colour() {
+fn gemstone_caverns_begins_on_battlefield_with_luck_counter_for_non_starting_player_and_adds_any_color()
+ {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(19, forest())
+        .hand(1, &[gemstone_caverns(), forest()])
+        .start();
+
+    // Both players keep their opening hands; p0 is the starting player, so p1
+    // is offered the Gemstone Caverns opening-hand action (CR 103.6).
+    engine.apply(p0, PlayerAction::MulliganKeep).unwrap();
+    engine.apply(p1, PlayerAction::MulliganKeep).unwrap();
+
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::Generic,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected opening-hand YesNo prompt for p1, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p1);
+    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ExileFromHand ChooseCards prompt for p1, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p1);
+    assert_eq!((min, max), (1, 1));
+    let pitch = options[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![pitch],
+            },
+        )
+        .unwrap();
+
+    let caverns = on_battlefield(&engine, p1, gemstone_caverns())
+        .expect("Gemstone Caverns began the game on the battlefield");
+    assert_eq!(
+        counters_on(&engine, caverns, counters::LUCK),
+        1,
+        "Gemstone Caverns entered with a luck counter"
+    );
+    assert_eq!(
+        engine.state().object(pitch).expect("pitched card").zone,
+        Zone::Exile,
+        "the chosen card from p1's hand was exiled"
+    );
+
+    // On p1's main phase, tapping Gemstone Caverns with a luck counter adds
+    // one mana of any color.
+    reach_their_main_phase(&mut engine, p1);
+    activate(&mut engine, p1, gemstone_caverns(), 0);
+    let Pending::ChooseColor { player, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseColor with luck counter, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p1);
+    engine
+        .apply(p1, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
+}
+
+#[test]
+fn gemstone_caverns_played_normally_without_luck_counter_taps_for_colourless() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(19, forest())
         .hand(0, &[gemstone_caverns()])
@@ -28,50 +111,11 @@ fn gemstone_caverns_taps_for_one_colourless_and_names_no_colour() {
         .apply(p0, PlayerAction::PlayLand { card })
         .expect("a land drop on an empty board");
     let caverns = on_battlefield(&engine, p0, gemstone_caverns()).expect("the land hit the table");
-    assert_eq!(
-        engine.state().players[0].mana_pool.total(),
-        0,
-        "a land nobody tapped is no mana"
-    );
+    assert_eq!(counters_on(&engine, caverns, counters::LUCK), 0);
 
-    // `{T}: Add {C}` is a printed ability on a nonbasic land, so it is an
-    // ordinary entry in `abilities` and not the intrinsic CR 305.6 list.
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!(
-            "playing a land leaves the seat holding priority: {:?}",
-            engine.pending()
-        )
-    };
-    assert!(
-        legal.abilities.contains(&(caverns, 0)),
-        "the land's own {{T}} is offered like any other printed ability: {:?}",
-        legal.abilities
-    );
     activate(&mut engine, p0, gemstone_caverns(), 0);
-
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(
-        pool.available(ManaColor::Colorless),
-        1,
-        "`Add {{C}}` is the half of the card that is written"
-    );
-    assert_eq!(
-        pool.total(),
-        1,
-        "and nothing came with it: only the one mana ability resolved"
-    );
-    assert!(
-        is_tapped(&engine, caverns),
-        "the {{T}} was paid by the Caverns"
-    );
-    assert!(
-        stack_is_empty(&engine),
-        "CR 605.3b: a mana ability never uses the stack"
-    );
-    assert!(
-        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "so the seat is back where it was and was never asked for a color — \
-         the luck-counter replacement is not in play: {:?}",
-        engine.pending()
-    );
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, caverns));
 }

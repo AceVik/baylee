@@ -13,4 +13,5 @@ mod flight_of_fancy;
 mod improvised_armor;
 mod serra_s_embrace;
 mod steal_artifact;
+mod takklemaggot;
 mod zephid_s_embrace;

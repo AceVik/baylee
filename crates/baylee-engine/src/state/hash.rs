@@ -1426,6 +1426,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         // Preset-constant, so it tells no two states of one game apart
         // (`docs/engine-internals.md`).
         team: _,
+        dungeon_room,
+        dungeons_completed,
     } = player;
     id.hash(h);
     life.hash(h);
@@ -1443,6 +1445,10 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turns_to_skip.hash(h);
     last_turn_attackers.hash(h);
     last_turn_acted.hash(h);
+    if *dungeon_room != 0 || *dungeons_completed != 0 {
+        dungeon_room.hash(h);
+        dungeons_completed.hash(h);
+    }
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
     // seats on the same life with twelve and twenty points from the same
@@ -1890,6 +1896,27 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(17);
                 h.u8(p.get());
             }
+            Rider::PhasedOutUntilHostLeaves {
+                host,
+                tap_on_phase_in,
+            } => {
+                h.u8(81);
+                (host, tap_on_phase_in).hash(h);
+            }
+            Rider::CreatedBy(source) => {
+                h.u8(82);
+                source.hash(h);
+            }
+            Rider::RevealedInHandCantPlayUntilTurn => h.u8(83),
+            Rider::NotedCounter(kind, n) => {
+                h.u8(84);
+                (kind, n).hash(h);
+            }
+            Rider::Mutating => h.u8(85),
+            Rider::MergedComponent(comp) => {
+                h.u8(86);
+                comp.hash(h);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -2110,6 +2137,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::SharesAColorWith(inner) => {
             h.u8(129);
             filter_hash(h, inner);
+        }
+        F::NameOriginallyPrintedIn(expansion) => {
+            h.u8(131);
+            h.u8(*expansion as u8);
         }
     }
 }

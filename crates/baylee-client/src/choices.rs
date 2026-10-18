@@ -956,6 +956,7 @@ fn cast_label(
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Mutate => Phrase::CastMutate.text(lang).to_string(),
         K::Escape => Phrase::CastEscape.text(lang).to_string(),
         K::EscapeGranted {
             face,

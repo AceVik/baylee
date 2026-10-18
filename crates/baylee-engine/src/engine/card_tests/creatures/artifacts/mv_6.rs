@@ -19,6 +19,7 @@ mod pardic_wanderer;
 mod phyrexian_hulk;
 mod prophet_of_the_peak;
 mod sharuum_the_hegemon;
+mod tetravus;
 mod the_reaper_king_no_more;
 mod thundering_tanadon;
 mod tribal_golem;

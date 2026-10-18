@@ -13,6 +13,8 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },
     Precon { key: "ITP/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-second-deck.txt") },
     Precon { key: "PAST/ape-lord", text: include_str!("../../../../data/decks/precon/PAST/ape-lord.txt") },
+    Precon { key: "PAST/arch-angel", text: include_str!("../../../../data/decks/precon/PAST/arch-angel.txt") },
+    Precon { key: "PAST/azaar-lichlord", text: include_str!("../../../../data/decks/precon/PAST/azaar-lichlord.txt") },
     Precon { key: "PAST/centaur-shaman", text: include_str!("../../../../data/decks/precon/PAST/centaur-shaman.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
     Precon { key: "PAST/druid", text: include_str!("../../../../data/decks/precon/PAST/druid.txt") },

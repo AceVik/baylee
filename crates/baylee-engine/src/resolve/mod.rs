@@ -688,6 +688,20 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Players(who) => {
             u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
         }
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+        } => u32::try_from(
+            eval::linked_exile_cards(
+                state,
+                you,
+                res.rule_context(),
+                source_version(state, res),
+                filter,
+            )
+            .len(),
+        )
+        .unwrap_or(u32::MAX),
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1282,6 +1296,10 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }
+        | Effect::ReturnChosenLinkedToBattlefield { .. }
+        | Effect::MayRemoveCountersSelfCreateTokens { .. }
+        | Effect::MayExileTokensCreatedWithThisForCounters { .. }
+        | Effect::Eureka
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
@@ -1482,7 +1500,7 @@ fn run_nested(
 /// Sacrifices `victims` as one event: every departure is read before any of
 /// them leaves, so a creature and the Aura on it go together and each
 /// leave trigger sees the board as it was (Lich's rulings).
-fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
+pub(super) fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
     let departures: Vec<_> = victims
         .iter()
         .map(|&id| state.departure_snapshot(id))

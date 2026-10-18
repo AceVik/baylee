@@ -5323,3 +5323,84 @@ mod completion_helpers;
 use completion_helpers::{attach_test_aura, deal_test_damage, give_mana};
 
 use completion_helpers::assert_printed_rampage;
+
+fn master_of_the_hunt() -> CardIndex {
+    card_index("cdf89ad2-ce08-4708-88c2-8acdc861526d")
+}
+
+fn shelkin_brownie() -> CardIndex {
+    card_index("507ce455-bd02-49f9-bf64-4b2d21ffe0ea")
+}
+
+#[test]
+fn master_of_the_hunt_creates_wolves_that_band_with_each_other_until_shelkin_brownie_strips_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                master_of_the_hunt(),
+                shelkin_brownie(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Create two Wolves of the Hunt tokens.
+    tap_all_mana_but(&mut engine, p0, None);
+    activate(&mut engine, p0, master_of_the_hunt(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    activate(&mut engine, p0, master_of_the_hunt(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    let wolves: Vec<ObjectId> = engine
+        .state()
+        .battlefield_seen()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.token.is_some()
+                    && engine.state().names.get(o.characteristics().name) == "Wolves of the Hunt"
+            })
+        })
+        .collect();
+    assert_eq!(wolves.len(), 2, "two Wolves of the Hunt tokens created");
+    assert!(
+        crate::combat::can_band_with_other(engine.state(), wolves[0], wolves[1]),
+        "Wolves of the Hunt can band with each other"
+    );
+
+    // Activate Shelkin Brownie targeting the first Wolf token.
+    activate(&mut engine, p0, shelkin_brownie(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice for Shelkin Brownie");
+    };
+    assert!(options.contains(&wolves[0]));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolves[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !crate::combat::can_band_with_other(engine.state(), wolves[0], wolves[1]),
+        "Shelkin Brownie removed bands-with-other from the targeted Wolf until end of turn"
+    );
+    assert!(
+        crate::combat::can_band_with_other(engine.state(), wolves[1], wolves[0]),
+        "the untargeted Wolf still has bands-with-other"
+    );
+    let _ = p1;
+}

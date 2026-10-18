@@ -2634,6 +2634,8 @@ messages! {
     DifferentManaValues { en: "Choose targets with different mana values", de: "Wähle Ziele mit unterschiedlichen Manabeträgen" },
     /// Dash (CR 702.109a), the keyword as the German printing names it
     CastDash { en: "Dash", de: "Sturmangriff" },
+    /// Mutate (CR 702.140a), the keyword as the German printing names it
+    CastMutate { en: "Mutate", de: "Mutation" },
     /// Escape (CR 702.138a), the keyword as the German printing names it
     CastEscape { en: "Escape", de: "Befreiung" },
     /// Choose the source of a casting permission.

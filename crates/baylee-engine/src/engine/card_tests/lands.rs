@@ -4351,3 +4351,98 @@ mod mana_scope;
 mod mana_spend;
 
 mod top_card_choices;
+
+fn benalish_hero() -> CardIndex {
+    card_index("4c81cfb7-8765-4e28-ae33-4287fa9a86cc")
+}
+
+#[test]
+fn tolaria_removes_banding_and_bands_with_other_during_upkeep() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[tolaria(), benalish_hero()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let hero = on_battlefield(&engine, p0, benalish_hero()).expect("Benalish Hero is out");
+    assert!(
+        engine
+            .state()
+            .object(hero)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::BANDING)
+    );
+
+    // During upkeep, Tolaria's second ability is legal.
+    assert_eq!(engine.state().turn.step, crate::turn::Step::Upkeep);
+    activate(&mut engine, p0, tolaria(), 1);
+    answer_target(&mut engine, hero, &[]);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !engine
+            .state()
+            .object(hero)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::BANDING),
+        "Tolaria stripped banding until end of turn"
+    );
+}
+
+#[test]
+fn underdark_rift_exiles_itself_rolls_d10_and_tucks_target_into_library() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                underdark_rift(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let rift = on_battlefield(&engine, p0, underdark_rift()).expect("Underdark Rift is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("Elf is out");
+    let lib_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p1))
+        .len();
+
+    tap_all_mana_but(&mut engine, p0, Some(underdark_rift()));
+    activate(&mut engine, p0, underdark_rift(), 1);
+    answer_target(&mut engine, elf, &[]);
+    assert_eq!(
+        engine.state().object(rift).unwrap().zone,
+        crate::zone::Zone::Exile,
+        "Underdark Rift exiled itself as part of the activation cost"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    let lib_after = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p1));
+    assert_eq!(lib_after.len(), lib_before + 1);
+    assert!(
+        lib_after.contains(&elf),
+        "target creature was put into its owner's library"
+    );
+    let pos_from_top = lib_after.len() - 1 - lib_after.iter().position(|&id| id == elf).unwrap();
+    assert!(
+        (1..=10).contains(&pos_from_top),
+        "placed beneath the top X cards where X is a d10 roll (1..=10), got {pos_from_top}"
+    );
+}

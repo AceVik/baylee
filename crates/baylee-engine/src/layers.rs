@@ -888,7 +888,9 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
 #[allow(clippy::too_many_lines)] // Exhaustive dependency table, one arm per filter family.
 fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> bool {
     match filter {
-        Filter::Named(_) | Filter::NamedBySource => matches!(modifier, Modifier::BecomeCopyOf(_)),
+        Filter::Named(_) | Filter::NamedBySource | Filter::NameOriginallyPrintedIn(_) => {
+            matches!(modifier, Modifier::BecomeCopyOf(_))
+        }
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
         // Another object's characteristics decide these, so any modifier
@@ -1455,6 +1457,8 @@ fn apply(
         }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
+        | Modifier::LoseAllBandsWithOther
+        | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
         | Modifier::ManaAbilitiesCostLife(_)
@@ -1476,6 +1480,7 @@ fn apply(
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
         | Modifier::CantBecomeEnchanted
@@ -1510,6 +1515,9 @@ fn apply(
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
+        | Modifier::MaxAttackersPerCombat(_)
+        | Modifier::MaxBlockersPerCombat(_)
+        | Modifier::CantBeEnchanted
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble

@@ -183,6 +183,12 @@ pub enum Modifier {
     LoseKeywords,
     /// Removes every basic and nonbasic landwalk ability at this timestamp.
     LoseAllLandwalk,
+    /// Removes all "bands with other" abilities at this timestamp (Shelkin
+    /// Brownie, Tolaria).
+    LoseAllBandsWithOther,
+    /// Grants "bands with other [filter]" (Master of the Hunt's Wolves of the
+    /// Hunt token: "bands with other creatures named Wolves of the Hunt").
+    BandsWithOther(&'static crate::Filter),
     /// Removes and prohibits the specified keyword families.
     CantHaveKeywords(KeywordSet),
     /// "Loses all abilities" (CR 613.1f): every ability the object has at
@@ -270,6 +276,9 @@ pub enum Modifier {
     /// from the **effect's** controller, so "noncreature spells" is
     /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
     OpponentsCantCast(&'static crate::Filter),
+    /// Players can't play cards matching the filter — neither cast them as
+    /// spells nor play them as lands (City in a Bottle, CR 101.2, 601.3).
+    PlayersCantPlay(&'static crate::Filter),
     /// Maximum actual spells cast by each affected player during the current turn.
     SpellCastLimitPerTurn {
         /// Affected players relative to this rule's controller.
@@ -674,6 +683,16 @@ pub enum Modifier {
     /// answer does the same thing is the offer/apply contradiction this
     /// engine treats as its worst kind.
     MayChooseNotToUntap,
+    /// "No more than `n` creatures can attack each combat" (Caverns of
+    /// Despair, Silent Arbiter, Crawlspace).
+    MaxAttackersPerCombat(u8),
+    /// "No more than `n` creatures can block each combat" (Caverns of
+    /// Despair, Silent Arbiter, Dueling Grounds).
+    MaxBlockersPerCombat(u8),
+    /// "This permanent can't be enchanted" (Tetravite token): forbids Auras
+    /// from targeting it on the stack (CR 303.4b) and from enchanting it on
+    /// the battlefield (CR 303.4c, 704.5m).
+    CantBeEnchanted,
     /// "If a card would be put into your graveyard from anywhere, exile it
     /// instead", for the effect's controller: Forgotten Cellar's, for a
     /// turn. A replacement effect (CR 614.1a) that a resolving ability made
@@ -992,6 +1011,7 @@ impl Modifier {
             | Self::RemoveKeyword(_)
             | Self::LoseKeywords
             | Self::LoseAllLandwalk
+            | Self::LoseAllBandsWithOther
             | Self::CantHaveKeywords(_)
             | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
@@ -1023,6 +1043,7 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
             | Self::NextSpellUncounterable
@@ -1050,6 +1071,7 @@ impl Modifier {
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
+            | Self::PlayersCantPlay(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
             | Self::CantBecomeEnchanted
@@ -1117,6 +1139,9 @@ impl Modifier {
             | Self::SearchTakeover
             | Self::DoesNotUntap
             | Self::MayChooseNotToUntap
+            | Self::MaxAttackersPerCombat(_)
+            | Self::MaxBlockersPerCombat(_)
+            | Self::CantBeEnchanted
             | Self::ExileInsteadOfYourGraveyard
             | Self::CastSpellsFromGraveyard => Layer::Text,
         }
@@ -1341,6 +1366,18 @@ pub enum ReplacementRule {
     /// "If an opponent would draw a card except the first one they draw in
     /// each of their draw steps, instead you create a [token]" (Hullbreacher).
     OpponentsExtraDrawsCreateToken(&'static crate::effect::TokenDef),
+    /// "If a creature you control would explore, instead you scry 1, then
+    /// that creature explores" (Twists and Turns).
+    ExploreScry1First,
+    /// "If this creature would die, return it to its owner's hand instead.
+    /// Until that player's next turn, that player plays with that card
+    /// revealed in their hand and can't play it" (Firestorm Phoenix).
+    ReturnSelfToHandRevealedCantPlayUntilOwnersNextTurn,
+    /// "If this card is in your opening hand and you're not the starting
+    /// player, you may begin the game with Gemstone Caverns on the
+    /// battlefield with a luck counter on it. If you do, exile a card from
+    /// your hand" (Gemstone Caverns, CR 103.6a).
+    OpeningHandBattlefieldWithLuckCounterExilingHandCard,
 }
 
 #[cfg(test)]
@@ -1451,6 +1488,7 @@ mod tests {
             (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::LoseKeywords, Layer::Ability),
             (Modifier::LoseAllLandwalk, Layer::Ability),
+            (Modifier::LoseAllBandsWithOther, Layer::Ability),
             (
                 Modifier::CantHaveKeywords(KeywordSet::HEXPROOF),
                 Layer::Ability,
@@ -1552,6 +1590,7 @@ mod tests {
     #[allow(clippy::too_many_lines)] // one row per rules-modifying modifier
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
         for modifier in [
+            Modifier::BandsWithOther(&Filter::CREATURE),
             Modifier::GraveyardInstantSorceryOnce,
             Modifier::GraveyardVampireOnce,
             Modifier::NextSpellUncounterable,
@@ -1587,6 +1626,7 @@ mod tests {
                 who: crate::PlayerRel::EachPlayer,
                 limit: 1,
             },
+            Modifier::PlayersCantPlay(&Filter::Any),
             Modifier::PlayersCantLose,
             Modifier::LifeTotalCantChange {
                 who: crate::PlayerRel::You,
@@ -1640,6 +1680,9 @@ mod tests {
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::AttacksEachCombat,
+            Modifier::MaxAttackersPerCombat(2),
+            Modifier::MaxBlockersPerCombat(2),
+            Modifier::CantBeEnchanted,
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,

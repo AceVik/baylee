@@ -11,6 +11,84 @@ pub(super) fn start(
     res: &mut Resolution,
     target: TargetSpec,
 ) -> Option<Pending> {
+    let (_, _, player) = resolve_explorer(state, res, target)?;
+    let scries = u8::try_from(
+        state
+            .replacement_rules
+            .iter()
+            .filter(|entry| {
+                entry.rule == baylee_cards_dsl::ReplacementRule::ExploreScry1First
+                    && entry.controller == player
+                    && !state
+                        .object(entry.source)
+                        .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+            })
+            .inspect(|#[cfg_attr(not(test), allow(unused_variables))] entry| {
+                #[cfg(test)]
+                crate::ability_log::replaced(entry);
+            })
+            .count(),
+    )
+    .unwrap_or(u8::MAX);
+    if scries > 0
+        && let Some(card) = state
+            .zones
+            .list(ZoneLocation::Library(player))
+            .last()
+            .copied()
+    {
+        res.awaiting = Some(AwaitingOp::ExploreScry {
+            player,
+            target,
+            remaining: scries - 1,
+        });
+        return Some(look_question(
+            player,
+            vec![card],
+            ArrangePlace::LibraryBottom,
+        ));
+    }
+    explore_now(state, res, target)
+}
+
+pub(super) fn resume_scry(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: baylee_core::ids::PlayerId,
+    target: TargetSpec,
+    remaining: u8,
+    top: &[baylee_core::ids::ObjectId],
+    bottom: &[baylee_core::ids::ObjectId],
+) -> Option<Pending> {
+    let library = ZoneLocation::Library(player);
+    for &card in bottom {
+        let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+    }
+    for &card in top.iter().rev() {
+        let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+    }
+    if remaining > 0
+        && let Some(card) = state.zones.list(library).last().copied()
+    {
+        res.awaiting = Some(AwaitingOp::ExploreScry {
+            player,
+            target,
+            remaining: remaining - 1,
+        });
+        return Some(look_question(
+            player,
+            vec![card],
+            ArrangePlace::LibraryBottom,
+        ));
+    }
+    explore_now(state, res, target)
+}
+
+fn resolve_explorer(
+    state: &GameState,
+    res: &Resolution,
+    target: TargetSpec,
+) -> Option<(baylee_core::ids::ObjectId, bool, baylee_core::ids::PlayerId)> {
     let creature = match target {
         TargetSpec::ThisObject => res.source,
         TargetSpec::EventObject => res.event_object?,
@@ -42,6 +120,11 @@ pub(super) fn start(
             })
             .unwrap_or(res.controller)
     };
+    Some((creature, present, player))
+}
+
+fn explore_now(state: &mut GameState, res: &mut Resolution, target: TargetSpec) -> Option<Pending> {
+    let (creature, present, player) = resolve_explorer(state, res, target)?;
     let card = state
         .zones
         .list(ZoneLocation::Library(player))

@@ -348,6 +348,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // reader in `baylee-ai` was taught in the same commit; this one was
         // not, and only a `--workspace` build was ever going to say it.
         Filter::Named(name) => object.name == *name,
+        Filter::NameOriginallyPrintedIn(expansion) => expansion.contains_name(&object.name),
         // The engine reads `card.is_none()` and a view must not: `card` is
         // also `None` for a permanent this seat is not entitled to look at,
         // which is a different fact wearing the same shape. `token` is the

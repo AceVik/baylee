@@ -931,6 +931,8 @@ impl Effect {
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::ReturnSourceFromGraveyard { .. }
             | Effect::SacrificeFilter { .. }
+            | Effect::SacrificeAll { .. }
+            | Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
             | Effect::ReturnChosenToHand { .. }
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
@@ -1040,11 +1042,25 @@ impl Effect {
             | Effect::AllCreaturesToOwner
             | Effect::ControlRotation
             | Effect::PhaseOut { .. }
+            | Effect::PhaseOutUntilSourceLeaves { .. }
             | Effect::PhaseOutFilter(_)
             | Effect::ExileLinked { .. }
             | Effect::ExileTargetsWithSource
             | Effect::ReturnLinkedToBattlefield
+            | Effect::ReturnChosenLinkedToBattlefield { .. }
             | Effect::CreateTokenFromLinked { .. }
+            | Effect::CreateTokenLinkedBidirectionalLtb { .. }
+            | Effect::MayRemoveCountersSelfCreateTokens { .. }
+            | Effect::MayExileTokensCreatedWithThisForCounters { .. }
+            | Effect::ExileSourceWithCounters { .. }
+            | Effect::MoveSourceToOwnerGraveyard
+            | Effect::EachPlayerGraveyardCreaturesToBattlefield
+            | Effect::Eureka
+            | Effect::TawnossCoffinExile
+            | Effect::ReturnTawnossCoffinExile
+            | Effect::TakklemaggotDeath
+            | Effect::MeldWithNamed { .. }
+            | Effect::VentureIntoTheDungeon
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked

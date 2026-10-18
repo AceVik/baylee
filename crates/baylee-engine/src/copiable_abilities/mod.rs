@@ -500,6 +500,20 @@ impl AbilityList {
         }
         self
     }
+
+    /// Combine two component ability lists for a merged permanent (CR 727.2a).
+    #[must_use]
+    pub fn merged_with(mut self, other: &Self) -> Self {
+        let mut entries = self.entries();
+        entries.extend(other.entries());
+        let mut runtime_statics = self.runtime_statics().to_vec();
+        runtime_statics.extend_from_slice(other.runtime_statics());
+        self.abilities = AbilityDefs::Shared(Arc::new(AbilityBundle {
+            entries,
+            runtime_statics,
+        }));
+        self
+    }
 }
 
 /// Apply characteristic exceptions as part of layer 1. Counters are entry

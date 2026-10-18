@@ -202,6 +202,33 @@ pub enum AwaitingOp {
         /// Ignore regeneration shields.
         no_regen: bool,
     },
+    /// Remove a chosen number of counters from `source` and create that many
+    /// `token` tokens stamped with `Rider::CreatedBy(source)` (Tetravus).
+    RemoveCountersSelfCreateTokens {
+        /// The permanent incarnation the counters are removed from.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Which counter kind to remove.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Which token to create for each counter removed.
+        token: &'static baylee_cards_dsl::TokenDef,
+    },
+    /// Exile any number of tokens created by `source` and put that many `kind`
+    /// counters on `source` (Tetravus).
+    ExileTokensCreatedWithThisForCounters {
+        /// The permanent incarnation that created the tokens.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Which counter kind to put on `source`.
+        kind: baylee_cards_dsl::CounterKind,
+    },
+    /// One player's turn in Eureka's repeating APNAP loop.
+    Eureka {
+        /// The player currently choosing a permanent card from hand (or none).
+        player: PlayerId,
+        /// Players still to be asked in the current round.
+        remaining_in_round: Vec<PlayerId>,
+        /// Whether any player has put a permanent onto the battlefield in the current round.
+        any_put_this_round: bool,
+    },
     /// A non-targeted, optional behold from hand or battlefield.
     Behold {
         /// Instructions following a successful behold.
@@ -219,6 +246,12 @@ pub enum AwaitingOp {
     /// it is.
     AttachAura {
         /// The exact Aura incarnation the choice is about.
+        aura: baylee_core::ids::DamageSourceRef,
+    },
+    /// Mandatory host choice for Takklemaggot returning from the graveyard
+    /// under its owner's control (`Effect::TakklemaggotDeath`).
+    TakklemaggotAttach {
+        /// The exact graveyard Aura incarnation returning to the battlefield.
         aura: baylee_core::ids::DamageSourceRef,
     },
     /// The controller chooses a card before taking control of its player.
@@ -375,6 +408,24 @@ pub enum AwaitingOp {
         count: u8,
         /// Effects to run if they do.
         then: &'static [Effect],
+    },
+    /// Scry 1 preceding an explore (Twists and Turns).
+    ExploreScry {
+        /// Controller of the exploring creature.
+        player: PlayerId,
+        /// The exploring creature spec.
+        target: TargetSpec,
+        /// Remaining scry-1 steps before the explore itself.
+        remaining: u8,
+    },
+    /// After `ReturnChosenLinkedToBattlefield`: the chosen card returns to
+    /// the battlefield under your control, and optionally every other card
+    /// exiled with the source returns to its owner's hand.
+    ReturnChosenLinked {
+        /// All cards in exile linked to the source at resolution time.
+        all_linked: Vec<ObjectId>,
+        /// Whether every other linked card goes to its owner's hand.
+        other_to_hand: bool,
     },
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
@@ -917,6 +968,16 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::Eureka {
+                player,
+                remaining_in_round,
+                any_put_this_round,
+            } => crate::state::structural_fingerprint(&(
+                24_u8,
+                player,
+                remaining_in_round,
+                any_put_this_round,
+            )),
             Self::BattleDefeatCast { card } => crate::state::structural_fingerprint(&(23_u8, card)),
             Self::DamageShieldSource { kind } => {
                 crate::state::structural_fingerprint(&(21_u8, kind))

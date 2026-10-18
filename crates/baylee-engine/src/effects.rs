@@ -120,6 +120,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveKeyword(_)
         | Modifier::LoseKeywords
         | Modifier::LoseAllLandwalk
+        | Modifier::LoseAllBandsWithOther
         | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
@@ -153,6 +154,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
         Modifier::ReplacePlayerDamage { .. }
+        | Modifier::BandsWithOther(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::DoubleCountersPlacedByYou
@@ -184,6 +186,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
         | Modifier::CantBecomeEnchanted
@@ -214,6 +217,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
+        | Modifier::MaxAttackersPerCombat(_)
+        | Modifier::MaxBlockersPerCombat(_)
+        | Modifier::CantBeEnchanted
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
@@ -538,7 +544,9 @@ impl EffectTable {
             RuleHints::PERMANENT_GUARD,
             matches!(
                 fx.modifier,
-                Modifier::CantBecomeEnchanted | Modifier::OtherPlayersCantGainControl
+                Modifier::CantBecomeEnchanted
+                    | Modifier::CantBeEnchanted
+                    | Modifier::OtherPlayersCantGainControl
             ),
         );
         self.hints.insert_if(
@@ -611,6 +619,7 @@ impl EffectTable {
                     | Modifier::SpellsHaveFlash(_)
                     | Modifier::SpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
+                    | Modifier::PlayersCantPlay(_)
             ),
         );
         self.hints.insert_if(
@@ -1477,6 +1486,8 @@ mod tests {
             Modifier::RemoveKeyword(KeywordSet::FLYING),
             Modifier::LoseKeywords,
             Modifier::LoseAllLandwalk,
+            Modifier::LoseAllBandsWithOther,
+            Modifier::BandsWithOther(&Filter::CREATURE),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::CantHaveKeywords(KeywordSet::HEXPROOF),
             Modifier::LoseAllAbilities,
@@ -1575,6 +1586,7 @@ mod tests {
             Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+            Modifier::PlayersCantPlay(&Filter::Any),
             Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
             Modifier::CantBecomeEnchanted,
@@ -1636,6 +1648,9 @@ mod tests {
             Modifier::CantAttackPlayerIdleLastTurn,
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttacksEachCombat,
+            Modifier::MaxAttackersPerCombat(2),
+            Modifier::MaxBlockersPerCombat(2),
+            Modifier::CantBeEnchanted,
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
@@ -1723,7 +1738,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            144,
+            150,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1795,7 +1810,7 @@ mod tests {
         // `AdditionalCounterPlacement`) modify rules, not characteristics:
         // the rules-only count rises from 90 to 93; locking remains 45.
         // Pyramids' NextDestructionClearsDamage is another rules-only replacement.
-        assert_eq!((locking, all.len() - locking), (46, 98));
+        assert_eq!((locking, all.len() - locking), (47, 103));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

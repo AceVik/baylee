@@ -680,6 +680,9 @@ pub enum CastModeKind {
     /// (CR 702.109a): the permanent it becomes has haste and returns to its
     /// owner's hand at the beginning of the next end step.
     Dash,
+    /// Cast for the card's mutate cost rather than its mana cost (CR 702.140a),
+    /// targeting a non-Human creature its owner owns to merge with.
+    Mutate,
     /// Cast from the owner's graveyard for the card's escape cost
     /// (CR 702.138a): its mana, and as many other cards from that graveyard
     /// exiled, asked as the cast's cost (`ChoicePrompt::CostExile`).

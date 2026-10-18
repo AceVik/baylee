@@ -1195,11 +1195,10 @@ fn vantress_visions_copies_a_triggered_ability_that_keeps_its_target() {
 
 /// Profane Procession: the exile it claims, which is the front face's
 /// activated ability.
-///
-/// The transform half needs a count of what is exiled *with* the permanent
-/// and is refused by name; `{3}{W}{B}: Exile target creature` is expressible
-/// and is what a game can show.
+/// `{3}{W}{B}: Exile target creature. Then if there are three or more cards
+/// exiled with this permanent, transform it.`
 #[test]
+#[allow(clippy::too_many_lines)]
 fn profane_procession_exiles_a_creature_for_five() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(412, plains())
@@ -1214,12 +1213,14 @@ fn profane_procession_exiles_a_creature_for_five() {
                 swamp(),
             ],
         )
-        .battlefield(1, &[rootbreaker_wurm()])
+        .battlefield(1, &[rootbreaker_wurm(), grizzly_bears(), ondu_cleric()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the Wurm is seated");
+    let c2 = on_battlefield(&engine, p1, grizzly_bears()).expect("bears seated");
+    let c3 = on_battlefield(&engine, p1, ondu_cleric()).expect("cleric seated");
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, profane_procession(), 0);
     engine
@@ -1239,6 +1240,95 @@ fn profane_procession_exiles_a_creature_for_five() {
     assert!(
         in_graveyard(&engine, p1, rootbreaker_wurm()).is_none(),
         "and exiled rather than destroyed, so it is not in the graveyard"
+    );
+
+    // Exile two more creatures so Profane Procession has 3 linked exiled cards and transforms.
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::White, 1);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 1);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 3);
+    engine.refresh_offer();
+
+    activate(&mut engine, p0, profane_procession(), 0);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![c2] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let tomb = on_battlefield(&engine, p0, profane_procession()).unwrap();
+    assert_eq!(
+        engine.state().object(tomb).unwrap().face_index,
+        0,
+        "2 exiled cards does not transform Profane Procession yet"
+    );
+
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::White, 1);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 1);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 3);
+    engine.refresh_offer();
+    activate(&mut engine, p0, profane_procession(), 0);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![c3] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(tomb).unwrap().face_index,
+        1,
+        "3rd exiled card transforms Profane Procession into Tomb of the Dusk Rose"
+    );
+
+    // Activate Tomb of the Dusk Rose's {T}: Add one mana of any color (ability 0 on back face).
+    activate(&mut engine, p0, profane_procession(), 0);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+    // Untap Tomb of the Dusk Rose, add {1}{B}{C} (plus the 1 White just added = {2}{W}{B}), and activate ability 1.
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .object_mut(tomb)
+        .unwrap()
+        .status
+        .remove(crate::object::Status::TAPPED);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 1);
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 2);
+    engine.refresh_offer();
+    activate(&mut engine, p0, profane_procession(), 1);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wurm).unwrap().zone,
+        Zone::Battlefield,
+        "Tomb of the Dusk Rose puts the chosen exiled creature onto the battlefield"
+    );
+    assert_eq!(
+        engine.state().object(wurm).unwrap().controller,
+        p0,
+        "under your control, even though p1 owns it"
     );
 }
 

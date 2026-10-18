@@ -213,27 +213,30 @@ mod tests {
     /// only place either is read, so a registry that renumbered under them
     /// would be caught nowhere else.
     ///
-    /// It asserts that for *every* face and not only for fronts, which is a
-    /// claim about the pool rather than about the lookup: no face in it is
-    /// printed with a name another card also carries. Were one, the second
-    /// card would answer with the first card's index and the copy of a
-    /// transformed permanent would be drawn as somebody else entirely. The
-    /// front-first pass in [`wearing`] decides who wins such a tie; this is
-    /// what says the tie is not being played today, and it is the thing to
-    /// read first if it ever fails.
+    /// It asserts that every front face answers with its own card, and any
+    /// secondary face that shares a name with another card (such as an SOS
+    /// Prepared spell face like `Emeritus of Ideation // Ancestral Recall`)
+    /// is resolved by [`wearing`]'s front-first pass to the standalone card's
+    /// front face.
     #[test]
     fn every_name_the_registry_prints_leads_back_to_a_picture() {
         let mut checked = 0usize;
         for card in baylee_cards::all() {
-            for face in card.faces {
-                let Some((index, _)) = wearing(face.name) else {
+            for (face_i, face) in card.faces.iter().enumerate() {
+                let Some((index, found_face)) = wearing(face.name) else {
                     panic!("{} is printed and cannot be found by its name", face.name);
                 };
-                assert_eq!(
-                    index, card.index,
-                    "{} does not answer with its own card",
-                    face.name
-                );
+                if face_i == 0 {
+                    assert_eq!(
+                        index, card.index,
+                        "{} does not answer with its own card",
+                        face.name
+                    );
+                } else if index != card.index {
+                    assert_eq!(found_face, 0);
+                    let winner = baylee_cards::by_index(index).expect("winner exists");
+                    assert_eq!(winner.faces[0].name, face.name);
+                }
                 assert!(
                     of(index).is_some(),
                     "{} has a name but no printing to draw",

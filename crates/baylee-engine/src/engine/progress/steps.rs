@@ -399,6 +399,9 @@ impl<L: CardLookup> Engine<L> {
                     o.controller == active
                         && o.status.contains(Status::PHASED_OUT)
                         && !o.status.contains(Status::PHASED_OUT_INDIRECTLY)
+                        && !o.riders.iter().any(|r| {
+                            matches!(r, crate::object::Rider::PhasedOutUntilHostLeaves { .. })
+                        })
                 })
             })
             .collect();

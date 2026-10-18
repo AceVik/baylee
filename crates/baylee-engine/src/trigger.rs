@@ -424,8 +424,8 @@ fn collect_departed(
     collect_for_objects(state, lookup, departed, events, false, triggers);
 }
 
-/// Printed graveyard abilities read the card as it exists there, never its
-/// old battlefield abilities. A card outside the battlefield has no
+/// Printed graveyard and exile abilities read the card as it exists there,
+/// never its old battlefield abilities. A card outside the battlefield has no
 /// controller, so its owner controls this trigger (CR 113.8).
 fn graveyard_triggers(
     state: &GameState,
@@ -446,9 +446,11 @@ fn graveyard_triggers(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            if firing.zone != TriggerZone::Graveyard {
-                continue;
-            }
+            let expected_zone = match firing.zone {
+                TriggerZone::Graveyard => Zone::Graveyard,
+                TriggerZone::Exile => Zone::Exile,
+                TriggerZone::Battlefield => continue,
+            };
             let context = ability_context(state, object, &list, index);
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
             if !condition_reads_event
@@ -458,7 +460,9 @@ fn graveyard_triggers(
             }
             for entry in events {
                 let at_event = source_at_event_with_moves(state, current, &moves, entry.seq, false);
-                if at_event.zone != Zone::Graveyard
+                if at_event.zone != expected_zone
+                    || (expected_zone == Zone::Exile
+                        && at_event.status.contains(crate::object::Status::FACE_DOWN))
                     || at_event.version != object.version
                     || (condition_reads_event
                         && !condition_matches(state, firing.condition, owner, context, Some(entry)))
@@ -468,8 +472,8 @@ fn graveyard_triggers(
                 let hit =
                     hits_with_context(firing.trigger, &entry.event, events, state, context, owner);
                 // These replacements describe triggered abilities of
-                // permanents (CR 109.2). A graveyard card is not one,
-                // even though its last controller is still stored.
+                // permanents (CR 109.2). A graveyard or exile card is not
+                // one, even though its last controller is still stored.
                 for _ in 0..hit {
                     triggers.push(PendingTrigger {
                         source,
@@ -511,40 +515,67 @@ fn graveyard_triggers(
     }
 }
 
-fn has_graveyard_trigger(object: &crate::object::GameObject, lookup: &impl CardLookup) -> bool {
-    object.abilities(lookup).iter().any(|ability| {
-        triggered_parts(ability).is_some_and(|firing| firing.zone == TriggerZone::Graveyard)
-    })
+fn has_off_battlefield_trigger(
+    object: &crate::object::GameObject,
+    zone: TriggerZone,
+    lookup: &impl CardLookup,
+) -> bool {
+    object
+        .abilities(lookup)
+        .iter()
+        .any(|ability| triggered_parts(ability).is_some_and(|firing| firing.zone == zone))
 }
 
-/// Include graveyard incarnations which left later in this mutation batch.
-/// A card moved to the graveyard after an event must not observe that earlier event.
+/// Include graveyard and exile incarnations which left later in this mutation batch.
+/// A card moved into the zone after an event must not observe that earlier event.
 fn graveyard_observers<'a>(
     state: &'a GameState,
     lookup: &impl CardLookup,
     events: &[crate::event::JournalEntry],
     batch_has_zone_changes: bool,
 ) -> smallvec::SmallVec<[&'a crate::object::GameObject; 4]> {
-    let mut objects: smallvec::SmallVec<[&'a crate::object::GameObject; 4]> =
-        (0..state.players.len())
-            .flat_map(|seat| {
-                state
-                    .zones
-                    .list(ZoneLocation::Graveyard(PlayerId::new(seat as u8)))
-                    .iter()
-            })
-            .filter_map(|id| state.object(*id))
-            .filter(|object| object.is_card() && has_graveyard_trigger(object, lookup))
-            .collect();
+    let mut objects: smallvec::SmallVec<[&'a crate::object::GameObject; 4]> = (0..state
+        .players
+        .len())
+        .flat_map(|seat| {
+            let p = PlayerId::new(seat as u8);
+            state
+                .zones
+                .list(ZoneLocation::Graveyard(p))
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .filter(|object| {
+                    object.is_card()
+                        && has_off_battlefield_trigger(object, TriggerZone::Graveyard, lookup)
+                })
+                .chain(
+                    state
+                        .zones
+                        .list(ZoneLocation::Exile(p))
+                        .iter()
+                        .filter_map(|id| state.object(*id))
+                        .filter(|object| {
+                            object.is_card()
+                                && !object.status.contains(crate::object::Status::FACE_DOWN)
+                                && has_off_battlefield_trigger(object, TriggerZone::Exile, lookup)
+                        }),
+                )
+        })
+        .collect();
     if batch_has_zone_changes {
         for entry in events {
             let GameEvent::ZoneChanged {
                 object,
-                from: Zone::Graveyard,
+                from: from @ (Zone::Graveyard | Zone::Exile),
                 ..
             } = entry.event
             else {
                 continue;
+            };
+            let trigger_zone = if from == Zone::Graveyard {
+                TriggerZone::Graveyard
+            } else {
+                TriggerZone::Exile
             };
             let Some(current) = state.object_or_departed(object) else {
                 continue;
@@ -553,9 +584,11 @@ fn graveyard_observers<'a>(
             if let Some(before) = state.source_object(baylee_core::ids::DamageSourceRef {
                 object,
                 version: after.version.wrapping_sub(1),
-            }) && before.zone == Zone::Graveyard
+            }) && before.zone == from
                 && before.is_card()
-                && has_graveyard_trigger(before, lookup)
+                && (from != Zone::Exile
+                    || !before.status.contains(crate::object::Status::FACE_DOWN))
+                && has_off_battlefield_trigger(before, trigger_zone, lookup)
             {
                 objects.push(before);
             }
@@ -776,7 +809,59 @@ fn watch_triggers(
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
+    static TAWNOSS_RETURN: &[baylee_cards_dsl::Effect] =
+        &[baylee_cards_dsl::Effect::ReturnTawnossCoffinExile];
     for watch in &state.delayed {
+        if let (
+            crate::state::DelayedWhen::LeavesBattlefieldOrUntaps { card, after, .. },
+            crate::state::DelayedAction::ReturnExiledGroup {
+                source, objects, ..
+            },
+        ) = (watch.when, &watch.action)
+        {
+            let fired = events
+                .iter()
+                .filter(|entry| entry.seq > after)
+                .any(|entry| {
+                    matches!(
+                        entry.event,
+                        GameEvent::ZoneChanged {
+                            object,
+                            from: Zone::Battlefield,
+                            ..
+                        } | GameEvent::ObjectUntapped { object, .. }
+                            if object == card
+                    )
+                });
+            if fired {
+                triggers.push(PendingTrigger {
+                    text: TextChangeMap::IDENTITY,
+                    source_version: Some(source.version),
+                    event_ability: None,
+                    event_object_identity: None,
+                    related_objects: Some(std::sync::Arc::new(objects.clone())),
+                    event_subject: None,
+                    counter_source_version: None,
+                    event_amount: None,
+                    event_player: None,
+                    event_mana: None,
+                    event_mana_value: None,
+                    event_departure: None,
+                    source: source.object,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    abilities: None,
+                    controller: watch.controller,
+                    timestamp: state.object(source.object).map_or(0, |o| o.timestamp),
+                    event_object: None,
+                    implicit_target: None,
+                    synthetic_effects: Some(TAWNOSS_RETURN),
+                    once_per_turn: false,
+                    synthetic_target: None,
+                    chosen_mode: None,
+                });
+            }
+            continue;
+        }
         // "When that land dies or is put into exile" watches two
         // destinations; "when this Aura leaves the battlefield" every one.
         let (card, after, to_graveyard_only, any_zone) = match watch.when {
@@ -1577,6 +1662,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. }
         | GameEvent::AttackerBlocked { object }
+        | GameEvent::CreatureMutated { object }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that became tapped: "that land's controller" of
         // Psychic Venom.
@@ -2626,7 +2712,8 @@ fn matches(
         (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
         | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
         | (Trigger::CycledThis, GameEvent::Cycled { object, .. })
-        | (Trigger::Rampage, GameEvent::AttackerBlocked { object }) => *object == source,
+        | (Trigger::Rampage, GameEvent::AttackerBlocked { object })
+        | (Trigger::Mutates, GameEvent::CreatureMutated { object }) => *object == source,
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
             *object == source && door == half

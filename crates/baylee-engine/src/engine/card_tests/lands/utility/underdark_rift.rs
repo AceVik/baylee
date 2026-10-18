@@ -43,8 +43,8 @@ fn underdark_rift_taps_for_colorless_and_omits_unsupported_activation() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(rift, 1)),
-        "ability 1 is omitted under `Coverage::Partial` despite floating {{5}} and a creature target"
+        legal.abilities.contains(&(rift, 1)),
+        "ability 1 is offered with floating {{5}} and a creature target"
     );
 
     activate(&mut engine, p0, underdark_rift(), 0);

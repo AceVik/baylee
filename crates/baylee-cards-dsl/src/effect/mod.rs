@@ -1489,6 +1489,18 @@ pub enum Effect {
         /// What may be sacrificed.
         filter: &'static Filter,
     },
+    /// Every player sacrifices all permanents they control matching `filter`
+    /// (City in a Bottle, Golgothian Sylex).
+    SacrificeAll {
+        /// Which permanents are sacrificed by their controllers.
+        filter: &'static Filter,
+    },
+    /// Roll a `sides`-sided die and put each target into its owner's library
+    /// beneath the top X cards, where X is the result (Underdark Rift: `d10`).
+    RollDiePutTargetIntoLibraryBeneathTop {
+        /// Number of sides on the die (`10` for a d10).
+        sides: u8,
+    },
     /// "Sacrifice a [filter]. If you sacrifice a [`if_it_was`] this way,
     /// [then]." (Serendib Djinn: a land, and 3 damage to you if it was an
     /// Island.) You choose one permanent you control matching `filter` and
@@ -2704,6 +2716,12 @@ pub enum Effect {
         /// What phases out (first target when set, else the source).
         target: Option<TargetSpec>,
     },
+    /// Phase a target permanent out until the source leaves the battlefield,
+    /// optionally tapping it as it phases in this way (Oubliette, CR 610.4).
+    PhaseOutUntilSourceLeaves {
+        /// Whether to tap the permanent as it phases in when the source leaves.
+        tap_on_phase_in: bool,
+    },
     /// Exile a target with a link to the source, so that a later ability of
     /// the source can find it among the cards "exiled with" it (CR 607.2a),
     /// for as long as `until` says.
@@ -2735,6 +2753,17 @@ pub enum Effect {
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
+    /// "Put/Return a [filter] card exiled with this permanent onto the
+    /// battlefield under your control" (Tomb of the Dusk Rose, Northampton
+    /// Farm), optionally returning each other card exiled with this
+    /// permanent to its owner's hand (`other_to_hand`: Northampton Farm).
+    ReturnChosenLinkedToBattlefield {
+        /// Quality of the exiled card returned to the battlefield.
+        filter: &'static Filter,
+        /// Whether every other card exiled with this source is returned to
+        /// its owner's hand afterwards.
+        other_to_hand: bool,
+    },
     /// Create a token under the *owner* of the card exiled with a link to
     /// the source, with power/toughness set to that card's mana value
     /// (Skyclave Apparition's Illusion).
@@ -3267,6 +3296,70 @@ pub enum Effect {
         /// What happens if `count` cards are exiled this way.
         then: &'static [Effect],
     },
+    /// Create a token linked in both directions to the source's presence on
+    /// the battlefield (Stangg): exile that token when the source leaves the
+    /// battlefield, and sacrifice the source when that token leaves the
+    /// battlefield.
+    CreateTokenLinkedBidirectionalLtb {
+        /// Token definition to create.
+        token: &'static TokenDef,
+    },
+    /// "You may remove any number of `kind` counters from this creature. If
+    /// you do, create that many `token` tokens" (Tetravus): stamps each
+    /// created token with `Rider::CreatedBy(source)`.
+    MayRemoveCountersSelfCreateTokens {
+        /// Counter kind to remove from the source.
+        kind: CounterKind,
+        /// Token to create for each counter removed.
+        token: &'static TokenDef,
+    },
+    /// "You may exile any number of tokens created with this creature. If you
+    /// do, put that many `kind` counters on this creature" (Tetravus).
+    MayExileTokensCreatedWithThisForCounters {
+        /// Counter kind to place on the source for each token exiled.
+        kind: CounterKind,
+    },
+    /// "Exile [this spell] with `n` `kind` counters on it" (All Hallow's Eve).
+    ExileSourceWithCounters {
+        /// Counter kind placed on the exiled card.
+        kind: CounterKind,
+        /// Number of counters placed on the exiled card.
+        n: u16,
+    },
+    /// Move the source card from exile to its owner's graveyard (All Hallow's Eve).
+    MoveSourceToOwnerGraveyard,
+    /// "Each player returns all creature cards from their graveyard to the
+    /// battlefield" under their own control (All Hallow's Eve).
+    EachPlayerGraveyardCreaturesToBattlefield,
+    /// "Starting with you, each player may put a permanent card from their
+    /// hand onto the battlefield. Repeat this process until no one puts a
+    /// card onto the battlefield" (Eureka).
+    Eureka,
+    /// Tawnos's Coffin: exile target creature and all Auras attached to it,
+    /// note the counters on that creature, and schedule the delayed return
+    /// when the source leaves the battlefield or becomes untapped.
+    TawnossCoffinExile,
+    /// Tawnos's Coffin delayed trigger resolution: return the exiled creature
+    /// tapped under its owner's control with the noted counters, and if so,
+    /// return the exiled Auras attached to it under their owners' control.
+    ReturnTawnossCoffinExile,
+    /// Takklemaggot's death trigger resolution: the dead enchanted creature's
+    /// controller chooses a creature this card could enchant; if they do,
+    /// return this card from the graveyard to the battlefield under your
+    /// control attached to that creature; otherwise return it as a non-Aura
+    /// enchantment that loses "enchant creature" and deals 1 damage to that
+    /// player at the beginning of their upkeep.
+    TakklemaggotDeath,
+    /// "If you both own and control this [permanent] and a creature named
+    /// `partner_name`, exile them, then meld them into `melded`" (Hanweir Battlements, CR 701.42a).
+    MeldWithNamed {
+        /// Exact English name of the meld partner creature.
+        partner_name: &'static str,
+        /// The melded back-face characteristics and abilities.
+        melded: &'static TokenDef,
+    },
+    /// "Venture into the dungeon" (Dungeon Descent, CR 701.49).
+    VentureIntoTheDungeon,
 }
 
 #[cfg(test)]

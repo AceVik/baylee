@@ -45,6 +45,7 @@ mod scaled_hulk;
 mod sea_serpent;
 mod shivan_dragon;
 mod sire_of_the_storm;
+mod stangg;
 mod storm_spirit;
 mod sun_titan;
 mod tangle_spider;
@@ -72,6 +73,7 @@ mod roughshod_mentor;
 mod sunrise_sovereign;
 mod tithebearer_giant;
 
+mod firestorm_phoenix;
 mod hill_giant_herdgorger;
 mod megantic_sliver;
 mod oathsworn_giant;

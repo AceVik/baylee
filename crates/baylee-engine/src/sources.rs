@@ -86,7 +86,7 @@ pub(crate) struct SourceMemory {
     resolved: BTreeMap<DamageSourceRef, DamageSourceRef>,
     resolving: BTreeSet<DamageSourceRef>,
     on_resolution: BTreeMap<DamageSourceRef, (PlayerId, &'static [baylee_cards_dsl::Effect])>,
-    linked: BTreeMap<DamageSourceRef, DamageSourceRef>,
+    pub(crate) linked: BTreeMap<DamageSourceRef, DamageSourceRef>,
     pub(crate) cache: SourceCaptureCache,
 }
 
@@ -612,7 +612,9 @@ impl GameState {
         Effect::walk(effects, &mut 0, &mut |effect| {
             refers |= matches!(
                 effect,
-                Effect::ReturnLinkedToBattlefield | Effect::CreateTokenFromLinked { .. }
+                Effect::ReturnLinkedToBattlefield
+                    | Effect::ReturnChosenLinkedToBattlefield { .. }
+                    | Effect::CreateTokenFromLinked { .. }
             );
         });
         if !refers {
@@ -923,7 +925,8 @@ impl GameState {
             if let DelayedWhen::DiesOrIsExiled { card, version, .. }
             | DelayedWhen::DiesThisTurn { card, version, .. }
             | DelayedWhen::DealtDamageThisTurn { card, version, .. }
-            | DelayedWhen::LeavesBattlefield { card, version, .. } = delayed.when
+            | DelayedWhen::LeavesBattlefield { card, version, .. }
+            | DelayedWhen::LeavesBattlefieldOrUntaps { card, version, .. } = delayed.when
             {
                 out.insert(DamageSourceRef {
                     object: card,

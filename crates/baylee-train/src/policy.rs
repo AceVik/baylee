@@ -117,6 +117,7 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Permission(_) => 15,
         CastModeKind::EscapeGranted { .. } => 16,
         CastModeKind::BeamMeUp => 17,
+        CastModeKind::Mutate => 18,
     }
 }
 

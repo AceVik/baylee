@@ -549,6 +549,11 @@ pub enum GameEvent {
         /// The attacking creature.
         object: ObjectId,
     },
+    /// A mutating creature spell merged with a creature on the battlefield (CR 702.140c).
+    CreatureMutated {
+        /// The resulting mutated creature.
+        object: ObjectId,
+    },
 }
 
 /// Where in a library a card was put.

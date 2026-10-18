@@ -133,6 +133,12 @@ pub struct Player {
     /// [`GameState::snapshot_hash`]: it cannot tell two states of one game
     /// apart, and hashing it would only churn every recorded hash.
     pub team: Option<u8>,
+    /// Current room index in the dungeon (0 = not currently in a dungeon,
+    /// 1..=3 = rooms 1..=3 of Lost Mine of Phandelver; room 4 completes the
+    /// dungeon and resets to 0; CR 309.4 / 701.49).
+    pub dungeon_room: u8,
+    /// Number of dungeons this player has completed this game.
+    pub dungeons_completed: u8,
 }
 
 impl Player {
@@ -330,6 +336,17 @@ pub enum DelayedWhen {
     /// `after` only (CR 603.7a), and once (CR 603.7b); a leaves-the-
     /// battlefield ability looks back in time (CR 603.10a).
     LeavesBattlefield {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
+    /// "When Tawnos's Coffin leaves the battlefield or becomes untapped":
+    /// the next time `card`, as the object it was at `version`, leaves the
+    /// battlefield or becomes untapped after `after` (CR 603.7a, 603.7b).
+    LeavesBattlefieldOrUntaps {
         /// The permanent watched.
         card: ObjectId,
         /// Its identity when the watch was created.

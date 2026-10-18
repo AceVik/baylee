@@ -183,8 +183,16 @@ pub fn reachable_modes(
     if let Some(prototype) = face.prototype {
         offer(CastModeKind::Prototype, prototype.cost);
     }
-    if face.disguise.is_some() {
+    if face.disguise.is_some() || face.morph.is_some() {
         offer(CastModeKind::Disguise, const { ManaCost::parse("{3}") });
+    }
+    if let Some(dash) = face.dash {
+        offer(CastModeKind::Dash, dash);
+    }
+    if let Some(mutate) = face.mutate
+        && crate::targeting::requirement_possible(view, baylee_engine::casting::MUTATE_TARGET_REQ)
+    {
+        offer(CastModeKind::Mutate, mutate);
     }
     if legal.lands.contains(&card) {
         for (index, face) in def.faces.iter().enumerate() {

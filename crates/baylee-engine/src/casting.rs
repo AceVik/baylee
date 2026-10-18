@@ -489,6 +489,18 @@ fn requirements_are_reachable(
 }
 
 /// Kicker replaces the first targeting group, retaining the second group.
+/// Target requirement for casting a creature spell for its mutate cost (CR 702.140a):
+/// "target non-Human creature with the same owner as this spell".
+pub const MUTATE_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::TargetReq::one(
+    baylee_cards_dsl::TargetSpec::Object(&baylee_cards_dsl::Filter::And(&[
+        baylee_cards_dsl::Filter::CREATURE,
+        baylee_cards_dsl::Filter::OwnedByYou,
+        baylee_cards_dsl::Filter::Not(&baylee_cards_dsl::Filter::HasSubtype(
+            baylee_core::generated::subtypes::creature::HUMAN,
+        )),
+    ])),
+);
+
 pub(crate) fn kicked_targets_reachable(
     state: &GameState,
     def: &baylee_cards_dsl::CardDef,
@@ -679,24 +691,38 @@ pub(crate) fn cast_is_forbidden(
     player: PlayerId,
     obj: &crate::object::GameObject,
 ) -> bool {
+    if obj.zone == Zone::Hand
+        && obj
+            .riders
+            .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+    {
+        return true;
+    }
     state.effects.may_change_cast_timing_or_lock()
-        && state.effects.iter().any(|fx| {
-            if let baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } = fx.modifier {
-                return crate::eval::players(who, state, fx.controller)
+        && state.effects.iter().any(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } => {
+                crate::eval::players(who, state, fx.controller)
                     .is_some_and(|players| players.contains(&player))
-                    && state.per_turn.spells_cast_by(player) >= limit;
+                    && state.per_turn.spells_cast_by(player) >= limit
             }
-            let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
-                return false;
-            };
-            state.is_opponent(fx.controller, player)
-                && crate::eval::matches(
-                    filter,
-                    state,
-                    obj,
-                    fx.controller,
-                    fx.source.unwrap_or(obj.id),
-                )
+            baylee_cards_dsl::Modifier::OpponentsCantCast(filter) => {
+                state.is_opponent(fx.controller, player)
+                    && crate::eval::matches(
+                        filter,
+                        state,
+                        obj,
+                        fx.controller,
+                        fx.source.unwrap_or(obj.id),
+                    )
+            }
+            baylee_cards_dsl::Modifier::PlayersCantPlay(filter) => crate::eval::matches(
+                filter,
+                state,
+                obj,
+                fx.controller,
+                fx.source.unwrap_or(obj.id),
+            ),
+            _ => false,
         })
 }
 
@@ -772,9 +798,9 @@ fn can_cast_paying(
     card: ObjectId,
     paying: Paying,
 ) -> Result<(), CastError> {
-    let normal = can_cast_form_paying(state, lookup, player, card, None, paying);
-    if normal.is_ok() {
-        return normal;
+    let mut best = can_cast_form_paying(state, lookup, player, card, None, paying);
+    if best.is_ok() {
+        return best;
     }
     if let Some(face) = state
         .object(card)
@@ -784,17 +810,19 @@ fn can_cast_paying(
     {
         for form in [
             face.prototype.map(SpellForm::Prototype),
-            face.disguise.map(|_| SpellForm::Disguise),
+            (face.disguise.is_some() || face.morph.is_some()).then_some(SpellForm::Disguise),
         ]
         .into_iter()
         .flatten()
         {
-            if can_cast_form_paying(state, lookup, player, card, Some(form), paying).is_ok() {
-                return Ok(());
+            match can_cast_form_paying(state, lookup, player, card, Some(form), paying) {
+                Ok(()) => return Ok(()),
+                Err(CastError::NotEnoughMana) => best = Err(CastError::NotEnoughMana),
+                Err(_) => {}
             }
         }
     }
-    normal
+    best
 }
 
 /// Whether `player` may begin to cast a spell at all this turn (CR 601.3).
@@ -1383,7 +1411,13 @@ pub(crate) fn can_cast_form_paying(
         let any_face = a_back_face_castable();
         // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
         let any_dash = !flashback_only && face.dash.is_some_and(|dash| probe(&dash));
-        if !any_alt && !any_mode && !any_face && !any_dash {
+        // Mutate (CR 702.140a), the offer's `CastModeKind::Mutate`.
+        let any_mutate = !flashback_only
+            && face.mutate.is_some_and(|mutate| {
+                kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ)
+                    && probe(&mutate)
+            });
+        if !any_alt && !any_mode && !any_face && !any_dash && !any_mutate {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them

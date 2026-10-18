@@ -87,6 +87,7 @@ mod relic_of_sauron;
 mod ring_of_the_lucii;
 mod seer_s_sundial;
 mod skullmead_cauldron;
+mod tawnos_s_coffin;
 mod time_bomb;
 mod tower_of_calamities;
 mod trading_post;

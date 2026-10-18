@@ -5,11 +5,10 @@ use super::*;
 
 /// Hanweir Battlements prints `{{T}}: Add {{C}}.`, `{{R}}, {{T}}: Target creature gains haste until end of turn.`, and `{{3}}{{R}}{{R}}, {{T}}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township.`
 ///
-/// Under `Coverage::Partial`, the mana ability and haste activation are implemented while the meld clause is omitted.
-/// With `{{3}}{{R}}{{R}}` floating from five `mountain()` lands, a creature present (`llanowar_elves()`), and Hanweir Battlements untapped, ability 2 is not offered in `legal.abilities`.
+/// With `{{3}}{{R}}{{R}}` floating from five `mountain()` lands, a creature present (`llanowar_elves()`), and Hanweir Battlements untapped, all three abilities are offered in `legal.abilities`.
 /// Activating ability 1 grants haste to the target creature until end of turn and taps the land.
 #[test]
-fn hanweir_battlements_grants_haste_and_omits_meld_ability() {
+fn hanweir_battlements_grants_haste_and_offers_meld_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -59,8 +58,8 @@ fn hanweir_battlements_grants_haste_and_omits_meld_ability() {
         "ability 1 ({{R}}, {{T}}: Target creature gains haste) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(battlements, 2)),
-        "ability 2 (meld) is omitted under `Coverage::Partial`"
+        legal.abilities.contains(&(battlements, 2)),
+        "ability 2 (meld) is offered when {{3}}{{R}}{{R}} is floating"
     );
 
     activate(&mut engine, p0, hanweir_battlements(), 1);
@@ -93,4 +92,61 @@ fn hanweir_battlements_grants_haste_and_omits_meld_ability() {
         4
     );
     assert!(is_tapped(&engine, battlements));
+}
+
+#[test]
+fn hanweir_battlements_melds_with_hanweir_garrison_into_writhing_township() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                hanweir_battlements(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let battlements = on_battlefield(&engine, p0, hanweir_battlements())
+        .expect("hanweir battlements on battlefield");
+    let garrison = on_battlefield(&engine, p0, llanowar_elves()).expect("partner on battlefield");
+
+    let garrison_name = engine.state.names.intern("Hanweir Garrison");
+    engine.state.object_mut(garrison).unwrap().base_mut().name = garrison_name;
+    engine.state.object_mut(garrison).unwrap().cache.clear();
+    engine.state.invalidate_projections();
+
+    tap_mana_except(&mut engine, p0, battlements);
+    activate(&mut engine, p0, hanweir_battlements(), 2);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(battlements).unwrap().zone,
+        Zone::Battlefield,
+        "melded permanent returned to battlefield"
+    );
+    assert!(
+        !is_tapped(&engine, battlements),
+        "melded permanent enters untapped"
+    );
+    assert_eq!(
+        pt(&engine, battlements),
+        (7, 4),
+        "Hanweir, the Writhing Township is 7/4"
+    );
+    let kw = keywords_of(&engine, battlements);
+    assert!(kw.contains(KeywordSet::TRAMPLE));
+    assert!(kw.contains(KeywordSet::HASTE));
+    assert_eq!(
+        engine.state().object(garrison).unwrap().zone,
+        Zone::Command,
+        "meld partner is held as a merged component"
+    );
 }

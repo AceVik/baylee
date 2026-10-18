@@ -165,3 +165,135 @@ fn twists_and_turns_triggered_twice_at_once_transforms_once() {
         "one transform"
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn twists_and_turns_etb_scries_before_exploring_and_mycoid_maze_finds_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                young_wolf(),
+            ],
+        )
+        .hand(
+            0,
+            &[twists_and_turns(), forest(), young_wolf(), ondu_cleric()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+    let top_spell = in_hand(&engine, p0, young_wolf()).expect("wolf in hand");
+    let lib_creature = in_hand(&engine, p0, ondu_cleric()).expect("cleric in hand");
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            lib_creature,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            top_spell,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+
+    cast_from_hand(&mut engine, p0, twists_and_turns());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+    // First Arrange is Scry 1 from ExploreScry1First: keep `top_spell` on top.
+    engine
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![vec![top_spell], vec![]],
+            },
+        )
+        .unwrap();
+    // Second Arrange is the Explore choice itself (top or graveyard).
+    let Pending::Arrange { cards, .. } = engine.pending().clone() else {
+        panic!("expected explore arrangement after scry 1");
+    };
+    assert_eq!(cards, vec![top_spell]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![vec![], vec![top_spell]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(wolf)
+            .unwrap()
+            .counters
+            .get(CounterKind::P1P1),
+        1,
+        "exploring a nonland card puts a +1/+1 counter on the creature"
+    );
+    assert_eq!(
+        engine.state().object(top_spell).unwrap().zone,
+        crate::zone::Zone::Graveyard
+    );
+
+    // Play the 7th land to transform Twists and Turns into Mycoid Maze.
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    let maze = on_battlefield(&engine, p0, twists_and_turns()).expect("Mycoid Maze on battlefield");
+    assert_eq!(engine.state().object(maze).unwrap().face_index, 1);
+
+    // Activate Mycoid Maze's {3}{G}, {T} ability to find `lib_creature` among the top 4 cards.
+    engine.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Green, 4);
+    activate(&mut engine, p0, twists_and_turns(), 1);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lib_creature],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(lib_creature).unwrap().zone,
+        crate::zone::Zone::Hand
+    );
+}

@@ -252,7 +252,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // As an effect, remove as many as possible (CR 609.3). A `MayDo`
         // cost separately checks that the complete removal is possible.
         Effect::RemoveCounterSelf { kind, n } => {
-            if !subjects::source(state, res).is_some_and(|r| subjects::on_battlefield(state, r)) {
+            if !subjects::source(state, res).is_some_and(|r| {
+                subjects::on_battlefield(state, r)
+                    || (subjects::is_current(state, r)
+                        && state
+                            .object(r.object)
+                            .is_some_and(|o| o.zone == crate::zone::Zone::Exile))
+            }) {
                 return None;
             }
             crate::replacement::remove_counters_by(

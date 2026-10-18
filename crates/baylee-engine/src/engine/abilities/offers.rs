@@ -91,7 +91,7 @@ impl<L: CardLookup> Engine<L> {
                     out.push((card, CastModeKind::Prototype, n));
                 }
             }
-            if def.faces[0].disguise.is_some() {
+            if def.faces[0].disguise.is_some() || def.faces[0].morph.is_some() {
                 let n = increase(0, Some(casting::SpellForm::Disguise));
                 if n != normal {
                     out.push((card, CastModeKind::Disguise, n));
@@ -162,7 +162,10 @@ impl<L: CardLookup> Engine<L> {
                     .card
                     .and_then(|c| self.lookup.card(c.index))
                     .is_some_and(|def| def.land_faces_from_hand().next().is_some());
-            if plays_as_land && sorcery_timing && casting::has_a_land_drop_left(&self.state, player)
+            if plays_as_land
+                && sorcery_timing
+                && casting::has_a_land_drop_left(&self.state, player)
+                && casting::land_card_open(&self.state, player, card)
             {
                 legal.lands.push(card);
             }
@@ -237,6 +240,7 @@ impl<L: CardLookup> Engine<L> {
                 && !permission.cast_only
                 && sorcery_timing
                 && casting::has_a_land_drop_left(&self.state, player)
+                && casting::land_card_open(&self.state, player, card)
                 && !legal.lands.contains(&card)
             {
                 legal.lands.push(card);
@@ -314,16 +318,21 @@ impl<L: CardLookup> Engine<L> {
             };
             if obj.controller == player
                 && let Some(cost) = self.disguise_cost(id)
-                && self.can_pay_mana(
+            {
+                if self.can_pay_mana(
                     player,
                     casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
                         object: id,
                         version: obj.version,
                     }),
                     &cost,
-                )
-            {
-                legal.abilities.push((id, crate::choice::TURN_FACE_UP));
+                ) {
+                    legal.abilities.push((id, crate::choice::TURN_FACE_UP));
+                } else {
+                    legal
+                        .unpaid_abilities
+                        .push((id, crate::choice::TURN_FACE_UP, cost));
+                }
             }
             // CR 709.5e: a locked door, as a sorcery, for its mana cost.
             if obj.controller == player && sorcery_timing {

@@ -82,6 +82,7 @@ fn raw_option_cost(
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
+        Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
         Some(CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
         Some(

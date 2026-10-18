@@ -39,6 +39,7 @@ mod mobilization;
 mod moonlit_wake;
 mod narcissism;
 mod noble_steeds;
+mod oubliette;
 mod overgrown_estate;
 mod phyrexian_arena;
 mod retreat_to_kazandu;

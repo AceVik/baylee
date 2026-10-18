@@ -70,6 +70,17 @@ pub(super) fn resume_with_number_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if let Some(AwaitingOp::RemoveCountersSelfCreateTokens {
+        source,
+        kind,
+        token,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        remove_counters_self_create_tokens(state, res, source, kind, token, number);
+        res.pc += 1;
+        return run(state, res);
+    }
     let Some(AwaitingOp::Counters {
         target,
         version,
@@ -94,6 +105,41 @@ pub(super) fn resume_with_number_inner(
     }
     res.pc += 1;
     run(state, res)
+}
+
+fn remove_counters_self_create_tokens(
+    state: &mut GameState,
+    res: &mut Resolution,
+    source: baylee_core::ids::DamageSourceRef,
+    kind: baylee_cards_dsl::CounterKind,
+    token: &'static baylee_cards_dsl::TokenDef,
+    number: u32,
+) {
+    let want = u16::try_from(number).unwrap_or(u16::MAX);
+    if want > 0 && subjects::on_battlefield(state, source) {
+        let removed = crate::replacement::remove_counters_by(
+            state,
+            source.object,
+            kind,
+            want,
+            Some(res.controller),
+        );
+        if removed > 0 {
+            let created = tokens::create_tokens_with_text(
+                state,
+                res.controller,
+                token,
+                None,
+                u32::from(removed),
+                res.text,
+            );
+            for id in created {
+                if let Some(tok) = state.object_mut(id) {
+                    tok.riders.push(crate::object::Rider::CreatedBy(source));
+                }
+            }
+        }
+    }
 }
 
 /// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
@@ -720,6 +766,20 @@ pub(super) fn resume_arranged_inner(
             }
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+        }
+        (
+            AwaitingOp::ExploreScry {
+                player,
+                target,
+                remaining,
+            },
+            [top, bottom],
+        ) => {
+            if let Some(question) =
+                super::explore::resume_scry(state, res, player, target, remaining, top, bottom)
+            {
+                return next_choice(state, res, since, question);
             }
         }
         // CR 701.25a: any number into the graveyard, the rest on top in any

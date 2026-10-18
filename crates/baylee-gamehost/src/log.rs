@@ -604,6 +604,7 @@ impl GameLog {
             // The board says which attackers nothing blocks, and an ability
             // it set off has its own line.
             | GameEvent::AttackerBlocked { .. }
+            | GameEvent::CreatureMutated { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.

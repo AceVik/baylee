@@ -58,6 +58,8 @@ impl GameState {
                     commander_damage: Vec::new(),
                     loss: None,
                     team: s.team,
+                    dungeon_room: 0,
+                    dungeons_completed: 0,
                 })
                 .collect(),
             turn: TurnInfo::new(PlayerId::new(0)),

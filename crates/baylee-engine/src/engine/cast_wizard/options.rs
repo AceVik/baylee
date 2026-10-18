@@ -326,7 +326,7 @@ impl<L: CardLookup> Engine<L> {
                 .price(prototype.cost, printed_reduction),
             });
         }
-        if face.disguise.is_some() {
+        if face.disguise.is_some() || face.morph.is_some() {
             let cost = const { ManaCost::parse("{3}") };
             if casting::can_cast_form_paying(
                 &self.state,
@@ -400,6 +400,31 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Dash,
+                    cost: taxed.mana,
+                });
+            }
+        }
+        if let Some(mutate) = face.mutate
+            && casting::kicked_targets_reachable(
+                &self.state,
+                def,
+                player,
+                card,
+                casting::MUTATE_TARGET_REQ,
+            )
+        {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(mutate)
+                },
+                parts: &[],
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Mutate,
                     cost: taxed.mana,
                 });
             }

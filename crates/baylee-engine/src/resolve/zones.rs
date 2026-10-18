@@ -189,7 +189,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::GraveyardToBattlefield { .. }
         | Effect::Assimilate { .. }
         | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),
-        Effect::Exile { .. } => {
+        Effect::Exile { target } => {
             // Every target and not the first. A card may name more than one
             // — Pit of Offerings prints "exile up to three target cards from
             // graveyards" and carries `TargetReq::up_to(.., 3)` — and a
@@ -197,7 +197,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // rest where they were, with the card still claiming
             // `Coverage::Implemented`. A single-target exile has one entry
             // in `res.targets`, so nothing else in the pool moves.
-            for target_id in res.targets.clone() {
+            for target_id in moving_objects(state, res, target) {
+                if matches!(target, TargetSpec::EventObject)
+                    && state.object(target_id).is_none_or(|o| {
+                        o.zone != crate::zone::Zone::Battlefield
+                            || o.status.contains(crate::object::Status::PHASED_OUT)
+                    })
+                {
+                    continue;
+                }
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
@@ -644,6 +652,42 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PhaseOutUntilSourceLeaves { tap_on_phase_in } => {
+            // CR 610.3a, 610.4: if the source has already left the
+            // battlefield before the ability resolves, the target does not
+            // phase out at all.
+            let host_gone = state.object(res.source).is_none_or(|host| {
+                host.zone != crate::zone::Zone::Battlefield
+                    || host.status.contains(crate::object::Status::PHASED_OUT)
+            }) || state
+                .object(res.on_stack)
+                .is_some_and(|ability| ability.source_power_lki.is_some());
+            if host_gone {
+                return None;
+            }
+            let targets: Vec<ObjectId> = res
+                .targets
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    })
+                })
+                .collect();
+            for &target_id in &targets {
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.riders
+                        .push(crate::object::Rider::PhasedOutUntilHostLeaves {
+                            host: res.source,
+                            tap_on_phase_in,
+                        });
+                }
+            }
+            state.phase_out(&targets);
+            None
+        }
         Effect::ExileLinked { until, .. } => {
             let until = until.map(|until| match until {
                 baylee_cards_dsl::ExileUntil::SourceLeavesBattlefield => {
@@ -754,7 +798,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         // "Sacrifice that creature": by the ability's controller, and only a
         // permanent of theirs that is still the object the spec names
-        // (CR 701.21a; an event object that has left is none, CR 603.7c).
+        Effect::SacrificeAll { filter } => {
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            super::sacrifice_together(state, &all);
+            None
+        }
+        // CR 701.21a: a player sacrifices only a permanent they control.
         Effect::SacrificeObject { target } => {
             let id = spec_object(state, res, target)?;
             let _owner = state.object(id).and_then(|o| {
@@ -790,6 +846,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
+            let moves: Vec<(ObjectId, ZoneLocation)> = res
+                .targets
+                .iter()
+                .map(|&target| {
+                    let owner = state.object(target).map_or(you, |o| o.owner);
+                    (target, ZoneLocation::Library(owner))
+                })
+                .collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            let x = (state.rng.below(u64::from(sides.max(1))) as usize) + 1;
+            for (target, to) in moves {
+                if let Some(obj) = state.object_mut(target) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let index = state.zones.list(to).len().saturating_sub(x);
+                let _ = state.move_object(target, to, ZonePosition::Index(index), Cause::Effect);
+            }
+            None
+        }
         Effect::PutOnBottomOfLibraryFromGraveyard { target } => {
             // CR 400.7, as `GraveyardToBattlefield` asks it: a card that left
             // the graveyard in response is a new object, and "it" is gone.
@@ -821,6 +899,233 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 ZonePosition::Top,
                 Cause::Effect,
             );
+            None
+        }
+        Effect::ExileSourceWithCounters { kind, n } => {
+            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            if state
+                .object(res.source)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+            {
+                crate::replacement::put_counters_by(state, you, res.source, kind, n);
+            }
+            None
+        }
+        Effect::MoveSourceToOwnerGraveyard => {
+            if let Some(source) = super::subjects::source(state, res)
+                && super::subjects::is_current(state, source)
+                && let Some(owner) = state
+                    .object(source.object)
+                    .filter(|o| o.zone == crate::zone::Zone::Exile)
+                    .map(|o| o.owner)
+            {
+                let _ = state.move_object(
+                    source.object,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::EachPlayerGraveyardCreaturesToBattlefield => {
+            for seat in 0..state.players.len() {
+                let p = PlayerId::new(seat as u8);
+                if state.has_left(p) {
+                    continue;
+                }
+                for &card in &state.zones.list(ZoneLocation::Graveyard(p)).clone() {
+                    let is_creature = state.object(card).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    });
+                    if is_creature {
+                        if let Some(obj) = state.object_mut(card) {
+                            obj.kind = ObjectKind::Permanent;
+                            obj.set_controller(p);
+                        }
+                        let _ = state.move_object(
+                            card,
+                            ZoneLocation::Battlefield,
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                    }
+                }
+            }
+            None
+        }
+        Effect::TawnossCoffinExile => {
+            let &target = res.targets.first()?;
+            let creature = state
+                .object(target)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?;
+            let creature_owner = creature.owner;
+            let noted_counters: Vec<(baylee_cards_dsl::CounterKind, u16)> =
+                creature.counters.iter().filter(|&(_, n)| n > 0).collect();
+            let auras: Vec<(ObjectId, PlayerId)> = state
+                .battlefield_seen()
+                .filter_map(|id| {
+                    let obj = state.object(id)?;
+                    (obj.attached_to == Some(target)
+                        && obj
+                            .characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::enchantment::AURA))
+                    .then_some((id, obj.owner))
+                })
+                .collect();
+            let mut objects = Vec::with_capacity(1 + auras.len());
+            if let Some(obj) = state.object_mut(target) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                target,
+                ZoneLocation::Exile(creature_owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            if let Some(obj) = state
+                .object_mut(target)
+                .filter(|o| o.zone == crate::zone::Zone::Exile)
+            {
+                for (kind, n) in noted_counters {
+                    obj.riders.push(crate::object::Rider::NotedCounter(kind, n));
+                }
+                objects.push(baylee_core::ids::DamageSourceRef {
+                    object: target,
+                    version: obj.version,
+                });
+            }
+            for (aura, aura_owner) in auras {
+                if state
+                    .object(aura)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    if let Some(obj) = state.object_mut(aura) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = state.move_object(
+                        aura,
+                        ZoneLocation::Exile(aura_owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                    if let Some(obj) = state
+                        .object(aura)
+                        .filter(|o| o.zone == crate::zone::Zone::Exile)
+                    {
+                        objects.push(baylee_core::ids::DamageSourceRef {
+                            object: aura,
+                            version: obj.version,
+                        });
+                    }
+                }
+            }
+            if !objects.is_empty()
+                && let Some(source) = super::subjects::source(state, res)
+                    .filter(|s| super::subjects::on_battlefield(state, *s))
+            {
+                let after = state.journal.last_seq();
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: res.controller,
+                    when: crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
+                        card: source.object,
+                        version: source.version,
+                        after,
+                    },
+                    action: crate::state::DelayedAction::ReturnExiledGroup {
+                        source,
+                        objects,
+                        tapped: true,
+                    },
+                });
+            }
+            None
+        }
+        Effect::ReturnTawnossCoffinExile => {
+            let objects: Vec<baylee_core::ids::DamageSourceRef> = state
+                .object(res.on_stack)
+                .into_iter()
+                .flat_map(|object| object.riders.iter())
+                .filter_map(|rider| match rider {
+                    crate::object::Rider::DelayedReturnObject(reference) => Some(*reference),
+                    _ => None,
+                })
+                .collect();
+            let &creature_ref = objects.first()?;
+            let creature_obj = state.object(creature_ref.object).filter(|o| {
+                o.zone == crate::zone::Zone::Exile && o.version == creature_ref.version
+            })?;
+            let creature_owner = creature_obj.owner;
+            if state.has_left(creature_owner) {
+                return None;
+            }
+            let noted: Vec<(baylee_cards_dsl::CounterKind, u16)> = creature_obj
+                .riders
+                .iter()
+                .filter_map(|r| match *r {
+                    crate::object::Rider::NotedCounter(kind, n) => Some((kind, n)),
+                    _ => None,
+                })
+                .collect();
+            if let Some(obj) = state.object_mut(creature_ref.object) {
+                obj.set_controller(creature_owner);
+                obj.kind = ObjectKind::Permanent;
+            }
+            state.set_tapped(creature_ref.object, true);
+            let _ = state.move_object(
+                creature_ref.object,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            if !state
+                .object(creature_ref.object)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                return None;
+            }
+            for (kind, n) in noted {
+                crate::replacement::put_counters_by(state, you, creature_ref.object, kind, n);
+            }
+            for &aura_ref in &objects[1..] {
+                let Some(aura_obj) = state.object(aura_ref.object).filter(|o| {
+                    o.zone == crate::zone::Zone::Exile && o.version == aura_ref.version
+                }) else {
+                    continue;
+                };
+                let aura_owner = aura_obj.owner;
+                if state.has_left(aura_owner) {
+                    continue;
+                }
+                if let Some(obj) = state.object_mut(aura_ref.object) {
+                    obj.set_controller(aura_owner);
+                }
+                if !crate::aura_bindings::can_attach(state, aura_ref.object, creature_ref.object) {
+                    continue;
+                }
+                if let Some(obj) = state.object_mut(aura_ref.object) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.attached_to = Some(creature_ref.object);
+                }
+                let _ = state.move_object(
+                    aura_ref.object,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
             None
         }
         Effect::ExileAndReturnAtEndStep | Effect::ExileAndReturnTappedAtEndStep => {

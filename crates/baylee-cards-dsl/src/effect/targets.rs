@@ -29,6 +29,9 @@ pub enum ZoneSel {
     HandYou,
     /// The hand of the player whose turn it is.
     HandActivePlayer,
+    /// Cards in exile that were exiled with the ability's source (CR 406.6,
+    /// 607.2a).
+    LinkedExile,
 }
 
 /// Relative player references.

@@ -903,7 +903,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // (Shadowspear, Umezawa's Jitte, Innkeeper's Talent), Dark Depths,
     // Vampire Hexmage, Faerie Mastermind, Tony Stark, and Psychic Frog, of
     // which 17 are read by the evaluator.
-    assert_eq!((read, of), (2538, 3039), "activated/loyalty reader census");
+    // The 24-card Partial-to-Implemented completion batch adds 12 contextual
+    // non-mana activated abilities (Mycoid Maze, Tomb of the Dusk Rose,
+    // Northampton Farm, Hostile Hostel, Tetravus, Shelkin Brownie, Tolaria,
+    // Master of the Hunt, Underdark Rift, Golgothian Sylex, Tawnos's Coffin,
+    // Hanweir Battlements, Dungeon Descent).
+    assert_eq!((read, of), (2538, 3051), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -1273,6 +1273,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
+        CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {
             face,

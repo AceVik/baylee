@@ -369,8 +369,9 @@ impl<L: CardLookup> Engine<L> {
         if self.breaking_loop {
             return;
         }
-        let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
-        crate::trigger::bird_entry::consume(&mut self.state, self.trigger_scan_seq);
+        let scan_from = self.trigger_scan_seq;
+        let found = trigger::collect(&self.state, &self.lookup, scan_from);
+        crate::trigger::bird_entry::consume(&mut self.state, scan_from);
         self.trigger_scan_seq = self.state.journal.last_seq();
         crate::resolve::linked_reanimation::prune(&mut self.state);
         // The scan has passed every journal entry a departed object could
@@ -409,6 +410,7 @@ impl<L: CardLookup> Engine<L> {
         // object it watched no longer exists (CR 400.7, 603.7b). Here and
         // not in the scan, which reads the state and writes nothing.
         let arena = &self.state.arena;
+        let entries = &self.state.journal.entries()[scan_from as usize..];
         self.state.delayed.retain(|d| match d.when {
             crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
             | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
@@ -416,6 +418,18 @@ impl<L: CardLookup> Engine<L> {
             | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. } => arena
                 .get(card)
                 .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version),
+            crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
+                card,
+                version,
+                after,
+            } => {
+                arena.get(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == version
+                }) && !entries.iter().any(|entry| {
+                    entry.seq > after
+                        && matches!(entry.event, GameEvent::ObjectUntapped { object, .. } if object == card)
+                })
+            }
             _ => true,
         });
         self.trigger_queue.extend(found);
@@ -969,10 +983,12 @@ fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
             list.abilities.get(trigger.ability_index as usize),
             Some(
                 AbilityDef::Triggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                    zone: baylee_cards_dsl::TriggerZone::Graveyard
+                        | baylee_cards_dsl::TriggerZone::Exile,
                     ..
                 } | AbilityDef::ModalTriggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                    zone: baylee_cards_dsl::TriggerZone::Graveyard
+                        | baylee_cards_dsl::TriggerZone::Exile,
                     ..
                 }
             )

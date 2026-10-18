@@ -2351,3 +2351,96 @@ fn damping_field_lets_exactly_one_artifact_untap_in_an_untap_step() {
 fn circle_of_protection_artifacts() -> CardIndex {
     card_index("2e61e9c0-a2b9-4a24-8cb0-5160accce183")
 }
+
+fn city_in_a_bottle() -> CardIndex {
+    card_index("a83f25e3-4d84-4c9b-ab12-19b8d326e459")
+}
+
+fn golgothian_sylex() -> CardIndex {
+    card_index("95197f8f-c24e-4d13-a106-7186b3cc59e0")
+}
+
+fn bazaar_of_baghdad() -> CardIndex {
+    card_index("54022a10-c9f0-458d-a0ed-228843cd9a40")
+}
+
+#[test]
+fn city_in_a_bottle_sacrifices_arabian_nights_permanents_and_forbids_playing_them() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .hand(0, &[city_in_a_bottle(), bazaar_of_baghdad(), flying_men()])
+        .battlefield(0, &[island(), island()])
+        .battlefield(1, &[flying_men(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let opp_flying_men = on_battlefield(&engine, p1, flying_men()).expect("Flying Men is out");
+    let opp_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("Elf is out");
+
+    // Cast City in a Bottle; its state trigger fires because Flying Men (Arabian Nights) is on the battlefield.
+    tap_all_mana(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, city_in_a_bottle());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(opp_flying_men).unwrap().zone,
+        crate::zone::Zone::Graveyard,
+        "Flying Men (Arabian Nights) was sacrificed by City in a Bottle's state trigger"
+    );
+    assert_eq!(
+        engine.state().object(opp_elf).unwrap().zone,
+        crate::zone::Zone::Battlefield,
+        "Llanowar Elves (not Arabian Nights) remains on the battlefield"
+    );
+
+    // Neither Bazaar of Baghdad (land) nor Flying Men (spell) in p0's hand can be played while City in a Bottle is out.
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority");
+    };
+    let hand_bazaar = in_hand(&engine, p0, bazaar_of_baghdad()).expect("Bazaar in hand");
+    let hand_flying_men = in_hand(&engine, p0, flying_men()).expect("Flying Men in hand");
+    assert!(
+        !legal.lands.contains(&hand_bazaar),
+        "Bazaar of Baghdad (Arabian Nights land) cannot be played"
+    );
+    assert!(
+        !legal.castable.contains(&hand_flying_men) && !legal.payable.contains(&hand_flying_men),
+        "Flying Men (Arabian Nights spell) cannot be cast"
+    );
+}
+
+#[test]
+fn golgothian_sylex_sacrifices_all_nontoken_antiquities_permanents_including_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[golgothian_sylex(), forest()])
+        .battlefield(1, &[ornithopter(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sylex = on_battlefield(&engine, p0, golgothian_sylex()).expect("Golgothian Sylex is out");
+    let thopter = on_battlefield(&engine, p1, ornithopter()).expect("Ornithopter is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("Elf is out");
+
+    tap_all_mana_but(&mut engine, p0, Some(golgothian_sylex()));
+    activate(&mut engine, p0, golgothian_sylex(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(sylex).unwrap().zone,
+        crate::zone::Zone::Graveyard,
+        "Golgothian Sylex (Antiquities) was sacrificed"
+    );
+    assert_eq!(
+        engine.state().object(thopter).unwrap().zone,
+        crate::zone::Zone::Graveyard,
+        "Ornithopter (Antiquities) was sacrificed"
+    );
+    assert_eq!(
+        engine.state().object(elf).unwrap().zone,
+        crate::zone::Zone::Battlefield,
+        "Llanowar Elves (not Antiquities) was untouched"
+    );
+}

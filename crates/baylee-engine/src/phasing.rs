@@ -144,6 +144,9 @@ impl GameState {
             if let Some(obj) = self.object_mut(host) {
                 obj.status.remove(Status::PHASED_OUT);
                 obj.status.remove(Status::PHASED_OUT_INDIRECTLY);
+                obj.riders.retain(|r| {
+                    !matches!(r, crate::object::Rider::PhasedOutUntilHostLeaves { .. })
+                });
                 if obj
                     .riders
                     .contains(&crate::object::Rider::AttachmentHostLeft)

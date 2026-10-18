@@ -144,6 +144,30 @@ impl<L: CardLookup> Engine<L> {
             }
             true
         });
+        if self
+            .state
+            .zones
+            .list(ZoneLocation::Hand(new_active))
+            .iter()
+            .any(|&id| {
+                self.state.object(id).is_some_and(|o| {
+                    o.riders
+                        .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+                })
+            })
+        {
+            let hand = self
+                .state
+                .zones
+                .list(ZoneLocation::Hand(new_active))
+                .clone();
+            for card in hand {
+                if let Some(obj) = self.state.object_mut(card) {
+                    obj.riders
+                        .retain(|r| *r != crate::object::Rider::RevealedInHandCantPlayUntilTurn);
+                }
+            }
+        }
     }
 
     fn remember_completed_turn_attackers(&mut self) {

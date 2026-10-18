@@ -851,6 +851,18 @@ pub enum Rider {
         /// The event that returns it, when the exile named one (CR 610.3).
         until: Option<LinkUntil>,
     },
+    /// Phased out until `host` leaves the battlefield (Oubliette, CR 610.4):
+    /// does not phase in during its controller's untap step, and phases in
+    /// immediately as `host` leaves (tapped when `tap_on_phase_in` is set).
+    PhasedOutUntilHostLeaves {
+        /// The permanent whose departure ends the phasing-out.
+        host: ObjectId,
+        /// Whether to tap the permanent as it phases in this way.
+        tap_on_phase_in: bool,
+    },
+    /// Token created by a specific permanent incarnation (Tetravus's
+    /// "tokens created with this creature").
+    CreatedBy(baylee_core::ids::DamageSourceRef),
     /// Exiled **with** another object (CR 406.6, 607.2a): what
     /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
     /// counts. Not [`Rider::Linked`], which an "until" exile is released by.
@@ -977,6 +989,18 @@ pub enum Rider {
     EntryCopyApplied,
     /// Orientation replacements were already applied before this arrival.
     EntryTappingApplied,
+    /// Returned to its owner's hand by Firestorm Phoenix's death replacement:
+    /// revealed in that hand and unplayable until its owner's next turn.
+    RevealedInHandCantPlayUntilTurn,
+    /// Counter kind and count noted on a creature exiled by Tawnos's Coffin.
+    NotedCounter(CounterKind, u16),
+    /// Cast for its mutate cost (CR 702.140a), targeting a non-Human creature
+    /// its owner owns to merge with on resolution.
+    Mutating,
+    /// Additional physical card merged into this permanent via Mutate or Meld
+    /// (CR 712.21a, CR 727.3), which moves to the same zone when this
+    /// permanent leaves the battlefield.
+    MergedComponent(ObjectId),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1034,9 +1058,13 @@ impl Rider {
             | Self::Suspend
             | Self::Rebound
             | Self::Foretold
-            | Self::Plotted => true,
+            | Self::Plotted
+            | Self::NotedCounter(_, _) => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
+            | Self::PhasedOutUntilHostLeaves { .. }
+            | Self::CreatedBy(_)
+            | Self::RevealedInHandCantPlayUntilTurn
             | Self::EventSubject(_)
             | Self::GrantedActivated
             | Self::ExhaustedAbility(_)
@@ -1075,6 +1103,8 @@ impl Rider {
             | Self::EntryP1P1(_)
             | Self::EntryFinality
             | Self::Dashed
+            | Self::Mutating
+            | Self::MergedComponent(_)
             | Self::Escaped
             | Self::Masked
             // "That player" of a triggered ability on the stack, which is
@@ -1853,7 +1883,12 @@ impl GameObject {
     #[must_use]
     pub fn printed_abilities(&self, lookup: &impl crate::state::CardLookup) -> AbilityDefs {
         if self.status.contains(Status::FACE_DOWN) {
-            return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) {
+            let is_morph = self
+                .card
+                .and_then(|c| lookup.card(c.index))
+                .and_then(|d| d.faces.get(usize::from(self.face_index)))
+                .is_some_and(|f| f.morph.is_some() && f.disguise.is_none());
+            return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) || is_morph {
                 AbilityDefs::EMPTY
             } else {
                 AbilityDefs::Static(crate::engine::disguise::WARD)

@@ -349,6 +349,10 @@ impl<L: CardLookup> Engine<L> {
             if wizard.option == Some(CastModeKind::Dash) {
                 obj.riders.push(crate::object::Rider::Dashed);
             }
+            obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
+            if wizard.option == Some(CastModeKind::Mutate) {
+                obj.riders.push(crate::object::Rider::Mutating);
+            }
             // Escape (CR 702.138b): the spell escaped, and so will the
             // permanent it becomes.
             obj.riders.retain(|r| *r != crate::object::Rider::Escaped);

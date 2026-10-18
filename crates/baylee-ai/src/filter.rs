@@ -188,6 +188,9 @@ impl HeuristicAgent {
             // and a face-down permanent has no name to answer with
             // (CR 708.2) rather than a name this seat may not see.
             Filter::Named(name) => Some(object.name == *name),
+            Filter::NameOriginallyPrintedIn(expansion) => {
+                Some(expansion.contains_name(&object.name))
+            }
             Filter::NamedBySource => named_by_source(view, object, this),
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a

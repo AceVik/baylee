@@ -77,6 +77,39 @@ impl GameState {
                     .object(host)
                     .is_none_or(|h| h.zone != Zone::Battlefield)
         });
+        let phased: Vec<(ObjectId, bool)> = self
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter_map(|id| {
+                let obj = self.object(id)?;
+                if !obj.status.contains(crate::object::Status::PHASED_OUT) {
+                    return None;
+                }
+                obj.riders.iter().find_map(|rider| match *rider {
+                    crate::object::Rider::PhasedOutUntilHostLeaves {
+                        host,
+                        tap_on_phase_in,
+                    } if self
+                        .object(host)
+                        .is_none_or(|h| h.zone != Zone::Battlefield) =>
+                    {
+                        Some((id, tap_on_phase_in))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
+        for (card, tap_on_phase_in) in phased {
+            self.phase_in(card);
+            if tap_on_phase_in && self.set_tapped(card, true) {
+                self.journal.record(GameEvent::ObjectTapped {
+                    object: card,
+                    cause: Cause::Effect,
+                });
+            }
+        }
     }
 
     fn flashback_destination(&self, id: ObjectId, from: Zone, to: ZoneLocation) -> ZoneLocation {
@@ -349,6 +382,19 @@ impl GameState {
         !self.has_left(player) && self.hands_revealed()
     }
 
+    /// Whether an individual card in a hand is revealed by an effect on it
+    /// (e.g. Firestorm Phoenix) or by a whole-hand reveal.
+    #[must_use]
+    pub fn hand_card_revealed(&self, card: ObjectId) -> bool {
+        self.object(card).is_some_and(|o| {
+            o.zone == Zone::Hand
+                && (o
+                    .riders
+                    .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+                    || o.zone_owner.is_some_and(|owner| self.hand_revealed(owner)))
+        })
+    }
+
     /// Whether a continuous rule makes every player's hand public.
     #[must_use]
     pub fn hands_revealed(&self) -> bool {
@@ -499,7 +545,8 @@ impl GameState {
         // is left is to spend it.
         let to = self.flashback_destination(id, from_zone, to);
         let to = self.take_commander_redirect(id, to);
-        let (to, exile_counter) = crate::replacement::graveyard_destination(self, id, to);
+        let (to, exile_counter, revealed_in_hand) =
+            crate::replacement::graveyard_destination(self, id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
         // A creature dies when it is put into a graveyard from the
         // battlefield (CR 700.4), and whether it was a creature is what it
@@ -600,6 +647,7 @@ impl GameState {
                     version,
                 });
         }
+        let mut merged_components = smallvec::SmallVec::<[ObjectId; 2]>::new();
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -612,6 +660,21 @@ impl GameState {
             obj.version = obj.version.wrapping_add(1);
             obj.riders
                 .retain(|rider| !matches!(rider, crate::object::Rider::BattleProtector(_)));
+            if from_zone == Zone::Hand && to.zone() != Zone::Hand {
+                obj.riders.retain(|rider| {
+                    *rider != crate::object::Rider::RevealedInHandCantPlayUntilTurn
+                });
+            }
+            if revealed_in_hand && to.zone() == Zone::Hand {
+                obj.kind = ObjectKind::Card;
+                if !obj
+                    .riders
+                    .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+                {
+                    obj.riders
+                        .push(crate::object::Rider::RevealedInHandCantPlayUntilTurn);
+                }
+            }
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
             // battlefield and the stack, so a creature that died under an
@@ -645,10 +708,17 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                for rider in &obj.riders {
+                    if let crate::object::Rider::MergedComponent(comp) = *rider {
+                        merged_components.push(comp);
+                    }
+                }
                 obj.riders.retain(|rider| {
                     !matches!(
                         rider,
                         crate::object::Rider::AttachmentHostLeft
+                            | crate::object::Rider::PhasedOutUntilHostLeaves { .. }
+                            | crate::object::Rider::CreatedBy(_)
                             | crate::object::Rider::Prepared
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::ExhaustedAbility(_)
@@ -658,6 +728,7 @@ impl GameState {
                             | crate::object::Rider::EntryTappingApplied
                             | crate::object::Rider::EntryCopyApplied
                             | crate::object::Rider::BattleProtector(_)
+                            | crate::object::Rider::MergedComponent(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -695,6 +766,7 @@ impl GameState {
                         crate::object::Rider::EntryP1P1(_)
                             | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
+                            | crate::object::Rider::Mutating
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
                     )
@@ -792,6 +864,17 @@ impl GameState {
             .object(id)
             .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
         self.zones.insert(id, to, pos, projectable);
+        if to.zone() != Zone::Battlefield {
+            for comp in merged_components {
+                if let Some(comp_owner) = self.object(comp).map(|o| o.owner) {
+                    if let Some(comp_obj) = self.object_mut(comp) {
+                        comp_obj.kind = ObjectKind::Card;
+                    }
+                    let comp_to = ZoneLocation::of(to.zone(), comp_owner);
+                    let _ = self.move_object(comp, comp_to, pos, cause);
+                }
+            }
+        }
         // A card-less object that lands anywhere but the battlefield or the
         // stack is a cleanup candidate (CR 704.5d), and so is a copy of a
         // spell, which carries a card and would otherwise be invisible here
@@ -931,6 +1014,12 @@ impl GameState {
         );
         if let Some(kind) = exile_counter {
             crate::replacement::put_counters(self, id, kind, 1);
+        }
+        if revealed_in_hand && let ZoneLocation::Hand(owner) = to {
+            self.journal.record(GameEvent::Revealed {
+                player: owner,
+                cards: vec![id],
+            });
         }
         // What this permanent held "until it leaves the battlefield" comes
         // back now, immediately after the event and before anything else

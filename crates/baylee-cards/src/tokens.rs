@@ -620,3 +620,69 @@ pub static KNIGHT_2_2_WHITE_BLUE_VIGILANCE: TokenDef = TokenDef {
     scryfall_id: "88439bfc-8942-473b-9e4f-863017788476",
     ..TokenDef::DEFAULT
 };
+
+static TETRAVITE_ABILITIES: &[AbilityDef] =
+    &[static_ability!(Filter::This, Modifier::CantBeEnchanted)];
+
+/// 1/1 colorless Tetravite artifact creature token with flying and
+/// "This token can't be enchanted." (Tetravus).
+pub static TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING: TokenDef = TokenDef {
+    name: "Tetravite",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::TETRAVITE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: TETRAVITE_ABILITIES,
+    ..TokenDef::DEFAULT
+};
+
+static WOLVES_OF_THE_HUNT_FILTER: Filter = Filter::And(&[
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::Named("Wolves of the Hunt"),
+]);
+
+static WOLVES_OF_THE_HUNT_ABILITIES: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::BandsWithOther(&WOLVES_OF_THE_HUNT_FILTER)
+)];
+
+/// 1/1 green Wolf creature token named Wolves of the Hunt with
+/// "bands with other creatures named Wolves of the Hunt" (Master of the Hunt).
+pub static WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF: TokenDef = TokenDef {
+    name: "Wolves of the Hunt",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: WOLVES_OF_THE_HUNT_ABILITIES,
+    ..TokenDef::DEFAULT
+};
+
+static HANWEIR_THE_WRITHING_TOWNSHIP_ABILITIES: &[AbilityDef] = &[triggered!(
+    Trigger::Attacks(&Filter::This),
+    &[Effect::CreateTokenAttacking {
+        token: &crate::generated_tokens::ELDRAZI_HORROR_3_2,
+        amount: baylee_cards_dsl::Amount::Fixed(2),
+        sacrifice_at_next_end_step: false,
+    }]
+)];
+
+/// 7/4 colorless Legendary Creature — Eldrazi Ooze with trample, haste, and
+/// "Whenever Hanweir, the Writhing Township attacks, create two 3/2 colorless
+/// Eldrazi Horror creature tokens that are tapped and attacking." (Hanweir
+/// Battlements // Hanweir Garrison meld back face, EMN #130b).
+pub static HANWEIR_THE_WRITHING_TOWNSHIP: TokenDef = TokenDef {
+    name: "Hanweir, the Writhing Township",
+    colors: ColorSet::EMPTY,
+    types: TypeSet::CREATURE,
+    supertypes: baylee_core::types::SupertypeSet::LEGENDARY,
+    subtypes: &[creature::ELDRAZI, creature::OOZE],
+    power: Some(7),
+    toughness: Some(4),
+    keywords: KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
+    abilities: HANWEIR_THE_WRITHING_TOWNSHIP_ABILITIES,
+    scryfall_id: "671fe14d-0070-4bc7-8983-707b570f4492",
+    ..TokenDef::DEFAULT
+};
