@@ -11,7 +11,7 @@ card!(
     oracle_id = "77a5305a-2611-4a64-adb4-da131dcea233",
     scryfall_id = "73083658-5e25-4d06-acba-ce8f771b5e52",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Footlight Fiend",
         mana_cost = mana!("{B/R}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "87003295-fd7c-489a-b724-b76eef187b57",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudchaser Kestrel",
         mana_cost = mana!("{1}{W}{W}"),

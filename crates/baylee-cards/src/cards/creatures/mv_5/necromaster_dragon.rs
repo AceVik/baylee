@@ -14,7 +14,7 @@ card!(
     scryfall_id = "2574aaf5-8397-4a88-b047-1b4dbb176930",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necromaster Dragon",
         mana_cost = mana!("{3}{U}{B}"),

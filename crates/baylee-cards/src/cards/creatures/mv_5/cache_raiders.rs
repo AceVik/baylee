@@ -11,7 +11,7 @@ card!(
     oracle_id = "57947037-91b2-4058-be22-158d3257317e",
     scryfall_id = "bb75ec92-7c8e-47d3-a412-01d0c98321fe",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cache Raiders",
         mana_cost = mana!("{3}{U}{U}"),

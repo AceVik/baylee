@@ -13,7 +13,7 @@ card!(
     oracle_id = "8790c7be-c14a-4293-bc4a-3d0efe42ed79",
     scryfall_id = "10b1a2b5-5be2-43a2-bc35-95df6eb0984f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pious Wayfarer",
         mana_cost = mana!("{W}"),

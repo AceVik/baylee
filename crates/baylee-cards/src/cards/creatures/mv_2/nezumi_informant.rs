@@ -11,7 +11,7 @@ card!(
     oracle_id = "a70ffefb-840c-48c3-a59d-e12306086bb6",
     scryfall_id = "e36fbff8-471e-4cf8-8946-e1e5cdf598af",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nezumi Informant",
         mana_cost = mana!("{1}{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "3795fc31-2369-47d0-b9c9-120f44b8f114",
     scryfall_id = "5e8bded3-46c3-474f-9d09-978df8705ad1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elderleaf Mentor",
         mana_cost = mana!("{3}{G}"),

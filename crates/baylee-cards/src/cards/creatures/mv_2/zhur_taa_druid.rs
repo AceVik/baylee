@@ -12,7 +12,7 @@ card!(
     oracle_id = "5979310e-38c8-489f-ab9e-2723af98a3a5",
     scryfall_id = "b82d8359-4841-478c-851b-13a1a0f94737",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhur-Taa Druid",
         mana_cost = mana!("{R}{G}"),

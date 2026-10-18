@@ -11,7 +11,7 @@ card!(
     oracle_id = "76c229d2-4bdd-4520-97dd-afb40f8c65ec",
     scryfall_id = "afc86134-8af6-4355-b1ad-96917c99ff3c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindslicer",
         mana_cost = mana!("{2}{B}{B}"),

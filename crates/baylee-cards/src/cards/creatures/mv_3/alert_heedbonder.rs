@@ -19,7 +19,7 @@ card!(
     scryfall_id = "15a2ccae-c322-4e99-a094-a68fc5d52ea3",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alert Heedbonder",
         mana_cost = mana!("{1}{G/W}{G/W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "813c0654-7e3b-435b-b7a5-148f0c36a4be",
     scryfall_id = "045c7c23-d418-42f0-b497-50c39e5321ad",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soulknife Spy",
         mana_cost = mana!("{2}{U}"),

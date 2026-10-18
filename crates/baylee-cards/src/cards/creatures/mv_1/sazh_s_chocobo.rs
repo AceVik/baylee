@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2b082b4-5d9c-4125-b353-d1cf4f334720",
     scryfall_id = "dda6b4d0-1b60-46b0-b321-b9ffe15afff4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sazh's Chocobo",
         mana_cost = mana!("{G}"),

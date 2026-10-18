@@ -16,7 +16,7 @@ card!(
     oracle_id = "da21c21c-88d8-4a93-b2b4-6d7bb28959c9",
     scryfall_id = "00c48e08-9a77-4ba2-8041-90998f7e3812",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dread Specter",
         mana_cost = mana!("{3}{B}"),

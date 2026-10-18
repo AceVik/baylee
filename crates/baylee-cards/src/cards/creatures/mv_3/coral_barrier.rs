@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f34cd305-d823-4996-9f8f-806386491f5d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coral Barrier",
         mana_cost = mana!("{2}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "aa851d68-a7a4-48c0-9cd7-d3d2e079f3a1",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidus, Blitzball Star",
         mana_cost = mana!("{1}{W}{U}"),

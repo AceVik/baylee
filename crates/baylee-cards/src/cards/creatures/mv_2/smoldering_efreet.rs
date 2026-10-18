@@ -11,7 +11,7 @@ card!(
     oracle_id = "789b6a61-656e-40c0-be78-9c89c4ecfb0b",
     scryfall_id = "af33b204-6b50-4404-b986-9f6b970a7f06",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smoldering Efreet",
         mana_cost = mana!("{1}{R}"),

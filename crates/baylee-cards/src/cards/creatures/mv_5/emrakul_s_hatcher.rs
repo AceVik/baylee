@@ -12,7 +12,7 @@ card!(
     oracle_id = "1ee811fb-c25d-4cf5-b396-539c36e8f90f",
     scryfall_id = "35fab29d-1bcc-4ba0-90bf-427d95bf6699",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emrakul's Hatcher",
         mana_cost = mana!("{4}{R}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "60499c90-a512-4abb-98eb-0735a7138421",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flesh Burrower",
         mana_cost = mana!("{1}{G}"),

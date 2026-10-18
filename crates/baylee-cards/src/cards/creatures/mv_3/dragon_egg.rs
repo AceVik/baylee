@@ -14,7 +14,7 @@ card!(
     scryfall_id = "300761b6-9943-4251-9b1a-96a940f3334b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Egg",
         mana_cost = mana!("{2}{R}"),

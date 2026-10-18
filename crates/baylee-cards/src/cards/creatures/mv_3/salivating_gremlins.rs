@@ -11,7 +11,7 @@ card!(
     oracle_id = "4766f232-8275-4256-b756-8dd5c5e825a3",
     scryfall_id = "0cbec0d9-42b4-4aff-8d55-0721c8911de3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salivating Gremlins",
         mana_cost = mana!("{2}{R}"),

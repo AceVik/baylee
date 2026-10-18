@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f157d08a-7cd7-4120-a8bb-1b50fa0ba99b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serum Raker",
         mana_cost = mana!("{2}{U}{U}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a6e8433d-eb2a-43d1-b59b-7d70ff97c8e7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eager Trufflesnout",
         mana_cost = mana!("{2}{G}"),

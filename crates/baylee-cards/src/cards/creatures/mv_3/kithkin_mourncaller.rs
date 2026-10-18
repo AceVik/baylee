@@ -26,7 +26,7 @@ card!(
     oracle_id = "a21e773e-1f23-42af-a1bf-b92c84b7436e",
     scryfall_id = "0a8b6f90-c609-4ffd-9136-9fd7a833ebb3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Mourncaller",
         mana_cost = mana!("{2}{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b8845bba-d116-43cd-8ae0-e553f3324d66",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Invasion Reinforcements",
         mana_cost = mana!("{1}{W}"),

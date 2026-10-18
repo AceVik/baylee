@@ -15,7 +15,7 @@ card!(
     scryfall_id = "b05adb48-980c-49a0-9ce6-7c7f3f20715d",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nori, Teller of Tales",
         mana_cost = mana!("{1}{R/W}"),

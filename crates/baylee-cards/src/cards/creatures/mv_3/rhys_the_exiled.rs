@@ -23,7 +23,7 @@ card!(
     scryfall_id = "85004079-f9fa-4a05-904d-a77782c4165c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhys the Exiled",
         mana_cost = mana!("{2}{G}"),

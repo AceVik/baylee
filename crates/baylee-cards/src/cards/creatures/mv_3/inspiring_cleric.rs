@@ -11,7 +11,7 @@ card!(
     oracle_id = "65e19aec-e8ea-412f-a239-bd8d1b78249c",
     scryfall_id = "31b8f1da-c8ea-41d5-b1ad-b714c22d3683",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inspiring Cleric",
         mana_cost = mana!("{2}{W}"),

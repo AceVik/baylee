@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e49f13d4-81af-420d-bd6a-74527355ad36",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venomous Hierophant",
         mana_cost = mana!("{3}{B}"),

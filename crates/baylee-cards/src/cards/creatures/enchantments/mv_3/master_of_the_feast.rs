@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d528f7a3-0a7b-42e3-8e4f-f1eeab02e23a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master of the Feast",
         mana_cost = mana!("{1}{B}{B}"),

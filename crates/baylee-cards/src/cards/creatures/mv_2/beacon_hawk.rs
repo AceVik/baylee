@@ -14,7 +14,7 @@ card!(
     scryfall_id = "be04ea4a-087e-4a6d-9973-0778a1ed2b7e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beacon Hawk",
         mana_cost = mana!("{1}{W}"),

@@ -17,7 +17,7 @@ card!(
     scryfall_id = "f9fc7bf3-fa3f-450a-875e-05a022794181",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infested Roothold",
         mana_cost = mana!("{4}{G}"),

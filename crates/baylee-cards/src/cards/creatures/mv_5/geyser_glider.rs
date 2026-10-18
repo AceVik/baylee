@@ -11,7 +11,7 @@ card!(
     oracle_id = "840d1002-abf4-4d05-945a-05c3fe9a2ebd",
     scryfall_id = "b9b8128f-52b7-4287-be0e-21fa0f9cc607",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geyser Glider",
         mana_cost = mana!("{3}{R}{R}"),

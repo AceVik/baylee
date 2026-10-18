@@ -19,7 +19,7 @@ card!(
     scryfall_id = "e3efb96a-a722-493a-be0e-a64583f8c3df",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poison-Blade Mentor",
         mana_cost = mana!("{1}{B}"),

@@ -16,7 +16,7 @@ card!(
     scryfall_id = "6c2e37e2-a4bd-4f90-9191-3125784a3369",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::FLASH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Void Grafter",
         mana_cost = mana!("{1}{G}{U}"),

@@ -18,6 +18,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/arch-angel", text: include_str!("../../../../data/decks/precon/PAST/arch-angel.txt") },
     Precon { key: "PAST/azaar-lichlord", text: include_str!("../../../../data/decks/precon/PAST/azaar-lichlord.txt") },
     Precon { key: "PAST/centaur-shaman", text: include_str!("../../../../data/decks/precon/PAST/centaur-shaman.txt") },
+    Precon { key: "PAST/centaur-warchief", text: include_str!("../../../../data/decks/precon/PAST/centaur-warchief.txt") },
     Precon { key: "PAST/cleric", text: include_str!("../../../../data/decks/precon/PAST/cleric.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
     Precon { key: "PAST/crag-hydra", text: include_str!("../../../../data/decks/precon/PAST/crag-hydra.txt") },
@@ -45,4 +46,5 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "RQS/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-second-deck.txt") },
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },
     Precon { key: "RQS/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-second-deck.txt") },
+    Precon { key: "W17/amonkhet-welcome-deck-black", text: include_str!("../../../../data/decks/precon/W17/amonkhet-welcome-deck-black.txt") },
 ];

@@ -19,7 +19,7 @@ card!(
     scryfall_id = "f5fff00b-c9a0-4e90-abc0-349f8716c885",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rufus Shinra",
         mana_cost = mana!("{1}{W}{B}"),

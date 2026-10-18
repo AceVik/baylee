@@ -22,7 +22,7 @@ card!(
     oracle_id = "a9e28134-382b-45e5-8fd0-cc0e7d56fd0c",
     scryfall_id = "f2fd4959-bfff-46dc-b568-b6d69ef8eac9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gravelgill Duo",
         mana_cost = mana!("{2}{U/B}"),

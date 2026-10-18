@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6e98559d-d9fd-4bdf-8df9-389eee756a3a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fear of Surveillance",
         mana_cost = mana!("{1}{W}"),

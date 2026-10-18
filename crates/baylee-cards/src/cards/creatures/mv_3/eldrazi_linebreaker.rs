@@ -19,7 +19,7 @@ card!(
     scryfall_id = "f67774a1-f5f8-4b7b-871d-88a1b5e57d27",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eldrazi Linebreaker",
         mana_cost = mana!("{1}{C}{R}"),

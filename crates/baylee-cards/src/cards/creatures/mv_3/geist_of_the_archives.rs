@@ -13,7 +13,7 @@ card!(
     scryfall_id = "44d4fcbc-15b2-4370-a267-bc2c63ba2aa5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geist of the Archives",
         mana_cost = mana!("{2}{U}"),

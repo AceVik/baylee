@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2e1705da-dc35-4bcb-82d4-b77712e79af3",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Herald of Faith",
         mana_cost = mana!("{3}{W}{W}"),

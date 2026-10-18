@@ -18,7 +18,7 @@ card!(
     scryfall_id = "1531cb47-b0ff-4d66-acf2-ef5bb5f690fc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swift Warden",
         mana_cost = mana!("{1}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ffca600-5286-4086-9efe-c398babeb6ae",
     scryfall_id = "036c1954-37d3-4787-8df8-f2d0dd39058a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Polluted Dead",
         mana_cost = mana!("{4}{B}"),

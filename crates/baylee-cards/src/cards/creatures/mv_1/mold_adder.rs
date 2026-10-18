@@ -22,7 +22,7 @@ card!(
     oracle_id = "2091eb7e-2357-4ef8-b15e-1e6f82176340",
     scryfall_id = "48d665cd-a2c6-4b81-8032-379e476b5ea5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mold Adder",
         mana_cost = mana!("{G}"),

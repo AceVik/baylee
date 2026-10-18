@@ -16,7 +16,7 @@ card!(
     oracle_id = "56f3f1b4-c36a-41f3-95a1-45e9d7e74cf9",
     scryfall_id = "7fbbc5d7-86d0-4e09-b37c-e40eb88f3f33",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sedraxis Alchemist",
         mana_cost = mana!("{2}{B}"),

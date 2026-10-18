@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6075e0a3-a0ab-4a11-8ad2-7dabb071d309",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bone Pit Brute",
         mana_cost = mana!("{4}{R}{R}"),

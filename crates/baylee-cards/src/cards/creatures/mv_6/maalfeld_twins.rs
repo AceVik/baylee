@@ -12,7 +12,7 @@ card!(
     oracle_id = "dda4b515-49c0-43fe-9f6a-36defa326bb1",
     scryfall_id = "c166df8f-9508-427a-8ec7-bc8541b6ed88",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maalfeld Twins",
         mana_cost = mana!("{5}{B}"),

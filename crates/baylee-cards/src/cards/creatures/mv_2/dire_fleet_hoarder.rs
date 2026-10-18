@@ -12,7 +12,7 @@ card!(
     oracle_id = "7d48ad95-d428-4e2d-b697-56907c3ce579",
     scryfall_id = "d6f86b94-2a86-4120-97cd-ec2c89d106cb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Fleet Hoarder",
         mana_cost = mana!("{1}{B}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "6fedd98c-9c58-4ca5-b77b-dcb4cd88d238",
     scryfall_id = "0039ead5-2afa-49d6-ae4a-45ae2118188a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Entanglers",
         mana_cost = mana!("{4}{W}"),

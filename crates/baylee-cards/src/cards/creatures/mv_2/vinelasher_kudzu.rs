@@ -11,7 +11,7 @@ card!(
     oracle_id = "62204fac-a367-475c-bfb9-80a87af2d2f1",
     scryfall_id = "bcae0517-f7d1-4b67-9ca3-608f2d8a70f9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vinelasher Kudzu",
         mana_cost = mana!("{1}{G}"),

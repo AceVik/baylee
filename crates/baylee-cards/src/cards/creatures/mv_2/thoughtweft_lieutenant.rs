@@ -20,7 +20,7 @@ card!(
     oracle_id = "50dd9e17-6dae-4ff6-8a38-50088c71283f",
     scryfall_id = "2c54ec67-9317-455e-a045-fa4ed9cb676f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thoughtweft Lieutenant",
         mana_cost = mana!("{G}{W}"),

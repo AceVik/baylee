@@ -11,7 +11,7 @@ card!(
     oracle_id = "40e8ade9-9cec-4983-ab11-d9e6278fb29f",
     scryfall_id = "d44d2eb4-e5a3-4401-86cb-311374a2de04",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weed-Pruner Poplar",
         mana_cost = mana!("{4}{B}"),

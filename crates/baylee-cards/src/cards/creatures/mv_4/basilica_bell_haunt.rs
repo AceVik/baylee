@@ -11,7 +11,7 @@ card!(
     oracle_id = "796dc53d-5a0d-4d19-9fa4-f474a9d96041",
     scryfall_id = "e72f4329-db6f-4284-b63e-55f22a0a0f6e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Basilica Bell-Haunt",
         mana_cost = mana!("{W}{W}{B}{B}"),

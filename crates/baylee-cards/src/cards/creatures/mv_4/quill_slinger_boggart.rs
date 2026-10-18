@@ -13,7 +13,7 @@ card!(
     oracle_id = "593b229b-579b-4052-8a00-dac787b149b1",
     scryfall_id = "c3a15a9d-46d7-4181-8131-50ba46a11c7b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quill-Slinger Boggart",
         mana_cost = mana!("{3}{B}"),

@@ -19,7 +19,7 @@ card!(
     scryfall_id = "5bebef1c-2f03-4e0a-b3ba-861546ebf8a6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ajani's Comrade",
         mana_cost = mana!("{1}{G}"),

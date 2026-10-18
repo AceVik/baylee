@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d5df1c3f-2536-4476-b8cd-34b026c38366",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperious Inkmage",
         mana_cost = mana!("{1}{W}{B}"),

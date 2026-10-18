@@ -11,7 +11,7 @@ card!(
     oracle_id = "fd28fe55-36cd-4242-8dd4-edb58fbb9895",
     scryfall_id = "62c8024e-490a-484a-bcee-da7728a64a1f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exclusion Mage",
         mana_cost = mana!("{2}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "b744c138-9b9e-47f6-9d56-feb6a78ce377",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Guide",
         mana_cost = mana!("{2}{U}"),

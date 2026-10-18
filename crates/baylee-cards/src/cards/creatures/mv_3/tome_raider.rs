@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e04ad850-5801-4654-a388-f86be20a43bf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tome Raider",
         mana_cost = mana!("{2}{U}"),

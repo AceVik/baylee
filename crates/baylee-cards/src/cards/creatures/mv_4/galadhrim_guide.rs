@@ -11,7 +11,7 @@ card!(
     oracle_id = "9204de14-cbb6-40e5-9dcc-44cce3723e8e",
     scryfall_id = "0571a6b2-548a-43ed-9357-a27095d2e894",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Galadhrim Guide",
         mana_cost = mana!("{3}{G}"),

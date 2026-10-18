@@ -22,7 +22,7 @@ card!(
     scryfall_id = "9998f898-1f08-481b-8505-b890f0fec5e0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loran, Disciple of History",
         mana_cost = mana!("{3}{W}"),

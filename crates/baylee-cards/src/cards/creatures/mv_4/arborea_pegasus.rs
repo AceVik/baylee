@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fc45c9d4-ecc7-4a9d-9efe-f4b7d697dd97",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arborea Pegasus",
         mana_cost = mana!("{3}{W}"),

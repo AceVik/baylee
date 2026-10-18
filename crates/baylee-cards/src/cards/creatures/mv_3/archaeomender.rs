@@ -11,7 +11,7 @@ card!(
     oracle_id = "5a4553fc-f945-4094-b231-2d378ed6609e",
     scryfall_id = "22bb8779-ac19-43d6-b818-86eb8ee2f87d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archaeomender",
         mana_cost = mana!("{2}{U}"),

@@ -20,7 +20,7 @@ card!(
     scryfall_id = "8053b888-a680-4318-88c3-0924e596e780",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gladewalker Ritualist",
         mana_cost = mana!("{2}{G}"),

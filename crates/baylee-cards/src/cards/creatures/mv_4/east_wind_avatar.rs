@@ -16,7 +16,7 @@ card!(
     scryfall_id = "c9d5b56c-ad2a-4958-8783-4eceb8733610",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "East Wind Avatar",
         mana_cost = mana!("{3}{W}"),

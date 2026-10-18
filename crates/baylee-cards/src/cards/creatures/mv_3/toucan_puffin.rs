@@ -13,7 +13,7 @@ card!(
     scryfall_id = "10dc44c7-634f-4210-9c22-ce9e8860568b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toucan-Puffin",
         mana_cost = mana!("{2}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "2e9289d6-dbc6-456d-88cf-d1f534e731d6",
     scryfall_id = "fe0312f1-4c98-4b7f-8a34-0059ea80edef",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firebrand Archer",
         mana_cost = mana!("{1}{R}"),

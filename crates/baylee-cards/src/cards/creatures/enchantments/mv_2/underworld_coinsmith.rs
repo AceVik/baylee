@@ -21,7 +21,7 @@ card!(
     oracle_id = "ae06e0e5-8a42-4d1f-a629-94152e5f1fe6",
     scryfall_id = "3f0f1e80-405a-413a-bed1-ea276040eea4",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Underworld Coinsmith",
         mana_cost = mana!("{W}{B}"),

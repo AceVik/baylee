@@ -15,7 +15,7 @@ card!(
     scryfall_id = "b6000be7-67db-440e-87ba-276df20b803e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sterling Supplier",
         mana_cost = mana!("{4}{W}"),

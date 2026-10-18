@@ -17,7 +17,7 @@ card!(
     oracle_id = "ed186aea-e0dc-4d88-a619-748b2ebf0c52",
     scryfall_id = "70dbda67-3bc4-4c8a-8357-250d84d0d1d8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightsky Mimic",
         mana_cost = mana!("{1}{W/B}"),

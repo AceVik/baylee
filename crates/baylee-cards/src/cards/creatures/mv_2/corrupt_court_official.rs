@@ -11,7 +11,7 @@ card!(
     oracle_id = "ec84201d-757f-4a7a-b3a2-85ccd5ee81ae",
     scryfall_id = "4692610e-d64c-438e-b5ad-0cf67fd57f1f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corrupt Court Official",
         mana_cost = mana!("{1}{B}"),

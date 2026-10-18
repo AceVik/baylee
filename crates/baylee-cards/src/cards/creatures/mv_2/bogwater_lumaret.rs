@@ -16,7 +16,7 @@ card!(
     oracle_id = "0109432d-5a2a-456f-ad39-b75cb4c73420",
     scryfall_id = "7a42f51a-3377-47bb-b6fb-c0515bf1dcfb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bogwater Lumaret",
         mana_cost = mana!("{B}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7b75958b-7b72-4c0f-a75e-5e62e3727a7d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valkyrior Skyrider",
         mana_cost = mana!("{4}{W}"),

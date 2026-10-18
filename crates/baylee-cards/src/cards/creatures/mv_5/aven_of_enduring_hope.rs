@@ -13,7 +13,7 @@ card!(
     scryfall_id = "02c1310c-1b54-42dd-bf24-889770fa2ded",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aven of Enduring Hope",
         mana_cost = mana!("{4}{W}"),

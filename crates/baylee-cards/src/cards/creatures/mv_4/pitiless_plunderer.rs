@@ -15,7 +15,7 @@ card!(
     oracle_id = "a784481f-eccb-4112-bb38-04a659319660",
     scryfall_id = "5b5cd187-857a-44dd-8595-a52857a0b753",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pitiless Plunderer",
         mana_cost = mana!("{3}{B}"),

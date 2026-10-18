@@ -11,7 +11,7 @@ card!(
     oracle_id = "cca94004-fe8e-404d-9391-ad33d0a126fb",
     scryfall_id = "0820f17c-ab4a-4a14-84ff-4ea200bef112",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stoic Builder",
         mana_cost = mana!("{2}{G}"),

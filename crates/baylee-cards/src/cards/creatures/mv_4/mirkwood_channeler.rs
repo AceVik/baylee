@@ -21,7 +21,7 @@ card!(
     oracle_id = "30f373d8-cd8c-4fb2-9383-9969fc547df9",
     scryfall_id = "ca533454-8bea-4e08-ab0b-e2f4affffaef",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirkwood Channeler",
         mana_cost = mana!("{3}{G}"),

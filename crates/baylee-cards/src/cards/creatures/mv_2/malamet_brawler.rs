@@ -11,7 +11,7 @@ card!(
     oracle_id = "06905dfb-b2df-4849-8848-fd3c964aa8c9",
     scryfall_id = "47d2fb65-cc3d-4664-bee0-8cf1cba5d8fa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malamet Brawler",
         mana_cost = mana!("{1}{G}"),

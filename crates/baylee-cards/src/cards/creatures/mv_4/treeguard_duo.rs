@@ -11,7 +11,7 @@ card!(
     oracle_id = "d7dfb4d5-8510-4904-abb7-834ec65d9bf3",
     scryfall_id = "89c8456e-c971-42b7-abf3-ff5ae1320abe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treeguard Duo",
         mana_cost = mana!("{3}{G}"),

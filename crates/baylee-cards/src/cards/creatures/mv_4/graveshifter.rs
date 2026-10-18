@@ -13,7 +13,7 @@ card!(
     scryfall_id = "dadb02b9-d3a0-4b51-bbc3-53b2316cd70d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Graveshifter",
         mana_cost = mana!("{3}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d3de6b36-c631-4b52-b16b-0749a347d73d",
     scryfall_id = "ff87a671-054f-4357-8a62-450d36559a1b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daybreak Charger",
         mana_cost = mana!("{1}{W}"),

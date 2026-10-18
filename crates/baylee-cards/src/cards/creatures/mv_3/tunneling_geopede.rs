@@ -11,7 +11,7 @@ card!(
     oracle_id = "78cd6d20-033f-471f-a86e-59ec8307ae1f",
     scryfall_id = "d4071152-5e64-4133-88a2-8fa5cb0eeb6c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tunneling Geopede",
         mana_cost = mana!("{2}{R}"),

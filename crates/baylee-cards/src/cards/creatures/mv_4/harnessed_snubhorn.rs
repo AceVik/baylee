@@ -13,7 +13,7 @@ card!(
     scryfall_id = "553ed1d8-4d5c-48f8-8513-031bd8977d75",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harnessed Snubhorn",
         mana_cost = mana!("{3}{W}"),

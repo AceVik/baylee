@@ -17,7 +17,7 @@ card!(
     oracle_id = "42adcc63-cfb0-4b62-b8e1-dda01189652a",
     scryfall_id = "a7610d2f-e35f-42fa-a3fb-fcae54bf5a1d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cenn's Heir",
         mana_cost = mana!("{1}{W}"),

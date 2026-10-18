@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c5a6e960-169d-431a-9ebd-c4413aa67377",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woebearer",
         mana_cost = mana!("{4}{B}"),

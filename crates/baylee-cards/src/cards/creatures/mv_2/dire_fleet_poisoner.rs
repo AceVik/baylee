@@ -20,7 +20,7 @@ card!(
     scryfall_id = "88273b1e-b33b-44d3-8777-4e78a04eed65",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Fleet Poisoner",
         mana_cost = mana!("{1}{B}"),

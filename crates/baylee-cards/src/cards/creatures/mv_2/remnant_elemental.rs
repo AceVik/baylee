@@ -13,7 +13,7 @@ card!(
     scryfall_id = "830d5532-3b24-470e-912f-f0f5df1cb530",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Remnant Elemental",
         mana_cost = mana!("{1}{R}"),

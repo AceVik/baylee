@@ -19,7 +19,7 @@ card!(
     scryfall_id = "ddd1e712-826a-47ee-9578-ca61f2d65221",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oni of Wild Places",
         mana_cost = mana!("{5}{R}"),

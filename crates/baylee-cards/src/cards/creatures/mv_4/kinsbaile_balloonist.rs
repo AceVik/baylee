@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b6053c20-3632-43e2-8560-259d0c12f235",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kinsbaile Balloonist",
         mana_cost = mana!("{3}{W}"),

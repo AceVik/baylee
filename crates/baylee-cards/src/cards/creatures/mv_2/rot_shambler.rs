@@ -14,7 +14,7 @@ card!(
     oracle_id = "88c187fd-b3d3-4218-8e63-380a9ca9f1b4",
     scryfall_id = "6e13e1c2-376f-4ce6-bdc0-e000e99e5b9c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rot Shambler",
         mana_cost = mana!("{1}{G}"),

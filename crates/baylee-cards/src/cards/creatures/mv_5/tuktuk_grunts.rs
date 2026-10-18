@@ -22,7 +22,7 @@ card!(
     scryfall_id = "e6f37982-d2ae-4ff1-b5da-3936733f8108",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tuktuk Grunts",
         mana_cost = mana!("{4}{R}"),

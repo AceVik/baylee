@@ -18,7 +18,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elas il-Kor, Sadistic Pilgrim",
         mana_cost = mana!("{W}{B}"),

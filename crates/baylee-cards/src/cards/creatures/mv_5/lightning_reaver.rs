@@ -14,7 +14,7 @@ card!(
     scryfall_id = "24a0860d-d3b9-4a00-a8cb-617bc317b93d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::HASTE.union(KeywordSet::FEAR),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Reaver",
         mana_cost = mana!("{3}{B}{R}"),

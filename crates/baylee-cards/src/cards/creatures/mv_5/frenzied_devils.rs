@@ -15,7 +15,7 @@ card!(
     scryfall_id = "b7912206-6de3-4085-b5f6-a2e90ea55b90",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frenzied Devils",
         mana_cost = mana!("{4}{R}"),

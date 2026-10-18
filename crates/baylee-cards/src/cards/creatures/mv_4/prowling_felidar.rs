@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b9d1c11a-a32c-449c-95c6-450dce6c26d2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowling Felidar",
         mana_cost = mana!("{3}{W}"),

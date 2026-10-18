@@ -11,7 +11,7 @@ card!(
     oracle_id = "e4bd8910-770b-4220-8a26-2673491f4a3e",
     scryfall_id = "d0a9f49c-f15c-4b2d-b6a5-8efc3c430d87",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Priest of Urabrask",
         mana_cost = mana!("{2}{R}"),

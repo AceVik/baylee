@@ -13,7 +13,7 @@ card!(
     oracle_id = "38513660-260f-4663-b199-6473fa004a3b",
     scryfall_id = "7680a8e1-cd59-43c5-8f06-426b918692c8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Setessan Champion",
         mana_cost = mana!("{2}{G}"),

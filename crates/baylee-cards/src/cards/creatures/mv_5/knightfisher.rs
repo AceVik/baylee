@@ -21,7 +21,7 @@ card!(
     scryfall_id = "c7fb7f4f-2153-4527-8f11-adbf508d3533",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knightfisher",
         mana_cost = mana!("{3}{U}{U}"),

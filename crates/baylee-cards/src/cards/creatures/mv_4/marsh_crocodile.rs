@@ -25,7 +25,7 @@ card!(
     oracle_id = "1d6f3934-d8f1-4758-b87a-8df8d7dc492c",
     scryfall_id = "813279d1-d7bd-4d49-bd9d-fc9a6595dd39",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marsh Crocodile",
         mana_cost = mana!("{2}{U}{B}"),

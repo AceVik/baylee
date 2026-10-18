@@ -13,7 +13,7 @@ card!(
     scryfall_id = "585c11e2-4c30-436c-9dbd-354b154f6def",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Briarpack Alpha",
         mana_cost = mana!("{3}{G}"),

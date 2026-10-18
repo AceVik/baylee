@@ -13,7 +13,7 @@ card!(
     scryfall_id = "69beafcd-6c90-40c2-afff-0bd82377febf",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Contraband Kingpin",
         mana_cost = mana!("{U}{B}"),

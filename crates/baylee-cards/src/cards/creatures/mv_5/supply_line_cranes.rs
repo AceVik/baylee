@@ -13,7 +13,7 @@ card!(
     scryfall_id = "764bd86e-4156-4c58-9ce0-ca3dffbc7298",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Supply-Line Cranes",
         mana_cost = mana!("{3}{W}{W}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "adac526d-1a85-431a-a302-0a4b8f4a0c44",
     scryfall_id = "2694e3cd-26ed-4a10-ae55-fb84d7800253",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Regrower",
         mana_cost = mana!("{2}{G}{G}"),

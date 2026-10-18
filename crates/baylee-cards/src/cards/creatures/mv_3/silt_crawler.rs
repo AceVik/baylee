@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ba1595a-6578-459d-96fe-fdfb84ac34d5",
     scryfall_id = "f334e864-4e62-4bc3-9470-661be3d879e2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silt Crawler",
         mana_cost = mana!("{2}{G}"),

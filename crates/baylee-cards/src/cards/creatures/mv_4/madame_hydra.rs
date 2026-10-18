@@ -18,7 +18,7 @@ card!(
     scryfall_id = "e94ccedb-1d27-4098-8823-d8d99b30387c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Madame Hydra",
         mana_cost = mana!("{2}{B}{R}"),

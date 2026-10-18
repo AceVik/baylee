@@ -11,7 +11,7 @@ card!(
     oracle_id = "c7adac8f-8187-49a0-80b2-3281d42f1b92",
     scryfall_id = "0106caf1-2201-4661-96a5-56af02963fa6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dromad Purebred",
         mana_cost = mana!("{4}{W}"),

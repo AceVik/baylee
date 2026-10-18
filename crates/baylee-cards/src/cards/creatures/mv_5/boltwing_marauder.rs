@@ -16,7 +16,7 @@ card!(
     scryfall_id = "aab8841f-5c6f-47fc-91c9-acf3c84b7313",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boltwing Marauder",
         mana_cost = mana!("{3}{B}{R}"),

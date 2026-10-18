@@ -11,7 +11,7 @@ card!(
     oracle_id = "42aa599f-de2f-411a-8cf3-f5cfb40568b3",
     scryfall_id = "c06cc03f-da73-4ba5-96c9-618b497a7ea3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelheart Protector",
         mana_cost = mana!("{2}{W}"),

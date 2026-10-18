@@ -13,7 +13,7 @@ card!(
     scryfall_id = "487aced8-e018-4c93-8e13-bb68b43096a4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nocturnal Feeder",
         mana_cost = mana!("{2}{B}"),

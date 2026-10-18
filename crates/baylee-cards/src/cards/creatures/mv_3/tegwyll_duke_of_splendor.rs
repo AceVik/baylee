@@ -21,7 +21,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tegwyll, Duke of Splendor",
         mana_cost = mana!("{1}{U}{B}"),

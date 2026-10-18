@@ -17,7 +17,7 @@ card!(
     oracle_id = "ccb1b532-92b8-4ebf-b3c2-fb5924b116f5",
     scryfall_id = "4bc803ad-f8a2-4198-a8a6-8d987b3d00fb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slimy Dualleech",
         mana_cost = mana!("{3}{B}"),

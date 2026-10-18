@@ -11,7 +11,7 @@ card!(
     oracle_id = "e4f0fa12-542b-485f-a792-3a8aba933522",
     scryfall_id = "fd0d164a-bce2-4474-abe0-b735eb6c9442",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Makindi Ox",
         mana_cost = mana!("{4}{W}"),

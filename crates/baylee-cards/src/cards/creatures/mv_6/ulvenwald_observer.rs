@@ -17,7 +17,7 @@ card!(
     oracle_id = "dff3cfff-69f9-4afd-af28-b75504d30ffa",
     scryfall_id = "7a9d23d5-2f94-48e6-824f-f1de8f742989",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ulvenwald Observer",
         mana_cost = mana!("{4}{G}{G}"),

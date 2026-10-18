@@ -13,7 +13,7 @@ card!(
     oracle_id = "5212f0a8-7341-4960-835b-2f4600ca1b2d",
     scryfall_id = "9bae5e75-0048-41fd-8bbb-89607ab96d6e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anointed Deacon",
         mana_cost = mana!("{4}{B}"),

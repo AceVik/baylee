@@ -11,7 +11,7 @@ card!(
     oracle_id = "c1261a72-ccbd-4be9-bc3b-c1bcb807eb85",
     scryfall_id = "bb7f2638-d757-4df6-90b0-b616534dd3a0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hyrax Tower Scout",
         mana_cost = mana!("{2}{G}"),

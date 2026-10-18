@@ -20,7 +20,7 @@ card!(
     scryfall_id = "a873dbe5-d95a-4ecb-ac0a-8dc6c40f3576",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sek'Kuar, Deathkeeper",
         mana_cost = mana!("{2}{B}{R}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "1f47ff5a-dd93-46de-a1ca-b412631218bf",
     scryfall_id = "31c729e2-4e55-4a14-a288-9c3473e58b88",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monk Idealist",
         mana_cost = mana!("{2}{W}"),

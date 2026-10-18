@@ -18,7 +18,7 @@ card!(
     scryfall_id = "0d3af89d-d22c-45e8-9fec-170ac9bb0a34",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archon of Sun's Grace",
         mana_cost = mana!("{2}{W}{W}"),

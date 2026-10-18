@@ -30,7 +30,7 @@ card!(
     scryfall_id = "ed0ace28-9a33-4f0d-b8c8-f5517f20ccf1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ayara, First of Locthwain",
         mana_cost = mana!("{B}{B}{B}"),

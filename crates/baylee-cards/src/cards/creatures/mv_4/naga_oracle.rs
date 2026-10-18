@@ -11,7 +11,7 @@ card!(
     oracle_id = "249e18a4-12c5-4836-a172-cb4e9b9cb7d7",
     scryfall_id = "9060b7b5-3ef1-443e-8f8a-450cc42c43a6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Naga Oracle",
         mana_cost = mana!("{3}{U}"),

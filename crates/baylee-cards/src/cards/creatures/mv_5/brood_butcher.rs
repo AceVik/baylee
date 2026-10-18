@@ -15,7 +15,7 @@ card!(
     scryfall_id = "2f60fdd6-bc18-4c04-83d8-c204f2b35ff1",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brood Butcher",
         mana_cost = mana!("{3}{B}{G}"),

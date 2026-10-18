@@ -12,7 +12,7 @@ card!(
     oracle_id = "6283e5ca-9924-478b-89a5-36924accb9aa",
     scryfall_id = "3685c783-d837-4466-a960-ab3098db64c3",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duskwatch Hunter",
         mana_cost = mana!("{2}{B/G}"),

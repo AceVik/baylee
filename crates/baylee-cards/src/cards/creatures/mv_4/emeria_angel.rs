@@ -14,7 +14,7 @@ card!(
     scryfall_id = "2406ab7c-c6be-421a-a92c-048441a01acd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emeria Angel",
         mana_cost = mana!("{2}{W}{W}"),

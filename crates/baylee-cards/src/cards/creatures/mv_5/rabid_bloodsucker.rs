@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7335da62-3b59-4c73-a19e-b1733393ed88",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rabid Bloodsucker",
         mana_cost = mana!("{4}{B}"),

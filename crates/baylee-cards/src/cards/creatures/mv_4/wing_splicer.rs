@@ -13,7 +13,7 @@ card!(
     oracle_id = "7fbf6afc-8a16-447b-bdef-b7d0b640f76c",
     scryfall_id = "6694873a-0b0c-4e9e-b9fc-249e80a09cca",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wing Splicer",
         mana_cost = mana!("{3}{U}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "732c208b-cd9e-48a9-9b9d-aba63066ba53",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Titania, Protector of Argoth",
         mana_cost = mana!("{3}{G}{G}"),

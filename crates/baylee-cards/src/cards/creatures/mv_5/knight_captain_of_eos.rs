@@ -18,7 +18,7 @@ card!(
     oracle_id = "611f1714-a8bb-4ce4-a810-4d26fe64e358",
     scryfall_id = "02ef25ce-4d6a-45ff-8b6b-fd5c29307099",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight-Captain of Eos",
         mana_cost = mana!("{4}{W}"),

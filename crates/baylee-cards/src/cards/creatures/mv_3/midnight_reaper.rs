@@ -17,7 +17,7 @@ card!(
     oracle_id = "e8c7566d-7cc0-48af-a986-83223ec7e06c",
     scryfall_id = "f229b0e6-1ffd-410e-b04b-a0afc179c58c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Reaper",
         mana_cost = mana!("{2}{B}"),

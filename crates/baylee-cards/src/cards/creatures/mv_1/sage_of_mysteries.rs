@@ -13,7 +13,7 @@ card!(
     oracle_id = "62c949c8-0011-4ab7-8388-e643be79df83",
     scryfall_id = "4138fd65-e0c3-42a1-9c0d-4d5f20228b55",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sage of Mysteries",
         mana_cost = mana!("{U}"),

@@ -19,7 +19,7 @@ card!(
     scryfall_id = "4ef0fcc8-a7be-4239-9a63-92e0c647de35",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trusted Pegasus",
         mana_cost = mana!("{2}{W}"),

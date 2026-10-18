@@ -15,7 +15,7 @@ card!(
     scryfall_id = "f24c90c8-ed04-4b4e-8b19-c7d07a90c6b8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raphael, Tough Turtle",
         mana_cost = mana!("{1}{R}"),

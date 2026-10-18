@@ -11,7 +11,7 @@ card!(
     oracle_id = "6ca2a89e-7032-4864-b4e9-66f3178f90ab",
     scryfall_id = "31ca84d1-30a6-432b-966c-089fb6652a89",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Warden",
         mana_cost = mana!("{G}"),

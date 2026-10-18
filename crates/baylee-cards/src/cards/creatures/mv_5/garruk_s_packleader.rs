@@ -18,7 +18,7 @@ card!(
     oracle_id = "13279222-422d-4447-9451-2463b0c714c6",
     scryfall_id = "dafeafa0-b937-4387-8626-449a810486b4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Garruk's Packleader",
         mana_cost = mana!("{4}{G}"),

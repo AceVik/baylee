@@ -17,7 +17,7 @@ card!(
     scryfall_id = "a3eb92fe-bc59-4472-9028-f368bd015609",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Long Feng, Grand Secretariat",
         mana_cost = mana!("{1}{B/G}{B/G}"),

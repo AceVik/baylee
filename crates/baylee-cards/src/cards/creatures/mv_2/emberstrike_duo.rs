@@ -22,7 +22,7 @@ card!(
     oracle_id = "44295009-9f85-4022-a685-a96079ba3e26",
     scryfall_id = "9ccd4374-5339-4529-99f3-f7dcc939e874",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emberstrike Duo",
         mana_cost = mana!("{1}{B/R}"),

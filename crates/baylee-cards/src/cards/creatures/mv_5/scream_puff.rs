@@ -14,7 +14,7 @@ card!(
     scryfall_id = "c62d0ae9-5a82-40bf-b8bb-9c2e2d55d458",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scream Puff",
         mana_cost = mana!("{4}{B}"),

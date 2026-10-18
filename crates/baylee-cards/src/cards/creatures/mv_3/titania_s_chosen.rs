@@ -13,7 +13,7 @@ card!(
     oracle_id = "a9e72fe7-c4b3-421a-8b2f-bb9448b04a44",
     scryfall_id = "ace535dd-9a9c-408f-8c91-33081f14c921",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Titania's Chosen",
         mana_cost = mana!("{2}{G}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "3823e561-5a0a-4020-9322-a2b481499807",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seshiro the Anointed",
         mana_cost = mana!("{4}{G}{G}"),

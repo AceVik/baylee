@@ -18,7 +18,7 @@ card!(
     scryfall_id = "83fb87d8-d6f6-4cb0-aca1-49e6fcb181b1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Curious Altisaur",
         mana_cost = mana!("{3}{G}"),

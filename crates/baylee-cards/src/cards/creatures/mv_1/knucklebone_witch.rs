@@ -16,7 +16,7 @@ card!(
     oracle_id = "4d165c0f-3e40-45ad-92a1-53b13c07b34d",
     scryfall_id = "7d66b355-9aff-4cce-ae4a-42b233475dcf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knucklebone Witch",
         mana_cost = mana!("{B}"),

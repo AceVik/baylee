@@ -19,7 +19,7 @@ card!(
     scryfall_id = "38a62bb2-bc33-44d4-9a7e-92c9ea7d3c2c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aeronaut Cavalry",
         mana_cost = mana!("{4}{W}"),

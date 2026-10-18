@@ -12,7 +12,7 @@ card!(
     oracle_id = "b0dbfd40-ecc5-493b-976b-bc3f62137fcf",
     scryfall_id = "3e06c99e-ecb2-42e9-ac58-2542de8d54a5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pestered Wellguard",
         mana_cost = mana!("{3}{U}"),

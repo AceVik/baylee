@@ -14,7 +14,7 @@ card!(
     scryfall_id = "fef6faa4-520c-4823-bfdf-715cec7fcd4b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Precinct Captain",
         mana_cost = mana!("{W}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "8f9535f2-f00c-40d3-9997-d1c0ece15f9f",
     scryfall_id = "02acbe9b-fac7-4135-8318-5f3dc93a9e58",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stealer of Secrets",
         mana_cost = mana!("{2}{U}"),

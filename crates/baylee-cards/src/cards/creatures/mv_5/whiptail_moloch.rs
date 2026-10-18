@@ -11,7 +11,7 @@ card!(
     oracle_id = "d57079ae-7760-4a81-895f-dc8990896ed7",
     scryfall_id = "ccd8e674-49be-47b7-910d-736c9acfa916",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whiptail Moloch",
         mana_cost = mana!("{4}{R}"),

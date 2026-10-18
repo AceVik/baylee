@@ -18,7 +18,7 @@ card!(
     scryfall_id = "f3fd9ff1-278b-4e6a-b30b-90250d8b5762",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Butterbur, Bree Innkeeper",
         mana_cost = mana!("{2}{G}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "f5c5f64c-6911-430c-a825-b32b96d39c7d",
     scryfall_id = "2d19a474-b008-4088-8a31-333c0b2d9d65",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beetleback Chief",
         mana_cost = mana!("{2}{R}{R}"),

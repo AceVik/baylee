@@ -12,7 +12,7 @@ card!(
     oracle_id = "7aae54a6-3011-4867-b5ee-21a2111aecc6",
     scryfall_id = "12ee2690-f464-4a38-81e1-6dd2053a3327",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tunnel Surveyor",
         mana_cost = mana!("{2}{U}"),

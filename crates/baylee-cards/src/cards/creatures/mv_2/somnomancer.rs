@@ -11,7 +11,7 @@ card!(
     oracle_id = "c819ebc8-feb5-48fa-81d2-a4f5aaa4fdbb",
     scryfall_id = "eaf51122-fd7c-40b5-b759-65e21c28e3d6",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Somnomancer",
         mana_cost = mana!("{1}{W/U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c27b40dd-9b2a-4a99-a984-ee9cfdb091a1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voracious Greatshark",
         mana_cost = mana!("{3}{U}{U}"),

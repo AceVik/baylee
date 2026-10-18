@@ -24,7 +24,7 @@ card!(
     scryfall_id = "522ddc6f-ec13-4a70-8f4c-b3c846b102fd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crypt Angel",
         mana_cost = mana!("{4}{B}"),

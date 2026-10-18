@@ -11,7 +11,7 @@ card!(
     oracle_id = "f19f28e5-9cad-4398-b2d4-9e7fefb23cb4",
     scryfall_id = "06dda49d-25a2-4fa3-80f2-0d784e1ad30f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grazing Gladehart",
         mana_cost = mana!("{2}{G}"),

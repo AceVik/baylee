@@ -11,7 +11,7 @@ card!(
     oracle_id = "4503d0fb-842d-49f1-9769-8509ff0f2ce1",
     scryfall_id = "fb74a444-0f77-4369-95db-666be769bfc9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wistful Selkie",
         mana_cost = mana!("{G/U}{G/U}{G/U}"),

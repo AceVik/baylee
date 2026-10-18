@@ -11,7 +11,7 @@ card!(
     oracle_id = "e802442e-6a78-4c15-9034-fc8872470208",
     scryfall_id = "b2c22e0a-81c5-485f-81f0-3e85397108e0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exultant Cultist",
         mana_cost = mana!("{2}{U}"),

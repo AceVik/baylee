@@ -19,7 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oros, the Avenger",
         mana_cost = mana!("{3}{R}{W}{B}"),

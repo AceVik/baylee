@@ -12,7 +12,7 @@ card!(
     oracle_id = "d14fdc1d-62bc-4e9c-b79b-8c9c3232f0bc",
     scryfall_id = "83a6fa37-8351-403b-ae05-b67e9bf74bbb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Festerleech",
         mana_cost = mana!("{B}"),

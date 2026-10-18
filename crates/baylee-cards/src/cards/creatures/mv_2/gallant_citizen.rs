@@ -11,7 +11,7 @@ card!(
     oracle_id = "2fcb1c1c-6157-4955-b899-e8a8b337d188",
     scryfall_id = "ec64e524-531c-4e6d-a10f-23bb49ce88c0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gallant Citizen",
         mana_cost = mana!("{G/W}{G/W}"),

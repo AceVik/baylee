@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d40c45e7-f157-4b3f-a627-09b5c27473ae",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drifter il-Dal",
         mana_cost = mana!("{U}"),

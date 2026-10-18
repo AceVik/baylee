@@ -19,7 +19,7 @@ card!(
     scryfall_id = "fb0b9da3-bce8-463c-ab5e-2a2e9030df97",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Intrepid Provisioner",
         mana_cost = mana!("{3}{G}"),

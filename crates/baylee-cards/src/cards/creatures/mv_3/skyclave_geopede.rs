@@ -13,7 +13,7 @@ card!(
     scryfall_id = "db9103c9-084f-4ad2-8b7b-ca52be97619d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyclave Geopede",
         mana_cost = mana!("{2}{R}"),

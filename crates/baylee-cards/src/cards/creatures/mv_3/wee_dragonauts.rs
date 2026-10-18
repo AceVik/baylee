@@ -18,7 +18,7 @@ card!(
     scryfall_id = "37ee17a1-76ce-4ae8-9109-ba32457cbeec",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wee Dragonauts",
         mana_cost = mana!("{1}{U}{R}"),

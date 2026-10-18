@@ -16,7 +16,7 @@ card!(
     oracle_id = "973504d6-e2e4-49c4-86cb-69f31d66388b",
     scryfall_id = "a5400460-da9d-437b-bb81-cf382beb371e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Village Cannibals",
         mana_cost = mana!("{2}{B}"),

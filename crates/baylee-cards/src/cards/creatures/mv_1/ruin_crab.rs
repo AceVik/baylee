@@ -11,7 +11,7 @@ card!(
     oracle_id = "8afc00d4-a1c6-4329-af2c-a7f58a0c33e7",
     scryfall_id = "738ce273-c938-42d2-83b2-c4f5f4000b0b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ruin Crab",
         mana_cost = mana!("{U}"),

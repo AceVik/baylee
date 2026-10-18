@@ -11,7 +11,7 @@ card!(
     oracle_id = "032cc574-f7e7-4753-9a30-76cbd45d9563",
     scryfall_id = "2a54115f-150a-4ae2-a5c7-20e2ba884dd1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caustic Hound",
         mana_cost = mana!("{5}{B}"),

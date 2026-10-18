@@ -20,7 +20,7 @@ card!(
     oracle_id = "4d4fc571-a859-4460-a3c7-3f76a671ab1b",
     scryfall_id = "f57e2a32-6e52-4f6e-96ec-55f5b7ba77e0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Siege Veteran",
         mana_cost = mana!("{2}{W}"),

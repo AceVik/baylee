@@ -11,7 +11,7 @@ card!(
     oracle_id = "f772e767-a931-4891-94eb-d92a8ca7f8c1",
     scryfall_id = "0c3d4afc-5bb7-4159-9a11-f9c989dd9043",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Territorial Baloth",
         mana_cost = mana!("{4}{G}"),

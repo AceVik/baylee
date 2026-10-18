@@ -11,7 +11,7 @@ card!(
     oracle_id = "b5b049d4-242a-48ec-85d1-1ef66c8cfa4c",
     scryfall_id = "405c096c-a94b-4817-8c7f-f0551f6513e3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Miasmic Mummy",
         mana_cost = mana!("{1}{B}"),

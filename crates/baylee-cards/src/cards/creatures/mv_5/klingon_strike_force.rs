@@ -14,7 +14,7 @@ card!(
     scryfall_id = "bc121e37-b01c-4cf3-bd41-19a1cb21caa5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Klingon Strike Force",
         mana_cost = mana!("{3}{R}{R}"),

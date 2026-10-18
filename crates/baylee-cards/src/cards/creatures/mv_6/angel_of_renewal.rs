@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0f882ac2-3cbc-4548-8c83-d2a7443991df",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel of Renewal",
         mana_cost = mana!("{5}{W}"),

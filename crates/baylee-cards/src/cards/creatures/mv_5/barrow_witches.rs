@@ -13,7 +13,7 @@ card!(
     oracle_id = "9d4b34cc-0452-42a4-90e4-2a48e7ffadc0",
     scryfall_id = "45707c22-fce8-4dbd-9d19-73f08c68f449",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrow Witches",
         mana_cost = mana!("{4}{B}"),

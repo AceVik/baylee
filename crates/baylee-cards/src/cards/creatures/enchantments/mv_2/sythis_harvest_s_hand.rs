@@ -14,7 +14,7 @@ card!(
     scryfall_id = "89511ab5-8ea6-4f07-a80b-c1ec7e89924e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sythis, Harvest's Hand",
         mana_cost = mana!("{G}{W}"),

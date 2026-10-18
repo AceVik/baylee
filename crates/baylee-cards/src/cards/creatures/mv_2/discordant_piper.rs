@@ -12,7 +12,7 @@ card!(
     oracle_id = "bb0107f4-723a-4f2c-8e4b-237d5f668e3c",
     scryfall_id = "a8cce294-f6ee-4b18-8b65-7d01d0317b00",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Discordant Piper",
         mana_cost = mana!("{1}{B}"),

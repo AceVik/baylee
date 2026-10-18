@@ -11,7 +11,7 @@ card!(
     oracle_id = "6cfe63ac-3581-461b-8ed3-3e231851e3f8",
     scryfall_id = "7367b257-1a8c-4593-a307-7116e36e0342",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shinra Reinforcements",
         mana_cost = mana!("{2}{B}"),

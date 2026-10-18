@@ -19,7 +19,7 @@ card!(
     scryfall_id = "17755d1b-3a56-4362-a534-85b35ceb1802",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burning-Yard Trainer",
         mana_cost = mana!("{4}{R}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "36b4c44a-7682-4876-ae2a-35112cb55ec0",
     scryfall_id = "0d598220-bddd-48a4-8c80-eb149c6292a3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oran-Rief Survivalist",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "0931206b-eed2-40d0-9496-5ecefc7f8f90",
     scryfall_id = "d17aaa92-10ca-4f70-b45e-5a51e9192efb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infectious Horror",
         mana_cost = mana!("{3}{B}"),

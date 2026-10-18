@@ -11,7 +11,7 @@ card!(
     oracle_id = "bd8ba76f-d9e1-4c4d-83e1-6782fa3d01ba",
     scryfall_id = "6b215b6a-82e3-4ce8-b288-d7341761cad0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Timberland Guide",
         mana_cost = mana!("{1}{G}"),

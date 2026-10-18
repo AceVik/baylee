@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c5f11ea2-cd4c-417a-804c-3df80d9ddd5f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burrog Befuddler",
         mana_cost = mana!("{1}{U}"),

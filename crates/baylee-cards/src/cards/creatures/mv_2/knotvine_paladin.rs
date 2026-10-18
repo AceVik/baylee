@@ -13,7 +13,7 @@ card!(
     oracle_id = "75efff64-ea9b-4e3e-a729-fc003ee3db1e",
     scryfall_id = "4ed9e062-f9aa-4f89-bfb4-cfecae426b27",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knotvine Paladin",
         mana_cost = mana!("{G}{W}"),

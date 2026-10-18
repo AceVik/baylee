@@ -13,7 +13,7 @@ card!(
     scryfall_id = "20e0dba2-d15c-4d55-9b68-00648175e760",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Friendly Ghost",
         mana_cost = mana!("{3}{W}"),

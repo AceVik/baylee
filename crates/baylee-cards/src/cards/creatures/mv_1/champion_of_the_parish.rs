@@ -17,7 +17,7 @@ card!(
     oracle_id = "faeaa3eb-6eb8-4621-98c7-0c6f58bbff85",
     scryfall_id = "ec2120ff-a6d4-4192-96c0-33c139155ddf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Champion of the Parish",
         mana_cost = mana!("{W}"),

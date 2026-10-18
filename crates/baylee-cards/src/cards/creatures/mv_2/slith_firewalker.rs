@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9ee6c9a1-5e3c-4a3e-8f48-7054c1626bb1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slith Firewalker",
         mana_cost = mana!("{R}{R}"),

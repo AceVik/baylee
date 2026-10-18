@@ -15,7 +15,7 @@ card!(
     scryfall_id = "c32786e6-f61a-48d1-bee3-3da256ebfd2e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lurking Lizards",
         mana_cost = mana!("{1}{G}"),

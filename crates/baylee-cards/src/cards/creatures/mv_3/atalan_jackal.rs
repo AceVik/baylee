@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3fc069f7-2445-44ff-bcff-5b0741841690",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Atalan Jackal",
         mana_cost = mana!("{1}{R}{G}"),

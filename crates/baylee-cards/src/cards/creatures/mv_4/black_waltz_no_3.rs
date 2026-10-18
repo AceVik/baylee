@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Black Waltz No. 3",
         mana_cost = mana!("{2}{B}{R}"),

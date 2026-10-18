@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2dabd3ef-eac8-48ed-b2c1-f4ce8adcedf5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindwrack Harpy",
         mana_cost = mana!("{3}{B}"),

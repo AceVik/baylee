@@ -16,7 +16,7 @@ card!(
     scryfall_id = "8fc448f6-a7fe-47c4-ac7c-385a77326469",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brushfire Elemental",
         mana_cost = mana!("{R}{G}"),

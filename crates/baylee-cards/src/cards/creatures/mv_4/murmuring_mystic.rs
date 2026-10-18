@@ -17,7 +17,7 @@ card!(
     oracle_id = "dcd4da46-5438-4454-8b1b-43ca51bda1f9",
     scryfall_id = "9e68dcc2-bba4-4efa-97bb-3ed892037595",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murmuring Mystic",
         mana_cost = mana!("{3}{U}"),

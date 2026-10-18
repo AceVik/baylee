@@ -11,7 +11,7 @@ card!(
     oracle_id = "0753aee4-33db-48c5-9854-16a9d91535b2",
     scryfall_id = "5fc4498e-24e6-40e9-8cd5-f42220366664",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scholar of Stars",
         mana_cost = mana!("{3}{U}"),

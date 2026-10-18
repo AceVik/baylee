@@ -13,7 +13,7 @@ card!(
     oracle_id = "6f1e5571-ddda-4cea-84ef-36a571d8fd51",
     scryfall_id = "83957fe0-6500-420c-9b7a-2448a1c1d3b3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashiok's Reaper",
         mana_cost = mana!("{3}{B}"),

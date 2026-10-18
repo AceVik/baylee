@@ -15,7 +15,7 @@ card!(
     scryfall_id = "fd3068c6-d403-46d5-b3d7-1c3b00b9a9b1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ambush Krotiq",
         mana_cost = mana!("{5}{G}"),

@@ -16,7 +16,7 @@ card!(
     scryfall_id = "4a10342d-ca04-4d1e-bca9-79f531951a16",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shocking Sharpshooter",
         mana_cost = mana!("{1}{R}"),

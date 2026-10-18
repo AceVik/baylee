@@ -16,7 +16,7 @@ card!(
     scryfall_id = "f221eccc-3bd2-4629-aacc-7abf8c11449f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanguinary Priest",
         mana_cost = mana!("{3}{B}"),

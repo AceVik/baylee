@@ -17,7 +17,7 @@ card!(
     oracle_id = "5adcd0cb-9305-4e77-a117-31e9dca5c96d",
     scryfall_id = "277e5b49-c53f-4bf7-aac0-950d8708b957",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhalfirin Lancer",
         mana_cost = mana!("{2}{W}"),

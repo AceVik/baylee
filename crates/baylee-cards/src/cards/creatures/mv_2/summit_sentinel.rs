@@ -11,7 +11,7 @@ card!(
     oracle_id = "e7b88da3-7dd1-45f8-b555-98ad838b2917",
     scryfall_id = "81251057-f270-4f05-9dc5-205c70e1f295",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Summit Sentinel",
         mana_cost = mana!("{1}{U}"),

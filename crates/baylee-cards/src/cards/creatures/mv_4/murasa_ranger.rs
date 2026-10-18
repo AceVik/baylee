@@ -11,7 +11,7 @@ card!(
     oracle_id = "84ba3598-a2d2-46d4-b73c-ab139cac37c4",
     scryfall_id = "c4a3c02b-b576-4099-9016-15449f93bb09",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murasa Ranger",
         mana_cost = mana!("{3}{G}"),

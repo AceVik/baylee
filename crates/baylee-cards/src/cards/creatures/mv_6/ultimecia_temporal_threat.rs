@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b64e4475-f1c6-4d85-b42f-6d84d06855bb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ultimecia, Temporal Threat",
         mana_cost = mana!("{4}{U}{U}"),

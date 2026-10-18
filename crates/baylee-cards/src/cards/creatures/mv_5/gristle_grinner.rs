@@ -11,7 +11,7 @@ card!(
     oracle_id = "419f4648-2ace-4bd4-9ae4-8d456688c089",
     scryfall_id = "f1d6e32e-6479-48b3-93ae-da5378c09bb1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gristle Grinner",
         mana_cost = mana!("{4}{B}"),

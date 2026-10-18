@@ -14,7 +14,7 @@ card!(
     oracle_id = "05d0b904-a680-4f2f-aaa1-e227a7fe7e79",
     scryfall_id = "5f48622a-abf3-407f-921f-77c29d59ba8e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unruly Mob",
         mana_cost = mana!("{1}{W}"),

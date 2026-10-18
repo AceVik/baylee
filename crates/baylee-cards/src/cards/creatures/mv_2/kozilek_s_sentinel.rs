@@ -15,7 +15,7 @@ card!(
     scryfall_id = "786c6a0f-3f75-45ff-aae9-5c866be279d0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kozilek's Sentinel",
         mana_cost = mana!("{1}{R}"),

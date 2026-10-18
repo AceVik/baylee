@@ -11,7 +11,7 @@ card!(
     oracle_id = "1f4738db-be2e-4d02-ad0c-1b74dd6bbfdc",
     scryfall_id = "010d93c7-4764-4271-9765-fde1d79f46a0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Living Lightning",
         mana_cost = mana!("{3}{R}"),

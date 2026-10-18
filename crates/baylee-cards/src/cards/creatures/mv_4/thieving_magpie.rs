@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1f9a1760-d681-471d-b3a2-ca5051b8bed3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thieving Magpie",
         mana_cost = mana!("{2}{U}{U}"),

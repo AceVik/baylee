@@ -13,7 +13,7 @@ card!(
     oracle_id = "194166ad-0179-42a3-86b9-ba7f322ec576",
     scryfall_id = "3dac9526-388d-487e-a790-066f83050794",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blade Splicer",
         mana_cost = mana!("{2}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c95da249-49db-4dae-9277-5d481ec480a9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hungry Spriggan",
         mana_cost = mana!("{2}{G}"),

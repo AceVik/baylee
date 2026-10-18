@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b1628ece-a028-49d4-9065-ee997838c20a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flamekin Gildweaver",
         mana_cost = mana!("{3}{R}"),

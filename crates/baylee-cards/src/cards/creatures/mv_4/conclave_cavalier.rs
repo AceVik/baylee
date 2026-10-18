@@ -14,7 +14,7 @@ card!(
     scryfall_id = "084d80d4-c675-4f2a-97ce-ec0b401ecadf",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conclave Cavalier",
         mana_cost = mana!("{G}{G}{W}{W}"),

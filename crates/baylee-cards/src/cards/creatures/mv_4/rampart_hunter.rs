@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f4a80225-7459-4151-86bb-8fdea31c39a6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rampart Hunter",
         mana_cost = mana!("{3}{B}"),

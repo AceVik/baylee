@@ -36,7 +36,7 @@ card!(
     scryfall_id = "e98d5321-ec09-456c-a9ea-c8ca2cfc6205",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aragorn, the Uniter",
         mana_cost = mana!("{R}{G}{W}{U}"),

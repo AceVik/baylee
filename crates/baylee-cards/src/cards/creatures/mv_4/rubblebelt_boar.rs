@@ -11,7 +11,7 @@ card!(
     oracle_id = "b815cbbd-d79f-4180-8204-504a15df7152",
     scryfall_id = "196bf114-e135-43f3-83d5-cb08ca766881",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubblebelt Boar",
         mana_cost = mana!("{3}{R}"),

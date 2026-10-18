@@ -16,7 +16,7 @@ card!(
     oracle_id = "e53532db-5b14-429e-8437-a369c5b8632b",
     scryfall_id = "d68fc3bc-eb3b-4504-93a3-8943d07b23f8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Timbermaw Larva",
         mana_cost = mana!("{3}{G}"),

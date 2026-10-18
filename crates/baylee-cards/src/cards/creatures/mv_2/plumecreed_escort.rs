@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f71320ed-2f30-49ce-bcb0-19aebba3f0e8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plumecreed Escort",
         mana_cost = mana!("{1}{U}"),

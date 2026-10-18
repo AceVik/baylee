@@ -20,7 +20,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tura Kennerüd, Skyknight",
         mana_cost = mana!("{2}{W}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "753b4258-bc1d-47f4-b994-356507b0816a",
     scryfall_id = "b6234dca-088f-4888-98d3-0d5a50eb5e61",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bala Ged Scorpion",
         mana_cost = mana!("{3}{B}"),

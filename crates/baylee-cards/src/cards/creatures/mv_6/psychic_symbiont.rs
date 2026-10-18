@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1145d817-9c84-4acd-977c-fe00325568fd",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psychic Symbiont",
         mana_cost = mana!("{4}{U}{B}"),

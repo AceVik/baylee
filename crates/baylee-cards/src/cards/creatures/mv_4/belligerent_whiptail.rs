@@ -11,7 +11,7 @@ card!(
     oracle_id = "cf0a15f5-5f41-4eea-81f7-02059b9586a2",
     scryfall_id = "a5b5b7d2-acb8-4aca-b9e7-67e59aeb384b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Belligerent Whiptail",
         mana_cost = mana!("{3}{R}"),

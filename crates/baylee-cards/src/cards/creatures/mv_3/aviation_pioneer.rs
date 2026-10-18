@@ -12,7 +12,7 @@ card!(
     oracle_id = "ad11ff81-acaa-4529-ba15-718dadbea259",
     scryfall_id = "e6966738-b4fc-4854-81b0-09de305854f2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aviation Pioneer",
         mana_cost = mana!("{2}{U}"),

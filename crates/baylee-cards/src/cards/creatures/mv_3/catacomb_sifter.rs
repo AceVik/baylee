@@ -18,7 +18,7 @@ card!(
     scryfall_id = "6c3b220b-e699-45b0-8ec1-1022c1f50329",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Catacomb Sifter",
         mana_cost = mana!("{1}{B}{G}"),

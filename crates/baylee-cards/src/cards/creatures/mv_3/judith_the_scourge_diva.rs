@@ -19,7 +19,7 @@ card!(
     scryfall_id = "d6fb929c-1b8d-4d1d-aa69-ac6189cd7ebf",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Judith, the Scourge Diva",
         mana_cost = mana!("{1}{B}{R}"),

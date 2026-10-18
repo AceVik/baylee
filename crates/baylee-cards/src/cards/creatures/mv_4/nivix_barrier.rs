@@ -14,7 +14,7 @@ card!(
     scryfall_id = "0b9b968d-b0cc-411d-9366-8358be28aef2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nivix Barrier",
         mana_cost = mana!("{3}{U}"),

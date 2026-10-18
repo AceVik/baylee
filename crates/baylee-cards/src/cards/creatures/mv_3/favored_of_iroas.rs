@@ -13,7 +13,7 @@ card!(
     oracle_id = "5df784c0-3adc-4613-ba30-905ec8cf66f9",
     scryfall_id = "f09e7aff-d873-4420-b0d5-1c63d686dd73",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Favored of Iroas",
         mana_cost = mana!("{2}{W}"),

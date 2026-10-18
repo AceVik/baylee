@@ -16,7 +16,7 @@ card!(
     oracle_id = "56afad48-c5e5-4fbe-8889-15bcab234c31",
     scryfall_id = "bac6bdd4-b25b-41f6-835d-7d1570cdb951",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Careless Celebrant",
         mana_cost = mana!("{1}{R}"),

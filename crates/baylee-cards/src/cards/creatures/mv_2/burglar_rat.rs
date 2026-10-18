@@ -11,7 +11,7 @@ card!(
     oracle_id = "2f807301-37df-4724-871a-08e3512b07b3",
     scryfall_id = "de1c8758-ce3d-49cf-8173-c0eb46f5e7bc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burglar Rat",
         mana_cost = mana!("{1}{B}"),

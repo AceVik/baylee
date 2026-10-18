@@ -12,7 +12,7 @@ card!(
     oracle_id = "040cbd08-7c8c-46c4-9ab6-d7ec0c43f9d2",
     scryfall_id = "9079b01a-d595-4085-9e75-59e31827efeb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hag of Death's Legion",
         mana_cost = mana!("{2}{B}"),

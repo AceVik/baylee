@@ -13,7 +13,7 @@ card!(
     scryfall_id = "41fce1b3-0961-4672-845f-e1c6ce101c1b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Bladescout",
         mana_cost = mana!("{1}{R}{R}"),

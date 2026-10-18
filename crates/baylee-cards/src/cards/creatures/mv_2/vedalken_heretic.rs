@@ -11,7 +11,7 @@ card!(
     oracle_id = "001c6369-df13-427d-89df-718d5c09f382",
     scryfall_id = "5ab2ba75-e52e-46f5-8a34-3fe1e07446fd",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Heretic",
         mana_cost = mana!("{G}{U}"),

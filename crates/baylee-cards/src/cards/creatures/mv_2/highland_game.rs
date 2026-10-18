@@ -11,7 +11,7 @@ card!(
     oracle_id = "0e0d40a6-e0a4-4fb2-be72-314f7d66b7eb",
     scryfall_id = "4ec59964-42c1-4c29-8c60-37b7f376c347",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Highland Game",
         mana_cost = mana!("{1}{G}"),

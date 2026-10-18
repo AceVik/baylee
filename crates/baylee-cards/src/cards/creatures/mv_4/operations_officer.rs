@@ -16,7 +16,7 @@ card!(
     scryfall_id = "40a37274-af28-4019-86fc-197e764e9e3e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Operations Officer",
         mana_cost = mana!("{3}{W}"),

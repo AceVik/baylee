@@ -16,7 +16,7 @@ card!(
     scryfall_id = "2dbe9207-06e8-4837-8227-0f960490771b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mutant Town Musicians",
         mana_cost = mana!("{2}{R}"),

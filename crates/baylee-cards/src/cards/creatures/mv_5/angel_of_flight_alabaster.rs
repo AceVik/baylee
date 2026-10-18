@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3ff8fbcd-5db9-4cde-9f56-243b1f4924f8",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel of Flight Alabaster",
         mana_cost = mana!("{4}{W}"),

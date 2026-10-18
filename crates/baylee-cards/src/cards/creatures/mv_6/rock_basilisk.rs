@@ -16,7 +16,7 @@ card!(
     oracle_id = "6e7bb687-8243-4377-80b5-67ce6b65f9b7",
     scryfall_id = "79949237-dcce-4ac1-bdc6-7c6d8b5f5fde",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rock Basilisk",
         mana_cost = mana!("{4}{R}{G}"),

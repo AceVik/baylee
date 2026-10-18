@@ -20,7 +20,7 @@ card!(
     scryfall_id = "3888e2f0-223b-4509-8071-fe1b87a65b72",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lys Alana Bowmaster",
         mana_cost = mana!("{2}{G}"),

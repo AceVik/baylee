@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ca79852-d90d-47b0-8427-4da90779e205",
     scryfall_id = "bb0a0d33-8862-433b-a078-82472e5f9af0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gideon's Avenger",
         mana_cost = mana!("{1}{W}{W}"),

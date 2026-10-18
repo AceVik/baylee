@@ -15,7 +15,7 @@ card!(
     scryfall_id = "e9f88da5-b013-478a-8a0b-da9d1e8eb2c9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riptide Chimera",
         mana_cost = mana!("{2}{U}"),

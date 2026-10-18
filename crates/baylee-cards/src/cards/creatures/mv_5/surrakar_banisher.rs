@@ -13,7 +13,7 @@ card!(
     oracle_id = "d48fd4b7-b60c-4932-abed-a8df1184db25",
     scryfall_id = "bd577743-43af-4215-8585-52f714694c6e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Surrakar Banisher",
         mana_cost = mana!("{4}{U}"),

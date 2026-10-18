@@ -12,7 +12,7 @@ card!(
     oracle_id = "b29abb09-75ea-431c-ab60-f2940d002e83",
     scryfall_id = "211045e1-85c7-4088-b830-a2afa0fe520b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kyoshi Warriors",
         mana_cost = mana!("{3}{W}"),

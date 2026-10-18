@@ -13,7 +13,7 @@ card!(
     scryfall_id = "557b7e56-36f7-489c-a0fe-039c463f8bc5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mist Raven",
         mana_cost = mana!("{2}{U}{U}"),

@@ -20,7 +20,7 @@ card!(
     ]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Child of Alara",
         mana_cost = mana!("{W}{U}{B}{R}{G}"),

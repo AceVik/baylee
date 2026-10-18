@@ -15,7 +15,7 @@ card!(
     scryfall_id = "fda99319-9312-42c4-adc0-77b49768d014",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Keen-Eyed Raven",
         mana_cost = mana!("{2}{W}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "48a53d6e-0320-4b9c-b692-6d0fc00e46cc",
     scryfall_id = "3f602ecc-c264-4f3e-adeb-d0186668653e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rambunctious Mutt",
         mana_cost = mana!("{3}{W}{W}"),

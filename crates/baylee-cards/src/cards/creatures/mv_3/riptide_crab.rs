@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cdf9f3fb-40f5-4833-8638-5ddc2ba591f3",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riptide Crab",
         mana_cost = mana!("{1}{W}{U}"),

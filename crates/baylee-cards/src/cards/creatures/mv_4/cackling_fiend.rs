@@ -11,7 +11,7 @@ card!(
     oracle_id = "2029954b-6fa7-40d7-bb19-d7534c62be5d",
     scryfall_id = "c7e4fa7f-a5d7-46cd-bc46-d3d231235460",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cackling Fiend",
         mana_cost = mana!("{2}{B}{B}"),

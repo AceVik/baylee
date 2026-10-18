@@ -22,7 +22,7 @@ card!(
     oracle_id = "a56d13b5-a84d-4629-b9ec-4f407ee62596",
     scryfall_id = "ac93faba-8b40-48f4-b4eb-7c8677ed07e2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattermunge Duo",
         mana_cost = mana!("{2}{R/G}"),

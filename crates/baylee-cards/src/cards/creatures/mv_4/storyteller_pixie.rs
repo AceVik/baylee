@@ -18,7 +18,7 @@ card!(
     scryfall_id = "b9f4cf85-2120-4897-aecd-4ee4b02d6f9b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Storyteller Pixie",
         mana_cost = mana!("{3}{U}"),

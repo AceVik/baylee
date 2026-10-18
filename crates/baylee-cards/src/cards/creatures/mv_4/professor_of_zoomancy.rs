@@ -12,7 +12,7 @@ card!(
     oracle_id = "a22b8220-b41d-4b58-aa68-2c65ce37c517",
     scryfall_id = "8347f2e8-ef70-4879-860a-12f7cab25902",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Professor of Zoomancy",
         mana_cost = mana!("{3}{G}"),

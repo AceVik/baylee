@@ -11,7 +11,7 @@ card!(
     oracle_id = "4e94f685-f392-40a8-8ad4-683351877fd9",
     scryfall_id = "05445d18-3590-4216-9392-9438d9f9395d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forsaken Drifters",
         mana_cost = mana!("{3}{B}"),

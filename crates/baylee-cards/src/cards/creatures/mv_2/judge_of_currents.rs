@@ -16,7 +16,7 @@ card!(
     oracle_id = "b4eafd12-5f3e-43e6-aa0a-6bb5f4f5782b",
     scryfall_id = "3073f3f5-bff8-4ec1-a68f-c83d63435843",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Judge of Currents",
         mana_cost = mana!("{1}{W}"),

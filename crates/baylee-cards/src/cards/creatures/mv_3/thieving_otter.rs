@@ -11,7 +11,7 @@ card!(
     oracle_id = "5dee663f-9e2e-4503-8086-fc51664fdf29",
     scryfall_id = "52a258be-39e3-4689-b2d0-7c353ce7d574",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thieving Otter",
         mana_cost = mana!("{2}{U}"),

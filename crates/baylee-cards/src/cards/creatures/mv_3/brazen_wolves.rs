@@ -11,7 +11,7 @@ card!(
     oracle_id = "0b5a3d7b-6b2c-4e91-8218-2b957277855c",
     scryfall_id = "ab8e2ece-3c66-4f34-9042-fc02639c6a79",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brazen Wolves",
         mana_cost = mana!("{2}{R}"),

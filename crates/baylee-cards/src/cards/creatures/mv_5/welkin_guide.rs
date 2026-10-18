@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ee5c82bd-9946-4121-94f6-70442dab9f54",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Welkin Guide",
         mana_cost = mana!("{4}{W}"),

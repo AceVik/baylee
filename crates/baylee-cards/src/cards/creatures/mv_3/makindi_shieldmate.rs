@@ -22,7 +22,7 @@ card!(
     scryfall_id = "e76e9555-966c-4fc3-9ef4-a0154ccb8329",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Makindi Shieldmate",
         mana_cost = mana!("{2}{W}"),

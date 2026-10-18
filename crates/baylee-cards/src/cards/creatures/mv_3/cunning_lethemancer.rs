@@ -11,7 +11,7 @@ card!(
     oracle_id = "d696aba9-ef3e-4f81-821a-c1df51431b8a",
     scryfall_id = "972891e6-6a23-40df-af22-adf8cd7ea582",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cunning Lethemancer",
         mana_cost = mana!("{2}{B}"),

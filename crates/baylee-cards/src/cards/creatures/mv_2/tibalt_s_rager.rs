@@ -12,7 +12,7 @@ card!(
     oracle_id = "0d7d8f4f-abf3-408b-a289-1dd6a3ebdbf6",
     scryfall_id = "2947ad7e-d365-45ff-b107-35819b308f8c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tibalt's Rager",
         mana_cost = mana!("{1}{R}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "1bb844c4-f41c-4411-a80a-c19e1d97b272",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Belligerent Guest",
         mana_cost = mana!("{2}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "452ef7d0-1351-40e6-9379-59cd8bb31da5",
     scryfall_id = "fa828bc7-0f5a-45de-9608-da42dda8f3f9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kozilek's Predator",
         mana_cost = mana!("{3}{G}"),

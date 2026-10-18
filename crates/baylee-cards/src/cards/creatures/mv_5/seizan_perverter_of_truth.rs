@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e1e61750-f7d7-4e6d-9d68-e1e357868a8d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seizan, Perverter of Truth",
         mana_cost = mana!("{3}{B}{B}"),

@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d1298b43-0b10-4b7c-9d33-786d4d7bd80e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghost Hounds",
         mana_cost = mana!("{1}{B}"),

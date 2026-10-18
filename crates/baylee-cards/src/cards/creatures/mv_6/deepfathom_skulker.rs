@@ -14,7 +14,7 @@ card!(
     scryfall_id = "496a22cc-36dd-4d4d-b887-8c4733a29870",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deepfathom Skulker",
         mana_cost = mana!("{5}{U}"),

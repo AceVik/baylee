@@ -13,7 +13,7 @@ card!(
     oracle_id = "22005b01-84b1-4d4b-9193-3c561bd422ce",
     scryfall_id = "13893599-0b87-4fc0-863d-f3e0ae51cc31",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captivating Unicorn",
         mana_cost = mana!("{4}{W}"),

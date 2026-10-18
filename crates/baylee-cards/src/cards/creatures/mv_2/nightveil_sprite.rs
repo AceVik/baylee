@@ -13,7 +13,7 @@ card!(
     scryfall_id = "82f806fe-3970-4ae2-b232-d99002d46062",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightveil Sprite",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "fbad6038-93ed-4a28-b1f0-ada54608758b",
     scryfall_id = "22a04ccb-cb57-4548-81db-e1b77b09f5da",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slith Bloodletter",
         mana_cost = mana!("{B}{B}"),

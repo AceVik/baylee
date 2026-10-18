@@ -12,7 +12,7 @@ card!(
     scryfall_id = "683cfef0-f164-4db8-b83f-79eb804e50ae",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Donatello, Turtle Techie",
         mana_cost = mana!("{3}{U}"),

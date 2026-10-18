@@ -17,7 +17,7 @@ card!(
     oracle_id = "9e00188a-0743-4a39-9229-977a0a115659",
     scryfall_id = "d84b1444-a609-4c23-935d-fa25aef16179",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iceberg Cancrix",
         mana_cost = mana!("{1}{U}"),

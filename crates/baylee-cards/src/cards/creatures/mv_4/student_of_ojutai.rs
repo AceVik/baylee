@@ -13,7 +13,7 @@ card!(
     oracle_id = "0adcf8d2-6eb9-4679-8ad5-f28e2f4aba39",
     scryfall_id = "df49884b-9e12-488c-8381-ec543349b97b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Student of Ojutai",
         mana_cost = mana!("{3}{W}"),

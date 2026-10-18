@@ -16,7 +16,7 @@ card!(
     oracle_id = "bf4268e6-170a-445b-b215-718f7494ae28",
     scryfall_id = "7fc914fe-e699-4a21-aa09-f3573d020b87",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Volley Veteran",
         mana_cost = mana!("{3}{R}"),

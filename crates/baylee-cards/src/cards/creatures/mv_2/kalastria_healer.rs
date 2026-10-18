@@ -20,7 +20,7 @@ card!(
     oracle_id = "b70718c3-a959-402a-a715-7a3c9724a70a",
     scryfall_id = "42c21cb3-21f4-4a8d-8068-52649f2a1846",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kalastria Healer",
         mana_cost = mana!("{1}{B}"),

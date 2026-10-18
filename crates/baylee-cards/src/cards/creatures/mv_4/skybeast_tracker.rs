@@ -16,7 +16,7 @@ card!(
     scryfall_id = "a08da5c6-ebe7-4166-99d5-2aca5b0b529f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skybeast Tracker",
         mana_cost = mana!("{3}{G}"),

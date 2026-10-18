@@ -12,7 +12,7 @@ card!(
     oracle_id = "42de2d46-c98d-4ae5-a53d-97531592529b",
     scryfall_id = "17d566bd-f272-49d1-bffb-588f2a42046a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daysquad Marshal",
         mana_cost = mana!("{3}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "465adbb4-4c64-44eb-8323-61d23282c6b8",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Senate Griffin",
         mana_cost = mana!("{2}{W/U}{W/U}"),

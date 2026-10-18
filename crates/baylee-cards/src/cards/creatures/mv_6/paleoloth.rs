@@ -18,7 +18,7 @@ card!(
     oracle_id = "627de3d8-ad5e-4f9b-b83c-476cc98fea9b",
     scryfall_id = "b83ad801-44e7-48d0-9f34-0d10536bb4dc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paleoloth",
         mana_cost = mana!("{4}{G}{G}"),

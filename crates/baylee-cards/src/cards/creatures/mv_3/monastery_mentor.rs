@@ -16,7 +16,7 @@ card!(
     scryfall_id = "2343e69d-f30e-4826-953c-fbf31c6079e6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monastery Mentor",
         mana_cost = mana!("{2}{W}"),

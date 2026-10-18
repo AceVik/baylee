@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6a2e1d4a-8df4-472f-a98f-d6b71c1dd1c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodgift Demon",
         mana_cost = mana!("{3}{B}{B}"),

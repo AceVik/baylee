@@ -21,7 +21,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obyra, Dreaming Duelist",
         mana_cost = mana!("{U}{B}"),

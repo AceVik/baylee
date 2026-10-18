@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c3170852-60a9-46bc-8183-b1a65fc3b82b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lotus-Eye Mystics",
         mana_cost = mana!("{3}{W}"),

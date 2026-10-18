@@ -17,7 +17,7 @@ card!(
     oracle_id = "0af189d3-4de1-483e-aac4-dd5d51a57d9c",
     scryfall_id = "c330f44c-0479-472d-81ed-16445d182c37",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlegate Mimic",
         mana_cost = mana!("{1}{R/W}"),

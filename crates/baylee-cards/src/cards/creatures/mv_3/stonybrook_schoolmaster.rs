@@ -12,7 +12,7 @@ card!(
     oracle_id = "7ef67bae-4af3-47b9-95d2-08f3c5a0b39d",
     scryfall_id = "69fa2293-f398-4ad8-895e-c739ddea56d0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stonybrook Schoolmaster",
         mana_cost = mana!("{2}{W}"),

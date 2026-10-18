@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3a84c3f8-0030-4653-880e-b2d19272f5fa",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Humbling Elder",
         mana_cost = mana!("{U}"),

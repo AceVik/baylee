@@ -18,7 +18,7 @@ card!(
     oracle_id = "e6108735-8370-4611-ad59-d7da7fd0323f",
     scryfall_id = "0505053c-8a9c-43ed-b44a-b52c56ba4f77",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sure-Footed Infiltrator",
         mana_cost = mana!("{3}{U}"),

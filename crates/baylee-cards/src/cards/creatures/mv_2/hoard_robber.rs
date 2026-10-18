@@ -12,7 +12,7 @@ card!(
     oracle_id = "1a04f70c-288d-4010-a6d5-24e9778b9b45",
     scryfall_id = "b723d9cd-05f5-4894-9f2b-52a434a3019c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hoard Robber",
         mana_cost = mana!("{1}{B}"),

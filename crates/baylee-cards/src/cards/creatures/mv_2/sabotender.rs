@@ -13,7 +13,7 @@ card!(
     scryfall_id = "12df1295-8b08-4c8e-bac9-55b4f514c0be",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sabotender",
         mana_cost = mana!("{1}{R}"),

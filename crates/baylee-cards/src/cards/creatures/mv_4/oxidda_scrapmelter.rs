@@ -11,7 +11,7 @@ card!(
     oracle_id = "cef64ec6-cdfb-42a4-9a4a-3ef5448e93fc",
     scryfall_id = "c64fe85b-e471-489a-8c38-2357da1c7969",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oxidda Scrapmelter",
         mana_cost = mana!("{3}{R}"),

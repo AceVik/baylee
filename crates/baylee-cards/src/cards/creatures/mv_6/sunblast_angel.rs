@@ -13,7 +13,7 @@ card!(
     scryfall_id = "680f7d5c-d518-4ebb-92d5-e835cd9eafe0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunblast Angel",
         mana_cost = mana!("{4}{W}{W}"),

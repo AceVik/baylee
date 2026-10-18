@@ -18,7 +18,7 @@ card!(
     scryfall_id = "02530654-03f7-4a42-91f6-f7e0cda71286",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Urchin",
         mana_cost = mana!("{1}{R}"),

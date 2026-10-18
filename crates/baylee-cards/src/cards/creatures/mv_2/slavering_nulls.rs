@@ -16,7 +16,7 @@ card!(
     oracle_id = "c6d39445-dfc2-42c3-afd2-016fdf008f0e",
     scryfall_id = "a8ead2b6-3bf7-4881-a154-06ab2558052b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slavering Nulls",
         mana_cost = mana!("{1}{R}"),

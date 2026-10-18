@@ -11,7 +11,7 @@ card!(
     oracle_id = "6ce24851-70d2-416c-8733-78928b4eee74",
     scryfall_id = "4e35a461-9a8e-4d08-b963-14c8b5237eec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wailing Ghoul",
         mana_cost = mana!("{1}{B}"),

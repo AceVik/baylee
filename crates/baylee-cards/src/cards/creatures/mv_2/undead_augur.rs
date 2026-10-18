@@ -20,7 +20,7 @@ card!(
     oracle_id = "c26887e1-27f4-4550-921b-53460e43c079",
     scryfall_id = "9c3baad6-d087-436f-a9f4-c138639e3422",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undead Augur",
         mana_cost = mana!("{B}{B}"),

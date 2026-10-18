@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a9e2bb08-9be0-4046-9c22-7b132ce5f506",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonlair Spider",
         mana_cost = mana!("{2}{R}{R}{G}{G}"),

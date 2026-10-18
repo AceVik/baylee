@@ -27,7 +27,7 @@ card!(
     oracle_id = "944904a4-aab6-4ad9-96d7-6a3e47c118ca",
     scryfall_id = "283b47a9-c21e-4c0a-9c70-38b8ebbffab3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Earthshaker",
         mana_cost = mana!("{4}{R}{R}"),

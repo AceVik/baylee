@@ -11,7 +11,7 @@ card!(
     oracle_id = "2f72f111-450a-4da2-81fd-cbc4f9c1ef9d",
     scryfall_id = "8b6a8b3e-2709-4036-838b-56cc82b0d917",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necromancer's Assistant",
         mana_cost = mana!("{2}{B}"),

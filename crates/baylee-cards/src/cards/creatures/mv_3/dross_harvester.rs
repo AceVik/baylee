@@ -13,7 +13,7 @@ card!(
     oracle_id = "5520ada0-f173-4b5e-a0b8-a5938a1c0a4b",
     scryfall_id = "35f77a00-1880-416c-813b-c6a870dd5f58",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dross Harvester",
         mana_cost = mana!("{1}{B}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "a05bcc3e-25d5-4111-820e-a097189afb7e",
     scryfall_id = "8b115a65-e273-4264-9db7-317e1855f492",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weldfast Wingsmith",
         mana_cost = mana!("{3}{U}"),

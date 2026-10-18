@@ -19,7 +19,7 @@ card!(
     oracle_id = "3740b86d-b0e6-4837-b408-e7f62b95c787",
     scryfall_id = "049acc79-1d68-410f-a081-88a7d40e823a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Underfoot Underdogs",
         mana_cost = mana!("{2}{R}"),

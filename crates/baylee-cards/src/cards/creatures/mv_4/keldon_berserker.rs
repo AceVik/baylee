@@ -13,7 +13,7 @@ card!(
     oracle_id = "7e0b9e67-3103-4299-934b-46d8fe96f553",
     scryfall_id = "daa3f9c0-66ff-4b94-b0c3-e1c65d2040b9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Keldon Berserker",
         mana_cost = mana!("{3}{R}"),

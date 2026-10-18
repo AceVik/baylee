@@ -13,7 +13,7 @@ card!(
     scryfall_id = "11b45809-87fc-409d-942a-1f31f68d27ac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wave-Wing Elemental",
         mana_cost = mana!("{5}{U}"),

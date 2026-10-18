@@ -13,7 +13,7 @@ card!(
     scryfall_id = "749961e6-b135-4629-ae9d-124de0d70db9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runewing",
         mana_cost = mana!("{3}{U}"),

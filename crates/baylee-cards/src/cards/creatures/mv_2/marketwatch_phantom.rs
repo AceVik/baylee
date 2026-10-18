@@ -18,7 +18,7 @@ card!(
     oracle_id = "6b0d4192-bc76-4ef1-92b2-b5fca81970bd",
     scryfall_id = "daf6a392-3fc4-45d1-b85d-3b1381b3ab7d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marketwatch Phantom",
         mana_cost = mana!("{1}{W}"),

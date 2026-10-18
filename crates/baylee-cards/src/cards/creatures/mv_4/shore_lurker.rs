@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bb353c27-e311-4677-9277-cab6820562ce",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shore Lurker",
         mana_cost = mana!("{3}{W}"),

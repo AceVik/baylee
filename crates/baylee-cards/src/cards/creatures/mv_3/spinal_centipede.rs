@@ -11,7 +11,7 @@ card!(
     oracle_id = "43d44a7f-829a-4f4d-9f71-2f4384ddd803",
     scryfall_id = "74d579fb-615a-43a6-a1c1-c535087abf2a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spinal Centipede",
         mana_cost = mana!("{2}{B}"),

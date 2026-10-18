@@ -11,7 +11,7 @@ card!(
     oracle_id = "f606bd15-b380-447f-b147-72f811266593",
     scryfall_id = "ebf3a622-6aad-4d74-8098-ffbf21555956",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bulwark Giant",
         mana_cost = mana!("{5}{W}"),

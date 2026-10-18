@@ -12,7 +12,7 @@ card!(
     oracle_id = "01813091-75e8-431b-ba3f-b1ea1ba20a3b",
     scryfall_id = "47717312-f6c6-4e86-ba6a-a30698962430",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimble Thopterist",
         mana_cost = mana!("{3}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a24c9c98-9eff-4f4b-93ca-9281d61e6835",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire-Omen Crane",
         mana_cost = mana!("{3}{R}{R}"),

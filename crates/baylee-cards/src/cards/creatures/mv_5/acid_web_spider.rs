@@ -15,7 +15,7 @@ card!(
     scryfall_id = "968a25a5-9ec1-47fa-bf1f-e65eb75fdb00",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Acid Web Spider",
         mana_cost = mana!("{3}{G}{G}"),

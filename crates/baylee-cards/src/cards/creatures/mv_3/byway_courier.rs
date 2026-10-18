@@ -12,7 +12,7 @@ card!(
     oracle_id = "e186cc6f-8c11-4475-a704-0b4c3a9eade9",
     scryfall_id = "2f243a51-bbd3-4028-a469-469ab5591aae",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Byway Courier",
         mana_cost = mana!("{2}{G}"),

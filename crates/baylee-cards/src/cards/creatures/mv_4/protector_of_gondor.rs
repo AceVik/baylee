@@ -12,7 +12,7 @@ card!(
     oracle_id = "cf6bb391-4fde-43c4-a0c5-990630d0ddcf",
     scryfall_id = "85708748-40ca-4066-a287-7a6a189ff3df",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Protector of Gondor",
         mana_cost = mana!("{3}{W}"),

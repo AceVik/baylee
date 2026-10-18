@@ -18,7 +18,7 @@ card!(
     scryfall_id = "aca83e48-6e32-477f-8714-6103e77c06df",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jade Guardian",
         mana_cost = mana!("{3}{G}"),

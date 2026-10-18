@@ -16,7 +16,7 @@ card!(
     oracle_id = "f9f719cb-7778-4109-bbd3-4504ee1b5f49",
     scryfall_id = "a746c2ff-60f3-41c4-853d-e5159d005bea",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seafloor Oracle",
         mana_cost = mana!("{2}{U}{U}"),

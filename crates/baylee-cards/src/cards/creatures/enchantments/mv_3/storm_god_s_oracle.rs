@@ -12,7 +12,7 @@ card!(
     oracle_id = "21613fac-d959-44ba-9bcb-0a30b5e6545e",
     scryfall_id = "a6d22f24-f752-4bc8-ba97-061b2c060ec8",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Storm God's Oracle",
         mana_cost = mana!("{1}{U}{R}"),

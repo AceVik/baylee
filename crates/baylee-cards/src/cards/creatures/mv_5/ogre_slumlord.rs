@@ -19,7 +19,7 @@ card!(
     oracle_id = "0a5e3748-2e58-4e53-9653-8af4e21cf223",
     scryfall_id = "76995067-81a3-41c5-bc95-bfa5a953700d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Slumlord",
         mana_cost = mana!("{3}{B}{B}"),

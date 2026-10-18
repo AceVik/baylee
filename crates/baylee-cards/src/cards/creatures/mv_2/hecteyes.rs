@@ -11,7 +11,7 @@ card!(
     oracle_id = "7a11b4ed-430d-4ef8-b0c1-6a022f12448c",
     scryfall_id = "8680d052-c07b-4d9b-bda9-b5f69f44f424",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hecteyes",
         mana_cost = mana!("{1}{B}"),

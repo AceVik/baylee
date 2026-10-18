@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6ec8fa0b-c695-4326-aebd-042cb1974925",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeskai Shrinekeeper",
         mana_cost = mana!("{2}{U}{R}{W}"),

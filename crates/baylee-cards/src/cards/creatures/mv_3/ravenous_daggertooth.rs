@@ -11,7 +11,7 @@ card!(
     oracle_id = "f5ef25fb-545e-41b7-8fed-d3cfff3d8668",
     scryfall_id = "309b204b-774a-47bc-aead-c78db90f3be2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravenous Daggertooth",
         mana_cost = mana!("{2}{G}"),

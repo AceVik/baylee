@@ -20,7 +20,7 @@ card!(
     oracle_id = "b9794b16-3ef4-424a-b1ee-e2077f53873d",
     scryfall_id = "d4ebd8c0-bb03-434d-b669-d9b35d07b2c6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thassa's Devourer",
         mana_cost = mana!("{4}{U}"),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "c5e9389e-6ee3-48df-89bc-9334544e0a4c",
     scryfall_id = "0c78c386-c64b-4fab-a718-f18b46360e20",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistford River Turtle",
         mana_cost = mana!("{3}{U}"),

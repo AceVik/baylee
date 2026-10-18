@@ -15,7 +15,7 @@ card!(
     scryfall_id = "6050cf98-cdce-4825-9ab8-2294a2b63faf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haradrim Spearmaster",
         mana_cost = mana!("{2}{R}"),

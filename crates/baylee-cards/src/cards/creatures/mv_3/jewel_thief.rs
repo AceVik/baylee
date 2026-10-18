@@ -14,7 +14,7 @@ card!(
     scryfall_id = "736e498e-1245-40c1-96a4-c9bcfd1cfe1f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jewel Thief",
         mana_cost = mana!("{2}{G}"),

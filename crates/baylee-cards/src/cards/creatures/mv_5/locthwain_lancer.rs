@@ -19,7 +19,7 @@ card!(
     scryfall_id = "7417067d-de28-404c-981e-e62b05d2bdf1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Locthwain Lancer",
         mana_cost = mana!("{4}{B}"),

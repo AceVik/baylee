@@ -30,7 +30,7 @@ card!(
     oracle_id = "f42b6510-7322-4733-85ea-7ae6bd6ca8fc",
     scryfall_id = "a20d20f7-bc4d-42fa-9f5b-5bb330eb7f38",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quirion Dryad",
         mana_cost = mana!("{1}{G}"),

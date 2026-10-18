@@ -11,7 +11,7 @@ card!(
     oracle_id = "1da438f3-db1c-4713-a60c-e078f31d809c",
     scryfall_id = "d2f8fe93-8d20-41d4-8205-597a9c9b8bbe",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Izzet Chronarch",
         mana_cost = mana!("{3}{U}{R}"),

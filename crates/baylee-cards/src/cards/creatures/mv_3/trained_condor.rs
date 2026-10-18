@@ -15,7 +15,7 @@ card!(
     scryfall_id = "6e1eaa5a-3f9d-4166-b418-fd82fff86c73",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Condor",
         mana_cost = mana!("{2}{U}"),

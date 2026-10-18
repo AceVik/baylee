@@ -16,7 +16,7 @@ card!(
     scryfall_id = "6d62fcbb-f1a0-46ce-a4af-2a33bcc3ac8e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crossroads Watcher",
         mana_cost = mana!("{2}{G}"),

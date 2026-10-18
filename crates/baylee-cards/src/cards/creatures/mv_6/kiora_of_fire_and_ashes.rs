@@ -14,7 +14,7 @@ card!(
     scryfall_id = "08657053-86f9-4c52-abf0-d9cdd443ae3b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kiora of Fire and Ashes",
         mana_cost = mana!("{4}{R}{R}"),

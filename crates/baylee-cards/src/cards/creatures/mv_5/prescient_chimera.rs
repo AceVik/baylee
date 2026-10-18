@@ -18,7 +18,7 @@ card!(
     scryfall_id = "f4bb655d-8d62-4a79-9a9d-7384d1cb2cc0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prescient Chimera",
         mana_cost = mana!("{3}{U}{U}"),

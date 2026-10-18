@@ -11,7 +11,7 @@ card!(
     oracle_id = "8bd6dea2-2fdd-482f-9fe8-6f3eeed13872",
     scryfall_id = "351b213e-b23e-4287-947a-6bd81f1cf751",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cacophodon",
         mana_cost = mana!("{3}{G}"),

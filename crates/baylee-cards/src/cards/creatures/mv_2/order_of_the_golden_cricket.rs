@@ -11,7 +11,7 @@ card!(
     oracle_id = "02abe85a-c603-4963-aba4-524cc80847ea",
     scryfall_id = "5d1c2f16-5661-4c17-8265-f4b88ff1e833",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of the Golden Cricket",
         mana_cost = mana!("{1}{W}"),

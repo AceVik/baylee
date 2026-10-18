@@ -12,7 +12,7 @@ card!(
     oracle_id = "31816924-1430-4581-86e8-325e2ca16217",
     scryfall_id = "857fef2e-df1f-4ec6-a262-f6fa52389cf9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agents of HYDRA",
         mana_cost = mana!("{1}{B}"),

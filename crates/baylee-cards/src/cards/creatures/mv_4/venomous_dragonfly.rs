@@ -13,7 +13,7 @@ card!(
     scryfall_id = "479fc902-ce94-4a6b-af87-4645387a46c6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venomous Dragonfly",
         mana_cost = mana!("{3}{G}"),

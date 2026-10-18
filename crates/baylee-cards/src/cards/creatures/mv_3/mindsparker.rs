@@ -36,7 +36,7 @@ card!(
     scryfall_id = "4c8b3e58-be07-451e-a5c7-61c70cc3a5a2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindsparker",
         mana_cost = mana!("{1}{R}{R}"),

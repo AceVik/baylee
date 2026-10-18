@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f6898737-957f-44a6-bef7-fb196658176f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elturgard Ranger",
         mana_cost = mana!("{4}{G}"),

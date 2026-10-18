@@ -12,7 +12,7 @@ card!(
     oracle_id = "c6e92911-a100-43eb-ab4b-3778b0db1918",
     scryfall_id = "cf4b5ad9-3de6-4d53-93a0-3b8d2e484687",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnhart Rejuvenator",
         mana_cost = mana!("{3}{G}"),

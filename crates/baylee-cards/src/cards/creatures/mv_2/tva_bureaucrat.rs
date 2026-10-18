@@ -13,7 +13,7 @@ card!(
     oracle_id = "e9638ad1-4e1d-4721-91f5-8cf13d0d0d0d",
     scryfall_id = "62da11c2-e37d-46e9-b225-ba864b7f2c11",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "TVA Bureaucrat",
         mana_cost = mana!("{1}{U}"),

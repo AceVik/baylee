@@ -13,7 +13,7 @@ card!(
     oracle_id = "d1c44856-ca53-4b6e-902e-8d9c6fe1f61c",
     scryfall_id = "84e39703-db78-4d3d-aacd-5396848253ed",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foundry Champion",
         mana_cost = mana!("{4}{R}{W}"),

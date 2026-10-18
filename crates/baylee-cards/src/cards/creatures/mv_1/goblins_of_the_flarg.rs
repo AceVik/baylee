@@ -20,7 +20,7 @@ card!(
     scryfall_id = "cb91b7c0-c453-481b-9d3d-0223057291ed",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblins of the Flarg",
         mana_cost = mana!("{R}"),

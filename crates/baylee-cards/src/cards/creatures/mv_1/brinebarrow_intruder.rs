@@ -13,7 +13,7 @@ card!(
     scryfall_id = "89960a74-9e17-4e30-874a-4286dd4c917d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brinebarrow Intruder",
         mana_cost = mana!("{U}"),

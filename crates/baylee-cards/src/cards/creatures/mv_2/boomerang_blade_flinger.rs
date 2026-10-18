@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6b9f9d5d-a1b6-4e3a-8b65-69eba94ee990",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boomerang, Blade Flinger",
         mana_cost = mana!("{1}{B}"),

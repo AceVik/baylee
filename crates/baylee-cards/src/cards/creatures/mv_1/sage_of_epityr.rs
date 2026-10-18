@@ -11,7 +11,7 @@ card!(
     oracle_id = "ef893585-246c-4028-bd2b-14ac51ce29be",
     scryfall_id = "8e2ea578-069e-4020-a762-d108a3e14861",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sage of Epityr",
         mana_cost = mana!("{U}"),

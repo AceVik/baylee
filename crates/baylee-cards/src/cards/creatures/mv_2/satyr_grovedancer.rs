@@ -11,7 +11,7 @@ card!(
     oracle_id = "49f3bd5a-9c2a-45b8-aa10-9c6471028a0f",
     scryfall_id = "d46febca-f3c0-4467-aef4-4dfcdf3009fe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Satyr Grovedancer",
         mana_cost = mana!("{1}{G}"),

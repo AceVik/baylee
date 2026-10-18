@@ -11,7 +11,7 @@ card!(
     oracle_id = "785e451d-87b6-4772-97e5-d2744818e0fd",
     scryfall_id = "200a7f42-9642-4ba8-b3db-a8824282ca00",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yeva's Forcemage",
         mana_cost = mana!("{2}{G}"),

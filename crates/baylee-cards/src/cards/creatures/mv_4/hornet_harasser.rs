@@ -11,7 +11,7 @@ card!(
     oracle_id = "5c0c3f08-4f65-4b04-8bfc-1532160f3e28",
     scryfall_id = "45598727-a8b1-4b3e-87c6-70c36f0d4fe8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hornet Harasser",
         mana_cost = mana!("{2}{B}{B}"),

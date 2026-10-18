@@ -11,7 +11,7 @@ card!(
     oracle_id = "5722a13f-7d70-438c-94ba-97a3f53fbc5c",
     scryfall_id = "3289db66-231f-4370-aca6-644d75bee293",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Generous Stray",
         mana_cost = mana!("{2}{G}"),

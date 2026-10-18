@@ -16,7 +16,7 @@ card!(
     scryfall_id = "4b3cc15e-1c82-454e-b541-4ab47c44814e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starry-Eyed Skyrider",
         mana_cost = mana!("{2}{W}"),

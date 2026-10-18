@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a87cb2f2-00ed-46a3-a69d-5360e1558b03",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Destructor Dragon",
         mana_cost = mana!("{4}{G}{G}"),

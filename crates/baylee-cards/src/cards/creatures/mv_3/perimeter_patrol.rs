@@ -11,7 +11,7 @@ card!(
     oracle_id = "ef625caf-c5d3-47f4-b1fb-bd040c5d864c",
     scryfall_id = "d4719bc1-4c27-45d8-89f7-8c76ccf946d2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Perimeter Patrol",
         mana_cost = mana!("{2}{G}"),

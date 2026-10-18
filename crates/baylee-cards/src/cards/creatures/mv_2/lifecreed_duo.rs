@@ -16,7 +16,7 @@ card!(
     scryfall_id = "ca543405-5e12-48a0-9a77-082ac9bcb2f2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lifecreed Duo",
         mana_cost = mana!("{1}{W}"),

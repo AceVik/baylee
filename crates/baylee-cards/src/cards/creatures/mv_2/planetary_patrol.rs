@@ -11,7 +11,7 @@ card!(
     oracle_id = "fba54c2d-a664-4e4c-b9d4-e24cf2523ab9",
     scryfall_id = "163f5474-138d-4b47-a6f5-b1a0974e56a4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Planetary Patrol",
         mana_cost = mana!("{1}{R}"),

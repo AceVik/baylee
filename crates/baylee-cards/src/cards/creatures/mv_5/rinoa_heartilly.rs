@@ -16,7 +16,7 @@ card!(
     scryfall_id = "ba79d293-bf42-48b6-a868-5249f4beeb76",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rinoa Heartilly",
         mana_cost = mana!("{3}{G}{W}"),

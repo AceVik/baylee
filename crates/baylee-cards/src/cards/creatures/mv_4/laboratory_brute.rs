@@ -11,7 +11,7 @@ card!(
     oracle_id = "dc92bbee-a445-4927-932b-15985bb93f19",
     scryfall_id = "325f228e-46ff-43e2-bc1d-c2d2df443c51",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Laboratory Brute",
         mana_cost = mana!("{3}{U}"),

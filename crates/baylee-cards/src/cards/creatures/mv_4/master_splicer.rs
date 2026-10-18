@@ -13,7 +13,7 @@ card!(
     oracle_id = "9e0c5919-aed6-4d98-85c8-2658be78bdf0",
     scryfall_id = "8cf185b3-2285-41cf-97a5-4226c68d044e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Master Splicer",
         mana_cost = mana!("{3}{W}"),

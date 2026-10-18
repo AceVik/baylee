@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1636f571-43ed-4b60-b5d9-129ff94dd0fa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molder Beast",
         mana_cost = mana!("{4}{G}"),

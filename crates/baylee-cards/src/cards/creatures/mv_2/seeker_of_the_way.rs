@@ -15,7 +15,7 @@ card!(
     scryfall_id = "e9e3cb28-d318-4d5d-b5bf-1ea7c6249a89",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seeker of the Way",
         mana_cost = mana!("{1}{W}"),

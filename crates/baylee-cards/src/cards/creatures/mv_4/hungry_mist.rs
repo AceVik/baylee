@@ -11,7 +11,7 @@ card!(
     oracle_id = "dedfbd92-4f12-423c-9d56-167753f03bff",
     scryfall_id = "d0336557-3499-4227-81b1-c37d9fc0aacb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hungry Mist",
         mana_cost = mana!("{2}{G}{G}"),

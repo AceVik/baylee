@@ -25,7 +25,7 @@ card!(
     scryfall_id = "08b78cd2-7c52-4dcd-b063-1ac5e96420d4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lossarnach Captain",
         mana_cost = mana!("{3}{W}"),

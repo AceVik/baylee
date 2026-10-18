@@ -24,7 +24,7 @@ card!(
     scryfall_id = "524a5d93-26ed-436d-a437-dc9460acce98",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arahbo, the First Fang",
         mana_cost = mana!("{2}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "7319eec8-48ba-4238-bce1-450abcae73a6",
     scryfall_id = "68d2452e-309d-44ae-9360-9d6e22a15e2b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodcrazed Neonate",
         mana_cost = mana!("{1}{R}"),

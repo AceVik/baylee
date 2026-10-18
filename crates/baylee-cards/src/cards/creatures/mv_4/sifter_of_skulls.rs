@@ -21,7 +21,7 @@ card!(
     scryfall_id = "be57a5aa-44f1-483f-9274-aa68f5a2bf1f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sifter of Skulls",
         mana_cost = mana!("{3}{B}"),

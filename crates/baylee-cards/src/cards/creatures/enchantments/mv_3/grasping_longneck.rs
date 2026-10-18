@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7fddcd48-3efe-4b56-9d69-9659b3dc6021",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grasping Longneck",
         mana_cost = mana!("{2}{G}"),

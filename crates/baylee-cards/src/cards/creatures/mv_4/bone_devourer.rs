@@ -15,7 +15,7 @@ card!(
     scryfall_id = "5acb9bd4-ed86-400e-9f5d-4c26351242f2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bone Devourer",
         mana_cost = mana!("{3}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "507c2921-7070-482d-8754-dc667e3315bd",
     scryfall_id = "ea1e7fed-e6f3-4445-8d01-dca3971f726f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deeproot Champion",
         mana_cost = mana!("{1}{G}"),

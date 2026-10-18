@@ -17,7 +17,7 @@ card!(
     oracle_id = "b80473f7-f1d4-4aa3-988e-1a8610ffbeee",
     scryfall_id = "b7557170-39a2-49df-823e-958c3eb34801",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bag End Porter",
         mana_cost = mana!("{3}{G}"),

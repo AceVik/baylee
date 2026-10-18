@@ -22,7 +22,7 @@ card!(
     scryfall_id = "f6dcd1ca-4943-46e4-bb5d-c14949e21e23",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Théoden, King of Rohan",
         mana_cost = mana!("{1}{R}{W}"),

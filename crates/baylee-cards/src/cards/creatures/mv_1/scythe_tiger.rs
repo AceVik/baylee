@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9d289043-edb5-4a7e-801b-4881709edb32",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SHROUD,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scythe Tiger",
         mana_cost = mana!("{G}"),

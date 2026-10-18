@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1227fb31-2780-48e2-9790-4a7e9a413f75",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jhessian Thief",
         mana_cost = mana!("{2}{U}"),

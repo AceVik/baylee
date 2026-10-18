@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b58a6a63-c7d8-4f2f-acaf-b0a871eb5a7c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FLASH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pestermite",
         mana_cost = mana!("{2}{U}"),

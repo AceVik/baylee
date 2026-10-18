@@ -12,7 +12,7 @@ card!(
     oracle_id = "fd5fc69e-1bba-4f39-88c1-5966fa941f32",
     scryfall_id = "75cb8891-90bc-41d9-96ff-e24564d3970e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Falkenrath Exterminator",
         mana_cost = mana!("{1}{R}"),

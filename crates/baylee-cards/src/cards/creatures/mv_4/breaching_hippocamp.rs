@@ -15,7 +15,7 @@ card!(
     scryfall_id = "8841c01e-015e-4541-942a-f8859dd03fea",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breaching Hippocamp",
         mana_cost = mana!("{3}{U}"),

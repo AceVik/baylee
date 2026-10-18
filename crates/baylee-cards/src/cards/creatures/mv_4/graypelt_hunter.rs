@@ -22,7 +22,7 @@ card!(
     scryfall_id = "b93b6f18-87f1-4b7c-bfdd-1b2a6384b00d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Graypelt Hunter",
         mana_cost = mana!("{3}{G}"),

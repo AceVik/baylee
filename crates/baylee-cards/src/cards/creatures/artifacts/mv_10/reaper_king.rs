@@ -26,7 +26,7 @@ card!(
         Color::White
     ]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reaper King",
         mana_cost = mana!("{2/W}{2/U}{2/B}{2/R}{2/G}"),

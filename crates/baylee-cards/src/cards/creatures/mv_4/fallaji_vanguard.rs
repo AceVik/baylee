@@ -18,7 +18,7 @@ card!(
     scryfall_id = "ffe9ee1c-5eb3-4d63-a641-0ec5adf7b058",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fallaji Vanguard",
         mana_cost = mana!("{2}{R}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6bb7d985-b033-46a2-9bbb-6f7ee62aaaff",
     scryfall_id = "ce9ed217-8378-4a58-a00d-fa4e4cb27c9d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Herald of the Fair",
         mana_cost = mana!("{2}{W}"),

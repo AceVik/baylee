@@ -11,7 +11,7 @@ card!(
     oracle_id = "32a9dac0-247e-42d5-bfd3-465043515e12",
     scryfall_id = "8ce4b91a-ed06-4eeb-b225-7d87d798cddc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hag of Syphoned Breath",
         mana_cost = mana!("{2}{B}"),

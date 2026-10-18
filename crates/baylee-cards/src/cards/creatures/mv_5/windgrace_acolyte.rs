@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f835285e-96d9-4574-a497-3b612cae8e22",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Windgrace Acolyte",
         mana_cost = mana!("{4}{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "2500a811-2435-4915-ac83-9bfe2887621a",
     scryfall_id = "fdffa46e-8802-4479-a669-d33618f75d4f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathbringer Thoctar",
         mana_cost = mana!("{4}{B}{R}"),

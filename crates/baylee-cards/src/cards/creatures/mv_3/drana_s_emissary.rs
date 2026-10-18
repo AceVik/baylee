@@ -13,7 +13,7 @@ card!(
     scryfall_id = "99e82d47-9bbb-4bf9-a935-2c0b27b64a84",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drana's Emissary",
         mana_cost = mana!("{1}{W}{B}"),

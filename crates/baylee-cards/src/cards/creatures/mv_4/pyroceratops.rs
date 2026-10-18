@@ -15,7 +15,7 @@ card!(
     scryfall_id = "f6599645-dbb5-4174-bd26-8556af6d89c3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyroceratops",
         mana_cost = mana!("{3}{R}"),

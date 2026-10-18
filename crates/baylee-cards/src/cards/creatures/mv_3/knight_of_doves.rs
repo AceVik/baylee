@@ -14,7 +14,7 @@ card!(
     oracle_id = "d2e6fbcb-ebbd-40e8-8a01-b675fcacaf8e",
     scryfall_id = "b4f33617-ad19-4d42-ab94-6f21a7fb3dd4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of Doves",
         mana_cost = mana!("{2}{W}"),

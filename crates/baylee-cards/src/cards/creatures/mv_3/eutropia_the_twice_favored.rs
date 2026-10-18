@@ -14,7 +14,7 @@ card!(
     scryfall_id = "c2159949-3d21-448d-bc34-a3dbaf219476",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eutropia the Twice-Favored",
         mana_cost = mana!("{1}{G}{U}"),

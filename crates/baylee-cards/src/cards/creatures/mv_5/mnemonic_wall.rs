@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a3e6784b-78e8-4f0b-8d27-d49c7cea9252",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mnemonic Wall",
         mana_cost = mana!("{4}{U}"),

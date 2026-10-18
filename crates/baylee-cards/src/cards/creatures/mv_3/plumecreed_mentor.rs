@@ -29,7 +29,7 @@ card!(
     scryfall_id = "b1aa988f-547e-449a-9f1a-296c01d68d96",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plumecreed Mentor",
         mana_cost = mana!("{1}{W}{U}"),

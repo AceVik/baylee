@@ -13,7 +13,7 @@ card!(
     scryfall_id = "23d7e856-6852-4b97-ae0e-a4becdfc8166",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Troublesome Spirit",
         mana_cost = mana!("{2}{U}{U}"),

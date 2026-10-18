@@ -17,7 +17,7 @@ card!(
     oracle_id = "ee86cce6-c7c1-40a6-896b-cde9b86bb532",
     scryfall_id = "96bc7d25-2828-478a-8fe5-a1f4ede8c9c0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nasty Little Rabbit",
         mana_cost = mana!("{G}"),

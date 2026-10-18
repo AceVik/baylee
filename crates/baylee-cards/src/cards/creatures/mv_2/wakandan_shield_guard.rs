@@ -12,7 +12,7 @@ card!(
     oracle_id = "a9268e61-2697-46ff-b219-4f2be646cbe4",
     scryfall_id = "47eba4f9-8276-4367-8ff5-53a066e8c729",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wakandan Shield Guard",
         mana_cost = mana!("{1}{W}"),

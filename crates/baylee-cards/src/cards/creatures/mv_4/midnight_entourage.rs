@@ -21,7 +21,7 @@ card!(
     oracle_id = "02d6b7f6-1fe0-4a93-8385-69ab160ab732",
     scryfall_id = "2838c6dd-d816-4363-a861-f2f8052d1430",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Entourage",
         mana_cost = mana!("{2}{B}{B}"),

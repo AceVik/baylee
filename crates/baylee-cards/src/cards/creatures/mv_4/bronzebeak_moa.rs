@@ -14,7 +14,7 @@ card!(
     oracle_id = "16f03175-9c57-4058-9c9d-9c4936e4c324",
     scryfall_id = "c94079dd-023a-41b2-9004-95bbb0e41267",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bronzebeak Moa",
         mana_cost = mana!("{2}{G}{W}"),

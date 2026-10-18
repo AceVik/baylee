@@ -14,7 +14,7 @@ card!(
     oracle_id = "c56726a6-d424-46a0-b3b3-2b44fbcbc63a",
     scryfall_id = "292326cd-4b90-40c6-88b1-f8560fde236c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orc Sureshot",
         mana_cost = mana!("{3}{B}"),

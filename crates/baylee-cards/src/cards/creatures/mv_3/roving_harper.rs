@@ -11,7 +11,7 @@ card!(
     oracle_id = "6474f6b3-4e8e-4056-a01c-2f5e5e59c8de",
     scryfall_id = "c6b0ed9c-9a99-4a50-80a9-396420a8dcf9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roving Harper",
         mana_cost = mana!("{2}{W}"),

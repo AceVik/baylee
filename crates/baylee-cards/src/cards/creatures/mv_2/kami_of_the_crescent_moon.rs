@@ -12,7 +12,7 @@ card!(
     scryfall_id = "dd420010-6eaf-4853-8b7b-11de1157416b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kami of the Crescent Moon",
         mana_cost = mana!("{U}{U}"),

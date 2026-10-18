@@ -11,7 +11,7 @@ card!(
     oracle_id = "12c7289f-da53-403a-a607-227f43c7e171",
     scryfall_id = "0fcfe1b5-e35b-4a23-8ca8-4dee2ef94f32",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trusty Packbeast",
         mana_cost = mana!("{2}{W}"),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "9be3e610-f6bf-4e79-87ca-79dde27945d0",
     scryfall_id = "7bd3fb7a-3eed-4b0a-9de0-ed8b7cf03533",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Godtracker of Jund",
         mana_cost = mana!("{1}{R}{G}"),

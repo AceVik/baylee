@@ -27,7 +27,7 @@ card!(
     oracle_id = "d5129531-e4b6-454e-9c67-dae925c8f2ee",
     scryfall_id = "80f74884-9b82-419d-9e97-c947a6b7d09f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manta Ray",
         mana_cost = mana!("{1}{U}{U}"),

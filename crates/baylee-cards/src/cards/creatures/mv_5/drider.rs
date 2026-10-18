@@ -14,7 +14,7 @@ card!(
     scryfall_id = "bbc06a88-1eb6-4edb-8f03-d8274560cc41",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drider",
         mana_cost = mana!("{4}{B}"),

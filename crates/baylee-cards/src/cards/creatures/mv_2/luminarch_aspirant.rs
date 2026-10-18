@@ -11,7 +11,7 @@ card!(
     oracle_id = "cb9994b9-924b-4e10-9075-9cfbec88f2bf",
     scryfall_id = "dcd27fa3-f6b6-4137-9b6c-4cba7187664c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Luminarch Aspirant",
         mana_cost = mana!("{1}{W}"),

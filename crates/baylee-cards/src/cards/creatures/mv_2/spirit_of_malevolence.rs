@@ -11,7 +11,7 @@ card!(
     oracle_id = "15323e45-8260-43dc-b72b-efd661a58d75",
     scryfall_id = "cf3765b7-11e2-4837-b5e5-ca24adc0e33c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit of Malevolence",
         mana_cost = mana!("{1}{B}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "90d375fa-0487-4990-9a98-260f9ee28d2a",
     scryfall_id = "e2d714d8-0e9b-4761-a0ef-3429b4e2f5b7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Llanowar Stalker",
         mana_cost = mana!("{G}"),

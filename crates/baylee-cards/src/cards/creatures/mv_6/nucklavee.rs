@@ -22,7 +22,7 @@ card!(
     oracle_id = "09c2d504-f2e1-4799-b948-c7b9502d5088",
     scryfall_id = "fd706176-477a-49a9-bf47-0d10c0501227",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nucklavee",
         mana_cost = mana!("{4}{U/R}{U/R}"),

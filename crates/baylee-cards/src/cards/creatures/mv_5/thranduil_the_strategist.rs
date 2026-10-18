@@ -14,7 +14,7 @@ card!(
     scryfall_id = "6b4c1515-6127-4d4b-bdd2-e38bb68693e7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thranduil the Strategist",
         mana_cost = mana!("{3}{G}{U}"),

@@ -19,7 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ezio, Blade of Vengeance",
         mana_cost = mana!("{3}{U}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ce096d78-e8b0-4ba2-a734-aa1e96d2dabe",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Howling Banshee",
         mana_cost = mana!("{2}{B}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b9ea2e9c-a83b-40dd-ad52-b16d65989ba3",
     scryfall_id = "5e13ac56-72a9-4605-b389-24d1cb712b3c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tangle Asp",
         mana_cost = mana!("{1}{G}"),

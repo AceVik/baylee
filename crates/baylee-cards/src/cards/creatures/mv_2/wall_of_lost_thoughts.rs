@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a5e3084c-c690-4cc7-9d79-42b1cde073ad",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Lost Thoughts",
         mana_cost = mana!("{1}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "fa19c9d7-fe93-4e93-a5ef-9af9c6cd1a5e",
     scryfall_id = "5a5320ff-1fe6-492a-b27f-86a84a1768ed",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leonin Squire",
         mana_cost = mana!("{1}{W}"),

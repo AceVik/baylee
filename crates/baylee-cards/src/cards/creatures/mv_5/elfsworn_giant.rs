@@ -14,7 +14,7 @@ card!(
     scryfall_id = "5128a5be-ffa6-4998-8488-872d80b24cb2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elfsworn Giant",
         mana_cost = mana!("{3}{G}{G}"),

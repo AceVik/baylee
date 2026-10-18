@@ -11,7 +11,7 @@ card!(
     oracle_id = "6e67551b-1f6e-4ef4-9baf-520607b8cb61",
     scryfall_id = "e59b4729-74c1-4aa9-937d-27cda960f157",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dream Stalker",
         mana_cost = mana!("{1}{U}"),

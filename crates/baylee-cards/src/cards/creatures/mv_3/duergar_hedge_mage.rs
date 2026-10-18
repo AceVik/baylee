@@ -22,7 +22,7 @@ card!(
     oracle_id = "ecb2fd58-b880-4d9e-93cb-c4d2b28233c9",
     scryfall_id = "a55e7048-4532-443b-9480-a139069ecf0a",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duergar Hedge-Mage",
         mana_cost = mana!("{2}{R/W}"),

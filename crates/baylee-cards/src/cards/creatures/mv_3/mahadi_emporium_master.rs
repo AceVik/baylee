@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c3da2b1a-76c5-4d36-bdf8-025b86f61eb5",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mahadi, Emporium Master",
         mana_cost = mana!("{1}{B}{R}"),

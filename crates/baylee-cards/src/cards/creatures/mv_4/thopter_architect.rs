@@ -11,7 +11,7 @@ card!(
     oracle_id = "3194fe3d-57d3-4dab-ab39-3778b75150fa",
     scryfall_id = "61017325-cec0-46ac-aa32-5855e5904888",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thopter Architect",
         mana_cost = mana!("{3}{W}"),

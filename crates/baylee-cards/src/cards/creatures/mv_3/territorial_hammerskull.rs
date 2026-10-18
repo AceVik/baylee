@@ -11,7 +11,7 @@ card!(
     oracle_id = "a690c1de-158a-4f33-a916-ed2a130f92eb",
     scryfall_id = "af5a237a-31e7-43ee-8d47-3eb12dd1a60c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Territorial Hammerskull",
         mana_cost = mana!("{2}{W}"),

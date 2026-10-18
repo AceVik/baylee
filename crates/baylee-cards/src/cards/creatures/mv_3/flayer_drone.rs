@@ -21,7 +21,7 @@ card!(
     scryfall_id = "3931db42-3773-4aae-b6eb-2209e7312f8c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flayer Drone",
         mana_cost = mana!("{1}{B}{R}"),

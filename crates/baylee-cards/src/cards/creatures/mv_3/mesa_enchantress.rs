@@ -13,7 +13,7 @@ card!(
     oracle_id = "8f4b8a19-72f4-48ed-ac05-62a7c7525797",
     scryfall_id = "c4f9e9fc-8b89-40ee-9b20-10e4a23e6333",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mesa Enchantress",
         mana_cost = mana!("{1}{W}{W}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "e15db59f-4477-4139-8e7e-741ab4584e7f",
     scryfall_id = "04aa9d4f-37cc-4fc8-877a-6190f96eb509",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroan Hoplite",
         mana_cost = mana!("{R}{W}"),

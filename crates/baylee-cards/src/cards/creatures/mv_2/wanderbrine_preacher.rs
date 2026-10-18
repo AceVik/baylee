@@ -11,7 +11,7 @@ card!(
     oracle_id = "4b4dcdb1-0017-494f-8d83-6706b188e575",
     scryfall_id = "3fc3f5f2-5a83-4358-8f23-42f26f345140",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderbrine Preacher",
         mana_cost = mana!("{1}{W}"),

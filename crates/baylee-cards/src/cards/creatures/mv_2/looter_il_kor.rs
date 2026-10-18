@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7083c77c-166f-4c6f-a2ca-dd1b877ff5f7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Looter il-Kor",
         mana_cost = mana!("{1}{U}"),

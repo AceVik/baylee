@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e72eaa0f-cbec-45a1-b390-cbbedf5a02f2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimana Skydancer",
         mana_cost = mana!("{2}{B}"),

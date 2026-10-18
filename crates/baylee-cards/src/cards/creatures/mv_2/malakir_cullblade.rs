@@ -11,7 +11,7 @@ card!(
     oracle_id = "4fbaf052-a8c3-4395-8f40-0cb3a10d5ccd",
     scryfall_id = "70861692-1eb2-4cb1-8d7f-b881386c37d1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Malakir Cullblade",
         mana_cost = mana!("{1}{B}"),

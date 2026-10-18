@@ -13,7 +13,7 @@ card!(
     oracle_id = "b70b739b-b147-4abe-8e48-26e7ea02a9f6",
     scryfall_id = "88fb4042-e9c1-4b0f-b1f6-4180b0d79663",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phase Dolphin",
         mana_cost = mana!("{2}{U}"),

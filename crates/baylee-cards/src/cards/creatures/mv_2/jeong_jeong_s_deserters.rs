@@ -11,7 +11,7 @@ card!(
     oracle_id = "6a06d281-3ca2-498f-91d0-e13e7b0869f9",
     scryfall_id = "060966f9-5e56-4512-9ef3-2b216daf093c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeong Jeong's Deserters",
         mana_cost = mana!("{1}{W}"),

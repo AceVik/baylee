@@ -12,7 +12,7 @@ card!(
     oracle_id = "64f3af46-f8ab-4ba4-9dff-7412cefb4eea",
     scryfall_id = "849bea7e-74e5-4310-be5a-d517d7b19be6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mausoleum Guard",
         mana_cost = mana!("{3}{W}"),

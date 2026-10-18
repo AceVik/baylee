@@ -11,7 +11,7 @@ card!(
     oracle_id = "04472c4f-0df3-4de8-9cc2-882d95b822be",
     scryfall_id = "ae11adef-57b1-4f39-951b-cd4d5c0a0b80",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saltwater Stalwart",
         mana_cost = mana!("{3}{U}"),

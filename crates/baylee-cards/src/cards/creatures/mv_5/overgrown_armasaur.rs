@@ -12,7 +12,7 @@ card!(
     oracle_id = "9e104718-1f74-4414-977a-82def93b5a8e",
     scryfall_id = "fb6558db-6332-42ac-8a61-4524c200b62f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Overgrown Armasaur",
         mana_cost = mana!("{3}{G}{G}"),

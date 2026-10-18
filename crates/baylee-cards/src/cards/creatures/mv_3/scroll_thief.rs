@@ -11,7 +11,7 @@ card!(
     oracle_id = "637c5583-4683-4ae4-8b4e-f5da42a772c7",
     scryfall_id = "a7caae7e-9b88-4428-b9e3-86cb8c84bd65",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scroll Thief",
         mana_cost = mana!("{2}{U}"),

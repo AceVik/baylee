@@ -20,7 +20,7 @@ card!(
     oracle_id = "24661b81-6bee-4ad8-b3ab-53cb65005c51",
     scryfall_id = "bce84a87-093a-42de-9696-8c3250e0f33b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Rabblemaster",
         mana_cost = mana!("{2}{R}"),

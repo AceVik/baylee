@@ -12,7 +12,7 @@ card!(
     oracle_id = "794aaf8a-6d8e-41fb-acbe-a2b73d65d9d9",
     scryfall_id = "d32e68b4-2584-4b1c-9268-642e3678bae7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Martyr of Dusk",
         mana_cost = mana!("{1}{W}"),

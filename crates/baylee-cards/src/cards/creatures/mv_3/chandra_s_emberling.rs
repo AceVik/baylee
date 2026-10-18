@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3a64c5f4-9cfc-4d19-bd99-13d619b1aa9d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chandra's Emberling",
         mana_cost = mana!("{2}{R}"),

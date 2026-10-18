@@ -18,7 +18,7 @@ card!(
     scryfall_id = "1be3ed47-072e-481a-b3d9-dc232ac4b24f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talrand, Sky Summoner",
         mana_cost = mana!("{2}{U}{U}"),

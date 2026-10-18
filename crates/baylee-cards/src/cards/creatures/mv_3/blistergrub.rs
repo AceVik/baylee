@@ -13,7 +13,7 @@ card!(
     scryfall_id = "517ec1ba-00cd-4883-b298-521dc2d03f81",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blistergrub",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "77275fc5-5f70-4d7f-938e-f32b5c19c532",
     scryfall_id = "9d8fd566-0460-4f2f-99c2-8999ce6f2c61",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rumbling Slum",
         mana_cost = mana!("{1}{R}{G}{G}"),

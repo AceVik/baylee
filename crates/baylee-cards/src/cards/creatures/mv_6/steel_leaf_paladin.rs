@@ -26,7 +26,7 @@ card!(
     scryfall_id = "28e8697f-fdf3-4a1a-a84d-dd29b17336c2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steel Leaf Paladin",
         mana_cost = mana!("{4}{G}{W}"),

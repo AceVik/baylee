@@ -22,7 +22,7 @@ card!(
     oracle_id = "764e8e6e-0ace-4fc8-8ca5-468a10ae3b73",
     scryfall_id = "991e24e5-8b37-4034-9be7-2fab5983ee7b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deeproot Elite",
         mana_cost = mana!("{1}{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "60662463-6050-46c6-84ab-64e203b67b4d",
     scryfall_id = "9f01ae0d-db1e-4912-b8ad-3069f6938e04",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jungleborn Pioneer",
         mana_cost = mana!("{2}{G}"),

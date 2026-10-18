@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5bf655ce-c841-42b2-9578-56ab401bf4de",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frilled Mystic",
         mana_cost = mana!("{G}{G}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "53a14ab8-62f4-4873-b4ef-650f0aded095",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gryff Vanguard",
         mana_cost = mana!("{4}{U}"),

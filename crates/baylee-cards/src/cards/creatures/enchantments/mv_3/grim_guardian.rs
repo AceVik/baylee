@@ -20,7 +20,7 @@ card!(
     oracle_id = "c1f1babf-13d0-4fc4-b192-127d2d5db7f1",
     scryfall_id = "732b5444-0410-430b-87ca-cf2d9f165bd7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grim Guardian",
         mana_cost = mana!("{2}{B}"),

@@ -20,7 +20,7 @@ card!(
     scryfall_id = "d7ce9104-0ad3-4d3d-bb2c-c456c25030f6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul of the Harvest",
         mana_cost = mana!("{4}{G}{G}"),

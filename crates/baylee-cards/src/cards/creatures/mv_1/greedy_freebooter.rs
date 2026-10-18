@@ -12,7 +12,7 @@ card!(
     oracle_id = "d4a9d63a-5a8a-4f51-9e49-43d6dc3234b1",
     scryfall_id = "692fe4e8-13b4-4bec-938e-a8073a7fbd71",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greedy Freebooter",
         mana_cost = mana!("{B}"),

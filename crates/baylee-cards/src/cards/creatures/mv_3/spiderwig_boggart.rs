@@ -11,7 +11,7 @@ card!(
     oracle_id = "dd0bbf91-1826-42c7-82af-6820646fa003",
     scryfall_id = "88e77c10-b569-485f-ba3e-16ef0c57dd81",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spiderwig Boggart",
         mana_cost = mana!("{2}{B}"),

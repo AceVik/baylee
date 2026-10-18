@@ -11,7 +11,7 @@ card!(
     oracle_id = "da18d97c-85f3-4395-9af5-bca72e33ebfc",
     scryfall_id = "73aaaa09-c985-42f8-b426-06fd3b8de66d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fourth Bridge Prowler",
         mana_cost = mana!("{B}"),

@@ -21,7 +21,7 @@ card!(
     scryfall_id = "ad135475-d1f6-4e78-a536-6bf61204c739",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Requiem Angel",
         mana_cost = mana!("{5}{W}"),

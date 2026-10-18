@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bb75315c-ea8f-4eb0-899e-c73ef75fc396",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightshell Duo",
         mana_cost = mana!("{3}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "f4e15575-2277-4cb1-a343-e9407c050eb1",
     scryfall_id = "f5b2e327-adfd-459b-8d18-faa39d88b5de",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ubul Sar Gatekeepers",
         mana_cost = mana!("{3}{B}"),

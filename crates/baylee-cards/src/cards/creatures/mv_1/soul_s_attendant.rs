@@ -11,7 +11,7 @@ card!(
     oracle_id = "045a9d3d-c20d-427f-a77b-0bffc6f55526",
     scryfall_id = "3223c0ac-cc22-4886-8919-11273b477cc7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul's Attendant",
         mana_cost = mana!("{W}"),

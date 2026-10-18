@@ -14,7 +14,7 @@ card!(
     scryfall_id = "8f8db60d-3adf-45e1-b4d0-3b5e24f5e01d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jewel-Eyed Cobra",
         mana_cost = mana!("{2}{G}"),

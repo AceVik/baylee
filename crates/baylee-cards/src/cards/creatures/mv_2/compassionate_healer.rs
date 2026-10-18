@@ -11,7 +11,7 @@ card!(
     oracle_id = "6ef464bd-2ed0-4f99-af4a-ebf276f55384",
     scryfall_id = "88d5f8fd-d4de-4e64-9b74-e53719ffbcdc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Compassionate Healer",
         mana_cost = mana!("{1}{W}"),

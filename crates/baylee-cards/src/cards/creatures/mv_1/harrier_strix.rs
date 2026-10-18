@@ -14,7 +14,7 @@ card!(
     scryfall_id = "70ca61a9-8938-41bf-bd14-5759f4de6521",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harrier Strix",
         mana_cost = mana!("{U}"),

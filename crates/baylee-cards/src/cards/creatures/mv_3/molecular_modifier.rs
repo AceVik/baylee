@@ -11,7 +11,7 @@ card!(
     oracle_id = "d0e58b8e-2c41-4602-a905-c2a6086ecf70",
     scryfall_id = "7b80b9c9-a871-4c04-b8be-feb81a900591",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molecular Modifier",
         mana_cost = mana!("{2}{R}"),

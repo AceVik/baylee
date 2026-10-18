@@ -17,7 +17,7 @@ card!(
     oracle_id = "f3654fbd-16a5-4953-84ac-534e8421032f",
     scryfall_id = "8d8e6941-ad6e-4d2f-93c0-be79e75bdf06",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Champion of the Perished",
         mana_cost = mana!("{B}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "77ccbea1-70af-4194-adad-39a904221c75",
     scryfall_id = "f882aa63-d43c-4359-9de6-77231500a08e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of Blossoms",
         mana_cost = mana!("{2}{G}{G}"),

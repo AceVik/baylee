@@ -12,7 +12,7 @@ card!(
     oracle_id = "87e4c6ff-f83f-412b-9d23-aac7a57ef6db",
     scryfall_id = "df84d9ce-9ff0-438a-96e1-2aadd60dcaba",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seller of Songbirds",
         mana_cost = mana!("{2}{W}"),

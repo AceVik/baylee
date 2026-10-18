@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d2e3b99c-e48e-4f4d-ba7a-e9218137b432",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gale Swooper",
         mana_cost = mana!("{3}{W}"),

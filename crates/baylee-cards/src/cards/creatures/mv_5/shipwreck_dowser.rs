@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1f20fe3d-792a-4030-a25c-e81b48b2bcb4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shipwreck Dowser",
         mana_cost = mana!("{3}{U}{U}"),

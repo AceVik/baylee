@@ -21,7 +21,7 @@ card!(
     scryfall_id = "ddcc3c1b-b564-4444-9a1a-0f62f8e6b8bb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firespitter Whelp",
         mana_cost = mana!("{2}{R}"),

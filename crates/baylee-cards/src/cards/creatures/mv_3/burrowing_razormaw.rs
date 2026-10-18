@@ -11,7 +11,7 @@ card!(
     oracle_id = "8551e1df-47eb-419e-8dd2-e96b9a450912",
     scryfall_id = "a7c8c73c-ee2e-4aa9-aa6c-42cf9d58d9cc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burrowing Razormaw",
         mana_cost = mana!("{2}{G}"),

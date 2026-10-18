@@ -12,7 +12,7 @@ card!(
     oracle_id = "cf0f3aee-78b6-4a98-8e09-8861b73c2e74",
     scryfall_id = "f50b0449-8ff7-4549-893b-aeca93720c64",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conscripted Infantry",
         mana_cost = mana!("{2}{R}"),

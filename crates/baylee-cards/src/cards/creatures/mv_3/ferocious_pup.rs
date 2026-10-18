@@ -12,7 +12,7 @@ card!(
     oracle_id = "a1112750-8d38-49e0-ab1c-77110b2bbc4d",
     scryfall_id = "2354cb24-5c70-4aaa-8636-46866f0950c1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ferocious Pup",
         mana_cost = mana!("{2}{G}"),

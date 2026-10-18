@@ -23,7 +23,7 @@ card!(
     oracle_id = "ff35e480-8ea2-47bb-bb2a-24cefe9c2139",
     scryfall_id = "3bf81a39-0a6e-4253-81eb-a24f48253343",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ronom Serpent",
         mana_cost = mana!("{5}{U}"),

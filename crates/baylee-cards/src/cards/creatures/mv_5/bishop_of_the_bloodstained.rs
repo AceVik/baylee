@@ -17,7 +17,7 @@ card!(
     oracle_id = "e9398f3b-c457-4fff-9b09-377c612b6a48",
     scryfall_id = "373131be-bd66-49f5-80fa-836ced03fedf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bishop of the Bloodstained",
         mana_cost = mana!("{3}{B}{B}"),

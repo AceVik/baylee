@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4d3afc71-f5db-45c3-96b2-8454b7f33542",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Courier Griffin",
         mana_cost = mana!("{3}{W}"),

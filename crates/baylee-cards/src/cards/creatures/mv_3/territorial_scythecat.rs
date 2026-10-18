@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5e0f725c-8d1f-47ff-ad81-a5007199a5e2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Territorial Scythecat",
         mana_cost = mana!("{2}{G}"),

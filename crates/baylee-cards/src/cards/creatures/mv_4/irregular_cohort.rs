@@ -14,7 +14,7 @@ card!(
     scryfall_id = "61775227-34ad-469a-a4d4-ee8ce69dd10f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Irregular Cohort",
         mana_cost = mana!("{2}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "eadd9559-6dcb-4b96-8c95-58abddd0e120",
     scryfall_id = "303ad78a-b02a-44dc-afe6-7f95781a5062",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kessig Flamebreather",
         mana_cost = mana!("{1}{R}"),

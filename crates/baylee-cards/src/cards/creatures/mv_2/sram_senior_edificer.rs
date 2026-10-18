@@ -27,7 +27,7 @@ card!(
     scryfall_id = "8fbd18ce-0ac3-4b52-9cd0-0af7e0244207",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sram, Senior Edificer",
         mana_cost = mana!("{1}{W}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3d654bec-4eb2-4df6-b71e-ce59a718f903",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bishop of Rebirth",
         mana_cost = mana!("{3}{W}{W}"),

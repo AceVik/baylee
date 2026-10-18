@@ -15,7 +15,7 @@ card!(
     scryfall_id = "2ee859bd-d99c-4b1d-9372-7ff4fc1e8c6a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blooming Stinger",
         mana_cost = mana!("{1}{G}"),

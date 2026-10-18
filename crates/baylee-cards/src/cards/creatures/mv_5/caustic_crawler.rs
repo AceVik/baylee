@@ -11,7 +11,7 @@ card!(
     oracle_id = "91c83b1e-32d9-4bb4-9a71-05fbb0cb8134",
     scryfall_id = "80076580-23f1-4008-ab91-9dad8c806cfa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caustic Crawler",
         mana_cost = mana!("{3}{B}{B}"),

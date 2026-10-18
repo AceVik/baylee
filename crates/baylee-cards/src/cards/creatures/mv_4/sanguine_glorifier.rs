@@ -17,7 +17,7 @@ card!(
     oracle_id = "391f1331-7577-4bf4-a9ed-2f55ded4cbd8",
     scryfall_id = "12993e53-8790-4d6f-9da1-a259f67aa5bf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanguine Glorifier",
         mana_cost = mana!("{3}{W}"),

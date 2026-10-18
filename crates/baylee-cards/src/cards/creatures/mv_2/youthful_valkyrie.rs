@@ -19,7 +19,7 @@ card!(
     scryfall_id = "9d795f79-c3a5-4ea1-a5cf-1ce73d6837b6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Youthful Valkyrie",
         mana_cost = mana!("{1}{W}"),

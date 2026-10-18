@@ -11,7 +11,7 @@ card!(
     oracle_id = "b6d39905-e074-4517-b806-d081d1069f74",
     scryfall_id = "761f2f66-a43b-422e-94b7-3c068314b7ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drainpipe Vermin",
         mana_cost = mana!("{B}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "68879437-bbe2-4e99-b17b-ddec30bfd3d0",
     scryfall_id = "3a31f4c6-c0c2-4cbd-ade9-941625b51c78",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Endangered Armodon",
         mana_cost = mana!("{2}{G}{G}"),

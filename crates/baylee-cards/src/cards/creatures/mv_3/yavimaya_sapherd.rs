@@ -12,7 +12,7 @@ card!(
     oracle_id = "42a1954f-774e-4d80-98b3-a736f23e2060",
     scryfall_id = "5ef6b657-7273-4abe-92f4-e1e4cda78f96",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya Sapherd",
         mana_cost = mana!("{2}{G}"),

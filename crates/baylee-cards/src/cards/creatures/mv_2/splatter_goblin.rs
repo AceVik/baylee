@@ -11,7 +11,7 @@ card!(
     oracle_id = "a7cf5b74-123c-4def-a4aa-771ecd3be260",
     scryfall_id = "5045027d-0ff4-484c-b4cb-e0b61885d428",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Splatter Goblin",
         mana_cost = mana!("{1}{B}"),

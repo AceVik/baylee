@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bb89585f-0c68-42e6-8115-07d5752f6c1c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Subjugator Angel",
         mana_cost = mana!("{4}{W}{W}"),

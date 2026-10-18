@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b90157f8-ba3c-479e-80d8-8f9e042c540c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slith Ascendant",
         mana_cost = mana!("{1}{W}{W}"),

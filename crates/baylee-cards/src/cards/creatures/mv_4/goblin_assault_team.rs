@@ -13,7 +13,7 @@ card!(
     scryfall_id = "880047fd-d258-40fb-bcd5-37cb26678dfe",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Assault Team",
         mana_cost = mana!("{3}{R}"),

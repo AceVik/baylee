@@ -13,7 +13,7 @@ card!(
     oracle_id = "60e3ccf2-63f5-4435-a752-1d82fefb55d7",
     scryfall_id = "68b9df54-e78e-4a86-a8b1-b735ec08a812",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lagonna-Band Elder",
         mana_cost = mana!("{2}{W}"),

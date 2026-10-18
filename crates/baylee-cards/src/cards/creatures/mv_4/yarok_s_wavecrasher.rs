@@ -13,7 +13,7 @@ card!(
     oracle_id = "30868d69-2ba3-4373-9d47-4bc8978f35d1",
     scryfall_id = "c86a8974-df86-43ee-b07f-fd2837c08a6a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yarok's Wavecrasher",
         mana_cost = mana!("{3}{U}"),

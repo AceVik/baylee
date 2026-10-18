@@ -17,7 +17,7 @@ card!(
     oracle_id = "16948dd9-959b-4972-b337-37ecc2b141bd",
     scryfall_id = "bc5ed3ce-d7f7-4275-baef-edc5127475d7",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riverfall Mimic",
         mana_cost = mana!("{1}{U/R}"),

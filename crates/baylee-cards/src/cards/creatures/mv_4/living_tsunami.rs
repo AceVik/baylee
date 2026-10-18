@@ -13,7 +13,7 @@ card!(
     scryfall_id = "107a4e2b-e463-46f3-a431-66ea954ef487",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Living Tsunami",
         mana_cost = mana!("{2}{U}{U}"),

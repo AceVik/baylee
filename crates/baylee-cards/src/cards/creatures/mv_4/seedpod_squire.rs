@@ -19,7 +19,7 @@ card!(
     scryfall_id = "f3684577-51ce-490e-9b59-b19c733be466",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seedpod Squire",
         mana_cost = mana!("{3}{W/U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "626f1dc3-3b14-4873-902f-ffec5487a97d",
     scryfall_id = "6d31d5b6-0973-43d2-aae0-a3f3e7a61800",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lone Missionary",
         mana_cost = mana!("{1}{W}"),

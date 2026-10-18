@@ -11,7 +11,7 @@ card!(
     oracle_id = "92226fd2-ad93-4722-89a0-ca88ea03e1b4",
     scryfall_id = "64fb2981-86ed-478a-89cd-c6bb078a5bc7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eumidian Terrabotanist",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "f46e9fa0-2ed7-4a94-8ad4-031e87a6da45",
     scryfall_id = "b9551190-9764-47a6-b414-8411beec89d2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spireside Infiltrator",
         mana_cost = mana!("{2}{R}"),

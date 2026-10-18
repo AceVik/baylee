@@ -14,7 +14,7 @@ card!(
     oracle_id = "95ccb4a6-6e45-4c00-b7c6-25384022c02f",
     scryfall_id = "186ed5a8-12d4-4b47-aa7f-5c6c86543008",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gavony Unhallowed",
         mana_cost = mana!("{3}{B}"),

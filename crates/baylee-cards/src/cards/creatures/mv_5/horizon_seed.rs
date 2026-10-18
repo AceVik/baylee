@@ -22,7 +22,7 @@ card!(
     oracle_id = "3970e021-209d-41d3-9466-8b3ef9ab1a4c",
     scryfall_id = "7e6317b9-a426-453b-a82a-e63905a77019",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horizon Seed",
         mana_cost = mana!("{4}{W}"),

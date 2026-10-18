@@ -15,7 +15,7 @@ card!(
     scryfall_id = "e8a2dd0d-8034-47f7-801d-c893f32f0708",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistfire Adept",
         mana_cost = mana!("{3}{U}"),

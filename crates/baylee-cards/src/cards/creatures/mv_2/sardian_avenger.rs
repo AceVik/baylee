@@ -18,7 +18,7 @@ card!(
     scryfall_id = "593b4a4f-5644-44be-9bfe-752732ffe59e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sardian Avenger",
         mana_cost = mana!("{1}{R}"),

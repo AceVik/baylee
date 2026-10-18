@@ -11,7 +11,7 @@ card!(
     oracle_id = "51f4eb1f-abf2-425a-b78e-cafac177da89",
     scryfall_id = "a120de1b-cfc2-4a21-9eb0-ddabb3d90896",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nine-Tail White Fox",
         mana_cost = mana!("{2}{U}"),

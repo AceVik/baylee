@@ -20,7 +20,7 @@ card!(
     oracle_id = "60bac6e8-0c72-4665-9b01-d07c99dd1716",
     scryfall_id = "d8ef63b9-c021-40fe-910e-93c06d660c20",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oakheart Dryads",
         mana_cost = mana!("{2}{G}"),

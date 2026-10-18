@@ -15,7 +15,7 @@ card!(
     scryfall_id = "442957fc-045d-4db6-b82a-445f172d23e4",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gladiolus Amicitia",
         mana_cost = mana!("{4}{R}{G}"),

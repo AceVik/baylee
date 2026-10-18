@@ -17,7 +17,7 @@ card!(
     oracle_id = "64e0c580-0e55-4f42-8594-11ccb584d633",
     scryfall_id = "184bfbc4-1c9b-44f7-b4a7-068290db3bac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waterkin Shaman",
         mana_cost = mana!("{1}{U}"),

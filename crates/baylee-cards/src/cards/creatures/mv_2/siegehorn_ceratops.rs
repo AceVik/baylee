@@ -11,7 +11,7 @@ card!(
     oracle_id = "f7730e2e-aa62-40e7-836d-e6ddb6893816",
     scryfall_id = "0a9c4c63-402e-489e-ab0d-1c98309b010a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Siegehorn Ceratops",
         mana_cost = mana!("{G}{W}"),

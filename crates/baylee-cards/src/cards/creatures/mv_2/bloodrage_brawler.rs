@@ -11,7 +11,7 @@ card!(
     oracle_id = "8603e2d4-93f3-491a-91e7-a187fc6db599",
     scryfall_id = "c3b633bf-a77e-4b78-b729-a83896abf17c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodrage Brawler",
         mana_cost = mana!("{1}{R}"),

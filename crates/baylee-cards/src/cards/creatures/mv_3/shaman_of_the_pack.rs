@@ -16,7 +16,7 @@ card!(
     oracle_id = "39c7d2cc-4fd1-4f1a-be1a-a6ae56d2356d",
     scryfall_id = "da9705e2-40e5-4ec9-8aef-2eab28d5a66f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shaman of the Pack",
         mana_cost = mana!("{1}{B}{G}"),

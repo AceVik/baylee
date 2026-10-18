@@ -14,7 +14,7 @@ card!(
     scryfall_id = "6b54fbe8-324a-4066-bed1-dda1dca319fc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Ringleader",
         mana_cost = mana!("{4}{B}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6b142a4a-769b-4e1b-aae6-ba6e11f35836",
     scryfall_id = "257c396c-d8cc-487c-a6cb-2892c7e568a1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kinsbaile Skirmisher",
         mana_cost = mana!("{1}{W}"),

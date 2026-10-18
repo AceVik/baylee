@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b3e47d49-e5b5-487b-a1ec-373dbf89b2ec",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kambal, Consul of Allocation",
         mana_cost = mana!("{1}{W}{B}"),

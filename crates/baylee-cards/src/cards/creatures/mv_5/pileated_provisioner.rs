@@ -19,7 +19,7 @@ card!(
     scryfall_id = "ae442cd6-c4df-4aad-9b1d-ccd936c5ec96",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pileated Provisioner",
         mana_cost = mana!("{4}{W}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "4c3c5778-4760-4a8c-8d8d-693e29a0a74b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Falkenrath Celebrants",
         mana_cost = mana!("{4}{R}"),

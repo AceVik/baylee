@@ -11,7 +11,7 @@ card!(
     oracle_id = "1f384f19-7fb4-4120-8001-5b401b4debbd",
     scryfall_id = "4662c681-fcc9-4fc8-a598-b068208132fd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Pangolin",
         mana_cost = mana!("{2}{G}"),

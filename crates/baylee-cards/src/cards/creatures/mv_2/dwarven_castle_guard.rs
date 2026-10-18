@@ -12,7 +12,7 @@ card!(
     oracle_id = "b51e0ae3-126b-4b7e-9dd1-818a5b8e512a",
     scryfall_id = "e17c0d27-e88d-4ba9-acbb-3f916cee3d7e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Castle Guard",
         mana_cost = mana!("{1}{W}"),

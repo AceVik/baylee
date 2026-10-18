@@ -17,7 +17,7 @@ card!(
     scryfall_id = "14c65f5a-10bd-4f9b-b816-46c2240b11ff",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captain Storm, Cosmium Raider",
         mana_cost = mana!("{U}{R}"),

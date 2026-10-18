@@ -11,7 +11,7 @@ card!(
     oracle_id = "3f278970-201d-4a93-b038-cc7218f2ac57",
     scryfall_id = "c08c5ac8-5c0b-4c89-8f06-e5aadfccee01",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pondering Mage",
         mana_cost = mana!("{3}{U}{U}"),

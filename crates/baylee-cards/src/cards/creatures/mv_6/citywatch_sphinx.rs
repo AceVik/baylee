@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9b809f89-13c7-4236-86a5-60745defb271",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Citywatch Sphinx",
         mana_cost = mana!("{5}{U}"),

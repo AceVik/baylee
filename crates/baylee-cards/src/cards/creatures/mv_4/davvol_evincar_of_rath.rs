@@ -15,7 +15,7 @@ card!(
     scryfall_id = "9c8bf856-e7a6-4c58-b001-5ed27c7570ec",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Davvol, Evincar of Rath",
         mana_cost = mana!("{2}{B}{G}"),

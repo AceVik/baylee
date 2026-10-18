@@ -14,7 +14,7 @@ card!(
     scryfall_id = "826a882e-c4bd-4132-b797-9e1aa2d0bce4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scion Summoner",
         mana_cost = mana!("{2}{G}"),

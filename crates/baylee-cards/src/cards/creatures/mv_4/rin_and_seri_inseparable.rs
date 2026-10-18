@@ -35,7 +35,7 @@ card!(
     scryfall_id = "d605c780-a42a-4816-8fb9-63e3114a8246",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rin and Seri, Inseparable",
         mana_cost = mana!("{1}{R}{G}{W}"),

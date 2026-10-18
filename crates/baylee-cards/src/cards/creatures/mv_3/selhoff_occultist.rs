@@ -16,7 +16,7 @@ card!(
     oracle_id = "d72031e1-c8cf-4e57-b15b-6a5eaacff1e2",
     scryfall_id = "94975b02-f678-4442-9d1a-cf586aee8789",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selhoff Occultist",
         mana_cost = mana!("{2}{U}"),

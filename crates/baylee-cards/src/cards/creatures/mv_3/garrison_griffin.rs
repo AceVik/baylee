@@ -18,7 +18,7 @@ card!(
     scryfall_id = "94a04717-5cd7-4982-bf36-00cea30b9ef1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Garrison Griffin",
         mana_cost = mana!("{2}{W}"),

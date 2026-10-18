@@ -12,7 +12,7 @@ card!(
     oracle_id = "13cfc92c-142a-4016-b86f-ace6bda1a69c",
     scryfall_id = "c20edb71-aa1d-437b-bcfb-953efbe45150",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chilling Apparition",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "86e2bbdd-a788-4f76-9ebb-ef48d9bc9dcf",
     scryfall_id = "fbd306cf-6625-4414-b9e5-4b909bb1bb13",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pitchburn Devils",
         mana_cost = mana!("{4}{R}"),

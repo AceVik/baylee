@@ -14,7 +14,7 @@ card!(
     scryfall_id = "aec09395-d3b3-4bb8-a4be-9b6d7c47efad",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soldier of the Grey Host",
         mana_cost = mana!("{3}{W}"),

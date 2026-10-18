@@ -13,7 +13,7 @@ card!(
     scryfall_id = "01e6320c-6f8b-4582-ad11-9b868bff08a1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauntless Aven",
         mana_cost = mana!("{2}{W}"),

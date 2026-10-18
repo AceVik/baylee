@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a836d9bd-a4cb-4676-935c-5fb7b793a42f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Child of Gaea",
         mana_cost = mana!("{3}{G}{G}{G}"),

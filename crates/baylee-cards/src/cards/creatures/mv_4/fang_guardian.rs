@@ -22,7 +22,7 @@ card!(
     scryfall_id = "6db483a7-c9f0-449d-be97-77dbd6d3a27a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fang Guardian",
         mana_cost = mana!("{3}{G}"),

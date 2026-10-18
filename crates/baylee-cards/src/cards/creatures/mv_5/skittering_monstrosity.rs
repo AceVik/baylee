@@ -11,7 +11,7 @@ card!(
     oracle_id = "c6cd6934-b661-455a-8de5-ceb920664bbe",
     scryfall_id = "fb6f872f-adfa-4d29-87df-9d39fb06b5be",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skittering Monstrosity",
         mana_cost = mana!("{3}{B}{B}"),

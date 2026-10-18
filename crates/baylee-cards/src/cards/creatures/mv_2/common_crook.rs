@@ -12,7 +12,7 @@ card!(
     oracle_id = "ebcbfdba-34c7-40eb-91a9-d306ff5ae8b9",
     scryfall_id = "79f4fd9c-8ec1-4ccd-95aa-12f169032e1b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Common Crook",
         mana_cost = mana!("{1}{B}"),

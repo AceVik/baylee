@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7cf3188c-879b-4b18-88b4-6237d7162271",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twin-Silk Spider",
         mana_cost = mana!("{2}{G}"),

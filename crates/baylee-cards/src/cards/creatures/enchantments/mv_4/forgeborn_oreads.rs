@@ -20,7 +20,7 @@ card!(
     oracle_id = "8289190c-b180-48e3-b92f-7dccbca61b39",
     scryfall_id = "b80038ed-4206-4e44-943e-f332e4ce2f14",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forgeborn Oreads",
         mana_cost = mana!("{2}{R}{R}"),

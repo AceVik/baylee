@@ -11,7 +11,7 @@ card!(
     oracle_id = "d17d085f-aeda-4b23-ab80-729d070ae813",
     scryfall_id = "381b4e3b-85d7-4f61-b395-f278f212bda7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lawless Broker",
         mana_cost = mana!("{2}{B}"),

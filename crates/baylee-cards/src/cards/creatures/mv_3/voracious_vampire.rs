@@ -18,7 +18,7 @@ card!(
     scryfall_id = "d66a9f1b-31c8-4557-888b-a927922d37af",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voracious Vampire",
         mana_cost = mana!("{2}{B}"),

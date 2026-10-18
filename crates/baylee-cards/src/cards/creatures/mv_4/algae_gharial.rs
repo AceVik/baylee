@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b7d30720-5baa-4779-a435-14fab778bad6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SHROUD,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Algae Gharial",
         mana_cost = mana!("{3}{G}"),

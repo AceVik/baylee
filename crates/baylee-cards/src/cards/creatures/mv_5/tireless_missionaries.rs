@@ -11,7 +11,7 @@ card!(
     oracle_id = "a730e699-834a-4aac-9b3b-29d6917fc9b3",
     scryfall_id = "c47b7386-168f-4b8e-9a26-9da6d697a501",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tireless Missionaries",
         mana_cost = mana!("{4}{W}"),

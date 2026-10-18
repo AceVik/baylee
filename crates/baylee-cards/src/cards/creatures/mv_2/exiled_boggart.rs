@@ -11,7 +11,7 @@ card!(
     oracle_id = "8c07878f-348c-4fd9-955f-87e975ed61fa",
     scryfall_id = "5fe41509-02db-415c-964e-971ea1d5485c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exiled Boggart",
         mana_cost = mana!("{1}{B}"),

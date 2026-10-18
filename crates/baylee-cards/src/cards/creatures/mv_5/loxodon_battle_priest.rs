@@ -13,7 +13,7 @@ card!(
     oracle_id = "8cf4ddb0-2a83-4d8f-b636-7ba3c81ea4ca",
     scryfall_id = "a527cdb0-f54a-4b53-83a0-6b3e8cafa45e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Battle Priest",
         mana_cost = mana!("{4}{W}"),

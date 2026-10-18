@@ -14,7 +14,7 @@ card!(
     scryfall_id = "ea62ec34-be95-4682-a3fd-9a92a89103b5",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Broodmate Dragon",
         mana_cost = mana!("{3}{B}{R}{G}"),

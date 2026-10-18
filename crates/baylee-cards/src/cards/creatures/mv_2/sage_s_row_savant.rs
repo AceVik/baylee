@@ -11,7 +11,7 @@ card!(
     oracle_id = "6eaf5cdc-2843-4167-bd18-df4c2ac73ac0",
     scryfall_id = "20ceccb4-c7c7-487e-8f74-2d89d2a86f34",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sage's Row Savant",
         mana_cost = mana!("{1}{U}"),

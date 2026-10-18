@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1ffd406d-92d3-47f1-8887-853958fd464e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Niblis of the Urn",
         mana_cost = mana!("{1}{W}"),

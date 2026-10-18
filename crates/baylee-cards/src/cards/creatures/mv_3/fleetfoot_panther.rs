@@ -26,7 +26,7 @@ card!(
     scryfall_id = "02db0f8e-5f87-427f-a3ff-0f261da679cd",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fleetfoot Panther",
         mana_cost = mana!("{1}{G}{W}"),

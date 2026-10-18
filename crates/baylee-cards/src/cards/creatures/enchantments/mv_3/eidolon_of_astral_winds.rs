@@ -18,7 +18,7 @@ card!(
     scryfall_id = "fd62f1de-853e-4fc3-9137-8f419c5972f6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of Astral Winds",
         mana_cost = mana!("{2}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "045b2b84-96bd-46fb-8aae-a33968e741c7",
     scryfall_id = "20c19ccf-999b-4c7d-ae5b-f93555d08a7a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mudbutton Torchrunner",
         mana_cost = mana!("{2}{R}"),

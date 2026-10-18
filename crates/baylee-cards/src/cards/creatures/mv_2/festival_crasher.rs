@@ -16,7 +16,7 @@ card!(
     oracle_id = "e6ddea98-b23f-44de-a63d-5d5dfad60e71",
     scryfall_id = "d8d050c1-ae0c-46c1-8aa7-7cde4606105b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Festival Crasher",
         mana_cost = mana!("{1}{R}"),

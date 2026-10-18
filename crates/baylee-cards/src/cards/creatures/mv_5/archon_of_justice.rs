@@ -13,7 +13,7 @@ card!(
     scryfall_id = "042b0148-5821-4105-9cda-a0e405eb8bee",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archon of Justice",
         mana_cost = mana!("{3}{W}{W}"),

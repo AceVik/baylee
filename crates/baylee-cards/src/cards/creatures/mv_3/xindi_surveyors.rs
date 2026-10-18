@@ -11,7 +11,7 @@ card!(
     oracle_id = "5fdff691-686d-4ce0-bd12-eea676a648b4",
     scryfall_id = "803608aa-ae69-45d2-ae48-f1688d2a6a0d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Xindi Surveyors",
         mana_cost = mana!("{2}{G}"),

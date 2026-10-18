@@ -5008,3 +5008,27 @@ resolved battle-damage holds:
       rather than writing `Status::TAPPED` directly (`rules::nothing_writes_the_tapped_bit_except_the_one_door`).
   - Promoted all 1,296 non-triggered creatures (`3,660 / 4,969` completed, `1,309` remaining).
 
+## 2026-10-19 — Package 6 (1,309 triggered creatures: 4,969 / 4,969 `Coverage::Generated` cards promoted to `Coverage::Implemented`)
+
+- Audited and behaviorally tested the final 1,309 triggered creatures in
+  `crates/baylee-engine/src/engine/card_tests/creatures/pkg6_triggered/`
+  (`494 Trigger::ETB`, `195 Trigger::Dies`, `193 Trigger::EntersBattlefield`,
+  `146 Trigger::SpellCast`, `108 Trigger::Attacks`, `94 Trigger::StepBegin`,
+  `65 Trigger::DealsCombatDamageToPlayer`, `20 Trigger::BecomesTapped`,
+  `11 Trigger::State`, `11 Trigger::DealtDamage`, `7 Trigger::DealsDamageToOpponent`,
+  `6 Trigger::BlocksOrBecomesBlockedBy`, `3 Trigger::TappedForMana`, and
+  `2 Trigger::DealsCombatDamageToOpponent`).
+- Key testing lesson on `sba::destroy` vs `kill`:
+  - `bury(&mut engine, &[id])` calls `sba::destroy` directly on `GameState`, which
+    journals the `ObjectMoved` event without flushing triggers onto the stack.
+    Calling `pass_until(&mut engine, stack_is_empty)` immediately after `bury`
+    checks `stack_is_empty` *before* taking an action and returns immediately
+    while the `Dies` or `State` trigger is still sitting uncollected in the journal.
+  - Using `kill(&mut engine, id)` (or applying one `PlayerAction::PassPriority`
+    after `sba::destroy` before driving the stack to rest) runs
+    `flush_triggers_and_sbas`, putting `Trigger::Dies` (`Pitiless Plunderer`) and
+    `Trigger::State` (`Covetous Dragon`, CR 603.8) onto the stack so they resolve.
+- All **4,969** cards from the initial `Coverage::Generated` baseline are now
+  verified and promoted to `Coverage::Implemented` (**9,051 / 9,051** finished
+  pool cards tested, **0** `Coverage::Generated` remaining, **38** playable precon
+  decks).

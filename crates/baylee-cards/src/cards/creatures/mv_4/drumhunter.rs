@@ -18,7 +18,7 @@ card!(
     oracle_id = "3aab84f2-731c-4079-9623-0b0c433442c3",
     scryfall_id = "343ef398-576a-43b6-a32b-f916ccd63579",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drumhunter",
         mana_cost = mana!("{3}{G}"),

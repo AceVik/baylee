@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c2bfdfb6-aa0b-4bd7-89ba-6435da730e5e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Icewind Elemental",
         mana_cost = mana!("{4}{U}"),

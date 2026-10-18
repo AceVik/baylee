@@ -14,7 +14,7 @@ card!(
     oracle_id = "a6f14387-4dfd-4d6b-a6b1-2ae658a70de6",
     scryfall_id = "16e31e43-84d3-429e-9e81-60b325989c93",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devout Lightcaster",
         mana_cost = mana!("{W}{W}{W}"),

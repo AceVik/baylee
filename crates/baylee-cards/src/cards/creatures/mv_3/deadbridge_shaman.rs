@@ -11,7 +11,7 @@ card!(
     oracle_id = "a57389ad-7f2a-47a6-8ae6-2821503cbb28",
     scryfall_id = "f110fa8e-3fbf-4a81-a743-e709f58e4414",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadbridge Shaman",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "414c97a3-cf31-4145-a431-3b1ad4343947",
     scryfall_id = "337f8889-d814-4422-ac6e-1416e5e4d4d1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sparring Mummy",
         mana_cost = mana!("{3}{W}"),

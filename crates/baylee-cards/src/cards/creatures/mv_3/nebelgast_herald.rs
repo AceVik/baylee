@@ -23,7 +23,7 @@ card!(
     scryfall_id = "51173564-cd0e-410f-82fc-3d071e6f4d17",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nebelgast Herald",
         mana_cost = mana!("{2}{U}"),

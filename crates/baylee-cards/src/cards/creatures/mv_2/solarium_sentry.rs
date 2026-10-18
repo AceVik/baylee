@@ -13,7 +13,7 @@ card!(
     oracle_id = "afddba56-f9a0-4917-8167-c9fd17ca9954",
     scryfall_id = "1ef12dcf-df50-4da6-8c4c-e2937ba9698e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Solarium Sentry",
         mana_cost = mana!("{G}{W}"),

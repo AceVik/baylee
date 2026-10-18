@@ -11,7 +11,7 @@ card!(
     oracle_id = "fd6afb5e-d99a-44a7-9af4-9f064da95d63",
     scryfall_id = "1e571246-aadc-4d1f-a284-9a529e150fe0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starfighter Pilot",
         mana_cost = mana!("{1}{W}"),

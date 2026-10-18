@@ -17,7 +17,7 @@ card!(
     scryfall_id = "2bed19fa-e497-48de-8459-030e60fdc9a8",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tethered Griffin",
         mana_cost = mana!("{W}"),

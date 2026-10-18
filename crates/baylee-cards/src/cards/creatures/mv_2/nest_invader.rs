@@ -12,7 +12,7 @@ card!(
     oracle_id = "a7584a28-0829-4897-abf4-6be1a9232347",
     scryfall_id = "3085f5b1-d2e3-4dd4-8263-024b2b5da4b4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nest Invader",
         mana_cost = mana!("{1}{G}"),

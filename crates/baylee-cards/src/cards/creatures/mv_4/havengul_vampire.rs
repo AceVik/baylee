@@ -12,7 +12,7 @@ card!(
     oracle_id = "616b3ee0-4678-4562-a21a-5f2d31b9964c",
     scryfall_id = "89a4094d-fbcf-42e6-87ef-c722efc4d371",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havengul Vampire",
         mana_cost = mana!("{3}{R}"),

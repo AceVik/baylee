@@ -18,7 +18,7 @@ card!(
     oracle_id = "635b854d-de71-4c85-9755-8c97bf3cba36",
     scryfall_id = "a6bdb984-06f8-4bca-a943-17fe5db97682",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sweettooth Witch",
         mana_cost = mana!("{2}{B}"),

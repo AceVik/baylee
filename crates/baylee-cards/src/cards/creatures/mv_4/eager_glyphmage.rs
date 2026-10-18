@@ -12,7 +12,7 @@ card!(
     oracle_id = "070aa6c7-4741-47de-b68a-629aa4201ac0",
     scryfall_id = "bf736de9-9bc4-49df-ae60-672ed4f83f32",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eager Glyphmage",
         mana_cost = mana!("{3}{W}"),

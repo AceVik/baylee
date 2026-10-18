@@ -19,7 +19,7 @@ card!(
     scryfall_id = "a1db2c83-41d1-4cc6-b9a3-fed504b01127",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tributary Vaulter",
         mana_cost = mana!("{2}{W}"),

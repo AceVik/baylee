@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a9ba2219-8184-4141-8708-845cb0957299",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Migrating Ketradon",
         mana_cost = mana!("{4}{G}{G}"),

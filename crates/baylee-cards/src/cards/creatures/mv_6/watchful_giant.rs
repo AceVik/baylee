@@ -12,7 +12,7 @@ card!(
     oracle_id = "8239c63d-097a-449a-953a-cd480e594aa8",
     scryfall_id = "61a38f24-1eb3-4914-be1f-0b5f6d4b09d5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watchful Giant",
         mana_cost = mana!("{5}{W}"),

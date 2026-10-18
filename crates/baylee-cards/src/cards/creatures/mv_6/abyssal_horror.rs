@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ccb42943-f599-4068-a364-a023e70c4ed2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abyssal Horror",
         mana_cost = mana!("{4}{B}{B}"),

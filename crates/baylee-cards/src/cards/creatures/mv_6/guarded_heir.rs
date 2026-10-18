@@ -14,7 +14,7 @@ card!(
     scryfall_id = "525ba5c7-3ce5-4e52-b8b5-96c9040a6738",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guarded Heir",
         mana_cost = mana!("{5}{W}"),

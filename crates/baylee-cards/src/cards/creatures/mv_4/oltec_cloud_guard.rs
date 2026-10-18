@@ -14,7 +14,7 @@ card!(
     scryfall_id = "02d68a38-2e0b-401b-b67d-a55e2af5b18d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oltec Cloud Guard",
         mana_cost = mana!("{3}{W}"),

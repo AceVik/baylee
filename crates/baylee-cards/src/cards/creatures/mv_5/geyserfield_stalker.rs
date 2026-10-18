@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d4d1e1e1-fa24-4e78-a77c-4d41a58b8aa0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geyserfield Stalker",
         mana_cost = mana!("{4}{B}"),

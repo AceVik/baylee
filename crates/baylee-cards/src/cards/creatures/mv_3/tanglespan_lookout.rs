@@ -16,7 +16,7 @@ card!(
     oracle_id = "d6a767c2-8bc8-4686-899a-0ba3a525977a",
     scryfall_id = "3bc5c32d-be0a-4a5f-a8c7-9767a895bc76",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tanglespan Lookout",
         mana_cost = mana!("{2}{G}"),

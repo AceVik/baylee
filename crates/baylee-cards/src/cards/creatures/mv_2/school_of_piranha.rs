@@ -11,7 +11,7 @@ card!(
     oracle_id = "fad69c20-d6f4-4cf5-8e4c-bbda8d268edd",
     scryfall_id = "71217af5-3538-4e42-9343-3949b5306671",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "School of Piranha",
         mana_cost = mana!("{1}{U}"),

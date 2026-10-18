@@ -11,7 +11,7 @@ card!(
     oracle_id = "399cd159-7376-421c-b001-c26f1cbadced",
     scryfall_id = "ad7ed4e6-3fe2-40f1-909b-a03b2a3c941a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirkwood Meditator",
         mana_cost = mana!("{2}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d8070ee7-dbd1-4d38-9715-ba14e103e379",
     scryfall_id = "fc264fad-c541-4cc6-8b56-44abf3f1e8a0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "High Priest of Penance",
         mana_cost = mana!("{W}{B}"),

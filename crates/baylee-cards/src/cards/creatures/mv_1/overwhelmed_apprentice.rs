@@ -11,7 +11,7 @@ card!(
     oracle_id = "e68d6459-2f32-4320-a062-6d33f85348f9",
     scryfall_id = "8659092e-4fe8-42be-ab03-efc99ed37436",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Overwhelmed Apprentice",
         mana_cost = mana!("{U}"),

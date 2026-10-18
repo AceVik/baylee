@@ -19,7 +19,7 @@ card!(
     scryfall_id = "6536320d-79c3-4406-96eb-b44a9f4a0686",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kronch Wrangler",
         mana_cost = mana!("{1}{G}"),

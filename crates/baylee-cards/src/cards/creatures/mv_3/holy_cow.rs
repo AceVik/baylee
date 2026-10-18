@@ -14,7 +14,7 @@ card!(
     scryfall_id = "90de84c9-941b-4056-8501-ce8a948b9643",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Holy Cow",
         mana_cost = mana!("{2}{W}"),

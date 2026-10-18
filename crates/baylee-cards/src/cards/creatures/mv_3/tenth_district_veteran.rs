@@ -15,7 +15,7 @@ card!(
     scryfall_id = "ef573e92-3106-4b42-90e8-0e165de0659f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tenth District Veteran",
         mana_cost = mana!("{2}{W}"),

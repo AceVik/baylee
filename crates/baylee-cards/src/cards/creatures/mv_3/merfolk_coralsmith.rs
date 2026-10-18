@@ -12,7 +12,7 @@ card!(
     oracle_id = "05f3638f-3c66-47bb-8a82-ad173e152573",
     scryfall_id = "a7f6a79c-aa2f-47d2-a929-1606a61f9341",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk Coralsmith",
         mana_cost = mana!("{2}{U}"),

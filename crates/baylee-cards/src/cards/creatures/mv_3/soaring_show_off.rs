@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2e6c52da-efc8-4279-b6b5-01e490bcb035",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soaring Show-Off",
         mana_cost = mana!("{2}{U}"),

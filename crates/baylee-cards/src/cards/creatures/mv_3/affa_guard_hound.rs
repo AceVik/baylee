@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f762546c-f5eb-420d-a8f7-c3566cd8f506",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Affa Guard Hound",
         mana_cost = mana!("{2}{W}"),

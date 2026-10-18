@@ -16,7 +16,7 @@ card!(
     oracle_id = "89078485-c438-4035-95dc-dbe37fb13e50",
     scryfall_id = "d7f41ae2-ebc6-439f-95af-c34818a3f4e6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slumbering Keepguard",
         mana_cost = mana!("{W}"),

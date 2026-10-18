@@ -13,7 +13,7 @@ card!(
     oracle_id = "1e462ce2-15d3-473c-8f48-9c9363fc65eb",
     scryfall_id = "fdc5436b-9655-4fd4-bb1e-9d6a30dfeb81",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burning Prophet",
         mana_cost = mana!("{1}{R}"),

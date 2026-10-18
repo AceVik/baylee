@@ -14,7 +14,7 @@ card!(
     oracle_id = "3992369a-2158-4cf8-b7e5-be517b91c1f5",
     scryfall_id = "aacb131b-74c9-4e6c-9466-27710bc9441f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadshot Minotaur",
         mana_cost = mana!("{3}{R}{G}"),

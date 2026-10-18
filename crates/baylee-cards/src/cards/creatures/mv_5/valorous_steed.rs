@@ -14,7 +14,7 @@ card!(
     scryfall_id = "aa01cb8c-f080-456b-a91a-f1d7943a70b2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valorous Steed",
         mana_cost = mana!("{4}{W}"),

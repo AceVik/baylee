@@ -12,7 +12,7 @@ card!(
     oracle_id = "710dc9b1-7d32-4330-95a8-3e91a668202a",
     scryfall_id = "e6087550-9f15-4a06-b030-18b0be652065",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghirapur Gearcrafter",
         mana_cost = mana!("{2}{R}"),

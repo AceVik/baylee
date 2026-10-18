@@ -13,7 +13,7 @@ card!(
     scryfall_id = "959318c1-3f7e-4418-91ce-be529af27972",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloistered Telepath",
         mana_cost = mana!("{1}{U}"),

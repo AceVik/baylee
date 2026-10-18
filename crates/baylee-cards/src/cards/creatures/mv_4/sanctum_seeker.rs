@@ -17,7 +17,7 @@ card!(
     oracle_id = "afb71560-0fc9-4ea5-9d52-d93c17d72519",
     scryfall_id = "893279fb-6f51-4d1e-b2fd-a0cdb603785f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanctum Seeker",
         mana_cost = mana!("{2}{B}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b86a5d90-0820-46cb-b43c-c03a423a3a9f",
     scryfall_id = "88318272-8192-4d6d-a22a-eca87abb480d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valakut Predator",
         mana_cost = mana!("{2}{R}"),

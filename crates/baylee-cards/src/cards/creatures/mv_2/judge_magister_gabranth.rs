@@ -19,7 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Judge Magister Gabranth",
         mana_cost = mana!("{W}{B}"),

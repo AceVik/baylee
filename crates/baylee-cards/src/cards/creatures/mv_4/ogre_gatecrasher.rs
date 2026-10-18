@@ -13,7 +13,7 @@ card!(
     oracle_id = "0b88bc94-99c4-4be5-b474-a7dad68057b3",
     scryfall_id = "ffddd4e2-e98c-4535-bac2-0af73f1535c5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Gatecrasher",
         mana_cost = mana!("{3}{R}"),

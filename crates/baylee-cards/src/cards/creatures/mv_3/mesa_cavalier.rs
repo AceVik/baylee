@@ -13,7 +13,7 @@ card!(
     scryfall_id = "feeec740-7ffc-4f57-b52c-92209da91d69",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mesa Cavalier",
         mana_cost = mana!("{2}{W}"),

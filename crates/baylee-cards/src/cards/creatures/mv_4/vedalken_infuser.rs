@@ -11,7 +11,7 @@ card!(
     oracle_id = "68cce1e6-1043-41b2-abd6-7e27ae0125e3",
     scryfall_id = "a52b9d11-0aab-4300-90b6-c8b56de36ec3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Infuser",
         mana_cost = mana!("{3}{U}"),

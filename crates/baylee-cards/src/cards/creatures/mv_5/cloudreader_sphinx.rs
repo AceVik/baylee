@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2afaeec0-9ea3-4aec-9876-8e005e787d71",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudreader Sphinx",
         mana_cost = mana!("{4}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8048bab7-8fd1-446c-80e9-cc2ffb154295",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silverback Shaman",
         mana_cost = mana!("{3}{G}{G}"),

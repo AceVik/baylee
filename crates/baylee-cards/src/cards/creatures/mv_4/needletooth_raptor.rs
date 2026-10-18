@@ -11,7 +11,7 @@ card!(
     oracle_id = "2c431df9-095a-44f1-993e-74eb215d75fe",
     scryfall_id = "e9a90b68-d5f4-4f3c-bd4b-af59dd868919",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Needletooth Raptor",
         mana_cost = mana!("{3}{R}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "ed428638-181b-47cb-92f4-379db020e634",
     scryfall_id = "377d257c-920c-4dd4-a4b1-01cbc631ef8f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kulrath Mystic",
         mana_cost = mana!("{2}{U}"),

@@ -29,7 +29,7 @@ card!(
     oracle_id = "49e3ac82-7c22-4dec-b61a-b581148c0419",
     scryfall_id = "9099eacf-1898-493c-ae87-d5ff4a3646a2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kukemssa Serpent",
         mana_cost = mana!("{3}{U}"),

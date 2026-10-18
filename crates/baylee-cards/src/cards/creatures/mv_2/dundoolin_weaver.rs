@@ -20,7 +20,7 @@ card!(
     oracle_id = "28564d10-bfc5-4beb-b0e2-b9aa5c03f740",
     scryfall_id = "2260912b-4dfb-49dd-bf95-060d44333645",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dundoolin Weaver",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d9fabfa8-b930-428d-af4e-640fb310a5b2",
     scryfall_id = "e5634d1a-ca4b-4528-9e0e-b88f1025d434",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Separatist Voidmage",
         mana_cost = mana!("{3}{U}"),

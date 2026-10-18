@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d9fb56fc-47a4-44ba-8b55-4d0ceb8ce62f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swarm of Bloodflies",
         mana_cost = mana!("{4}{B}"),

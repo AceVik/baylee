@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2b9bb2f3-a7c7-4e8f-ba39-44e6acd9240b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eye Collector",
         mana_cost = mana!("{B}"),

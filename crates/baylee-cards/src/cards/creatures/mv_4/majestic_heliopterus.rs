@@ -19,7 +19,7 @@ card!(
     scryfall_id = "637741c4-5420-4a54-839e-4fd454d93172",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Majestic Heliopterus",
         mana_cost = mana!("{3}{W}"),

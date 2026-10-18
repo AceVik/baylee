@@ -19,7 +19,7 @@ card!(
     scryfall_id = "47c63065-6051-4193-8457-713a8a800393",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stampeding Serow",
         mana_cost = mana!("{2}{G}{G}"),

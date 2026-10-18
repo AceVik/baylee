@@ -17,7 +17,7 @@ card!(
     oracle_id = "17cbeec4-b180-48e9-9156-42271f918a9d",
     scryfall_id = "aa90b7dc-fb90-411e-a762-06a800bae0cf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stromkirk Mentor",
         mana_cost = mana!("{3}{B}"),

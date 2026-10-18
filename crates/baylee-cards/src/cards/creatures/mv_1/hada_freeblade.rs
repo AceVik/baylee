@@ -20,7 +20,7 @@ card!(
     oracle_id = "e9ad9df4-2fd6-4a22-b861-0a8d28f2fe10",
     scryfall_id = "22700453-e1aa-43d1-9b51-cda8a37fc00d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hada Freeblade",
         mana_cost = mana!("{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3a1712dc-8f4c-407f-83ea-3a1c59c437d1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Excavation Mole",
         mana_cost = mana!("{2}{G}"),

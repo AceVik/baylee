@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0af1eadf-f7ea-40be-a0cc-b79e4161db34",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snapping Sailback",
         mana_cost = mana!("{4}{G}"),

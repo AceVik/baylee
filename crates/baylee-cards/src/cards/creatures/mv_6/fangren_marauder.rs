@@ -11,7 +11,7 @@ card!(
     oracle_id = "e154e612-4041-4fb7-903f-917588dbe58e",
     scryfall_id = "f5cf62a2-d03a-495d-924a-bf79524175fa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fangren Marauder",
         mana_cost = mana!("{5}{G}"),

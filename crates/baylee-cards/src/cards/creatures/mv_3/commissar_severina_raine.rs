@@ -17,7 +17,7 @@ card!(
     scryfall_id = "94ba8b76-8de7-46da-b641-2503903f0f8a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Commissar Severina Raine",
         mana_cost = mana!("{1}{W}{B}"),

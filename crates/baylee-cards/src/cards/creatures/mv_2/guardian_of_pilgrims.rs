@@ -11,7 +11,7 @@ card!(
     oracle_id = "a090bc9c-d253-4a29-87d6-aa849f856d36",
     scryfall_id = "f87b5e18-d1a9-424b-bec5-6a80f7699600",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian of Pilgrims",
         mana_cost = mana!("{1}{W}"),

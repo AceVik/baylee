@@ -15,7 +15,7 @@ card!(
     scryfall_id = "4cfca481-cf2d-435d-b4b6-07b1fe2a8e5d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toxic Scorpion",
         mana_cost = mana!("{1}{G}"),

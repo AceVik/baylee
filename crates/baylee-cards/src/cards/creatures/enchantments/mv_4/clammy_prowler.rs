@@ -13,7 +13,7 @@ card!(
     oracle_id = "afe4a60c-747a-439b-bf61-cd323b8dffe7",
     scryfall_id = "237f0b93-f12e-4c5f-a3d7-83e8f20f8493",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clammy Prowler",
         mana_cost = mana!("{3}{U}"),

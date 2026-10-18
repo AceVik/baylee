@@ -11,7 +11,7 @@ card!(
     oracle_id = "46027ca0-9d06-42b3-8012-124861c6b558",
     scryfall_id = "3185eeac-39ae-4e6e-bfdd-4b8edd984af1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Farbog Boneflinger",
         mana_cost = mana!("{4}{B}"),

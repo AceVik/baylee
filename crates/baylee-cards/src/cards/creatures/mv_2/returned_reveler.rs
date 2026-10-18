@@ -11,7 +11,7 @@ card!(
     oracle_id = "f90df69a-d53f-44b1-833a-5223d2e6c296",
     scryfall_id = "9ea61098-2c6a-48d2-b99f-f3065c67d8e3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Returned Reveler",
         mana_cost = mana!("{1}{B}"),

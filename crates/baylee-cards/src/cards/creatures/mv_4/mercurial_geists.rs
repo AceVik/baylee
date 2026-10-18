@@ -18,7 +18,7 @@ card!(
     scryfall_id = "8ab14779-7e79-449c-9a47-6ba219d0dbc5",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mercurial Geists",
         mana_cost = mana!("{2}{U}{R}"),

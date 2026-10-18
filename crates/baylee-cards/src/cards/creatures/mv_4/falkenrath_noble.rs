@@ -18,7 +18,7 @@ card!(
     scryfall_id = "f38eac93-3a0e-40e0-84f8-3670fd84ca00",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Falkenrath Noble",
         mana_cost = mana!("{3}{B}"),

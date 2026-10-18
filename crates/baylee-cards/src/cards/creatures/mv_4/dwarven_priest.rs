@@ -11,7 +11,7 @@ card!(
     oracle_id = "6a077a9b-d725-4b14-957f-1586db2adf59",
     scryfall_id = "7e1e0f13-35a6-4a5e-8666-47bc5c275be7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Priest",
         mana_cost = mana!("{3}{W}"),

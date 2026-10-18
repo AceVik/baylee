@@ -13,7 +13,7 @@ card!(
     scryfall_id = "769ea5e9-6d05-4bc6-8f14-00eb2532c8b5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Erdwal Ripper",
         mana_cost = mana!("{1}{R}{R}"),

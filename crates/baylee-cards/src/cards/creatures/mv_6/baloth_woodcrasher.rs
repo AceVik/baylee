@@ -11,7 +11,7 @@ card!(
     oracle_id = "faaf9975-74df-4e9d-be0c-19a446cd507c",
     scryfall_id = "5c15f211-2c59-4b02-ac91-955f695816ec",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Baloth Woodcrasher",
         mana_cost = mana!("{4}{G}{G}"),

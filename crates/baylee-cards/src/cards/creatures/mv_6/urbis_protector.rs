@@ -12,7 +12,7 @@ card!(
     oracle_id = "564dd5e7-6c1e-4959-a594-60e08552aec9",
     scryfall_id = "8771abc9-e1f2-4d4f-8492-3209866cdc05",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urbis Protector",
         mana_cost = mana!("{4}{W}{W}"),

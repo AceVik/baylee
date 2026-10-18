@@ -11,7 +11,7 @@ card!(
     oracle_id = "eeba70f5-336c-46e6-90db-50818f88e8a5",
     scryfall_id = "834409e3-134e-4a34-89cb-53e2a039e980",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snapping Gnarlid",
         mana_cost = mana!("{1}{G}"),

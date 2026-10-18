@@ -31,7 +31,7 @@ card!(
     oracle_id = "f0357833-80b5-40ba-874a-bd22ea6e4e46",
     scryfall_id = "44917638-3c84-4c21-b139-5084e6e1efc6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spawning Kraken",
         mana_cost = mana!("{5}{U}"),

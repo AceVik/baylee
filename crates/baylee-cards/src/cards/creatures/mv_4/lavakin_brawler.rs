@@ -16,7 +16,7 @@ card!(
     oracle_id = "fa4ad622-5021-44fe-92af-0de115059eb6",
     scryfall_id = "3eeea9e5-3041-4439-bc52-fd00ec83c7a1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lavakin Brawler",
         mana_cost = mana!("{3}{R}"),

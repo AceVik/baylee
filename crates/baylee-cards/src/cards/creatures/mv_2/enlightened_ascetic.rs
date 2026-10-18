@@ -11,7 +11,7 @@ card!(
     oracle_id = "8fe257e5-b54a-4e56-8040-d2eaa0bb0a6a",
     scryfall_id = "76549fc3-5798-4c70-bb70-802b6f597eb7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enlightened Ascetic",
         mana_cost = mana!("{1}{W}"),

@@ -21,7 +21,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::MENACE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Two-Headed Hellkite",
         mana_cost = mana!("{1}{W}{U}{B}{R}{G}"),

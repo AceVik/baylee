@@ -11,7 +11,7 @@ card!(
     oracle_id = "c0864adb-e9aa-40b6-91ff-a0646193e887",
     scryfall_id = "1b9a0e91-80b5-428f-8f08-931d0631be14",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Helpful Hunter",
         mana_cost = mana!("{1}{W}"),

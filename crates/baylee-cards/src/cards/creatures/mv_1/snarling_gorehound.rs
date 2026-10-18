@@ -20,7 +20,7 @@ card!(
     scryfall_id = "93ab3e11-8584-406f-b9ae-9e1df4396cbc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snarling Gorehound",
         mana_cost = mana!("{B}"),

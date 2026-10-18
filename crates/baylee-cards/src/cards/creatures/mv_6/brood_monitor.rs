@@ -14,7 +14,7 @@ card!(
     scryfall_id = "ea7d4a49-8681-4f95-8718-96648bf73c39",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brood Monitor",
         mana_cost = mana!("{4}{G}{G}"),

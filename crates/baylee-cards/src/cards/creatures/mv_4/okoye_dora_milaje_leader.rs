@@ -14,7 +14,7 @@ card!(
     scryfall_id = "2c89acf5-20f0-4441-b96f-2c5cacd685fb",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Okoye, Dora Milaje Leader",
         mana_cost = mana!("{3}{W}"),

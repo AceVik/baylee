@@ -11,7 +11,7 @@ card!(
     oracle_id = "c28fcb1c-3234-4a2a-b43c-737b81219dc8",
     scryfall_id = "cc6b624f-50ba-4d8f-a518-8ec940cdea40",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hag of Twisted Visions",
         mana_cost = mana!("{2}{B}"),

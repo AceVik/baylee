@@ -22,7 +22,7 @@ card!(
     oracle_id = "9bcaf141-1f1f-491f-aced-13dc093b9e2c",
     scryfall_id = "c1b0377c-efd6-4fab-89f0-b219ca2c4c22",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pawn of Ulamog",
         mana_cost = mana!("{1}{B}{B}"),

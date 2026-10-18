@@ -13,7 +13,7 @@ card!(
     scryfall_id = "758a8ca6-1fc1-454a-a2be-9745ac964eb7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inkfathom Divers",
         mana_cost = mana!("{3}{U}{U}"),

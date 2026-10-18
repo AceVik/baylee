@@ -13,7 +13,7 @@ card!(
     scryfall_id = "549089f4-1359-49c3-9560-6fe49d1598d0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Liliana's Specter",
         mana_cost = mana!("{1}{B}{B}"),

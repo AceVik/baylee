@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5e7e246d-92f8-4e6e-89fc-991b888fc1e8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chasm Drake",
         mana_cost = mana!("{4}{U}"),

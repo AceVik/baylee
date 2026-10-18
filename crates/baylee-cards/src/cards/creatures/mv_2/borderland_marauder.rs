@@ -11,7 +11,7 @@ card!(
     oracle_id = "11fd2650-2150-4e62-8b64-e820d734a231",
     scryfall_id = "e3132919-58a7-429f-8a0f-9210d3c2c734",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Borderland Marauder",
         mana_cost = mana!("{1}{R}"),

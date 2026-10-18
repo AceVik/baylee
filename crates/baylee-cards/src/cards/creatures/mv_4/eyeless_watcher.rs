@@ -14,7 +14,7 @@ card!(
     scryfall_id = "4d949d0e-baf7-4573-bb15-7e30e3e9b202",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eyeless Watcher",
         mana_cost = mana!("{3}{G}"),

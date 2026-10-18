@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5cfc4db7-13b5-4c88-91f2-581c9792f1ff",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sky-Eel School",
         mana_cost = mana!("{3}{U}{U}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "848fc2b8-7208-4415-8be1-add84c780f6e",
     scryfall_id = "5c8e201d-b182-47fc-830e-a2d0345a5e98",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Territorial Boar",
         mana_cost = mana!("{1}{G}"),

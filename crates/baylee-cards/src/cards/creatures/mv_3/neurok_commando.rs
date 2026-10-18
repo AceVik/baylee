@@ -13,7 +13,7 @@ card!(
     scryfall_id = "aa7084f3-9335-401f-9a62-6f131351338d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::SHROUD,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neurok Commando",
         mana_cost = mana!("{1}{U}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "d2bd4630-9623-4a41-bc16-c017e63f8122",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deputy of Acquittals",
         mana_cost = mana!("{W}{U}"),

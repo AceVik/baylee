@@ -17,7 +17,7 @@ card!(
     scryfall_id = "025aafbc-5b24-4f5b-9b4a-81f6b9cb5ef3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slash, Reptile Rampager",
         mana_cost = mana!("{3}{R}{R}"),

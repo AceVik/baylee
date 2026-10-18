@@ -19,7 +19,7 @@ card!(
     scryfall_id = "ec497930-0104-4fc7-a1c1-9376b9990444",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roc Charger",
         mana_cost = mana!("{2}{W}"),

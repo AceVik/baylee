@@ -18,7 +18,7 @@ card!(
     oracle_id = "49d44e89-b94e-43f7-a996-f50651df9264",
     scryfall_id = "b9d67b5c-ab20-456e-8ff5-7521be8273b2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbarian Outcast",
         mana_cost = mana!("{1}{R}"),

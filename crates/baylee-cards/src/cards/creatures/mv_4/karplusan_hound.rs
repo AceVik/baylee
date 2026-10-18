@@ -17,7 +17,7 @@ card!(
     oracle_id = "7af53dd7-3994-48f1-9ae1-44380ac56ee0",
     scryfall_id = "95179b31-8cb5-4dd9-ad93-782b8774534d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Karplusan Hound",
         mana_cost = mana!("{3}{R}"),

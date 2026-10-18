@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d698604b-86cc-4dba-a1be-7b5bb46c5c5a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rockslide Elemental",
         mana_cost = mana!("{2}{R}"),

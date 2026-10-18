@@ -13,7 +13,7 @@ card!(
     scryfall_id = "87761f00-bfbc-42dc-b96d-9f4258b43a8b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stronghold Rats",
         mana_cost = mana!("{2}{B}"),

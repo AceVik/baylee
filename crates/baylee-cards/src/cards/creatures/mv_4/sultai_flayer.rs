@@ -17,7 +17,7 @@ card!(
     oracle_id = "df621822-c811-40fa-99c1-ea9920bcd2e2",
     scryfall_id = "e50d74eb-07df-48b5-8788-8b5f5fc0b22b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sultai Flayer",
         mana_cost = mana!("{3}{G}"),

@@ -28,7 +28,7 @@ card!(
     scryfall_id = "149ce3cc-5df6-4158-b732-5bd2c1b3007f",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tibor and Lumia",
         mana_cost = mana!("{2}{U}{R}"),

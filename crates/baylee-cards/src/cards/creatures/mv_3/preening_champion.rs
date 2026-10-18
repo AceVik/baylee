@@ -14,7 +14,7 @@ card!(
     scryfall_id = "44178ece-af31-4a94-88bc-c9ce43bb4573",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Preening Champion",
         mana_cost = mana!("{2}{U}"),

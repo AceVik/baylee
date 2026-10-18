@@ -11,7 +11,7 @@ card!(
     oracle_id = "b1ee0250-83ea-45a9-b5e5-3fa74bc7f26b",
     scryfall_id = "8e974df6-d78a-43ea-ada5-17c53fcca97b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shaman of Spring",
         mana_cost = mana!("{3}{G}"),

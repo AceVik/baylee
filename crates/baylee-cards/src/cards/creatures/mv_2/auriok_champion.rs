@@ -12,7 +12,7 @@ card!(
     oracle_id = "633fd158-19d0-4d97-a076-2ad897bbed19",
     scryfall_id = "74b769c1-48a0-448b-98d9-0d86526ef51e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Auriok Champion",
         mana_cost = mana!("{W}{W}"),

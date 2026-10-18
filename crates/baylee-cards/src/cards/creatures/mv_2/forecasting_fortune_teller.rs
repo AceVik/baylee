@@ -12,7 +12,7 @@ card!(
     oracle_id = "a5a05edd-2a30-414b-b766-f0651d5783f5",
     scryfall_id = "023e7ad4-6af0-4f29-a716-27a313974227",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forecasting Fortune Teller",
         mana_cost = mana!("{1}{U}"),

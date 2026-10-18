@@ -11,7 +11,7 @@ card!(
     oracle_id = "180e1a7e-890d-477c-80a5-da8a5f2857b3",
     scryfall_id = "63ffac51-62c4-4170-85b3-a43d7cfae7d7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Fireweaver",
         mana_cost = mana!("{1}{R}"),

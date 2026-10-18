@@ -14,7 +14,7 @@ card!(
     scryfall_id = "c342e1da-7ab9-4e29-96e6-77d820a45ede",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elgaud Inquisitor",
         mana_cost = mana!("{3}{W}"),

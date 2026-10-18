@@ -18,7 +18,7 @@ card!(
     scryfall_id = "a964c5ed-b0ed-47cb-a0f0-79d28ef7f70b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kapsho Kitefins",
         mana_cost = mana!("{4}{U}{U}"),

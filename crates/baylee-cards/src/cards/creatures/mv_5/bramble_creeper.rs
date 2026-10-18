@@ -11,7 +11,7 @@ card!(
     oracle_id = "33416979-2a3b-4184-818c-6a4e9ccb4580",
     scryfall_id = "74148e2e-ac21-414a-9b6c-410988d7fdd0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bramble Creeper",
         mana_cost = mana!("{4}{G}"),

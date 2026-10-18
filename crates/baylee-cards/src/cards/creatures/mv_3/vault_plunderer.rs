@@ -11,7 +11,7 @@ card!(
     oracle_id = "80e5d768-cc1f-48f8-b0fe-ed974e4d1a56",
     scryfall_id = "2e6bf35c-8763-47cc-ab2d-5dbabeb28072",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vault Plunderer",
         mana_cost = mana!("{2}{B}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "832c6834-2cc7-41d5-b881-37c24c13ab8a",
     scryfall_id = "b74f4f8d-2191-4743-aac6-cdcb4a68379c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhox Meditant",
         mana_cost = mana!("{3}{W}"),

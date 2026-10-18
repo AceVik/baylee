@@ -11,7 +11,7 @@ card!(
     oracle_id = "9290f549-3e5d-4e39-a20e-8be6b674abc7",
     scryfall_id = "2b745934-c1fe-49f5-bda4-b0eafa1408e1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jadecraft Artisan",
         mana_cost = mana!("{3}{G}"),

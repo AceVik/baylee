@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b9f20a74-7614-4bd9-ac08-0e098f98df0c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kemba's Skyguard",
         mana_cost = mana!("{1}{W}{W}"),

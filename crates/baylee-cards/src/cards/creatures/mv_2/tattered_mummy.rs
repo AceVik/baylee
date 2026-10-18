@@ -11,7 +11,7 @@ card!(
     oracle_id = "066e7379-d439-41cb-a8c9-60964040b110",
     scryfall_id = "4c006ad5-db2b-42c6-8018-660e08f18f50",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattered Mummy",
         mana_cost = mana!("{1}{B}"),

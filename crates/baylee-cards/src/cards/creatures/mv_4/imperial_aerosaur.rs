@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7d08f90b-9b98-4237-9826-578fb812d412",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperial Aerosaur",
         mana_cost = mana!("{3}{W}"),

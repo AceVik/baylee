@@ -18,7 +18,7 @@ card!(
     oracle_id = "a5da5ad6-4ed2-4041-a983-76a8c87fa109",
     scryfall_id = "b6936a91-db5d-4977-a851-2dc6a4141ceb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ivy Lane Denizen",
         mana_cost = mana!("{3}{G}"),

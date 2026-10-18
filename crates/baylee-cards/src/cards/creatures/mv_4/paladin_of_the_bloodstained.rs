@@ -12,7 +12,7 @@ card!(
     oracle_id = "f340018d-8b68-45d5-a72e-a922be68365d",
     scryfall_id = "5a0385d5-d0f4-40b8-af28-6557ffdfb625",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paladin of the Bloodstained",
         mana_cost = mana!("{3}{W}"),

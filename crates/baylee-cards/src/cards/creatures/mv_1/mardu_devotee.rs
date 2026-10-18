@@ -12,7 +12,7 @@ card!(
     oracle_id = "24ee57b5-a505-4264-97ca-8b8dfb12298e",
     scryfall_id = "da45e9b0-a4f6-413b-9e62-666c511eb5b0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mardu Devotee",
         mana_cost = mana!("{W}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "509ea58a-da0a-4e9a-aafc-15f4f65a7467",
     scryfall_id = "471a5b1d-e2e5-4d90-b72a-ffae81ad6602",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Saruli Gatekeepers",
         mana_cost = mana!("{3}{G}"),

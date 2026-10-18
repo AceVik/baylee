@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e388c433-3a37-45f6-825a-d13d2223b6f7",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gallant Cavalry",
         mana_cost = mana!("{3}{W}"),

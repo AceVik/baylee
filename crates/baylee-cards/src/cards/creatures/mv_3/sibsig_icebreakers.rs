@@ -11,7 +11,7 @@ card!(
     oracle_id = "4880c976-b417-48e4-98a2-9e5a8da0d758",
     scryfall_id = "3835752e-11a6-406c-8bff-b7d4f2f31d85",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sibsig Icebreakers",
         mana_cost = mana!("{2}{B}"),

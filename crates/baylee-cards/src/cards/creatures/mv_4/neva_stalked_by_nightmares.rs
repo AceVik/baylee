@@ -19,7 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neva, Stalked by Nightmares",
         mana_cost = mana!("{2}{W}{B}"),

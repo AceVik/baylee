@@ -13,7 +13,7 @@ card!(
     scryfall_id = "048dbfec-b1d4-4bb2-8709-21a5f0f3d8ab",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blazing Specter",
         mana_cost = mana!("{2}{B}{R}"),

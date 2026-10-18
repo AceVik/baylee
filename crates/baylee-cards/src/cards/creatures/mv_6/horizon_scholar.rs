@@ -13,7 +13,7 @@ card!(
     scryfall_id = "84c21aa7-678e-4998-9061-a13d04d92842",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horizon Scholar",
         mana_cost = mana!("{5}{U}"),

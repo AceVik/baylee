@@ -11,7 +11,7 @@ card!(
     oracle_id = "8db63f1a-0d63-4b11-966d-818d83a082f9",
     scryfall_id = "7f3a6148-d005-49c1-a7fc-867c4e8251cd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elderfang Disciple",
         mana_cost = mana!("{1}{B}"),

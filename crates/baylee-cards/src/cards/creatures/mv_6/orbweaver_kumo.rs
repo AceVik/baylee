@@ -24,7 +24,7 @@ card!(
     scryfall_id = "3d8f0459-a839-4820-8f99-58da5851ff36",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orbweaver Kumo",
         mana_cost = mana!("{4}{G}{G}"),

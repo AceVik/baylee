@@ -15,7 +15,7 @@ card!(
     oracle_id = "c4d36522-3ace-4bfb-bf2d-1a366f458698",
     scryfall_id = "430b96aa-7bb0-4d2b-b265-9c4987db28a2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Suture Priest",
         mana_cost = mana!("{1}{W}"),

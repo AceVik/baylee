@@ -11,7 +11,7 @@ card!(
     oracle_id = "2e44fd5c-5c7f-4ca8-90cd-34015047eb26",
     scryfall_id = "b222a639-dd46-40f9-835d-3c68b74c295e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "War Priest of Thune",
         mana_cost = mana!("{1}{W}"),

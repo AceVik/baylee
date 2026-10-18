@@ -19,7 +19,7 @@ card!(
     scryfall_id = "2d59bd4a-006b-4dd8-ab33-d931196f3a8a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bull Aurochs",
         mana_cost = mana!("{1}{G}"),

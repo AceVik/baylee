@@ -18,7 +18,7 @@ card!(
     oracle_id = "82284fe4-ecb3-4b27-bb03-27290ad15b17",
     scryfall_id = "8adbd4a5-3171-495a-a540-0ecf280b77fc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tempting Witch",
         mana_cost = mana!("{2}{B}"),

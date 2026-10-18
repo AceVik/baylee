@@ -12,7 +12,7 @@ card!(
     oracle_id = "f09811d0-c5da-4061-aaa7-835ccee3b05a",
     scryfall_id = "274788f4-fbf3-4a15-bdc0-f513a2fde30d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undercity Dire Rat",
         mana_cost = mana!("{1}{B}"),

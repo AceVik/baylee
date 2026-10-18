@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0969d7f3-cec5-4118-adb1-ff957eedf6ab",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greensleeves, Maro-Sorcerer",
         mana_cost = mana!("{3}{G}{G}"),

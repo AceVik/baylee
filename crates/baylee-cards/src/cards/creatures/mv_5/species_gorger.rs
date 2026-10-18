@@ -11,7 +11,7 @@ card!(
     oracle_id = "0e741c79-5ea4-457d-a7d3-b11154459246",
     scryfall_id = "e0087a98-55cf-4c8b-a180-fb0d9c336eb2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Species Gorger",
         mana_cost = mana!("{3}{G}{U}"),

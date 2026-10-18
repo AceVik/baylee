@@ -17,7 +17,7 @@ card!(
     oracle_id = "fbaa6819-3372-4f0b-abb8-773805135153",
     scryfall_id = "0e96f3dc-dc58-4034-8d3d-3ae74fa64562",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Errant",
         mana_cost = mana!("{3}{R}"),

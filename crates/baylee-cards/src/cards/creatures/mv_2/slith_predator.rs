@@ -13,7 +13,7 @@ card!(
     scryfall_id = "14bae45c-eaa8-4c6d-8042-df5cf26e294f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slith Predator",
         mana_cost = mana!("{G}{G}"),

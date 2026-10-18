@@ -13,7 +13,7 @@ card!(
     scryfall_id = "af0f1a90-af64-4122-9c1a-954edf8fa240",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Koma's Faithful",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "cb5de977-d420-41cc-85f0-6ffee8bbeff1",
     scryfall_id = "082a5372-b25a-4559-96b8-2d8d54199a38",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conclave Naturalists",
         mana_cost = mana!("{4}{G}"),

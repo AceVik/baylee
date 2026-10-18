@@ -11,7 +11,7 @@ card!(
     oracle_id = "7854f475-5470-4f2b-99df-af9026895595",
     scryfall_id = "a1ea2c17-382a-45e4-ac34-88bf8ba47169",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Joraga Visionary",
         mana_cost = mana!("{3}{G}"),

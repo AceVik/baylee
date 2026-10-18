@@ -11,7 +11,7 @@ card!(
     oracle_id = "86cee7f0-0aac-46f1-8e4e-062fc398477e",
     scryfall_id = "a5030e80-58c4-4ce3-877e-8395b653f6e8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperial Ceratops",
         mana_cost = mana!("{4}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "788b9d55-6679-4fcc-a3af-11d31e477421",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arborback Stomper",
         mana_cost = mana!("{3}{G}{G}"),

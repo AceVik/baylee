@@ -13,7 +13,7 @@ card!(
     scryfall_id = "019b1f71-2d99-47da-8df3-237ef25a4916",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Assault Intercessor",
         mana_cost = mana!("{1}{W}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "9c99ce14-5059-47a9-b874-637b39473062",
     scryfall_id = "65617a8f-4bd8-4edb-b5ec-e20b4482390b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Vivisector",
         mana_cost = mana!("{1}{B}"),

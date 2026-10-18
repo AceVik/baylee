@@ -15,7 +15,7 @@ card!(
     scryfall_id = "310a1b54-56d9-496a-b910-90cc55996ad4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bog-Strider Ash",
         mana_cost = mana!("{3}{G}"),

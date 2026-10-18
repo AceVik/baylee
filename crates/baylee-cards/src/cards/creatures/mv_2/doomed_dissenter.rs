@@ -12,7 +12,7 @@ card!(
     oracle_id = "11cb509d-21af-48f1-b355-135ebd3e4bd1",
     scryfall_id = "f7c0cf16-81ea-45e3-99cc-4424d59bb44b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doomed Dissenter",
         mana_cost = mana!("{1}{B}"),

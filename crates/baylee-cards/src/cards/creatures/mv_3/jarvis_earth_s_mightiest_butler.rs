@@ -17,7 +17,7 @@ card!(
     scryfall_id = "62c31cd8-0c30-4cfb-89d6-2e4dac19f6ea",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jarvis, Earth's Mightiest Butler",
         mana_cost = mana!("{2}{U}"),

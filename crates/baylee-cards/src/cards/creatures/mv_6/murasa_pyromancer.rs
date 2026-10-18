@@ -25,7 +25,7 @@ card!(
     oracle_id = "1d6925f3-d132-4fa1-bde0-82d0128c319f",
     scryfall_id = "60daf59f-ffba-403b-8028-787ff33f2d6c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murasa Pyromancer",
         mana_cost = mana!("{4}{R}{R}"),

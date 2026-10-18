@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0a7b01ce-2729-4b70-ae0a-b9a1007be78f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sentinel of the Eternal Watch",
         mana_cost = mana!("{5}{W}"),

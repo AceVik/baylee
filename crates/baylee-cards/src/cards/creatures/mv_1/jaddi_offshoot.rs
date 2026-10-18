@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3ed79f15-beeb-4157-a567-eac0772f950a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jaddi Offshoot",
         mana_cost = mana!("{G}"),

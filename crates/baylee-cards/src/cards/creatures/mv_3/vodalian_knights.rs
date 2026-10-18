@@ -24,7 +24,7 @@ card!(
     scryfall_id = "589353ee-27e9-4460-98ce-af5708517f41",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Knights",
         mana_cost = mana!("{1}{U}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "75f269df-ee49-44db-b256-4d005e3022fb",
     scryfall_id = "9745cc70-d6a0-43c5-b8d7-a930d95e94c7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leonin Snarecaster",
         mana_cost = mana!("{1}{W}"),

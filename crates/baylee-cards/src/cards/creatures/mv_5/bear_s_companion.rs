@@ -12,7 +12,7 @@ card!(
     oracle_id = "930248b3-44e6-4c0b-bd7d-4b48323a7272",
     scryfall_id = "28194ca7-3b2a-49b8-8f03-56a2c97859d9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bear's Companion",
         mana_cost = mana!("{2}{G}{U}{R}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e16f1803-634a-41b0-ae21-484d6f914a0d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blisterpod",
         mana_cost = mana!("{G}"),

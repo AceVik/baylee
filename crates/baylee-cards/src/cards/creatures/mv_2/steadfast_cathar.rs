@@ -11,7 +11,7 @@ card!(
     oracle_id = "00895741-f94f-4d80-8ca4-c436bf3c8d56",
     scryfall_id = "5e1b65a7-d385-428b-986c-a0d9283a5f75",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steadfast Cathar",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "c1ebbe89-8976-4ed7-a68a-8b08aac4616c",
     scryfall_id = "3714713f-deb4-4b1c-8764-35287293ca18",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drownyard Explorers",
         mana_cost = mana!("{3}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "00771a33-7443-43f9-a61e-1737b62b1f81",
     scryfall_id = "5deaa491-d95b-481f-aa47-8e7219174cc5",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pharika's Mender",
         mana_cost = mana!("{3}{B}{G}"),

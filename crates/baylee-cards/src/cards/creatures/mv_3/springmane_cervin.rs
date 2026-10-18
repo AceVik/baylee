@@ -11,7 +11,7 @@ card!(
     oracle_id = "4e964f31-c764-4af5-8c27-a46fd721fab4",
     scryfall_id = "f5b0eac4-0262-4eed-97d4-0f2e6f06c8e1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Springmane Cervin",
         mana_cost = mana!("{2}{G}"),

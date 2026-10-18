@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Locke Cole",
         mana_cost = mana!("{1}{U}{B}"),

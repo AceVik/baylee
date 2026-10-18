@@ -12,7 +12,7 @@ card!(
     oracle_id = "cfdef803-6f7a-4055-8d51-8e8c60953928",
     scryfall_id = "16281200-4660-4871-afd2-d4720e6a3197",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cha'DIch Investigator",
         mana_cost = mana!("{4}{B}"),

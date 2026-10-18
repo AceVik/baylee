@@ -13,7 +13,7 @@ card!(
     oracle_id = "b40e2aae-3a1d-4bc2-bf67-e821ec800434",
     scryfall_id = "b8986163-6362-4c70-8ece-22ae22da5031",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blightcaster",
         mana_cost = mana!("{3}{B}"),

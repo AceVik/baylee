@@ -17,7 +17,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::DOUBLE_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Tyrant",
         mana_cost = mana!("{8}{R}{R}"),

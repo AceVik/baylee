@@ -11,7 +11,7 @@ card!(
     oracle_id = "98a60a97-3a43-4544-8ea3-40d0bad79caf",
     scryfall_id = "bf424982-a0ab-4db9-8889-f3cef10966c6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gulf Squid",
         mana_cost = mana!("{3}{U}"),

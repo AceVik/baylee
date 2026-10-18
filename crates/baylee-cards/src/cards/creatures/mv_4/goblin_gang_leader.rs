@@ -12,7 +12,7 @@ card!(
     oracle_id = "79d99305-b3dd-4687-af69-bf4b28704aae",
     scryfall_id = "98be3783-23e8-4143-8685-6d887f164294",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Gang Leader",
         mana_cost = mana!("{2}{R}{R}"),

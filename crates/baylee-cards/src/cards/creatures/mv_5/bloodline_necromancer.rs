@@ -24,7 +24,7 @@ card!(
     scryfall_id = "6b1e719c-4679-4cf0-8ca4-ae740eb0ba92",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodline Necromancer",
         mana_cost = mana!("{4}{B}"),

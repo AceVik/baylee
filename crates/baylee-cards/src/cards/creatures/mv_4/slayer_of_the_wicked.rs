@@ -26,7 +26,7 @@ card!(
     oracle_id = "d93299d4-3aaf-48fb-8227-26203963c8b9",
     scryfall_id = "ca4537d3-c481-49ac-826c-b51c2e9b1fcf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slayer of the Wicked",
         mana_cost = mana!("{3}{W}"),

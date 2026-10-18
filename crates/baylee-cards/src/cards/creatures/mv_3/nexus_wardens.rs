@@ -15,7 +15,7 @@ card!(
     scryfall_id = "68cb4e56-bcad-43a3-8600-a3594047205a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nexus Wardens",
         mana_cost = mana!("{2}{G}"),

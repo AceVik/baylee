@@ -11,7 +11,7 @@ card!(
     oracle_id = "bb4e1340-da63-46b8-a5e3-79dfedec3e78",
     scryfall_id = "8860c3d5-8b93-4c52-b374-8814fb8546bd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snapping Creeper",
         mana_cost = mana!("{2}{G}"),

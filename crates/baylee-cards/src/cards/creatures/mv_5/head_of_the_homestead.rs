@@ -12,7 +12,7 @@ card!(
     oracle_id = "467d6acb-9a3c-433f-836d-54e0e670b7d0",
     scryfall_id = "2fc20157-edd3-484d-8864-925c071c0551",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Head of the Homestead",
         mana_cost = mana!("{3}{G/W}{G/W}"),

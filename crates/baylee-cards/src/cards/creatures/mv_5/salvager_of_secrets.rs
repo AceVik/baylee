@@ -11,7 +11,7 @@ card!(
     oracle_id = "3e400e13-6cae-45e6-b5cc-5b5f9d74dec5",
     scryfall_id = "c0b5b645-c90d-43aa-996d-03a1d575bdd6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salvager of Secrets",
         mana_cost = mana!("{3}{U}{U}"),

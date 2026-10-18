@@ -11,7 +11,7 @@ card!(
     oracle_id = "3792763c-7aa0-4055-b8a1-3257e0443ef1",
     scryfall_id = "7a959048-0d8a-41bb-8a33-52264e525085",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeleton Archer",
         mana_cost = mana!("{3}{B}"),

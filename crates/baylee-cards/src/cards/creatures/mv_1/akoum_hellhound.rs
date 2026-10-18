@@ -11,7 +11,7 @@ card!(
     oracle_id = "05074b68-6b31-4f9f-b3ec-bffe3e7eab47",
     scryfall_id = "3a5ad1c8-3d70-43ed-9539-2aa6289c5c4a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akoum Hellhound",
         mana_cost = mana!("{R}"),

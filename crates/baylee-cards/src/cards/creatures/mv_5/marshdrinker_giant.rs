@@ -24,7 +24,7 @@ card!(
     oracle_id = "be109ed5-9e3e-40b3-9bf0-7caf7cdbb958",
     scryfall_id = "04d1fbb7-aa02-4f56-8be7-88a3ba55f7d2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marshdrinker Giant",
         mana_cost = mana!("{3}{G}{G}"),

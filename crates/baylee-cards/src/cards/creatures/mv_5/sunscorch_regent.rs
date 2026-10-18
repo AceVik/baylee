@@ -13,7 +13,7 @@ card!(
     scryfall_id = "da6b530c-5a56-4dc1-8d36-6ed8d2c158a9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunscorch Regent",
         mana_cost = mana!("{3}{W}{W}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "e5456b35-d7a9-4717-90df-c6c46f1ec437",
     scryfall_id = "eb6104f6-127f-4ab8-94bb-d98783ecb377",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Findbroker",
         mana_cost = mana!("{B}{B}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ecbb660a-4013-410a-b683-82c3ef1690cd",
     scryfall_id = "dce1b1d3-9602-42bf-b341-d96976ff1e60",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soulcage Fiend",
         mana_cost = mana!("{1}{B}{B}"),

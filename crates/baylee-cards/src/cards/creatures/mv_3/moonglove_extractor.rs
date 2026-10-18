@@ -11,7 +11,7 @@ card!(
     oracle_id = "980affa7-6308-4acd-af64-f804e574a89b",
     scryfall_id = "8383e0ab-81b4-4a6b-b87b-dd9180dca1c2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonglove Extractor",
         mana_cost = mana!("{2}{B}"),

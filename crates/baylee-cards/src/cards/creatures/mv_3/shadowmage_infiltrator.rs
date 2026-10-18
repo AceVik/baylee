@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2ac920d7-013f-40ad-b79f-0bb59062d42a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadowmage Infiltrator",
         mana_cost = mana!("{1}{U}{B}"),

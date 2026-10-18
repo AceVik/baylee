@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b742117a-8a72-43b9-b05d-274829d138a2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prideful Parent",
         mana_cost = mana!("{2}{W}"),

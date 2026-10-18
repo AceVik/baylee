@@ -16,7 +16,7 @@ card!(
     oracle_id = "df63e124-1542-48d6-b255-cf45855f1e93",
     scryfall_id = "e4369919-780f-460e-bbac-db3bba05e01f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodland Liege",
         mana_cost = mana!("{2}{G}"),

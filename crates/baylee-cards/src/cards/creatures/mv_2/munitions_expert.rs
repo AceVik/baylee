@@ -18,7 +18,7 @@ card!(
     scryfall_id = "a8572dfd-9da1-4727-b549-47f9b119f6ac",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Munitions Expert",
         mana_cost = mana!("{B}{R}"),

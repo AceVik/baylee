@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7127164d-f2a3-4d79-b6db-93507ff5ab47",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bitterbloom Bearer",
         mana_cost = mana!("{B}{B}"),

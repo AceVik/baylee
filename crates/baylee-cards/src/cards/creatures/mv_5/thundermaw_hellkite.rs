@@ -20,7 +20,7 @@ card!(
     scryfall_id = "a75f6bb4-ab06-42ca-a0df-326d9a098a26",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thundermaw Hellkite",
         mana_cost = mana!("{3}{R}{R}"),

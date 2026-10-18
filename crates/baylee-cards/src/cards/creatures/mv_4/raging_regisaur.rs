@@ -11,7 +11,7 @@ card!(
     oracle_id = "3d563149-7d4e-43e5-b701-28e3212051ec",
     scryfall_id = "35e68007-ac45-40a4-91f3-4a1edf00bd0e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raging Regisaur",
         mana_cost = mana!("{2}{R}{G}"),

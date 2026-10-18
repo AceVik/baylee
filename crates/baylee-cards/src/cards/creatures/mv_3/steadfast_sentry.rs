@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8d92614e-05da-4b5c-a98b-addf8ab2de7b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steadfast Sentry",
         mana_cost = mana!("{2}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "60ac490c-b489-4ad2-bcc2-3babaabf8ccb",
     scryfall_id = "850daae4-f0b7-4604-95e7-ad044ec165c3",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tempest Angler",
         mana_cost = mana!("{1}{U/R}{U/R}"),

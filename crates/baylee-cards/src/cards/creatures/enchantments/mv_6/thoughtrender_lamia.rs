@@ -20,7 +20,7 @@ card!(
     oracle_id = "d97c4bca-6433-4cb0-b63a-fdf8360fc29c",
     scryfall_id = "69799971-6e24-4b90-ba72-44c6393fc3c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thoughtrender Lamia",
         mana_cost = mana!("{4}{B}{B}"),

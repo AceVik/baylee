@@ -13,7 +13,7 @@ card!(
     scryfall_id = "521d1016-6f80-49a2-a76b-59e86d3fae3e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whisper Agent",
         mana_cost = mana!("{1}{U/B}{U/B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6eabebdf-c1a3-4789-a67f-859f0957c5df",
     scryfall_id = "fb959e74-61ea-453d-bb9f-ad0183c0e1b1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pond Prophet",
         mana_cost = mana!("{G/U}{G/U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2c7f2740-a193-4b4c-af00-2dd22d74a4ba",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skymarch Bloodletter",
         mana_cost = mana!("{2}{B}"),

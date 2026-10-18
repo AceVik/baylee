@@ -22,7 +22,7 @@ card!(
     oracle_id = "f6777aee-c39b-49d8-9049-5d2b1e888dd0",
     scryfall_id = "d57ba0ce-0390-42fd-9473-2436fac53631",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thistledown Duo",
         mana_cost = mana!("{2}{W/U}"),

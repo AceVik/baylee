@@ -15,7 +15,7 @@ card!(
     oracle_id = "b2c30683-cc7f-4341-add1-b08cb9b93eeb",
     scryfall_id = "175c6b1c-8790-41a2-ae15-5031206c410f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Morcant's Loyalist",
         mana_cost = mana!("{1}{B}{G}"),

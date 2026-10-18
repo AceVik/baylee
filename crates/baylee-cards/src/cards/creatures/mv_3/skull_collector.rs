@@ -18,7 +18,7 @@ card!(
     oracle_id = "42ec62b1-c899-4ebd-b786-28edf76ce8e0",
     scryfall_id = "0da4b1bf-eef5-4a86-a861-be448845a743",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skull Collector",
         mana_cost = mana!("{1}{B}{B}"),

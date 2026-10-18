@@ -11,7 +11,7 @@ card!(
     oracle_id = "f916f689-a314-4952-8107-41c4c2f2e811",
     scryfall_id = "7bc1441e-7d75-4a74-8733-19077dfa69b2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pulse Tracker",
         mana_cost = mana!("{B}"),

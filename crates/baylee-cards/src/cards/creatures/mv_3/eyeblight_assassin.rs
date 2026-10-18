@@ -11,7 +11,7 @@ card!(
     oracle_id = "09cacd93-5c20-4993-9ee2-a756204796f7",
     scryfall_id = "8a480da7-1b5d-41a5-b603-e63af100724a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eyeblight Assassin",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "fa66d63b-dfb7-42b8-8249-4d60e89058ac",
     scryfall_id = "0230afeb-5ce8-436e-9afc-73cdd7baf424",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dimir Informant",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2feaa51e-47fb-4849-b420-ee7278f3489a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Outlaw Medic",
         mana_cost = mana!("{1}{W}"),

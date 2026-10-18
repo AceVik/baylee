@@ -14,7 +14,7 @@ card!(
     scryfall_id = "baf4c9dd-0546-41ac-a7ba-0bc312fef31e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::PROWESS,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meticulous Artisan",
         mana_cost = mana!("{3}{R}"),

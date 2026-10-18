@@ -11,7 +11,7 @@ card!(
     oracle_id = "695661ac-6f50-4a0e-9831-a0e285bab4bf",
     scryfall_id = "6b9e72f4-0087-4a79-b9af-296c8b930a25",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Celebrants",
         mana_cost = mana!("{3}{R}{R}"),

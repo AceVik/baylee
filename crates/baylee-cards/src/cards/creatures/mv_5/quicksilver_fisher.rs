@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bad0e96a-b4cc-4439-aab9-731a1036145d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quicksilver Fisher",
         mana_cost = mana!("{3}{U}{U}"),

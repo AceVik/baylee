@@ -11,7 +11,7 @@ card!(
     oracle_id = "3583ec24-4f26-45ea-8fb4-a45bdd7bfc79",
     scryfall_id = "9961e3fc-167e-4043-8510-cc5cf08d473e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravenous Lindwurm",
         mana_cost = mana!("{4}{G}{G}"),

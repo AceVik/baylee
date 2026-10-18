@@ -18,7 +18,7 @@ card!(
     scryfall_id = "21923a95-e65e-4f4a-81f8-fc0895beb107",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Electrostatic Field",
         mana_cost = mana!("{1}{R}"),

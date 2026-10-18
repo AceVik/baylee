@@ -11,7 +11,7 @@ card!(
     oracle_id = "b55d8cd6-037d-4d7c-90ec-51249d34b02e",
     scryfall_id = "3665cfb7-51b6-4083-8eae-fbd3fa6c3554",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sire of Insanity",
         mana_cost = mana!("{4}{B}{R}"),

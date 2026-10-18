@@ -11,7 +11,7 @@ card!(
     oracle_id = "f1352a81-6fd5-4c4d-ada4-b81d3a9f74c0",
     scryfall_id = "fde4b3c2-00fd-4911-a52c-9c8247287cfd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dagger Caster",
         mana_cost = mana!("{3}{R}"),

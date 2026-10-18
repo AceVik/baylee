@@ -22,7 +22,7 @@ card!(
     scryfall_id = "7a40c996-7b64-4d56-a21f-b68ac64c1e99",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Minotaur, Roxxon CEO",
         mana_cost = mana!("{4}{B}{B}"),

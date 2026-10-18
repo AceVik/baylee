@@ -12,7 +12,7 @@ card!(
     oracle_id = "fefef024-3a05-4221-bb74-419ee08716e5",
     scryfall_id = "d1af91a5-8681-4a05-910d-96f7a819bfaa",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pretending Poxbearers",
         mana_cost = mana!("{1}{W/B}"),

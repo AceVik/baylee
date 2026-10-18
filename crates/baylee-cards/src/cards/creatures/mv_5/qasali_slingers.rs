@@ -22,7 +22,7 @@ card!(
     scryfall_id = "40e21394-146e-4648-b81e-63659c0c4764",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Qasali Slingers",
         mana_cost = mana!("{4}{G}"),

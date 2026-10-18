@@ -17,7 +17,7 @@ card!(
     oracle_id = "b5f5400e-f341-40e3-b935-36d9cf983a20",
     scryfall_id = "ce2bc7ad-458d-445e-a0a9-7897b596fdd0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adherent of Hope",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "895f7959-4780-4215-a3d3-36a038ebb000",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mockingbird, Bobbi Morse",
         mana_cost = mana!("{3}{W}"),

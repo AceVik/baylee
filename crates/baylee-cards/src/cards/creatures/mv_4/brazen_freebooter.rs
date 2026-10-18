@@ -12,7 +12,7 @@ card!(
     oracle_id = "13e8d063-eece-4f38-83f6-02403130defa",
     scryfall_id = "45657345-b564-4e5f-a57a-01dc54df7e7c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brazen Freebooter",
         mana_cost = mana!("{3}{R}"),

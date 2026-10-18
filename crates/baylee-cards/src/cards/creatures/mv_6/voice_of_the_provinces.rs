@@ -14,7 +14,7 @@ card!(
     scryfall_id = "30a78066-c52e-48fd-bcf9-d0b60f00fddc",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voice of the Provinces",
         mana_cost = mana!("{4}{W}{W}"),

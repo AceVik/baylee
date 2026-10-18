@@ -11,7 +11,7 @@ card!(
     oracle_id = "7126772a-d586-4859-81ec-46bbe9d1a678",
     scryfall_id = "4f93f3c9-b317-40c1-87f5-0038c09b646d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rumbling Sentry",
         mana_cost = mana!("{3}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "424b08b1-d9a3-4f18-a5ef-0f46698ac7ed",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shriekgeist",
         mana_cost = mana!("{1}{U}"),

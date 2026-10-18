@@ -19,7 +19,7 @@ card!(
     scryfall_id = "ad961ba1-c74f-4a44-87fe-b30e2b63e378",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirkwood Spider",
         mana_cost = mana!("{G}"),

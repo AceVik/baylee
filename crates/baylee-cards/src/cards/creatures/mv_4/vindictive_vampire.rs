@@ -14,7 +14,7 @@ card!(
     oracle_id = "11ad664e-36d3-4d5b-8a87-59ea715877e0",
     scryfall_id = "335cf2ae-90c3-407e-9e4a-5e18aab74744",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vindictive Vampire",
         mana_cost = mana!("{3}{B}"),

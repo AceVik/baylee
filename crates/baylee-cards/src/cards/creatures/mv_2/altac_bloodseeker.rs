@@ -11,7 +11,7 @@ card!(
     oracle_id = "7f9d5219-0306-4c39-8640-dcb4314042de",
     scryfall_id = "f5dacedc-f532-43b3-a783-e1dc7ccea53b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Altac Bloodseeker",
         mana_cost = mana!("{1}{R}"),

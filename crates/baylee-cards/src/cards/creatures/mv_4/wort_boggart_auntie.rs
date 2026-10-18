@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wort, Boggart Auntie",
         mana_cost = mana!("{2}{B}{R}"),

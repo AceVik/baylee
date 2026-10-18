@@ -11,7 +11,7 @@ card!(
     oracle_id = "80bb9ce4-1f3c-42ca-b75f-9a6b2f42073b",
     scryfall_id = "ec01de20-8f78-47dd-8735-5e3981013708",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ripjaw Raptor",
         mana_cost = mana!("{2}{G}{G}"),

@@ -18,7 +18,7 @@ card!(
     oracle_id = "e1899133-635d-46ff-b90d-6f8d46a1ffe1",
     scryfall_id = "d13cf68c-b54c-46e1-a720-af57aac9e570",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vital Splicer",
         mana_cost = mana!("{3}{G}"),

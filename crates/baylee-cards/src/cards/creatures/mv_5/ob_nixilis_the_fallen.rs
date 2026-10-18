@@ -12,7 +12,7 @@ card!(
     scryfall_id = "dc9d3ada-9d0d-489a-89b7-08f53f6601e1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ob Nixilis, the Fallen",
         mana_cost = mana!("{3}{B}{B}"),

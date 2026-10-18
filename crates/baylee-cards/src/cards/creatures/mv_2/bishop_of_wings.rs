@@ -18,7 +18,7 @@ card!(
     oracle_id = "af4684cf-f109-44be-adfb-7c551a36635e",
     scryfall_id = "ca42da05-330d-4050-a580-dc00f6faff24",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bishop of Wings",
         mana_cost = mana!("{W}{W}"),

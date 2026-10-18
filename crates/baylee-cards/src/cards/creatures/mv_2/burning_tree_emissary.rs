@@ -11,7 +11,7 @@ card!(
     oracle_id = "327d9679-0049-4401-8dab-e0fb362306bd",
     scryfall_id = "ba327a5e-bd57-4e24-b4b4-062202df30e1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burning-Tree Emissary",
         mana_cost = mana!("{R/G}{R/G}"),

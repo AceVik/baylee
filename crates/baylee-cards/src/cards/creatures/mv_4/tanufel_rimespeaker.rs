@@ -13,7 +13,7 @@ card!(
     oracle_id = "bf8de96b-0a75-4459-a123-dcf95e1b89f2",
     scryfall_id = "b357022c-7cd5-4e82-a183-7144f5a84102",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tanufel Rimespeaker",
         mana_cost = mana!("{3}{U}"),

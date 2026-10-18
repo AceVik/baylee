@@ -11,7 +11,7 @@ card!(
     oracle_id = "13b0a3f3-04a5-465f-898b-13a28f795a16",
     scryfall_id = "80255777-de00-4ffa-a8a0-f522bf4198fb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyre Spawn",
         mana_cost = mana!("{4}{R}{R}"),

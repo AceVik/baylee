@@ -14,7 +14,7 @@ card!(
     oracle_id = "4658ae19-d203-4c12-b56e-42cd8f0db91d",
     scryfall_id = "f9f2029f-ffda-4374-9a78-79866ac23fca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathknell Berserker",
         mana_cost = mana!("{1}{B}"),

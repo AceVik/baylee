@@ -13,7 +13,7 @@ card!(
     scryfall_id = "04128756-cfdc-4e7e-be5f-c9a34c2a0ccc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bogardan Rager",
         mana_cost = mana!("{5}{R}"),

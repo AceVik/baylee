@@ -16,7 +16,7 @@ card!(
     oracle_id = "02c08d0b-0d76-4533-a7e9-d40c7c4b3450",
     scryfall_id = "17d87345-9f89-4b65-ae9c-a0f46b1e9f31",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shoreline Salvager",
         mana_cost = mana!("{3}{B}"),

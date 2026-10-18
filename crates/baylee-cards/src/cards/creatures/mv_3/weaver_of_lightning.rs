@@ -18,7 +18,7 @@ card!(
     scryfall_id = "302ec5d2-ea36-415c-9aa6-808c88a17932",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weaver of Lightning",
         mana_cost = mana!("{2}{R}"),

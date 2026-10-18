@@ -11,7 +11,7 @@ card!(
     oracle_id = "ab539b16-d2a0-404d-8ad3-7ff33f2f1abe",
     scryfall_id = "d458e7e4-578d-4e82-b062-1343b1544996",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scythe Leopard",
         mana_cost = mana!("{G}"),

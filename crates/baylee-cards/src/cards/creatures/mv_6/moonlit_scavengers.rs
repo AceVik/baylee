@@ -16,7 +16,7 @@ card!(
     oracle_id = "8403ea46-e6ac-458c-9c17-4c8a81f21659",
     scryfall_id = "6a658bbd-8d64-460b-87ae-ec8054204794",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonlit Scavengers",
         mana_cost = mana!("{5}{U}"),

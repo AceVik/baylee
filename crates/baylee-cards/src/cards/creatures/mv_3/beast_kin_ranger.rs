@@ -16,7 +16,7 @@ card!(
     scryfall_id = "0102e0be-5783-4825-9489-713b1b1df0b2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beast-Kin Ranger",
         mana_cost = mana!("{2}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "7216f974-3c84-40ef-b904-82019900c204",
     scryfall_id = "d109b70e-862f-4d8a-8b40-ef6dc904868f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hedron Crab",
         mana_cost = mana!("{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "4c17f6c3-48d3-4bd0-b0dd-76229d9c5b09",
     scryfall_id = "37f84b4d-82db-4e3a-a099-2e438c0a6418",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sigiled Skink",
         mana_cost = mana!("{1}{R}"),

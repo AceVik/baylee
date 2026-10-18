@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9e6da400-ee4e-44d1-887d-1e2fb59b9322",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Makindi Sliderunner",
         mana_cost = mana!("{1}{R}"),

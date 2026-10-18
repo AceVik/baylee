@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4ac7b904-7658-4248-a75c-b3a862bde196",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Windrider Patrol",
         mana_cost = mana!("{3}{U}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "806fc324-a17a-4e65-a9b6-d739c471c7f8",
     scryfall_id = "8d839c5a-dc35-4eaa-9cf0-b6e002815726",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanctifier of Souls",
         mana_cost = mana!("{3}{W}"),

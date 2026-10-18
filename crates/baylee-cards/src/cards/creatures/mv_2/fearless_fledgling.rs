@@ -11,7 +11,7 @@ card!(
     oracle_id = "75ae9b87-7137-47a0-b3e1-8915ccd0edf1",
     scryfall_id = "02d73eb7-4e76-48d4-90fa-fa972dc0fccb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fearless Fledgling",
         mana_cost = mana!("{1}{W}"),

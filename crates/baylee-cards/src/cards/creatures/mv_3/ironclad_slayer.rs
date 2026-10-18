@@ -16,7 +16,7 @@ card!(
     oracle_id = "964e20e2-2947-4d8a-a0a2-b8b5fde27ff8",
     scryfall_id = "2841f538-9686-423f-ac30-0580665112e5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ironclad Slayer",
         mana_cost = mana!("{2}{W}"),

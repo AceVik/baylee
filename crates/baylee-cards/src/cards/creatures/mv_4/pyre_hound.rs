@@ -18,7 +18,7 @@ card!(
     scryfall_id = "cd970484-49b3-442a-806a-cabc56526ee1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyre Hound",
         mana_cost = mana!("{3}{R}"),

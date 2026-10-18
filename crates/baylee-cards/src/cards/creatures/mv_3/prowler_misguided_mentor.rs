@@ -17,7 +17,7 @@ card!(
     scryfall_id = "169fbdcd-5a08-4410-b7d4-fe04ad7891cc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowler, Misguided Mentor",
         mana_cost = mana!("{2}{G}"),

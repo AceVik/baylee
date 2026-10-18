@@ -17,7 +17,7 @@ card!(
     oracle_id = "df2cc4ba-70b8-4875-8f84-9c268ab8d5f6",
     scryfall_id = "0a3bc6b9-475b-4257-a3bc-1a0b70d45f79",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunspire Gatekeepers",
         mana_cost = mana!("{3}{W}"),

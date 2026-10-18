@@ -13,7 +13,7 @@ card!(
     scryfall_id = "39938a5a-385b-47ba-a07b-8917cba14fd3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Taurean Mauler",
         mana_cost = mana!("{2}{R}"),

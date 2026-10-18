@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7980e24c-bcb4-479c-8012-f19f4e87f0bf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riddlemaster Sphinx",
         mana_cost = mana!("{4}{U}{U}"),

@@ -21,7 +21,7 @@ card!(
     oracle_id = "3ee78cfc-0e9e-4737-a7e2-b42f94228040",
     scryfall_id = "b3f8be99-a398-4664-beb6-3e98d6e62a32",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cruel Celebrant",
         mana_cost = mana!("{W}{B}"),

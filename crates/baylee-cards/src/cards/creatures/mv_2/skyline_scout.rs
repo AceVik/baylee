@@ -11,7 +11,7 @@ card!(
     oracle_id = "77dfca02-3ca3-4a9c-b3e1-479a951cbfaa",
     scryfall_id = "b052b641-fce9-45c1-a15b-1e22f1a64e4d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyline Scout",
         mana_cost = mana!("{1}{W}"),

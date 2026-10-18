@@ -14,7 +14,7 @@ card!(
     oracle_id = "29c1f80e-f7e2-425e-a225-e88351fcbaab",
     scryfall_id = "57348f93-8764-4b1a-b02e-4e7881337fa2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elderfang Ritualist",
         mana_cost = mana!("{2}{B}"),

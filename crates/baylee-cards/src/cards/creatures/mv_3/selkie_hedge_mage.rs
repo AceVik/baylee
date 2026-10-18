@@ -24,7 +24,7 @@ card!(
     oracle_id = "1f1c369a-3209-405b-9880-0e10b86e5698",
     scryfall_id = "5f66b0b4-44fc-444d-9181-0b717c9642fa",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selkie Hedge-Mage",
         mana_cost = mana!("{2}{G/U}"),

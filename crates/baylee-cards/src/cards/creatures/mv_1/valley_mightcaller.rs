@@ -36,7 +36,7 @@ card!(
     scryfall_id = "7256451f-0122-452a-88e8-0fb0f6bea3f3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valley Mightcaller",
         mana_cost = mana!("{G}"),

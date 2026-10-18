@@ -13,7 +13,7 @@ card!(
     scryfall_id = "07eae396-ee57-485e-8360-962a1310ca31",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lumberknot",
         mana_cost = mana!("{2}{G}{G}"),

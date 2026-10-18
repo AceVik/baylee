@@ -11,7 +11,7 @@ card!(
     oracle_id = "d1dceaa7-d33e-4067-9e1b-8a8978a12933",
     scryfall_id = "6fcc3699-b475-4612-884d-81bd4f21e9c1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stony-Voiced Goblins",
         mana_cost = mana!("{1}{B}"),

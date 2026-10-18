@@ -11,7 +11,7 @@ card!(
     oracle_id = "38872730-0fd1-414e-8015-29d1bc649913",
     scryfall_id = "a168b953-eac4-472e-ac74-598febb05f83",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poisonbelly Ogre",
         mana_cost = mana!("{4}{B}"),

@@ -19,7 +19,7 @@ card!(
     scryfall_id = "b0b67eb9-0d88-4f2c-8063-e8bedfa78556",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boggart Cursecrafter",
         mana_cost = mana!("{B}{R}"),

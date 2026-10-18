@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b9c09887-6d2b-48b4-a483-16b8a45babd0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Falkenrath Marauders",
         mana_cost = mana!("{3}{R}{R}"),

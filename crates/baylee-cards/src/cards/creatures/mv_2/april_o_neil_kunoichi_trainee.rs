@@ -15,7 +15,7 @@ card!(
     scryfall_id = "8b1982ea-686b-4acd-b677-47571430efb0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "April O'Neil, Kunoichi Trainee",
         mana_cost = mana!("{1}{W}"),

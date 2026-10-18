@@ -13,7 +13,7 @@ card!(
     oracle_id = "2fd7018e-1c36-4d7f-8f72-22f2f7f60c60",
     scryfall_id = "183ef738-0559-49ca-85b4-e6836521f203",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of the Great Revel",
         mana_cost = mana!("{R}{R}"),

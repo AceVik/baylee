@@ -15,7 +15,7 @@ card!(
     scryfall_id = "98902dd9-f21c-4419-8205-4b9d6592bf28",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sky Theater Strix",
         mana_cost = mana!("{1}{U}"),

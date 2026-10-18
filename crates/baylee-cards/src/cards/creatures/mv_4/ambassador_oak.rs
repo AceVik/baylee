@@ -12,7 +12,7 @@ card!(
     oracle_id = "4045c24e-098f-4582-8c50-576a94c7b705",
     scryfall_id = "b8664d29-dacc-49cb-949f-e00ceeb75ff6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ambassador Oak",
         mana_cost = mana!("{3}{G}"),

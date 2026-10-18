@@ -13,7 +13,7 @@ card!(
     oracle_id = "e9dfab69-7618-4d90-8bb4-cf23581d1bad",
     scryfall_id = "9d44c3fb-0968-4eb6-899d-6c11ef111574",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chaos Terminator Lord",
         mana_cost = mana!("{3}{R}"),

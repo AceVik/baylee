@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0c08ed44-2c13-4029-af2e-68585a76bb03",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraul Whipcracker",
         mana_cost = mana!("{B}{G}"),

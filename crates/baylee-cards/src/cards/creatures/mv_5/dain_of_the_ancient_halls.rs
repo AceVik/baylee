@@ -19,7 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dáin of the Ancient Halls",
         mana_cost = mana!("{3}{R}{W}"),

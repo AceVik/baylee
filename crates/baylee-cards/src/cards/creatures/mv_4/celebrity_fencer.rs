@@ -14,7 +14,7 @@ card!(
     oracle_id = "39f7e59e-28dd-477e-be38-3fa515838ca4",
     scryfall_id = "5afb5c5c-06e0-4b11-ad07-aef7be6e2cd4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Celebrity Fencer",
         mana_cost = mana!("{3}{W}"),

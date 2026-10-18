@@ -14,7 +14,7 @@ card!(
     scryfall_id = "ecd33152-e290-4505-addd-a8d08cefdddd",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pterafractyl",
         mana_cost = mana!("{X}{G}{U}"),

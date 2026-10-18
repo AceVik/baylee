@@ -22,7 +22,7 @@ card!(
     oracle_id = "8c166a06-b056-4a05-ae23-715289e12e36",
     scryfall_id = "ae4066c3-bcb0-41c4-a4d3-a22bd186fd13",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soilshaper",
         mana_cost = mana!("{1}{G}"),

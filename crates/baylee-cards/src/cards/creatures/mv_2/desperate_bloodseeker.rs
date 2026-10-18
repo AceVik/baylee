@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a59da027-b5dd-4920-b3a1-9da05fcb1977",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desperate Bloodseeker",
         mana_cost = mana!("{1}{B}"),

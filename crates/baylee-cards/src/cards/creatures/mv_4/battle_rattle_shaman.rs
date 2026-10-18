@@ -11,7 +11,7 @@ card!(
     oracle_id = "72dc807b-35fb-4d69-ae4c-04eed0646170",
     scryfall_id = "fee05f7e-d4da-4a72-8140-d505eecbdd32",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle-Rattle Shaman",
         mana_cost = mana!("{3}{R}"),

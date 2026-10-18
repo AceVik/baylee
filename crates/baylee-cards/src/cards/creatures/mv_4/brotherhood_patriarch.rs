@@ -11,7 +11,7 @@ card!(
     oracle_id = "0c766a86-9c70-465e-874b-9d9f3b4eb090",
     scryfall_id = "5b79ee23-d917-48f3-b014-d513f1c5ff54",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brotherhood Patriarch",
         mana_cost = mana!("{3}{B}"),

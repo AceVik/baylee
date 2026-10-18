@@ -16,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Galazeth Prismari",
         mana_cost = mana!("{2}{U}{R}"),

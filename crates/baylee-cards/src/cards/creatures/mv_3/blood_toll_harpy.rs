@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c081f3e2-e4e6-4ef5-9969-64aca9c11413",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood-Toll Harpy",
         mana_cost = mana!("{2}{B}"),

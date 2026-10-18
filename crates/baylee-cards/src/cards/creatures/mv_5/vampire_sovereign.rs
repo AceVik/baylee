@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6f7f0f05-fe4e-4827-bedf-a54352f95967",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Sovereign",
         mana_cost = mana!("{3}{B}{B}"),

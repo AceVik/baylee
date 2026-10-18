@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8781413d-82b9-44be-9d82-3aea4c804ce7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Windrider Eel",
         mana_cost = mana!("{3}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "01afdb32-d9a8-42d4-9ad2-4608ffd661f0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Dragon",
         mana_cost = mana!("{4}{B}{B}"),

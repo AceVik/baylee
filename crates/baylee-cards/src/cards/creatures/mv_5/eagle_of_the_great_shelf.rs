@@ -15,7 +15,7 @@ card!(
     scryfall_id = "3feca644-5f65-4477-bbc8-d505cec6f3a5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eagle of the Great Shelf",
         mana_cost = mana!("{4}{W}"),

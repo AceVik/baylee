@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fd0c6c65-b4dc-4e4a-bbfe-6cf7cab5b48b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Watcher in the Mist",
         mana_cost = mana!("{3}{U}{U}"),

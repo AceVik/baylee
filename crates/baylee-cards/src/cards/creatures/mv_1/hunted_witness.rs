@@ -12,7 +12,7 @@ card!(
     oracle_id = "1fde570c-aa96-45ca-a6be-f59c8e4f4b6a",
     scryfall_id = "8c31b8e5-2349-4119-9dc2-3e41c5364a78",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hunted Witness",
         mana_cost = mana!("{W}"),

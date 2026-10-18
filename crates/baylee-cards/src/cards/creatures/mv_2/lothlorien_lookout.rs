@@ -11,7 +11,7 @@ card!(
     oracle_id = "ed839fae-3429-4ac5-997c-286d8e8cf05f",
     scryfall_id = "acc6a5d4-9a04-4a52-b2dc-0b0ab616a110",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lothlórien Lookout",
         mana_cost = mana!("{1}{G}"),

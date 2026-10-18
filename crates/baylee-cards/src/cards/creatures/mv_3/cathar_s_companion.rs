@@ -13,7 +13,7 @@ card!(
     oracle_id = "668f646b-94f0-4f1a-badd-2d69b559d8a2",
     scryfall_id = "0291a964-1117-4fbd-9193-9719b273c348",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cathar's Companion",
         mana_cost = mana!("{2}{W}"),

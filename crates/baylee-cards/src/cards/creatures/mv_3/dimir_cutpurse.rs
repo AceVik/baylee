@@ -11,7 +11,7 @@ card!(
     oracle_id = "56c1a548-c80c-432b-bf92-d4ef6117b298",
     scryfall_id = "b50f7d5f-8b4d-46d4-86ce-92fbc475c039",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dimir Cutpurse",
         mana_cost = mana!("{1}{U}{B}"),

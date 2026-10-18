@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8697a861-0f67-4ed3-bed8-f264fc78565e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daybreak Combatants",
         mana_cost = mana!("{2}{R}"),

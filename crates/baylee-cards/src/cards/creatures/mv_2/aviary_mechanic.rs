@@ -13,7 +13,7 @@ card!(
     oracle_id = "b47d37ee-2bb2-4ca8-b245-94d2cc4b6684",
     scryfall_id = "b97b0767-4308-4e5d-bc12-6cf8d8724797",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aviary Mechanic",
         mana_cost = mana!("{1}{W}"),

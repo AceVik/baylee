@@ -11,7 +11,7 @@ card!(
     oracle_id = "f2f3be8a-5ea1-47c2-8104-747f4589f5e6",
     scryfall_id = "ca2215dd-6300-49cf-b9b2-3a840b786c31",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bellowing Crier",
         mana_cost = mana!("{1}{U}"),

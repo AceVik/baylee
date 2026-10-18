@@ -17,7 +17,7 @@ card!(
     oracle_id = "2916f041-f080-450f-ae79-dc09076d971a",
     scryfall_id = "e9e00112-8c6c-4551-ad68-389e315fe148",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wayward Servant",
         mana_cost = mana!("{W}{B}"),

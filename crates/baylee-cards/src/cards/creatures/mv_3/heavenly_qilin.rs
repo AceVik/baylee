@@ -15,7 +15,7 @@ card!(
     scryfall_id = "f1cb6fba-e314-4270-bbba-fa0584530f72",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heavenly Qilin",
         mana_cost = mana!("{2}{W}"),

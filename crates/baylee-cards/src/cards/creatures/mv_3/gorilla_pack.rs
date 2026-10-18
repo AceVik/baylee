@@ -21,7 +21,7 @@ card!(
     oracle_id = "f2c8814b-581b-483b-a7ae-d3d7b962aec1",
     scryfall_id = "046f6b76-5f17-4728-aa34-72b7eff1d4c9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gorilla Pack",
         mana_cost = mana!("{2}{G}"),

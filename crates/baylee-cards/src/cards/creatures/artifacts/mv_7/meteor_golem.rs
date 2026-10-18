@@ -12,7 +12,7 @@ card!(
     index = index::METEOR_GOLEM,
     oracle_id = "d9f11aa1-9219-42a8-85a9-a8f204160706",
     scryfall_id = "a1a1cfec-72ca-499b-b621-fa2d8502ea20",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meteor Golem",
         mana_cost = mana!("{7}"),

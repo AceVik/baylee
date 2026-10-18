@@ -11,7 +11,7 @@ card!(
     oracle_id = "3e0d39e2-d99f-4729-899b-c7bcd2b53615",
     scryfall_id = "89bc162c-bdf1-43f7-882f-d8cee4f3f415",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valor Singer",
         mana_cost = mana!("{2}{R}"),

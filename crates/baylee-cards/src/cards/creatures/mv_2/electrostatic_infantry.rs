@@ -18,7 +18,7 @@ card!(
     scryfall_id = "5ed2d72f-f1cf-45a7-adf7-969f531721ce",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Electrostatic Infantry",
         mana_cost = mana!("{1}{R}"),

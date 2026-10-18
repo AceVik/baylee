@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8f42a953-3073-4e74-9bb8-c8c5a45d1dfa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhang Liao, Hero of Hefei",
         mana_cost = mana!("{4}{B}{B}"),

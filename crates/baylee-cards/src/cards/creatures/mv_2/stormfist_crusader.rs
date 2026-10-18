@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0b420ce8-3dd1-430b-a090-4b4e8dcb6aa9",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stormfist Crusader",
         mana_cost = mana!("{B}{R}"),

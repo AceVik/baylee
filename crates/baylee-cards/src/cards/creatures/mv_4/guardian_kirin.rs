@@ -16,7 +16,7 @@ card!(
     scryfall_id = "754b4061-3009-46e4-8602-8349c6367cbf",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Kirin",
         mana_cost = mana!("{3}{W}"),

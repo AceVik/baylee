@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a7da9c9b-aeef-4f48-bc8f-39425841cc8c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Faerie Duelist",
         mana_cost = mana!("{1}{U}"),

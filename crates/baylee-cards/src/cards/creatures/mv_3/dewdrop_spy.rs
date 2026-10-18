@@ -14,7 +14,7 @@ card!(
     scryfall_id = "64b14ad2-0ac7-4ae1-8a9e-eb49c8c5cc40",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dewdrop Spy",
         mana_cost = mana!("{1}{U}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "03af9d24-2df6-4318-82f2-8abdd22206f1",
     scryfall_id = "2c3a6eb8-ce0c-4dc8-9ed6-d2a9223eef53",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindful Biomancer",
         mana_cost = mana!("{1}{G}"),

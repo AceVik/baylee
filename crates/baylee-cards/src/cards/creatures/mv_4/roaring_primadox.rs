@@ -11,7 +11,7 @@ card!(
     oracle_id = "2a098296-6a64-48ba-af40-5b68bae06bec",
     scryfall_id = "49f985df-177f-4535-b681-f9bc74045b39",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roaring Primadox",
         mana_cost = mana!("{3}{G}"),

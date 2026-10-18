@@ -11,7 +11,7 @@ card!(
     oracle_id = "8371dee1-5f4a-410a-8b7c-e4110cdbe9bd",
     scryfall_id = "52b1b4a2-52a7-4fcd-aa96-f7d9e459657b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauntless Survivor",
         mana_cost = mana!("{1}{G}"),

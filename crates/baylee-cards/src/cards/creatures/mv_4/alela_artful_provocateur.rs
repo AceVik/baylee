@@ -23,7 +23,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::DEATHTOUCH)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alela, Artful Provocateur",
         mana_cost = mana!("{1}{W}{U}{B}"),

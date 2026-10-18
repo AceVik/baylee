@@ -11,7 +11,7 @@ card!(
     oracle_id = "ac30745c-addf-433a-be73-d3d9f4cc4328",
     scryfall_id = "93be7aa6-1897-4657-b3a6-991b05f7ea5e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Homarid Explorer",
         mana_cost = mana!("{3}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "5905c55a-f1d1-4021-a9af-f85b02ae21f3",
     scryfall_id = "e1ff5e66-4718-43c3-8a58-1a0a8e788f83",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Audacious Thief",
         mana_cost = mana!("{2}{B}"),

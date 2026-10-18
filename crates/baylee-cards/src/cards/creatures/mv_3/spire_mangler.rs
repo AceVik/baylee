@@ -20,7 +20,7 @@ card!(
     scryfall_id = "a3ce548d-764a-4397-bae3-d348dca78421",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spire Mangler",
         mana_cost = mana!("{2}{B}"),

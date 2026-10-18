@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4831e7ae-54e3-4bd9-b5af-52dc29f81715",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glidedive Duo",
         mana_cost = mana!("{4}{B}"),

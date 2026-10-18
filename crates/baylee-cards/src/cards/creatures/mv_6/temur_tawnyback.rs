@@ -11,7 +11,7 @@ card!(
     oracle_id = "889d26d6-9e6c-4cc0-8e8e-dd932f705a20",
     scryfall_id = "3cdb383f-bc04-46d1-aa3a-7459d57f1fec",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temur Tawnyback",
         mana_cost = mana!("{2/G}{2/U}{2/R}"),

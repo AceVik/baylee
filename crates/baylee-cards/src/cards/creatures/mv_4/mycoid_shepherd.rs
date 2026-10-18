@@ -21,7 +21,7 @@ card!(
     oracle_id = "c4a4e607-7f37-4dc6-8fc0-f77bdafeb919",
     scryfall_id = "8331079e-0193-4243-9db9-ec7762a27633",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mycoid Shepherd",
         mana_cost = mana!("{1}{G}{G}{W}"),

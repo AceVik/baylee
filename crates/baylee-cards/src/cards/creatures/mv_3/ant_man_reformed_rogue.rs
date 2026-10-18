@@ -24,7 +24,7 @@ card!(
     scryfall_id = "777bc602-3c8d-43a1-812f-2103dc26b635",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ant-Man, Reformed Rogue",
         mana_cost = mana!("{2}{G/U}"),

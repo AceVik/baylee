@@ -11,7 +11,7 @@ card!(
     oracle_id = "0d996788-7193-45cd-bc6d-0f470521d1ca",
     scryfall_id = "9d3152bc-5c59-4e98-95de-a51de05a3c98",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vulshok Heartstoker",
         mana_cost = mana!("{2}{R}"),

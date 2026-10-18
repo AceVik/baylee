@@ -13,7 +13,7 @@ card!(
     oracle_id = "8fda6c20-04dc-4b60-9313-896a032ee5cb",
     scryfall_id = "4c7ff97f-fb06-4a61-98cd-50965a6522d4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havengul Skaab",
         mana_cost = mana!("{5}{U}"),

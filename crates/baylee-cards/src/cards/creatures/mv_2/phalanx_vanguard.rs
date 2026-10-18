@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2abe2af7-deba-4569-822a-2d9309aeaadd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phalanx Vanguard",
         mana_cost = mana!("{1}{W}"),

@@ -16,7 +16,7 @@ card!(
     scryfall_id = "eb00fa72-bcda-4081-9048-e13752da8d46",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sky Scourer",
         mana_cost = mana!("{1}{B}"),

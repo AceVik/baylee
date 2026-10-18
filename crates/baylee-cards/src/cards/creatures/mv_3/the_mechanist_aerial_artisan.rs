@@ -18,7 +18,7 @@ card!(
     scryfall_id = "b910851e-9332-4c83-a790-d379667cabfc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Mechanist, Aerial Artisan",
         mana_cost = mana!("{2}{U}"),

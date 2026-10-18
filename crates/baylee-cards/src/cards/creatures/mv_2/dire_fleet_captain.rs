@@ -17,7 +17,7 @@ card!(
     oracle_id = "68f1da0d-1143-457a-b709-1da3c060a45d",
     scryfall_id = "8200f8a3-d60b-470a-a558-0c3555d1f10b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dire Fleet Captain",
         mana_cost = mana!("{B}{R}"),

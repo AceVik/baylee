@@ -22,7 +22,7 @@ card!(
     oracle_id = "98d3d1f1-ac72-4b1e-87da-b4c1e4f03d08",
     scryfall_id = "8a128ea6-cd00-4410-8dc4-cf66ce6f0fa1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlewand Oak",
         mana_cost = mana!("{2}{G}"),

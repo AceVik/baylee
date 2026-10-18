@@ -12,7 +12,7 @@ card!(
     oracle_id = "a30907c0-fbde-4fd3-a8c7-f304305fcea7",
     scryfall_id = "8a03d414-bff9-4aba-8b0a-0ed57982251e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doomed Traveler",
         mana_cost = mana!("{W}"),

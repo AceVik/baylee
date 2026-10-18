@@ -19,7 +19,7 @@ card!(
     scryfall_id = "5b3a4f2a-57ea-4fa0-a76f-3e215a36d1f4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nekrataal",
         mana_cost = mana!("{2}{B}{B}"),

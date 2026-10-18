@@ -15,7 +15,7 @@ card!(
     scryfall_id = "9c9c1a10-446e-492a-95cc-a459dc6c08a0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eldrazi Skyspawner",
         mana_cost = mana!("{2}{U}"),

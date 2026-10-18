@@ -11,7 +11,7 @@ card!(
     oracle_id = "af753429-c121-4957-b768-8bed43dc06cb",
     scryfall_id = "409189da-53c9-4daf-b6b2-d155fc14f91a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Samite Herbalist",
         mana_cost = mana!("{1}{W}"),

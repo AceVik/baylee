@@ -17,7 +17,7 @@ card!(
     oracle_id = "3f3439e1-75ce-482d-881f-836492dca6e9",
     scryfall_id = "0849f67b-da5d-49f7-840f-f87f48518156",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lys Alana Huntmaster",
         mana_cost = mana!("{2}{G}{G}"),

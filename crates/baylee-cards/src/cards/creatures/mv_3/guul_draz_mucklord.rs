@@ -11,7 +11,7 @@ card!(
     oracle_id = "ad62cd58-fe6f-4844-b3dc-5ba21327fc43",
     scryfall_id = "b996743e-7f48-49d8-948b-ceb75bddf215",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guul Draz Mucklord",
         mana_cost = mana!("{2}{B}"),

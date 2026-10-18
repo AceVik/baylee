@@ -13,7 +13,7 @@ card!(
     oracle_id = "f826ac35-7dde-414c-94ec-0bdfe04327b4",
     scryfall_id = "9576d4f1-47bb-45e0-803c-93fa2cdacbe5",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thunderous Snapper",
         mana_cost = mana!("{G/U}{G/U}{G/U}{G/U}"),

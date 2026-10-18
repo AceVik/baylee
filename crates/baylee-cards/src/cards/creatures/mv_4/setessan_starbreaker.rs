@@ -13,7 +13,7 @@ card!(
     oracle_id = "bc84a4e7-5f5f-4105-b0f8-c06ebcde6218",
     scryfall_id = "03af8b3b-a897-43e2-a87d-833da93edc41",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Setessan Starbreaker",
         mana_cost = mana!("{3}{G}"),

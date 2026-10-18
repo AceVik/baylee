@@ -11,7 +11,7 @@ card!(
     oracle_id = "e9a420d4-a834-4a14-b874-1db96624d8ef",
     scryfall_id = "f13b5ba6-0de1-4f5c-867b-57e2c10bde8e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotcrown Ghoul",
         mana_cost = mana!("{4}{U}"),

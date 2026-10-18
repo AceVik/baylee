@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0884666e-8f9b-44b1-a1e3-c1c8941e2152",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pillardrop Rescuer",
         mana_cost = mana!("{4}{W}"),

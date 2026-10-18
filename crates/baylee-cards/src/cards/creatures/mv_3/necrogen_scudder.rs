@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c2045ddd-fa05-4769-aa7a-17b9ab8d6fc0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necrogen Scudder",
         mana_cost = mana!("{2}{B}"),

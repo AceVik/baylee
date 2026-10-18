@@ -13,7 +13,7 @@ card!(
     oracle_id = "10494ce1-7a38-44ae-9881-a83e44daaf7b",
     scryfall_id = "016d333a-6a04-42ff-ba65-b3a5d251893e",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reaper of the Wilds",
         mana_cost = mana!("{2}{B}{G}"),

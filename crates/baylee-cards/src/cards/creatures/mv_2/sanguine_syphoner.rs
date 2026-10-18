@@ -11,7 +11,7 @@ card!(
     oracle_id = "b81a748b-f7a6-4ec4-8b18-40a1819745f6",
     scryfall_id = "b1daf5bb-c8e9-4e79-a532-ca92a9a885cd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanguine Syphoner",
         mana_cost = mana!("{1}{B}"),

@@ -26,7 +26,7 @@ card!(
     oracle_id = "47c67df1-52f5-459f-b83e-6b971be9b294",
     scryfall_id = "fad2c6d4-03dd-4dab-861c-77c55bda0db7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skemfar Avenger",
         mana_cost = mana!("{1}{B}"),

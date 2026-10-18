@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e7c927d6-911d-4a37-89a2-6c500edf4dd7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zo-Zu the Punisher",
         mana_cost = mana!("{1}{R}{R}"),

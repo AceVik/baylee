@@ -13,7 +13,7 @@ card!(
     oracle_id = "19f66bfa-bdfc-430a-ae39-4535f0b28324",
     scryfall_id = "b9e6c26c-84f8-46dd-bb32-b3fc57e172c0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Subterranean Scout",
         mana_cost = mana!("{1}{R}"),

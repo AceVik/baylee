@@ -11,7 +11,7 @@ card!(
     oracle_id = "f1e0eda0-4a5e-4f1f-8131-ba58a58887cf",
     scryfall_id = "28d10cf2-c40d-4748-add0-f9cdd606030c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scute Mob",
         mana_cost = mana!("{G}"),

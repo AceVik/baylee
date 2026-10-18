@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a070b7af-7c85-4129-81ca-e2ec0540085e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mire Triton",
         mana_cost = mana!("{1}{B}"),

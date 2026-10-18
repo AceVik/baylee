@@ -14,7 +14,7 @@ card!(
     oracle_id = "f7156897-2b02-4ecd-868d-d4d59244e9ed",
     scryfall_id = "ca29f373-7051-4cbe-bda8-e711fda4f9bb",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Third Path Iconoclast",
         mana_cost = mana!("{U}{R}"),

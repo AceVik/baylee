@@ -16,7 +16,7 @@ card!(
     scryfall_id = "3aa2d511-6eec-42dd-9ebe-1260c8527856",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jeskai Barricade",
         mana_cost = mana!("{1}{W}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "3da837db-b3e9-46e4-939d-54ab43af94d9",
     scryfall_id = "24babb9e-edc8-484b-9db4-18abbafdf096",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shorecrasher Mimic",
         mana_cost = mana!("{1}{G/U}"),

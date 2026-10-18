@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d63a6be2-ae9a-4758-9d5c-0297ef9af57c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fierce Witchstalker",
         mana_cost = mana!("{2}{G}{G}"),

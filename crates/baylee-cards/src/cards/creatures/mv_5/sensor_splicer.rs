@@ -13,7 +13,7 @@ card!(
     oracle_id = "9676da93-1e17-4f6c-b610-a242b78c71ab",
     scryfall_id = "2d308c11-cc8d-4fa6-bbe1-357b164733ad",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sensor Splicer",
         mana_cost = mana!("{4}{W}"),

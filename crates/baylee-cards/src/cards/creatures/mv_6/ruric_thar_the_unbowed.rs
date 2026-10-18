@@ -15,7 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ruric Thar, the Unbowed",
         mana_cost = mana!("{4}{R}{G}"),

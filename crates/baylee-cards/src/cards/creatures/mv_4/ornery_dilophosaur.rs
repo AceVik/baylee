@@ -19,7 +19,7 @@ card!(
     scryfall_id = "c2c4a0e7-9ca4-4291-94de-165cc2ded822",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ornery Dilophosaur",
         mana_cost = mana!("{3}{G}"),

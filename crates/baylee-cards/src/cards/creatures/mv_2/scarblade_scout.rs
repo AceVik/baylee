@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c2412fea-4591-4345-913f-edc2da9ad975",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarblade Scout",
         mana_cost = mana!("{1}{B}"),

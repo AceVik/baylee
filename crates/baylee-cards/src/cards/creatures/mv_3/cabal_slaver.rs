@@ -13,7 +13,7 @@ card!(
     oracle_id = "22a189a9-e755-4cbb-b419-5ba2e5acbe1b",
     scryfall_id = "b9c04fd3-021a-4011-be9b-0d268557aa06",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cabal Slaver",
         mana_cost = mana!("{2}{B}"),

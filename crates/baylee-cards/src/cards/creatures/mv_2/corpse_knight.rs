@@ -14,7 +14,7 @@ card!(
     oracle_id = "0c77b805-728d-4ae4-88a9-223f4b7b52e0",
     scryfall_id = "7aa3f166-c5d1-40f0-9b23-352424b8e13a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corpse Knight",
         mana_cost = mana!("{W}{B}"),

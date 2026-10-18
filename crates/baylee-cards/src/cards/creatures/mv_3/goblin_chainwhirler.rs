@@ -18,7 +18,7 @@ card!(
     scryfall_id = "8bdb2883-3cfd-4fb0-9f99-6a57277f7fe4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Chainwhirler",
         mana_cost = mana!("{R}{R}{R}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "c55909d3-1f67-4a4a-9d53-8513d6cf96d8",
     scryfall_id = "0f306c7e-cacc-4c26-a3f1-fad4f3ff7cf3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stromkirk Noble",
         mana_cost = mana!("{R}"),

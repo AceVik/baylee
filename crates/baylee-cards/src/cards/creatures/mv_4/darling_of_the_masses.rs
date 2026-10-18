@@ -13,7 +13,7 @@ card!(
     oracle_id = "96818698-c104-48f4-b73f-c8722d1d1be4",
     scryfall_id = "52aa9815-6b47-4c80-87c7-4277166ea0df",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darling of the Masses",
         mana_cost = mana!("{2}{G}{W}"),

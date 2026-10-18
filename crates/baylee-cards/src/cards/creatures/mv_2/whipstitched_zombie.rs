@@ -11,7 +11,7 @@ card!(
     oracle_id = "c498f0ff-812a-4106-834b-f43a0a7e0bac",
     scryfall_id = "9cd00b0b-2ac1-4926-a735-215f402ba1c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whipstitched Zombie",
         mana_cost = mana!("{1}{B}"),

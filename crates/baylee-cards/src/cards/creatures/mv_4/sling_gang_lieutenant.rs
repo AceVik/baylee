@@ -18,7 +18,7 @@ card!(
     oracle_id = "4e93b23c-a7f7-4bdd-bbca-0dc48bb5c223",
     scryfall_id = "f82aec21-441b-4fcd-b666-61723bd79531",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sling-Gang Lieutenant",
         mana_cost = mana!("{3}{B}"),

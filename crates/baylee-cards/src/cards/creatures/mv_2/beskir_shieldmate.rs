@@ -12,7 +12,7 @@ card!(
     oracle_id = "a1090a50-2347-48d0-bb67-379accb8e02d",
     scryfall_id = "dfc1df84-9c47-444b-9d58-d9c7bed51c66",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beskir Shieldmate",
         mana_cost = mana!("{1}{W}"),

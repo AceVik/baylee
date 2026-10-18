@@ -17,7 +17,7 @@ card!(
     oracle_id = "eb6f936e-8dba-49da-84fc-de240b11b8e4",
     scryfall_id = "9c6c72d5-f08e-4e46-a5cb-26d1fc0a71c8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hero of the Dunes",
         mana_cost = mana!("{3}{W}{B}"),

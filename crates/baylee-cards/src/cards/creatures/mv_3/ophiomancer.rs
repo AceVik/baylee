@@ -17,7 +17,7 @@ card!(
     oracle_id = "55eca80c-dcd8-4c2f-aa0f-fb0aec7b80f7",
     scryfall_id = "baf793b6-9612-43f3-9f1b-2e53e81cb89f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ophiomancer",
         mana_cost = mana!("{2}{B}"),

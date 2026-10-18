@@ -13,7 +13,7 @@ card!(
     scryfall_id = "660befe5-9c98-4aa3-9ca7-e643eaf91490",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bounding Krasis",
         mana_cost = mana!("{1}{G}{U}"),

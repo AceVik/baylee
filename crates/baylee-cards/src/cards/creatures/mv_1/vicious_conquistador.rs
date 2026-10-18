@@ -11,7 +11,7 @@ card!(
     oracle_id = "26b077df-7a05-459a-b5ff-bf27767bb519",
     scryfall_id = "2a4b6ced-e8d3-47e9-bd27-3e0cb644afe4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vicious Conquistador",
         mana_cost = mana!("{B}"),

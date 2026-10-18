@@ -11,7 +11,7 @@ card!(
     oracle_id = "6c0f6673-bc24-4c84-b4e7-736283ffd60e",
     scryfall_id = "cbf593a7-d4ae-4771-926a-3c1b2c8c901a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderwine Distracter",
         mana_cost = mana!("{3}{U}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "73b17c29-c796-460b-a0c6-7638fb80e397",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rescuer Chwinga",
         mana_cost = mana!("{1}{W}"),

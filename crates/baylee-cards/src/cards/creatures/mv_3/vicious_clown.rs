@@ -18,7 +18,7 @@ card!(
     oracle_id = "e02abbc0-687b-4aef-95b8-bf18e199725a",
     scryfall_id = "12649f73-9d29-4eed-bc89-cc0d1a8969e3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vicious Clown",
         mana_cost = mana!("{2}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "6dff1def-5b94-40c8-a942-dea8743ab47c",
     scryfall_id = "96da0a4c-2865-4383-875a-9f5d6503baee",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nirkana Revenant",
         mana_cost = mana!("{4}{B}{B}"),

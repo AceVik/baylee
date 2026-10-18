@@ -13,7 +13,7 @@ card!(
     oracle_id = "19a4010f-f5bf-48be-a1d7-eacc3bbeeb59",
     scryfall_id = "28accc5f-63a5-47d0-b0e6-747aa0aa43e5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drowner Initiate",
         mana_cost = mana!("{U}"),

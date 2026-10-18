@@ -20,7 +20,7 @@ card!(
     oracle_id = "d8b7b78e-91b2-4ad5-aeb8-6ebdca363e71",
     scryfall_id = "e105c546-ce4f-49c7-97ba-ea5fbe70df82",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rockslide Sorcerer",
         mana_cost = mana!("{3}{R}"),

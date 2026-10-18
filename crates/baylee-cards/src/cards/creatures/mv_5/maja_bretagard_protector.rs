@@ -14,7 +14,7 @@ card!(
     scryfall_id = "cc3707f1-ed9d-412e-a7be-b6d8b554bd6c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maja, Bretagard Protector",
         mana_cost = mana!("{2}{G}{W}{W}"),

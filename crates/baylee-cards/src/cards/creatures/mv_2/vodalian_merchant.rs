@@ -11,7 +11,7 @@ card!(
     oracle_id = "3d62c8f8-7a1c-4771-891d-05fdaa56bf47",
     scryfall_id = "c1c0effa-a4b8-4166-a66a-90cf01c6ea0d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Merchant",
         mana_cost = mana!("{1}{U}"),

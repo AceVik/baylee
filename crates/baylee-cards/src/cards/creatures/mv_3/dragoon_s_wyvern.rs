@@ -14,7 +14,7 @@ card!(
     scryfall_id = "d92bce20-308e-4841-aaf8-8e20698292e7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragoon's Wyvern",
         mana_cost = mana!("{2}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "e82308d5-29ee-48eb-9d1c-f24897ef191c",
     scryfall_id = "c088d28d-16c2-4dd2-b036-946dfdb8ec98",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanity Gnawers",
         mana_cost = mana!("{1}{B}{R}"),

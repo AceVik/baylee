@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8526b72e-936e-4592-9538-37acca0a6fc5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ithilien Kingfisher",
         mana_cost = mana!("{2}{U}"),

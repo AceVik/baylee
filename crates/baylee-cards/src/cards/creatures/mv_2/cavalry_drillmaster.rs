@@ -11,7 +11,7 @@ card!(
     oracle_id = "d89bbfe7-e7ef-4f1c-a6b5-6d8ef4079daa",
     scryfall_id = "62d2e929-7ae3-4560-9cfa-53b89c8a6016",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cavalry Drillmaster",
         mana_cost = mana!("{1}{W}"),

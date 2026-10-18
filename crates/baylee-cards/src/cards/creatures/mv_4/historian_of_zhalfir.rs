@@ -17,7 +17,7 @@ card!(
     oracle_id = "87e9065d-814a-47fa-9e92-19fb6fd6d78c",
     scryfall_id = "ae981da0-f32c-49d5-bcb0-2b9255a4e1fe",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Historian of Zhalfir",
         mana_cost = mana!("{2}{U}{U}"),

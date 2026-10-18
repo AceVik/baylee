@@ -17,7 +17,7 @@ card!(
     oracle_id = "66c227f2-0e74-43e2-ab24-3866d15c5eef",
     scryfall_id = "3834176f-29c5-4511-87d6-75d0c348a770",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gateway Sneak",
         mana_cost = mana!("{2}{U}"),

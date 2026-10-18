@@ -12,7 +12,7 @@ card!(
     oracle_id = "cef82674-1f61-407b-801b-a76a3803e598",
     scryfall_id = "e8fe855c-fe94-4de7-a033-9892a9d6ee0e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voldaren Epicure",
         mana_cost = mana!("{R}"),

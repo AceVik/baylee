@@ -27,7 +27,7 @@ card!(
     oracle_id = "5ef498fa-31d5-4eca-873d-6b2b1f7f9a3c",
     scryfall_id = "557b2178-2778-4596-9c50-28212616c56c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tajuru Archer",
         mana_cost = mana!("{2}{G}"),

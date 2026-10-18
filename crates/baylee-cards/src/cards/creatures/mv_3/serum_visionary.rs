@@ -11,7 +11,7 @@ card!(
     oracle_id = "922d9d79-8038-4185-9dfb-2d2d52fd8460",
     scryfall_id = "08a587f5-5910-405e-8982-c889dbbc7f98",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serum Visionary",
         mana_cost = mana!("{2}{U}"),

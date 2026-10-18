@@ -26,7 +26,7 @@ card!(
     oracle_id = "3f86e6c6-fca5-43e9-88cc-4546cdd5f0ec",
     scryfall_id = "9cb8a25b-2ad0-4ffe-b41a-6b3f8b48c1e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "God-Pharaoh's Faithful",
         mana_cost = mana!("{W}"),

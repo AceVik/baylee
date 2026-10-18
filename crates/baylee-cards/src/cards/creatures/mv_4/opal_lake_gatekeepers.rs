@@ -16,7 +16,7 @@ card!(
     oracle_id = "a5375366-7ddc-4bd5-91c9-dc08f8beb3f6",
     scryfall_id = "f43ac38f-5cd0-46cf-8623-d82cb8fb719b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Opal Lake Gatekeepers",
         mana_cost = mana!("{3}{U}"),

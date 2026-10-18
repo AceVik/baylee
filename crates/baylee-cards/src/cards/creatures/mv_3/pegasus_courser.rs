@@ -15,7 +15,7 @@ card!(
     scryfall_id = "0c04eafe-8be0-416e-a5b9-486a3b3b5984",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pegasus Courser",
         mana_cost = mana!("{2}{W}"),

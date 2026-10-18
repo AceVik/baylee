@@ -13,7 +13,7 @@ card!(
     oracle_id = "66dc3237-3543-4fc2-96f1-c8d1eff7c04c",
     scryfall_id = "60acc0b7-6842-44aa-a7cc-c5d315d90287",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rimefur Reindeer",
         mana_cost = mana!("{3}{W}"),

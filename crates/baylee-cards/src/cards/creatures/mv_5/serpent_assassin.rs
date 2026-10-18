@@ -16,7 +16,7 @@ card!(
     oracle_id = "3bc7d3a7-ddb4-4eaa-882e-404d8f2926fb",
     scryfall_id = "1018f6ff-5eaa-4fe1-ba20-544df799f5b2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpent Assassin",
         mana_cost = mana!("{3}{B}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "93b17d09-974a-4e33-b14d-5fe4230ab241",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ambush Gigapede",
         mana_cost = mana!("{4}{B}{B}"),

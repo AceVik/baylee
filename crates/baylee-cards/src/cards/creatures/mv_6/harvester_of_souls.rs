@@ -19,7 +19,7 @@ card!(
     scryfall_id = "870ebc0b-b748-4a21-b939-a48811451bba",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harvester of Souls",
         mana_cost = mana!("{4}{B}{B}"),

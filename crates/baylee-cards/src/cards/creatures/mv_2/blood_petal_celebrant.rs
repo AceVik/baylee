@@ -13,7 +13,7 @@ card!(
     oracle_id = "219cf182-0942-4569-91e9-9bc9bb1d06d0",
     scryfall_id = "96db3d95-c0b8-42ff-956c-837f5f9cd40d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Petal Celebrant",
         mana_cost = mana!("{1}{R}"),

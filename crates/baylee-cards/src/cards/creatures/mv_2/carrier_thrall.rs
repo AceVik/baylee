@@ -12,7 +12,7 @@ card!(
     oracle_id = "b3e0b8a6-5de4-4988-b042-2641b1ed3e32",
     scryfall_id = "772e551c-0b47-4ccb-8893-f192de92908e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carrier Thrall",
         mana_cost = mana!("{1}{B}"),

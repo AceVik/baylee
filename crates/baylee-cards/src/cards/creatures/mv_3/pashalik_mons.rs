@@ -28,7 +28,7 @@ card!(
     scryfall_id = "ca20a650-65b0-4714-b7ce-0481af3db377",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pashalik Mons",
         mana_cost = mana!("{2}{R}"),

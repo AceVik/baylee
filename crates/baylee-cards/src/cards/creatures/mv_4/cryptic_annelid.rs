@@ -11,7 +11,7 @@ card!(
     oracle_id = "32ebc862-3bf6-4754-b7b8-8bb73f1651cf",
     scryfall_id = "5377e2d9-a846-4533-aeaf-9144ca8765da",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cryptic Annelid",
         mana_cost = mana!("{3}{U}"),

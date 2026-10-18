@@ -13,7 +13,7 @@ card!(
     scryfall_id = "bc2f3efb-1526-48c0-842a-374af63ea467",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screaming Phantom",
         mana_cost = mana!("{2}{B}"),

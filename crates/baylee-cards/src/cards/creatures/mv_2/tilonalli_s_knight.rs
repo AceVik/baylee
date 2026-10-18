@@ -17,7 +17,7 @@ card!(
     oracle_id = "ae5fe3bd-b6cf-47be-bfb0-05204387bb83",
     scryfall_id = "b25c2f33-1707-4ff3-a22e-58f51936b733",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tilonalli's Knight",
         mana_cost = mana!("{1}{R}"),

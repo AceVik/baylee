@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0613afb5-4cee-4132-8adf-404767ed8d07",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glider Kids",
         mana_cost = mana!("{2}{W}"),

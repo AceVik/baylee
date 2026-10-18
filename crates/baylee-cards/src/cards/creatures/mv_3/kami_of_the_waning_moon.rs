@@ -24,7 +24,7 @@ card!(
     scryfall_id = "23a395a6-b1f5-4b7f-87cc-c77b4d497e9a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kami of the Waning Moon",
         mana_cost = mana!("{2}{B}"),

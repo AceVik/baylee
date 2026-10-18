@@ -17,7 +17,7 @@ card!(
     oracle_id = "6ce6aed2-b959-4572-96fd-fee340d5a5ee",
     scryfall_id = "52a1758c-849a-4de3-b674-857c3c9bf399",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kurgadon",
         mana_cost = mana!("{4}{G}"),

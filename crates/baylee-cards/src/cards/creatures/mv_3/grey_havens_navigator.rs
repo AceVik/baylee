@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b5200abb-64e5-4401-a231-be3ca69d24b7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grey Havens Navigator",
         mana_cost = mana!("{2}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "16ab9451-f3da-4f61-8e2b-d9c84e0e5428",
     scryfall_id = "6e5b899a-52f7-471b-ad50-4fa6566758fd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crackling Cyclops",
         mana_cost = mana!("{2}{R}"),

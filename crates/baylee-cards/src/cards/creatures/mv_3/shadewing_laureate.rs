@@ -20,7 +20,7 @@ card!(
     scryfall_id = "64795a8b-8cf2-436e-8f95-9e8bb40c0d7d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadewing Laureate",
         mana_cost = mana!("{W}{W/B}{B}"),

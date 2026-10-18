@@ -14,7 +14,7 @@ card!(
     oracle_id = "fb37ff1c-7461-4a16-b27f-6eef0db937fe",
     scryfall_id = "8dcd4a52-0c8f-4fca-b7dc-c2503794e5a4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Firewalker",
         mana_cost = mana!("{W}{W}"),

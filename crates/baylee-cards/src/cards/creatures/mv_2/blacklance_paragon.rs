@@ -15,7 +15,7 @@ card!(
     scryfall_id = "fe0a63bb-dd94-429f-aa9b-21f3d1c53ae5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blacklance Paragon",
         mana_cost = mana!("{1}{B}"),

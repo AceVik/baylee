@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2563fd68-afdd-466f-8137-0769565674bf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maga, Traitor to Mortals",
         mana_cost = mana!("{X}{B}{B}{B}"),

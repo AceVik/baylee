@@ -15,7 +15,7 @@ card!(
     scryfall_id = "6e201980-e220-44dc-beab-ad13c20332bd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captain of the Watch",
         mana_cost = mana!("{4}{W}{W}"),

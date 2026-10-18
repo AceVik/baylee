@@ -19,7 +19,7 @@ card!(
     scryfall_id = "078b560f-9b86-401a-afff-21ddb1ebed61",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screamer-Killer",
         mana_cost = mana!("{4}{R}"),

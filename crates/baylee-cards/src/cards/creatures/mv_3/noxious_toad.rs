@@ -11,7 +11,7 @@ card!(
     oracle_id = "2fdc484e-b3c3-4f4e-99a1-26a1134aa1cd",
     scryfall_id = "b5ec75ba-bae2-4ccc-b18b-ad4639cfb548",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Toad",
         mana_cost = mana!("{2}{B}"),

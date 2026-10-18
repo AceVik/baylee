@@ -11,7 +11,7 @@ card!(
     oracle_id = "83ce0859-cb88-45dd-8485-3317792235de",
     scryfall_id = "829f959e-91cd-42ea-8644-ce828a304d01",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tenth District Guard",
         mana_cost = mana!("{1}{W}"),

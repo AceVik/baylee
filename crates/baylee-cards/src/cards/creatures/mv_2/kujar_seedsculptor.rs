@@ -11,7 +11,7 @@ card!(
     oracle_id = "93f817c7-2a3d-4346-94c1-3ba8bafb485d",
     scryfall_id = "7a8a8d63-e64b-4a7a-ba95-1a68f75977d4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kujar Seedsculptor",
         mana_cost = mana!("{1}{G}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "bf061d7e-46eb-4037-968c-3cfc5ca94552",
     scryfall_id = "fd4348ec-fdb1-4c3b-bec5-42513c6c0662",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guild Thief",
         mana_cost = mana!("{1}{U}"),

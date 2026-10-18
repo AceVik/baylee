@@ -11,7 +11,7 @@ card!(
     oracle_id = "01a6f8e6-439b-4de4-9f0a-21a035fd849e",
     scryfall_id = "480be626-cf37-410d-a9c7-e5464345085f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salvage Scuttler",
         mana_cost = mana!("{4}{U}"),

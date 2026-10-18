@@ -13,7 +13,7 @@ card!(
     oracle_id = "7e484372-a052-4df6-a6b2-2c6accccabef",
     scryfall_id = "a8ecbf3e-24ea-4bce-b97b-7f96668f2e14",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wretched Throng",
         mana_cost = mana!("{1}{U}"),

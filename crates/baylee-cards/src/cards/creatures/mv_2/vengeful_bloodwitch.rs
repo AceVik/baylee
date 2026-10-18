@@ -16,7 +16,7 @@ card!(
     oracle_id = "4cdbc466-42fc-471f-beab-397caec18101",
     scryfall_id = "bd0c12dd-f138-45c0-9614-d83a1d8e8399",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vengeful Bloodwitch",
         mana_cost = mana!("{1}{B}"),

@@ -21,7 +21,7 @@ card!(
     oracle_id = "9a9877b5-9f75-4c83-b11b-f006aecb075b",
     scryfall_id = "2958de76-a5ec-4e14-a025-4fe0e84c8b4b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bog Serpent",
         mana_cost = mana!("{5}{B}"),

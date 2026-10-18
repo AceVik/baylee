@@ -16,7 +16,7 @@ card!(
     oracle_id = "c6bdaf76-6a03-4695-9c4b-f040e73435af",
     scryfall_id = "f6bb1ffc-2251-4655-b8f9-4c8047dd5d5f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guttersnipe",
         mana_cost = mana!("{2}{R}"),

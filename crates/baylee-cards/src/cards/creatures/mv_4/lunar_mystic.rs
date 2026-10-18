@@ -14,7 +14,7 @@ card!(
     oracle_id = "9652f79c-3060-4e9c-9623-0ebe4ab4094c",
     scryfall_id = "c8a32b4b-4b8d-40e0-9166-06a678fd6e06",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lunar Mystic",
         mana_cost = mana!("{2}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "81263d5d-e402-4813-9458-161112da27ab",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Attercop",
         mana_cost = mana!("{1}{G}"),

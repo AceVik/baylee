@@ -13,7 +13,7 @@ card!(
     oracle_id = "aa571676-b390-4b8a-baea-4c4cd60c01f6",
     scryfall_id = "b6310a82-73db-40cb-ae64-6f07f869024c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Regal Caracal",
         mana_cost = mana!("{3}{W}{W}"),

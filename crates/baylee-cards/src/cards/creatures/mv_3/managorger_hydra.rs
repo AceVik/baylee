@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e9c124d7-b4b1-43cf-9830-1244053cc056",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Managorger Hydra",
         mana_cost = mana!("{2}{G}"),

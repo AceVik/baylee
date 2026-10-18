@@ -11,7 +11,7 @@ card!(
     oracle_id = "223c97fb-dc96-41ba-be9d-bad9b5e4876f",
     scryfall_id = "103b369c-da58-40e7-98aa-5a5471434bca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Returned Centaur",
         mana_cost = mana!("{3}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "53f07529-c212-43e4-b5b6-086efeadda39",
     scryfall_id = "d13f117b-b8e4-48db-8ce9-5da9c7ce23a5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iceridge Serpent",
         mana_cost = mana!("{4}{U}"),

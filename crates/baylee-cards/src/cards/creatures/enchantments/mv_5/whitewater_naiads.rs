@@ -20,7 +20,7 @@ card!(
     oracle_id = "6c73e533-9ed1-4df0-af12-c0174c0b52b9",
     scryfall_id = "ed39a719-8a4b-4749-adeb-74cd82d9b416",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whitewater Naiads",
         mana_cost = mana!("{3}{U}{U}"),

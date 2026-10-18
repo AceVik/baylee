@@ -18,7 +18,7 @@ card!(
     oracle_id = "ef414347-bbe3-47cb-b900-88275561c43e",
     scryfall_id = "0438d482-b74c-4d5e-a2bc-7063c1ae73fa",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neighborhood Guardian",
         mana_cost = mana!("{1}{W}"),

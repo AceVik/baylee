@@ -13,7 +13,7 @@ card!(
     scryfall_id = "41b930ee-e16b-4612-87de-c03ecc6ff6db",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emmara, Soul of the Accord",
         mana_cost = mana!("{G}{W}"),

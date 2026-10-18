@@ -11,7 +11,7 @@ card!(
     oracle_id = "6358ee1c-3577-4196-bae4-29a3c160a66a",
     scryfall_id = "f435329e-6de7-4b05-ba70-cb63d121116e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toxic Abomination",
         mana_cost = mana!("{1}{B}"),

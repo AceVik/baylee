@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ecb7c19a-b4af-405d-b016-a546ed12a99d",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Radha, Heir to Keld",
         mana_cost = mana!("{R}{G}"),

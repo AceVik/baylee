@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7b4979d9-fafb-4e0e-868f-f4772109d7a7",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savior of the Sleeping",
         mana_cost = mana!("{2}{W}"),

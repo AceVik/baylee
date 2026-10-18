@@ -13,7 +13,7 @@ card!(
     scryfall_id = "28129aaf-aaff-47f4-8dd2-8c576c55052c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barrier of Bones",
         mana_cost = mana!("{B}"),

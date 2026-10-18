@@ -13,7 +13,7 @@ card!(
     oracle_id = "ed7a2ee0-289d-4e5f-92e0-1539395baf33",
     scryfall_id = "a1d27617-2d3d-44a1-b93f-0694253b6774",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnhart Geist",
         mana_cost = mana!("{1}{W}"),

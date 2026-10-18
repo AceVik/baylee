@@ -17,7 +17,7 @@ card!(
     oracle_id = "99cc909d-3cb2-499c-8231-41418745cd71",
     scryfall_id = "e8b1a3e5-cf77-439d-8e0d-cf6571f6891c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mummy Paramount",
         mana_cost = mana!("{1}{W}"),

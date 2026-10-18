@@ -11,7 +11,7 @@ card!(
     oracle_id = "263b526c-8b81-44ee-a7c4-5c24bf9b42a4",
     scryfall_id = "7c9d3f4a-ef83-454e-b8a1-1fc5d5f44be8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kazandu Nectarpot",
         mana_cost = mana!("{1}{G}"),

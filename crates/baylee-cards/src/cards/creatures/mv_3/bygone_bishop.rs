@@ -20,7 +20,7 @@ card!(
     scryfall_id = "cf879fc7-9f84-40a7-a7be-9cc98a720af5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bygone Bishop",
         mana_cost = mana!("{2}{W}"),

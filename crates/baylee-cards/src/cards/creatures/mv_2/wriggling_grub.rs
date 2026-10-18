@@ -12,7 +12,7 @@ card!(
     oracle_id = "d25e8f54-1915-4d0b-b4b1-93ee40da2cfa",
     scryfall_id = "e02aa086-13b2-42cf-acf4-086ba406e886",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wriggling Grub",
         mana_cost = mana!("{1}{B}"),

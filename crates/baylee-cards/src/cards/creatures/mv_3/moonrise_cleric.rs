@@ -13,7 +13,7 @@ card!(
     scryfall_id = "35f2a71f-31e8-4b51-9dd4-51a5336b3b86",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonrise Cleric",
         mana_cost = mana!("{1}{W/B}{W/B}"),

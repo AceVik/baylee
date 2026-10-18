@@ -16,7 +16,7 @@ card!(
     oracle_id = "594a57f6-7827-41c7-aa37-00b498720b16",
     scryfall_id = "e0d4dd61-cc7e-4fc5-afce-73a4b326cfdb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warteye Witch",
         mana_cost = mana!("{2}{B}"),

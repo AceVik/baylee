@@ -20,7 +20,7 @@ card!(
     scryfall_id = "64da2ec1-fca9-4488-8ac7-78d645a8bf62",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marsh Flitter",
         mana_cost = mana!("{3}{B}"),

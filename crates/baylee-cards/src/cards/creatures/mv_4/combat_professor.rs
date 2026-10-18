@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3f669ac4-98ed-4e23-91a9-281f8277ab04",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Combat Professor",
         mana_cost = mana!("{3}{W}"),

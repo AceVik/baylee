@@ -11,7 +11,7 @@ card!(
     oracle_id = "f507f9ba-a7e9-4e45-86dc-8c60a72a6234",
     scryfall_id = "45fb53b4-9fff-43dd-ae5d-f3ec83e49076",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Mesmerist",
         mana_cost = mana!("{1}{U}"),

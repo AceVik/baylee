@@ -11,7 +11,7 @@ card!(
     oracle_id = "3724cc42-1bbd-4a11-8469-ab8492ddba52",
     scryfall_id = "259045fe-f349-4be1-bf29-465d084ed35e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fear of Lost Teeth",
         mana_cost = mana!("{B}"),

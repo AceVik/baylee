@@ -12,7 +12,7 @@ card!(
     oracle_id = "2378d6fc-b6ba-4a44-b951-5698ed507e4c",
     scryfall_id = "71b05d44-d987-45e1-bbd9-842dbe58c2b5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drownyard Amalgam",
         mana_cost = mana!("{4}{U}"),

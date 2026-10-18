@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d7501662-1216-4e08-bd2b-e0a459057942",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kor Skyfisher",
         mana_cost = mana!("{1}{W}"),

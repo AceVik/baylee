@@ -18,7 +18,7 @@ card!(
     oracle_id = "214562b1-fdf0-4d5d-93f0-594b31b80bb3",
     scryfall_id = "093e0b1e-2cd9-4743-9c0e-b8f3fbc41798",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadow Stinger",
         mana_cost = mana!("{2}{B}"),

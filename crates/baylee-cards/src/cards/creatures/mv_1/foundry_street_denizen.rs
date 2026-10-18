@@ -18,7 +18,7 @@ card!(
     oracle_id = "e8148616-9f0b-4d4e-8d6d-18251a84e5e8",
     scryfall_id = "a328c8d8-a404-43b5-8c79-2e79d639fb40",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foundry Street Denizen",
         mana_cost = mana!("{R}"),

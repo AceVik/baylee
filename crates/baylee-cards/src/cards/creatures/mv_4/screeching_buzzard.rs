@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ab285e6a-b937-4b34-ba20-662d36b9f3dc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screeching Buzzard",
         mana_cost = mana!("{3}{B}"),

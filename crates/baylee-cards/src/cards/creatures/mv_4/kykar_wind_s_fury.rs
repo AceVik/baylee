@@ -23,7 +23,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kykar, Wind's Fury",
         mana_cost = mana!("{1}{U}{R}{W}"),

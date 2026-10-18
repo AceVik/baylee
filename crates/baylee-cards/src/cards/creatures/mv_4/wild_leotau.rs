@@ -11,7 +11,7 @@ card!(
     oracle_id = "d5277fe0-b707-41bb-9ff9-62f8be249dd2",
     scryfall_id = "a47bc387-ac1a-42b4-9427-fc944094b3a1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Leotau",
         mana_cost = mana!("{2}{G}{G}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "58e4fb9b-76bc-4daf-b0a3-4bf62757902d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shattered Angel",
         mana_cost = mana!("{3}{W}{W}"),

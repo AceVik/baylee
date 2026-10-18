@@ -11,7 +11,7 @@ card!(
     oracle_id = "5c5fbb54-f0e3-4afe-9158-ff9eadaa338d",
     scryfall_id = "c53a55ec-0ada-4fc1-9de4-d4daa1ae4546",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stromkirk Patrol",
         mana_cost = mana!("{4}{B}"),

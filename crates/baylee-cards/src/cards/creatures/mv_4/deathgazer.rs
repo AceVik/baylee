@@ -16,7 +16,7 @@ card!(
     oracle_id = "0f772f35-6d98-4ac8-88e5-02539737078b",
     scryfall_id = "76502ffc-a26b-4207-a565-044898875f43",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathgazer",
         mana_cost = mana!("{3}{B}"),

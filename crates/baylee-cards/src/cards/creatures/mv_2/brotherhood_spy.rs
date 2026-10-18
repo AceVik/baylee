@@ -17,7 +17,7 @@ card!(
     oracle_id = "26d800b2-b312-4400-8357-615301971086",
     scryfall_id = "0157325c-b064-4c0a-9b5d-ecdf0ed15d9c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brotherhood Spy",
         mana_cost = mana!("{1}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9011126a-20bd-4c86-a63b-1691f79ac247",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Siege Rhino",
         mana_cost = mana!("{1}{W}{B}{G}"),

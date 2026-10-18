@@ -22,7 +22,7 @@ card!(
     oracle_id = "76168d1b-266d-4d27-9e97-248b0c2c7e8f",
     scryfall_id = "32b70339-9918-4f7e-9cd0-d4ce36b65997",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Safehold Duo",
         mana_cost = mana!("{3}{G/W}"),

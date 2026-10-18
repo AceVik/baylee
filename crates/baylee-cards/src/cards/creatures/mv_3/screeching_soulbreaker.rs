@@ -13,7 +13,7 @@ card!(
     scryfall_id = "738667a1-c184-43ea-829f-49fbb69b6fc0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Screeching Soulbreaker",
         mana_cost = mana!("{2}{B}"),

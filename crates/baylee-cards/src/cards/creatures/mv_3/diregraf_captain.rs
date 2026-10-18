@@ -20,7 +20,7 @@ card!(
     scryfall_id = "158407ad-35a9-40e1-9762-1c0572b56ecb",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diregraf Captain",
         mana_cost = mana!("{1}{U}{B}"),

@@ -22,7 +22,7 @@ card!(
     scryfall_id = "fb979cfc-3e5b-42c9-b78d-584c274ed912",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Umara Mystic",
         mana_cost = mana!("{1}{U}{R}"),

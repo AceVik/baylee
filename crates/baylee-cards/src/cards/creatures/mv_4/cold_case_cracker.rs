@@ -14,7 +14,7 @@ card!(
     scryfall_id = "f082111b-9b1c-4a25-8c5d-d6ef77533a9b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cold Case Cracker",
         mana_cost = mana!("{3}{U}"),

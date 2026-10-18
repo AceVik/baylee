@@ -11,7 +11,7 @@ card!(
     oracle_id = "4493828f-144f-49cf-9fd2-61de86e632ec",
     scryfall_id = "6b04160c-89a7-4dcd-b05d-5dc846824d64",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canopy Baloth",
         mana_cost = mana!("{3}{G}"),

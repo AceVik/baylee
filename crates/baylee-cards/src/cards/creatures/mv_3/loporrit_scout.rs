@@ -14,7 +14,7 @@ card!(
     oracle_id = "24630190-a630-4dd3-a8f7-82f129c881e3",
     scryfall_id = "a182bc66-bfda-4bf5-bd12-3de5dba60945",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loporrit Scout",
         mana_cost = mana!("{2}{G}"),

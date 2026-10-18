@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9d75faf7-fc27-4fc2-9e80-e35232c42542",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bazaar Trademage",
         mana_cost = mana!("{2}{U}"),

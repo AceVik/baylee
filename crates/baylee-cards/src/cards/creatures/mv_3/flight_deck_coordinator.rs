@@ -13,7 +13,7 @@ card!(
     oracle_id = "57927909-11a9-44ef-989d-1dcca1f6e23f",
     scryfall_id = "88cc6328-a035-4f74-b786-390e5c7c324c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flight-Deck Coordinator",
         mana_cost = mana!("{2}{W}"),

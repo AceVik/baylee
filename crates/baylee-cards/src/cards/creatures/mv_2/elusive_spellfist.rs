@@ -13,7 +13,7 @@ card!(
     oracle_id = "b9ba00f2-b11c-45d8-9c38-f9ade5d07d0f",
     scryfall_id = "aac94901-f4ec-4888-82ef-87fd2b20cf11",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elusive Spellfist",
         mana_cost = mana!("{1}{U}"),

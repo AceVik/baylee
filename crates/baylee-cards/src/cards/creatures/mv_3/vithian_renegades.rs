@@ -11,7 +11,7 @@ card!(
     oracle_id = "78fa248d-7f45-4d43-b3e3-c726db938b0f",
     scryfall_id = "7459a075-1a5d-4053-ab49-21bb696b6400",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vithian Renegades",
         mana_cost = mana!("{1}{R}{G}"),

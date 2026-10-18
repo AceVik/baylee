@@ -15,7 +15,7 @@ card!(
     scryfall_id = "c7093834-9627-4da2-9322-c03bfd5b3a71",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harmonious Archon",
         mana_cost = mana!("{4}{W}{W}"),

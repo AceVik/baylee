@@ -13,7 +13,7 @@ card!(
     oracle_id = "b6244b6c-664d-417a-bd58-ace5c7a995a2",
     scryfall_id = "24bd571e-652a-4e7c-afc6-a45f0ccf62f6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foot Elite",
         mana_cost = mana!("{2}{W/B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "41da0e8c-ba86-446d-9719-667695c7f1cc",
     scryfall_id = "84b9bee2-b973-4de7-b72d-7f36f8e8153c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Honey Mammoth",
         mana_cost = mana!("{4}{G}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "587eed42-5111-4161-9af5-bf76556c542a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Gladewalker",
         mana_cost = mana!("{1}{G}"),

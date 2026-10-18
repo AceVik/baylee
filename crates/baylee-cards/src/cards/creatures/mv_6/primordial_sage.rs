@@ -11,7 +11,7 @@ card!(
     oracle_id = "499f1e1e-d96e-481f-a5d9-eb38da927cd7",
     scryfall_id = "4b0d8dec-e139-4565-9259-3c24c54c1d45",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primordial Sage",
         mana_cost = mana!("{4}{G}{G}"),

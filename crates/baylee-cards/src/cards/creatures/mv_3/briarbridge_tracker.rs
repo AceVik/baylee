@@ -17,7 +17,7 @@ card!(
     scryfall_id = "e215a7bd-112f-4228-a99e-5a8cb4be5cee",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Briarbridge Tracker",
         mana_cost = mana!("{2}{G}"),

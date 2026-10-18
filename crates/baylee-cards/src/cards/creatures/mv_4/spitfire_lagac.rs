@@ -11,7 +11,7 @@ card!(
     oracle_id = "7215ca87-bbff-4c14-a1f5-de5ddd97c875",
     scryfall_id = "30f600cd-b696-4f49-9cbc-5a33aa43d04c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spitfire Lagac",
         mana_cost = mana!("{3}{R}"),

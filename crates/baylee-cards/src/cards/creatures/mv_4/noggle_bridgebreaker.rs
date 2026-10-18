@@ -11,7 +11,7 @@ card!(
     oracle_id = "d7e127e4-56fd-4116-9c1a-421beab58e5c",
     scryfall_id = "545a52ed-b4d4-4972-940d-9daf07a488b1",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noggle Bridgebreaker",
         mana_cost = mana!("{2}{U/R}{U/R}"),

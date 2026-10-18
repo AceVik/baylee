@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a358def9-65a0-4741-896c-b2a8c8947768",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whitemane Lion",
         mana_cost = mana!("{1}{W}"),

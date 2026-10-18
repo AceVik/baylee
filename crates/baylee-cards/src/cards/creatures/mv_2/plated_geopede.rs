@@ -13,7 +13,7 @@ card!(
     scryfall_id = "80d5fa13-1dc3-4f10-860e-70902aca7ac9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plated Geopede",
         mana_cost = mana!("{1}{R}"),

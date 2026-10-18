@@ -30,7 +30,7 @@ card!(
         Color::White
     ]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Go-Shintai of Life's Origin",
         mana_cost = mana!("{3}{G}"),

@@ -21,7 +21,7 @@ card!(
     scryfall_id = "5ea59511-24b1-4925-9948-9d4c0d27d1c5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilded Goose",
         mana_cost = mana!("{G}"),

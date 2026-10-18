@@ -14,7 +14,7 @@ card!(
     oracle_id = "c7107a2d-2dcf-42e9-9ea9-d0fc0d6d2ec6",
     scryfall_id = "696d6c4b-69d7-498b-87d4-0a03b16cc971",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impassioned Orator",
         mana_cost = mana!("{1}{W}"),

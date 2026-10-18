@@ -11,7 +11,7 @@ card!(
     oracle_id = "74d85903-6404-41d9-bc00-81c6b2f61bb0",
     scryfall_id = "ce4d00f2-30e6-41d5-b997-c66350fe783c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armored Skaab",
         mana_cost = mana!("{2}{U}"),

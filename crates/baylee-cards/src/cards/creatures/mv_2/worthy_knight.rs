@@ -17,7 +17,7 @@ card!(
     oracle_id = "37733e29-3ade-4bfd-89c9-efd13b548a53",
     scryfall_id = "bdbfe895-f806-4490-9ae6-b39b28ea4e28",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Worthy Knight",
         mana_cost = mana!("{1}{W}"),

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "40295a9b-3a5a-402e-8baf-546cdad223b0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Immortal Weapons",
         mana_cost = mana!("{4}{R}"),

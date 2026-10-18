@@ -11,7 +11,7 @@ card!(
     oracle_id = "5fba553e-81b9-419b-aa20-b2a7cfcd042b",
     scryfall_id = "7b1264d2-c7c8-477f-84f6-c17b422aa45e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Doomsayer",
         mana_cost = mana!("{1}{B}"),

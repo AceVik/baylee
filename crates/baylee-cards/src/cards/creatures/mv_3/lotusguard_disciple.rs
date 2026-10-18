@@ -18,7 +18,7 @@ card!(
     scryfall_id = "80645651-3804-481f-8f8f-ade762a011e1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lotusguard Disciple",
         mana_cost = mana!("{2}{W}"),

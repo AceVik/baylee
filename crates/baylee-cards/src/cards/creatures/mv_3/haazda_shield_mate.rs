@@ -12,7 +12,7 @@ card!(
     oracle_id = "49b689a3-9197-4a04-a62f-218b245d6e23",
     scryfall_id = "8940e8c6-1423-4dbf-89c8-9055bf15d4ec",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haazda Shield Mate",
         mana_cost = mana!("{2}{W}"),

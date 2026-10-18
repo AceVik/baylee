@@ -16,7 +16,7 @@ card!(
     oracle_id = "942eefa3-6775-428b-84aa-48c3bd78d3b8",
     scryfall_id = "140265a2-61c3-4731-989c-9d55c27400ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thorntooth Witch",
         mana_cost = mana!("{5}{B}"),

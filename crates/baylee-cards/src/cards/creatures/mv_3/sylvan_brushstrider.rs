@@ -11,7 +11,7 @@ card!(
     oracle_id = "67a494dc-deac-43ee-9e47-20fae9788a9f",
     scryfall_id = "16482e12-7a8d-4999-8438-da227e6d1305",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvan Brushstrider",
         mana_cost = mana!("{2}{G}"),

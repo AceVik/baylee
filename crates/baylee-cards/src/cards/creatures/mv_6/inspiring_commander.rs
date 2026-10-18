@@ -18,7 +18,7 @@ card!(
     oracle_id = "b26b1d22-3882-4aa9-b86b-f3748a6c9a25",
     scryfall_id = "6f88ad29-5398-468f-843d-06ec80a9ec9a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inspiring Commander",
         mana_cost = mana!("{4}{W}{W}"),

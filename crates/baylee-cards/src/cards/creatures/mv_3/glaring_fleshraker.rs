@@ -21,7 +21,7 @@ card!(
     index = index::GLARING_FLESHRAKER,
     oracle_id = "0ffce5e0-6b1d-4d1a-9318-1a1a219df532",
     scryfall_id = "80c2a3c7-1486-4ff9-88ec-79ec67a437f8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glaring Fleshraker",
         mana_cost = mana!("{2}{C}"),

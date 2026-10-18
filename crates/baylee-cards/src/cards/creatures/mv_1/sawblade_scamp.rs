@@ -16,7 +16,7 @@ card!(
     scryfall_id = "7f04c2e5-9100-439a-9aa4-28d388518e4a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sawblade Scamp",
         mana_cost = mana!("{R}"),

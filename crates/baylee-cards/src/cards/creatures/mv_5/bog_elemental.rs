@@ -12,7 +12,7 @@ card!(
     oracle_id = "82344b5b-7cd9-460d-9966-f09432ed8e59",
     scryfall_id = "75191915-352e-4de7-b216-63f0ff588ba5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bog Elemental",
         mana_cost = mana!("{3}{B}{B}"),

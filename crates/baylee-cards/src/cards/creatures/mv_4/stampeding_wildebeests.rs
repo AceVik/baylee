@@ -19,7 +19,7 @@ card!(
     scryfall_id = "3134cf43-7723-4420-be98-c6fc7b5bb49b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stampeding Wildebeests",
         mana_cost = mana!("{2}{G}{G}"),

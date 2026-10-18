@@ -11,7 +11,7 @@ card!(
     oracle_id = "ad70144e-16e4-4604-9e6d-cb287f67ddb5",
     scryfall_id = "53343a0c-d97c-4d6f-b696-5343a962e3dd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eidolon of Inspiration",
         mana_cost = mana!("{1}{W}{W}"),

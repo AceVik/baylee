@@ -14,7 +14,7 @@ card!(
     oracle_id = "e049eb22-a01a-463e-8de9-705d6eaf84e2",
     scryfall_id = "e9d3500e-09ba-48b6-933f-25b4625b79aa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elegant Entourage",
         mana_cost = mana!("{3}{G}"),

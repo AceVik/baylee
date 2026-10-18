@@ -16,7 +16,7 @@ card!(
     oracle_id = "6eb93545-a1a6-4447-82c5-421d8e9f023d",
     scryfall_id = "552730c5-e3a6-468f-91b2-82c272dda400",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Erebor Flamesmith",
         mana_cost = mana!("{1}{R}"),

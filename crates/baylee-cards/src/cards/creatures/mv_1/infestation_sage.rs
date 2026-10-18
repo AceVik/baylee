@@ -12,7 +12,7 @@ card!(
     oracle_id = "d398dca3-f3a5-44c9-998f-b4fce9e5c2bf",
     scryfall_id = "d40c73de-7a5f-46f2-a70b-449bc8ecfe24",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infestation Sage",
         mana_cost = mana!("{B}"),

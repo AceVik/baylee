@@ -16,7 +16,7 @@ card!(
     oracle_id = "264fafb7-3bd3-4bf1-81b2-2e436c9ca8d0",
     scryfall_id = "5cd3287d-e4d8-4670-a2dd-b683055ae4b9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stone Haven Pilgrim",
         mana_cost = mana!("{1}{W}"),

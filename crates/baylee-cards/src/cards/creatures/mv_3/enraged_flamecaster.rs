@@ -15,7 +15,7 @@ card!(
     scryfall_id = "104baa2c-75c5-44fc-a3b9-b19efcf3d7c2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enraged Flamecaster",
         mana_cost = mana!("{2}{R}"),

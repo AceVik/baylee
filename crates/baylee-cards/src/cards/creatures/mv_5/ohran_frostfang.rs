@@ -12,7 +12,7 @@ card!(
     oracle_id = "b99ada26-9a61-4175-9fb8-15a106960220",
     scryfall_id = "55fb93e6-d057-4b70-ad12-e98291fd4a2c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ohran Frostfang",
         mana_cost = mana!("{3}{G}{G}"),

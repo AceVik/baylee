@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c5708290-60ae-400c-b149-2a63153c2890",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindscour Dragon",
         mana_cost = mana!("{4}{U}{U}"),

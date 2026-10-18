@@ -11,7 +11,7 @@ card!(
     oracle_id = "726ba167-9e7b-4d46-a52c-72d5a500aee2",
     scryfall_id = "f83c3936-1d30-4b1b-85ae-64c2be7d37c0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sultai Skullkeeper",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "3ab13412-1eaf-40c0-905d-8a3ca0c51be5",
     scryfall_id = "5bb2552f-8370-4931-83e1-93706d51413a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plundering Pirate",
         mana_cost = mana!("{2}{R}"),

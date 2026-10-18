@@ -14,7 +14,7 @@ card!(
     oracle_id = "69b9fa68-b409-4de1-9a40-5262386a0180",
     scryfall_id = "35716e37-1bb2-41e2-bb55-e65126b01ce3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Healer of the Pride",
         mana_cost = mana!("{3}{W}"),

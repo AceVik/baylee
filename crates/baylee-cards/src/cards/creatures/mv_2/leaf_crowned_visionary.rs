@@ -17,7 +17,7 @@ card!(
     oracle_id = "ef693b9f-11e3-49bf-8387-b8f480b9007a",
     scryfall_id = "aa7bd814-9f88-4e01-932d-07ac1abc060e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leaf-Crowned Visionary",
         mana_cost = mana!("{G}{G}"),

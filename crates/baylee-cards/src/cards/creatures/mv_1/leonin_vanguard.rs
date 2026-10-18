@@ -11,7 +11,7 @@ card!(
     oracle_id = "de1e1352-adb2-4ac1-bb2a-ee654d5c727d",
     scryfall_id = "724738ad-6a9b-4ef6-b637-558645cd8151",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leonin Vanguard",
         mana_cost = mana!("{W}"),

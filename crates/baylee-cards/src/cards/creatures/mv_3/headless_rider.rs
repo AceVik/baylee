@@ -22,7 +22,7 @@ card!(
     oracle_id = "d4fdacd7-3101-44e2-a880-dde7326137a4",
     scryfall_id = "c24018e8-b8f1-44a5-9355-8b79f363569d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Headless Rider",
         mana_cost = mana!("{2}{B}"),

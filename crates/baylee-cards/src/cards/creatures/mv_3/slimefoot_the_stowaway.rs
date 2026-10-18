@@ -19,7 +19,7 @@ card!(
     scryfall_id = "cb12173d-3afb-4e8b-b612-fa7737a8c6c2",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slimefoot, the Stowaway",
         mana_cost = mana!("{1}{B}{G}"),

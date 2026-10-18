@@ -23,7 +23,7 @@ card!(
     scryfall_id = "8e94fec2-dc56-4961-ba80-b9c904a345ab",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ishi-Ishi, Akki Crackshot",
         mana_cost = mana!("{1}{R}"),

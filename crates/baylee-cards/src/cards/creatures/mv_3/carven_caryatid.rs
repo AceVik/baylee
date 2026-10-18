@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f65260d1-9802-4e46-95d3-9d6c2e211338",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carven Caryatid",
         mana_cost = mana!("{1}{G}{G}"),

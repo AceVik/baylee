@@ -14,7 +14,7 @@ card!(
     oracle_id = "1e67b4eb-e5d2-4368-8284-4ba5c4c42455",
     scryfall_id = "9a05c8f9-e810-498d-ab51-632661dd000d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Creakwood Liege",
         mana_cost = mana!("{1}{B/G}{B/G}{B/G}"),

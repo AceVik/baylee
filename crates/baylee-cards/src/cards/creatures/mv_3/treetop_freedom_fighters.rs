@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a9394200-7ffc-440f-8b5f-c08b7930133c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treetop Freedom Fighters",
         mana_cost = mana!("{2}{R}"),

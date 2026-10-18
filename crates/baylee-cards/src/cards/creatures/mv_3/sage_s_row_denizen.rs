@@ -18,7 +18,7 @@ card!(
     oracle_id = "fc59aa9a-3abd-4479-a63e-ef0eeb35b5f2",
     scryfall_id = "06ad3e3e-176b-48f0-af2f-fa4fc4759775",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sage's Row Denizen",
         mana_cost = mana!("{2}{U}"),

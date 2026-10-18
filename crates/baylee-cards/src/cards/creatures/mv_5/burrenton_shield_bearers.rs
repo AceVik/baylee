@@ -11,7 +11,7 @@ card!(
     oracle_id = "8d038c81-b43f-4721-abda-5dacfc194ed3",
     scryfall_id = "1afc1033-0004-43c1-9341-c5ed0b0048f2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burrenton Shield-Bearers",
         mana_cost = mana!("{4}{W}"),

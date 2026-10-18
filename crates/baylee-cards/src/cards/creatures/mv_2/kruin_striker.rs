@@ -14,7 +14,7 @@ card!(
     oracle_id = "3e261fa8-1256-4525-8115-5880758338fe",
     scryfall_id = "24da0851-c349-4b2c-bedf-21e3c2d35922",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kruin Striker",
         mana_cost = mana!("{1}{R}"),

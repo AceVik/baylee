@@ -13,7 +13,7 @@ card!(
     oracle_id = "2c6ef9e8-6b60-436c-8391-ae0baabb3a1b",
     scryfall_id = "12054e10-46d6-4581-a7e5-ff277cb0e229",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hardened Escort",
         mana_cost = mana!("{2}{W}"),

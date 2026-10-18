@@ -11,7 +11,7 @@ card!(
     oracle_id = "1edd4f50-05ee-43e0-a288-c26666910c8b",
     scryfall_id = "f58592f7-1df5-428d-9dde-e6acd9a5d1d5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ardent Elementalist",
         mana_cost = mana!("{3}{R}"),

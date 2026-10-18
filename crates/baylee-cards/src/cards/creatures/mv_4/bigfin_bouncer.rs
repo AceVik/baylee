@@ -11,7 +11,7 @@ card!(
     oracle_id = "4e473298-0b67-42b8-90a8-3bcdd73da473",
     scryfall_id = "9b1d5b76-b07e-45c6-800d-4cfce085164f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bigfin Bouncer",
         mana_cost = mana!("{3}{U}"),

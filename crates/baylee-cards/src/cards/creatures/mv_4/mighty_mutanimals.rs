@@ -16,7 +16,7 @@ card!(
     oracle_id = "fcdc7dfc-04b5-411a-ab49-282b9c2608e2",
     scryfall_id = "5dd5369c-174c-450b-b776-553866787f8f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mighty Mutanimals",
         mana_cost = mana!("{2}{W}{W}"),

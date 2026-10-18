@@ -18,7 +18,7 @@ card!(
     scryfall_id = "133e9654-74a3-4997-b371-7f36b5d9c4f1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dark Hatchling",
         mana_cost = mana!("{4}{B}{B}"),

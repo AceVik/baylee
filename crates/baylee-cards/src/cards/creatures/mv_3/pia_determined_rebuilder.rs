@@ -14,7 +14,7 @@ card!(
     scryfall_id = "dd3faaf4-45ca-4714-8dbe-37102ec131cf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pia, Determined Rebuilder",
         mana_cost = mana!("{2}{R}"),

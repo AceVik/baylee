@@ -11,7 +11,7 @@ card!(
     oracle_id = "7c3ff360-461a-44f3-a8f2-eb061b149cf5",
     scryfall_id = "6a79e848-ca3e-48d6-8522-f564f6f3e908",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Symbiote Spawn",
         mana_cost = mana!("{2}{B}"),

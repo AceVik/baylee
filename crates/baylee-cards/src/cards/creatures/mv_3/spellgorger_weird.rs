@@ -13,7 +13,7 @@ card!(
     oracle_id = "550811ca-0995-4886-aa8c-5cee118aa54f",
     scryfall_id = "9ba52955-2ab9-48a4-bb12-6127bdef1909",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spellgorger Weird",
         mana_cost = mana!("{2}{R}"),

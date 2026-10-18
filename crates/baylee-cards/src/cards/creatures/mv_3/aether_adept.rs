@@ -11,7 +11,7 @@ card!(
     oracle_id = "e076067c-77b7-4a37-a62d-51434392dd53",
     scryfall_id = "1640b76d-15d6-4b08-a34b-c5432259d570",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aether Adept",
         mana_cost = mana!("{1}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d2e40b14-48a2-4b9e-b767-e914cab04b30",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Guardmage",
         mana_cost = mana!("{2}{W}{U}"),

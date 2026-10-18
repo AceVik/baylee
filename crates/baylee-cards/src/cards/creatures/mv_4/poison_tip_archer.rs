@@ -14,7 +14,7 @@ card!(
     scryfall_id = "1677d49e-3d63-45bd-9849-01b1bdd95ad8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poison-Tip Archer",
         mana_cost = mana!("{2}{B}{G}"),

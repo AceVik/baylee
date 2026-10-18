@@ -18,7 +18,7 @@ card!(
     scryfall_id = "be398100-89e2-432b-8017-74fb7e4dbc26",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patagia Tiger",
         mana_cost = mana!("{4}{W}"),

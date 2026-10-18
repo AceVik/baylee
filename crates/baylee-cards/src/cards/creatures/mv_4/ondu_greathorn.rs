@@ -13,7 +13,7 @@ card!(
     scryfall_id = "95d9668e-05dc-41c4-9326-ef4c0e15dd80",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ondu Greathorn",
         mana_cost = mana!("{3}{W}"),

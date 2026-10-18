@@ -22,7 +22,7 @@ card!(
     oracle_id = "d2605782-09f1-4d52-b3e7-5ec1442bd9b5",
     scryfall_id = "e6af54ea-b57a-4e50-8e46-1747cca14430",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Micromancer",
         mana_cost = mana!("{3}{U}"),

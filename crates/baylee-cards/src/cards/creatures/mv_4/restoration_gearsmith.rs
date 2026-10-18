@@ -11,7 +11,7 @@ card!(
     oracle_id = "447c7fe0-6ec7-4163-9d9c-f08f0a4c7109",
     scryfall_id = "228ea9c6-5732-4a2a-ac25-a768ea7d433b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Restoration Gearsmith",
         mana_cost = mana!("{2}{W}{B}"),

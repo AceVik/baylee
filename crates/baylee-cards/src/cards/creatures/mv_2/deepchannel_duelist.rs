@@ -17,7 +17,7 @@ card!(
     oracle_id = "c892d28c-4a78-4a7f-b8d5-c3663b819c5e",
     scryfall_id = "1b742172-7118-45e7-9945-62bd77d94e85",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deepchannel Duelist",
         mana_cost = mana!("{W}{U}"),

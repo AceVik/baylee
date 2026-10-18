@@ -17,7 +17,7 @@ card!(
     oracle_id = "e86279ba-cb22-4754-90f4-38354657b8fa",
     scryfall_id = "4463b28a-c2c9-4cbf-951e-e3ce6b1f14cb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnhart Disciple",
         mana_cost = mana!("{1}{G}"),

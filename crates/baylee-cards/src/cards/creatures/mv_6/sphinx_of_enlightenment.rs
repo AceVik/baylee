@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0faa9eea-fbf1-41f7-9def-1ec3d5134a53",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx of Enlightenment",
         mana_cost = mana!("{4}{U}{U}"),

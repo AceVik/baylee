@@ -19,7 +19,7 @@ card!(
     scryfall_id = "7aa0e762-0fec-4f6b-b3d7-ad8295bf557d",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Returned Pastcaller",
         mana_cost = mana!("{3}{R}{R/W}{W}"),

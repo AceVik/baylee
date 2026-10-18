@@ -19,7 +19,7 @@ card!(
     scryfall_id = "c32c6192-2f8d-4656-af8b-c488e27a75e1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stampede Rider",
         mana_cost = mana!("{2}{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9e6cda07-c6b0-4138-9b83-bff1802fe138",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reclusive Artificer",
         mana_cost = mana!("{2}{U}{R}"),

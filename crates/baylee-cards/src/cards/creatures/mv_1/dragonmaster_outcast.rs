@@ -12,7 +12,7 @@ card!(
     oracle_id = "b6fb79c3-cd32-4045-8177-e52841eea65b",
     scryfall_id = "a485edea-07cd-48dd-97e7-daeba85553d6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonmaster Outcast",
         mana_cost = mana!("{R}"),

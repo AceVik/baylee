@@ -13,7 +13,7 @@ card!(
     oracle_id = "a4d46c1b-7742-4ac8-9794-b669ee4d2cc1",
     scryfall_id = "20aa9108-470c-484d-908a-c31cf6935765",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strongarm Thug",
         mana_cost = mana!("{2}{B}"),

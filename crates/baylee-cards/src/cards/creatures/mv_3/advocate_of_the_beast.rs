@@ -17,7 +17,7 @@ card!(
     oracle_id = "1208cb6e-34b4-4a23-9a5b-a01229113e38",
     scryfall_id = "b1320400-5aa8-48d6-be84-197b4559456f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Advocate of the Beast",
         mana_cost = mana!("{2}{G}"),

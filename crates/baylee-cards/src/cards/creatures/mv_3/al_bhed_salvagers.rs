@@ -17,7 +17,7 @@ card!(
     oracle_id = "43f81514-e812-4e17-9b1a-704c136d8ffd",
     scryfall_id = "58ccdcfc-a669-480f-bded-4273cfaf2045",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Al Bhed Salvagers",
         mana_cost = mana!("{2}{B}"),

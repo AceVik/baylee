@@ -14,7 +14,7 @@ card!(
     oracle_id = "2dea1935-c227-46d5-9d98-e7d2cd612f98",
     scryfall_id = "faab52c0-ce79-40af-a156-b193a62d439e",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "EPF Point Squad",
         mana_cost = mana!("{1}{R/W}{R/W}"),

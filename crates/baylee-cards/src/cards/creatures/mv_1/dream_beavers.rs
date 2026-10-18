@@ -13,7 +13,7 @@ card!(
     scryfall_id = "600e3bc1-9777-4057-a11e-4f61582636c6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dream Beavers",
         mana_cost = mana!("{B}"),

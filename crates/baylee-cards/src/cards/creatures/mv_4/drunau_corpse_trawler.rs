@@ -15,7 +15,7 @@ card!(
     oracle_id = "870ca989-0e72-4e74-9570-57e129298f2e",
     scryfall_id = "11b29a06-c1e1-4d81-ac50-906c94617abe",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drunau Corpse Trawler",
         mana_cost = mana!("{3}{U}"),

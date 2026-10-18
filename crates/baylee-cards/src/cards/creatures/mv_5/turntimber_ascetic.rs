@@ -11,7 +11,7 @@ card!(
     oracle_id = "90b16d52-4cf4-4788-a0d7-264d1bcd17f0",
     scryfall_id = "b33b6922-2584-43e1-98d4-e722e7c9393c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Turntimber Ascetic",
         mana_cost = mana!("{4}{G}"),

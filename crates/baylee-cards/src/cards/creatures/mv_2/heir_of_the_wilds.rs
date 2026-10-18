@@ -19,7 +19,7 @@ card!(
     scryfall_id = "0995e041-fe90-4459-8c70-fd9851ecf830",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heir of the Wilds",
         mana_cost = mana!("{1}{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "5aab5a55-0aee-4d8e-92b7-92b057a00509",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pia and Kiran Nalaar",
         mana_cost = mana!("{2}{R}{R}"),

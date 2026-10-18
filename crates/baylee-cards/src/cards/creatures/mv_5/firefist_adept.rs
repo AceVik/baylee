@@ -16,7 +16,7 @@ card!(
     oracle_id = "0f513242-b175-4b4d-a05f-78b1b457a020",
     scryfall_id = "0569365d-9e50-436f-a8f3-90820ef06381",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firefist Adept",
         mana_cost = mana!("{4}{R}"),

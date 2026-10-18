@@ -11,7 +11,7 @@ card!(
     oracle_id = "5f5c5f59-1cc0-4a72-863c-c26db411f114",
     scryfall_id = "4edb03b7-e5a2-4ba1-b0ec-bfbfeaa94efd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Night Market Lookout",
         mana_cost = mana!("{B}"),

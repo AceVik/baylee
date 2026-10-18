@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d16b3cf3-7b85-4153-b25a-e6b5fce725cf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Appendage Amalgam",
         mana_cost = mana!("{2}{B}"),

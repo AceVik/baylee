@@ -20,7 +20,7 @@ card!(
     oracle_id = "511e35cd-2e19-4803-a404-b790af0cea60",
     scryfall_id = "baf15cd4-13be-48e7-b3f5-a5106eb02c45",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kheru Bloodsucker",
         mana_cost = mana!("{2}{B}"),

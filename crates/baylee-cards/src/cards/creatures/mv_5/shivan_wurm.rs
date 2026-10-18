@@ -26,7 +26,7 @@ card!(
     scryfall_id = "f03b5c7e-e830-4cfc-a43a-3e8285979aa0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shivan Wurm",
         mana_cost = mana!("{3}{R}{G}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "1098504a-977a-4733-a1ee-086461113a84",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rapacious Dragon",
         mana_cost = mana!("{4}{R}"),

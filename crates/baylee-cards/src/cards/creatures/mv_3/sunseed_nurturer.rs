@@ -18,7 +18,7 @@ card!(
     oracle_id = "3518e273-bd92-46bc-b361-da52c670dfe1",
     scryfall_id = "9d44447e-09d1-450f-907f-42f79b004fe7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunseed Nurturer",
         mana_cost = mana!("{2}{W}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "5093df46-92cb-4f79-a5cf-4351c1fcf36d",
     scryfall_id = "8c504d12-a3ef-4588-a52d-734c20f6ac58",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimana Sell-Sword",
         mana_cost = mana!("{3}{B}"),

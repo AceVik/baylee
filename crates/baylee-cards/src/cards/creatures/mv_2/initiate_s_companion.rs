@@ -13,7 +13,7 @@ card!(
     oracle_id = "f3264224-43a4-4c6b-b363-2d147687dfc1",
     scryfall_id = "380e83c1-e5e3-49b2-bbf3-fad8cc7d020a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Initiate's Companion",
         mana_cost = mana!("{1}{G}"),

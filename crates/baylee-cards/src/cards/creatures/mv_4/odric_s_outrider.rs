@@ -16,7 +16,7 @@ card!(
     oracle_id = "a5a9a314-81a0-4b11-9cf9-daeaea98b33c",
     scryfall_id = "9016f837-cc19-43f1-adb9-96bdd3195407",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Odric's Outrider",
         mana_cost = mana!("{3}{W}"),
