@@ -9135,11 +9135,15 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   a gateway whose `GET /info` names `social` (version and `keep_days`), and
   drops it at sign-out. Every `/social/ws` dial buys a fresh ticket with the
   session (`POST /ws-ticket {"socket":"social"}`); a `403` stops dialling for
-  good, any other failure redials after 0.5 s doubling to 15 s. Keys live in
-  the OS credential store (`baylee-chat`, `{tag}@{host}`), else in the `0600`
-  key file in the chat folder `<config>/chat/<gw>/<tag>/`; `BAYLEE_KEY_STORE=off`
-  takes the file (live checks: a rebuilt binary is a new signature to the
-  Keychain). The sealed state file is written 2 s after its last change.
+  good, any other failure redials after 0.5 s doubling to 15 s. Registered
+  native accounts unlock a password-encrypted local vault off the render
+  thread before chat starts; session resume may require **Unlock chat**.
+  Guests and browser tabs keep chat keys/history only in memory. Normal
+  startup never reads the OS keychain, and `BAYLEE_KEY_STORE=off` does not
+  enable a plaintext chat fallback. Legacy sources are read only by explicit
+  import and preserved. See [password-vault.md](password-vault.md) for the key
+  hierarchy, password changes/reset recovery, and migration. The sealed state
+  file is written 2 s after its last change.
 - **One window, two frames.** At a table the log's panel is the chat window
   while a social session exists (`sync_log` leaves the panel to
   `social::window`): fixed tabs All · Log · Table · Team · Private · Group,
