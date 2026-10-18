@@ -80,6 +80,8 @@ mod counter_move;
 mod discard_any;
 mod event_actions;
 mod immediate;
+mod meld;
+mod dungeon;
 pub(crate) mod linked_reanimation;
 mod permissions;
 mod piles;
