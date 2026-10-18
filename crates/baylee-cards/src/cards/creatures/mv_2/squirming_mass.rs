@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e47793a3-9a98-4733-8d6a-2fb1a67b15c9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squirming Mass",
         mana_cost = mana!("{1}{B}"),

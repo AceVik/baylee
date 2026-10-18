@@ -10,7 +10,7 @@ card!(
     oracle_id = "e600afe3-8d5b-46ab-b98c-f0bacb58ab2a",
     scryfall_id = "7bcae97d-468a-4e16-bfed-d2946f64784c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotted Hystrix",
         mana_cost = mana!("{4}{G}"),

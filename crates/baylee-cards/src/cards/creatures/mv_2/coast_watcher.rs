@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6bbbc67d-99d0-4277-a8f2-64509e59ec00",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coast Watcher",
         mana_cost = mana!("{1}{U}"),

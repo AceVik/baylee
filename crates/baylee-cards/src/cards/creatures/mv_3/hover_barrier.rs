@@ -12,7 +12,7 @@ card!(
     scryfall_id = "884afdb3-0d5f-45a1-b57e-6c3760aa0031",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hover Barrier",
         mana_cost = mana!("{2}{U}"),

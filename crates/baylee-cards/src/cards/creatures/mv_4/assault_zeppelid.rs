@@ -12,7 +12,7 @@ card!(
     scryfall_id = "12bf6443-c941-418a-a766-05bba088a117",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Assault Zeppelid",
         mana_cost = mana!("{2}{G}{U}"),

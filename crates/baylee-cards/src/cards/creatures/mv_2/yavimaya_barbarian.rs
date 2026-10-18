@@ -11,7 +11,7 @@ card!(
     oracle_id = "04576b4d-2977-4cdf-b4a5-b0b47995e962",
     scryfall_id = "8e17377d-4dad-4144-b0ce-c849636096a2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya Barbarian",
         mana_cost = mana!("{R}{G}"),

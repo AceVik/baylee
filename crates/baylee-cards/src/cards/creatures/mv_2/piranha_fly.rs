@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cd891675-12d4-40df-996a-97d694155227",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piranha Fly",
         mana_cost = mana!("{1}{U}"),

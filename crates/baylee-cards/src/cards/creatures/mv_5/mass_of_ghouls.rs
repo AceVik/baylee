@@ -10,7 +10,7 @@ card!(
     oracle_id = "29646827-7b69-48c5-8273-4e66076e2384",
     scryfall_id = "cd816d37-7a9e-485e-9ed9-20c1c15a26dd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mass of Ghouls",
         mana_cost = mana!("{3}{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "249b722e-2f4c-4884-bebb-e967f4fd3238",
     scryfall_id = "e83a74c4-026e-4419-9dde-3b044ef507a0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plated Seastrider",
         mana_cost = mana!("{U}{U}"),

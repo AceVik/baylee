@@ -11,7 +11,7 @@ card!(
     scryfall_id = "04c816fb-5951-4db1-8834-ed3f0b36bfe1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yargle, Glutton of Urborg",
         mana_cost = mana!("{4}{B}"),

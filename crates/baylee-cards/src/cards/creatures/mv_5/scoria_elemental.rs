@@ -10,7 +10,7 @@ card!(
     oracle_id = "1a6e8369-241f-4ddc-b4cd-a974d6b689a7",
     scryfall_id = "ca4d9198-52a7-4dfe-8f7f-4fa6e19a2479",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scoria Elemental",
         mana_cost = mana!("{4}{R}"),

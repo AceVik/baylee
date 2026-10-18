@@ -10,7 +10,7 @@ card!(
     oracle_id = "bd0031c3-ff88-4bc5-82a0-2187c60a7d33",
     scryfall_id = "e070ea4a-c417-405f-b788-78fb7ca2eaa5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fresh Volunteers",
         mana_cost = mana!("{1}{W}"),

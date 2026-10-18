@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d47f91ff-c916-4938-8e01-2c684004dd9a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Champion",
         mana_cost = mana!("{3}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1a731b3a-0065-448d-841c-28700d78a4fd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Ox",
         mana_cost = mana!("{3}{G}"),

@@ -11,7 +11,7 @@ card!(
     scryfall_id = "159dc5a8-5cba-4c20-8c07-28a3d86c8411",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tyrox, Saurid Tyrant",
         mana_cost = mana!("{1}{R}"),

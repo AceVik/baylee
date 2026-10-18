@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b2890cb5-7899-42f4-9686-a8b5ac796c23",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Abomination",
         mana_cost = mana!("{5}{B}"),

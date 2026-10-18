@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ff4661dd-2075-48c3-b19b-fc7f8aaba1b8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sacred Wolf",
         mana_cost = mana!("{2}{G}"),

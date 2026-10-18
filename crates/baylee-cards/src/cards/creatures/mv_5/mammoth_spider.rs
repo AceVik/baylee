@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1ee9bca2-1195-4bd0-aa5c-16b3726a8ff2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mammoth Spider",
         mana_cost = mana!("{4}{G}"),

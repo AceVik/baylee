@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c6691e62-8887-41e8-8e74-76ee2353d45e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rustwing Falcon",
         mana_cost = mana!("{W}"),

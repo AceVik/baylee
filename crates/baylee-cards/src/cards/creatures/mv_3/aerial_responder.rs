@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Responder",
         mana_cost = mana!("{1}{W}{W}"),

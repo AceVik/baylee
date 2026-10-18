@@ -10,7 +10,7 @@ card!(
     oracle_id = "87449f64-9500-4967-a073-cde19824e087",
     scryfall_id = "7cbf17a0-2dbc-4e79-9cfa-ea49b1605105",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bastion Enforcer",
         mana_cost = mana!("{2}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f55d43d4-5f63-45c3-b8f8-0aebd23750a5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hulking Bugbear",
         mana_cost = mana!("{1}{R}{R}"),

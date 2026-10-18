@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLASH
         .union(KeywordSet::DEFENDER)
         .union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plumeveil",
         mana_cost = mana!("{W/U}{W/U}{W/U}"),

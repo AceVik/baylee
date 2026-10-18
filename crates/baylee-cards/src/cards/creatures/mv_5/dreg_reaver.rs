@@ -10,7 +10,7 @@ card!(
     oracle_id = "ecc5467d-d327-4a9c-b935-09afbea111dc",
     scryfall_id = "e7771eba-bc2d-40f2-bab4-5e9cc4fe8f34",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dreg Reaver",
         mana_cost = mana!("{4}{B}"),

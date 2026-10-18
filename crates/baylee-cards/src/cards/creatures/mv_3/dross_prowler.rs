@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1fff470a-3574-42be-8f0b-ac5e7a70f61a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dross Prowler",
         mana_cost = mana!("{2}{B}"),

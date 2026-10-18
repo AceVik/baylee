@@ -13,7 +13,7 @@ card!(
     scryfall_id = "069cfaa5-bba4-4503-b54e-b98fa9f0a0fc",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Healer's Hawk",
         mana_cost = mana!("{W}"),

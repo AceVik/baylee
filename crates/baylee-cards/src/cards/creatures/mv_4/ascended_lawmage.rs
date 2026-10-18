@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e90d9cc4-9444-4610-ace5-c2981809b331",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HEXPROOF),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ascended Lawmage",
         mana_cost = mana!("{2}{W}{U}"),

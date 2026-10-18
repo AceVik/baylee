@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1388ce6e-8199-46c1-8ee3-71266b0929bf",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunspire Griffin",
         mana_cost = mana!("{1}{W}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "82633f38-5af1-429e-8c9d-db536af85309",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Severed Legion",
         mana_cost = mana!("{1}{B}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "67e788e2-12e9-4041-8210-753aaef2576c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyblade of the Legion",
         mana_cost = mana!("{1}{W}"),

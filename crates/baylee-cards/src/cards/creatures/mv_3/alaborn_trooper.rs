@@ -10,7 +10,7 @@ card!(
     oracle_id = "17969b71-9612-45ff-b789-1c033f832154",
     scryfall_id = "a3bc4e43-1935-402b-a309-c575c83e849f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alaborn Trooper",
         mana_cost = mana!("{2}{W}"),

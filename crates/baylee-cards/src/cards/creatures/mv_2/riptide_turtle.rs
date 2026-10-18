@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cc4ba296-950c-4e39-ab5e-06be07e4a190",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEFENDER),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riptide Turtle",
         mana_cost = mana!("{1}{U}"),

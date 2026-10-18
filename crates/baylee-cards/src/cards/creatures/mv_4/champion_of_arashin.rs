@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2f7e5122-89ff-4a25-96a5-fee5f96da7f2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Champion of Arashin",
         mana_cost = mana!("{3}{W}"),

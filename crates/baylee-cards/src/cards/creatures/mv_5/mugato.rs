@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::REACH
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mugato",
         mana_cost = mana!("{3}{G}{G}"),

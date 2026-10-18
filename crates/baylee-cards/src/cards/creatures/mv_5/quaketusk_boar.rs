@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::REACH
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quaketusk Boar",
         mana_cost = mana!("{3}{R}{R}"),

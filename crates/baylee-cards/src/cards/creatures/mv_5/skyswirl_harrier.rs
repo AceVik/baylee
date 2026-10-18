@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b951bc89-be0b-4330-8a13-e196e084d53c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyswirl Harrier",
         mana_cost = mana!("{4}{W}"),

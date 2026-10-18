@@ -12,7 +12,7 @@ card!(
     scryfall_id = "10bf14b5-31d0-42e3-a319-2622b489f7c4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emerald Oryx",
         mana_cost = mana!("{3}{G}"),

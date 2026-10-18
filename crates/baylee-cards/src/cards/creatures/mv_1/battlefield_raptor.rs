@@ -12,7 +12,7 @@ card!(
     scryfall_id = "389f0045-218d-41cd-bdca-8a9a0ab1b31b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlefield Raptor",
         mana_cost = mana!("{W}"),

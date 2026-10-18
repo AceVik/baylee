@@ -10,7 +10,7 @@ card!(
     oracle_id = "0e6fe04f-b20d-4df9-a7ac-edebc3bcc9be",
     scryfall_id = "67e3983d-b1ed-46a9-9ab0-96c4d0d77050",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defiant Khenra",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bee3a23a-6ecf-439c-8637-e096fa8c1a80",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Duskrider Falcon",
         mana_cost = mana!("{1}{W}"),

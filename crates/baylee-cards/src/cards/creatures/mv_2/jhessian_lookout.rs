@@ -10,7 +10,7 @@ card!(
     oracle_id = "acc07d0d-141b-4169-9643-6f20739e91be",
     scryfall_id = "f55b1b92-575e-4b6f-9179-21d0bc1acd11",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jhessian Lookout",
         mana_cost = mana!("{1}{U}"),

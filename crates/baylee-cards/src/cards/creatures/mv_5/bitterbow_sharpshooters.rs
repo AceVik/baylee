@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8ecfcf99-be2b-4e5f-adef-1977ee5c6a0f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bitterbow Sharpshooters",
         mana_cost = mana!("{4}{G}"),

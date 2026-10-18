@@ -11,7 +11,7 @@ card!(
     oracle_id = "6048fc70-0dcc-4b54-977d-16e240225f82",
     scryfall_id = "4682012c-d7e0-4257-b538-3de497507464",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diregraf Ghoul",
         mana_cost = mana!("{B}"),

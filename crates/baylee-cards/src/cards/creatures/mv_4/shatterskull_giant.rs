@@ -10,7 +10,7 @@ card!(
     oracle_id = "aa241f75-ce34-49a8-8ffd-785172249bcf",
     scryfall_id = "9cfbb4dd-56a2-4a94-9b15-b3ef8b2f1d0b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shatterskull Giant",
         mana_cost = mana!("{2}{R}{R}"),

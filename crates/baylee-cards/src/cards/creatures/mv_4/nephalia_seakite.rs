@@ -13,7 +13,7 @@ card!(
     scryfall_id = "39714ec8-b43c-4d61-9e53-46ac62da2c9f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nephalia Seakite",
         mana_cost = mana!("{3}{U}"),

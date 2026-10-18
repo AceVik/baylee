@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0167486d-ed77-4612-a385-25251b544a14",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kolinahr Priest",
         mana_cost = mana!("{2}{U}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b9e03567-c95a-40b8-a75a-971076093f57",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::HASTE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Banehound",
         mana_cost = mana!("{B}"),

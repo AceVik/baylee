@@ -10,7 +10,7 @@ card!(
     oracle_id = "ab1d04ef-5f39-4a95-969e-b0872e6db0d6",
     scryfall_id = "0d49653d-cd4e-40a7-99de-fc531b5d8594",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of the Keep",
         mana_cost = mana!("{2}{W}"),

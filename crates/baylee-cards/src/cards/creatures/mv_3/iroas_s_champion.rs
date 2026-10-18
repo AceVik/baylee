@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c0441583-c9d5-47a1-8754-c9162cec64bc",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iroas's Champion",
         mana_cost = mana!("{1}{R}{W}"),

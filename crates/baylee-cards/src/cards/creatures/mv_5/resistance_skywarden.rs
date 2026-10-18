@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6249aabe-8f21-4257-9e04-ceffd44d42a5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Resistance Skywarden",
         mana_cost = mana!("{3}{R}{R}"),

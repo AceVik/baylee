@@ -10,7 +10,7 @@ card!(
     oracle_id = "9f63ab29-b86e-4337-b9dd-2b35c8415f90",
     scryfall_id = "6452ba94-6bb0-409c-99f7-71e6457c3f2a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sworn Guardian",
         mana_cost = mana!("{1}{U}"),

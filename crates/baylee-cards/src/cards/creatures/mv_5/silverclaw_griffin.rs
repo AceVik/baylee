@@ -12,7 +12,7 @@ card!(
     scryfall_id = "54528722-a6aa-4567-9cd1-e4a97adec7d0",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silverclaw Griffin",
         mana_cost = mana!("{3}{W}{W}"),

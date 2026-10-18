@@ -12,7 +12,7 @@ card!(
     scryfall_id = "418df457-4aab-486c-b691-41f03ec8a6df",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Earthshaking Si",
         mana_cost = mana!("{5}{G}"),

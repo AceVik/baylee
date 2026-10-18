@@ -10,7 +10,7 @@ card!(
     oracle_id = "9d6a10c6-5d39-49c6-b50d-8fc5b8ddcd77",
     scryfall_id = "0f244233-f2e8-48f8-9106-e7cd186efd51",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Naga Eternal",
         mana_cost = mana!("{2}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "19b4cf0b-e1e4-4e50-80bc-673bc6ef8bb8",
     scryfall_id = "a73f186b-c897-4a98-bc25-8e4aa348d8c9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yoked Ox",
         mana_cost = mana!("{W}"),

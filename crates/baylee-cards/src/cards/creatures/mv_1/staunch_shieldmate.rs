@@ -10,7 +10,7 @@ card!(
     oracle_id = "0a1a0911-dcd5-4a2f-8deb-abb5b273b0fb",
     scryfall_id = "db17f25a-32d1-469b-bb5f-f1761e227990",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Staunch Shieldmate",
         mana_cost = mana!("{W}"),

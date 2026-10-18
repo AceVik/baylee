@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7f3d6020-6767-406c-bf28-6b3e9ae72f50",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tajuru Blightblade",
         mana_cost = mana!("{G}"),

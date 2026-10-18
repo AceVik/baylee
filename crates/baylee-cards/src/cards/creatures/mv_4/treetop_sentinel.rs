@@ -12,7 +12,7 @@ card!(
     scryfall_id = "606b4e02-f81a-490c-8d2e-cfea7917d6b7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treetop Sentinel",
         mana_cost = mana!("{2}{U}{U}"),

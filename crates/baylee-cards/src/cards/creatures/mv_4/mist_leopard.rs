@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3f3a26c7-e028-4741-803d-6384925b8500",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SHROUD,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mist Leopard",
         mana_cost = mana!("{3}{G}"),

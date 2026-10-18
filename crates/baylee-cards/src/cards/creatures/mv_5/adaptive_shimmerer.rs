@@ -12,7 +12,7 @@ card!(
     oracle_id = "8003ca2d-0c1d-47c1-bcd1-4609615c7a82",
     scryfall_id = "d8a2e243-e446-46c6-8a37-e26620951c41",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Adaptive Shimmerer",
         mana_cost = mana!("{5}"),

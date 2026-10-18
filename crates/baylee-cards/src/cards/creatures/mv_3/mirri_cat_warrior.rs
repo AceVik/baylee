@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FIRST_STRIKE
         .union(KeywordSet::FORESTWALK)
         .union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirri, Cat Warrior",
         mana_cost = mana!("{1}{G}{G}"),

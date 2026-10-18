@@ -12,7 +12,7 @@ card!(
     scryfall_id = "167ed739-2953-47af-841f-bc1a092b3aa6",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sky Terror",
         mana_cost = mana!("{R}{W}"),

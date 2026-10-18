@@ -10,7 +10,7 @@ card!(
     oracle_id = "9cda6cb8-c254-413a-babd-0e24e7b89cc4",
     scryfall_id = "68a0569b-65c8-49ce-91ac-e639b8faf939",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jibbirik Omnivore",
         mana_cost = mana!("{1}{G}"),

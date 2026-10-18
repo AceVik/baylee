@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d6eb23c9-6061-4ad1-a8f3-2c791c49f352",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breakneck Berserker",
         mana_cost = mana!("{2}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bd24e81d-d3a8-4550-bad9-b818f48cc700",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhox War Monk",
         mana_cost = mana!("{G}{W}{U}"),

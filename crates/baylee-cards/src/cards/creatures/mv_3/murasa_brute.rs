@@ -10,7 +10,7 @@ card!(
     oracle_id = "5f84a140-577f-4a1e-a900-793664332fd6",
     scryfall_id = "efe1c5b2-4356-41ae-ab7e-ad9fc835a911",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murasa Brute",
         mana_cost = mana!("{2}{G}"),

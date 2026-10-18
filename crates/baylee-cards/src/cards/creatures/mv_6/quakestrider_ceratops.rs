@@ -10,7 +10,7 @@ card!(
     oracle_id = "e56629ba-82d4-470f-9a6b-40c29d835af2",
     scryfall_id = "067f72c2-ead6-4879-bc9d-696c9f87c0b2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quakestrider Ceratops",
         mana_cost = mana!("{3}{G}{G}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "56e027ec-430f-4c7d-9794-a431efa3693f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primal Huntbeast",
         mana_cost = mana!("{3}{G}"),

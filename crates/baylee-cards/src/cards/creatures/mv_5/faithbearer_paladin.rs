@@ -12,7 +12,7 @@ card!(
     scryfall_id = "af15a774-b97f-4bc0-913d-4d2a047fed8a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Faithbearer Paladin",
         mana_cost = mana!("{4}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "abc519b8-82de-4559-be03-ddb1ddaab993",
     scryfall_id = "348955a0-e988-48d7-a6a0-a8045fcffd25",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wishcoin Crab",
         mana_cost = mana!("{3}{U}"),

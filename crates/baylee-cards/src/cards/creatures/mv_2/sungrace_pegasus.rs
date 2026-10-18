@@ -13,7 +13,7 @@ card!(
     scryfall_id = "52d851b9-c290-4fcc-860d-a3250923b850",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sungrace Pegasus",
         mana_cost = mana!("{1}{W}"),

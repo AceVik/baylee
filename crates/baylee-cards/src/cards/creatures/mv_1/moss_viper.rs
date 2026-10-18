@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a4d35ec4-0e0d-4611-8ad9-39d2c8a2ad6e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moss Viper",
         mana_cost = mana!("{G}"),

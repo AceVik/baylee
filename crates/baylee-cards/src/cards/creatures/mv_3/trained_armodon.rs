@@ -10,7 +10,7 @@ card!(
     oracle_id = "4c9f5359-249e-488b-9a7e-db1a43c2b1f4",
     scryfall_id = "b55e0487-3abb-4f2b-b34c-d6ad49164e73",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Armodon",
         mana_cost = mana!("{1}{G}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "c5355c5e-d07d-48ca-90c5-98edcab1a3c7",
     scryfall_id = "8595e9a1-010e-48a7-91e4-3d2722c8dbc0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axegrinder Giant",
         mana_cost = mana!("{4}{R}{R}"),

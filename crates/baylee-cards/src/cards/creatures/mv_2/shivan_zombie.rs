@@ -11,7 +11,7 @@ card!(
     oracle_id = "fb3d438e-5e04-45a0-8d16-db63f0faff75",
     scryfall_id = "f4c99269-f730-4d33-bbce-9e855e9ad0fc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shivan Zombie",
         mana_cost = mana!("{B}{R}"),

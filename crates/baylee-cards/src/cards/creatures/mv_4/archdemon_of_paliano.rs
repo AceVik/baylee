@@ -14,7 +14,7 @@ card!(
     scryfall_id = "632122b0-6525-4b41-840f-4fd5bea2f0ea",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archdemon of Paliano",
         mana_cost = mana!("{2}{B}{B}"),

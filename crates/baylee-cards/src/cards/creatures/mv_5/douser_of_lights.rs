@@ -10,7 +10,7 @@ card!(
     oracle_id = "1e53032e-fe14-4424-86ee-f69336f049fe",
     scryfall_id = "7c554be7-6fd4-4642-aaa0-2781d9c388e4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Douser of Lights",
         mana_cost = mana!("{4}{B}"),

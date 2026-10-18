@@ -13,7 +13,7 @@ card!(
     scryfall_id = "189f6199-f2fe-49a5-89ca-3c4cb39fbf2b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thornweald Archer",
         mana_cost = mana!("{1}{G}"),

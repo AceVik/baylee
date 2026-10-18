@@ -13,7 +13,7 @@ card!(
     scryfall_id = "502000a7-a3c1-4259-aea5-ff01724396a1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gangly Stompling",
         mana_cost = mana!("{2}{R/G}"),

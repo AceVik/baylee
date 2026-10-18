@@ -10,7 +10,7 @@ card!(
     oracle_id = "c8384392-1914-4423-9f49-92f5643d15dc",
     scryfall_id = "3928bbce-87b7-4b28-9af4-20362935c909",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Garruk's Gorehorn",
         mana_cost = mana!("{4}{G}"),

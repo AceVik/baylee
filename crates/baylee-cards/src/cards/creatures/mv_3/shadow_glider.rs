@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b4ffaf62-2e12-4b1d-a590-f63aacb4a30b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadow Glider",
         mana_cost = mana!("{2}{W}"),

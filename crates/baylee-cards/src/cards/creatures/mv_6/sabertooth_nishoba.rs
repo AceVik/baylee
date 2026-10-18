@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8338c296-cf3f-41d7-b380-3fb4237cb41c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sabertooth Nishoba",
         mana_cost = mana!("{4}{G}{W}"),

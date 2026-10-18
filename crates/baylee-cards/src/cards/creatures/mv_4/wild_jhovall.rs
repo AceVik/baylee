@@ -10,7 +10,7 @@ card!(
     oracle_id = "8db78c62-e0b9-4ed7-b29f-238f23f79bc4",
     scryfall_id = "64bcc06a-de86-4387-882d-ead33e9c9e01",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Jhovall",
         mana_cost = mana!("{3}{R}"),

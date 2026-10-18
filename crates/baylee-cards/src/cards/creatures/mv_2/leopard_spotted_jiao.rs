@@ -10,7 +10,7 @@ card!(
     oracle_id = "0056e07b-416b-487e-9e6c-3697db402dd4",
     scryfall_id = "91df110f-85d2-41cb-96b6-6c79cebfada7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leopard-Spotted Jiao",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "445e41d8-317d-46ce-b858-54df716e0214",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bartizan Bats",
         mana_cost = mana!("{3}{B}"),

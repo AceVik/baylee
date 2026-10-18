@@ -10,7 +10,7 @@ card!(
     oracle_id = "a13b02c2-7ec1-4032-99cc-c76fe512914e",
     scryfall_id = "052ab91f-ac01-43f4-9276-9af35dbfbf71",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hollowhenge Beast",
         mana_cost = mana!("{3}{G}{G}"),

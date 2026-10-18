@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d5222448-95d1-4b63-ab76-d5060febcf38",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charging Monstrosaur",
         mana_cost = mana!("{4}{R}"),

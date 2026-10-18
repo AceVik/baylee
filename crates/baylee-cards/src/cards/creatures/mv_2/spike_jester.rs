@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7f82ff29-2b2c-4e4f-a6ac-e307e2921da0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spike Jester",
         mana_cost = mana!("{B}{R}"),

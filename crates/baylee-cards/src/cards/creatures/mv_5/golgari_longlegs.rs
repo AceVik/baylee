@@ -10,7 +10,7 @@ card!(
     oracle_id = "f1534fbf-eab6-4f12-8037-e71d6861b636",
     scryfall_id = "d44058ba-3419-4777-8d59-05dea5e864e1",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golgari Longlegs",
         mana_cost = mana!("{3}{B/G}{B/G}"),

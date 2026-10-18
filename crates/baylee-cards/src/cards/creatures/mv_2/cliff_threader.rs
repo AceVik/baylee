@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1743b625-e937-4cac-8701-9e2dd709a9a4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cliff Threader",
         mana_cost = mana!("{1}{W}"),

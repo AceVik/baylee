@@ -10,7 +10,7 @@ card!(
     oracle_id = "fff6f2d0-22b5-41d0-99dc-bc817c3bd166",
     scryfall_id = "c0cdbd28-958a-4955-badd-4848eef3f0fa",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devoted Hero",
         mana_cost = mana!("{W}"),

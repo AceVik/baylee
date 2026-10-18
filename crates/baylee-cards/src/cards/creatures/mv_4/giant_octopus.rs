@@ -10,7 +10,7 @@ card!(
     oracle_id = "c181d2a4-5959-4409-9bd3-ecedf8ec9516",
     scryfall_id = "a391d681-3530-4f6a-b421-12025e7c3b89",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giant Octopus",
         mana_cost = mana!("{3}{U}"),

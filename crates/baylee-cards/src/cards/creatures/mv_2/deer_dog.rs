@@ -12,7 +12,7 @@ card!(
     scryfall_id = "54ec5233-6b27-4655-b68c-4c1aaf64d89b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deer-Dog",
         mana_cost = mana!("{1}{R}"),

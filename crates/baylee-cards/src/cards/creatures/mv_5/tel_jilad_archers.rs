@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3a1fde33-e86a-4146-9c90-4616a5fc0868",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tel-Jilad Archers",
         mana_cost = mana!("{4}{G}"),

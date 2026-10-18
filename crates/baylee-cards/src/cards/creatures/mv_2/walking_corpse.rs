@@ -10,7 +10,7 @@ card!(
     oracle_id = "fea95888-e16a-4209-9cd4-623f7f4d2f67",
     scryfall_id = "053b59b4-a22c-4228-aadc-ae9da6bb465e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Walking Corpse",
         mana_cost = mana!("{1}{B}"),

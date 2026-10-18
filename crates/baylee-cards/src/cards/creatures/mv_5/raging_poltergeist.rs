@@ -10,7 +10,7 @@ card!(
     oracle_id = "15d460da-9110-4f33-a24f-8582a2bcd96f",
     scryfall_id = "78833788-ffb2-43fc-9345-975f1cd46f38",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raging Poltergeist",
         mana_cost = mana!("{4}{R}"),

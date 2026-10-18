@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5624e610-c4c0-4103-a32b-0f1264030a7a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magnigoth Sentry",
         mana_cost = mana!("{3}{G}"),

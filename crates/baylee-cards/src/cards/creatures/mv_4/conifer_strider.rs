@@ -12,7 +12,7 @@ card!(
     scryfall_id = "72f07879-7893-46d9-9239-8d2625355881",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conifer Strider",
         mana_cost = mana!("{3}{G}"),

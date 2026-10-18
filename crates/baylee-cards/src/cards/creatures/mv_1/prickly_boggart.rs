@@ -12,7 +12,7 @@ card!(
     scryfall_id = "55121b63-22a6-4923-82e9-c55f66742980",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prickly Boggart",
         mana_cost = mana!("{B}"),

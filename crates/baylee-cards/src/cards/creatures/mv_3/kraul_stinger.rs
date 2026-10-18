@@ -12,7 +12,7 @@ card!(
     scryfall_id = "46b88fe9-2450-47ee-ac1e-bbbccbf5684f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraul Stinger",
         mana_cost = mana!("{2}{G}"),

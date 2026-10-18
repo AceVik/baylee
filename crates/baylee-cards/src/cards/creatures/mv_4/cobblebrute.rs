@@ -10,7 +10,7 @@ card!(
     oracle_id = "6d4ed1f2-0918-444c-95ef-d58beb5aa216",
     scryfall_id = "ffa87a70-c9fb-4ab3-ac16-367888aa775b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cobblebrute",
         mana_cost = mana!("{3}{R}"),

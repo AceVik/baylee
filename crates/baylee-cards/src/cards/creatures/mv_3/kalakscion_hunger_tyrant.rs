@@ -11,7 +11,7 @@ card!(
     scryfall_id = "1214fc6d-ae47-418d-88cc-58633ec2ac7a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kalakscion, Hunger Tyrant",
         mana_cost = mana!("{1}{B}{B}"),

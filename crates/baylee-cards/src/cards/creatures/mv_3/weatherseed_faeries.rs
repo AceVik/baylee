@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8c7ebec7-7375-4362-9489-437ff9305f19",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weatherseed Faeries",
         mana_cost = mana!("{2}{U}"),

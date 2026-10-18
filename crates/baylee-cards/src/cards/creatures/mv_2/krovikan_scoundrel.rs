@@ -10,7 +10,7 @@ card!(
     oracle_id = "44c437ca-5d36-4bb3-9450-baf0c93ff4ce",
     scryfall_id = "bd9f046c-b416-4d80-8998-047b98361352",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krovikan Scoundrel",
         mana_cost = mana!("{1}{B}"),

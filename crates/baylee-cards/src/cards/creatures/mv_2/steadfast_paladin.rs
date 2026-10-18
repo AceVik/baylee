@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a2c06b6e-faf5-467d-bfe1-9ff00be9e2f5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steadfast Paladin",
         mana_cost = mana!("{1}{W}"),

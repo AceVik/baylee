@@ -12,7 +12,7 @@ card!(
     scryfall_id = "73f4c4b7-5c05-48a5-adb2-ca850df8cd03",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frog-Squirrels",
         mana_cost = mana!("{1}{G}"),

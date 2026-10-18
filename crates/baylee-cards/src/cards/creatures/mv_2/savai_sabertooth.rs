@@ -10,7 +10,7 @@ card!(
     oracle_id = "24f2cf61-22db-4e34-898f-6baa2957d3ae",
     scryfall_id = "d46702b0-7e10-462a-9aac-7564efe91804",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savai Sabertooth",
         mana_cost = mana!("{1}{W}"),

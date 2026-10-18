@@ -10,7 +10,7 @@ card!(
     oracle_id = "17ae652c-b1c7-4dde-ae9e-50b9e286776c",
     scryfall_id = "94785274-fa79-47cc-9896-0f5f695abb21",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warpath Ghoul",
         mana_cost = mana!("{2}{B}"),

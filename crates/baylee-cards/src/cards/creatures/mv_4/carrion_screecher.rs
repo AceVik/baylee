@@ -12,7 +12,7 @@ card!(
     scryfall_id = "45a4010d-6a27-4ab5-aff6-e658b39f44b1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carrion Screecher",
         mana_cost = mana!("{3}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "cb13aaa4-d40a-4fb2-9fd6-62bf76db6a13",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Griffin Sentinel",
         mana_cost = mana!("{2}{W}"),

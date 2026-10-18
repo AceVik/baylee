@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0c6f0614-06dc-4bd2-b8b9-d951ae27db21",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cemetery Gate",
         mana_cost = mana!("{2}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "0ee14128-3bec-4b65-8ee4-619337d4ed45",
     scryfall_id = "55f97b4c-42c7-4986-a150-0b8de11f0537",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leatherback Baloth",
         mana_cost = mana!("{G}{G}{G}"),

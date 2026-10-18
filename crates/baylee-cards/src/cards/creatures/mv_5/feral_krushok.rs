@@ -10,7 +10,7 @@ card!(
     oracle_id = "8c42883d-8b70-4691-a1e7-4659e7954b88",
     scryfall_id = "5041996b-c265-4c4f-a52c-dfe29b2e282d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Krushok",
         mana_cost = mana!("{4}{G}"),

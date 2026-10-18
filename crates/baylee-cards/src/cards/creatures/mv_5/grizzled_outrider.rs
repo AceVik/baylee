@@ -10,7 +10,7 @@ card!(
     oracle_id = "0d3d0da2-73fe-4f8a-b13c-23981eb7e2ee",
     scryfall_id = "4a1d4473-5317-4bdd-9cb9-93670acf52e9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grizzled Outrider",
         mana_cost = mana!("{4}{G}"),

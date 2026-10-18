@@ -12,7 +12,7 @@ card!(
     scryfall_id = "084446ca-fec5-446f-b6f8-edf32ecb57e3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grave Bramble",
         mana_cost = mana!("{1}{G}{G}"),

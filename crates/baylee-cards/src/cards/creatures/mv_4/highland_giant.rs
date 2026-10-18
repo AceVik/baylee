@@ -10,7 +10,7 @@ card!(
     oracle_id = "2f3878b8-61af-4276-b7ab-11b70e44eb62",
     scryfall_id = "32f49716-1522-4f36-92c9-63ef2059c4ef",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Highland Giant",
         mana_cost = mana!("{2}{R}{R}"),

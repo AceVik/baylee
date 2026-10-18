@@ -11,7 +11,7 @@ card!(
     oracle_id = "4a1db129-cc7c-410a-a41e-d633e30cfdad",
     scryfall_id = "dd4e2d4c-7674-416e-9111-e4fbdd9240f6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death Speakers",
         mana_cost = mana!("{W}"),

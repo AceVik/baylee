@@ -15,7 +15,7 @@ card!(
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunblade Angel",
         mana_cost = mana!("{5}{W}"),

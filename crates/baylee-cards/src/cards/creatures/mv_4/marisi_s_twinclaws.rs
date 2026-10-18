@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d406058e-4d51-42bd-b7c0-664216745ff8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marisi's Twinclaws",
         mana_cost = mana!("{2}{R/W}{G}"),

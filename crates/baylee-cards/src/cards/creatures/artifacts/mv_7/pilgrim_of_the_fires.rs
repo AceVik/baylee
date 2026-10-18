@@ -11,7 +11,7 @@ card!(
     oracle_id = "53390f91-a159-482f-9f64-f5adc812680b",
     scryfall_id = "45a60623-d523-4b43-89b0-8e89568546c7",
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pilgrim of the Fires",
         mana_cost = mana!("{7}"),

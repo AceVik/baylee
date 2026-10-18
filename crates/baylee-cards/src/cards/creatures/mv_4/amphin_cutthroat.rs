@@ -10,7 +10,7 @@ card!(
     oracle_id = "e766a5eb-684b-4939-b164-6093d15600c9",
     scryfall_id = "fd169064-9c7b-40bd-8be0-a89fcb28ae2f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Amphin Cutthroat",
         mana_cost = mana!("{3}{U}"),

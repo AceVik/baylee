@@ -12,7 +12,7 @@ card!(
     scryfall_id = "56e1967e-5bc5-47e7-9998-7fcfdffc3bb1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jukai Messenger",
         mana_cost = mana!("{G}"),

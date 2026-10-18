@@ -10,7 +10,7 @@ card!(
     oracle_id = "18710b5e-5403-48cd-9541-8154ba0a0b30",
     scryfall_id = "60192ded-689b-4cc5-9293-bff52924089b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Femeref Scouts",
         mana_cost = mana!("{2}{W}"),

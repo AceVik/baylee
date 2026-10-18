@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2f540b83-67fd-4630-a461-69bc84b88ed3",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle Hurda",
         mana_cost = mana!("{4}{W}"),

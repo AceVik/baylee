@@ -12,7 +12,7 @@ card!(
     scryfall_id = "88a68767-9822-4f15-895e-32164e2159be",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pygmy Allosaurus",
         mana_cost = mana!("{2}{G}"),

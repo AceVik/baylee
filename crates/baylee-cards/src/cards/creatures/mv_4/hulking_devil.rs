@@ -10,7 +10,7 @@ card!(
     oracle_id = "b6578a36-c43c-4474-81bd-5711cc4f626e",
     scryfall_id = "031ecfc4-cc84-4f74-8eb1-3eaa234d8093",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hulking Devil",
         mana_cost = mana!("{3}{R}"),

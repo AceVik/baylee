@@ -10,7 +10,7 @@ card!(
     oracle_id = "575d08b2-3150-47d2-8f83-e8bb1f184c0f",
     scryfall_id = "422fe3bd-d92e-4c91-8c30-3b5aec00201a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kami of Old Stone",
         mana_cost = mana!("{3}{W}"),

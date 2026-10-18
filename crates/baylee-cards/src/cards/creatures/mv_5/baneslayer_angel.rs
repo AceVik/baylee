@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Baneslayer Angel",
         mana_cost = mana!("{3}{W}{W}"),

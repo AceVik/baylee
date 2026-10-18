@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9621c700-569d-4d07-847e-68b97113415f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Updraft Elemental",
         mana_cost = mana!("{2}{U}"),

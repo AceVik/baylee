@@ -10,7 +10,7 @@ card!(
     oracle_id = "aa944cbe-fdba-4001-97d5-c722fe744dcc",
     scryfall_id = "79719ed0-468d-4946-8dfc-fb7e2b2e305e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vorstclaw",
         mana_cost = mana!("{4}{G}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "da404c9c-3fb0-418c-947f-f42d6aff6899",
     scryfall_id = "66f077d2-34ab-45fa-84db-eb408c5a9996",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nath's Buffoon",
         mana_cost = mana!("{1}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "cc61aa62-25ee-40a4-9b6e-d6277316b464",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Dog",
         mana_cost = mana!("{2}{R}"),

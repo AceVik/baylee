@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a9767360-d536-4902-9d2d-1f3474ce89d6",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chitinous Graspling",
         mana_cost = mana!("{3}{G/U}"),

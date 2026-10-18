@@ -11,7 +11,7 @@ card!(
     oracle_id = "549a3f53-f90e-4af0-bbc5-2c4b9df30008",
     scryfall_id = "7dbeced9-d27d-476c-92d4-3c14d8a40458",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wolf Cove Villager",
         mana_cost = mana!("{W}"),

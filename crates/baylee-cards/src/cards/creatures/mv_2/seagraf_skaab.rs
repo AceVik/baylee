@@ -10,7 +10,7 @@ card!(
     oracle_id = "1c7dd66f-a062-49ac-aa7c-1bf5ec069d73",
     scryfall_id = "065d497d-5cfd-43c9-8c86-9a1da3d7e17e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seagraf Skaab",
         mana_cost = mana!("{1}{U}"),

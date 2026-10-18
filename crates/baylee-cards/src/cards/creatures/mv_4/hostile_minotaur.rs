@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0e1263ea-adc9-442b-b13e-9afb69596372",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hostile Minotaur",
         mana_cost = mana!("{3}{R}"),

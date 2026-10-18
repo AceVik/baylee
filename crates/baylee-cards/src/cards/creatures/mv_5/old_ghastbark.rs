@@ -10,7 +10,7 @@ card!(
     oracle_id = "a5207cb5-7519-4802-85c5-ac8c4313693e",
     scryfall_id = "5b5ab941-89cc-4fdd-a916-3a54651f6478",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Old Ghastbark",
         mana_cost = mana!("{3}{G/W}{G/W}"),

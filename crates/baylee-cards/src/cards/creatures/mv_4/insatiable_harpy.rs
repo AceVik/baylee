@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1439ed8d-ae11-4159-9420-5d98c6cc93b3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Insatiable Harpy",
         mana_cost = mana!("{2}{B}{B}"),

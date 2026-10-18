@@ -12,7 +12,7 @@ card!(
     scryfall_id = "eb84b86c-3276-4fc1-a09d-47de388cb729",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brazen Scourge",
         mana_cost = mana!("{1}{R}{R}"),

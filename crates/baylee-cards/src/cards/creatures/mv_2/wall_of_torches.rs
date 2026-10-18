@@ -12,7 +12,7 @@ card!(
     scryfall_id = "76f69b92-7435-4aa8-9d90-89ea078befb1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Torches",
         mana_cost = mana!("{1}{R}"),

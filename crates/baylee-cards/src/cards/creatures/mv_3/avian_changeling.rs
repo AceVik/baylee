@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1fe4fba9-5ff4-4e4b-be28-2849fa3c7003",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Avian Changeling",
         mana_cost = mana!("{2}{W}"),

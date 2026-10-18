@@ -12,7 +12,7 @@ card!(
     scryfall_id = "016d1d17-ba5c-4168-9a3d-232bdcc98c80",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drakewing Krasis",
         mana_cost = mana!("{1}{G}{U}"),

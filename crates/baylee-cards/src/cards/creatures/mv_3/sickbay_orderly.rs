@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d78afa7d-1952-46e9-bdaf-870b27c77844",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sickbay Orderly",
         mana_cost = mana!("{2}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c8a5b28b-ff0d-4680-81cd-0d61e0e55e8e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warriors of Wakanda",
         mana_cost = mana!("{3}{G}"),

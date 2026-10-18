@@ -10,7 +10,7 @@ card!(
     oracle_id = "6bab6d0a-cd06-45e3-b780-d5354ee2a032",
     scryfall_id = "7c2ca68b-15fb-4691-b549-268df92ca413",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancient Crab",
         mana_cost = mana!("{1}{U}{U}"),

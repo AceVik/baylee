@@ -20,6 +20,7 @@ mod mv_7;
 mod mv_8;
 mod mv_9;
 mod nether_shadow;
+mod pkg2_keywords_and_bodies;
 mod sengir_vampire;
 
 // oracle_id = "e3c85068-b4b6-40b9-a16c-5c3b2d059ec4"

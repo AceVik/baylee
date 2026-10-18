@@ -12,7 +12,7 @@ card!(
     scryfall_id = "73f5156b-b200-41f7-8b93-557c4cdc2bf7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pouncing Cheetah",
         mana_cost = mana!("{2}{G}"),

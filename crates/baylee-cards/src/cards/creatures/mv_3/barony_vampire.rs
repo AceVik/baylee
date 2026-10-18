@@ -10,7 +10,7 @@ card!(
     oracle_id = "e886756a-298d-4f79-8699-8bfc9345352e",
     scryfall_id = "b0130d04-05f2-44f5-bd6c-8b11f798b69e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barony Vampire",
         mana_cost = mana!("{2}{B}"),

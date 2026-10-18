@@ -12,7 +12,7 @@ card!(
     scryfall_id = "95a1e5c2-7f5b-4ae4-83d9-06e334ba57ea",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bassara Tower Archer",
         mana_cost = mana!("{G}{G}"),

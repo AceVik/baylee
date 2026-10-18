@@ -10,7 +10,7 @@ card!(
     oracle_id = "6cfd9d88-f450-4408-bbe2-94a2d295b24a",
     scryfall_id = "d7b5913e-a103-4e4a-9281-8b88c1fb746e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Falkenrath Reaver",
         mana_cost = mana!("{1}{R}"),

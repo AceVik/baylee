@@ -10,7 +10,7 @@ card!(
     oracle_id = "0c7163e6-f5a1-45a5-88c2-19dd9ef0a587",
     scryfall_id = "3469d73e-6de1-4b91-83e3-b1714ac29268",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canyon Minotaur",
         mana_cost = mana!("{3}{R}"),

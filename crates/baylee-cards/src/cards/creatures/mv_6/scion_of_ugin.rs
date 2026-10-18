@@ -11,7 +11,7 @@ card!(
     oracle_id = "7422f43d-0c1e-42cb-864d-1c63f2ec533a",
     scryfall_id = "2904aaaa-cd25-4c05-9d57-4c5a951ac6d9",
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scion of Ugin",
         mana_cost = mana!("{6}"),

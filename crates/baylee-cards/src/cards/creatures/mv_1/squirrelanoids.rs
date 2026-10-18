@@ -12,7 +12,7 @@ card!(
     scryfall_id = "be08d2b0-375b-434f-9e6d-060809e0ed34",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squirrelanoids",
         mana_cost = mana!("{B}"),

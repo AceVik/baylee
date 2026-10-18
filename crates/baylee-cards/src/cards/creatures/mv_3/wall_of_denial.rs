@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::DEFENDER
         .union(KeywordSet::FLYING)
         .union(KeywordSet::SHROUD),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Denial",
         mana_cost = mana!("{1}{W}{U}"),

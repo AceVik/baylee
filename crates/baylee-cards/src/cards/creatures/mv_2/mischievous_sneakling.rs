@@ -13,7 +13,7 @@ card!(
     scryfall_id = "3b66fa00-2fa6-4060-9e7f-8e3fde6deb73",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::FLASH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mischievous Sneakling",
         mana_cost = mana!("{1}{U/B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "cf339549-4325-40c6-adde-0cd31bb738e0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cold-Water Snapper",
         mana_cost = mana!("{5}{U}"),

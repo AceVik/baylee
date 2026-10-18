@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::FLASH
         .union(KeywordSet::FLYING)
         .union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winged Coatl",
         mana_cost = mana!("{1}{G}{U}"),

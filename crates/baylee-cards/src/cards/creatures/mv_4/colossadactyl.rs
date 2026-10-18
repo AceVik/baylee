@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8702e776-be2c-48a9-9bc5-bb8ea514333b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossadactyl",
         mana_cost = mana!("{2}{G}{G}"),

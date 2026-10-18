@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1c759e94-e437-4dda-af0f-6578c0a50619",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brambleweft Behemoth",
         mana_cost = mana!("{4}{G}{G}"),

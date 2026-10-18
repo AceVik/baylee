@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4daaccd2-733c-4b3b-aa3f-cc825bcc3e53",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riot Piker",
         mana_cost = mana!("{1}{R}"),

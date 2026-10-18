@@ -10,7 +10,7 @@ card!(
     oracle_id = "b039997c-2115-4f6d-9f7b-0ad35a4796a6",
     scryfall_id = "1a91e5f1-9179-4763-b7c9-b7ad5451f6d0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frost Ogre",
         mana_cost = mana!("{3}{R}{R}"),

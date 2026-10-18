@@ -11,7 +11,7 @@ card!(
     oracle_id = "58e4f299-bb32-4727-8498-a364166adc38",
     scryfall_id = "f30a5a06-32ce-4d71-b71f-e3e1d8d4511a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Zombie",
         mana_cost = mana!("{U}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0ec07bce-abf0-4387-bb9f-a9ba5492c754",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talon Trooper",
         mana_cost = mana!("{1}{W}{U}"),

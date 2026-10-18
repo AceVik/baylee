@@ -11,7 +11,7 @@ card!(
     oracle_id = "a07406b7-faa1-4ed3-ab84-314c40f3f7f1",
     scryfall_id = "decec62b-7ac4-4097-9215-5db18db2dec6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beloved Chaplain",
         mana_cost = mana!("{1}{W}"),

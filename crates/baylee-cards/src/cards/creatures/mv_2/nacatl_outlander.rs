@@ -11,7 +11,7 @@ card!(
     oracle_id = "333555d6-3fcc-4021-ab60-afc36d723877",
     scryfall_id = "12b5b694-46c8-4cb0-ab6b-4bc67c04cc7f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nacatl Outlander",
         mana_cost = mana!("{R}{G}"),

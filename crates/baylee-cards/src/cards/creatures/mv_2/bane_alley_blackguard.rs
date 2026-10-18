@@ -10,7 +10,7 @@ card!(
     oracle_id = "1134eea5-e931-4cb2-9e30-64c227386d43",
     scryfall_id = "15fcad03-4567-4f96-976e-01a07d8ab050",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bane Alley Blackguard",
         mana_cost = mana!("{1}{B}"),

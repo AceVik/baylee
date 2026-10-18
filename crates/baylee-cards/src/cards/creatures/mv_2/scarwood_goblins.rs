@@ -10,7 +10,7 @@ card!(
     oracle_id = "5314e57b-107c-4478-9cdb-51d1732f9468",
     scryfall_id = "5542d236-af43-43b8-b30f-8980d74bbdd0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scarwood Goblins",
         mana_cost = mana!("{R}{G}"),

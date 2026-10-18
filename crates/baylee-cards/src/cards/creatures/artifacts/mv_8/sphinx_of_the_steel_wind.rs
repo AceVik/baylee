@@ -15,7 +15,7 @@ card!(
         .union(KeywordSet::FIRST_STRIKE)
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx of the Steel Wind",
         mana_cost = mana!("{5}{W}{U}{B}"),

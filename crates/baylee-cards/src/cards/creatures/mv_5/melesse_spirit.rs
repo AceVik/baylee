@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8292b6e7-92ac-4bbb-906c-1fe47e260a24",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Melesse Spirit",
         mana_cost = mana!("{3}{W}{W}"),

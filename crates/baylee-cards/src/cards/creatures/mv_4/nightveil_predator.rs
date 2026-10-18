@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::DEATHTOUCH)
         .union(KeywordSet::HEXPROOF),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightveil Predator",
         mana_cost = mana!("{U}{U}{B}{B}"),

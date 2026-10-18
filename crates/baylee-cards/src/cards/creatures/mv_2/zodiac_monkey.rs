@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1670108c-c3c8-4052-8f19-30dcb2266774",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Monkey",
         mana_cost = mana!("{1}{G}"),

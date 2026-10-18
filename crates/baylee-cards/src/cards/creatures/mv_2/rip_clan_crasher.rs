@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8d61c4a0-054b-479e-82d9-dc60c5c708e2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rip-Clan Crasher",
         mana_cost = mana!("{R}{G}"),

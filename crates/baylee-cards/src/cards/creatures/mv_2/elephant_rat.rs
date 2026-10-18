@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0568f28f-e830-4a7a-91d3-43e78bb86c8f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elephant-Rat",
         mana_cost = mana!("{1}{B}"),

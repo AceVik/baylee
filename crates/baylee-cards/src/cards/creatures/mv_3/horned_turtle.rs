@@ -10,7 +10,7 @@ card!(
     oracle_id = "7a4ae76b-6241-4fa8-b239-5ec941a0e7df",
     scryfall_id = "f8f2b7c1-9f2a-481d-94ee-04728828f7df",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horned Turtle",
         mana_cost = mana!("{2}{U}"),

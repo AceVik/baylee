@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e77e14e1-326a-45a2-9522-96c61ddb970b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pitiless Gorgon",
         mana_cost = mana!("{1}{B/G}{B/G}"),

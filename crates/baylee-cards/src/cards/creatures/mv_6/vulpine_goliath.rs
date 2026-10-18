@@ -12,7 +12,7 @@ card!(
     scryfall_id = "cdacb147-35ce-4751-961e-576b5f958048",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vulpine Goliath",
         mana_cost = mana!("{4}{G}{G}"),

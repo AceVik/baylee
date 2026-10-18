@@ -12,7 +12,7 @@ card!(
     scryfall_id = "71c52b50-35aa-4858-8c8e-c81dcb29a7fc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oko's Accomplices",
         mana_cost = mana!("{2}{U}"),

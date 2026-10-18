@@ -10,7 +10,7 @@ card!(
     oracle_id = "6469f61d-1b4c-4813-bb4a-99f6e6388d7b",
     scryfall_id = "2f779d7e-6e37-49bc-b76d-3bb490ff142b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talas Merchant",
         mana_cost = mana!("{1}{U}"),

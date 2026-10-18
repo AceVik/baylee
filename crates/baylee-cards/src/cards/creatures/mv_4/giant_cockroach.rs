@@ -10,7 +10,7 @@ card!(
     oracle_id = "c8b49b28-d364-4cf0-a2a5-56f6f7dc1b22",
     scryfall_id = "25ca0c01-2e9f-4f1c-9078-f7a68559296d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Giant Cockroach",
         mana_cost = mana!("{3}{B}"),

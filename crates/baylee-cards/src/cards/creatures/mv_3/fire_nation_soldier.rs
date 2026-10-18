@@ -12,7 +12,7 @@ card!(
     scryfall_id = "58e59eba-3cf5-4ebe-8bc1-28568921650b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Nation Soldier",
         mana_cost = mana!("{2}{R}"),

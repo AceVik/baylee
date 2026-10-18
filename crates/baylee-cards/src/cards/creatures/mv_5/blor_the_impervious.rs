@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::TRAMPLE
         .union(KeywordSet::HEXPROOF)
         .union(KeywordSet::INDESTRUCTIBLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blor the Impervious",
         mana_cost = mana!("{3}{G}{G}"),

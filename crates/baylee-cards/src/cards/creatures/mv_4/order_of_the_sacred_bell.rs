@@ -10,7 +10,7 @@ card!(
     oracle_id = "0e3099ca-ac2b-4163-bef7-e62a84567744",
     scryfall_id = "310500b2-8539-441e-af89-81ddfa8ef080",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Order of the Sacred Bell",
         mana_cost = mana!("{3}{G}"),

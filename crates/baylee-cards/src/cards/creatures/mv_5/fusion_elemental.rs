@@ -16,7 +16,7 @@ card!(
         Color::Blue,
         Color::White
     ]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fusion Elemental",
         mana_cost = mana!("{W}{U}{B}{R}{G}"),

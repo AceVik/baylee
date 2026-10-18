@@ -10,7 +10,7 @@ card!(
     oracle_id = "5837b3d9-b3cb-4333-b0db-ed38e49c997f",
     scryfall_id = "7684db4c-6eff-4da1-a410-48d707fb5bf1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dutiful Servants",
         mana_cost = mana!("{3}{W}"),

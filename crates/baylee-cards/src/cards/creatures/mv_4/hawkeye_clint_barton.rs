@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hawkeye, Clint Barton",
         mana_cost = mana!("{3}{W}"),

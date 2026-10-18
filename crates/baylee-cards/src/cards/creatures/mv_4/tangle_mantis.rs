@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c0e4d333-78f7-4710-9b26-36e285c0d9f8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tangle Mantis",
         mana_cost = mana!("{2}{G}{G}"),

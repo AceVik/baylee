@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d84fdc31-43f8-4cb9-b9a8-4ad3d1e90edb",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plover Knights",
         mana_cost = mana!("{3}{W}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "70c2ef30-0db5-4ef5-999c-7ffa48769421",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moldering Karok",
         mana_cost = mana!("{2}{B}{G}"),

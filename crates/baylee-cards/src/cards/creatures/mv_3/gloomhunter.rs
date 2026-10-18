@@ -12,7 +12,7 @@ card!(
     scryfall_id = "98db4317-9850-44c1-884b-d8d3abe1afeb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gloomhunter",
         mana_cost = mana!("{2}{B}"),

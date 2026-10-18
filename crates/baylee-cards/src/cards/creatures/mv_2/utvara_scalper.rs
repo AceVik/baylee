@@ -13,7 +13,7 @@ card!(
     scryfall_id = "19098bc5-c5bc-4cef-9c73-1d5f3e0ac4e1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Utvara Scalper",
         mana_cost = mana!("{1}{R}"),

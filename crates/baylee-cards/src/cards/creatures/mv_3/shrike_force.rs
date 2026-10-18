@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::DOUBLE_STRIKE)
         .union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shrike Force",
         mana_cost = mana!("{2}{W}"),

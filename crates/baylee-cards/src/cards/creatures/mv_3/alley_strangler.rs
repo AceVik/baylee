@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a131d558-5f6b-448b-a378-1882e2d02bd2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alley Strangler",
         mana_cost = mana!("{2}{B}"),

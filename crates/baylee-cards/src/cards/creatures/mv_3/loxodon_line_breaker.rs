@@ -10,7 +10,7 @@ card!(
     oracle_id = "57f0f55d-4cf9-4a35-96dd-05c24c2a9a4f",
     scryfall_id = "928d4250-c379-4134-a263-7811c80a8760",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Line Breaker",
         mana_cost = mana!("{2}{W}"),

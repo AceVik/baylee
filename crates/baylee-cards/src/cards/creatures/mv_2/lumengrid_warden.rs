@@ -10,7 +10,7 @@ card!(
     oracle_id = "ee16a8f3-2522-4c36-b4de-65484dfb7455",
     scryfall_id = "0a03ba5a-ac27-4fce-9eaf-b029ab26f9e1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lumengrid Warden",
         mana_cost = mana!("{1}{U}"),

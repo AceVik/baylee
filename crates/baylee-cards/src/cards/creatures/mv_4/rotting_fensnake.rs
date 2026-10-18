@@ -10,7 +10,7 @@ card!(
     oracle_id = "be22faba-07e0-4036-b700-82769989250b",
     scryfall_id = "c21cbb10-9157-4887-a752-29b9e94fc77a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotting Fensnake",
         mana_cost = mana!("{3}{B}"),

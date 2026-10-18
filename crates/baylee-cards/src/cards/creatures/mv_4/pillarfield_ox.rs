@@ -10,7 +10,7 @@ card!(
     oracle_id = "0f7c70c4-9795-4c76-8b27-043942a963c6",
     scryfall_id = "53a5c7bd-7d08-421d-ad43-70bc0c2db4d4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pillarfield Ox",
         mana_cost = mana!("{3}{W}"),

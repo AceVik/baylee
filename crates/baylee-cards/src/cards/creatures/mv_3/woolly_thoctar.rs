@@ -10,7 +10,7 @@ card!(
     oracle_id = "220bfa3b-0e17-4350-a967-cfcf05b754ef",
     scryfall_id = "cf7188d8-d37f-49ec-ab52-8ea080725ca7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woolly Thoctar",
         mana_cost = mana!("{R}{G}{W}"),

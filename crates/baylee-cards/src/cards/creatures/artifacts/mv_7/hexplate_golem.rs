@@ -9,7 +9,7 @@ card!(
     index = index::HEXPLATE_GOLEM,
     oracle_id = "bacb9d63-5950-4bcd-a056-40c02ecf4ce8",
     scryfall_id = "98534255-d8cd-4f42-8b90-f5672fb879a2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hexplate Golem",
         mana_cost = mana!("{7}"),

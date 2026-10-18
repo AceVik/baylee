@@ -13,7 +13,7 @@ card!(
     scryfall_id = "84e0e5f5-b51a-4386-827b-c0eb8c877efb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flameborn Hellion",
         mana_cost = mana!("{5}{R}"),

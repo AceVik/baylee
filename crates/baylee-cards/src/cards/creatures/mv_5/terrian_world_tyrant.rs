@@ -11,7 +11,7 @@ card!(
     scryfall_id = "b44255cf-5264-4ead-9de0-20cc0f7cac6f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terrian, World Tyrant",
         mana_cost = mana!("{2}{G}{G}{G}"),

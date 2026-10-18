@@ -12,7 +12,7 @@ card!(
     scryfall_id = "62a37646-8f7c-40fc-851d-e3fdd205b012",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Mist",
         mana_cost = mana!("{1}{U}"),

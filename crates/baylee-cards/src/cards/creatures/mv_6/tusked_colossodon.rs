@@ -10,7 +10,7 @@ card!(
     oracle_id = "bba11c0e-01a3-45ad-8de4-2148cf660ba8",
     scryfall_id = "2d511407-0c1e-4342-a578-ca557c6886fd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tusked Colossodon",
         mana_cost = mana!("{4}{G}{G}"),

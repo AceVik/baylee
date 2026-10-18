@@ -10,7 +10,7 @@ card!(
     oracle_id = "69166587-3db4-4eb0-b153-b75021be9a36",
     scryfall_id = "cc17e5c1-a6b4-401b-95eb-1c01cd1da570",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bonebreaker Giant",
         mana_cost = mana!("{4}{R}"),

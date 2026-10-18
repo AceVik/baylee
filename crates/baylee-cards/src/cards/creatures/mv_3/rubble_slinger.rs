@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f006255f-b18d-4d52-b97a-17909b67decc",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubble Slinger",
         mana_cost = mana!("{2}{R/G}"),

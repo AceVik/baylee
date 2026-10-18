@@ -12,7 +12,7 @@ card!(
     scryfall_id = "83298c8a-02c4-4ada-9a41-4b973bb58ac6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impostor of the Sixth Pride",
         mana_cost = mana!("{1}{W}"),

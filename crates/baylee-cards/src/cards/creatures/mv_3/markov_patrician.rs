@@ -12,7 +12,7 @@ card!(
     scryfall_id = "29c3d3f7-5e28-4fec-8422-87856fcd1e8e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Markov Patrician",
         mana_cost = mana!("{2}{B}"),

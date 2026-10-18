@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fe349432-8726-49cf-ad07-6f8add8f78c8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hitchclaw Recluse",
         mana_cost = mana!("{2}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "0e3ac78c-8a98-4786-b86c-ecfe61e13c83",
     scryfall_id = "f8fae146-a0dd-4622-ab11-f00b372f8221",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Soldiers",
         mana_cost = mana!("{1}{U}"),

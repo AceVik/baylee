@@ -12,7 +12,7 @@ card!(
     scryfall_id = "aa41edf8-88a1-46dd-8315-b0afe7e14b7e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::CHANGELING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodland Changeling",
         mana_cost = mana!("{1}{G}"),

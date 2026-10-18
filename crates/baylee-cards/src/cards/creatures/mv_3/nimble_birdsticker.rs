@@ -12,7 +12,7 @@ card!(
     scryfall_id = "4ff9bcbd-48fe-4a74-aae5-a447c99aa64b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimble Birdsticker",
         mana_cost = mana!("{2}{R}"),

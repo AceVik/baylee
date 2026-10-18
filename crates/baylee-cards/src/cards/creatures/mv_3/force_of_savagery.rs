@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b344511d-631e-4f1d-9d7d-d7c89a473d1b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Force of Savagery",
         mana_cost = mana!("{2}{G}"),

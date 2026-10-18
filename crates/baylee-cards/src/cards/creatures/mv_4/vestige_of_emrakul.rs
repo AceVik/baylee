@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a5d84986-64a1-4bd1-a4f6-3eb147aca357",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vestige of Emrakul",
         mana_cost = mana!("{3}{R}"),

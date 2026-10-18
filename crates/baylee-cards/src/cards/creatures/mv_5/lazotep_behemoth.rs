@@ -10,7 +10,7 @@ card!(
     oracle_id = "db145875-2a40-4fe3-b8ee-bf10ae8f7cd7",
     scryfall_id = "b4be6f22-e9e8-462a-956b-e1c78bbadacc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lazotep Behemoth",
         mana_cost = mana!("{4}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "133d9d56-d906-4252-9954-e34cc8564ced",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraul Raider",
         mana_cost = mana!("{2}{B}"),

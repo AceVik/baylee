@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ca382425-2454-4300-b903-fdefd31582d3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Trailblazer",
         mana_cost = mana!("{1}{R}"),

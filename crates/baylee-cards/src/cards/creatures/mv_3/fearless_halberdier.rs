@@ -10,7 +10,7 @@ card!(
     oracle_id = "2ef2f417-2061-4796-974a-92f800ef05e4",
     scryfall_id = "89f08297-f477-4330-a99e-3f0847c31364",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fearless Halberdier",
         mana_cost = mana!("{2}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c6049e92-6c52-44be-a3c7-aa8e8bf9c10a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Towering Indrik",
         mana_cost = mana!("{3}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "21982dc7-4f79-4251-8382-95cd1f627e0f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Humongulus",
         mana_cost = mana!("{4}{U}"),

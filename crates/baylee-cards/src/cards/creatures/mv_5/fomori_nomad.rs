@@ -10,7 +10,7 @@ card!(
     oracle_id = "bfcaa0a4-2fc5-4e27-8b79-802e365c71f2",
     scryfall_id = "cfd3eadb-74bb-423b-923f-a6fc2259e0d7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fomori Nomad",
         mana_cost = mana!("{4}{R}"),

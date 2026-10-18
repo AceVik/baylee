@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b87066d0-6206-4ea3-87dc-04e4f06d013b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glamorous Grapplers",
         mana_cost = mana!("{3}{B}"),

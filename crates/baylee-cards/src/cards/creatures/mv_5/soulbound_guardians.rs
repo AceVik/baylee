@@ -12,7 +12,7 @@ card!(
     scryfall_id = "62e8128f-9858-4c48-ab43-1beca3db70e5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soulbound Guardians",
         mana_cost = mana!("{4}{W}"),

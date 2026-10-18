@@ -12,7 +12,7 @@ card!(
     scryfall_id = "64bf33ea-2d2d-476d-ab1d-fba204fd034b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seraph of Dawn",
         mana_cost = mana!("{2}{W}{W}"),

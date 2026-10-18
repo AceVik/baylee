@@ -10,7 +10,7 @@ card!(
     oracle_id = "8138a9d7-63cb-4d40-ac9e-1a9b10766113",
     scryfall_id = "8ae5ba21-eb8e-4663-bfd8-3e19a0c10774",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Straw Soldiers",
         mana_cost = mana!("{1}{U}"),

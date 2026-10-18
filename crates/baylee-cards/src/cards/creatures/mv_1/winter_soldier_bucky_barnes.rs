@@ -12,7 +12,7 @@ card!(
     scryfall_id = "539be75b-3c86-449c-adaa-68a7af612ea5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winter Soldier, Bucky Barnes",
         mana_cost = mana!("{W}"),

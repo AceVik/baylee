@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a620ff81-61e8-4d76-a26f-d6271f8aac7d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Shred-Freak",
         mana_cost = mana!("{B/R}{B/R}"),

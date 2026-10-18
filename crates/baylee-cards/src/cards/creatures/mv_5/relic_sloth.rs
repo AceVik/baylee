@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c1cb483f-c567-4cfd-9fe8-1503e7b40542",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Relic Sloth",
         mana_cost = mana!("{3}{R}{W}"),

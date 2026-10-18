@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::DEATHTOUCH)
         .union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire Nighthawk",
         mana_cost = mana!("{1}{B}{B}"),

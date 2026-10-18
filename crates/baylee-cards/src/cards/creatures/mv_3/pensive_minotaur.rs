@@ -10,7 +10,7 @@ card!(
     oracle_id = "cafad9c8-9974-4596-92d4-b7fb615a0353",
     scryfall_id = "902b462a-a552-42d4-91f0-bd33cd9cb719",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pensive Minotaur",
         mana_cost = mana!("{2}{R}"),

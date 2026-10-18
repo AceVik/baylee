@@ -10,7 +10,7 @@ card!(
     oracle_id = "1b0b5264-2810-4ac5-8b2e-8abbf4016287",
     scryfall_id = "d30d6df7-6199-4b06-9d45-785ee1e2ed3b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Catacomb Slug",
         mana_cost = mana!("{4}{B}"),

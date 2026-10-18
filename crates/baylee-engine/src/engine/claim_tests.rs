@@ -542,6 +542,17 @@ fn claims_in(line: &Line) -> Vec<Claim> {
             sweep.conditional = true;
         }
     }
+    if words
+        .windows(2)
+        .any(|pair| pair[0] == "to" && pair[1] == "each")
+        && !words
+            .iter()
+            .any(|w| matches!(w.as_str(), "player" | "players" | "opponent" | "opponents"))
+    {
+        for sweep in out.iter_mut().filter(|c| c.kind == Kind::Damage) {
+            sweep.conditional = true;
+        }
+    }
     out
 }
 
@@ -1114,6 +1125,7 @@ fn the_comparison_notices_when_the_sentence_and_the_journal_disagree() {
 /// condition often sits *in* that cost, and a resolving spell reaching a
 /// graveyard is not a card destroying anything.
 #[test]
+#[allow(clippy::too_many_lines)]
 fn the_vocabulary_reads_the_sentences_it_was_written_for() {
     let found = |text: &str| -> Vec<(Kind, Option<u16>, bool)> {
         claims_of(text)
@@ -1156,6 +1168,11 @@ fn the_vocabulary_reads_the_sentences_it_was_written_for() {
         found("Destroy all enchantments."),
         vec![(Kind::Destroy, None, true)],
         "a sweep over an empty set keeps its word by doing nothing"
+    );
+    assert_eq!(
+        found("Squall deals 2 damage to each creature with flying."),
+        vec![(Kind::Damage, Some(2), true)],
+        "a creature-only damage sweep over an empty matching set keeps its word by doing nothing"
     );
     assert_eq!(
         found("Create a 1/1 white Soldier creature token."),

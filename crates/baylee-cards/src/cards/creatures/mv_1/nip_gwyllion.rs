@@ -12,7 +12,7 @@ card!(
     scryfall_id = "019ad92d-8803-4569-98c8-4a7416799cfc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nip Gwyllion",
         mana_cost = mana!("{W/B}"),

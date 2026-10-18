@@ -10,7 +10,7 @@ card!(
     oracle_id = "cf8aef54-3f43-413c-9f3f-d4a1b2090904",
     scryfall_id = "16db28f4-3d96-42f5-a264-592fdc2d4196",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thraben Purebloods",
         mana_cost = mana!("{4}{W}"),

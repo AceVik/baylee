@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3defc506-537e-4659-815d-5dab15fbf199",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Lions",
         mana_cost = mana!("{4}{W}"),

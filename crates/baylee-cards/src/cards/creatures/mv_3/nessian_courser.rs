@@ -10,7 +10,7 @@ card!(
     oracle_id = "e876d1fc-3acd-41a3-a34b-2bfa83204393",
     scryfall_id = "4697f3aa-abde-4379-af82-f30115f59be0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nessian Courser",
         mana_cost = mana!("{2}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "017ef6eb-7a2b-4730-bf21-a2289d4c07ad",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scaled Behemoth",
         mana_cost = mana!("{4}{G}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "76e80656-6bcb-4d99-8bd2-ca5f75f40daf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawn's Light Archer",
         mana_cost = mana!("{2}{G}"),

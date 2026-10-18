@@ -13,7 +13,7 @@ card!(
     scryfall_id = "da20a0d3-2022-4dea-84c8-85adc5a974f8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tajuru Pathwarden",
         mana_cost = mana!("{4}{G}"),

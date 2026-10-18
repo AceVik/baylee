@@ -10,7 +10,7 @@ card!(
     oracle_id = "f7a96612-4fc5-4944-8b74-9eb6f24190b4",
     scryfall_id = "aad8a194-cee7-4671-8310-19357fc1a450",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obsidian Giant",
         mana_cost = mana!("{4}{R}"),

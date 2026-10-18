@@ -10,7 +10,7 @@ card!(
     oracle_id = "44fd00d5-84e4-48ec-bd6a-d53afbc2dd62",
     scryfall_id = "1066644a-ac62-4809-805c-607c645613c5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotted Hulk",
         mana_cost = mana!("{3}{B}"),

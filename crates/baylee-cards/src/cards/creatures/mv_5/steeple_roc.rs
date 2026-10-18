@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5fecafab-97f4-40ed-bc43-d186eb2f3af6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steeple Roc",
         mana_cost = mana!("{4}{W}"),

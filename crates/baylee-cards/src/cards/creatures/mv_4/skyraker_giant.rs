@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5e3fbafb-e915-43eb-8a68-245840ba73ff",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyraker Giant",
         mana_cost = mana!("{2}{R}{R}"),

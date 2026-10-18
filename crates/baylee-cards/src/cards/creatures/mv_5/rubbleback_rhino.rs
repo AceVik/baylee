@@ -12,7 +12,7 @@ card!(
     scryfall_id = "51daaf9b-d8a8-49a6-94e1-0c8be2c6188b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubbleback Rhino",
         mana_cost = mana!("{4}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9c0cf2c4-723e-46c4-b2aa-4c957177209a",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Needlethorn Drake",
         mana_cost = mana!("{G}{U}"),

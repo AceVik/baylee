@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a8a8282b-bba6-4815-80fe-7a37a1fec3c1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thraben Valiant",
         mana_cost = mana!("{1}{W}"),

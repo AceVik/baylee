@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f30ed6e1-d713-40ae-81f6-d2d66914bbb9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spire Monitor",
         mana_cost = mana!("{4}{U}"),

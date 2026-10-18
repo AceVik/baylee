@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e27bc544-ff5f-405c-914e-b727341b776e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Monster Mashup",
         mana_cost = mana!("{3}{R}"),

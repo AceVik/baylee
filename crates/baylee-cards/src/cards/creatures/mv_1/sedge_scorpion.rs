@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9864f811-db2e-4d6d-ad59-a491a790bdd4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sedge Scorpion",
         mana_cost = mana!("{G}"),

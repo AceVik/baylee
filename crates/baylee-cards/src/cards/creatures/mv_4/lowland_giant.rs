@@ -10,7 +10,7 @@ card!(
     oracle_id = "041cc2d0-eb67-484e-8da1-e91ddb2b3f70",
     scryfall_id = "6d8ce76f-8ced-4ee9-a450-1bcc27d36e7d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lowland Giant",
         mana_cost = mana!("{2}{R}{R}"),

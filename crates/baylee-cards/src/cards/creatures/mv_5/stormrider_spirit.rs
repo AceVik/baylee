@@ -13,7 +13,7 @@ card!(
     scryfall_id = "81a95edb-9f5b-4e42-8b27-0b3d978dcefe",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stormrider Spirit",
         mana_cost = mana!("{4}{U}"),

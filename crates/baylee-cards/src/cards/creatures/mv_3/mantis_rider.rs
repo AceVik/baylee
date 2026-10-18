@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::FLYING
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mantis Rider",
         mana_cost = mana!("{U}{R}{W}"),

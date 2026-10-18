@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8644d4d1-8499-40a8-a01f-68172c82bf58",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gifted Aetherborn",
         mana_cost = mana!("{B}{B}"),

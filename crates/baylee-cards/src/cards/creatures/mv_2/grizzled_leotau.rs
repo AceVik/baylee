@@ -10,7 +10,7 @@ card!(
     oracle_id = "59edd0e7-37c2-45f9-9f9d-8002be459662",
     scryfall_id = "2b388381-9e13-4ce7-b5b3-56a74cc23d93",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grizzled Leotau",
         mana_cost = mana!("{G}{W}"),

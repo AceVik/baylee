@@ -10,7 +10,7 @@ card!(
     oracle_id = "03ad624e-71f6-4f72-8ce0-7700e83458d9",
     scryfall_id = "e85fbc25-412a-4367-8209-258ff638dcc6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbtooth Wurm",
         mana_cost = mana!("{5}{G}"),

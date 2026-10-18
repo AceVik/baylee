@@ -10,7 +10,7 @@ card!(
     oracle_id = "9c5f130d-5972-449e-83db-41fb8cf76004",
     scryfall_id = "c46da57d-bcb9-4303-aa1c-72d08bb2b5a8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prakhata Club Security",
         mana_cost = mana!("{3}{B}"),

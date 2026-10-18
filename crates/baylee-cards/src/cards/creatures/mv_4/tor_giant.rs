@@ -10,7 +10,7 @@ card!(
     oracle_id = "2457a9f7-8a46-4c7a-b35e-bcbf4a79c365",
     scryfall_id = "7ef8f279-1a10-4685-99d6-bc971a7f922b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tor Giant",
         mana_cost = mana!("{3}{R}"),

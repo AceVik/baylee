@@ -10,7 +10,7 @@ card!(
     oracle_id = "20e65887-c68c-4dc0-b74b-9ce093f40b06",
     scryfall_id = "45385c8e-fff9-46e7-97e8-f946306b5147",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raptor Companion",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f49df857-5488-455e-8ac1-b000f600eda7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talarian Hook Spider",
         mana_cost = mana!("{1}{G}"),

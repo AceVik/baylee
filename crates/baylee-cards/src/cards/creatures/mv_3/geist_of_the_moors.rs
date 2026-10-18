@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6fd246d1-a7cb-45a0-b735-53509ba2d5ca",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geist of the Moors",
         mana_cost = mana!("{1}{W}{W}"),

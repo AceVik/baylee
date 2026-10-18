@@ -13,7 +13,7 @@ card!(
     scryfall_id = "549ca818-f7bf-47a8-9005-18ddabd3c360",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawnstrike Paladin",
         mana_cost = mana!("{3}{W}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "5c2e0762-4994-4c34-b33f-909c2b3f0f43",
     scryfall_id = "1776ebd7-91fc-49e1-a978-f2012162d1cf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swordwise Centaur",
         mana_cost = mana!("{G}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "eca9cb24-4dc8-48eb-b055-5fdf7c67bd43",
     scryfall_id = "d1f930c2-e828-4566-b2df-3b054f311be5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbarian Horde",
         mana_cost = mana!("{3}{R}"),

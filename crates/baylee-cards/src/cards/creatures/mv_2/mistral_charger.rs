@@ -12,7 +12,7 @@ card!(
     scryfall_id = "97b4c2d1-ba84-4051-a2e2-5b9710a3823e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistral Charger",
         mana_cost = mana!("{1}{W}"),

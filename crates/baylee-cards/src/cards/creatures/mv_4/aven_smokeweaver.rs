@@ -12,7 +12,7 @@ card!(
     scryfall_id = "57f5d024-f137-4ea8-be02-7de46dee95fd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aven Smokeweaver",
         mana_cost = mana!("{2}{U}{U}"),

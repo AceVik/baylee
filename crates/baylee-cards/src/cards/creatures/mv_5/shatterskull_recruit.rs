@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c8add5f2-4ccf-4505-86f6-cc36aff1c3fe",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shatterskull Recruit",
         mana_cost = mana!("{3}{R}{R}"),

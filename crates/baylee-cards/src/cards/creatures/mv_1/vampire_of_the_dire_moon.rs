@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b3c185b9-5d97-4a5a-af0b-8b9c44dcd235",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire of the Dire Moon",
         mana_cost = mana!("{B}"),

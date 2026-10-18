@@ -13,7 +13,7 @@ card!(
     scryfall_id = "faaf07b2-57b0-4437-a8d7-51ff8894a7db",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hussar Patrol",
         mana_cost = mana!("{2}{W}{U}"),

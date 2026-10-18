@@ -11,7 +11,7 @@ card!(
     oracle_id = "7d086ae5-738c-4685-80ae-66bd9379d8f7",
     scryfall_id = "6c05609a-f32d-4454-af24-a24452997dcb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oraxid",
         mana_cost = mana!("{3}{U}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "57089dd4-e30d-498d-9341-43c104c6f3f9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moor Fiend",
         mana_cost = mana!("{3}{B}"),

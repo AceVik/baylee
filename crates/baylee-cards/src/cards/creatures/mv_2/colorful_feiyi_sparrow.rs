@@ -12,7 +12,7 @@ card!(
     scryfall_id = "846169fb-8f63-4a0f-af94-e08af8927144",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colorful Feiyi Sparrow",
         mana_cost = mana!("{1}{W}"),

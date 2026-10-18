@@ -13,7 +13,7 @@ card!(
     scryfall_id = "fe7e0c9f-000d-494d-86f6-95e8d2b59ac7",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Changeling Sentinel",
         mana_cost = mana!("{3}{W}"),

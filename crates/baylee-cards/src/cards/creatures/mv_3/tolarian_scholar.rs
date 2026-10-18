@@ -10,7 +10,7 @@ card!(
     oracle_id = "8a268636-75d5-4631-8272-8b001f569db5",
     scryfall_id = "2eda67da-02b5-4ecb-9038-10e026d454ec",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tolarian Scholar",
         mana_cost = mana!("{2}{U}"),

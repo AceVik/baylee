@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0df2887c-e70b-4ff3-a437-450c0037fb07",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raiding Nightstalker",
         mana_cost = mana!("{2}{B}"),

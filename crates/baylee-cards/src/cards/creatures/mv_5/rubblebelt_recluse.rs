@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ef0fff2-6010-42de-a7ce-e4cac295a481",
     scryfall_id = "b0d43107-713d-4ff2-8cbd-237c7393229f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubblebelt Recluse",
         mana_cost = mana!("{4}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "01d70534-7c26-4a54-9eca-d0ebbefc2159",
     scryfall_id = "7e73cd46-0dec-441b-bb91-ec6defb3355e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valeron Outlander",
         mana_cost = mana!("{G}{W}"),

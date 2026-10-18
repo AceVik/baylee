@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7624c9aa-2f47-4fcc-a9fe-cc843e8de053",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hired Blade",
         mana_cost = mana!("{2}{B}"),

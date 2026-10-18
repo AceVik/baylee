@@ -10,7 +10,7 @@ card!(
     oracle_id = "1e775053-ab50-4cf7-8eef-e19a6eb79e1b",
     scryfall_id = "830c7c77-20c4-429f-88c7-b85ab7a0e38b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gutter Skulk",
         mana_cost = mana!("{1}{B}"),

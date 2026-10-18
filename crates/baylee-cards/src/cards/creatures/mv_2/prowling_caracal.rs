@@ -10,7 +10,7 @@ card!(
     oracle_id = "0eabe5e9-cb03-4481-9360-5e79eccd0631",
     scryfall_id = "1e689e4a-fc54-46f4-b0c5-c0e65d88340e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prowling Caracal",
         mana_cost = mana!("{1}{W}"),

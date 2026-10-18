@@ -13,7 +13,7 @@ card!(
     scryfall_id = "11f1e6fe-e959-4030-9925-9ccc27040275",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodlot Crawler",
         mana_cost = mana!("{U}{B}"),

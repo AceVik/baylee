@@ -10,7 +10,7 @@ card!(
     oracle_id = "ef5ad351-6167-4e3a-a9cd-3ae22ec8d638",
     scryfall_id = "e403cad6-84b0-4a6b-a2d8-cb572ec09932",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "River Kaijin",
         mana_cost = mana!("{2}{U}"),

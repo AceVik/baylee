@@ -12,7 +12,7 @@ card!(
     scryfall_id = "4f503eb1-d95d-4c72-bc58-a7b9e9f92eb6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mek'leth Berserker",
         mana_cost = mana!("{3}{R}"),

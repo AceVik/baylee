@@ -10,7 +10,7 @@ card!(
     oracle_id = "806b4f0c-f577-4d7f-b826-09e4479c314e",
     scryfall_id = "36bcd751-1142-4e72-9d87-7a25c74c038b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shu Elite Infantry",
         mana_cost = mana!("{3}{W}"),

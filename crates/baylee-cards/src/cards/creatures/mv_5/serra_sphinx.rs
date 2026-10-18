@@ -12,7 +12,7 @@ card!(
     scryfall_id = "4fb01cf8-9bca-4446-9e56-62777c6dfbe8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serra Sphinx",
         mana_cost = mana!("{3}{U}{U}"),

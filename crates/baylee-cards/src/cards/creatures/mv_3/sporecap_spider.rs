@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7bc33252-145f-45c0-bb70-23183c698f66",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sporecap Spider",
         mana_cost = mana!("{2}{G}"),

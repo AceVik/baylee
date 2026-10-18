@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2d147088-2191-49e8-9c0b-419d4048604a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sokenzan Bruiser",
         mana_cost = mana!("{4}{R}"),

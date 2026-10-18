@@ -10,7 +10,7 @@ card!(
     oracle_id = "7db99e21-0faf-408d-a770-189726179c66",
     scryfall_id = "c598054a-26fa-40e7-8497-3da8eaf12aac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Curio Vendor",
         mana_cost = mana!("{1}{U}"),

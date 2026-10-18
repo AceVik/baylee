@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e112d77d-f019-4709-b31a-b02952df0e35",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gladecover Scout",
         mana_cost = mana!("{G}"),

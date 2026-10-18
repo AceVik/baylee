@@ -12,7 +12,7 @@ card!(
     scryfall_id = "cd700719-2f65-4fd5-b3aa-3e9402560c79",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lucent Liminid",
         mana_cost = mana!("{3}{W}{W}"),

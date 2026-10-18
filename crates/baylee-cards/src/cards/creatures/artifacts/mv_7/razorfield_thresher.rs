@@ -9,7 +9,7 @@ card!(
     index = index::RAZORFIELD_THRESHER,
     oracle_id = "a8b9e29d-e757-4758-8c5e-7013853e2e92",
     scryfall_id = "b0a74203-d342-489d-a584-bca78ef3331d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Razorfield Thresher",
         mana_cost = mana!("{7}"),

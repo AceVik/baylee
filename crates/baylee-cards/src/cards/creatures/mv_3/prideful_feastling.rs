@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7578cb61-f606-4559-a10a-343a583228ab",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prideful Feastling",
         mana_cost = mana!("{2}{W/B}"),

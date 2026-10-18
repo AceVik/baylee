@@ -16,7 +16,7 @@ card!(
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::REACH)
         .union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Galewind Moose",
         mana_cost = mana!("{4}{G}{G}"),

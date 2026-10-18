@@ -12,7 +12,7 @@ card!(
     scryfall_id = "06dd56bd-de92-4202-af31-7e881c34d799",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rearing Embermare",
         mana_cost = mana!("{4}{R}"),

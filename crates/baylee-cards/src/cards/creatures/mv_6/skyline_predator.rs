@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5839556c-6635-44c4-96ed-666e4466b929",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyline Predator",
         mana_cost = mana!("{4}{U}{U}"),

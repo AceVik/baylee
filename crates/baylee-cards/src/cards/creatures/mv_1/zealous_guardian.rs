@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9951214b-43a9-4c51-bbb4-05bac81b9866",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zealous Guardian",
         mana_cost = mana!("{W/U}"),

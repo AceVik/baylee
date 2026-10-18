@@ -10,7 +10,7 @@ card!(
     oracle_id = "23720758-f572-45e3-9bec-f6d3b974d7f5",
     scryfall_id = "caba00ff-df58-456e-8aeb-fc8b632018a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Balduvian Barbarians",
         mana_cost = mana!("{1}{R}{R}"),

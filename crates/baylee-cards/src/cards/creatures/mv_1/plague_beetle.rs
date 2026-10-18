@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8f5d3dac-98df-433f-a417-bcb9c91722fb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plague Beetle",
         mana_cost = mana!("{B}"),

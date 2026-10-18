@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0296eaa6-f9fe-4fb8-af9c-04928d99e2e2",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peregrine Griffin",
         mana_cost = mana!("{4}{W}"),

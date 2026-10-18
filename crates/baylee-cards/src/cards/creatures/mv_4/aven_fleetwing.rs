@@ -13,7 +13,7 @@ card!(
     scryfall_id = "57626fd2-d101-4e23-946f-8309c9676fe5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HEXPROOF),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aven Fleetwing",
         mana_cost = mana!("{3}{U}"),

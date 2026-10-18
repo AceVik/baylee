@@ -10,7 +10,7 @@ card!(
     oracle_id = "008290c2-499d-425b-9a6c-c4aeb47c33ff",
     scryfall_id = "6ed84268-92f7-4790-99b2-f2982b6e0893",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dakmor Scorpion",
         mana_cost = mana!("{1}{B}"),

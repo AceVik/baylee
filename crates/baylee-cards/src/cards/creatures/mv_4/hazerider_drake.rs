@@ -12,7 +12,7 @@ card!(
     scryfall_id = "68d2ae5c-58b9-4690-8039-d50cca9ef6cf",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hazerider Drake",
         mana_cost = mana!("{2}{W}{U}"),

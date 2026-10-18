@@ -12,7 +12,7 @@ card!(
     scryfall_id = "45da44df-a83a-4974-bc22-5243dcda7cbd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glissa's Courier",
         mana_cost = mana!("{1}{G}{G}"),

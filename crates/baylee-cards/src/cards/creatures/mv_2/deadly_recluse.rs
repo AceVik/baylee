@@ -13,7 +13,7 @@ card!(
     scryfall_id = "d432d17e-052b-4a81-bad8-14babf6e593f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadly Recluse",
         mana_cost = mana!("{1}{G}"),

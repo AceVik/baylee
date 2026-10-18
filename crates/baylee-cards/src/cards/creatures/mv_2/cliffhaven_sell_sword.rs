@@ -10,7 +10,7 @@ card!(
     oracle_id = "5f0c8c60-96f1-4b26-a9f6-386e1cec517d",
     scryfall_id = "7f334767-4353-4379-a934-fa67075db439",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cliffhaven Sell-Sword",
         mana_cost = mana!("{1}{W}"),

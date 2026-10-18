@@ -13,7 +13,7 @@ card!(
     scryfall_id = "97d80cc4-f3be-4306-8126-e60f7b00d384",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Carrion Crow",
         mana_cost = mana!("{2}{B}"),

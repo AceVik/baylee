@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8059c52b-5d25-4052-b48a-e9e219a7a546",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossal Dreadmaw",
         mana_cost = mana!("{4}{G}{G}"),

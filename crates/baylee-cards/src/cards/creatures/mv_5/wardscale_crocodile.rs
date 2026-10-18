@@ -12,7 +12,7 @@ card!(
     scryfall_id = "aa5341b9-06e4-4360-a75d-f405d468276e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wardscale Crocodile",
         mana_cost = mana!("{4}{G}"),

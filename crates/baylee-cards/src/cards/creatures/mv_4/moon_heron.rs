@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a24de601-1d7b-41c4-aba1-fdb6fd8d5251",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moon Heron",
         mana_cost = mana!("{3}{U}"),

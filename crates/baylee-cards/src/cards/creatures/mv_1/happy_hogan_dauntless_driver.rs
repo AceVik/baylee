@@ -11,7 +11,7 @@ card!(
     scryfall_id = "4174e5fa-8e28-41c5-ba5c-4ec27b7cd4a3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Happy Hogan, Dauntless Driver",
         mana_cost = mana!("{R}"),

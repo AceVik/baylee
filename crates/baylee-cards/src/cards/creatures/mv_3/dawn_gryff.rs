@@ -12,7 +12,7 @@ card!(
     scryfall_id = "42d30894-82b9-4af8-b0bb-48a78acbc4bd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawn Gryff",
         mana_cost = mana!("{2}{W}"),

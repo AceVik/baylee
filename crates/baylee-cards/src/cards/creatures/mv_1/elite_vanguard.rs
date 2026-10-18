@@ -10,7 +10,7 @@ card!(
     oracle_id = "b3b9a87d-cb95-435c-90b6-037406cab32e",
     scryfall_id = "28a5c350-2ed1-4a25-9626-0f8da5d1aef7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Vanguard",
         mana_cost = mana!("{W}"),

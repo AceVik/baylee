@@ -13,7 +13,7 @@ card!(
     scryfall_id = "43c6db4e-cc37-4473-b0f5-48d8a0b82f33",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Stormkin",
         mana_cost = mana!("{U}{R}"),

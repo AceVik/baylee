@@ -11,7 +11,7 @@ card!(
     oracle_id = "87e44296-6c79-4065-aa54-33e508293a79",
     scryfall_id = "f545d9d0-52d8-4b90-a8bb-178f4ba3c4b7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kitsune Riftwalker",
         mana_cost = mana!("{1}{W}{W}"),

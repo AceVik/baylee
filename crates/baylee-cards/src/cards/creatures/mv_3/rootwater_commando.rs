@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1da47bd4-58b6-4ef3-bd42-caf947e38645",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rootwater Commando",
         mana_cost = mana!("{2}{U}"),

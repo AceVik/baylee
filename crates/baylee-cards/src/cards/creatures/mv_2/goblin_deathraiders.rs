@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0c0b85d3-ce46-4f12-8315-4cbf338eb8f0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Deathraiders",
         mana_cost = mana!("{B}{R}"),

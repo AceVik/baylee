@@ -10,7 +10,7 @@ card!(
     oracle_id = "d6e90e75-ef12-49d0-8dd8-0c6cb718ce28",
     scryfall_id = "1564a20a-0e57-4ced-9eda-7acff74274e7",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotting Mastodon",
         mana_cost = mana!("{4}{B}"),

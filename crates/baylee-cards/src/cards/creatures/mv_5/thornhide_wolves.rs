@@ -10,7 +10,7 @@ card!(
     oracle_id = "c5c221e6-dafe-4661-b920-3faed9551802",
     scryfall_id = "fc0f3812-bb6c-4d99-b505-9dfd84e3fd95",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thornhide Wolves",
         mana_cost = mana!("{4}{G}"),

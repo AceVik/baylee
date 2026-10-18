@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5c0eed33-553a-4865-9b22-30c33fbd1c51",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     keywords = KeywordSet::SWAMPWALK.union(KeywordSet::FORESTWALK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stalker Hag",
         mana_cost = mana!("{B/G}{B/G}{B/G}"),

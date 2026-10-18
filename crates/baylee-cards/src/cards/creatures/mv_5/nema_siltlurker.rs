@@ -10,7 +10,7 @@ card!(
     oracle_id = "f4542dff-1ba1-4b15-beaf-51a7a42782cf",
     scryfall_id = "a477e081-949f-4cf0-b0d2-b9bdff6c760d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nema Siltlurker",
         mana_cost = mana!("{4}{G}"),

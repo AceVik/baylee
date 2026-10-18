@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5095e2ab-a7f5-45bc-8b2f-31198ea27bba",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fortified Rampart",
         mana_cost = mana!("{1}{W}"),

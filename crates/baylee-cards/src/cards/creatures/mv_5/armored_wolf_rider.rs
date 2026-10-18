@@ -10,7 +10,7 @@ card!(
     oracle_id = "e0965cd1-18fa-4ccc-8c5f-1414c6567d67",
     scryfall_id = "e43d959f-6055-4578-a69a-0ec93e993e21",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armored Wolf-Rider",
         mana_cost = mana!("{3}{G}{W}"),

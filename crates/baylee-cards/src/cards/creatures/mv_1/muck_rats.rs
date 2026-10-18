@@ -10,7 +10,7 @@ card!(
     oracle_id = "bca13a12-6723-4a5e-8f1b-21646a8b3e7e",
     scryfall_id = "cf2018ec-94e4-4e29-8b4b-ce30fb0d4a99",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Muck Rats",
         mana_cost = mana!("{B}"),

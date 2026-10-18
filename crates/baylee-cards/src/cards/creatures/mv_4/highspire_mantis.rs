@@ -12,7 +12,7 @@ card!(
     scryfall_id = "60d3708b-dd40-4515-bf8f-36cbc5de6b67",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Highspire Mantis",
         mana_cost = mana!("{2}{R}{W}"),

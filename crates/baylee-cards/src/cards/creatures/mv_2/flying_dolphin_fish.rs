@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ccb61a51-cff6-4f88-ac17-f10852a27d06",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flying Dolphin-Fish",
         mana_cost = mana!("{1}{U}"),

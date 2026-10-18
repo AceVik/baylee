@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a3990d2f-39d9-49f9-936f-1d40adcf295c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cursed Minotaur",
         mana_cost = mana!("{2}{B}"),

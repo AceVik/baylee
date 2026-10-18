@@ -10,7 +10,7 @@ card!(
     oracle_id = "507ffc26-6c45-4167-9e0d-3c88b065720a",
     scryfall_id = "b7080f86-0a9f-4471-a52b-0d44d19e6e59",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orazca Raptor",
         mana_cost = mana!("{2}{R}{R}"),

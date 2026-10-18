@@ -12,7 +12,7 @@ card!(
     scryfall_id = "01e7af76-e505-49ca-a91e-8167027560ff",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sentinel Spider",
         mana_cost = mana!("{3}{G}{G}"),

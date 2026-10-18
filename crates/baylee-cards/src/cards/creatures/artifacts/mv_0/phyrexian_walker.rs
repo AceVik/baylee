@@ -9,7 +9,7 @@ card!(
     index = index::PHYREXIAN_WALKER,
     oracle_id = "7af75024-6c9b-4844-aeb6-81de25464822",
     scryfall_id = "9f8a3979-2947-4692-8b2f-d4c07c534777",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Walker",
         mana_cost = mana!("{0}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "fa10cacb-ab14-447a-b411-9d74bc3772fb",
     scryfall_id = "76e42d07-57d9-4de4-8d41-eb42dd1573ed",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Onakke Ogre",
         mana_cost = mana!("{2}{R}"),

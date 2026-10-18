@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2186f382-2d68-4191-b490-a072f49eaabf",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghirapur Osprey",
         mana_cost = mana!("{2}{W}"),

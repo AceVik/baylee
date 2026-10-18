@@ -12,7 +12,7 @@ card!(
     scryfall_id = "297316bd-e91b-4b18-9d13-31dd51c92cce",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silver Knight",
         mana_cost = mana!("{W}{W}"),

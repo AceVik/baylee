@@ -10,7 +10,7 @@ card!(
     oracle_id = "445bb343-9758-459b-970f-47f1705f1e55",
     scryfall_id = "3b455b0f-a69c-43b4-bbf5-605ed41f10e0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armored Cancrix",
         mana_cost = mana!("{4}{U}"),

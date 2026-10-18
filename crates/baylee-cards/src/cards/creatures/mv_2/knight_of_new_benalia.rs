@@ -10,7 +10,7 @@ card!(
     oracle_id = "75f28e54-17ce-49f9-85b2-9f9a04e1d86f",
     scryfall_id = "88c50c4b-a2c8-4cdc-a171-aa3ff9ef107f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of New Benalia",
         mana_cost = mana!("{1}{W}"),

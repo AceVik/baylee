@@ -12,7 +12,7 @@ card!(
     scryfall_id = "06ee5eda-41a9-4cae-bb2a-b63fd450d02d",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hearthfire Hobgoblin",
         mana_cost = mana!("{R/W}{R/W}{R/W}"),

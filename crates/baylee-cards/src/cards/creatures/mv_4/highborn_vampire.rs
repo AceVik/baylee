@@ -10,7 +10,7 @@ card!(
     oracle_id = "1adcf587-9035-4299-a2bd-62f805fdd897",
     scryfall_id = "24c40082-516e-4381-a4cc-e61c5a9a6cac",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Highborn Vampire",
         mana_cost = mana!("{3}{B}"),

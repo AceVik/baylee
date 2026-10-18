@@ -10,7 +10,7 @@ card!(
     oracle_id = "1adc4691-20cf-4f55-af85-3132fe1ff2a8",
     scryfall_id = "edad0276-45d1-45e5-a6b1-1cd2a99b4f2c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Traveling Philosopher",
         mana_cost = mana!("{1}{W}"),

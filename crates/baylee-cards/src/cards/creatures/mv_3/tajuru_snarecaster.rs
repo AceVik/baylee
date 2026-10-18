@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e1894cf9-7d53-4b7e-aaae-8db42bdd8e49",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tajuru Snarecaster",
         mana_cost = mana!("{2}{G}"),

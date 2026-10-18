@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6c3889c5-3321-486c-b03c-8607f2393a75",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Spelunkers",
         mana_cost = mana!("{2}{R}"),

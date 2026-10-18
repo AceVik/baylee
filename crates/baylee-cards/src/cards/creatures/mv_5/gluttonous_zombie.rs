@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7741c976-000d-476c-9b53-34ef1ee701e1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FEAR,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gluttonous Zombie",
         mana_cost = mana!("{4}{B}"),

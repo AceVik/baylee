@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3a144e7f-e0f7-4346-a4e8-f4a358c3b4a9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Turtle-Seals",
         mana_cost = mana!("{3}{U}"),

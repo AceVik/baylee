@@ -13,7 +13,7 @@ card!(
     keywords = KeywordSet::VIGILANCE
         .union(KeywordSet::REACH)
         .union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iron Giant",
         mana_cost = mana!("{7}"),

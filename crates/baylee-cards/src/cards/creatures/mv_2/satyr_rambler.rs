@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fabccddd-c0ea-45a5-bebc-d8f858242a2a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Satyr Rambler",
         mana_cost = mana!("{1}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e788e9dd-449d-495b-adad-6d49e408b003",
     scryfall_id = "b3c7c972-5a11-4709-b3ef-e2acb3b51dd9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Russet Wolves",
         mana_cost = mana!("{3}{R}"),

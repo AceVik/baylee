@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fd61f469-5377-4bc1-a42b-dd66ca4ede1d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Moose",
         mana_cost = mana!("{3}{R}"),

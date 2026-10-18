@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f8d2f75c-ef2a-4d30-86d1-c47307fc47ac",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Two-Headed Cerberus",
         mana_cost = mana!("{1}{R}{R}"),

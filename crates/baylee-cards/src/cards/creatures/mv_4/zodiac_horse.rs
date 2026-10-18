@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fb24cb19-3409-45f7-b0e0-7c652064d2dd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Horse",
         mana_cost = mana!("{3}{G}"),

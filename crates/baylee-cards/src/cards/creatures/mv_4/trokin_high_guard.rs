@@ -10,7 +10,7 @@ card!(
     oracle_id = "51af8662-07e6-4771-8ff2-c54364987698",
     scryfall_id = "9c2b9302-fca6-43ca-a01c-03aec51acd0d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trokin High Guard",
         mana_cost = mana!("{3}{W}"),

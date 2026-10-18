@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fffe7b2b-22c3-4e6a-9b1b-c6d7b29b9f86",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exultant Skymarcher",
         mana_cost = mana!("{1}{W}{W}"),

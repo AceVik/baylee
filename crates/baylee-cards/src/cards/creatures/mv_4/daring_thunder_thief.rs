@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b41a2bf7-248c-4f8b-92ec-3010d276cb59",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daring Thunder-Thief",
         mana_cost = mana!("{3}{U}"),

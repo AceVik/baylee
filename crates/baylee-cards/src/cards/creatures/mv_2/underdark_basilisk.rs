@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ed220158-e4e3-4d46-8098-7b940a923ce9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Underdark Basilisk",
         mana_cost = mana!("{1}{G}"),

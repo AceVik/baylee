@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b7f90eef-2393-4e44-9895-00489d3eaa92",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gilacorn",
         mana_cost = mana!("{B}"),

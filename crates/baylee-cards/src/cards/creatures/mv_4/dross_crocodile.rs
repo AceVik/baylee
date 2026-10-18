@@ -10,7 +10,7 @@ card!(
     oracle_id = "028fa430-722d-45aa-b415-3f84076091a9",
     scryfall_id = "efd5c07e-4ece-4c8b-93c8-6abd7dd3a39a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dross Crocodile",
         mana_cost = mana!("{3}{B}"),

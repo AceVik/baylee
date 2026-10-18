@@ -13,7 +13,7 @@ card!(
     scryfall_id = "717ae26a-e5a0-4478-9995-00ea6bd84c03",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defender of Chaos",
         mana_cost = mana!("{2}{R}"),

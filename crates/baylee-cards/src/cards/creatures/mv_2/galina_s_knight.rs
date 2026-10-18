@@ -11,7 +11,7 @@ card!(
     oracle_id = "9a484eb3-ae4a-465b-9dbc-f7a42a036e07",
     scryfall_id = "11b492d6-5e28-4f4b-942c-080d03cb0e92",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Galina's Knight",
         mana_cost = mana!("{W}{U}"),

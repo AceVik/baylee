@@ -10,7 +10,7 @@ card!(
     oracle_id = "4dc82a49-a063-448d-bd2c-a5b69381e27e",
     scryfall_id = "4464e11a-c5b9-40ea-8be0-dab29d14e289",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Ceratok",
         mana_cost = mana!("{3}{G}"),

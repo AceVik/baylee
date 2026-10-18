@@ -10,7 +10,7 @@ card!(
     oracle_id = "2cdebbc2-2e0b-4d26-bb7f-4736f0318ca7",
     scryfall_id = "9cc6d29d-2915-418d-856f-13b05430dfda",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Redwood Treefolk",
         mana_cost = mana!("{4}{G}"),

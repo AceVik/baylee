@@ -12,7 +12,7 @@ card!(
     scryfall_id = "df7fea2e-7414-4bc8-adb0-9342e174c009",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brightblade Stoat",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "797e45d1-d17d-40c0-bfdf-ec533784e676",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Caracal",
         mana_cost = mana!("{W}"),

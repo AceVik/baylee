@@ -10,7 +10,7 @@ card!(
     oracle_id = "8f1d5c8d-98e1-47b7-8347-38887253e34a",
     scryfall_id = "2f420b35-1f73-41c8-a15f-1aee4af0999c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Axebane Beast",
         mana_cost = mana!("{3}{G}"),

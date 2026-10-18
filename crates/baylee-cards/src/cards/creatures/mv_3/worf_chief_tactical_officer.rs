@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Worf, Chief Tactical Officer",
         mana_cost = mana!("{2}{W}"),

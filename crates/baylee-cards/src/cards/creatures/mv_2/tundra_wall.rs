@@ -12,7 +12,7 @@ card!(
     scryfall_id = "49ae7f36-4b37-415e-ab39-5fa1e3f2e3e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tundra Wall",
         mana_cost = mana!("{1}{W}"),

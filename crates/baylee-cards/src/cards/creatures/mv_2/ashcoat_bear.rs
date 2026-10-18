@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9b7a6ab5-8a8f-492c-8484-3089354ce8cf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashcoat Bear",
         mana_cost = mana!("{1}{G}"),

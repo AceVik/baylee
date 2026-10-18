@@ -12,7 +12,7 @@ card!(
     scryfall_id = "87c1aaff-ab26-437e-a88a-494683aec831",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Murmuring Phantasm",
         mana_cost = mana!("{1}{U}"),

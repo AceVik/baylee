@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d631e7da-bd71-424a-a349-9bce0fd16b1f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Golden-Tail Disciple",
         mana_cost = mana!("{2}{W}"),

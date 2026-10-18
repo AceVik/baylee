@@ -10,7 +10,7 @@ card!(
     oracle_id = "38bdb4f8-012e-460c-ad20-e51bec1e6745",
     scryfall_id = "d5313054-91a5-401c-84d1-03a2cd265060",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Streetbreaker Wurm",
         mana_cost = mana!("{3}{R}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "71d2f6ee-af76-48f0-898d-3a19698d2790",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ukud Cobra",
         mana_cost = mana!("{3}{B}"),

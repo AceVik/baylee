@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bf97e572-90d6-46fc-81c3-956a7ef88983",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hired Poisoner",
         mana_cost = mana!("{B}"),

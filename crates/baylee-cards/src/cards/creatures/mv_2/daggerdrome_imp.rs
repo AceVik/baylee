@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6d9417ab-e2af-436b-9677-6e0120770d80",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daggerdrome Imp",
         mana_cost = mana!("{1}{B}"),

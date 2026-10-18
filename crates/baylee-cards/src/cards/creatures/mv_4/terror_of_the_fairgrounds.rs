@@ -10,7 +10,7 @@ card!(
     oracle_id = "75a20db5-5ce8-4e5d-a815-e69bc3dd8d4c",
     scryfall_id = "04623df9-8fa9-44cc-b528-c2c484626d1f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terror of the Fairgrounds",
         mana_cost = mana!("{3}{R}"),

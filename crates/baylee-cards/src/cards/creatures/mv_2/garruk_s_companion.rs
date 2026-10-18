@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b8d8806c-43c5-4c6c-9420-6210a17ec2b0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Garruk's Companion",
         mana_cost = mana!("{G}{G}"),

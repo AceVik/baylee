@@ -12,7 +12,7 @@ card!(
     scryfall_id = "600d3517-e370-47ae-ac4f-c7ef8995a89c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Concordia Pegasus",
         mana_cost = mana!("{1}{W}"),

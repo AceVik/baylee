@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c41a35c6-14d9-4b8f-88f1-f1442e4ef222",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DOUBLE_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skyspear Cavalry",
         mana_cost = mana!("{3}{W}{W}"),

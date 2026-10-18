@@ -12,7 +12,7 @@ card!(
     scryfall_id = "49dc08b0-491f-470c-b920-2ca961d0d569",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rock Badger",
         mana_cost = mana!("{4}{R}"),

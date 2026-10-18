@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1ff8671d-4da4-4dc2-a8c4-d695ff1aca0f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HEXPROOF,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benthic Giant",
         mana_cost = mana!("{5}{U}"),

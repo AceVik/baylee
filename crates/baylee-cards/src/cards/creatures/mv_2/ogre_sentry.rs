@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bb6e7b24-9430-4ac9-bd62-1770b8749090",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Sentry",
         mana_cost = mana!("{1}{R}"),

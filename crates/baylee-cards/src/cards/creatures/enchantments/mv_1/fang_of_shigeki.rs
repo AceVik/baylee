@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2dd0fef1-209f-4de5-a736-8f9bca2faa0a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fang of Shigeki",
         mana_cost = mana!("{G}"),

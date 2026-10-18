@@ -11,7 +11,7 @@ card!(
     oracle_id = "871549e6-24c0-4fbd-8b71-ba8639b0ee47",
     scryfall_id = "16396594-4f59-4600-8e39-d99544062265",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Karoo Meerkat",
         mana_cost = mana!("{1}{G}"),

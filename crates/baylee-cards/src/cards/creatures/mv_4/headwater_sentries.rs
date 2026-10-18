@@ -10,7 +10,7 @@ card!(
     oracle_id = "17aa790d-d16a-4a90-b8ba-cd50e62f02f0",
     scryfall_id = "2af2c338-f5e9-4596-9435-c6aa965ae541",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Headwater Sentries",
         mana_cost = mana!("{3}{U}"),

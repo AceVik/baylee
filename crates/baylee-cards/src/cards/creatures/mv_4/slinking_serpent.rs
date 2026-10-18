@@ -12,7 +12,7 @@ card!(
     scryfall_id = "070a7004-5a28-4ccb-8640-ad6b07b51ece",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slinking Serpent",
         mana_cost = mana!("{2}{U}{B}"),

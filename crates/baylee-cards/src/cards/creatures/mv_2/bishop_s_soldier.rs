@@ -12,7 +12,7 @@ card!(
     scryfall_id = "16dfd7b3-6d01-4e98-aec3-b27e8e2444e8",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bishop's Soldier",
         mana_cost = mana!("{1}{W}"),

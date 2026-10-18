@@ -10,7 +10,7 @@ card!(
     oracle_id = "986ba716-3921-4f64-9acf-703200d666f6",
     scryfall_id = "05bc4236-566f-401b-b9d7-f58126fa228b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nyxborn Brute",
         mana_cost = mana!("{3}{R}{R}"),

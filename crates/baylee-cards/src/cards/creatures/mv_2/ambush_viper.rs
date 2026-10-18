@@ -13,7 +13,7 @@ card!(
     scryfall_id = "37f9be6b-ae6e-4708-9749-83bebd351102",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ambush Viper",
         mana_cost = mana!("{1}{G}"),

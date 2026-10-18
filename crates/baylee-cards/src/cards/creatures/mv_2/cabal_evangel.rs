@@ -10,7 +10,7 @@ card!(
     oracle_id = "a4fed66f-ef3c-4547-8612-46e65d63ef1f",
     scryfall_id = "d218d2a2-bb5d-4ea8-a131-341c574410b2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cabal Evangel",
         mana_cost = mana!("{1}{B}"),

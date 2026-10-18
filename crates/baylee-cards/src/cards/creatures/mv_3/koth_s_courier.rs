@@ -12,7 +12,7 @@ card!(
     scryfall_id = "978cc53c-c038-4442-bd46-e0b9e8cdd924",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Koth's Courier",
         mana_cost = mana!("{1}{R}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "d38b027d-eb24-46ba-9d46-3be08eedbe2a",
     scryfall_id = "f9fa8351-567e-4ef4-8346-c58e50c778a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hyena Pack",
         mana_cost = mana!("{2}{R}{R}"),

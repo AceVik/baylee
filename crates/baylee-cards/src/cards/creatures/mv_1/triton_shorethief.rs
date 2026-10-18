@@ -10,7 +10,7 @@ card!(
     oracle_id = "d8f6f61a-39c2-4bac-9f16-a5e6340f6301",
     scryfall_id = "d8f0fe22-dc89-4ad8-b5f6-6d91b61f1385",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Triton Shorethief",
         mana_cost = mana!("{U}"),

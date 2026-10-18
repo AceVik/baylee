@@ -10,7 +10,7 @@ card!(
     oracle_id = "83b31215-ea9b-4ad9-a39e-3fe6cdb9b7de",
     scryfall_id = "ecf2358f-542d-45c9-b5c5-c57b2b0c1122",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starfleet Crew",
         mana_cost = mana!("{1}{W}"),

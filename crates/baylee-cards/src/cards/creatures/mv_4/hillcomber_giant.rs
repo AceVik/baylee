@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e3d48857-2fb6-4163-8785-12436db1b37c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hillcomber Giant",
         mana_cost = mana!("{2}{W}{W}"),

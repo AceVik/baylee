@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c4885a83-9410-4c88-b45e-1e1626fe90ea",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::SHROUD),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deft Duelist",
         mana_cost = mana!("{W}{U}"),

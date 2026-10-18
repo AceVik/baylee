@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f7c34f5d-0430-4036-a633-1a68a0d2fc65",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mirran Crusader",
         mana_cost = mana!("{1}{W}{W}"),

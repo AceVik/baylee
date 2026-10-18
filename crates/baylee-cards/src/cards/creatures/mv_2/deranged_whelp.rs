@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fd06f9eb-112e-458b-83c8-3761df6d60ff",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deranged Whelp",
         mana_cost = mana!("{1}{R}"),

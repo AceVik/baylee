@@ -10,7 +10,7 @@ card!(
     oracle_id = "48cc79b8-f7a5-474b-bd88-7cd6ae673086",
     scryfall_id = "9ad0c7d7-0e44-496f-a2fc-fafc604cb1f1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nyxborn Seaguard",
         mana_cost = mana!("{2}{U}{U}"),

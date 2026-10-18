@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3887af00-a87d-4396-b82b-38b88c084e8e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Child of Night",
         mana_cost = mana!("{1}{B}"),

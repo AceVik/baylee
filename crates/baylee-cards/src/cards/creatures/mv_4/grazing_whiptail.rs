@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b7e16e48-25f0-4099-9892-09586561ebc3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grazing Whiptail",
         mana_cost = mana!("{2}{G}{G}"),

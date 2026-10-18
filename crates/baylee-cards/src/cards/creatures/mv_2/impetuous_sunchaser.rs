@@ -13,7 +13,7 @@ card!(
     scryfall_id = "e6d4c13b-95ef-49df-b349-26e0fec109ad",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impetuous Sunchaser",
         mana_cost = mana!("{1}{R}"),

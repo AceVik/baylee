@@ -10,7 +10,7 @@ card!(
     oracle_id = "e62ec170-c588-41ff-8be8-b05a125693a1",
     scryfall_id = "4ebf3a7c-e065-468b-a73c-6f986cde3a3d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Norwood Ranger",
         mana_cost = mana!("{G}"),

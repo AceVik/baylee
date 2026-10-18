@@ -11,7 +11,7 @@ card!(
     oracle_id = "9c39bc53-52d3-4610-920e-5607a625b01f",
     scryfall_id = "723d6f60-3e8a-4c58-8b3c-9ba59a01c867",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crooked Custodian",
         mana_cost = mana!("{1}{B}"),

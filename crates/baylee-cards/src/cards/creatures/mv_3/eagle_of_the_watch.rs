@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8af7956d-f811-49d3-bef7-07f294dcea3c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eagle of the Watch",
         mana_cost = mana!("{2}{W}"),

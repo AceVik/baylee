@@ -13,7 +13,7 @@ card!(
     scryfall_id = "264f78d8-d554-45f3-867e-19dba38e4644",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swift Spinner",
         mana_cost = mana!("{3}{G}"),

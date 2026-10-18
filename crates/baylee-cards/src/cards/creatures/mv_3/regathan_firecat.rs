@@ -10,7 +10,7 @@ card!(
     oracle_id = "b3f609b5-fb4e-4e66-a70a-53bbe0fa2b9a",
     scryfall_id = "4b4df1dd-886d-4fe7-b3f7-2dca044de41c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Regathan Firecat",
         mana_cost = mana!("{2}{R}"),

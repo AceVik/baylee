@@ -10,7 +10,7 @@ card!(
     oracle_id = "4aebea34-a05b-4626-97bc-f15fa177ef05",
     scryfall_id = "2168fcf4-cf87-4ab8-9710-6ec672750a9a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pheres-Band Centaurs",
         mana_cost = mana!("{4}{G}"),

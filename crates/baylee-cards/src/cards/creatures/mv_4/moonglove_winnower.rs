@@ -12,7 +12,7 @@ card!(
     scryfall_id = "effb7761-98a8-4cb8-883a-ddcb91d30c08",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moonglove Winnower",
         mana_cost = mana!("{3}{B}"),

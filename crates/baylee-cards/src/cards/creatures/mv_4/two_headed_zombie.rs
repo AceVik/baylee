@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2cc5760e-8b27-4d37-9772-c9eda90b1d95",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Two-Headed Zombie",
         mana_cost = mana!("{3}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "68a07aad-4ed5-47ae-b04c-9b9919000f6c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kitesail Scout",
         mana_cost = mana!("{W}"),

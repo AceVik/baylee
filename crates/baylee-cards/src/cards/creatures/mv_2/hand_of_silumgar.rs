@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d3cbb127-6149-4d0b-ad98-1968f2ebe8e4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hand of Silumgar",
         mana_cost = mana!("{1}{B}"),

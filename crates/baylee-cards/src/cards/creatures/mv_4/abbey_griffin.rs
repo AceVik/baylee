@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bf87803b-e7c6-4122-add4-72e596167b7e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abbey Griffin",
         mana_cost = mana!("{3}{W}"),

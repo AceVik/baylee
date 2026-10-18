@@ -10,7 +10,7 @@ card!(
     oracle_id = "9bd62fa0-b99c-4b64-a6f6-608cf01f8ef3",
     scryfall_id = "e2a0410f-95c5-49bf-856d-dea796c96e3b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moriok Reaver",
         mana_cost = mana!("{2}{B}"),

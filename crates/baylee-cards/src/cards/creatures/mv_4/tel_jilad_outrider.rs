@@ -11,7 +11,7 @@ card!(
     oracle_id = "d83d784e-e95b-48a1-9b4a-362f4fccc529",
     scryfall_id = "1d811d8f-437b-4c9f-8ea2-c85590a07935",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tel-Jilad Outrider",
         mana_cost = mana!("{3}{G}"),

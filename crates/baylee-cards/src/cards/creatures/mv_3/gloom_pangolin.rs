@@ -10,7 +10,7 @@ card!(
     oracle_id = "bcbdeccc-2baa-4158-bf87-8b88e7a19248",
     scryfall_id = "3f135dd7-2a4f-4c83-9a90-76bcab3cc33d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gloom Pangolin",
         mana_cost = mana!("{2}{B}"),

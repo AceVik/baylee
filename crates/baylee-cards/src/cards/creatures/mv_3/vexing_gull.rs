@@ -13,7 +13,7 @@ card!(
     scryfall_id = "869fee23-df75-448d-9fca-6ba6713d459f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vexing Gull",
         mana_cost = mana!("{2}{U}"),

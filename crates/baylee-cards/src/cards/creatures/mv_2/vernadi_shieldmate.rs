@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9c6742b5-f951-47c2-b836-360626b80ab0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vernadi Shieldmate",
         mana_cost = mana!("{1}{G/W}"),

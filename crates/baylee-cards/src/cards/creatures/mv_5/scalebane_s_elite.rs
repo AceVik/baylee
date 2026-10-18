@@ -11,7 +11,7 @@ card!(
     oracle_id = "c04dc6fe-06fc-4e5b-87da-6b8b262a214f",
     scryfall_id = "b3bff610-783a-46b7-bd15-061da41027bb",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scalebane's Elite",
         mana_cost = mana!("{3}{G}{W}"),

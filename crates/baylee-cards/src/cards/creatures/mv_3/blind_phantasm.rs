@@ -10,7 +10,7 @@ card!(
     oracle_id = "3b91be0e-0683-48df-91b0-25e90b492796",
     scryfall_id = "6b26ee7b-de1a-4a39-9580-89941c3d0f21",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blind Phantasm",
         mana_cost = mana!("{2}{U}"),

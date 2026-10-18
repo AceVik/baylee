@@ -10,7 +10,7 @@ card!(
     oracle_id = "78922912-d7b9-47cc-8908-f44d7cc3fc4b",
     scryfall_id = "71a25c69-8e57-4a44-955a-da1541bbe0fe",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cyclops of One-Eyed Pass",
         mana_cost = mana!("{2}{R}{R}"),

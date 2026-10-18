@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5546fbd6-908d-46be-8d17-9470842f78a7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Faerie Invaders",
         mana_cost = mana!("{4}{U}"),

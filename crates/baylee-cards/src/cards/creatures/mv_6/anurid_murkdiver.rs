@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9e43d62c-488a-4c8d-b193-bacbf8037761",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anurid Murkdiver",
         mana_cost = mana!("{4}{B}{B}"),

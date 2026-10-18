@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c161772e-d8b1-4ca6-8971-dd46c96fb0f7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wilt-Leaf Cavaliers",
         mana_cost = mana!("{G/W}{G/W}{G/W}"),

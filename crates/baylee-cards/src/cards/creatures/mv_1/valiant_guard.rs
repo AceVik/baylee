@@ -10,7 +10,7 @@ card!(
     oracle_id = "9b00b4c2-d5c4-4cf7-bdcf-cd96297c4350",
     scryfall_id = "83ec1486-900b-4763-9b5b-390cb00aff02",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valiant Guard",
         mana_cost = mana!("{W}"),

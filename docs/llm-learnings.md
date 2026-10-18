@@ -4853,3 +4853,37 @@ resolved battle-damage holds:
   resolved entries from `data/card-test-holds.tsv`), reducing remaining
   `Coverage::Generated` cards from 4,969 to 4,957.
 
+## 2026-10-18 — Package 2 (788 cards: vanilla, French-vanilla, keyword, protection, enter-modifier creatures + Murder) and claim_tests creature-sweep rule
+
+- `claim_tests::claims_in` previously treated `"Destroy all"` sweeps over an empty
+  matching set as conditional, but did not mark `"to each"` creature-only damage
+  sweeps (`Evaporate`, `Needle Storm`, `Squall`, `Gale Force`, which deal damage
+  to `"each white and/or blue creature"` or `"each creature with flying"`) as
+  conditional on `arena(card)`'s green non-flying probe board. Adding the parallel
+  `"to each"` creature-only damage sweep rule keeps their printed damage number
+  compared whenever damage occurs while allowing all 9,051 `def.is_fully_read()`
+  cards to pass `what_a_card_says_in_english_is_what_the_journal_records` with
+  zero stalls and zero refusals.
+- Derived behavioral tests in `card_tests/creatures/pkg2_keywords_and_bodies/`
+  directly from Scryfall Oracle specifications (`data/scryfall-cache/*.json`)
+  across 787 creatures plus `Murder` (788 cards promoted from `Coverage::Generated`
+  to `Coverage::Implemented`, bringing total completed to 800 / 4,969 and
+  remaining `Coverage::Generated` to 4,169):
+  - Negative cast checks (empty mana pool) and exact printed mana payment (including
+    both payment halves for all 28 hybrid-mana creatures), verifying resulting
+    battlefield P/T, `+1/+1` entry counters (`Faithful Watchdog`, `Adaptive Shimmerer`),
+    enters-tapped status, supertypes, card types, and colors (including `Devoid`).
+  - Zero-toughness `Force of Savagery` (`8/0`, trample) verified both dying
+    immediately to SBA (CR 704.5f) on an empty board and surviving as `8/2` under
+    `Jacques le Vert`'s `+0/+2` green-creature static to trample over a blocker.
+  - Per-keyword and per-clause behavioral tests across all 503 non-vanilla
+    creatures in the package: flying (attacking and defender blocking), reach,
+    landwalk (with and without defending land), fear, shadow, menace (1 blocker
+    refused, 2 accepted), defender, mandatory attack (`attacks each combat if able`),
+    vigilance, haste, flash, first strike, double strike (including CR 702.4b +
+    CR 702.19d interaction on `Swiftblade Vindicator` with double strike + trample),
+    deathtouch, lifelink, trample, hexproof (repels opponent, allows controller),
+    shroud, indestructible (`Blor the Impervious` surviving controller's `Murder`),
+    changeling, devoid, and all 66 `protection from ...` creatures (colors,
+    artifacts, enchantments, creatures, lands, Arcane spells, and creature subtypes).
+

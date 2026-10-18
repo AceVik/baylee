@@ -12,7 +12,7 @@ card!(
     scryfall_id = "dfc61748-029f-4bae-a7ec-e08b7059226d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vassal Soul",
         mana_cost = mana!("{1}{W/U}{W/U}"),

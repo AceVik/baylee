@@ -10,7 +10,7 @@ card!(
     oracle_id = "381fa2a9-69fc-4558-a0ac-fb99c6f8d77f",
     scryfall_id = "520ad9d0-5f41-4183-a04e-58a61ad7202b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fugitive Wizard",
         mana_cost = mana!("{U}"),

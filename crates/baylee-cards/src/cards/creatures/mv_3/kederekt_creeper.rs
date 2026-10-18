@@ -13,7 +13,7 @@ card!(
     scryfall_id = "701498e5-1d4d-42f4-9dd0-5d4cf78f0e68",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
     keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::MENACE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kederekt Creeper",
         mana_cost = mana!("{U}{B}{R}"),

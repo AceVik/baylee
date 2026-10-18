@@ -12,7 +12,7 @@ card!(
     scryfall_id = "387e51db-89b7-44a9-9fc8-4e59479c75d2",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merfolk of the Depths",
         mana_cost = mana!("{4}{G/U}{G/U}"),

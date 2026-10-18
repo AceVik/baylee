@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0ce89a0b-d0e4-4c71-b131-0d3b0b76bc3b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daybreak Chaplain",
         mana_cost = mana!("{1}{W}"),

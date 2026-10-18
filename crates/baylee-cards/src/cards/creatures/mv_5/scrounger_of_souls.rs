@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3d66f3c4-5a11-4e28-a4ae-673b3b36d3ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scrounger of Souls",
         mana_cost = mana!("{4}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6ebea0dd-7d31-4688-a6c4-0e57d08de100",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paladin en-Vec",
         mana_cost = mana!("{1}{W}{W}"),

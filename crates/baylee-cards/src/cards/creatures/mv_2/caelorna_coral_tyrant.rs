@@ -11,7 +11,7 @@ card!(
     scryfall_id = "e8654e38-4230-4094-b815-778bfb5d06f2",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caelorna, Coral Tyrant",
         mana_cost = mana!("{1}{U}"),

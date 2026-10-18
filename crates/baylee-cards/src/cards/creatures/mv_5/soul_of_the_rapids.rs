@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2a1aed7d-4236-4d44-9366-ee03e15469bc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HEXPROOF),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul of the Rapids",
         mana_cost = mana!("{3}{U}{U}"),

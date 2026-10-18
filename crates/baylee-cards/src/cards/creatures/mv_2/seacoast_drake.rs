@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5333de10-a6d4-47ff-ab57-4edb49535739",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seacoast Drake",
         mana_cost = mana!("{1}{U}"),

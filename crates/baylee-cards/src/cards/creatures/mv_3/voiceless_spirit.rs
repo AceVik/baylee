@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d24d9bd7-5721-4436-a86f-35e376727f46",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voiceless Spirit",
         mana_cost = mana!("{2}{W}"),

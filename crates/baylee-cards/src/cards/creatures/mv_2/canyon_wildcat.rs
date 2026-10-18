@@ -12,7 +12,7 @@ card!(
     scryfall_id = "4bd2baa7-1264-4139-881d-e8169391c48b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canyon Wildcat",
         mana_cost = mana!("{1}{R}"),

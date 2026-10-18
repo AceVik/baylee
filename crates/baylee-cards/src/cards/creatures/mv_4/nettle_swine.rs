@@ -10,7 +10,7 @@ card!(
     oracle_id = "fe412468-b506-4ed8-8fff-3987ef3dc2ee",
     scryfall_id = "75935f0e-9086-485b-b3e6-1a958fd0f2af",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nettle Swine",
         mana_cost = mana!("{3}{G}"),

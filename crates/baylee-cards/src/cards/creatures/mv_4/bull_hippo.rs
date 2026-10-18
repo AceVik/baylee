@@ -12,7 +12,7 @@ card!(
     scryfall_id = "044785ad-0f05-4944-aab3-49236727078d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bull Hippo",
         mana_cost = mana!("{3}{G}"),

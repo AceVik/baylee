@@ -10,7 +10,7 @@ card!(
     oracle_id = "10871545-1c44-4e31-a49a-5b16c3b5cac5",
     scryfall_id = "b4e424de-81be-4f90-a7a2-4102c8ba8989",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Felhide Minotaur",
         mana_cost = mana!("{2}{B}"),

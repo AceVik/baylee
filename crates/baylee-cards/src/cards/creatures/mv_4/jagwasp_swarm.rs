@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bd4e933b-de65-4089-877f-c598004b8e7e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jagwasp Swarm",
         mana_cost = mana!("{3}{B}"),

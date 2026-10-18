@@ -10,7 +10,7 @@ card!(
     oracle_id = "a322ad80-e64b-4e9a-b542-3a036dc14d28",
     scryfall_id = "f2c60e63-0b86-4100-a932-bb9e9b197610",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossodon Yearling",
         mana_cost = mana!("{2}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "535e3d1b-b71b-406a-bec6-73b2cb45f6c8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Silent Observer",
         mana_cost = mana!("{3}{U}"),

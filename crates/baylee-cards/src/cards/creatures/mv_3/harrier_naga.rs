@@ -10,7 +10,7 @@ card!(
     oracle_id = "4a1cbac1-ee22-44cf-a37f-a58055f5c9bc",
     scryfall_id = "bcdc68c9-f5f3-4c5b-80df-85508cf15f84",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harrier Naga",
         mana_cost = mana!("{2}{G}"),

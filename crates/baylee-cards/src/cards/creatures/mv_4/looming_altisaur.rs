@@ -10,7 +10,7 @@ card!(
     oracle_id = "af5302d3-782b-4d92-bc97-dccbfc76ac95",
     scryfall_id = "cfcff1c6-0db6-4ff6-b4af-d7048b426368",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Looming Altisaur",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "7341a04a-b6d6-4106-b1c3-3483f9d37663",
     scryfall_id = "c37ae6b5-225a-410e-ab22-13e923bdfb65",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spined Karok",
         mana_cost = mana!("{2}{G}"),

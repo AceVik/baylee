@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0968401d-522f-4def-92a1-d504471ac54e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightwind Glider",
         mana_cost = mana!("{2}{W}"),

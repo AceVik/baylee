@@ -11,7 +11,7 @@ card!(
     scryfall_id = "2f3e2f33-9c31-4107-b9b4-a7e1d2d43bab",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Black Widow, Natasha Romanoff",
         mana_cost = mana!("{1}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "f46e06e2-1658-4bec-b94e-91935cc667fb",
     scryfall_id = "bb467271-898f-4bcd-8533-e8165b318b43",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Viashino Warrior",
         mana_cost = mana!("{3}{R}"),

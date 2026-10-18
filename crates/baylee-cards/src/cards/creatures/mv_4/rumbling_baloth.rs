@@ -10,7 +10,7 @@ card!(
     oracle_id = "3191c6ca-4d25-4ba3-bfe1-4aeab1295573",
     scryfall_id = "93a56610-482b-4ddf-88e1-e4a2edf4fa0f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rumbling Baloth",
         mana_cost = mana!("{2}{G}{G}"),

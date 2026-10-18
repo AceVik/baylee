@@ -12,7 +12,7 @@ card!(
     scryfall_id = "81dd362e-42f6-4eeb-9fe7-0d9cbeb4f21e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::PLAINSWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Rooster",
         mana_cost = mana!("{1}{G}"),

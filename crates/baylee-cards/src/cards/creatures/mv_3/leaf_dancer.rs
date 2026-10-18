@@ -12,7 +12,7 @@ card!(
     scryfall_id = "aebab65c-7d5f-4086-8eb1-7dc445e801e9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leaf Dancer",
         mana_cost = mana!("{1}{G}{G}"),

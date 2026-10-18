@@ -12,7 +12,7 @@ card!(
     scryfall_id = "706a38f3-8e7a-4ce5-9af9-e9f4c8afc9ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimble Pilferer",
         mana_cost = mana!("{1}{B}"),

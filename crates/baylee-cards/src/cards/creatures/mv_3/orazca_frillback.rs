@@ -10,7 +10,7 @@ card!(
     oracle_id = "2da32ec3-f42f-4edc-b5b3-e5f39fcf370c",
     scryfall_id = "20471a3b-90f9-4463-9b43-fc7b9b28f5d1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orazca Frillback",
         mana_cost = mana!("{2}{G}"),

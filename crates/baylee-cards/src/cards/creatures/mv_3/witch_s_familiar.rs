@@ -10,7 +10,7 @@ card!(
     oracle_id = "abe06b4d-e7f0-4125-8cfc-e36296e8bacd",
     scryfall_id = "8c9f3b3b-de16-4ae5-844e-1373e0f84469",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Witch's Familiar",
         mana_cost = mana!("{2}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "542b3ec9-7800-4dea-bf39-b51a11b58339",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kelinore Bat",
         mana_cost = mana!("{2}{B}"),

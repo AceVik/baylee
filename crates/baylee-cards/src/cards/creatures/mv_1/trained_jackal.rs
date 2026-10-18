@@ -10,7 +10,7 @@ card!(
     oracle_id = "99545320-b6ad-4caf-b29a-47f637395ef7",
     scryfall_id = "01deb3cc-91e8-4ef3-964f-f36c6a21207c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Jackal",
         mana_cost = mana!("{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6f00d726-4289-48ff-8c14-6a5080a00fda",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MOUNTAINWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Grunt",
         mana_cost = mana!("{R}"),

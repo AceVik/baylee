@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0c56ed5b-9a3b-4d2d-a598-7534231143fa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildwood Patrol",
         mana_cost = mana!("{2}{G}"),

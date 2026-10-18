@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6fc7edbd-a819-4cee-8053-3e36a3ac9197",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elite Cat Warrior",
         mana_cost = mana!("{2}{G}"),

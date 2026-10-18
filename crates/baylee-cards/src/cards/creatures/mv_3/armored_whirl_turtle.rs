@@ -10,7 +10,7 @@ card!(
     oracle_id = "51a886f2-9b0a-4964-9d59-99dc1a68a97c",
     scryfall_id = "fcc87fdf-6473-4b91-a8b9-2986e57dc071",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armored Whirl Turtle",
         mana_cost = mana!("{2}{U}"),

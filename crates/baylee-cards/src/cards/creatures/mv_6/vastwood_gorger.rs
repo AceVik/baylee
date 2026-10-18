@@ -10,7 +10,7 @@ card!(
     oracle_id = "a17a86a3-9f9c-4e09-93e6-e543a70733bc",
     scryfall_id = "72f53dc9-5397-49e1-97d4-3b0b6858f2b2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vastwood Gorger",
         mana_cost = mana!("{5}{G}"),

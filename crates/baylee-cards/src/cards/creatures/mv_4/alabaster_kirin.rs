@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ad1ce529-06ed-4e85-9988-8c8b58401ed5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alabaster Kirin",
         mana_cost = mana!("{3}{W}"),

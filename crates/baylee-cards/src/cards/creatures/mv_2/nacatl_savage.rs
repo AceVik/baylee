@@ -11,7 +11,7 @@ card!(
     oracle_id = "475412c9-8960-4085-bd8f-5f8a7c7485b9",
     scryfall_id = "ad602fba-6a73-4fd0-aff5-802c3be3100e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nacatl Savage",
         mana_cost = mana!("{1}{G}"),

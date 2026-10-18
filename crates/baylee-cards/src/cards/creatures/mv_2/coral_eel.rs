@@ -10,7 +10,7 @@ card!(
     oracle_id = "10706fd1-7847-4316-be8d-59b56143ce45",
     scryfall_id = "00223901-d462-41b0-9749-b093058f682f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coral Eel",
         mana_cost = mana!("{1}{U}"),

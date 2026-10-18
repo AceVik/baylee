@@ -13,7 +13,7 @@ card!(
     scryfall_id = "6156d61c-640e-4e8c-bd2f-838dfef0c885",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of Meadowgrain",
         mana_cost = mana!("{W}{W}"),

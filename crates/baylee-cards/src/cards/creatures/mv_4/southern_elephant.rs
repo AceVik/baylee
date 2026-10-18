@@ -10,7 +10,7 @@ card!(
     oracle_id = "79de2319-078d-46db-9044-0088c623b73f",
     scryfall_id = "4554e25f-12e7-4b06-bd17-29fb340f2bb3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Southern Elephant",
         mana_cost = mana!("{3}{G}"),

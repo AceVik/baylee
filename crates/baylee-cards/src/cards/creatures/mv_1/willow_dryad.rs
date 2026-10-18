@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1def835b-aabb-4a9d-8fb9-460452de0d79",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Willow Dryad",
         mana_cost = mana!("{G}"),

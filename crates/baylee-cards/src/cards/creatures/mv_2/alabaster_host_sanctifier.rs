@@ -12,7 +12,7 @@ card!(
     scryfall_id = "efbd934a-39c4-4ce7-af2a-34ca226d7f23",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alabaster Host Sanctifier",
         mana_cost = mana!("{1}{W}"),

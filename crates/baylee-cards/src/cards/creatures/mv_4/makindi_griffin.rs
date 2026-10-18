@@ -12,7 +12,7 @@ card!(
     scryfall_id = "05c4a9c4-20d5-457d-9127-c27b8768255a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Makindi Griffin",
         mana_cost = mana!("{3}{W}"),

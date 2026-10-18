@@ -12,7 +12,7 @@ card!(
     scryfall_id = "373d6799-e031-4043-8437-ed4880be0de9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ajani's Sunstriker",
         mana_cost = mana!("{W}{W}"),

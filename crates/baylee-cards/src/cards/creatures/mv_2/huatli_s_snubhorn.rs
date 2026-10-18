@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e2d88e6c-4aa8-4175-9f5d-a4c0182cdf74",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Huatli's Snubhorn",
         mana_cost = mana!("{1}{W}"),

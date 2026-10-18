@@ -10,7 +10,7 @@ card!(
     oracle_id = "7d1f5f6f-af3d-4b9b-acaf-debf885f660a",
     scryfall_id = "04129038-3b02-418a-862a-229e9dde339b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jwari Scuttler",
         mana_cost = mana!("{2}{U}"),

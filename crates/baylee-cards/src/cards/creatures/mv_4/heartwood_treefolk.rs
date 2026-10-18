@@ -12,7 +12,7 @@ card!(
     scryfall_id = "de263f02-8e3e-4785-9c06-9adc168994f3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Heartwood Treefolk",
         mana_cost = mana!("{2}{G}{G}"),

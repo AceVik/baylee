@@ -10,7 +10,7 @@ card!(
     oracle_id = "b7894010-fdba-498e-97de-22bd70332439",
     scryfall_id = "d8b1b493-2dec-4816-a427-4813a00ca3e9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blade of the Sixth Pride",
         mana_cost = mana!("{1}{W}"),

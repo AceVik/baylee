@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e321bbb0-1660-4452-a9b7-d41674f7f743",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mesa Unicorn",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9f17b58c-9738-4cdb-a408-e1595c384b92",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deathgaze Cockatrice",
         mana_cost = mana!("{2}{B}{B}"),

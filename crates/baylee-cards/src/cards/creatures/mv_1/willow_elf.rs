@@ -10,7 +10,7 @@ card!(
     oracle_id = "f88db161-3d00-4f45-b2a4-cbdc4f8e5312",
     scryfall_id = "c063a072-0cd4-45fb-ac68-96e359bf3ef5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Willow Elf",
         mana_cost = mana!("{G}"),

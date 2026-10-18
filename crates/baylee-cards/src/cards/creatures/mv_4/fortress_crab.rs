@@ -10,7 +10,7 @@ card!(
     oracle_id = "075fd933-689c-4199-85bd-e7994d936145",
     scryfall_id = "324681da-a28e-47ec-9810-5678de53e494",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fortress Crab",
         mana_cost = mana!("{3}{U}"),

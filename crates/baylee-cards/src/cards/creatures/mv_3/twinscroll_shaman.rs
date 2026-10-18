@@ -12,7 +12,7 @@ card!(
     scryfall_id = "87193af5-4b6b-48d0-9b75-8171bb1d6e53",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twinscroll Shaman",
         mana_cost = mana!("{2}{R}"),

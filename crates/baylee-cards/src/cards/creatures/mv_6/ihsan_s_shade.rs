@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ff128110-b87e-451c-a51d-9f116892e482",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ihsan's Shade",
         mana_cost = mana!("{3}{B}{B}{B}"),

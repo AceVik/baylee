@@ -10,7 +10,7 @@ card!(
     oracle_id = "a45e0854-28c7-41f5-a9fe-5b76a8070c5b",
     scryfall_id = "7a6d1184-15e0-4b41-ba2d-4f68e91c61d4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ferocious Zheng",
         mana_cost = mana!("{2}{G}{G}"),

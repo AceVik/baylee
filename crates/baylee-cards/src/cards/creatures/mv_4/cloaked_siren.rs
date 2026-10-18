@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5f2f76f9-b883-42e1-bd74-71934e15b973",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloaked Siren",
         mana_cost = mana!("{3}{U}"),

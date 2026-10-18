@@ -10,7 +10,7 @@ card!(
     oracle_id = "be77e3f8-76a3-4d03-a8be-ad4b0b72f929",
     scryfall_id = "ca126c9e-1372-486f-afd0-4fd9da56e593",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Cavaliers",
         mana_cost = mana!("{2}{R}"),

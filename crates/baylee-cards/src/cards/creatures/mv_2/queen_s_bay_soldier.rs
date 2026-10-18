@@ -10,7 +10,7 @@ card!(
     oracle_id = "b288c863-5377-473d-a628-bb199993a29c",
     scryfall_id = "ce2ca2e6-f920-4529-88d2-d984bdb7490a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Queen's Bay Soldier",
         mana_cost = mana!("{1}{B}"),

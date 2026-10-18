@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f21b9c48-6eca-4677-961b-614f5ec594ce",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yotian Medic",
         mana_cost = mana!("{2}{W}"),

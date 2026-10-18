@@ -12,7 +12,7 @@ card!(
     scryfall_id = "dbf97c08-e074-4353-b9fa-c79793622585",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sewn-Eye Drake",
         mana_cost = mana!("{2}{U/R}{B}"),

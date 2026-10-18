@@ -10,7 +10,7 @@ card!(
     oracle_id = "9dadeecc-1d4b-4799-9ac9-4ca492006e46",
     scryfall_id = "78226edc-87dd-4c38-987c-52aefe0f9531",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canal Monitor",
         mana_cost = mana!("{4}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b3aeb7fb-8618-4595-84b4-20881b824b3e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zendikar Farguide",
         mana_cost = mana!("{4}{G}"),

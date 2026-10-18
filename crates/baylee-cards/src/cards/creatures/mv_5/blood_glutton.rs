@@ -12,7 +12,7 @@ card!(
     scryfall_id = "28ff52a2-4223-4551-b388-b4dd21cc1437",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Glutton",
         mana_cost = mana!("{4}{B}"),

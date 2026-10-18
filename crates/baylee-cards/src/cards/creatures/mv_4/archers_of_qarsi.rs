@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0fcf0074-162a-4cc0-9726-8672a0261307",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Archers of Qarsi",
         mana_cost = mana!("{3}{G}"),

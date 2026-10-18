@@ -10,7 +10,7 @@ card!(
     oracle_id = "3121eecd-5f8a-408f-8b2d-75e13aa8a1ea",
     scryfall_id = "9cef3bf2-55cf-4f42-9ec0-fa921ef22311",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tasseled Dromedary",
         mana_cost = mana!("{W}"),

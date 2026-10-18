@@ -10,7 +10,7 @@ card!(
     oracle_id = "017568ea-613f-4057-9a8d-61b087d6dc92",
     scryfall_id = "9dca75a1-443d-4f8e-b12b-2aada3a8e3e4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Minotaur Abomination",
         mana_cost = mana!("{4}{B}{B}"),

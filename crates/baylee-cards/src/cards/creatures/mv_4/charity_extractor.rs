@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3594f726-cdbb-4b7d-bcfe-17d5f8cd5228",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charity Extractor",
         mana_cost = mana!("{3}{B}"),

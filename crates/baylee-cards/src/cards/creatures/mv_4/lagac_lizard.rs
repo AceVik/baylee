@@ -10,7 +10,7 @@ card!(
     oracle_id = "e241c8c3-359d-4e20-97a6-a873c50f1ef9",
     scryfall_id = "b47e9cfa-5547-4ef3-9e36-8d0f36dfa59a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lagac Lizard",
         mana_cost = mana!("{3}{R}"),

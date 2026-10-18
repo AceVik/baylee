@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3ed23582-3260-44c6-9884-904d294442ad",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rushwood Dryad",
         mana_cost = mana!("{1}{G}"),

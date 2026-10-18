@@ -12,7 +12,7 @@ card!(
     scryfall_id = "de867066-df5c-4412-9d51-56626b6d0220",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghostly Sentinel",
         mana_cost = mana!("{4}{W}"),

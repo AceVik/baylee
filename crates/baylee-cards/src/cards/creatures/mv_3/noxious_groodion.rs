@@ -12,7 +12,7 @@ card!(
     scryfall_id = "b6cb3d78-1a60-4e9b-b387-afeb58677536",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Groodion",
         mana_cost = mana!("{2}{B}"),

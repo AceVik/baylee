@@ -10,7 +10,7 @@ card!(
     oracle_id = "8f80a7be-3da3-4e84-82a8-dd5d4b2c3f32",
     scryfall_id = "57bea4c2-7a15-4f31-938d-c4c906e4ebe7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devilthorn Fox",
         mana_cost = mana!("{1}{W}"),

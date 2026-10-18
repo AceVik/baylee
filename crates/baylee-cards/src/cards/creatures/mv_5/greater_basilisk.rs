@@ -12,7 +12,7 @@ card!(
     scryfall_id = "886e40d7-5677-493d-9ea4-205f50d2aefe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Greater Basilisk",
         mana_cost = mana!("{3}{G}{G}"),

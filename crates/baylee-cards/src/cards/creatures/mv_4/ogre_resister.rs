@@ -10,7 +10,7 @@ card!(
     oracle_id = "d626bd7f-c993-49ff-b05b-262330d8540c",
     scryfall_id = "60b7407d-f677-403b-893c-361df456009a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ogre Resister",
         mana_cost = mana!("{2}{R}{R}"),

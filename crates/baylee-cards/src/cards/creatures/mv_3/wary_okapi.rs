@@ -12,7 +12,7 @@ card!(
     scryfall_id = "54f26697-0d4b-4af4-a644-3d0ae13f1d2e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wary Okapi",
         mana_cost = mana!("{2}{G}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "92691507-b1ce-40d0-87e7-b79e81370511",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::REACH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wrecking Crew",
         mana_cost = mana!("{4}{R}"),

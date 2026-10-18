@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ed3d5a10-6d4b-4383-b400-7323f2b4670e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voice of Reason",
         mana_cost = mana!("{3}{W}"),

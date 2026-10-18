@@ -10,7 +10,7 @@ card!(
     oracle_id = "41283a82-ce3f-41a6-995e-bc30d8ab5cf9",
     scryfall_id = "30a227a1-625d-443a-bc6b-d0e51ddece60",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wei Infantry",
         mana_cost = mana!("{1}{B}"),

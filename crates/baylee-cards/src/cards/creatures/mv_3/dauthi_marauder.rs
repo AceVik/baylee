@@ -12,7 +12,7 @@ card!(
     scryfall_id = "01963759-c47e-408a-8de8-924224031c8a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Marauder",
         mana_cost = mana!("{2}{B}"),

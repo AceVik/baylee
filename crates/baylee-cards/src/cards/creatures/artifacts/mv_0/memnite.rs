@@ -9,7 +9,7 @@ card!(
     index = index::MEMNITE,
     oracle_id = "7663ac7c-1de3-4250-b96a-fae9dbd66a27",
     scryfall_id = "975459ba-e1c2-4800-a3fa-5c0cf8ce728f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Memnite",
         mana_cost = mana!("{0}"),

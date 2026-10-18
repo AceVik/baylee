@@ -10,7 +10,7 @@ card!(
     oracle_id = "468658bc-19d8-464a-ab8e-d36281680273",
     scryfall_id = "4a5ff6af-402f-4bf6-a75b-dc1e0e40aff6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ageless Guardian",
         mana_cost = mana!("{1}{W}"),

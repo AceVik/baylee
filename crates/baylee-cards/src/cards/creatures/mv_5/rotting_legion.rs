@@ -11,7 +11,7 @@ card!(
     oracle_id = "6e5fd8b4-d81a-4ed6-b389-21445351bb43",
     scryfall_id = "bfe5e62c-83ce-4c2b-a745-acd7670e115d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rotting Legion",
         mana_cost = mana!("{4}{B}"),

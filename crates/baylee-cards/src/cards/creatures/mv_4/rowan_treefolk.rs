@@ -10,7 +10,7 @@ card!(
     oracle_id = "ae37dd07-2926-4801-b89d-3ffad9f0f575",
     scryfall_id = "852a0956-8558-4754-ab57-6f1cc4de740e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rowan Treefolk",
         mana_cost = mana!("{3}{G}"),

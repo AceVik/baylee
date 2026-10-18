@@ -10,7 +10,7 @@ card!(
     oracle_id = "0bb1c704-47f1-4d0c-8158-cfcd0b5e4d06",
     scryfall_id = "1008ff1b-7fb0-4570-b23e-9fda14b97640",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maritime Guard",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7a134bd1-3c5a-467e-bad1-65548b33faa5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodland Patrol",
         mana_cost = mana!("{2}{G}"),

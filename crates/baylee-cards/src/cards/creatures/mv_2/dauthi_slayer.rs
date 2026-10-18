@@ -13,7 +13,7 @@ card!(
     scryfall_id = "c289baab-04ee-4639-bc9b-9f032752fa69",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dauthi Slayer",
         mana_cost = mana!("{B}{B}"),

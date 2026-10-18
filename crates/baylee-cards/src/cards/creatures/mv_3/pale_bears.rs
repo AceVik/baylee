@@ -12,7 +12,7 @@ card!(
     scryfall_id = "7f19c2a3-6403-4a78-bf45-6e339578d673",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pale Bears",
         mana_cost = mana!("{2}{G}"),

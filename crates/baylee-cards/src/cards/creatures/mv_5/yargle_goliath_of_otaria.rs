@@ -11,7 +11,7 @@ card!(
     scryfall_id = "f45ba926-6496-4bd4-96eb-663946d56bbf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yargle, Goliath of Otaria",
         mana_cost = mana!("{4}{U}"),

@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhao, the Seething Flame",
         mana_cost = mana!("{4}{R}"),

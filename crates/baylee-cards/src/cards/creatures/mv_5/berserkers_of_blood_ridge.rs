@@ -11,7 +11,7 @@ card!(
     oracle_id = "9e8a2d53-3145-421a-aad1-8f2b2f6eaec8",
     scryfall_id = "033fce45-20d8-48cc-96d3-7f16c99da83d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Berserkers of Blood Ridge",
         mana_cost = mana!("{4}{R}"),

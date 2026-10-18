@@ -10,7 +10,7 @@ card!(
     oracle_id = "1ef5003c-f540-4cdc-913f-7d5280ad9f62",
     scryfall_id = "43cc74c6-f0e5-443d-a2b3-4dcbf5858034",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Border Guard",
         mana_cost = mana!("{2}{W}"),

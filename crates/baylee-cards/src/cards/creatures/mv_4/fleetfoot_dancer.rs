@@ -14,7 +14,7 @@ card!(
     keywords = KeywordSet::TRAMPLE
         .union(KeywordSet::LIFELINK)
         .union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fleetfoot Dancer",
         mana_cost = mana!("{1}{R}{G}{W}"),

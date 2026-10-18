@@ -12,7 +12,7 @@ card!(
     scryfall_id = "750880cd-59bf-4b67-a2d5-9b66e4d05665",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon's Eye Sentry",
         mana_cost = mana!("{W}"),

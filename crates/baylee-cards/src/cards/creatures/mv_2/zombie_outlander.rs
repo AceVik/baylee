@@ -11,7 +11,7 @@ card!(
     oracle_id = "857524d5-9b5c-42ac-a6cf-2d9bfebd7015",
     scryfall_id = "f27c2690-5121-452b-b82a-72acb8be6878",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zombie Outlander",
         mana_cost = mana!("{U}{B}"),

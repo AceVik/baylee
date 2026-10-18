@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8aabd80f-a18a-4bc1-9f05-4c3a63de77ce",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Marsh Goblins",
         mana_cost = mana!("{B}{R}"),

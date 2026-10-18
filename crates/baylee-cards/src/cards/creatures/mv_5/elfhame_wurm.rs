@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ef2dc99b-083d-473e-b352-e8264353e85b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elfhame Wurm",
         mana_cost = mana!("{4}{G}"),

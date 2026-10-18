@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a20aaa6c-7032-43c1-9e7c-57cf8c8ecfd4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Nation Ambushers",
         mana_cost = mana!("{2}{B}"),

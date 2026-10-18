@@ -10,7 +10,7 @@ card!(
     oracle_id = "2d425f5d-326f-46f8-ab84-852b01db4adb",
     scryfall_id = "b3afaab6-4768-4852-a0b6-4e6a0295bde7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cylian Elf",
         mana_cost = mana!("{1}{G}"),

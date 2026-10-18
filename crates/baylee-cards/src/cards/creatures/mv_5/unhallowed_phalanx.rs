@@ -11,7 +11,7 @@ card!(
     oracle_id = "94c98a3b-9c3e-497f-b954-8f2248ca01ac",
     scryfall_id = "d5ec541b-1799-4c0e-a3fb-c008cf2eb911",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unhallowed Phalanx",
         mana_cost = mana!("{4}{B}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ff737c53-9489-4a8c-8fa1-5d108222ae3f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skysnare Spider",
         mana_cost = mana!("{4}{G}{G}"),

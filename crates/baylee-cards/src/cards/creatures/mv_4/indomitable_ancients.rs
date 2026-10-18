@@ -10,7 +10,7 @@ card!(
     oracle_id = "2764741c-1f3e-459a-a487-54cbac2c84a6",
     scryfall_id = "a4e20d78-8c01-40ed-bc69-89d4d5028552",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Indomitable Ancients",
         mana_cost = mana!("{2}{W}{W}"),

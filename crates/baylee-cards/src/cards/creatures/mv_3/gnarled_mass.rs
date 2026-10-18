@@ -10,7 +10,7 @@ card!(
     oracle_id = "18202185-f9d4-446a-b34e-fae9800240f9",
     scryfall_id = "5c28728d-4839-4cdf-91d4-b9fb4b5d0449",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gnarled Mass",
         mana_cost = mana!("{1}{G}{G}"),

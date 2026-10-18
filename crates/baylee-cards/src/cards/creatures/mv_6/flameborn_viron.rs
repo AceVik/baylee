@@ -10,7 +10,7 @@ card!(
     oracle_id = "3fd2651d-89fb-4bd1-af4a-f7eae7ef9fd2",
     scryfall_id = "9601ea62-a609-4bc5-a2f0-f7615b4dd5fa",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flameborn Viron",
         mana_cost = mana!("{4}{R}{R}"),

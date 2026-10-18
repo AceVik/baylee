@@ -11,7 +11,7 @@ card!(
     oracle_id = "69ba7864-0d09-4517-ad1a-7efaf437ded0",
     scryfall_id = "88f80d05-0bc9-4f35-afc4-8e2ae81b94df",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tattermunge Maniac",
         mana_cost = mana!("{R/G}"),

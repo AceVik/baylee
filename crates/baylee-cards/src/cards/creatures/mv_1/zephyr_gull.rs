@@ -12,7 +12,7 @@ card!(
     scryfall_id = "1bcec8de-c38a-4956-95e9-380177968017",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zephyr Gull",
         mana_cost = mana!("{U}"),

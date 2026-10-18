@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ac48a4ff-433b-4fd0-b0d1-43b188ee81b6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wasp Lancer",
         mana_cost = mana!("{U/B}{U/B}{U/B}"),

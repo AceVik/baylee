@@ -10,7 +10,7 @@ card!(
     oracle_id = "3f79603a-3173-404e-8c69-b2254c1270dc",
     scryfall_id = "923cb904-c725-4d57-bc17-7aa87a7cd8e0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dune Beetle",
         mana_cost = mana!("{1}{B}"),

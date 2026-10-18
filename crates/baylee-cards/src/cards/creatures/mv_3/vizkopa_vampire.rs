@@ -12,7 +12,7 @@ card!(
     scryfall_id = "3b4404a1-b1ab-4a11-98b0-fe3b6723fcb8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vizkopa Vampire",
         mana_cost = mana!("{2}{W/B}"),

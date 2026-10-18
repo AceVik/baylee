@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8119ce0c-d709-463c-9abc-f7025673ea72",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pharika's Chosen",
         mana_cost = mana!("{B}"),

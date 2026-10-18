@@ -12,7 +12,7 @@ card!(
     scryfall_id = "89c2c94a-31df-4789-a309-4cdfe7f6a719",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grayscaled Gharial",
         mana_cost = mana!("{U}"),

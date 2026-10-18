@@ -10,7 +10,7 @@ card!(
     oracle_id = "d4647f16-b287-46a2-9c38-93881c290f76",
     scryfall_id = "c217b672-c724-4fc2-936c-b3f0feaf6ea0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nether Horror",
         mana_cost = mana!("{3}{B}"),

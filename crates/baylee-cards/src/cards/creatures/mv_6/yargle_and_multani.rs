@@ -11,7 +11,7 @@ card!(
     scryfall_id = "9c15e244-14cc-46a5-abd4-66a58d1c0dd0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yargle and Multani",
         mana_cost = mana!("{3}{B}{B}{G}"),

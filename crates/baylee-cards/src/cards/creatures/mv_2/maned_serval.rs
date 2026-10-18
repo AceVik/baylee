@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5ac51e35-e2c5-4457-981c-e59894584288",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maned Serval",
         mana_cost = mana!("{1}{W}"),

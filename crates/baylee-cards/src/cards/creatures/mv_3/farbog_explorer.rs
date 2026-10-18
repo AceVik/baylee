@@ -12,7 +12,7 @@ card!(
     scryfall_id = "489c6a2f-38b4-4ff9-95f7-431384480ed9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::SWAMPWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Farbog Explorer",
         mana_cost = mana!("{2}{W}"),

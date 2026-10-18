@@ -12,7 +12,7 @@ card!(
     scryfall_id = "9627b0a7-bda9-44df-81c9-aa70cc976331",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raging Redcap",
         mana_cost = mana!("{2}{R}"),

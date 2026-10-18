@@ -13,7 +13,7 @@ card!(
     scryfall_id = "02a4a5b3-0477-4709-8bce-3e01f54001b6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Assassin",
         mana_cost = mana!("{2}{B}"),

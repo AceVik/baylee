@@ -12,7 +12,7 @@ card!(
     scryfall_id = "34ad8e5d-0c26-4588-8161-b22197715d63",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vigilant Baloth",
         mana_cost = mana!("{3}{G}{G}"),

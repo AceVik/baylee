@@ -10,7 +10,7 @@ card!(
     oracle_id = "d0a80814-c69c-457c-ba19-4e1ba3fbd485",
     scryfall_id = "00c050c3-4f50-4bb6-8477-6737887ca10d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loxodon Convert",
         mana_cost = mana!("{3}{W}"),

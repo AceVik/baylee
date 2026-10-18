@@ -10,7 +10,7 @@ card!(
     oracle_id = "03a9ac3f-f6e4-4ade-9770-cf723434b7e8",
     scryfall_id = "8b8c80ea-7b29-4335-ba7b-3e51a5a104a9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Borderland Minotaur",
         mana_cost = mana!("{2}{R}{R}"),

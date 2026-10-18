@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2f003678-0f17-4f1d-87d5-83613a82044b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Havoc Devils",
         mana_cost = mana!("{2}{R}{R}"),

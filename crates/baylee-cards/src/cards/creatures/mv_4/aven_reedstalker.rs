@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f0c2d70a-d646-44eb-9f65-ddf6e329ab43",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aven Reedstalker",
         mana_cost = mana!("{3}{U}"),

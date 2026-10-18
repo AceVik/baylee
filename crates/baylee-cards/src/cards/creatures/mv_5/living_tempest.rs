@@ -13,7 +13,7 @@ card!(
     scryfall_id = "a05ed233-9b53-4c67-ab1c-0217386c9fe4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Living Tempest",
         mana_cost = mana!("{4}{U}"),

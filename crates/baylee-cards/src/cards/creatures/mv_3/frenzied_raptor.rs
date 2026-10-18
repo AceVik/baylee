@@ -10,7 +10,7 @@ card!(
     oracle_id = "655c59d5-8666-476c-b494-411fa2e243a7",
     scryfall_id = "5fb22ac0-3863-4165-8c93-f2ec1775474f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frenzied Raptor",
         mana_cost = mana!("{2}{R}"),

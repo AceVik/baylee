@@ -11,7 +11,7 @@ card!(
     oracle_id = "64368768-77b9-4f78-adb7-951ca71dfb28",
     scryfall_id = "7ab5fe17-5499-427b-9267-3b3a9676a087",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warren-Scourge Elf",
         mana_cost = mana!("{1}{G}"),

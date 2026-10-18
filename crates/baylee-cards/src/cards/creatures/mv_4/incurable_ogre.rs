@@ -10,7 +10,7 @@ card!(
     oracle_id = "94190aaf-db91-4a3c-a2a7-e90868e856ff",
     scryfall_id = "5ad3381e-ae2f-40cf-8a7b-62375e9f453e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Incurable Ogre",
         mana_cost = mana!("{3}{R}"),

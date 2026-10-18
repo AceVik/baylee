@@ -10,7 +10,7 @@ card!(
     oracle_id = "27e6de72-68c4-4154-807f-5944fe97c92b",
     scryfall_id = "9a9b3f7a-1ae9-443b-8433-ac96cdaeaed8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Meng Huo's Horde",
         mana_cost = mana!("{4}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5c599f95-c0dd-4dd8-a8d7-9481df0cf649",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cerulean Wyvern",
         mana_cost = mana!("{4}{U}"),

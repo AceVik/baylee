@@ -10,7 +10,7 @@ card!(
     oracle_id = "c497c4f2-62c5-44fc-b485-f8d40868d8dc",
     scryfall_id = "382fba19-78d3-4aa3-9508-c7c1f13e0b33",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhox Brute",
         mana_cost = mana!("{2}{R}{G}"),

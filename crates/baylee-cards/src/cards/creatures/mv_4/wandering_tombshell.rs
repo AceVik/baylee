@@ -10,7 +10,7 @@ card!(
     oracle_id = "768c78f3-f09c-4b77-974d-514925e8df5e",
     scryfall_id = "e66e1d97-d676-471a-a140-deb39600a7a9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wandering Tombshell",
         mana_cost = mana!("{3}{B}"),

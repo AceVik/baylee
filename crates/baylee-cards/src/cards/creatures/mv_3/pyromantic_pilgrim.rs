@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f670d02b-9bfc-4671-97ed-59bfbe633d82",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyromantic Pilgrim",
         mana_cost = mana!("{2}{R}"),

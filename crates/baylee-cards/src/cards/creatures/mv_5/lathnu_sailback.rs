@@ -10,7 +10,7 @@ card!(
     oracle_id = "9c30147a-1131-402e-bdaf-9006b1022b83",
     scryfall_id = "33998799-f31b-4522-93b2-0c34c570ebf7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lathnu Sailback",
         mana_cost = mana!("{4}{R}"),

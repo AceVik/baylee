@@ -10,7 +10,7 @@ card!(
     oracle_id = "920cc1a7-ac6b-44c0-ade7-347f05bba0f2",
     scryfall_id = "d8d1d55b-6be0-4bb5-b452-ba4994b21774",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight Errant",
         mana_cost = mana!("{1}{W}"),

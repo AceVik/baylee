@@ -10,7 +10,7 @@ card!(
     oracle_id = "5f444efc-3bc2-4ca8-986c-f804f9e1a95e",
     scryfall_id = "bbd61cbe-92b8-4141-b11c-04046e35578a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Renegade Demon",
         mana_cost = mana!("{3}{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "8a50b8f7-1af8-4e00-9734-66a87e05cc6f",
     scryfall_id = "f71a86e0-d15a-4fba-94f6-bfbaade8d837",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wetland Sambar",
         mana_cost = mana!("{1}{U}"),

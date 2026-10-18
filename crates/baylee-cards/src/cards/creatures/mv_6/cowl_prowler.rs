@@ -10,7 +10,7 @@ card!(
     oracle_id = "67419470-3418-466f-b3c1-4ded1d0ee34b",
     scryfall_id = "f372f545-b70c-470b-9aab-4a2ea900f777",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cowl Prowler",
         mana_cost = mana!("{4}{G}{G}"),

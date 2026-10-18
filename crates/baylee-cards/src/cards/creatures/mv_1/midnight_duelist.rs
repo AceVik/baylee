@@ -11,7 +11,7 @@ card!(
     oracle_id = "e8e2e1e9-13a6-4cfd-b9ed-2080e984844d",
     scryfall_id = "2371bd0c-ca38-4a62-b525-bef4d1ca0646",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Duelist",
         mana_cost = mana!("{W}"),

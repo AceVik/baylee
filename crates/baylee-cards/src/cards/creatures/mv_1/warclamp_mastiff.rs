@@ -12,7 +12,7 @@ card!(
     scryfall_id = "102e48e0-8a5f-499d-ac62-005d3c075ef3",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warclamp Mastiff",
         mana_cost = mana!("{W}"),

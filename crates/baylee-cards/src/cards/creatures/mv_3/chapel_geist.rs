@@ -12,7 +12,7 @@ card!(
     scryfall_id = "36fcc018-76c2-4246-8eca-b78115d568be",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chapel Geist",
         mana_cost = mana!("{1}{W}{W}"),

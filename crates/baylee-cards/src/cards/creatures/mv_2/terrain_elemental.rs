@@ -10,7 +10,7 @@ card!(
     oracle_id = "3a9b9fe0-1846-41fc-b7c3-ed9abef27a6a",
     scryfall_id = "32b89e5c-ffb4-406f-99d1-ec2797aca061",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terrain Elemental",
         mana_cost = mana!("{1}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "db01e574-7a96-472c-8e5a-bbd503280c71",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wayward Giant",
         mana_cost = mana!("{4}{R}"),

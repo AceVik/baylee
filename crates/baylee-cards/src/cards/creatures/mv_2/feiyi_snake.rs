@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0410420a-c093-4540-8867-28d0f2d86b56",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feiyi Snake",
         mana_cost = mana!("{1}{G}"),

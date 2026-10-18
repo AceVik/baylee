@@ -12,7 +12,7 @@ card!(
     scryfall_id = "5d88ad54-43fc-45e0-8e00-db6be0c021ea",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charging Badger",
         mana_cost = mana!("{G}"),

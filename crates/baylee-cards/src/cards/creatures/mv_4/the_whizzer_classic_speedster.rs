@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Whizzer, Classic Speedster",
         mana_cost = mana!("{3}{R}"),

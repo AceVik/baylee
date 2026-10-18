@@ -10,7 +10,7 @@ card!(
     oracle_id = "e666bae7-dd51-4921-8b89-7e8d423caba0",
     scryfall_id = "c1db84d8-d426-4c0d-b44e-5be7b0f5f5bf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gigantosaurus",
         mana_cost = mana!("{G}{G}{G}{G}{G}"),

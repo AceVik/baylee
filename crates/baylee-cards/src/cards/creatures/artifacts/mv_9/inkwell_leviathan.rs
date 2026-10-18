@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::ISLANDWALK
         .union(KeywordSet::TRAMPLE)
         .union(KeywordSet::SHROUD),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inkwell Leviathan",
         mana_cost = mana!("{7}{U}{U}"),

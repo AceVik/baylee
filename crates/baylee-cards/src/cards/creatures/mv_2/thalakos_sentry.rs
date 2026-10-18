@@ -12,7 +12,7 @@ card!(
     scryfall_id = "739a13d6-5f73-4166-b923-9db8ee3f2cf7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::SHADOW,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thalakos Sentry",
         mana_cost = mana!("{1}{U}"),

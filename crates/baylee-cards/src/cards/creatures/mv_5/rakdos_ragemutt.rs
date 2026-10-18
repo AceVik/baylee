@@ -12,7 +12,7 @@ card!(
     scryfall_id = "bb36840a-3f85-4fca-87ab-379dfce8e542",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     keywords = KeywordSet::HASTE.union(KeywordSet::LIFELINK),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakdos Ragemutt",
         mana_cost = mana!("{3}{B}{R}"),

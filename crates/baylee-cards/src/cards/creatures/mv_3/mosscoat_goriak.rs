@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c23139d4-0db5-4683-8d49-f4600fbe29e2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mosscoat Goriak",
         mana_cost = mana!("{2}{G}"),

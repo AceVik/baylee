@@ -13,7 +13,7 @@ card!(
     scryfall_id = "f48daf7e-2f8e-4179-a145-a6b36dd11d44",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sentinels of Glen Elendra",
         mana_cost = mana!("{3}{U}"),

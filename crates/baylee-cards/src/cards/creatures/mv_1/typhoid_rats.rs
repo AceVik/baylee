@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d13cb90b-50c3-46ef-83f8-812dfb7ff881",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEATHTOUCH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Typhoid Rats",
         mana_cost = mana!("{B}"),

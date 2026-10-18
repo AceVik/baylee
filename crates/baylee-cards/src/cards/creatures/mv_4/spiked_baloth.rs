@@ -12,7 +12,7 @@ card!(
     scryfall_id = "522777b1-a89f-4969-a962-0137018ec86c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spiked Baloth",
         mana_cost = mana!("{3}{G}"),

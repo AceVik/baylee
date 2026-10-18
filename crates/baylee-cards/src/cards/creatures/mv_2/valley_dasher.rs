@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8543adbd-0dd1-47d3-ac41-2ec72d6a5d35",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Valley Dasher",
         mana_cost = mana!("{1}{R}"),

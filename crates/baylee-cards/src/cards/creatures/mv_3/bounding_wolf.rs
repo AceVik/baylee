@@ -13,7 +13,7 @@ card!(
     scryfall_id = "74e22ed6-9d39-4feb-8c64-64cdd8313816",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bounding Wolf",
         mana_cost = mana!("{2}{G}"),

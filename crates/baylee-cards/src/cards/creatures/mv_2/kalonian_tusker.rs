@@ -10,7 +10,7 @@ card!(
     oracle_id = "df7f697e-6886-4897-a024-61ae225c1b34",
     scryfall_id = "135946fc-fe67-401f-821d-d7145c63f030",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kalonian Tusker",
         mana_cost = mana!("{G}{G}"),

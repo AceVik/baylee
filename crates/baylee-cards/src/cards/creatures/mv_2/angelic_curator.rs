@@ -12,7 +12,7 @@ card!(
     scryfall_id = "332352c2-98f2-4eb8-b49a-026a39df227b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Curator",
         mana_cost = mana!("{1}{W}"),

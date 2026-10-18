@@ -10,7 +10,7 @@ card!(
     oracle_id = "ef7788af-8edc-46df-a5b6-895c734ea423",
     scryfall_id = "ba165e25-5328-40f4-b87c-9d02590f9d38",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Panther Warriors",
         mana_cost = mana!("{4}{G}"),

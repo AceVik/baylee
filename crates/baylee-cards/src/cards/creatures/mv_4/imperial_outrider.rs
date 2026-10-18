@@ -10,7 +10,7 @@ card!(
     oracle_id = "76cd10a0-36af-4f56-87c1-f72dee07b27c",
     scryfall_id = "0dd3aca5-516f-4500-9d7f-95630401d3ae",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Imperial Outrider",
         mana_cost = mana!("{3}{W}"),

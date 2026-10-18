@@ -12,7 +12,7 @@ card!(
     scryfall_id = "e16365a2-4969-4ad5-af95-9dd2d0499f06",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aardvark Sloth",
         mana_cost = mana!("{3}{W}"),

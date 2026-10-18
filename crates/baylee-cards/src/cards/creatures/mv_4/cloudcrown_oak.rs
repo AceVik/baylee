@@ -12,7 +12,7 @@ card!(
     scryfall_id = "833211c0-3bec-4548-97a0-c9381660cd88",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloudcrown Oak",
         mana_cost = mana!("{2}{G}{G}"),

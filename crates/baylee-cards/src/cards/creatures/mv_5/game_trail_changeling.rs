@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7bc76a7f-516f-4d0b-b024-39d5c8096a9f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Game-Trail Changeling",
         mana_cost = mana!("{3}{G}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ffdf3a3d-292d-40b9-b28c-34ad33a76bb4",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::LIFELINK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caravan Hurda",
         mana_cost = mana!("{4}{W}"),

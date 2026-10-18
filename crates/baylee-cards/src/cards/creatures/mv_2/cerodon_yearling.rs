@@ -12,7 +12,7 @@ card!(
     scryfall_id = "116abc15-d79b-4dfe-8f9f-f38bcf429da8",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cerodon Yearling",
         mana_cost = mana!("{R}{W}"),

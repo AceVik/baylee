@@ -10,7 +10,7 @@ card!(
     oracle_id = "a768ba13-4d1c-4dce-a4a6-86a39c069c3f",
     scryfall_id = "baff03f3-a8ca-4c35-ae71-43b5d237b519",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foot Soldiers",
         mana_cost = mana!("{3}{W}"),

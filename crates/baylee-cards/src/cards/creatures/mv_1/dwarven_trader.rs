@@ -10,7 +10,7 @@ card!(
     oracle_id = "b40c5f3e-7080-4828-9215-79727c7a911f",
     scryfall_id = "4db9aa47-f42b-41e9-948c-8b012c3809fb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Trader",
         mana_cost = mana!("{R}"),

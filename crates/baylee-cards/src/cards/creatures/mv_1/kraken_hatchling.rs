@@ -10,7 +10,7 @@ card!(
     oracle_id = "08e6c786-d553-4c23-9137-cfad84146739",
     scryfall_id = "cc1f65c8-4941-41ac-9340-f741725ec71c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraken Hatchling",
         mana_cost = mana!("{U}"),

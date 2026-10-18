@@ -12,7 +12,7 @@ card!(
     scryfall_id = "24ca6ca8-e239-4fe5-8711-24098b74e2fe",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hippo-Cows",
         mana_cost = mana!("{4}{G}"),

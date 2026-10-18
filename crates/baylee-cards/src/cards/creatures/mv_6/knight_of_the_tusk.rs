@@ -12,7 +12,7 @@ card!(
     scryfall_id = "2f81d2a0-5301-4cae-ac83-ad51647146e3",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of the Tusk",
         mana_cost = mana!("{4}{W}{W}"),

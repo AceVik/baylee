@@ -12,7 +12,7 @@ card!(
     scryfall_id = "307edca0-769d-4071-9654-3537341e96bd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FORESTWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Somberwald Dryad",
         mana_cost = mana!("{1}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "c623bc4b-7fc1-4bc1-84e9-71c301dd402f",
     scryfall_id = "af79c8fb-9189-48c2-a7b8-a1097dbaf138",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sanctuary Cat",
         mana_cost = mana!("{W}"),

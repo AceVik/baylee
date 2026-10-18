@@ -12,7 +12,7 @@ card!(
     scryfall_id = "58017ff1-74d2-4be2-976a-8dff53e16150",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonstalker",
         mana_cost = mana!("{4}{W}"),

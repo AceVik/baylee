@@ -13,7 +13,7 @@ card!(
     scryfall_id = "9f7b7563-752b-4391-95d1-f5e3960d35c1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEFENDER.union(KeywordSet::REACH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wall of Vines",
         mana_cost = mana!("{G}"),

@@ -16,7 +16,7 @@ card!(
     keywords = KeywordSet::DOUBLE_STRIKE
         .union(KeywordSet::VIGILANCE)
         .union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swiftblade Vindicator",
         mana_cost = mana!("{R}{W}"),

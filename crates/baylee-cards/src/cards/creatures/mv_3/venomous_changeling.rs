@@ -13,7 +13,7 @@ card!(
     scryfall_id = "4c5a1d73-d102-469b-82ca-ec18f616375e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::CHANGELING.union(KeywordSet::DEATHTOUCH),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Venomous Changeling",
         mana_cost = mana!("{2}{B}"),

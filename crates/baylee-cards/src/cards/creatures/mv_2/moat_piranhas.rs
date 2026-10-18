@@ -12,7 +12,7 @@ card!(
     scryfall_id = "543b3f69-19be-494b-928f-e16b92560e35",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEFENDER,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moat Piranhas",
         mana_cost = mana!("{1}{U}"),

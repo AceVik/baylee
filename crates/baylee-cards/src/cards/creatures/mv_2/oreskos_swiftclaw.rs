@@ -10,7 +10,7 @@ card!(
     oracle_id = "014d00fc-434a-4b06-84b2-afd930677d61",
     scryfall_id = "0ea1dfb4-1983-41f7-956c-f2a1d1489b54",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oreskos Swiftclaw",
         mana_cost = mana!("{1}{W}"),

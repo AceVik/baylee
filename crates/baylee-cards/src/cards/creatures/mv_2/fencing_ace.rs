@@ -12,7 +12,7 @@ card!(
     scryfall_id = "994094f8-e175-4e2e-aa39-c096f0ed9e6a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fencing Ace",
         mana_cost = mana!("{1}{W}"),

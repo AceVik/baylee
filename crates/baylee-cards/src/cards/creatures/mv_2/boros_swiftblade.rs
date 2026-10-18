@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6135a9f2-e86d-4a34-857e-adea3c722fea",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boros Swiftblade",
         mana_cost = mana!("{R}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "d4556b82-f96e-4f88-a885-3e84afdb98a1",
     scryfall_id = "3c969aa0-b0e5-42cd-abba-0a3c7266142c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Maaka",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0535b69f-247d-49c9-97e1-d988700578ab",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::DOUBLE_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kithkin Billyrider",
         mana_cost = mana!("{2}{W}"),

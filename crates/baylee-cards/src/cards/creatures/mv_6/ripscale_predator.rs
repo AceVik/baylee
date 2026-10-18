@@ -12,7 +12,7 @@ card!(
     scryfall_id = "41578103-04a3-40eb-80b5-cdb5f2ecc297",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ripscale Predator",
         mana_cost = mana!("{4}{R}{R}"),

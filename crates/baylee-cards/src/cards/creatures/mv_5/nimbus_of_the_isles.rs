@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fbb41d25-b65b-4570-8523-ffb11779708f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nimbus of the Isles",
         mana_cost = mana!("{4}{U}"),
