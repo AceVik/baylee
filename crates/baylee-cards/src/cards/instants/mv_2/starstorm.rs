@@ -11,7 +11,7 @@ card!(
     oracle_id = "34d112c3-cc2d-4428-bd7f-568bda61bd30",
     scryfall_id = "728b356a-e2ec-4c44-bd0a-bb9a5427a1ad",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Starstorm",
         mana_cost = mana!("{X}{R}{R}"),

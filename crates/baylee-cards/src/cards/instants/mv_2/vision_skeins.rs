@@ -10,7 +10,7 @@ card!(
     oracle_id = "6d42dff5-97ec-4768-b112-84a3584d0b87",
     scryfall_id = "76999d96-f3fe-421e-9190-e682259e3cdb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vision Skeins",
         mana_cost = mana!("{1}{U}"),

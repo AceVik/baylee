@@ -6,6 +6,47 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-18 — Generated baseline verification (Packages 1–4: 2,364 cards promoted)
+
+Verifying the frozen `Coverage::Generated` baseline in mechanical packages
+(Package 1: 12 battle-hold / scriptgen cards; Package 2: 788 vanilla, keyword,
+protection, combat-restriction, and enter-modifier creatures; Package 3: 627
+Auras, Equipment, non-Aura Enchantments, and non-Equipment Artifacts; Package 4:
+574 Instants and 363 Sorceries) surfaced five reusable lessons:
+
+1. **Test-scanner `oracle_id` discipline.** `xtask codegen` scans all files under
+   `crates/baylee-engine/src/engine/card_tests/` for quoted `oracle_id` UUID
+   strings to decide which `Coverage::Generated` cards are tested and promote
+   them to `Coverage::Implemented`. Any fixture helper card referenced by UUID
+   in a test suite must already be `Coverage::Implemented`, or else it will
+   prematurely promote an unverified `Coverage::Generated` card out of turn.
+2. **Graveyard and library `"Permanent"` filters vs. battlefield filters.** On
+   the battlefield every object is already a permanent, so `scriptgen` elided
+   `base == "Permanent"` to `Filter::Any`. In graveyard targets (`TgtZone$
+   Graveyard`) and library search filters (`Origin$ Library`), `"Permanent"`
+   means a permanent card (CR 110.4a: artifact, battle, creature, enchantment,
+   land, or planeswalker) and must exclude instant and sorcery cards
+   (`Nature's Spiral`, `Revive the Shire`, `Obzedat's Aid`, `Wargate`,
+   `Planar Bridge`).
+3. **Comma-separated graveyard targets and `TargetType$` owner qualifiers.**
+   `strip_player_qualifiers` must strip `.YouCtrl` / `.YouOwn` across every
+   comma-separated alternative (`Artifact.YouCtrl,Enchantment.YouCtrl` on
+   `Argivian Find`, `Artifact.YouCtrl,Creature.YouCtrl` on `Emergency Weld`),
+   and when `TgtZone$ Graveyard` omits `.YouCtrl` on `ValidTgts$` (`Instant,Sorcery`
+   on `Call to Mind` and `Relearn`), `scriptgen` must check the Oracle sentence
+   (`"from your graveyard"`) so `Filter::YOUR_CARD` is still intersected.
+4. **Two-pass `decks-status` after promoting cards.** Because `xtask` links
+   `baylee-cards` at compile time, the `decks-status` pass inside the first
+   `cargo run -p xtask -- codegen` sees the pre-promotion `Coverage` constants.
+   Running `cargo run -p xtask -- decks-status` (or a second `xtask codegen`)
+   after `baylee-cards` recompiles updates `data/decks/precon/STATUS.tsv` and
+   `crates/baylee-db/src/precons/generated.rs` so `xtask codegen --check` is
+   clean.
+5. **Route fixture tapping through `GameState::set_tapped`.** The architectural
+   rule test `nothing_writes_the_tapped_bit_except_the_one_door` scans all
+   files under `crates/baylee-engine/src/` for direct `.status.insert(Status::TAPPED)`
+   writes; test fixtures that pre-tap permanents must call `st.set_tapped(id, true)`.
+
 ## 2026-10-18 — Batch 53: 31 cards, modal MDFCs, Class levels, and validator sync
 
 Implementing 28 new cards (`Coverage::Implemented`, plus 3 already implemented)

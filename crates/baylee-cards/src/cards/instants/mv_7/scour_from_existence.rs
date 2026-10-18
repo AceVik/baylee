@@ -9,7 +9,7 @@ card!(
     index = index::SCOUR_FROM_EXISTENCE,
     oracle_id = "241a50c5-f65f-4847-89c7-5c0ef6025dc1",
     scryfall_id = "6e47edb2-e43d-479f-a911-e72b67a06c3b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scour from Existence",
         mana_cost = mana!("{7}"),

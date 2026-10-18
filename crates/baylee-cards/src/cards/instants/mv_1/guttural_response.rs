@@ -15,7 +15,7 @@ card!(
     oracle_id = "9fb80575-9c8e-4745-9a8f-d48cdcbbb868",
     scryfall_id = "9121e55e-5070-48cc-b706-92c67ad89254",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guttural Response",
         mana_cost = mana!("{R/G}"),

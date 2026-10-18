@@ -10,7 +10,7 @@ card!(
     oracle_id = "57fe941c-a830-4570-afe2-18f93c7a7b84",
     scryfall_id = "d59e836b-1c7b-43ac-889b-5f94e1638c42",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obliterating Bolt",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "934ef52e-3e97-418a-bbcf-114badbb2c8a",
     scryfall_id = "726da84a-fdd4-46df-8ba4-f94d582bcce4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "You're Ambushed on the Road",
         mana_cost = mana!("{W}"),

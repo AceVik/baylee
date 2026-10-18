@@ -15,7 +15,7 @@ card!(
     oracle_id = "ec43d67c-2254-4782-8bd4-3318b25907e6",
     scryfall_id = "7b771f44-ce32-41a2-b219-738924b7f42d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gideon's Reproach",
         mana_cost = mana!("{1}{W}"),

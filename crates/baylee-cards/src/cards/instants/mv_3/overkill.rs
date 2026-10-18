@@ -10,7 +10,7 @@ card!(
     oracle_id = "571cb4b6-b4e5-40a2-a970-42c1ab65c8a9",
     scryfall_id = "ae075e71-d33d-4d6c-b4a5-0b47dd6fd196",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Overkill",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "412197f2-0e95-47fb-83db-ae8301c90ff0",
     scryfall_id = "829af103-68b4-4a4b-94b4-d272b38e45cd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crack Open",
         mana_cost = mana!("{2}{G}"),

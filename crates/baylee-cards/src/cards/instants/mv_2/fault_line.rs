@@ -15,7 +15,7 @@ card!(
     oracle_id = "ed743b88-0866-4f88-9f30-d49d2cf36b99",
     scryfall_id = "cab4fd0e-9f84-4628-92a7-858ad8064531",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fault Line",
         mana_cost = mana!("{X}{R}{R}"),

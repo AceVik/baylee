@@ -15,7 +15,7 @@ card!(
     oracle_id = "102bbedf-9f84-433a-bd01-e1a4c05fbedb",
     scryfall_id = "a98cee1e-64d8-4662-a911-009b031dc888",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impeccable Timing",
         mana_cost = mana!("{1}{W}"),

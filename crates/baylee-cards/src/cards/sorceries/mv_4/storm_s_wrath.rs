@@ -10,7 +10,7 @@ card!(
     oracle_id = "eeb6f5eb-0e16-468e-9dfe-6ec8d8172f86",
     scryfall_id = "6d064aff-711f-4670-b786-a74265bdf44a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Storm's Wrath",
         mana_cost = mana!("{2}{R}{R}"),

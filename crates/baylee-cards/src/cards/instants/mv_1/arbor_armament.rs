@@ -10,7 +10,7 @@ card!(
     oracle_id = "504f21e8-82ac-4433-b5e9-640989480f58",
     scryfall_id = "71c10923-a5b3-4b50-ae51-59982e05963a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arbor Armament",
         mana_cost = mana!("{G}"),

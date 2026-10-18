@@ -10,7 +10,7 @@ card!(
     oracle_id = "c638957f-88bf-40c2-834c-2be39d73bf41",
     scryfall_id = "94db72a8-57f7-4f17-9f09-cae90ef50304",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ob Nixilis's Cruelty",
         mana_cost = mana!("{2}{B}"),

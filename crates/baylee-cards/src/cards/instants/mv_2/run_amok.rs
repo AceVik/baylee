@@ -10,7 +10,7 @@ card!(
     oracle_id = "d463de75-8d3c-4077-a2cc-c304a63acc69",
     scryfall_id = "b18e1c55-29bc-434f-85b7-765d7ba71ff3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Run Amok",
         mana_cost = mana!("{1}{R}"),

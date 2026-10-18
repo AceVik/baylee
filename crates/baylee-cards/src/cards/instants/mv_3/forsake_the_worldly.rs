@@ -11,7 +11,7 @@ card!(
     oracle_id = "f60fb81a-969a-476c-a227-5231bbed4ad4",
     scryfall_id = "cca4e95e-f14e-4cfa-918a-cfb15f912293",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forsake the Worldly",
         mana_cost = mana!("{2}{W}"),

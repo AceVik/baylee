@@ -13,7 +13,7 @@ card!(
     oracle_id = "030e9e3e-ce78-4c3b-bd83-969c07c70459",
     scryfall_id = "1bb4916d-ab50-45c9-bf7e-e7a7e761aef4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boggart Birth Rite",
         mana_cost = mana!("{B}"),

@@ -15,7 +15,7 @@ card!(
     oracle_id = "eaf98e03-729b-4145-b2af-c910c415c15d",
     scryfall_id = "91e37a7e-6093-4ef5-b6e4-4aa800ddfc1b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flashfreeze",
         mana_cost = mana!("{1}{U}"),

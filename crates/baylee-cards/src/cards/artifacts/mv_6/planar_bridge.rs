@@ -5,6 +5,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static SEARCH1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::PLANAR_BRIDGE,
     oracle_id = "853c6cc0-ed2b-4d65-add1-2449ade8cf68",
@@ -19,7 +28,7 @@ card!(
     abilities = &[activated!(
         cost!("{8}", TapSelf),
         &[Effect::SearchLibrary {
-            filter: &Filter::Any,
+            filter: &SEARCH1,
             finds: &[Find::BATTLEFIELD],
             optional: false
         }]

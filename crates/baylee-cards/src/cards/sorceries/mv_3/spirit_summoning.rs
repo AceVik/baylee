@@ -12,7 +12,7 @@ card!(
     oracle_id = "a4825093-ea29-47d9-b52c-1c7735f1909e",
     scryfall_id = "74be6236-4095-419c-9927-fbd874df21f8",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit Summoning",
         mana_cost = mana!("{1}{R/W}{R/W}"),

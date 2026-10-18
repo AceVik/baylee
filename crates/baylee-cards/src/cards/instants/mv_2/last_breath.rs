@@ -12,7 +12,7 @@ card!(
     oracle_id = "e6fb4f0d-ce49-4913-a2ef-88365e4916cf",
     scryfall_id = "12cca37a-7efd-4b01-bf96-15d0a032524d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Last Breath",
         mana_cost = mana!("{1}{W}"),

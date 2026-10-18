@@ -11,7 +11,7 @@ card!(
     oracle_id = "a6450b8e-eb18-431c-9eb7-7daf107978b2",
     scryfall_id = "e4138531-ef42-4c56-864e-d3525a4f2082",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hordeling Outburst",
         mana_cost = mana!("{1}{R}{R}"),

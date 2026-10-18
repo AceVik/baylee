@@ -10,7 +10,7 @@ card!(
     oracle_id = "05bbd557-e2c0-4855-8fe6-00527fa39878",
     scryfall_id = "3edd0515-dcc4-4cb5-8b54-9c00173d8a6d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rig for War",
         mana_cost = mana!("{1}{R}"),

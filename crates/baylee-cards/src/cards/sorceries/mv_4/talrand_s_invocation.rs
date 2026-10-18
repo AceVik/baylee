@@ -11,7 +11,7 @@ card!(
     oracle_id = "43355ac4-bf8c-48f6-a322-fafbc9d132d1",
     scryfall_id = "88f43c2c-fee4-4df2-b326-a1d9840f64b0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talrand's Invocation",
         mana_cost = mana!("{2}{U}{U}"),

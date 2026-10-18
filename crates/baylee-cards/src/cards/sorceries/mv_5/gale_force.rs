@@ -12,7 +12,7 @@ card!(
     oracle_id = "337b0807-94cb-48d0-b752-61fbd05560e4",
     scryfall_id = "26c5c233-a373-4ac4-9b99-81ed97df1f9b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gale Force",
         mana_cost = mana!("{4}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "64de050c-7167-4ebd-8584-f064d8be3302",
     scryfall_id = "32f5d5be-777f-4e7b-b18c-ce4a9cedb7d0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armor of Shadows",
         mana_cost = mana!("{B}"),

@@ -15,6 +15,7 @@ mod mv_6;
 mod mv_7;
 mod mv_8;
 mod mv_9;
+mod pkg4_instants;
 
 // oracle_id = "1c747fe2-289e-492a-a846-aa77707e2dc3"
 fn abrupt_decay() -> baylee_core::ids::CardIndex {

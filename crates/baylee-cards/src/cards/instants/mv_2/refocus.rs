@@ -11,7 +11,7 @@ card!(
     oracle_id = "0101f891-e54c-43e5-86f3-263d95060fcd",
     scryfall_id = "35c78973-f2ae-4c76-802f-793d1022fcbd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Refocus",
         mana_cost = mana!("{1}{U}"),

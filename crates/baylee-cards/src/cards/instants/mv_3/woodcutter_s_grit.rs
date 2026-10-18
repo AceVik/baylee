@@ -10,7 +10,7 @@ card!(
     oracle_id = "7756d2b9-7b10-4d05-8ad3-8d8f39c1eb23",
     scryfall_id = "cc329134-4b71-4c33-8cfb-c3867a733115",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Woodcutter's Grit",
         mana_cost = mana!("{2}{G}"),

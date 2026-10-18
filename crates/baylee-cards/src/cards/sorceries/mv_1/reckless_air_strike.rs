@@ -14,7 +14,7 @@ card!(
     oracle_id = "89247308-e16f-4f60-a2a2-0b5e297c1fc1",
     scryfall_id = "68391b41-4a17-4450-a8ac-0ce8406fe8c1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Air Strike",
         mana_cost = mana!("{R}"),

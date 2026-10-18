@@ -15,7 +15,7 @@ card!(
     oracle_id = "3c8cc7e2-7bff-46e0-bb5b-1e721a56a3ef",
     scryfall_id = "82ab72c3-1f76-45ff-84b4-05f403866d44",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunlance",
         mana_cost = mana!("{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "a5fdf1b2-da22-4fa6-810a-85c3f7587535",
     scryfall_id = "7fed18af-7301-4d03-ba7c-e94f07f078b3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Halt Order",
         mana_cost = mana!("{2}{U}"),

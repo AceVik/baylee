@@ -11,7 +11,7 @@ card!(
     oracle_id = "7e074b14-0ec8-439b-9b83-5f7c1a904384",
     scryfall_id = "478d236c-9778-435a-ac21-bd0017a17d5b",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haunt the Network",
         mana_cost = mana!("{3}{U}{B}"),

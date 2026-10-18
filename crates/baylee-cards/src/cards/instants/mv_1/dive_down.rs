@@ -10,7 +10,7 @@ card!(
     oracle_id = "2f990b54-fbf3-4949-85bb-9ba39710e72a",
     scryfall_id = "65d5cff9-a3ec-432d-9ce5-68949e524279",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dive Down",
         mana_cost = mana!("{U}"),

@@ -19,7 +19,7 @@ card!(
     oracle_id = "d0b08a7b-8c9c-4440-9331-5a24917423ca",
     scryfall_id = "830d1980-f460-4be2-9379-c3f74c8318f3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fever Charm",
         mana_cost = mana!("{R}"),

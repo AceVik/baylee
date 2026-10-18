@@ -10,7 +10,7 @@ card!(
     oracle_id = "e3172ac0-213c-4da4-8b7a-8f84bc237cde",
     scryfall_id = "c042c7ee-0e74-4ca5-bbb9-2898b0576f0a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mending Touch",
         mana_cost = mana!("{G}"),

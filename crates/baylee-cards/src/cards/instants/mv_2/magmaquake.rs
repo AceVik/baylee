@@ -18,7 +18,7 @@ card!(
     oracle_id = "a52037df-0be1-4c99-b9eb-b033157af203",
     scryfall_id = "8a8945b4-d2e1-4779-9c33-a8b062637fa6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magmaquake",
         mana_cost = mana!("{X}{R}{R}"),

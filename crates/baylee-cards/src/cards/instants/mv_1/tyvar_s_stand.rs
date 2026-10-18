@@ -10,7 +10,7 @@ card!(
     oracle_id = "4247b667-a0a8-4995-97c7-622d20132f7d",
     scryfall_id = "b6ab0855-782a-498c-a885-b3ab3d1bb362",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tyvar's Stand",
         mana_cost = mana!("{X}{G}"),

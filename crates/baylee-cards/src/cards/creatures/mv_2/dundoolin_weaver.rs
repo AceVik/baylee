@@ -6,6 +6,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static TARGET1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::DUNDOOLIN_WEAVER,
     oracle_id = "28564d10-bfc5-4beb-b0e2-b9aa5c03f740",
@@ -23,10 +32,10 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You)
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::Any,
+            &TARGET1,
             PlayerRel::You
         ))),
         condition = Some(Condition::ControlCount(&Filter::YOUR_CREATURE, 3))

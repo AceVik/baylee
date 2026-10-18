@@ -11,7 +11,7 @@ card!(
     oracle_id = "ecef9e3d-dce8-405f-bba3-14732444258f",
     scryfall_id = "dcf6a0e7-1fd4-425f-b634-c93236daea35",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightshield Parry",
         mana_cost = mana!("{W}"),

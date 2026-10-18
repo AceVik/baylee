@@ -10,7 +10,7 @@ card!(
     oracle_id = "ba995901-bb32-45ed-8af8-f98784b5a9b0",
     scryfall_id = "5a5841fa-4f30-495a-b840-3ef5a2af8fad",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "One with Nothing",
         mana_cost = mana!("{B}"),

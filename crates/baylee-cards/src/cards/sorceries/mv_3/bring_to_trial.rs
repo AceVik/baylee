@@ -12,7 +12,7 @@ card!(
     oracle_id = "968b6277-584c-4947-98ac-4d6e5f8d6754",
     scryfall_id = "63d566fc-0936-4035-96fd-f8b0c4eadbf5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bring to Trial",
         mana_cost = mana!("{2}{W}"),

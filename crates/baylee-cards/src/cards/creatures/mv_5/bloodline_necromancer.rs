@@ -11,7 +11,6 @@ static TARGET1: Filter = Filter::Or(&[
     Filter::And(&[
         Filter::CREATURE,
         Filter::HasSubtype(subtypes::creature::VAMPIRE),
-        Filter::ControlledByYou,
     ]),
     Filter::And(&[
         Filter::CREATURE,

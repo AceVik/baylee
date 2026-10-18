@@ -16,7 +16,7 @@ card!(
     oracle_id = "99eb5cda-684d-4f6c-bc34-1f03c8797150",
     scryfall_id = "b5bd4bdd-3a2a-40d9-9f86-fefe0a462cd2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shake the Foundations",
         mana_cost = mana!("{2}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "30d9e200-b944-43ff-89b8-a550a788ae03",
     scryfall_id = "d6828916-c19e-4857-a6ba-047b81314d1f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breath of Life",
         mana_cost = mana!("{3}{W}"),

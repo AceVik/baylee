@@ -10,7 +10,7 @@ card!(
     oracle_id = "4b6dd710-f7f2-4fc8-9b66-b48c7737b135",
     scryfall_id = "17979f0e-bd39-449f-b4ed-9156c229223b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Untamed Might",
         mana_cost = mana!("{X}{G}"),

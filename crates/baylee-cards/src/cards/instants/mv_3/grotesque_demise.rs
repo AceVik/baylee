@@ -12,7 +12,7 @@ card!(
     oracle_id = "eed4651b-4c45-4136-9e3d-44471031368f",
     scryfall_id = "b698c5e1-3816-4f35-8e39-65dc68f5c64f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grotesque Demise",
         mana_cost = mana!("{2}{B}"),

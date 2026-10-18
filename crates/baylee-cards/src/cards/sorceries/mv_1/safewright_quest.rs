@@ -16,7 +16,7 @@ card!(
     oracle_id = "003c48d4-0303-4970-8637-47ae060385aa",
     scryfall_id = "61edb39b-ff82-4568-971f-baf22e209c88",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Safewright Quest",
         mana_cost = mana!("{G/W}"),

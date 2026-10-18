@@ -11,7 +11,7 @@ card!(
     index = index::SKITTERING_INVASION,
     oracle_id = "cf890abd-b282-4dbb-ac86-9e7caec1c1b8",
     scryfall_id = "270f0e5b-2c46-4816-a195-cfce16570bde",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skittering Invasion",
         mana_cost = mana!("{7}"),

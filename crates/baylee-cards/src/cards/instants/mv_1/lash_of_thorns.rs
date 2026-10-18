@@ -10,7 +10,7 @@ card!(
     oracle_id = "642d3494-7a6a-4aec-ba64-7c0c467ada99",
     scryfall_id = "ea45e972-6e4a-4854-9be3-6ffb24e7d7a5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lash of Thorns",
         mana_cost = mana!("{B}"),

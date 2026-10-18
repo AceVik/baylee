@@ -13,7 +13,7 @@ card!(
     oracle_id = "a4364218-f746-42ff-8495-bf8ca69c3b62",
     scryfall_id = "9624ed7b-9f45-483c-a2cc-6089605f988f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dogpile",
         mana_cost = mana!("{3}{R}"),

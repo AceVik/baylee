@@ -12,7 +12,7 @@ card!(
     oracle_id = "3d169bb1-e91b-46d8-9280-797192926314",
     scryfall_id = "7f711ea8-a73a-42da-8bf7-101ba588f203",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aliban's Tower",
         mana_cost = mana!("{1}{R}"),

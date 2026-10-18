@@ -13,7 +13,7 @@ card!(
     oracle_id = "d40ea3d9-8c48-4846-b1f4-99018d4fd789",
     scryfall_id = "62add4fe-c19e-40bd-82f6-cb1307a331b1",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Esper Charm",
         mana_cost = mana!("{W}{U}{B}"),

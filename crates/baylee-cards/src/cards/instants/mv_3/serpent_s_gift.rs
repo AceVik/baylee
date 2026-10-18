@@ -10,7 +10,7 @@ card!(
     oracle_id = "b75fb789-6a78-4d23-b872-7627b478fb6f",
     scryfall_id = "0e27503e-059e-4c44-a817-678e67254111",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpent's Gift",
         mana_cost = mana!("{2}{G}"),

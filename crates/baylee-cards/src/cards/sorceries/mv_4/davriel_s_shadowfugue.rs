@@ -10,7 +10,7 @@ card!(
     oracle_id = "cb490f3f-74ed-4d38-8eda-9948c095f3bc",
     scryfall_id = "09c8fe63-37a7-478d-b9ba-33a0f6519cf1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Davriel's Shadowfugue",
         mana_cost = mana!("{3}{B}"),

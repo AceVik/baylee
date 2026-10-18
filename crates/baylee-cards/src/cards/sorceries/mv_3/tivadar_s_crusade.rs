@@ -11,7 +11,7 @@ card!(
     oracle_id = "5cf4d98e-f2f4-435b-a633-990b2e654f3a",
     scryfall_id = "af57687b-da90-41df-85a3-cb92933f2ca8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tivadar's Crusade",
         mana_cost = mana!("{1}{W}{W}"),

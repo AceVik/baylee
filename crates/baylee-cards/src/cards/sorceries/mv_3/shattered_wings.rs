@@ -16,7 +16,7 @@ card!(
     oracle_id = "709b9f76-0ea5-456c-b1db-2cf517370fde",
     scryfall_id = "bbece737-bd4f-4dc8-bf5c-f77930246ab1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shattered Wings",
         mana_cost = mana!("{2}{G}"),

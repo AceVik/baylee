@@ -15,7 +15,7 @@ card!(
     oracle_id = "46e311ef-c86e-4aad-8b42-ef0d68a90c2e",
     scryfall_id = "c64a15f4-6e2f-4479-95da-8805ce2091fa",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arrows of Justice",
         mana_cost = mana!("{2}{R/W}"),

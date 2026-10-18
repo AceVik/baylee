@@ -10,7 +10,7 @@ card!(
     oracle_id = "c8195fcd-1858-4f23-aa73-b654d25035aa",
     scryfall_id = "094c2ac3-040f-41fe-9a37-c037d90baec0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Expose to Daylight",
         mana_cost = mana!("{2}{W}"),

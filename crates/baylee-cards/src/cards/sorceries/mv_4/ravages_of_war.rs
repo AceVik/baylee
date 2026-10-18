@@ -10,7 +10,7 @@ card!(
     oracle_id = "265236d1-d96c-4424-835e-a0fe91c41170",
     scryfall_id = "bdf7d5d9-d980-445e-b1e4-5af0681c6e60",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ravages of War",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "a7c55495-6aca-4d17-b61a-cab8fa38b9f4",
     scryfall_id = "c80aa587-4445-43d7-abc0-654d94ff4cda",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Risky Shortcut",
         mana_cost = mana!("{2}{B}"),

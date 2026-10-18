@@ -10,7 +10,7 @@ card!(
     oracle_id = "e80a7118-dd6b-4907-ad69-09387e0c2114",
     scryfall_id = "4f8a1d51-aa7f-41fd-b97d-56bc48221615",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mental Agony",
         mana_cost = mana!("{3}{B}"),

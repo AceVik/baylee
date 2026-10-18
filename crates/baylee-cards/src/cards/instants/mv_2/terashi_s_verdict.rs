@@ -14,7 +14,7 @@ card!(
     oracle_id = "28ea1f58-3310-4cf1-a834-40f2cc3b6898",
     scryfall_id = "bc5fa34b-95c6-4e02-9e15-3f595f744741",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Terashi's Verdict",
         mana_cost = mana!("{1}{W}"),

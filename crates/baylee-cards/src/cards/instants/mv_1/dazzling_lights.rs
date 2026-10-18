@@ -11,7 +11,7 @@ card!(
     oracle_id = "394709f0-2d29-4a2d-be05-7b22fec57763",
     scryfall_id = "a9d4639a-b634-469e-a848-35e3a3dfd47e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dazzling Lights",
         mana_cost = mana!("{U}"),

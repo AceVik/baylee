@@ -10,7 +10,7 @@ card!(
     oracle_id = "25ec6309-0ccb-4f27-80f1-ec6dcc6461fa",
     scryfall_id = "b9caddbe-1329-4ac2-9071-6fc5059d4dec",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seismic Spike",
         mana_cost = mana!("{2}{R}{R}"),

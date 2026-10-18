@@ -12,7 +12,7 @@ card!(
     oracle_id = "e8fcc7ff-6274-4130-a3a5-99f545eeee30",
     scryfall_id = "5cb4a0bc-196a-466b-a704-377f5c7eb5b7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Survive the Night",
         mana_cost = mana!("{2}{W}"),

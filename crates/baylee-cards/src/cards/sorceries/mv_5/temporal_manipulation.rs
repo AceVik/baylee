@@ -10,7 +10,7 @@ card!(
     oracle_id = "6b6ac99a-7548-4cad-9fe5-ea611618ab9e",
     scryfall_id = "6270b93e-8cd2-4668-982a-f4c4628da9d9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temporal Manipulation",
         mana_cost = mana!("{3}{U}{U}"),

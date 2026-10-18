@@ -13,7 +13,7 @@ card!(
     oracle_id = "dffde884-15bc-4985-90e2-a0888ef4cb48",
     scryfall_id = "9cb19ac2-edf9-4f9a-b9ba-2a33ba96a4d8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piracy Charm",
         mana_cost = mana!("{U}"),

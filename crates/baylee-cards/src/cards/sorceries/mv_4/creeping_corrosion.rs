@@ -10,7 +10,7 @@ card!(
     oracle_id = "33eefb22-51a6-4630-9bd2-0895997f6f33",
     scryfall_id = "05d5a7b3-18b6-4b1d-85cc-2253e605390c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Creeping Corrosion",
         mana_cost = mana!("{2}{G}{G}"),

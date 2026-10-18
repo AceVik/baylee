@@ -13,7 +13,7 @@ card!(
     oracle_id = "d8e255ec-7d66-43f6-b5f0-712f5957687f",
     scryfall_id = "55c99486-ae64-4293-81fb-a4b02e8fcae6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Start from Scratch",
         mana_cost = mana!("{2}{R}"),

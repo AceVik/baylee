@@ -12,7 +12,7 @@ card!(
     oracle_id = "86214b4c-a3ad-4372-b5fe-8f742a7a3d4c",
     scryfall_id = "16765eb2-d497-4cd6-b683-20eac2f10bbf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reverent Howl",
         mana_cost = mana!("{2}{B}"),

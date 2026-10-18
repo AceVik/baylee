@@ -10,7 +10,7 @@ card!(
     oracle_id = "f24634f3-49aa-4362-8faa-93598b9324d9",
     scryfall_id = "6ee479c2-a115-450b-bc2e-b03d23b82f2d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spark Jolt",
         mana_cost = mana!("{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "9ccb6ce8-ccb6-4809-a1cc-cebd38744815",
     scryfall_id = "34d6a2d0-d855-4b87-9f4c-58dda0b81c82",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Rally",
         mana_cost = mana!("{3}{R}{R}"),

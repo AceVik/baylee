@@ -11,7 +11,7 @@ card!(
     oracle_id = "9cfe86ae-eebe-44aa-a956-4b3e9e621105",
     scryfall_id = "b07d96a1-87a0-45ff-ae6e-230deaf44dca",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krenko's Command",
         mana_cost = mana!("{1}{R}"),

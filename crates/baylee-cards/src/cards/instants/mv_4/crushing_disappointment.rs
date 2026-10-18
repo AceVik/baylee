@@ -10,7 +10,7 @@ card!(
     oracle_id = "77a1958e-ee24-4305-9dad-da8372803be8",
     scryfall_id = "7fbe8cf1-11df-4ca4-9a6b-265193c49250",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crushing Disappointment",
         mana_cost = mana!("{3}{B}"),

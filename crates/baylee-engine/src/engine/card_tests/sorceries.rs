@@ -13,6 +13,7 @@ mod mv_5;
 mod mv_6;
 mod mv_7;
 mod mv_8;
+mod pkg4_sorceries;
 
 // oracle_id = "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
 fn faithless_looting() -> baylee_core::ids::CardIndex {

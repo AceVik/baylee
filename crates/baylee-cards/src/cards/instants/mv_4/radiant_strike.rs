@@ -15,7 +15,7 @@ card!(
     oracle_id = "186efd85-83d4-40cc-b617-76f32dbe99ce",
     scryfall_id = "8c38e4cb-918b-4493-872b-66c90dcfd339",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Radiant Strike",
         mana_cost = mana!("{3}{W}"),

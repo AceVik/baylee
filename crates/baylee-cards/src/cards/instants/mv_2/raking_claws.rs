@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2248d3d-3157-4610-868d-2b3fae2b1ec8",
     scryfall_id = "6eb0d9a2-f9bb-4d8e-a1ca-896c42f8ad56",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raking Claws",
         mana_cost = mana!("{1}{R}"),

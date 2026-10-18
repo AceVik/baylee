@@ -11,7 +11,7 @@ card!(
     oracle_id = "7887f060-3024-4dc4-aeb5-fb5546db6b48",
     scryfall_id = "35096eb3-ad7b-4b6e-b799-cb4cc447883e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Relic's Roar",
         mana_cost = mana!("{U}"),

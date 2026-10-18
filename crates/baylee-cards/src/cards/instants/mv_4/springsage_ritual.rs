@@ -10,7 +10,7 @@ card!(
     oracle_id = "14945b80-10ec-4205-98df-cc3e119ca57c",
     scryfall_id = "2e0b23a4-5868-4dd8-ae68-846934e1bd52",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Springsage Ritual",
         mana_cost = mana!("{3}{G}"),

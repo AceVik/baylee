@@ -10,7 +10,7 @@ card!(
     oracle_id = "f3c413ca-835b-4fb2-b600-387c01f314a7",
     scryfall_id = "ae085c66-9235-4636-a86f-fca7e6ed7c62",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Roar",
         mana_cost = mana!("{1}{G}"),

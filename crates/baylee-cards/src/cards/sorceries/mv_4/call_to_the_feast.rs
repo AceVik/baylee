@@ -11,7 +11,7 @@ card!(
     oracle_id = "30536d1f-8b1a-474f-a508-d3426480a532",
     scryfall_id = "cf31f32f-bbca-4e70-93ca-f74c20202939",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call to the Feast",
         mana_cost = mana!("{2}{W}{B}"),

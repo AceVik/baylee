@@ -10,7 +10,7 @@ card!(
     oracle_id = "992d9a72-d34d-47d7-96fb-37f0efb515ef",
     scryfall_id = "3faa8c5e-9e1b-4cee-b322-a033bf33dcbc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hymn to Tourach",
         mana_cost = mana!("{B}{B}"),

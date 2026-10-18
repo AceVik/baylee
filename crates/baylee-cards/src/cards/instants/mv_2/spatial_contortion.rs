@@ -10,7 +10,7 @@ card!(
     index = index::SPATIAL_CONTORTION,
     oracle_id = "7346337e-ac12-4dd2-826d-77ec0013e74f",
     scryfall_id = "3fd2f8b3-62f3-4e52-ae17-dd0a61bc0e26",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spatial Contortion",
         mana_cost = mana!("{1}{C}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "25edeff3-7727-4b80-9459-2bb6b8587fb9",
     scryfall_id = "af6b3bf7-bd09-4f0d-a670-2efc1c6d416f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hornet Sting",
         mana_cost = mana!("{G}"),

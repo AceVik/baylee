@@ -11,7 +11,7 @@ card!(
     oracle_id = "c17b9e5b-58b6-4ccf-8283-945ba77429e7",
     scryfall_id = "2e0861a2-1858-47af-8154-20a977c2b298",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mutagenic Growth",
         mana_cost = mana!("{G/P}"),

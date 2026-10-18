@@ -10,7 +10,7 @@ card!(
     oracle_id = "3656338d-ca08-465b-b09a-d8d8d1196eec",
     scryfall_id = "3adc0288-acdf-4a99-9bfb-919cae1aeb69",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blazing Volley",
         mana_cost = mana!("{R}"),

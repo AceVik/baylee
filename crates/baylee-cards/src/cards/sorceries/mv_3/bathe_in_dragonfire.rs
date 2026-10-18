@@ -10,7 +10,7 @@ card!(
     oracle_id = "72d793e8-1d19-4ca1-894c-8851a2ebecde",
     scryfall_id = "102740d0-ca74-460d-af30-c71bddad87c4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bathe in Dragonfire",
         mana_cost = mana!("{2}{R}"),

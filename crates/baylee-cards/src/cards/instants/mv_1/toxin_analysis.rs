@@ -11,7 +11,7 @@ card!(
     oracle_id = "1f3b0b15-2c38-4aaa-b527-afbb540a6715",
     scryfall_id = "0eda1aff-c1f4-4171-a800-605396cc8168",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toxin Analysis",
         mana_cost = mana!("{B}"),

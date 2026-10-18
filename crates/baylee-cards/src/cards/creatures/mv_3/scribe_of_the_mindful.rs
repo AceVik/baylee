@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::ControlledByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::ControlledByYou]),
-]);
-
 card!(
     index = index::SCRIBE_OF_THE_MINDFUL,
     oracle_id = "019a3229-dd1c-4f70-a8fb-e33dbc54df39",
@@ -28,8 +23,11 @@ card!(
     abilities = &[activated!(
         cost!("{1}", TapSelf, SacrificeSelf),
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You)
         }],
-        target = Some(TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer))
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::INSTANT_OR_SORCERY,
+            PlayerRel::You
+        ))
     ),],
 );

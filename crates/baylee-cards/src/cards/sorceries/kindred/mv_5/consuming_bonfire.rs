@@ -23,7 +23,7 @@ card!(
     oracle_id = "e1feea85-2f06-43aa-9b3c-eb63085276f5",
     scryfall_id = "56a4ec08-5029-4f7b-a93b-a5dad4be5113",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consuming Bonfire",
         mana_cost = mana!("{3}{R}{R}"),

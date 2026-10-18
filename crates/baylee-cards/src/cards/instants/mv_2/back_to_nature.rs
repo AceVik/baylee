@@ -10,7 +10,7 @@ card!(
     oracle_id = "b8d8ece6-397e-4bc9-b86c-7caa1d675d0f",
     scryfall_id = "b49270b2-ba15-4268-adb3-16d09c09adee",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Back to Nature",
         mana_cost = mana!("{1}{G}"),

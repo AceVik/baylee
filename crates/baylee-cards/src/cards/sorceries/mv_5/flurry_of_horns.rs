@@ -11,7 +11,7 @@ card!(
     oracle_id = "0c8ab7bf-7b6a-4a34-b988-9f3f4d84a9ea",
     scryfall_id = "be522ae8-9cf4-4c63-9a1c-0010d482c00a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flurry of Horns",
         mana_cost = mana!("{4}{R}"),

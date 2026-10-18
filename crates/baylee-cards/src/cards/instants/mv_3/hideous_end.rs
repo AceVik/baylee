@@ -15,7 +15,7 @@ card!(
     oracle_id = "f1eafb69-e7c0-4a22-9e73-6bc32168a7c5",
     scryfall_id = "69ece875-81eb-47fc-9ad9-080b654d49f5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hideous End",
         mana_cost = mana!("{1}{B}{B}"),

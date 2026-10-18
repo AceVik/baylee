@@ -11,7 +11,7 @@ card!(
     oracle_id = "cb1ae4f2-4fec-4cac-8992-616af82e0ade",
     scryfall_id = "b89deafd-cb7c-4da7-ab9b-8f795554a705",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unhinge",
         mana_cost = mana!("{2}{B}"),

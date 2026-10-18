@@ -6,6 +6,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static TARGET1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::ELVISH_REGROWER,
     oracle_id = "adac526d-1a85-431a-a302-0a4b8f4a0c44",
@@ -23,10 +32,10 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You)
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::Any,
+            &TARGET1,
             PlayerRel::You
         )))
     ),],

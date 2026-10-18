@@ -11,7 +11,7 @@ card!(
     oracle_id = "57085b8e-a85e-4d50-a7d2-9bddfdaf411c",
     scryfall_id = "a638c9ba-45d6-4b50-a8ab-ef580a0a5d8e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sugar Rush",
         mana_cost = mana!("{1}{B}"),

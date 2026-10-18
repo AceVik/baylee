@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fcfac301-55db-49a7-9a0d-918c907703da",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fanged Flames",
         mana_cost = mana!("{1}{R}"),

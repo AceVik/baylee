@@ -10,7 +10,7 @@ card!(
     oracle_id = "33be346b-a232-4680-9b1b-a5eee57d2e75",
     scryfall_id = "17965a3c-92b4-4f01-b076-e40c567eed33",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disorient",
         mana_cost = mana!("{3}{U}"),

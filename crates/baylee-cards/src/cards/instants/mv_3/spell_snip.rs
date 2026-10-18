@@ -11,7 +11,7 @@ card!(
     oracle_id = "cfdae813-7241-4f6c-99f0-c772af34af91",
     scryfall_id = "d6870203-ece9-4fe0-912b-2dcf685f3eb0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spell Snip",
         mana_cost = mana!("{2}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "f73416a8-40e5-4791-948f-147ef2221ee7",
     scryfall_id = "9900f47d-e1ec-411d-92f3-aed8e01ee535",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Might of the Masses",
         mana_cost = mana!("{G}"),

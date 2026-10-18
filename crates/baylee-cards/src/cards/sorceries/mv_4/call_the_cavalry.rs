@@ -11,7 +11,7 @@ card!(
     oracle_id = "855b168b-e514-4a43-8bbe-7f1df40031ae",
     scryfall_id = "5ffd9de5-c0b9-4d41-ab11-c77ce6f67c60",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call the Cavalry",
         mana_cost = mana!("{3}{W}"),

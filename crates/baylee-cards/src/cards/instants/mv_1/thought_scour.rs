@@ -11,7 +11,7 @@ card!(
     oracle_id = "83101ba8-a569-4827-8c53-9ca0dfcd59a7",
     scryfall_id = "4afee6b3-55a4-44e5-b08c-85e0c813cd09",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thought Scour",
         mana_cost = mana!("{U}"),

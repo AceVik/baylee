@@ -10,7 +10,7 @@ card!(
     oracle_id = "26809033-a823-4251-887e-0410a545f993",
     scryfall_id = "28c44782-a12f-4ecc-a6e8-d569e2942a9a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Shatter",
         mana_cost = mana!("{X}{B}{B}"),

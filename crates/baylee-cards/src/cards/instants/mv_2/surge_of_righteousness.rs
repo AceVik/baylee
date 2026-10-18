@@ -33,7 +33,7 @@ card!(
     oracle_id = "5c9a2789-4b8c-4706-a95a-99561cd6d09c",
     scryfall_id = "114366f3-237f-4f96-b644-5bd82d97b18b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Surge of Righteousness",
         mana_cost = mana!("{1}{W}"),

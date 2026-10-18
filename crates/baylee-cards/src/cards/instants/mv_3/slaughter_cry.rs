@@ -10,7 +10,7 @@ card!(
     oracle_id = "924e20d5-b8a0-4883-9273-97ca01bf702a",
     scryfall_id = "65ec8b61-e602-41f2-ac1a-64e150b2ce18",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slaughter Cry",
         mana_cost = mana!("{2}{R}"),

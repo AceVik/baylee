@@ -12,7 +12,7 @@ card!(
     oracle_id = "caef715c-3ca6-4f56-9dd5-aebce9cd0621",
     scryfall_id = "2b9d5820-a0b1-462d-a47c-4b6c6a549eca",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon's Desire",
         mana_cost = mana!("{2}{R}{R}"),

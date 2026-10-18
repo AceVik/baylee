@@ -10,7 +10,7 @@ card!(
     oracle_id = "14363df6-ac0f-476a-bbd8-ce351de0babf",
     scryfall_id = "d7693c10-5ebb-4896-bb60-63d03577dd60",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Extraction",
         mana_cost = mana!("{1}{B}{B}"),

@@ -15,7 +15,7 @@ card!(
     oracle_id = "f025c1da-734e-4cbb-99d8-9d700d6edbde",
     scryfall_id = "5bf09deb-2607-4eb0-94a7-9584e771fdfb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fragmentize",
         mana_cost = mana!("{W}"),

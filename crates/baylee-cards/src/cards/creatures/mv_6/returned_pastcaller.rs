@@ -8,12 +8,9 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::OwnedByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::OwnedByYou]),
-    Filter::And(&[
-        Filter::HasSubtype(subtypes::creature::SPIRIT),
-        Filter::OwnedByYou,
-    ]),
+    Filter::HasType(TypeSet::INSTANT),
+    Filter::HasType(TypeSet::SORCERY),
+    Filter::HasSubtype(subtypes::creature::SPIRIT),
 ]);
 
 card!(
@@ -34,11 +31,11 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
             &TARGET1,
-            PlayerRel::EachPlayer
+            PlayerRel::You
         )))
     ),],
 );

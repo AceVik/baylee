@@ -13,7 +13,7 @@ card!(
     oracle_id = "ed228f67-3adf-46d4-ac45-e0278592850d",
     scryfall_id = "33f51f18-41af-4a2c-a353-48bebd697599",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Charm",
         mana_cost = mana!("{B}"),

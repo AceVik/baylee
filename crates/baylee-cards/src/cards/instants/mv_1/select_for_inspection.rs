@@ -12,7 +12,7 @@ card!(
     oracle_id = "cfee4ba9-3cf2-4e8b-a4a7-21974828cd54",
     scryfall_id = "120f0fb0-4831-4759-b58c-05c4be90a4af",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Select for Inspection",
         mana_cost = mana!("{U}"),

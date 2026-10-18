@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2c60973-b4d5-43fa-a0c4-b5688b28df05",
     scryfall_id = "0430da3c-9460-4b62-ae28-2e7e6f4d06a4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neutralize",
         mana_cost = mana!("{1}{U}{U}"),

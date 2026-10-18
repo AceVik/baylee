@@ -14,7 +14,7 @@ card!(
     oracle_id = "30f058f8-5777-4c25-b881-8f1d0ce17d3a",
     scryfall_id = "cae56fef-b661-4bc5-b9a1-3871ae06e491",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sarkhan's Resolve",
         mana_cost = mana!("{1}{G}"),

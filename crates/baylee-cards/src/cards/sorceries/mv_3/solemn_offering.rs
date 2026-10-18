@@ -10,7 +10,7 @@ card!(
     oracle_id = "aff51c27-fb61-41b3-a7ea-7092cd280c63",
     scryfall_id = "e30d14b8-b431-4764-9b30-f511bd40fd08",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Solemn Offering",
         mana_cost = mana!("{2}{W}"),

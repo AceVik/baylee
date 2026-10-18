@@ -10,7 +10,7 @@ card!(
     oracle_id = "fc070e97-73ac-4028-9432-ff2012f2e778",
     scryfall_id = "7854928a-d467-4616-b96b-de7e5fe7303e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Virtue's Ruin",
         mana_cost = mana!("{2}{B}"),

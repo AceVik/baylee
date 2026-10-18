@@ -12,7 +12,7 @@ card!(
     oracle_id = "5a680186-a84d-400f-9452-76f19bdfafa3",
     scryfall_id = "bb1beef2-788b-469b-883b-cf1cca04eeff",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten Blast",
         mana_cost = mana!("{2}{R}"),

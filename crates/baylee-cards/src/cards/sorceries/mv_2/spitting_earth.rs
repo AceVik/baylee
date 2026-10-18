@@ -16,7 +16,7 @@ card!(
     oracle_id = "0c3bf4e1-d91e-4dd3-a800-e40971222c71",
     scryfall_id = "de1aa8f9-8200-4ddd-9ab5-1a8181cc1792",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spitting Earth",
         mana_cost = mana!("{1}{R}"),

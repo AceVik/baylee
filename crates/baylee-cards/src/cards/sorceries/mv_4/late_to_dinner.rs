@@ -11,7 +11,7 @@ card!(
     oracle_id = "31bf199b-dfb1-428e-96a5-eb25104e2b43",
     scryfall_id = "6633cab9-23f9-474e-96f1-ca7c0c67691c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Late to Dinner",
         mana_cost = mana!("{3}{W}"),

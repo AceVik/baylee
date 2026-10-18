@@ -16,7 +16,7 @@ card!(
     oracle_id = "d9c29e6e-5949-4599-bf74-b9539e753f76",
     scryfall_id = "7b3c8dda-2405-4879-8dd1-e790a833c42d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bounce Off",
         mana_cost = mana!("{U}"),

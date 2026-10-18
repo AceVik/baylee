@@ -12,7 +12,7 @@ card!(
     oracle_id = "879c8663-5058-4998-9a59-f2e9ea8914dc",
     scryfall_id = "6ea63dad-6afe-464e-ab19-fabd9709c6f9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revolutionary Rebuff",
         mana_cost = mana!("{1}{U}"),

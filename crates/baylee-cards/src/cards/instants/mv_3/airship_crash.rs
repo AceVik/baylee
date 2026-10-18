@@ -17,7 +17,7 @@ card!(
     oracle_id = "72a0e0f1-e8be-441a-bcaf-029fb1bd1fd2",
     scryfall_id = "ec91c4e4-711f-464d-bc83-e6813f4fdcdb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Airship Crash",
         mana_cost = mana!("{2}{G}"),

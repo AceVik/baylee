@@ -11,7 +11,7 @@ card!(
     oracle_id = "1b73639b-2b07-4e82-b990-ca7721074e43",
     scryfall_id = "543eb854-bac7-468f-b3b0-d9987cfac318",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dissenter's Deliverance",
         mana_cost = mana!("{1}{G}"),

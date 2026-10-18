@@ -10,7 +10,7 @@ card!(
     oracle_id = "7f5e5aa8-3f15-45c9-bfc8-1f4b98d2be38",
     scryfall_id = "0fb03437-32cf-4c97-bf91-ea8b2ad3f964",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scorpion's Sting",
         mana_cost = mana!("{1}{B}"),

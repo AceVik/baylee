@@ -10,7 +10,7 @@ card!(
     oracle_id = "5c034266-8e63-4b43-8f9e-564e6fff6ec1",
     scryfall_id = "a16f203a-785e-4c78-9410-fb9f8a0ffa01",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smaug's Fury",
         mana_cost = mana!("{1}{R}"),

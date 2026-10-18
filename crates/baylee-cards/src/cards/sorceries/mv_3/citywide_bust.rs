@@ -10,7 +10,7 @@ card!(
     oracle_id = "3ac01298-e45b-4ea0-8379-2074279716a4",
     scryfall_id = "33d1a51a-abf0-458c-98ae-98fcf4063fd9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Citywide Bust",
         mana_cost = mana!("{1}{W}{W}"),

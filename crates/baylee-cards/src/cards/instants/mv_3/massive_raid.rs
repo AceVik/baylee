@@ -10,7 +10,7 @@ card!(
     oracle_id = "032367fd-e869-463e-aa0f-65e3c6567e60",
     scryfall_id = "8b16fbd8-fb62-4f75-92b3-a6295d95b327",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Massive Raid",
         mana_cost = mana!("{1}{R}{R}"),

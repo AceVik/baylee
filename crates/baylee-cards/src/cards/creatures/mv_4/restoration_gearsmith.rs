@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
-    Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]),
-]);
-
 card!(
     index = index::RESTORATION_GEARSMITH,
     oracle_id = "447c7fe0-6ec7-4163-9d9c-f08f0a4c7109",
@@ -28,11 +23,11 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_CREATURE, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::ARTIFACT_OR_CREATURE,
+            PlayerRel::You
         )))
     ),],
 );

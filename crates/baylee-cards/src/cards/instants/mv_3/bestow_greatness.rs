@@ -10,7 +10,7 @@ card!(
     oracle_id = "58a17110-b2a7-4dbc-bba5-5ed3728ad261",
     scryfall_id = "b6a5adee-3482-4c5b-9260-58efa8fec5ba",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bestow Greatness",
         mana_cost = mana!("{2}{G}"),

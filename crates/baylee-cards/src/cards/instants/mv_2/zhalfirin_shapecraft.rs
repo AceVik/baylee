@@ -11,7 +11,7 @@ card!(
     oracle_id = "cf459f47-e565-4bbb-89e4-ed54da8adae1",
     scryfall_id = "e446a380-0316-46f7-8ac9-22bce773b35f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhalfirin Shapecraft",
         mana_cost = mana!("{1}{U}"),

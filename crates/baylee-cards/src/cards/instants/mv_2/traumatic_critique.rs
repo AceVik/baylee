@@ -10,7 +10,7 @@ card!(
     oracle_id = "06c1f8a4-4948-435b-ae98-b1276b57e958",
     scryfall_id = "2a812fa7-4599-4e25-97db-20ffc6bc0b26",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Traumatic Critique",
         mana_cost = mana!("{X}{U}{R}"),

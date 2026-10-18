@@ -10,7 +10,7 @@ card!(
     oracle_id = "14079f05-fbc1-401c-9008-da678656b4c6",
     scryfall_id = "08b3af61-d516-45ca-aede-2f50ba23cb07",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bot Bashing Time",
         mana_cost = mana!("{3}{R}"),

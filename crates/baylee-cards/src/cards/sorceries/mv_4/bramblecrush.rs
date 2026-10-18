@@ -10,7 +10,7 @@ card!(
     oracle_id = "367282d6-956b-470d-a131-d22beff610b0",
     scryfall_id = "2e1bd3ff-f3cd-4e9d-ae2e-2c51d0aaec7f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bramblecrush",
         mana_cost = mana!("{2}{G}{G}"),

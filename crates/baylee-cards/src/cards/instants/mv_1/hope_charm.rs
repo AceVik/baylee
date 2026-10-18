@@ -16,7 +16,7 @@ card!(
     oracle_id = "a1b5c83e-cf8b-4644-8315-35387a4f491f",
     scryfall_id = "a1a8980f-07ab-49b7-b83d-f394952ced57",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hope Charm",
         mana_cost = mana!("{W}"),

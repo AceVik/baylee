@@ -11,7 +11,7 @@ card!(
     oracle_id = "c5843d13-855f-41dd-ac13-3c7f7e18bb39",
     scryfall_id = "daca6a57-38b7-4547-9174-a7f548ea1258",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dream Fracture",
         mana_cost = mana!("{1}{U}{U}"),

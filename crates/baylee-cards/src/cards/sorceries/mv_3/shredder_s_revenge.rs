@@ -12,7 +12,7 @@ card!(
     oracle_id = "5dd31fcd-72db-4daf-b127-ceb27bf25a94",
     scryfall_id = "72fadf47-2e0b-4b24-b1bc-7c86780716b6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shredder's Revenge",
         mana_cost = mana!("{2}{B}"),

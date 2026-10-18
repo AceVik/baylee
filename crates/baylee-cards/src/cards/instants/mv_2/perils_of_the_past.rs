@@ -12,7 +12,7 @@ card!(
     oracle_id = "f1f77fb4-2c83-4cbf-894e-624abe6cd95f",
     scryfall_id = "3df10e9a-efb6-4945-9b1b-29200688702a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Perils of the Past",
         mana_cost = mana!("{1}{R}"),

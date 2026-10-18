@@ -12,7 +12,7 @@ card!(
     oracle_id = "2620dcfe-8738-4f81-b23d-0c1c60cf9047",
     scryfall_id = "969b6657-c3b9-47e1-a42e-95bbcccf452d",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Splatter Technique",
         mana_cost = mana!("{1}{U}{U}{R}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "8747ca90-ac1d-45fd-89fe-aac385cd66b4",
     scryfall_id = "a12680db-957f-48c1-9062-2edd9115ba26",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Startling Development",
         mana_cost = mana!("{1}{U}"),

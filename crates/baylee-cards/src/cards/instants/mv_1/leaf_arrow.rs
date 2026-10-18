@@ -12,7 +12,7 @@ card!(
     oracle_id = "d3d67bf0-2e9e-463f-8df8-990ab906fdec",
     scryfall_id = "2d531ba4-df99-41e4-9dd3-a27a420ad63c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leaf Arrow",
         mana_cost = mana!("{G}"),

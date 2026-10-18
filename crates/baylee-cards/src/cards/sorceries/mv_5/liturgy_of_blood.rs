@@ -10,7 +10,7 @@ card!(
     oracle_id = "aabea4a2-5107-4abd-a0c7-ac0024d98ae0",
     scryfall_id = "fbe00ed2-d316-46f8-a5cf-6aad93fe88a0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Liturgy of Blood",
         mana_cost = mana!("{3}{B}{B}"),

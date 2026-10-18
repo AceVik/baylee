@@ -11,7 +11,7 @@ card!(
     oracle_id = "2094fb68-3859-401f-97f2-c8bae64a4822",
     scryfall_id = "07956edf-34c1-4218-9784-ddbca13e380c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Playful Shove",
         mana_cost = mana!("{1}{R}"),

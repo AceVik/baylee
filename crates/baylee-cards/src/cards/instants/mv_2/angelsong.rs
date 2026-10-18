@@ -11,7 +11,7 @@ card!(
     oracle_id = "fe7bad80-f853-4af9-82e2-5ccf8038d93b",
     scryfall_id = "dfdf70c7-49e2-4f6a-99e2-075aa826de60",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelsong",
         mana_cost = mana!("{1}{W}"),

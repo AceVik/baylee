@@ -10,7 +10,7 @@ card!(
     oracle_id = "b1a23235-3076-475c-a68a-db29cf2a9dba",
     scryfall_id = "74d8d661-a43f-4cee-87d5-1f74433a283e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pull from Tomorrow",
         mana_cost = mana!("{X}{U}{U}"),

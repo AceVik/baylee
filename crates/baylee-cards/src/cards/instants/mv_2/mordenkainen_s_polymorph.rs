@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ac8c234-030d-4ba1-bc2f-d05761045278",
     scryfall_id = "b6551442-d74c-4f16-a9de-0cfdc88208a5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mordenkainen's Polymorph",
         mana_cost = mana!("{1}{U}"),

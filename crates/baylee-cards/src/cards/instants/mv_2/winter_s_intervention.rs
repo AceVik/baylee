@@ -10,7 +10,7 @@ card!(
     oracle_id = "91967284-6711-4ef3-bb9b-5ba873da8bb2",
     scryfall_id = "b33d38fa-bbcf-4bcc-93a8-adbfd9c93faa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winter's Intervention",
         mana_cost = mana!("{1}{B}"),

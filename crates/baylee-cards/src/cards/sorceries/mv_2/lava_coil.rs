@@ -10,7 +10,7 @@ card!(
     oracle_id = "fa71db44-5181-4c51-8b24-7fbedf36e3ca",
     scryfall_id = "802c39df-4b92-4acc-92f9-bebd3d405471",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lava Coil",
         mana_cost = mana!("{1}{R}"),

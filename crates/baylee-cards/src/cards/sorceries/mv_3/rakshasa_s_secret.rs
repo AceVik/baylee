@@ -10,7 +10,7 @@ card!(
     oracle_id = "e753f50d-64ed-4822-a301-57659ee378b6",
     scryfall_id = "ae62a43e-36ce-471e-93f1-21fe674858b5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rakshasa's Secret",
         mana_cost = mana!("{2}{B}"),

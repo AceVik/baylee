@@ -10,7 +10,7 @@ card!(
     oracle_id = "0140cf53-71ef-4d37-9197-48aab35ca4a2",
     scryfall_id = "9ed55a4d-d99c-44ae-a5b9-fd9d1b8477f9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bull Rush",
         mana_cost = mana!("{R}"),

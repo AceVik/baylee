@@ -11,7 +11,6 @@ static TARGET1: Filter = Filter::Or(&[
     Filter::And(&[
         Filter::CREATURE,
         Filter::HasColor(ColorSet::from_slice(&[Color::Blue])),
-        Filter::ControlledByYou,
     ]),
     Filter::And(&[
         Filter::CREATURE,

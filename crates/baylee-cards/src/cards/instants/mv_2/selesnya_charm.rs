@@ -16,7 +16,7 @@ card!(
     oracle_id = "a1a49639-bcc4-4522-8862-c9fb13d40880",
     scryfall_id = "6e52d1a2-064f-4dcb-983d-322aec1776f8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Selesnya Charm",
         mana_cost = mana!("{G}{W}"),

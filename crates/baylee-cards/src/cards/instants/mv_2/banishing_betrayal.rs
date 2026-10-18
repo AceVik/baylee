@@ -10,7 +10,7 @@ card!(
     oracle_id = "6b633e58-ea1b-4ed0-addb-6dfd93645ae4",
     scryfall_id = "1ae9d2f3-7a9f-433a-aa1f-14337ae6f9d4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Banishing Betrayal",
         mana_cost = mana!("{1}{U}"),

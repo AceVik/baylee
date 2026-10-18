@@ -15,7 +15,7 @@ card!(
     oracle_id = "c3436d70-230c-4bda-b7da-935a270f135f",
     scryfall_id = "663e0208-81c3-4a76-bcc2-bc59cf8ca649",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Outflank",
         mana_cost = mana!("{W}"),

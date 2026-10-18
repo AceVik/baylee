@@ -10,7 +10,7 @@ card!(
     oracle_id = "dbf9feb3-0751-47bd-a8dc-ed1c076cf8c7",
     scryfall_id = "d086e4e5-98fa-437e-85aa-d8849c94ce94",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Broadside Barrage",
         mana_cost = mana!("{1}{U}{R}"),

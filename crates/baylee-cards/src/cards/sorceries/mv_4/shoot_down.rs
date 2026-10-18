@@ -16,7 +16,7 @@ card!(
     oracle_id = "2a89feeb-9e66-4539-bd75-7d9d53f52d49",
     scryfall_id = "20014a1c-197c-4e04-94b2-874886183e2f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shoot Down",
         mana_cost = mana!("{3}{G}"),

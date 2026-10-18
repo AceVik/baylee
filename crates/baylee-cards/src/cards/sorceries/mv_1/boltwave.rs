@@ -10,7 +10,7 @@ card!(
     oracle_id = "bb8cccc8-e56f-42fa-a0d7-fc889b5e1c7b",
     scryfall_id = "8d1ec351-5e70-4eb2-b590-6bff94ef8178",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boltwave",
         mana_cost = mana!("{R}"),

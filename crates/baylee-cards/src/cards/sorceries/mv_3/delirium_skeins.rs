@@ -10,7 +10,7 @@ card!(
     oracle_id = "7397036f-8114-47cc-b52f-c532a6845d16",
     scryfall_id = "64b0d9e7-4a0f-4f07-99ae-31c3c9f0037a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Delirium Skeins",
         mana_cost = mana!("{2}{B}"),

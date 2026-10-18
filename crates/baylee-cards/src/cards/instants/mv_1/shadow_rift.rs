@@ -11,7 +11,7 @@ card!(
     oracle_id = "66810ef7-ea3a-4afa-92f0-b21ec52cc8d0",
     scryfall_id = "06f6d0bd-19b9-45d0-8768-691a6a593d81",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shadow Rift",
         mana_cost = mana!("{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "b515dfc6-1a1e-46d6-a7a3-0e3af8279f49",
     scryfall_id = "1c2852c9-d566-4824-836a-2f4c7a5148a1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scatter Ray",
         mana_cost = mana!("{1}{U}"),

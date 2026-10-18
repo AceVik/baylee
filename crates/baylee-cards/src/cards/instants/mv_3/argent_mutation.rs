@@ -11,7 +11,7 @@ card!(
     oracle_id = "652ef093-06e9-4bf1-b9cf-950fe043b319",
     scryfall_id = "507fa5fd-2aa5-4721-a059-2c8c3056a4ca",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Argent Mutation",
         mana_cost = mana!("{2}{U}"),

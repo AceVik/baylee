@@ -10,7 +10,7 @@ card!(
     oracle_id = "8ca585b5-25c4-41cc-a0b9-dc66ae803d04",
     scryfall_id = "ede080dd-7df6-474b-b481-de842fec3139",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Romantic Rendezvous",
         mana_cost = mana!("{1}{R}"),

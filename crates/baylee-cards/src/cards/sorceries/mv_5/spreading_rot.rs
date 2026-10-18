@@ -10,7 +10,7 @@ card!(
     oracle_id = "3c1b95bd-a2fc-47cd-8940-e4af03bd3ce2",
     scryfall_id = "ca8a160c-5e89-4347-8e88-3541b6d221e0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spreading Rot",
         mana_cost = mana!("{4}{B}"),

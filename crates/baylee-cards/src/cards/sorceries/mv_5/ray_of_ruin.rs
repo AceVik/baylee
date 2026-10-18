@@ -20,7 +20,7 @@ card!(
     oracle_id = "e36b78ed-4e3e-406d-85b3-fe0deb493418",
     scryfall_id = "d440d90e-ac7e-4715-971a-700c977c7fde",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ray of Ruin",
         mana_cost = mana!("{4}{B}"),

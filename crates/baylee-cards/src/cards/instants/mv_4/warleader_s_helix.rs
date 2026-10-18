@@ -10,7 +10,7 @@ card!(
     oracle_id = "b1ea88f5-162b-4f08-bec3-be1f06dec392",
     scryfall_id = "989f8049-c4d2-4729-b35f-7bd7d8cbcb06",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warleader's Helix",
         mana_cost = mana!("{2}{R}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "82e52a09-ce6f-417d-8460-8806df63f0bf",
     scryfall_id = "ef7ac731-b31e-4404-a3d5-fb865822958a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Void Helix",
         mana_cost = mana!("{4}{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "56aec5bd-a8e8-403f-b339-0fc817426428",
     scryfall_id = "665ee42f-8d76-4f8b-9dd3-7455a90f0da7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clash of Wills",
         mana_cost = mana!("{X}{U}"),

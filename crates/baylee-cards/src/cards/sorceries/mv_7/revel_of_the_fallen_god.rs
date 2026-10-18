@@ -11,7 +11,7 @@ card!(
     oracle_id = "5d46b8dd-2a4a-4d9f-b4c6-2b45f05081c2",
     scryfall_id = "e1d2c774-aab9-4747-af91-da792ed7cfe1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revel of the Fallen God",
         mana_cost = mana!("{3}{R}{R}{G}{G}"),

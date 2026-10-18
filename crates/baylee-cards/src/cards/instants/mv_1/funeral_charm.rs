@@ -13,7 +13,7 @@ card!(
     oracle_id = "8866272d-89cb-478c-82ae-20e1d510eab7",
     scryfall_id = "6fc44e66-7ff8-4fcd-9f98-e53707590d67",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Funeral Charm",
         mana_cost = mana!("{B}"),

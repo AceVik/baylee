@@ -12,7 +12,7 @@ card!(
     oracle_id = "8eb328e6-332e-435c-9733-4c5336f17824",
     scryfall_id = "ce7ff657-aa44-4336-895a-87518159cef6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reave Soul",
         mana_cost = mana!("{1}{B}"),

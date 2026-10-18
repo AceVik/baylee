@@ -15,7 +15,7 @@ card!(
     oracle_id = "8147a759-e387-48f6-9c1e-bb39622ed553",
     scryfall_id = "03d56bb2-9cb1-4825-b31b-1f4bbf21a500",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sudden Strike",
         mana_cost = mana!("{1}{W}"),

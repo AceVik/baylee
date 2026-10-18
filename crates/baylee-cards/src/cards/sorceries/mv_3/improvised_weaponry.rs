@@ -11,7 +11,7 @@ card!(
     oracle_id = "fa5dad0b-8e23-4b88-b383-849f7318e01f",
     scryfall_id = "29d5fd00-c616-4079-a91e-4da0bcaf9120",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Improvised Weaponry",
         mana_cost = mana!("{2}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "072db429-3838-42ba-89b6-e26cbce22af9",
     scryfall_id = "a4a01b92-dafb-4ea6-8eff-29f881f6be24",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pest Control",
         mana_cost = mana!("{W}{B}"),

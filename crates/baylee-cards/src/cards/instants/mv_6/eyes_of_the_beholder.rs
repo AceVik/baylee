@@ -10,7 +10,7 @@ card!(
     oracle_id = "0fae0474-25ec-474f-8c7f-9e9061835030",
     scryfall_id = "3f9e5402-690f-497d-ada3-aa41fa900fdd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eyes of the Beholder",
         mana_cost = mana!("{4}{B}{B}"),

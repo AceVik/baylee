@@ -5,19 +5,31 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static SEARCH1: Filter = Filter::And(&[
+    Filter::HasType(
+        TypeSet::ARTIFACT
+            .union(TypeSet::BATTLE)
+            .union(TypeSet::CREATURE)
+            .union(TypeSet::ENCHANTMENT)
+            .union(TypeSet::LAND)
+            .union(TypeSet::PLANESWALKER),
+    ),
+    Filter::CmcAtMostX,
+]);
+
 card!(
     index = index::WARGATE,
     oracle_id = "26f39abe-ea0b-400d-b11c-03ee4cf50915",
     scryfall_id = "8f4fe11d-c404-489a-b17f-34f33b1597e8",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wargate",
         mana_cost = mana!("{X}{G}{W}{U}"),
         types = TypeSet::SORCERY,
     ),],
     abilities = &[spell!(&[Effect::SearchLibrary {
-        filter: &Filter::CmcAtMostX,
+        filter: &SEARCH1,
         finds: &[Find::BATTLEFIELD],
         optional: false
     }]),],

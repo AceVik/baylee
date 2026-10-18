@@ -10,7 +10,7 @@ card!(
     oracle_id = "d031b482-b33d-4eb4-a5bc-ea96e66a1d99",
     scryfall_id = "77e2ed9e-ee1d-440a-94b4-d4b17d30b800",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Incandescent Aria",
         mana_cost = mana!("{R}{G}{W}"),

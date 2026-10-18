@@ -11,7 +11,7 @@ card!(
     oracle_id = "7421b711-81a4-4042-b024-f55bf9ff203f",
     scryfall_id = "d08ff26e-c561-4b55-9745-50f896689d0d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Boiling Seas",
         mana_cost = mana!("{3}{R}"),

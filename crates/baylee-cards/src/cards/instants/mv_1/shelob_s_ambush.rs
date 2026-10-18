@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2816923-9daf-4277-adf7-20427d14ba4a",
     scryfall_id = "25e69fa8-7339-4bfa-8e35-9cbfe0001d8b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shelob's Ambush",
         mana_cost = mana!("{B}"),

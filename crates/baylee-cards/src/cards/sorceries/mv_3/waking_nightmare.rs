@@ -11,7 +11,7 @@ card!(
     oracle_id = "f3f34ef2-1255-4da2-9f29-8c79fee7a2c5",
     scryfall_id = "3cc87c53-0612-42a7-9c32-f7d1adf246af",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waking Nightmare",
         mana_cost = mana!("{2}{B}"),

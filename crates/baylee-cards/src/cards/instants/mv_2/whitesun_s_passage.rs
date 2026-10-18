@@ -10,7 +10,7 @@ card!(
     oracle_id = "df702285-3577-47cc-aa1e-868921cdf6f2",
     scryfall_id = "a74d1bf3-4630-4be0-af5f-590789d27a0c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whitesun's Passage",
         mana_cost = mana!("{1}{W}"),

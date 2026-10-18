@@ -15,7 +15,7 @@ card!(
     oracle_id = "e85421f3-37f6-49ee-9fc4-4424fd4f5236",
     scryfall_id = "d82c583f-3d2b-4c7f-a6f4-97da150423b4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Buccaneer's Bravado",
         mana_cost = mana!("{1}{R}"),

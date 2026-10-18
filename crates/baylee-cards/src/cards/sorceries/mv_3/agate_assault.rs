@@ -12,7 +12,7 @@ card!(
     oracle_id = "7b89b7d2-c724-4d5d-9f0b-7d3302ad1168",
     scryfall_id = "7dd9946b-515e-4e0d-9da2-711e126e9fa6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agate Assault",
         mana_cost = mana!("{2}{R}"),

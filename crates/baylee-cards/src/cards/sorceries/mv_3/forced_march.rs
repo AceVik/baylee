@@ -10,7 +10,7 @@ card!(
     oracle_id = "457dc141-bc72-42ad-b482-c78183462e34",
     scryfall_id = "36eae0e1-7100-449d-a259-7abfcd429117",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forced March",
         mana_cost = mana!("{X}{B}{B}{B}"),

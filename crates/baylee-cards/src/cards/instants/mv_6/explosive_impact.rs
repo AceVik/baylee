@@ -10,7 +10,7 @@ card!(
     oracle_id = "5eae77d0-7653-4b07-a701-aabea13991bf",
     scryfall_id = "3a3e2b45-b086-4ffd-aa1a-1d03046e0d61",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Explosive Impact",
         mana_cost = mana!("{5}{R}"),

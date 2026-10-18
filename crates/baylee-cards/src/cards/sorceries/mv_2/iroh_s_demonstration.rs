@@ -13,7 +13,7 @@ card!(
     oracle_id = "8dd2e73a-d1b4-4d26-857f-9eb8e384c8ff",
     scryfall_id = "18d15fed-1f8f-4407-a221-a47ce75001a8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Iroh's Demonstration",
         mana_cost = mana!("{1}{R}"),

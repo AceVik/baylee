@@ -10,7 +10,7 @@ card!(
     oracle_id = "d3946df7-cb24-47c0-a8b0-1bdf95d99926",
     scryfall_id = "855d40de-e9b8-4bb5-a030-a36242324abf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirlwind",
         mana_cost = mana!("{2}{G}{G}"),

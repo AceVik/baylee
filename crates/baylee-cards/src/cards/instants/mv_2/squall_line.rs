@@ -12,7 +12,7 @@ card!(
     oracle_id = "cdf9fab2-bfdb-4bf3-a06a-b21e07600e23",
     scryfall_id = "3f368729-a6f2-4bf7-8b06-39c551f0b24a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squall Line",
         mana_cost = mana!("{X}{G}{G}"),

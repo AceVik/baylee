@@ -10,7 +10,7 @@ card!(
     oracle_id = "bb4d9770-f230-4413-a7a4-bb1f1303661a",
     scryfall_id = "dc671707-4708-44d8-8ec8-d5332599adf9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thundering Rebuke",
         mana_cost = mana!("{1}{R}"),

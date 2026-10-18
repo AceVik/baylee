@@ -10,7 +10,7 @@ card!(
     oracle_id = "c8e21bc4-ea57-46d6-9e7e-ad95e17ea0fd",
     scryfall_id = "2974e18b-be17-4059-9f29-7afe1d1a51eb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Succumb to Temptation",
         mana_cost = mana!("{1}{B}{B}"),

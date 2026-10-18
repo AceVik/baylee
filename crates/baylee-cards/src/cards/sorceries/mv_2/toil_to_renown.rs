@@ -16,7 +16,7 @@ card!(
     oracle_id = "c8323e46-c068-45e2-b6ba-7972b4af728a",
     scryfall_id = "d54fd436-35eb-4207-9439-de652234dd50",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Toil to Renown",
         mana_cost = mana!("{1}{G}"),

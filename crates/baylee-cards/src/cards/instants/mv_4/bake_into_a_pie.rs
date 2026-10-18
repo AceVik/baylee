@@ -11,7 +11,7 @@ card!(
     oracle_id = "1b9ec782-0ba1-41f1-bc39-d3302494ecb3",
     scryfall_id = "2ab0e660-86a3-4b92-82fa-77dcb5db947d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bake into a Pie",
         mana_cost = mana!("{2}{B}{B}"),

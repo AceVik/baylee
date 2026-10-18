@@ -12,7 +12,7 @@ card!(
     oracle_id = "5820d760-8ed7-4abf-a959-c06ed86a3730",
     scryfall_id = "3d70dcbe-0b90-40b4-8a54-e5218b7135b1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swift Response",
         mana_cost = mana!("{1}{W}"),

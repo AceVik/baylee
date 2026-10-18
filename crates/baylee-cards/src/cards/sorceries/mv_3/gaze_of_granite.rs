@@ -10,7 +10,7 @@ card!(
     oracle_id = "103d9ad0-d655-4bd5-a899-e9f8869e333d",
     scryfall_id = "97cf4cd8-9cb5-482e-92ca-da657b410e48",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gaze of Granite",
         mana_cost = mana!("{X}{B}{B}{G}"),

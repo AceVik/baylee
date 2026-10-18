@@ -19,7 +19,7 @@ card!(
     oracle_id = "c9634afc-4a5b-4cf6-b63d-0ff9909dd5a7",
     scryfall_id = "2462358b-52c8-49b2-8d97-d65a9188f8f7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desolation of Smaug",
         mana_cost = mana!("{2}{R}{R}"),

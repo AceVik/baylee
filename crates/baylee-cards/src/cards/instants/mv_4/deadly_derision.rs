@@ -11,7 +11,7 @@ card!(
     oracle_id = "4b74d2d9-d75b-496e-bbb4-2b95b3d3ba55",
     scryfall_id = "1ec1a02f-128c-44aa-b708-6fcda34b40c0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadly Derision",
         mana_cost = mana!("{2}{B}{B}"),

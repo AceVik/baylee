@@ -10,7 +10,7 @@ card!(
     oracle_id = "2774fcb7-8988-4a18-b5ec-7534dd8b2e05",
     scryfall_id = "9e0034dd-396e-46af-b931-0daa25da4406",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hour of Defeat",
         mana_cost = mana!("{3}{B}"),

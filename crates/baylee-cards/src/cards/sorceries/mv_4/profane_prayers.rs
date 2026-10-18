@@ -13,7 +13,7 @@ card!(
     oracle_id = "6eb427e9-e679-4891-a29e-ea54b1935892",
     scryfall_id = "bc8320ef-af97-4cf6-9aaf-17818174d842",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Profane Prayers",
         mana_cost = mana!("{2}{B}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "2ebe4c68-87eb-474d-a4c4-0468835b4900",
     scryfall_id = "ab95fe13-c09b-4eed-aeae-fb1c5b6eb476",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shocking Grasp",
         mana_cost = mana!("{1}{U}"),

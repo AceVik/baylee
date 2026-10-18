@@ -15,7 +15,7 @@ card!(
     oracle_id = "86cebe2a-95e7-4f22-99cc-e805aeaf347e",
     scryfall_id = "bb5385d2-ca5d-4fb9-934b-b7cc8b38ac89",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Merchant Scroll",
         mana_cost = mana!("{1}{U}"),

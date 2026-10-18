@@ -10,7 +10,7 @@ card!(
     oracle_id = "57bda813-ad4b-40ab-aa35-3f8343ff8668",
     scryfall_id = "e34c4946-6c21-4ae1-9595-35933d38da52",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Staggering Size",
         mana_cost = mana!("{1}{G}"),

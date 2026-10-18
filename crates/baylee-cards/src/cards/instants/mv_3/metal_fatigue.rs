@@ -10,7 +10,7 @@ card!(
     oracle_id = "f817352a-908a-4cb5-8e10-feeb770540fc",
     scryfall_id = "9fa32494-24bc-44c7-81d4-7285bd1fe3c8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Metal Fatigue",
         mana_cost = mana!("{2}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "e341478e-c3f8-45d9-9430-abe3a58fa2fc",
     scryfall_id = "65f5804a-075b-41d8-9639-785cad5c0974",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadly Riposte",
         mana_cost = mana!("{1}{W}"),

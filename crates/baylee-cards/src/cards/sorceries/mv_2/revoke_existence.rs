@@ -10,7 +10,7 @@ card!(
     oracle_id = "289e1a7c-b301-4395-baf8-e9a1c6d38aab",
     scryfall_id = "7bd4fc26-8351-4371-948b-f43346c3e771",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revoke Existence",
         mana_cost = mana!("{1}{W}"),

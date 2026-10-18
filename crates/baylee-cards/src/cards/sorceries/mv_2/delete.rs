@@ -12,7 +12,7 @@ card!(
     oracle_id = "01d0156f-c26a-4668-a3a4-15ee0790d1b6",
     scryfall_id = "875c7337-78af-4e13-89e5-3255ba2d4053",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Delete",
         mana_cost = mana!("{X}{R}{R}"),

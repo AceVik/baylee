@@ -10,7 +10,7 @@ card!(
     oracle_id = "1d8e39c9-e04d-4328-af66-db6e1241ac06",
     scryfall_id = "6f5d699f-5c15-4a38-8e83-c84f762d9fe9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Colossal Might",
         mana_cost = mana!("{R}{G}"),

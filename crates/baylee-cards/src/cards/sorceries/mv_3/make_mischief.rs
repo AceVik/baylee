@@ -11,7 +11,7 @@ card!(
     oracle_id = "5de50aa5-3b30-4d7d-9203-bc8fc0f8fb34",
     scryfall_id = "a2049072-5901-4edd-8305-ce55f256bca5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Make Mischief",
         mana_cost = mana!("{2}{R}"),

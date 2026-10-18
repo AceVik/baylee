@@ -11,7 +11,7 @@ card!(
     oracle_id = "f9dce026-2653-4793-b949-357b08a936ea",
     scryfall_id = "54b3a547-6f74-4cb4-ad98-7e1b75f1a120",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Locust Spray",
         mana_cost = mana!("{B}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "6ff39311-565e-4414-b32b-eb24c70b3090",
     scryfall_id = "c6569487-53c5-4b91-877d-e4e31bfa90c0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coordinated Maneuver",
         mana_cost = mana!("{1}{W}"),

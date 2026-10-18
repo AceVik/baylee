@@ -12,7 +12,7 @@ card!(
     oracle_id = "96335212-ec57-4beb-bab1-11c8eaa62119",
     scryfall_id = "0ff7c993-ba29-43b0-9639-7c4bc0292fa2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cunning Maneuver",
         mana_cost = mana!("{1}{R}"),

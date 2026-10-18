@@ -10,7 +10,7 @@ card!(
     oracle_id = "bcf29dd7-6d5a-4139-958e-7c59434c0770",
     scryfall_id = "3b5b28a4-0abd-4dc2-9856-c9a8d27f6a2d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cast Away Doubt",
         mana_cost = mana!("{2}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "6fe302f2-5594-478c-a66b-89b4b96e3611",
     scryfall_id = "200edda9-7ad9-47fc-837e-37ec9e5b4b51",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mnemonic Nexus",
         mana_cost = mana!("{3}{U}"),

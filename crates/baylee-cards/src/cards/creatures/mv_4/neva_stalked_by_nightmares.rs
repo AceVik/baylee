@@ -8,10 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]),
-    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]),
-]);
+static TARGET1: Filter = Filter::Or(&[Filter::CREATURE, Filter::ENCHANTMENT]);
 
 static TRIGGER2: Filter = Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]);
 
@@ -36,11 +33,11 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::GraveyardToHand {
-                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
             }],
             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &TARGET1,
-                PlayerRel::EachPlayer
+                PlayerRel::You
             )))
         ),
         triggered!(

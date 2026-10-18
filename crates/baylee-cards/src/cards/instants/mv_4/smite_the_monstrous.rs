@@ -12,7 +12,7 @@ card!(
     oracle_id = "649512ed-4908-450a-9652-b2c80df5e24d",
     scryfall_id = "9c103163-31b7-4d25-aa2c-02ca082ee1bf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smite the Monstrous",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "9bf4ee0f-6e28-4793-b251-f81ee444a119",
     scryfall_id = "9b505c78-5dbd-483d-92bb-5144060e962f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Assault Strobe",
         mana_cost = mana!("{R}"),

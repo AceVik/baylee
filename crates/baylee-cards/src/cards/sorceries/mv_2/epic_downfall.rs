@@ -12,7 +12,7 @@ card!(
     oracle_id = "ed5d6aba-0b8d-48b3-a84c-618f45fb67b1",
     scryfall_id = "3b4a6804-04f5-4467-bb1c-9466a47bc55f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Epic Downfall",
         mana_cost = mana!("{1}{B}"),

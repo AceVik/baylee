@@ -10,7 +10,7 @@ card!(
     oracle_id = "b0aeeeb6-490c-4638-a4ad-498e4d85413e",
     scryfall_id = "d429233e-1cf9-4f87-b191-894a73e7a876",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urza's Guilt",
         mana_cost = mana!("{2}{U}{B}"),

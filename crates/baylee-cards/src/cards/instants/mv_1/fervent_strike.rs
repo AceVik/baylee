@@ -10,7 +10,7 @@ card!(
     oracle_id = "35efb1e6-6be2-4a38-969a-199524d48e02",
     scryfall_id = "e4f76e51-a726-4a5f-ae2b-2e826e89f5f7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fervent Strike",
         mana_cost = mana!("{R}"),

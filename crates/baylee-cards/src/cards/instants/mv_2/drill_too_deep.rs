@@ -24,7 +24,7 @@ card!(
     oracle_id = "0413e0e4-c8f8-44c3-a749-c799766bc8cd",
     scryfall_id = "b9d3b6e8-47c8-49e3-b204-8b659e127bde",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drill Too Deep",
         mana_cost = mana!("{1}{R}"),

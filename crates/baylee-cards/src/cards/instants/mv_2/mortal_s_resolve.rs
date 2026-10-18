@@ -10,7 +10,7 @@ card!(
     oracle_id = "ef29f979-1a6d-47bb-83f5-4679389471da",
     scryfall_id = "131a96b4-393d-4e8e-9b6a-f15f3804febb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mortal's Resolve",
         mana_cost = mana!("{1}{G}"),

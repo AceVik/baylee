@@ -10,7 +10,7 @@ card!(
     oracle_id = "d061972e-6f4f-41a7-966a-88839f105f19",
     scryfall_id = "260fe443-ca03-42b1-bcee-86e5173c1aaf",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Offering to Asha",
         mana_cost = mana!("{2}{W}{U}"),

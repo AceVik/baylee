@@ -11,7 +11,7 @@ card!(
     oracle_id = "eb62aa4b-c11b-4195-ae85-cff8f78ce17b",
     scryfall_id = "ba3b5e35-5448-4115-a9c5-6ac14013c904",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Advent of the Wurm",
         mana_cost = mana!("{1}{G}{G}{W}"),

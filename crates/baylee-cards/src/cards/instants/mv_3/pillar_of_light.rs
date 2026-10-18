@@ -12,7 +12,7 @@ card!(
     oracle_id = "643c1ee3-a653-4a6c-b705-a61f3b67e38c",
     scryfall_id = "018ff99e-a23d-4440-8c5c-cfb4942f1906",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pillar of Light",
         mana_cost = mana!("{2}{W}"),

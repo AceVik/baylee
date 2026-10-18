@@ -10,7 +10,7 @@ card!(
     oracle_id = "1489551f-5714-471b-a0e6-f40bc3085afc",
     scryfall_id = "c0e3ea55-162d-4466-ba4e-b938a0845fb5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment of Craving",
         mana_cost = mana!("{1}{B}"),

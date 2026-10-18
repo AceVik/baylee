@@ -13,7 +13,7 @@ card!(
     oracle_id = "37985fef-696e-4c6b-9a60-29c5051b5a25",
     scryfall_id = "0ec1f1fa-41c9-4bc0-9171-902cd456aa73",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Volcanic Submersion",
         mana_cost = mana!("{4}{R}"),

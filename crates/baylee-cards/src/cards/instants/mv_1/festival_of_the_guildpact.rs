@@ -11,7 +11,7 @@ card!(
     oracle_id = "f8d1fbec-6ec1-47fa-ba02-fcee906db0d7",
     scryfall_id = "d15fc49c-07a9-4e55-a977-24f7b7c2df1a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Festival of the Guildpact",
         mana_cost = mana!("{X}{W}"),

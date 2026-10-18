@@ -16,7 +16,7 @@ card!(
     oracle_id = "2ecf7771-8061-4710-ad2e-80b092ae0b4b",
     scryfall_id = "6db45698-9da9-4cea-b9bf-0f84ab276b51",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Open the Armory",
         mana_cost = mana!("{1}{W}"),

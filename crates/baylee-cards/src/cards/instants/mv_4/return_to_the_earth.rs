@@ -16,7 +16,7 @@ card!(
     oracle_id = "722f2965-a1ec-4b97-a4bd-b99364f58b1e",
     scryfall_id = "0e7a0409-02f1-43c2-b4f1-e7ce7f371789",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Return to the Earth",
         mana_cost = mana!("{3}{G}"),

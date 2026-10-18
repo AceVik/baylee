@@ -11,7 +11,7 @@ card!(
     oracle_id = "b30e80ef-a4d7-48e2-918e-a347c2d9da59",
     scryfall_id = "42acaa44-15d5-4760-9aa8-b44eda9ed98a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Three Tragedies",
         mana_cost = mana!("{3}{B}{B}"),

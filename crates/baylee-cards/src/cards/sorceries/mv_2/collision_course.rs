@@ -21,7 +21,7 @@ card!(
     oracle_id = "49ca0ca8-0733-4aa9-bd0c-1c661725b81b",
     scryfall_id = "6b60da34-b622-42de-a249-79545bcbf30d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Collision Course",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "52a0dae4-2a95-487e-acd4-eabdb2d031e2",
     scryfall_id = "11721b88-2654-482c-b9d4-80e54efdbf63",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crux of Fate",
         mana_cost = mana!("{3}{B}{B}"),

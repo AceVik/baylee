@@ -10,7 +10,7 @@ card!(
     oracle_id = "b734cfd9-afef-41f1-8377-68c885fb3a69",
     scryfall_id = "c4628454-65f0-4cf7-82b5-3c33e0b3a705",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pilfered Plans",
         mana_cost = mana!("{1}{U}{B}"),

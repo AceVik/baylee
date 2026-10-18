@@ -11,7 +11,7 @@ card!(
     oracle_id = "257f81fb-b3c9-4ebe-9889-dd0ef960bba3",
     scryfall_id = "0e99fb27-a1e9-491f-ab2a-3ccb493168cb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment of Defiance",
         mana_cost = mana!("{2}{B}"),

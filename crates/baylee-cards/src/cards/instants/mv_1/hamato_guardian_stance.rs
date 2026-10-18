@@ -10,7 +10,7 @@ card!(
     oracle_id = "e08b19ca-f9d7-4c33-b37a-a77b37aabf1b",
     scryfall_id = "735b540b-b472-46fa-a232-d444cabf6c4c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hamato Guardian Stance",
         mana_cost = mana!("{W}"),

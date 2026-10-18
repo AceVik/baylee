@@ -12,7 +12,7 @@ card!(
     oracle_id = "0385be55-8e8e-4e7d-b6b7-51adc6eb98fa",
     scryfall_id = "fceaac2f-b26c-4da9-bf4f-c7672394dd7f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reaver Ambush",
         mana_cost = mana!("{2}{B}"),

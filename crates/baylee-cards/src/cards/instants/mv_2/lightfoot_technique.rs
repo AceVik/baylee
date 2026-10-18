@@ -10,7 +10,7 @@ card!(
     oracle_id = "601b7481-19fc-4779-950e-883a9a22aec3",
     scryfall_id = "baac1a41-d44d-4184-9147-b4233e73de65",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightfoot Technique",
         mana_cost = mana!("{1}{W}"),

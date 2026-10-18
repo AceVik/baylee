@@ -29,7 +29,7 @@ card!(
     oracle_id = "b17f4960-9603-4a81-8dc8-e09e8b822357",
     scryfall_id = "8e5758cc-1f84-455d-a983-8ec471727eaf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Noxious Grasp",
         mana_cost = mana!("{1}{B}"),

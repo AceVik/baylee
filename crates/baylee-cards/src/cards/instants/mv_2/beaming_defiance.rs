@@ -10,7 +10,7 @@ card!(
     oracle_id = "f88eeb04-4b8e-4c76-a8c6-90887b94d518",
     scryfall_id = "7e22411c-11c1-4770-8491-7952dd406e01",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beaming Defiance",
         mana_cost = mana!("{1}{W}"),

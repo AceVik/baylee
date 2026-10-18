@@ -10,7 +10,7 @@ card!(
     oracle_id = "5268518e-7631-4149-8eea-c2475b9b14df",
     scryfall_id = "06ec1b2d-06dd-4364-a913-c34889b70fa1",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savage Twister",
         mana_cost = mana!("{X}{R}{G}"),

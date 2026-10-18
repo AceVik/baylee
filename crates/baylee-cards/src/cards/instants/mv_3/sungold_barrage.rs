@@ -12,7 +12,7 @@ card!(
     oracle_id = "2a33d0ea-9b19-4fde-8e7a-2a9d17f716ea",
     scryfall_id = "ee507688-9890-47c4-bb04-43c51eb48e22",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sungold Barrage",
         mana_cost = mana!("{2}{W}"),

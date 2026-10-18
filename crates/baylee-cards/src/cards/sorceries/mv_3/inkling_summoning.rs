@@ -12,7 +12,7 @@ card!(
     oracle_id = "999a9310-d145-4c1a-8518-9d96602ca672",
     scryfall_id = "04a8a5b8-9743-4d1a-89e9-61bdf180b2e0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inkling Summoning",
         mana_cost = mana!("{1}{W/B}{W/B}"),

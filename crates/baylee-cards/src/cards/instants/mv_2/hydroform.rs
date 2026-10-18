@@ -11,7 +11,7 @@ card!(
     oracle_id = "d8b6ea82-da4e-4763-84b1-4caa214ed945",
     scryfall_id = "2c4e1f41-4aed-451b-bbaa-6cc6780cd6c9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hydroform",
         mana_cost = mana!("{G}{U}"),

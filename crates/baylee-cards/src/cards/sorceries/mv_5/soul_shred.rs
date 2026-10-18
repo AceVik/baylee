@@ -15,7 +15,7 @@ card!(
     oracle_id = "2894ef5e-738b-4ece-b143-6662d9453295",
     scryfall_id = "036d6420-ac71-47b4-869f-64381dcf3348",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul Shred",
         mana_cost = mana!("{3}{B}{B}"),

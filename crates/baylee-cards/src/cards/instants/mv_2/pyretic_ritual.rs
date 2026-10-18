@@ -10,7 +10,7 @@ card!(
     oracle_id = "86ef6474-613f-41fb-931c-d4279b03ed99",
     scryfall_id = "1e577638-a7ed-4bcc-90fb-0cffe87d5a28",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyretic Ritual",
         mana_cost = mana!("{1}{R}"),

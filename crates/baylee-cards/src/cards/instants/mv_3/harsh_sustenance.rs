@@ -10,7 +10,7 @@ card!(
     oracle_id = "f5cf471f-032c-4ebb-823c-8841de209216",
     scryfall_id = "770d60a0-23fc-4224-873c-2e5549b3a816",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harsh Sustenance",
         mana_cost = mana!("{1}{W}{B}"),

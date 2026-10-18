@@ -19,7 +19,7 @@ card!(
     oracle_id = "2149f9f2-adcf-47d3-9564-326b5c0ced32",
     scryfall_id = "0236a0a6-c1ed-4355-82a0-a513cf925382",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hurly-Burly",
         mana_cost = mana!("{1}{R}"),

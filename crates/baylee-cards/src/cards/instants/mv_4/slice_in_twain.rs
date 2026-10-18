@@ -11,7 +11,7 @@ card!(
     oracle_id = "a96d0065-b8c1-4843-8752-dce60bf83545",
     scryfall_id = "244831cc-6383-4daf-aeee-ea4893fdb4c2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slice in Twain",
         mana_cost = mana!("{2}{G}{G}"),

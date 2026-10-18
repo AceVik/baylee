@@ -16,7 +16,7 @@ card!(
     oracle_id = "7e108b31-2ea3-4129-b324-a2d31c78bbe6",
     scryfall_id = "396f1cdf-712b-4518-a0e8-0039303dccdc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fiery Cannonade",
         mana_cost = mana!("{2}{R}"),

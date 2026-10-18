@@ -10,7 +10,7 @@ card!(
     oracle_id = "90a2ec9c-2f1c-4ed4-820d-dfdb6b58c0db",
     scryfall_id = "efc6eea1-9872-47e5-a3bc-3c8c1b9705be",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zuko's Offense",
         mana_cost = mana!("{R}"),

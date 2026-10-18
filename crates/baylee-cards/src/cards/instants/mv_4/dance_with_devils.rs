@@ -11,7 +11,7 @@ card!(
     oracle_id = "caeb508a-c1fd-45b5-a14e-e0ac7321c9a9",
     scryfall_id = "9189fafa-f30f-49a1-b07d-e432640d2bc5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dance with Devils",
         mana_cost = mana!("{3}{R}"),

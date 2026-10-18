@@ -10,7 +10,7 @@ card!(
     oracle_id = "c4229cc8-11e5-4221-b00d-86969701e21b",
     scryfall_id = "a9262bf6-df6a-446c-ba70-18270a09842d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alesha's Legacy",
         mana_cost = mana!("{1}{B}"),

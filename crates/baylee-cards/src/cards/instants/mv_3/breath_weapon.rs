@@ -16,7 +16,7 @@ card!(
     oracle_id = "f3dd1f6d-f7d7-4358-8139-7495404f29c7",
     scryfall_id = "0174e40a-0ef5-4439-91e6-3fc39f482520",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breath Weapon",
         mana_cost = mana!("{2}{R}"),

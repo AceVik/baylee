@@ -12,7 +12,7 @@ card!(
     oracle_id = "b8ffd53b-5b10-4866-83fe-630eee58c514",
     scryfall_id = "156d7c70-6c6d-4052-9d44-029ba1bb66e4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sage's Knowledge",
         mana_cost = mana!("{2}{U}"),

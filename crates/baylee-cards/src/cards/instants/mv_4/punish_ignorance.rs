@@ -10,7 +10,7 @@ card!(
     oracle_id = "0fc56124-bdcd-4f4f-886f-0fafcf8003bc",
     scryfall_id = "9bc37d01-ffe5-4dfe-b59e-204df82d1d36",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Punish Ignorance",
         mana_cost = mana!("{W}{U}{U}{B}"),

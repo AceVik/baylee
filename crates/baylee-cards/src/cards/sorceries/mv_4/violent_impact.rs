@@ -13,7 +13,7 @@ card!(
     oracle_id = "d48d9e93-72a2-48f2-8164-8032615ee217",
     scryfall_id = "49b8673a-ce93-4881-b712-8db82446d83c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Violent Impact",
         mana_cost = mana!("{3}{R}"),

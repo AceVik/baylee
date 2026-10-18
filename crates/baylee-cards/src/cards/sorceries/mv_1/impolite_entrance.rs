@@ -11,7 +11,7 @@ card!(
     oracle_id = "b77764fe-bc79-410a-995a-ac392f5b46b8",
     scryfall_id = "45be88d8-0be1-47a2-a1c1-d6e693fc706f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Impolite Entrance",
         mana_cost = mana!("{R}"),

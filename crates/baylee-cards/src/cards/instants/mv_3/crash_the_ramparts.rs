@@ -10,7 +10,7 @@ card!(
     oracle_id = "8832b76b-58b7-41b2-b2f6-842563b55b36",
     scryfall_id = "20b52d17-7efb-4c6e-9e6a-4763d1ef1daa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crash the Ramparts",
         mana_cost = mana!("{2}{G}"),

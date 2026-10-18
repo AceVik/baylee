@@ -12,7 +12,7 @@ card!(
     oracle_id = "9f914186-082e-4a85-a1cc-e9788074637b",
     scryfall_id = "33f36143-85b6-412c-8c79-053728b45c25",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shredding Winds",
         mana_cost = mana!("{2}{G}"),

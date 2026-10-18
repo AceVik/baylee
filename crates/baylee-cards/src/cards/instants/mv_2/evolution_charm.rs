@@ -15,7 +15,7 @@ card!(
     oracle_id = "5f73fd4e-0d24-4daa-8d82-73c0cf7f801d",
     scryfall_id = "723d21cb-f506-4ad4-89d8-ecfdaed5952f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Evolution Charm",
         mana_cost = mana!("{1}{G}"),

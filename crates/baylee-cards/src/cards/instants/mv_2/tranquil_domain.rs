@@ -11,7 +11,7 @@ card!(
     oracle_id = "87547bf0-02cf-4d83-9a1f-c82d2f1a22f1",
     scryfall_id = "801f34a6-9f22-43c2-b1e5-194395cc7da1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tranquil Domain",
         mana_cost = mana!("{1}{G}"),

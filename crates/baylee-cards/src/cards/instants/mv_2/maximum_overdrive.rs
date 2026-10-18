@@ -10,7 +10,7 @@ card!(
     oracle_id = "f0e85b74-12fb-4d63-853e-7a3f41f731b4",
     scryfall_id = "5f6e5bb2-cfe9-48e5-86f9-e21f3d328327",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maximum Overdrive",
         mana_cost = mana!("{1}{B}"),

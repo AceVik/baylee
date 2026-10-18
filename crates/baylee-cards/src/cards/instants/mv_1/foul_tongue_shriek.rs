@@ -13,7 +13,7 @@ card!(
     oracle_id = "a4dc1fea-427c-424c-99c8-af2e6d3ad2a9",
     scryfall_id = "81d98ee0-6b32-4735-89f1-b37da766761f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foul-Tongue Shriek",
         mana_cost = mana!("{B}"),

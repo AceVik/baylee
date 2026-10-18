@@ -10,7 +10,7 @@ card!(
     oracle_id = "6aa5aa3d-fb46-47e5-bcf1-51a28e0f9974",
     scryfall_id = "08c5ed8e-4804-4042-8a1d-ad24c6846816",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ceremonious Rejection",
         mana_cost = mana!("{U}"),

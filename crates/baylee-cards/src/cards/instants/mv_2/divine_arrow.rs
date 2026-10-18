@@ -15,7 +15,7 @@ card!(
     oracle_id = "6add505a-9c0f-42e6-898d-be3194c3df33",
     scryfall_id = "352c4997-2b96-45da-a4e1-70a86453c6fa",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Divine Arrow",
         mana_cost = mana!("{1}{W}"),

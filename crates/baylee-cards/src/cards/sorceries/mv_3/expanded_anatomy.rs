@@ -10,7 +10,7 @@ card!(
     index = index::EXPANDED_ANATOMY,
     oracle_id = "6bc5dfbb-98ec-4ff1-8ba2-e2594c53e6d9",
     scryfall_id = "c5642b9d-0daa-4e6b-ad48-f88dd37d6574",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Expanded Anatomy",
         mana_cost = mana!("{3}"),

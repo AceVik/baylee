@@ -13,7 +13,7 @@ card!(
     oracle_id = "19963c90-e7b2-4935-adcd-d41f0faf401a",
     scryfall_id = "3489930a-208d-4bb2-b200-58a0dd4f6e81",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sokka's Sword Training",
         mana_cost = mana!("{1}{W}"),

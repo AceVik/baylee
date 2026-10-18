@@ -10,7 +10,7 @@ card!(
     oracle_id = "fc3d2a9c-08a5-4aea-9fb8-42466b9152a2",
     scryfall_id = "af3da2c6-29ed-4563-8bae-d1cc05df8897",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lash of Malice",
         mana_cost = mana!("{B}"),

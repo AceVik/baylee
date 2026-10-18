@@ -11,7 +11,7 @@ card!(
     oracle_id = "7b58e277-a969-4c7f-8143-ee4f6bd1e3ed",
     scryfall_id = "f8b5e7ed-a0ab-48f6-8f69-56a8bd115007",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vivify",
         mana_cost = mana!("{2}{G}"),

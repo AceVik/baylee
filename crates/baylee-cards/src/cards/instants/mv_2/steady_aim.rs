@@ -10,7 +10,7 @@ card!(
     oracle_id = "e5fe1fc3-d9fe-4b1b-85d3-7d8ecb84a829",
     scryfall_id = "4af6a1b5-a561-4d92-b429-de13b2ccaf81",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steady Aim",
         mana_cost = mana!("{1}{G}"),

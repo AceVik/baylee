@@ -12,7 +12,7 @@ card!(
     oracle_id = "0e71fc56-0332-4e5e-8658-9257cc0d8a1d",
     scryfall_id = "c227437d-1fc7-4a00-ace5-80795adc51d3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steel Sabotage",
         mana_cost = mana!("{U}"),

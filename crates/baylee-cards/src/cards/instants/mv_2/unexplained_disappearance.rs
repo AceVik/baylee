@@ -11,7 +11,7 @@ card!(
     oracle_id = "18d16129-da25-4120-a343-64ce962abba2",
     scryfall_id = "9c99b239-50d2-4393-80ec-94dbfaa6ae70",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unexplained Disappearance",
         mana_cost = mana!("{1}{U}"),

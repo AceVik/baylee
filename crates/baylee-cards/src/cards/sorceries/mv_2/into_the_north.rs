@@ -12,7 +12,7 @@ card!(
     oracle_id = "30aefabc-5fd2-451b-aa93-8e5a972c7691",
     scryfall_id = "79cea55d-8ef3-44a5-894e-967f1e97fc02",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Into the North",
         mana_cost = mana!("{1}{G}"),

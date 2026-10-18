@@ -10,7 +10,7 @@ card!(
     oracle_id = "b92e97f5-a307-471f-be06-afa4fcdab757",
     scryfall_id = "4941fa74-c7b9-4468-8080-de8057d3d27b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fanatical Strength",
         mana_cost = mana!("{1}{G}"),

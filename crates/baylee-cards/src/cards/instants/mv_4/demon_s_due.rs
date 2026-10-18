@@ -10,7 +10,7 @@ card!(
     oracle_id = "bf65a5f5-5536-4616-a09e-2416439c7bc6",
     scryfall_id = "2e59fb98-c887-42f1-a620-9e6b40b94cb5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Demon's Due",
         mana_cost = mana!("{3}{B}"),

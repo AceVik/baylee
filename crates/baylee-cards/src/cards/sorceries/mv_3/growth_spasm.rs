@@ -13,7 +13,7 @@ card!(
     oracle_id = "6c022656-2b97-46c5-8f7b-72a71996457a",
     scryfall_id = "d8a6849b-6391-4c2c-97bd-267a31e57b38",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Growth Spasm",
         mana_cost = mana!("{2}{G}"),

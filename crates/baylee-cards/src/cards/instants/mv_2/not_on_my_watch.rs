@@ -10,7 +10,7 @@ card!(
     oracle_id = "2d400c01-d2d0-442a-bc3d-cf106a754dab",
     scryfall_id = "700294fc-7c16-4f7d-bce0-7452d8e9c401",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Not on My Watch",
         mana_cost = mana!("{1}{W}"),

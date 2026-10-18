@@ -11,7 +11,7 @@ card!(
     oracle_id = "8af22295-0d6b-4cdc-b815-eb81ade241ec",
     scryfall_id = "3de4bf10-a502-4748-9118-5459684542a7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Poison the Blade",
         mana_cost = mana!("{1}{G}"),

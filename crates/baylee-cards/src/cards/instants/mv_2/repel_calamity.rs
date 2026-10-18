@@ -15,7 +15,7 @@ card!(
     oracle_id = "ba58f508-8036-496c-8a2f-c1e410165e93",
     scryfall_id = "d068192a-6270-4981-819d-4945fa4a2b83",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Repel Calamity",
         mana_cost = mana!("{1}{W}"),

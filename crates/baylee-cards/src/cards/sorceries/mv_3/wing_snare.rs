@@ -12,7 +12,7 @@ card!(
     oracle_id = "61ce6ec1-79d8-4dc9-ab2d-1623ed1459c1",
     scryfall_id = "a58e1c71-b0e1-4c03-97cc-330e3ef94e52",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wing Snare",
         mana_cost = mana!("{2}{G}"),

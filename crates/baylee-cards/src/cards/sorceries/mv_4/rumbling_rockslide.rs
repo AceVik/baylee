@@ -10,7 +10,7 @@ card!(
     oracle_id = "0909cbce-b4a0-42bb-8a97-47eeb99606c0",
     scryfall_id = "4f06b53f-ec82-4d7f-bee3-6ca04583f023",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rumbling Rockslide",
         mana_cost = mana!("{3}{R}"),

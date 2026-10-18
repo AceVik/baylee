@@ -13,7 +13,7 @@ card!(
     scryfall_id = "249a7be3-311e-4ce6-97dc-97242463ae23",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abstruse Interference",
         mana_cost = mana!("{2}{U}"),

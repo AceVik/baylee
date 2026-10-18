@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c044168d-cb08-493d-98c1-b66b6149fe5a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reality Hemorrhage",
         mana_cost = mana!("{1}{R}"),

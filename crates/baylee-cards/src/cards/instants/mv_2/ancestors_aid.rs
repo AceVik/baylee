@@ -12,7 +12,7 @@ card!(
     oracle_id = "a95a0b13-d50f-41cf-8668-de60d445e7b0",
     scryfall_id = "e90d5b7d-e27d-42d6-ba7a-d4a6b0dd8549",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancestors' Aid",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d0d2c45b-b6e3-4999-bdab-976e8f0d6617",
     scryfall_id = "f9abe517-f601-4784-8d62-2350bd755146",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Fodder",
         mana_cost = mana!("{1}{R}"),

@@ -20,7 +20,7 @@ card!(
     oracle_id = "7c69cb2b-14f1-4215-aba8-c107493c3036",
     scryfall_id = "097910fb-7c48-4535-8ffc-b521d08294b0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kaervek's Hex",
         mana_cost = mana!("{3}{B}"),

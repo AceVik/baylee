@@ -7,12 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::ControlledByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::ControlledByYou]),
-]);
-
-static TRIGGER2: Filter = Filter::And(&[Filter::NONCREATURE, Filter::ControlledByYou]);
+static TRIGGER1: Filter = Filter::And(&[Filter::NONCREATURE, Filter::ControlledByYou]);
 
 card!(
     index = index::THE_IMMORTAL_WEAPONS,
@@ -38,15 +33,15 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::GraveyardToHand {
-                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+                target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You)
             }],
             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-                &TARGET1,
-                PlayerRel::EachPlayer
+                &Filter::INSTANT_OR_SORCERY,
+                PlayerRel::You
             )))
         ),
         triggered!(
-            Trigger::SpellCast(&TRIGGER2),
+            Trigger::SpellCast(&TRIGGER1),
             &[Effect::PumpTarget {
                 power: Amount::Fixed(2),
                 toughness: Amount::Fixed(0),

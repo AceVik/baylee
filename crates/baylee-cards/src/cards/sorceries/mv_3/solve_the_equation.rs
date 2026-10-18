@@ -10,7 +10,7 @@ card!(
     oracle_id = "f02682f0-26c0-4032-9df3-273b6a45d0a8",
     scryfall_id = "66c04ee2-c1e0-45fb-aaf5-1b4459df80fc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Solve the Equation",
         mana_cost = mana!("{2}{U}"),

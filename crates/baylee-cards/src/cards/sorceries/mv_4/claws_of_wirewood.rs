@@ -13,7 +13,7 @@ card!(
     oracle_id = "4ef6ec4a-bbd2-487f-98c2-c0e78aebb550",
     scryfall_id = "0a6f8a21-5946-455b-83ec-ba211c7d19bf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Claws of Wirewood",
         mana_cost = mana!("{3}{G}"),

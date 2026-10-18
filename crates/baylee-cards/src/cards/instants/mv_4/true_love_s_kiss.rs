@@ -11,7 +11,7 @@ card!(
     oracle_id = "9506aba2-5e1d-48c5-ace8-4beb824ad8af",
     scryfall_id = "23a4bac2-f6cb-4712-8510-a63657c43a5c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "True Love's Kiss",
         mana_cost = mana!("{2}{W}{W}"),

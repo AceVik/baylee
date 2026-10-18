@@ -10,7 +10,7 @@ card!(
     oracle_id = "cf874feb-00fe-4e48-b57a-cf8b9855c057",
     scryfall_id = "611e1c69-1343-48ad-a669-8ccd1c1efe24",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gruesome Fate",
         mana_cost = mana!("{2}{B}"),

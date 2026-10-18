@@ -18,7 +18,7 @@ card!(
     oracle_id = "d92b9f63-17b6-4ed2-b6ae-083a8161863e",
     scryfall_id = "c128272d-4611-477c-84b9-081bddcc7188",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Victim of Night",
         mana_cost = mana!("{B}{B}"),

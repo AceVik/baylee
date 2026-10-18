@@ -18,7 +18,7 @@ card!(
     oracle_id = "e59d70a2-40ac-45b0-995d-65b9caa290c8",
     scryfall_id = "b5e1e94d-6876-4351-9c6e-98882e277ccc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crosis's Charm",
         mana_cost = mana!("{U}{B}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "7cfd0320-0b1c-4ef4-8e17-600cbcbddd6f",
     scryfall_id = "73142844-de7c-4427-8183-c2281bde6449",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ritual of Restoration",
         mana_cost = mana!("{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "8578c462-7b2d-4b69-ad10-a2eab44ac98d",
     scryfall_id = "3d0eea0d-c790-4d91-962f-f05b22d0c8fa",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jace's Scrutiny",
         mana_cost = mana!("{1}{U}"),

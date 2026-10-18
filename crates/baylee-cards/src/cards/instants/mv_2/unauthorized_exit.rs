@@ -10,7 +10,7 @@ card!(
     oracle_id = "3d145811-adb2-46a4-b173-bf8152e5de48",
     scryfall_id = "8a458474-d721-46d7-b487-6a47dc063cfd",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unauthorized Exit",
         mana_cost = mana!("{1}{U}"),

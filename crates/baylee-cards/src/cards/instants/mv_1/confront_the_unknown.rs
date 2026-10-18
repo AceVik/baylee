@@ -17,7 +17,7 @@ card!(
     oracle_id = "221240c5-3c97-438c-b906-2508eacf190f",
     scryfall_id = "c59557c3-aba2-4f80-8f37-accb7b991cb9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Confront the Unknown",
         mana_cost = mana!("{G}"),

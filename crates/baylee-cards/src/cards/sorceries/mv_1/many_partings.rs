@@ -13,7 +13,7 @@ card!(
     oracle_id = "92ea750e-62b7-4422-a527-ddf435759d08",
     scryfall_id = "29267b6b-e0d9-4514-8932-16bf8e6db3bb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Many Partings",
         mana_cost = mana!("{G}"),

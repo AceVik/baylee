@@ -10,7 +10,7 @@ card!(
     oracle_id = "d057289d-5e28-43d5-8ff3-4a1bc723477d",
     scryfall_id = "96e84bdc-8a9a-4c58-ba8b-9f052fd60069",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Day of Judgment",
         mana_cost = mana!("{2}{W}{W}"),

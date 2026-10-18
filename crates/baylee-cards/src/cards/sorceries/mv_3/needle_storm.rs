@@ -12,7 +12,7 @@ card!(
     oracle_id = "1f513d1e-03ca-4e0f-af48-6490d71d5c41",
     scryfall_id = "dcc1fcaa-6498-40cb-985f-cc1f3fbf9edd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Needle Storm",
         mana_cost = mana!("{2}{G}"),

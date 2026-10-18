@@ -10,7 +10,7 @@ card!(
     oracle_id = "a1408bae-ed5f-4837-a1a7-438dc30a2786",
     scryfall_id = "59f26d0a-e9f3-442f-b5c6-8016cf736432",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vapor Snag",
         mana_cost = mana!("{U}"),

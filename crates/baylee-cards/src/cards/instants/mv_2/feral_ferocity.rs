@@ -10,7 +10,7 @@ card!(
     oracle_id = "5e968bf3-8d83-480b-81a4-98883cafd04f",
     scryfall_id = "c957bbb7-0322-46d1-89e1-1a59515b3b1b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feral Ferocity",
         mana_cost = mana!("{1}{G}"),

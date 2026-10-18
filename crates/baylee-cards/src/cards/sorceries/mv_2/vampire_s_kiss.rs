@@ -11,7 +11,7 @@ card!(
     oracle_id = "105cea6e-18e9-4dec-a533-0dca4d41320b",
     scryfall_id = "974bf8cc-4259-48cc-8e7f-1580bb010d3f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampire's Kiss",
         mana_cost = mana!("{1}{B}"),

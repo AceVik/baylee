@@ -12,7 +12,7 @@ card!(
     oracle_id = "c9edddb4-0d60-4d21-8887-51d943c6a31f",
     scryfall_id = "6f51484b-3bad-4332-87f8-61924e153799",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consult the Necrosages",
         mana_cost = mana!("{1}{U}{B}"),

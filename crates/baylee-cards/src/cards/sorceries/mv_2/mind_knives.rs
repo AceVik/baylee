@@ -10,7 +10,7 @@ card!(
     oracle_id = "f9be5566-c3df-44cc-9de4-29510c8c245f",
     scryfall_id = "d17e23a6-6313-416d-b826-5df5833371dc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Knives",
         mana_cost = mana!("{1}{B}"),

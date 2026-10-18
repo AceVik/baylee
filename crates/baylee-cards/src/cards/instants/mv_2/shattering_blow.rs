@@ -10,7 +10,7 @@ card!(
     oracle_id = "dc9374df-134d-4d32-842e-991e2bfb2dc1",
     scryfall_id = "a77058d9-d2b5-424a-bfe2-070b754051cb",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shattering Blow",
         mana_cost = mana!("{1}{R/W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "f3d4e48e-5f98-44a6-ad5c-a1c068aa01eb",
     scryfall_id = "3e2c5013-523f-42b2-b947-abe304a6cb84",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skywhaler's Shot",
         mana_cost = mana!("{2}{W}"),

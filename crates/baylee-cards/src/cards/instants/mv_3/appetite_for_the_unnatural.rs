@@ -10,7 +10,7 @@ card!(
     oracle_id = "f041b37e-25af-4aff-b7e3-f07a4d5c6f9a",
     scryfall_id = "b8aa8840-31f8-4263-b992-40584e31595a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Appetite for the Unnatural",
         mana_cost = mana!("{2}{G}"),

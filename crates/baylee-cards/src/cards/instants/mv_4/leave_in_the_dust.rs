@@ -11,7 +11,7 @@ card!(
     oracle_id = "7bb843b6-c55b-4796-b1a7-2fff7b05c276",
     scryfall_id = "049955c6-63f5-4f80-8c60-34c890f3c71a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Leave in the Dust",
         mana_cost = mana!("{3}{U}"),

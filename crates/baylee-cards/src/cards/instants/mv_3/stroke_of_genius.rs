@@ -10,7 +10,7 @@ card!(
     oracle_id = "0cc6d683-366f-4ae4-be60-20ad9621fdaf",
     scryfall_id = "beeb5419-828e-4a84-b4f3-87bc6f4cc594",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stroke of Genius",
         mana_cost = mana!("{X}{2}{U}"),

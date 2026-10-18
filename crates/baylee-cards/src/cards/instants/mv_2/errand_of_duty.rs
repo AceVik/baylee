@@ -11,7 +11,7 @@ card!(
     oracle_id = "977f0d8d-4359-44ae-8f22-2103ea909c40",
     scryfall_id = "88640e95-eda3-46c9-b8cf-f7e493c7a256",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Errand of Duty",
         mana_cost = mana!("{1}{W}"),

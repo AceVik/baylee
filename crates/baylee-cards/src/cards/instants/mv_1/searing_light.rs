@@ -15,7 +15,7 @@ card!(
     oracle_id = "2bad07d2-6284-4f87-9e2e-2e9ec5d2dd57",
     scryfall_id = "76dadfd8-8492-4c55-827c-cd4e6a40ae97",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Searing Light",
         mana_cost = mana!("{W}"),

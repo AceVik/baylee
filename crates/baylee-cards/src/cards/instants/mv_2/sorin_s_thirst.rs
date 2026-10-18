@@ -10,7 +10,7 @@ card!(
     oracle_id = "ff27ff37-96c0-41af-8881-a078e884e67b",
     scryfall_id = "c0dacbb2-21e1-4220-bf43-75a0729cdc60",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sorin's Thirst",
         mana_cost = mana!("{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e59c07ab-08fd-4d5b-978e-1594604ba410",
     scryfall_id = "6b328224-fa09-41b0-aa55-8ebc841f8f7e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ultimate Alliance",
         mana_cost = mana!("{W}"),

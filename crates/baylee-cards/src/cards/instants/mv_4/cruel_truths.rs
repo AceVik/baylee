@@ -10,7 +10,7 @@ card!(
     oracle_id = "2e68e3f7-b168-4541-b8a0-791a8a6ebde8",
     scryfall_id = "6852b4d5-74e0-44ba-ba44-20aa91e3c4c8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cruel Truths",
         mana_cost = mana!("{3}{B}"),

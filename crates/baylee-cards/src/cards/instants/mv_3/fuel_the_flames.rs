@@ -11,7 +11,7 @@ card!(
     oracle_id = "e7d4e952-d7b9-489d-a9a7-c61d08bf17cc",
     scryfall_id = "624335fb-8a0b-4fa9-aefb-60ac641a7934",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fuel the Flames",
         mana_cost = mana!("{2}{R}"),

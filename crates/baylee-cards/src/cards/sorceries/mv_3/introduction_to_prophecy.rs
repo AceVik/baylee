@@ -10,7 +10,7 @@ card!(
     index = index::INTRODUCTION_TO_PROPHECY,
     oracle_id = "9ae1fded-2e77-498a-98e7-4a4908447175",
     scryfall_id = "7820923e-bad2-4d6a-92b3-97b9737d2ca9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Introduction to Prophecy",
         mana_cost = mana!("{3}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "4f3d7102-f8ce-42d4-94eb-f69b695773d1",
     scryfall_id = "c9bafe19-3bd6-4da0-b3e5-e0b89262504c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rebellious Strike",
         mana_cost = mana!("{1}{W}"),

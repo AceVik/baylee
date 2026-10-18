@@ -10,7 +10,7 @@ card!(
     oracle_id = "bf5f348e-d748-48e2-b483-740109e71176",
     scryfall_id = "a0fae55a-6edd-42ea-b909-ccc39a64a0ed",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eat to Extinction",
         mana_cost = mana!("{3}{B}"),

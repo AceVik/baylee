@@ -10,7 +10,7 @@ card!(
     oracle_id = "9aab4b32-c5b3-4707-b359-9b5e3b63cd11",
     scryfall_id = "3e2a218b-2d22-4ffa-860c-27f461480fcd",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reduce to Ashes",
         mana_cost = mana!("{4}{R}"),

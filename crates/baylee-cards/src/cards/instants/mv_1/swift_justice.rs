@@ -10,7 +10,7 @@ card!(
     oracle_id = "d363e135-0a76-4d0e-b3b7-3293944f392c",
     scryfall_id = "df2cc327-715b-4fb6-8218-9d01711d1022",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swift Justice",
         mana_cost = mana!("{W}"),

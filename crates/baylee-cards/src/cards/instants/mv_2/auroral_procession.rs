@@ -10,7 +10,7 @@ card!(
     oracle_id = "511d3de9-076b-4811-bddf-00623f98993f",
     scryfall_id = "672f94ad-65d6-4c7d-925d-165ef264626f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Auroral Procession",
         mana_cost = mana!("{G}{U}"),

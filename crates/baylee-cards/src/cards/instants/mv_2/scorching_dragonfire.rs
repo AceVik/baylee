@@ -10,7 +10,7 @@ card!(
     oracle_id = "d14f313c-fea6-49c4-8197-5b74ee584a6b",
     scryfall_id = "44ea09c1-d420-4e99-a968-ade614579287",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scorching Dragonfire",
         mana_cost = mana!("{1}{R}"),

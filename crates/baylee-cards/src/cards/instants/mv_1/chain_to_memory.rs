@@ -10,7 +10,7 @@ card!(
     oracle_id = "a3805bb3-544c-4142-a6df-c60fa38d625a",
     scryfall_id = "fa0e1a22-8f27-4c5b-a65c-c35abd2ff05b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chain to Memory",
         mana_cost = mana!("{U}"),

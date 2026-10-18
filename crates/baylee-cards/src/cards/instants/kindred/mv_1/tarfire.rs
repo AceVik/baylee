@@ -11,7 +11,7 @@ card!(
     oracle_id = "f07b821c-bbc1-4def-b009-6c03689478d0",
     scryfall_id = "5841e5dd-2a4a-42b9-a04f-d7c5c4840d74",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tarfire",
         mana_cost = mana!("{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "9097243a-39fa-4e18-8316-c0e57699c783",
     scryfall_id = "5204c781-f568-4c7f-b3f7-ce4dd678689b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tectonic Hazard",
         mana_cost = mana!("{R}"),

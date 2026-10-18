@@ -10,7 +10,7 @@ card!(
     oracle_id = "a5495ab6-081a-42be-b50c-f89f15a587c8",
     scryfall_id = "56455067-92c0-45b5-ac2e-525c35b41215",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fateful End",
         mana_cost = mana!("{2}{R}"),

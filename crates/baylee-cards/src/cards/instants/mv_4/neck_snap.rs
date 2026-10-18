@@ -15,7 +15,7 @@ card!(
     oracle_id = "b8ad4276-759d-4d22-a47e-bd27edb34bff",
     scryfall_id = "fc326b79-363e-4c14-86e4-23041f2d6b4f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neck Snap",
         mana_cost = mana!("{3}{W}"),

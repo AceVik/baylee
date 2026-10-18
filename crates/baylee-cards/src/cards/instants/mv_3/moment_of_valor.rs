@@ -14,7 +14,7 @@ card!(
     oracle_id = "bfac8072-2bbc-43ca-b141-9cd0799840f7",
     scryfall_id = "6f257fd6-24a4-4cc1-89e0-99cf5d821e3a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment of Valor",
         mana_cost = mana!("{2}{W}"),

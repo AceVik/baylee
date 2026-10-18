@@ -16,7 +16,7 @@ card!(
     oracle_id = "efcbca5a-743c-4b16-a7cf-b07335b31ced",
     scryfall_id = "92cd3884-18d1-4200-b28e-a52349ef37aa",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shower of Arrows",
         mana_cost = mana!("{2}{G}"),

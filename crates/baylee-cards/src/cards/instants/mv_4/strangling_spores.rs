@@ -10,7 +10,7 @@ card!(
     oracle_id = "444493a6-0f90-4847-9619-4ea8fbf7cf6f",
     scryfall_id = "300468ab-fbae-42ae-97bc-b08f795efa5c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strangling Spores",
         mana_cost = mana!("{3}{B}"),

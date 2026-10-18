@@ -11,7 +11,7 @@ card!(
     oracle_id = "04a8858e-9033-403e-9346-5a2ad1bdf680",
     scryfall_id = "a3f6baa5-666d-40b0-82e8-b0df10ff3cdd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fungal Infection",
         mana_cost = mana!("{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "b2bd58ea-b2c6-47f1-b082-7969f093bbc6",
     scryfall_id = "20ff4e7d-fa50-48d2-8ab6-6b86e3a05e86",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Animate Land",
         mana_cost = mana!("{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "e7fa2fc2-8542-4069-b75f-5520dd30f74d",
     scryfall_id = "74d0bb76-075c-49d7-9afb-e5bcf5b654f7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ral's Reinforcements",
         mana_cost = mana!("{1}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e07f50fb-98b2-40b7-9610-b8e9438be394",
     scryfall_id = "4df70b14-5d67-4a92-aaba-72480c621d10",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bolt of Keranos",
         mana_cost = mana!("{1}{R}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "652bfa31-b2eb-4cba-850f-1db02a83bb35",
     scryfall_id = "4719ac60-2cff-4abb-b9cc-b677d3ac945c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call the Gatewatch",
         mana_cost = mana!("{2}{W}"),

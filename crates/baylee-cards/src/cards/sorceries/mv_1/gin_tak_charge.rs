@@ -10,7 +10,7 @@ card!(
     oracle_id = "286213a8-ae53-4f97-9f81-e13bed462d0a",
     scryfall_id = "a5d7bb33-fdf7-479a-93df-b2d0acddf033",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gin'tak Charge",
         mana_cost = mana!("{R}"),

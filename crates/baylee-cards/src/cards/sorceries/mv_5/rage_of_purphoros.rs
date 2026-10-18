@@ -10,7 +10,7 @@ card!(
     oracle_id = "d6667a93-c706-451f-a83d-ffe5b9b9e53e",
     scryfall_id = "1e249f31-cc67-4d0c-9db5-962d10cf74ca",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rage of Purphoros",
         mana_cost = mana!("{4}{R}"),

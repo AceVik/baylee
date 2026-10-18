@@ -12,7 +12,7 @@ card!(
     oracle_id = "2d1bbeda-2e81-4aaa-9494-094ec3dd6c3b",
     scryfall_id = "f61693a2-7042-44e0-85ba-9bf12ab94e7e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Suplex",
         mana_cost = mana!("{1}{R}"),

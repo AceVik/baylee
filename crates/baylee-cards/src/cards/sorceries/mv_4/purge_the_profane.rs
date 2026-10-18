@@ -10,7 +10,7 @@ card!(
     oracle_id = "a0f29566-bca8-4fe8-86ce-4a051ece6d5a",
     scryfall_id = "937ee156-0105-4291-8c67-d03a59c24679",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Purge the Profane",
         mana_cost = mana!("{2}{W}{B}"),

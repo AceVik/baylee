@@ -11,7 +11,7 @@ card!(
     oracle_id = "04a3bb42-0464-4638-a6ac-d5f412c222cc",
     scryfall_id = "462fe190-5264-42d8-bd27-23c5aa0c641f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deadly Visit",
         mana_cost = mana!("{3}{B}{B}"),

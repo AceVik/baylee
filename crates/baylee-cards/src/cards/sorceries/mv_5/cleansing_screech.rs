@@ -10,7 +10,7 @@ card!(
     oracle_id = "4523c22b-363b-4bc6-ba23-b428054abc5d",
     scryfall_id = "79928b26-fcac-4c3f-9edd-292769c2e56e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cleansing Screech",
         mana_cost = mana!("{4}{R}"),

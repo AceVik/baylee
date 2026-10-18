@@ -12,7 +12,7 @@ card!(
     oracle_id = "211d1c59-0111-48dd-9ff6-d03e7ff2ad5c",
     scryfall_id = "b577e246-3377-42aa-856e-b9fa89f3603a",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kin-Tree Severance",
         mana_cost = mana!("{2/W}{2/B}{2/G}"),

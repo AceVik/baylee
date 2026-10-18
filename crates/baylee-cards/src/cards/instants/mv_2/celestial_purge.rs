@@ -15,7 +15,7 @@ card!(
     oracle_id = "ec1f6188-2516-46ac-8a03-7b7285b23a62",
     scryfall_id = "cd38afd4-d7a4-493d-bdea-72be9a1d9a07",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Celestial Purge",
         mana_cost = mana!("{1}{W}"),

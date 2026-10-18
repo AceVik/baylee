@@ -10,7 +10,7 @@ card!(
     oracle_id = "44e9030d-dd49-46b4-a0eb-75a49b6638a2",
     scryfall_id = "90b34a03-3270-412c-90ca-03c1b3e61222",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Maw of the Mire",
         mana_cost = mana!("{4}{B}"),

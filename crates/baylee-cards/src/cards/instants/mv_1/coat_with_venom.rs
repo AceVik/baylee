@@ -10,7 +10,7 @@ card!(
     oracle_id = "cbc808dd-8d50-4f42-b0f1-d4e45d0462a2",
     scryfall_id = "8cc8e012-7043-405c-b6cd-b3b38f8a8d54",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coat with Venom",
         mana_cost = mana!("{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "599faf5b-88fd-4373-b6ce-6047a67b30ea",
     scryfall_id = "916d8aa5-158f-46f4-babe-981a391fd88b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ironwright's Cleansing",
         mana_cost = mana!("{2}{W}"),

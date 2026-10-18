@@ -13,7 +13,7 @@ card!(
     oracle_id = "04dcda3b-3401-4523-8b97-b700a14feb36",
     scryfall_id = "9bdb58b7-e1ef-496b-b8dd-d1fabf3d2e7a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gallant Strike",
         mana_cost = mana!("{1}{W}"),

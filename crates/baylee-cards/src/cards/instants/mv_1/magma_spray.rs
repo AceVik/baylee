@@ -10,7 +10,7 @@ card!(
     oracle_id = "fe16f1ab-58b4-4452-abe4-cbd9addd348f",
     scryfall_id = "988a7993-eb7d-4ae2-8a22-1676f517558b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magma Spray",
         mana_cost = mana!("{R}"),

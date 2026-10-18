@@ -16,7 +16,7 @@ card!(
     oracle_id = "bd95c832-9ae9-404a-a2bc-0760a5b9ff56",
     scryfall_id = "80b582e3-1e02-4c24-87be-05880b56df70",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Human Frailty",
         mana_cost = mana!("{B}"),

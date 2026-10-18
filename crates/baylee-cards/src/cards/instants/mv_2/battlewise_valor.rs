@@ -10,7 +10,7 @@ card!(
     oracle_id = "b4540f6a-bec8-4942-aebe-d3285b8a8134",
     scryfall_id = "7d967a4c-2323-4361-a907-5ca9140d8793",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlewise Valor",
         mana_cost = mana!("{1}{W}"),

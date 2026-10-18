@@ -10,7 +10,7 @@ card!(
     oracle_id = "dbd6a94b-62ff-4a10-9d52-bdd90b26e425",
     scryfall_id = "7c46dd99-8af8-4cf2-9f98-734f73d9c456",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Time Warp",
         mana_cost = mana!("{3}{U}{U}"),

@@ -6,17 +6,12 @@
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::ARTIFACT, Filter::OwnedByYou]),
-    Filter::And(&[Filter::CREATURE, Filter::OwnedByYou]),
-]);
-
 card!(
     index = index::EMERGENCY_WELD,
     oracle_id = "86b0e978-5b4e-4bb7-bfda-be899c632d8e",
     scryfall_id = "ec94d440-3922-4588-bf7b-d8670f81ef4e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emergency Weld",
         mana_cost = mana!("{1}{B}"),
@@ -25,15 +20,15 @@ card!(
     abilities = &[spell!(
         &[
             Effect::GraveyardToHand {
-                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+                target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_CREATURE, PlayerRel::You)
             },
             Effect::CreateToken {
                 token: &generated_tokens::SOLDIER_ARTIFACT_1_1
             }
         ],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::ARTIFACT_OR_CREATURE,
+            PlayerRel::You
         )))
     ),],
 );

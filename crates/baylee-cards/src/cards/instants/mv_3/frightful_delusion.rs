@@ -10,7 +10,7 @@ card!(
     oracle_id = "13ca3ede-a4c8-463d-b160-99b4071034b0",
     scryfall_id = "38c9ba98-90b4-4c28-9eef-a4fe0913b921",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frightful Delusion",
         mana_cost = mana!("{2}{U}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "afb278f1-0e21-4f6d-96bb-c34aa3ef96b0",
     scryfall_id = "b7e2708c-2824-4925-b529-d625deb77924",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tyrant's Scorn",
         mana_cost = mana!("{U}{B}"),

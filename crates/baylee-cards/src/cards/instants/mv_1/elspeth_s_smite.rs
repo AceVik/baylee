@@ -15,7 +15,7 @@ card!(
     oracle_id = "3f404fe4-4335-4dcc-ba90-78246c4b880b",
     scryfall_id = "f03a480f-de67-4611-9db7-c0c3d020f597",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elspeth's Smite",
         mana_cost = mana!("{W}"),

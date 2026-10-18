@@ -10,7 +10,7 @@ card!(
     oracle_id = "c3401995-4fb4-4b43-b852-5ccad6dc3154",
     scryfall_id = "75743f66-fd2d-47e7-b56f-1c95311d09c2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mortal's Ardor",
         mana_cost = mana!("{W}"),

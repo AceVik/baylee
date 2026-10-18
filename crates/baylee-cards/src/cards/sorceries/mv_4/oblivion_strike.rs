@@ -12,7 +12,7 @@ card!(
     scryfall_id = "24e30acf-b30f-4bb3-b80e-dc7e9559da51",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oblivion Strike",
         mana_cost = mana!("{3}{B}"),

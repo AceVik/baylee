@@ -11,7 +11,7 @@ card!(
     oracle_id = "789899eb-3a33-4a41-b6b5-5e2f55a9af51",
     scryfall_id = "1d54d596-f7aa-4b05-ab13-19b246698c04",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "The Chase Is On",
         mana_cost = mana!("{2}{R}"),

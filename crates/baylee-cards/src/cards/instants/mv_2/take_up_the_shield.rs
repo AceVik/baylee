@@ -10,7 +10,7 @@ card!(
     oracle_id = "e8d0eafe-540a-4b2e-a989-e98ff3c31105",
     scryfall_id = "5199d708-8b11-461d-9e91-3e8cd70906f7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Take Up the Shield",
         mana_cost = mana!("{1}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "e9db79fd-a5b6-4d59-9176-e713e2e9c708",
     scryfall_id = "8214d2e9-5aa1-42a7-8f1a-f4eaa2def1b1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aether Shockwave",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "7f591bfb-a241-4980-9cb3-fb5af3355f6b",
     scryfall_id = "9b2161d9-ad52-45a6-9be9-e7ff09ec8f5a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fate Forgotten",
         mana_cost = mana!("{2}{W}"),

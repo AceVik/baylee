@@ -10,7 +10,7 @@ card!(
     oracle_id = "1128d2ab-0b6e-4912-8735-15521bc314e6",
     scryfall_id = "d7d88da5-d9a3-49b3-a091-458b058c9114",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Puncturing Blow",
         mana_cost = mana!("{2}{R}{R}"),

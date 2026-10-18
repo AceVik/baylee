@@ -8,6 +8,14 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static SEARCH1: Filter = Filter::And(&[
+    Filter::HasType(
+        TypeSet::ARTIFACT
+            .union(TypeSet::BATTLE)
+            .union(TypeSet::CREATURE)
+            .union(TypeSet::ENCHANTMENT)
+            .union(TypeSet::LAND)
+            .union(TypeSet::PLANESWALKER),
+    ),
     Filter::HasSubtype(subtypes::creature::REBEL),
     Filter::CmcAtMost(6),
 ]);

@@ -13,7 +13,7 @@ card!(
     oracle_id = "85fd04e9-b39c-4ce0-97a1-58f9670a298f",
     scryfall_id = "5abbdd37-dc24-4bf7-808e-6354af7d7ec6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Radiant's Judgment",
         mana_cost = mana!("{2}{W}"),

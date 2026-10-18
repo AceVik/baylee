@@ -12,7 +12,7 @@ card!(
     oracle_id = "9286ddc5-8151-4129-aaf6-2a2abe7047e5",
     scryfall_id = "e0dd378c-5050-48c9-9a16-6d91afa62d21",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Raze the Effigy",
         mana_cost = mana!("{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "b59c7c62-ce2f-4062-9790-566191aded69",
     scryfall_id = "bc10173d-25ff-4734-b8f2-84f94fe52b17",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alley Evasion",
         mana_cost = mana!("{W}"),

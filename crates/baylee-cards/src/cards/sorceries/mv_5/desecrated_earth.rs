@@ -10,7 +10,7 @@ card!(
     oracle_id = "3c9242fd-915b-4f6d-b4ee-830c9d80c9e8",
     scryfall_id = "3f05e478-8712-41de-94af-ecb90432e562",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desecrated Earth",
         mana_cost = mana!("{4}{B}"),

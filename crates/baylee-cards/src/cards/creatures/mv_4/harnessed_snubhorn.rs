@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::ARTIFACT, Filter::OwnedByYou]),
-    Filter::And(&[Filter::ENCHANTMENT, Filter::OwnedByYou]),
-]);
-
 card!(
     index = index::HARNESSED_SNUBHORN,
     oracle_id = "e1dd9dca-cb5f-46b4-b16d-a61ae651d653",
@@ -30,13 +25,13 @@ card!(
     abilities = &[triggered!(
         Trigger::DealsCombatDamageToPlayer(&Filter::This),
         &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer),
+            target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_ENCHANTMENT, PlayerRel::You),
             owner_control: false,
             counters: None
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+            PlayerRel::You
         )))
     ),],
 );

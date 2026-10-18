@@ -10,7 +10,7 @@ card!(
     oracle_id = "70f3d545-d114-485d-8d8b-4a93b2393c41",
     scryfall_id = "9cf96a6c-8481-4954-b149-7153b80480be",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harrowing Journey",
         mana_cost = mana!("{4}{B}"),

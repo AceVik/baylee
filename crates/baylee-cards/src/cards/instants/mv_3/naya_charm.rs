@@ -13,7 +13,7 @@ card!(
     oracle_id = "20cc0f3e-de69-4e5f-88b3-ae7e6c6b5996",
     scryfall_id = "ce1d6f9b-2ca8-48b8-b4a6-46a61c7c3905",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Naya Charm",
         mana_cost = mana!("{R}{G}{W}"),

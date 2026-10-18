@@ -11,7 +11,7 @@ card!(
     oracle_id = "b9cf9f1e-0280-43b6-9d58-262052dcb8a8",
     scryfall_id = "ae6f6255-865a-45fa-811d-ce477df730f2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bladebrand",
         mana_cost = mana!("{1}{B}"),

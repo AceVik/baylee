@@ -16,7 +16,7 @@ card!(
     oracle_id = "8226f31d-6f51-49c3-87f7-0c68f7f4f9ce",
     scryfall_id = "05fa34df-99b0-4121-b2f1-d41afe97b200",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Make Your Move",
         mana_cost = mana!("{2}{W}"),

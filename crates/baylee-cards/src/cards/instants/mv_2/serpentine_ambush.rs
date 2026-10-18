@@ -11,7 +11,7 @@ card!(
     oracle_id = "822b6d56-939a-42b9-b50c-9a8ba50ec3ad",
     scryfall_id = "b8214b1c-29f8-4986-89ac-2d7fc929edf3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serpentine Ambush",
         mana_cost = mana!("{1}{U}"),

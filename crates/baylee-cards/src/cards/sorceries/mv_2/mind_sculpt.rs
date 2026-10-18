@@ -10,7 +10,7 @@ card!(
     oracle_id = "4d8592d7-2e36-4a7a-be9e-7c8f512d5f62",
     scryfall_id = "037d6277-1fc3-41a4-ade6-7cca10535b0f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Sculpt",
         mana_cost = mana!("{1}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "c0044283-7034-4d1d-876a-a40ea15b7cc6",
     scryfall_id = "290b215b-13cb-493a-83f9-f89edfa6b314",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nighthaze",
         mana_cost = mana!("{B}"),

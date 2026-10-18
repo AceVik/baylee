@@ -10,7 +10,7 @@ card!(
     oracle_id = "01b3af6d-ab7d-4137-a94a-1cf2cbfd9d44",
     scryfall_id = "32bd3acd-aa62-4708-9336-e3430fd0e541",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lich's Caress",
         mana_cost = mana!("{3}{B}{B}"),

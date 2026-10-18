@@ -16,7 +16,7 @@ card!(
     oracle_id = "9093e6f1-12bc-4dfb-bc78-6ead0752ad61",
     scryfall_id = "0038ac6a-318f-44fb-bb64-7ae172c4aca3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Walk the Plank",
         mana_cost = mana!("{B}{B}"),

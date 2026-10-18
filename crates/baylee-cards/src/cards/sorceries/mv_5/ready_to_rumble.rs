@@ -12,7 +12,7 @@ card!(
     oracle_id = "04dd9395-847b-46f7-a669-9b0df89d01ff",
     scryfall_id = "16998689-345d-41e3-a368-e97b696ed689",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ready to Rumble",
         mana_cost = mana!("{4}{R}"),

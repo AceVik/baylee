@@ -10,7 +10,7 @@ card!(
     oracle_id = "57579799-2582-417f-9864-4560cac39ac3",
     scryfall_id = "08be8c18-eca3-4960-b174-e4a78579ed63",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment of Triumph",
         mana_cost = mana!("{W}"),

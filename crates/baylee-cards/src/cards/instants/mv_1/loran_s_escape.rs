@@ -10,7 +10,7 @@ card!(
     oracle_id = "1a9048d6-f3fa-4f3b-9baa-35318177bc6e",
     scryfall_id = "3765610d-a0c1-4de9-a81b-ffa3eb06454b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Loran's Escape",
         mana_cost = mana!("{W}"),

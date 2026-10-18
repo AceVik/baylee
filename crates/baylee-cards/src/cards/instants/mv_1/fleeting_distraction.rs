@@ -11,7 +11,7 @@ card!(
     oracle_id = "b36271cb-cda2-434a-a580-6050dc460409",
     scryfall_id = "c0b86a7b-4912-43a7-ab89-c3432385baa1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fleeting Distraction",
         mana_cost = mana!("{U}"),

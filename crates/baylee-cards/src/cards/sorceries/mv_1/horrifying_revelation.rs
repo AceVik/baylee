@@ -10,7 +10,7 @@ card!(
     oracle_id = "36ee4179-83a1-472a-a48c-394c4c0457bc",
     scryfall_id = "27ff5fbd-7ce8-4188-8228-0eab0d69a7a1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horrifying Revelation",
         mana_cost = mana!("{B}"),

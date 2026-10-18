@@ -10,7 +10,7 @@ card!(
     oracle_id = "ebeee06e-3345-4f02-896f-cb0b2cfa5548",
     scryfall_id = "af158462-91e3-4ad7-b435-95d4eb32fe0a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kindled Fury",
         mana_cost = mana!("{R}"),

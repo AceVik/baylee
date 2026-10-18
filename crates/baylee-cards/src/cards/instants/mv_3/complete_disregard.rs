@@ -14,7 +14,7 @@ card!(
     scryfall_id = "7d94e878-6c49-4420-9d34-f9ee64e811ba",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Complete Disregard",
         mana_cost = mana!("{2}{B}"),

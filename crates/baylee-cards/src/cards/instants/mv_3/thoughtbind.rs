@@ -12,7 +12,7 @@ card!(
     oracle_id = "f31bb2b4-061c-4ba6-9f91-374f40fe6b05",
     scryfall_id = "7919cf41-67bb-4dc4-90de-cf3fa2096c2e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thoughtbind",
         mana_cost = mana!("{2}{U}"),

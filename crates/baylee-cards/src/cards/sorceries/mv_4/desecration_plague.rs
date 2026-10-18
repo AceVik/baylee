@@ -12,7 +12,7 @@ card!(
     oracle_id = "131d55d1-7429-4940-b7d2-d759aabff47b",
     scryfall_id = "42dbc5e5-5d46-47f7-a700-b65781a13c7a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desecration Plague",
         mana_cost = mana!("{3}{G}"),

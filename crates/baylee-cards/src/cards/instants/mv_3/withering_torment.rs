@@ -12,7 +12,7 @@ card!(
     oracle_id = "ffce81c5-1b58-4882-a4e7-6f8d7cb170de",
     scryfall_id = "06d44ada-f98e-405f-89d3-ac1002bfb854",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Withering Torment",
         mana_cost = mana!("{2}{B}"),

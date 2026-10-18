@@ -11,7 +11,7 @@ card!(
     oracle_id = "aff9a568-2848-4614-a28b-b1ea84f7f0b7",
     scryfall_id = "076deb63-f7e2-498f-a66a-8a190370a3b3",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pointed Discussion",
         mana_cost = mana!("{2}{B}"),

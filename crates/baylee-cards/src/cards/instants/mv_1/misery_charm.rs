@@ -19,7 +19,7 @@ card!(
     oracle_id = "46aa8dca-2a7d-4bff-9323-5f6933ca95f2",
     scryfall_id = "2be66eaf-222b-4c40-a9fa-aad56b9218e0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Misery Charm",
         mana_cost = mana!("{B}"),
@@ -34,11 +34,11 @@ card!(
             ),
             mode!(
                 &[Effect::GraveyardToHand {
-                    target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+                    target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
                 }],
                 targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                     &TARGET1,
-                    PlayerRel::EachPlayer
+                    PlayerRel::You
                 )))
             ),
             mode!(

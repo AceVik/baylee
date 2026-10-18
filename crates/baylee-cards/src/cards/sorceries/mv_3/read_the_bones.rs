@@ -10,7 +10,7 @@ card!(
     oracle_id = "5bf4d8d9-a2b2-4dba-ac05-9d4470a89db2",
     scryfall_id = "b3198f96-f9d8-494f-a556-24ce3ad3895d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Read the Bones",
         mana_cost = mana!("{2}{B}"),

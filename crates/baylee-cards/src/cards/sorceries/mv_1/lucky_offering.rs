@@ -12,7 +12,7 @@ card!(
     oracle_id = "cbb39e5c-e31a-44e9-be0c-2003c8bce599",
     scryfall_id = "24bbdeb0-9165-4874-a853-d19c20c250ef",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lucky Offering",
         mana_cost = mana!("{W}"),

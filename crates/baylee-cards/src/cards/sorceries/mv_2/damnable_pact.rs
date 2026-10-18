@@ -10,7 +10,7 @@ card!(
     oracle_id = "28dd0ae4-fc56-4abf-af24-6c6c8d0a10cd",
     scryfall_id = "17fa6dc2-5a2e-4758-9ca4-e020eb032d74",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Damnable Pact",
         mana_cost = mana!("{X}{B}{B}"),

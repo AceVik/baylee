@@ -10,7 +10,7 @@ card!(
     oracle_id = "94ac2990-58a5-43d4-bdac-ec2f6daf0b51",
     scryfall_id = "cf7df82f-937a-443f-813f-2bcc6944c5c0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sephiroth's Intervention",
         mana_cost = mana!("{3}{B}"),

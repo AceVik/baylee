@@ -10,7 +10,7 @@ card!(
     oracle_id = "b0206b34-68b4-4b1f-ae79-6e2d0432ad4b",
     scryfall_id = "30f1bfbe-7cfd-4b11-be95-0df327a83c12",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Titan's Strength",
         mana_cost = mana!("{R}"),

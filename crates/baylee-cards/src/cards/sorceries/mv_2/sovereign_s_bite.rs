@@ -10,7 +10,7 @@ card!(
     oracle_id = "13718d93-fe46-4a18-a511-88649ef1c9de",
     scryfall_id = "5326d251-bb91-4653-b1fa-44f14c4e0b88",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sovereign's Bite",
         mana_cost = mana!("{1}{B}"),

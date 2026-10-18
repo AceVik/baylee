@@ -10,7 +10,7 @@ card!(
     oracle_id = "9666729d-3a06-43f9-a957-d5cc4d25b974",
     scryfall_id = "4f6eb966-67af-4b18-8899-4a99a5179aa3",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coming In Hot",
         mana_cost = mana!("{R}"),

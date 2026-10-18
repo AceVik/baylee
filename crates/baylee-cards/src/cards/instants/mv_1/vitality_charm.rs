@@ -17,7 +17,7 @@ card!(
     oracle_id = "74f5b4a9-8358-40b1-b38a-e034e2b916ac",
     scryfall_id = "e1abae21-ed8f-4e21-b227-f721b840c11f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vitality Charm",
         mana_cost = mana!("{G}"),

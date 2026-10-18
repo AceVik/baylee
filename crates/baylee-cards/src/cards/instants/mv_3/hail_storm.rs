@@ -10,7 +10,7 @@ card!(
     oracle_id = "73eacb1f-3d35-4ead-bead-f85e6cfc17ab",
     scryfall_id = "8627bdbb-0ee3-4f4e-9016-ca0d33d27d40",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hail Storm",
         mana_cost = mana!("{1}{G}{G}"),

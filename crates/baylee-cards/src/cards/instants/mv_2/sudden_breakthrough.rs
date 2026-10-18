@@ -12,7 +12,7 @@ card!(
     oracle_id = "f5576cd4-6b21-4b29-902c-9c1fbdd7b2be",
     scryfall_id = "b011707a-471b-41c2-bc73-376a55d26bee",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sudden Breakthrough",
         mana_cost = mana!("{1}{R}"),

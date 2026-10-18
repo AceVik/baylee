@@ -11,7 +11,7 @@ card!(
     oracle_id = "b97d21b4-d730-479f-872f-3e1645b66751",
     scryfall_id = "7e1df99a-c139-44c9-8881-077dbfd7332f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Release the Dogs",
         mana_cost = mana!("{3}{W}"),

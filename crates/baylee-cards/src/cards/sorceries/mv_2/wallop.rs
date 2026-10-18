@@ -23,7 +23,7 @@ card!(
     oracle_id = "e939ef5e-ebe1-48cd-9e9f-eb3fd516165c",
     scryfall_id = "45ce5126-e7b1-41ab-9e56-1e12927c4d27",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wallop",
         mana_cost = mana!("{1}{G}"),

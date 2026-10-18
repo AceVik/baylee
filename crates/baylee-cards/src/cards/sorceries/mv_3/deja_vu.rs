@@ -12,7 +12,7 @@ card!(
     oracle_id = "7408b9c5-7266-4627-be4e-b691cf5c622c",
     scryfall_id = "ade6a71a-e8ec-4d41-8a39-3eacf0097c8b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Déjà Vu",
         mana_cost = mana!("{2}{U}"),

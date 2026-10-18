@@ -11,7 +11,7 @@ card!(
     oracle_id = "b5fcfcf5-8af5-4395-b989-427fa92e0dd2",
     scryfall_id = "b6dac5db-ef96-4bd5-aabc-e5ae2b95c8c3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geist Snatch",
         mana_cost = mana!("{2}{U}{U}"),

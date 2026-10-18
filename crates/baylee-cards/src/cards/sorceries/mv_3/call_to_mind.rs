@@ -5,17 +5,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::ControlledByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::ControlledByYou]),
-]);
-
 card!(
     index = index::CALL_TO_MIND,
     oracle_id = "72e2b883-a284-4ab6-8174-1ca289141a49",
     scryfall_id = "9218f8f4-89fd-46a1-928b-2e0e8e2b4458",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call to Mind",
         mana_cost = mana!("{2}{U}"),
@@ -23,11 +18,11 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::INSTANT_OR_SORCERY,
+            PlayerRel::You
         )))
     ),],
 );

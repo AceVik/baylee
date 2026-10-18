@@ -13,7 +13,7 @@ card!(
     oracle_id = "47951720-9584-4ca3-a73d-3d259102b2f8",
     scryfall_id = "f4a31d4a-34bc-46b4-b20f-a5460191b35d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "They Went This Way",
         mana_cost = mana!("{2}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "71b178bd-3b37-4de9-97a3-96e23d5444a4",
     scryfall_id = "b10b8f15-b323-44d8-85a7-ed662a40889d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hornswoggle",
         mana_cost = mana!("{2}{U}"),

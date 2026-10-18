@@ -16,7 +16,7 @@ card!(
     oracle_id = "ef84d5e2-5db7-40e7-af49-a2f6f494a8a4",
     scryfall_id = "6a8006d8-bcdb-4e1c-bdfa-1e7f46fe425b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spire Barrage",
         mana_cost = mana!("{4}{R}"),

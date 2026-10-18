@@ -12,7 +12,7 @@ card!(
     oracle_id = "ff281103-7a9b-4eb1-b81e-b8cd137b6e98",
     scryfall_id = "75d6eb18-a49d-4fa5-a333-78aafbc4abcb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Triumphant Surge",
         mana_cost = mana!("{3}{W}"),

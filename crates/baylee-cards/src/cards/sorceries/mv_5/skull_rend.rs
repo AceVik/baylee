@@ -10,7 +10,7 @@ card!(
     oracle_id = "d29d59f1-e00c-4217-8185-2085a4142e3b",
     scryfall_id = "1c8efb23-bac0-41d2-b4ee-27a6b1fe3134",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skull Rend",
         mana_cost = mana!("{3}{B}{R}"),

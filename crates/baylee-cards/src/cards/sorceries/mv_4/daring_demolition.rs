@@ -16,7 +16,7 @@ card!(
     oracle_id = "8c8a3962-42a5-4070-8719-00d7483c7dbe",
     scryfall_id = "a6378898-50b7-47c9-8c25-dc660606be9f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daring Demolition",
         mana_cost = mana!("{2}{B}{B}"),

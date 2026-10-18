@@ -10,7 +10,7 @@ card!(
     oracle_id = "1fd754fd-c053-4638-b379-46d903357b01",
     scryfall_id = "e34fa15b-4559-4a8f-aa29-5c43eb4eeef9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Douse in Gloom",
         mana_cost = mana!("{2}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "494c819d-7d73-432b-8c96-4cb9dcd31094",
     scryfall_id = "7737b578-8ae3-4846-b508-93ef40f25244",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grasp of Darkness",
         mana_cost = mana!("{B}{B}"),

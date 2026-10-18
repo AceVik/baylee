@@ -10,7 +10,7 @@ card!(
     oracle_id = "e6813885-b629-4bd4-b445-da8ab4363080",
     scryfall_id = "09aa7744-680f-4c2a-8fa0-9cb0c176ae8f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lost in a Labyrinth",
         mana_cost = mana!("{U}"),

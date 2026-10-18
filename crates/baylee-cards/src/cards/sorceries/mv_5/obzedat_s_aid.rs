@@ -5,12 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static TARGET1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::OBZEDAT_S_AID,
     oracle_id = "f3be91ce-e99b-4a51-a0f7-a000fd9d0e14",
     scryfall_id = "b846ba99-81ba-424a-98eb-f9f69c40f984",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obzedat's Aid",
         mana_cost = mana!("{3}{W}{B}"),
@@ -18,12 +27,12 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You),
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You),
             owner_control: false,
             counters: None
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::Any,
+            &TARGET1,
             PlayerRel::You
         )))
     ),],

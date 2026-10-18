@@ -10,7 +10,7 @@ card!(
     oracle_id = "91b89c21-5f35-4aa5-925b-c756ec6969b4",
     scryfall_id = "909b765a-1a2b-403b-8842-657e0d482357",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ticked Off",
         mana_cost = mana!("{1}{R}"),

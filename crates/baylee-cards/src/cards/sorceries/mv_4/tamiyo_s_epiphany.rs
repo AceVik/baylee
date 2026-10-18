@@ -10,7 +10,7 @@ card!(
     oracle_id = "48db03c4-c847-4901-8ecb-f480ede94a37",
     scryfall_id = "ce338cf3-46dc-4c87-8df5-af27097c7dd4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tamiyo's Epiphany",
         mana_cost = mana!("{3}{U}"),

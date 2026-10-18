@@ -11,7 +11,7 @@ card!(
     oracle_id = "8fb599a7-2c61-446b-a7a7-cd5367f9b796",
     scryfall_id = "b2314215-23af-4c8e-860f-b029e151af36",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spore Swarm",
         mana_cost = mana!("{3}{G}"),

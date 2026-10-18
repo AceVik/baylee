@@ -10,7 +10,7 @@ card!(
     oracle_id = "87644a09-241a-44e5-99f2-16fc9a7d8b93",
     scryfall_id = "69ce134a-25ef-4f8d-a385-7c29fc5707dc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desperate Lunge",
         mana_cost = mana!("{1}{W}"),

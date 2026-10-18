@@ -16,7 +16,7 @@ card!(
     oracle_id = "541adb13-1277-4c9e-ae1e-976f7aac1c72",
     scryfall_id = "9597d9ea-d9b2-4009-8e7c-02caa3585bc5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Return from the Wilds",
         mana_cost = mana!("{2}{G}"),

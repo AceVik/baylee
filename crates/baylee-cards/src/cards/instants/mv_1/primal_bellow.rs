@@ -16,7 +16,7 @@ card!(
     oracle_id = "5cd064b9-1277-4edc-bf2c-82eb5e62f9d7",
     scryfall_id = "23b0c6a9-a7c0-4518-8580-653712062265",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primal Bellow",
         mana_cost = mana!("{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "cb184995-700f-4900-994a-4ce7fd12f942",
     scryfall_id = "47c25e41-f43c-4447-81b5-b9631448bd29",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "It'll Quench Ya!",
         mana_cost = mana!("{1}{U}"),

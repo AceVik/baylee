@@ -11,7 +11,7 @@ card!(
     oracle_id = "a79e21fc-89bd-4547-8bef-5510554e1431",
     scryfall_id = "4399dcc7-7684-4345-9f74-318c3ec9af82",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Midnight Haunting",
         mana_cost = mana!("{2}{W}"),

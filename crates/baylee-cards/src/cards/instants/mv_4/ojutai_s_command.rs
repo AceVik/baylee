@@ -16,7 +16,7 @@ card!(
     oracle_id = "c1fafe93-8fd2-44c1-a4a0-5c9ecee550cc",
     scryfall_id = "c7a7f500-594d-4c7b-80e8-54ae1ada2444",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ojutai's Command",
         mana_cost = mana!("{2}{W}{U}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "fa99cf82-ebf1-4526-ab9c-b24eb2970f2a",
     scryfall_id = "b82c20ad-0f69-4822-ae76-770832cccdf7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pawpatch Formation",
         mana_cost = mana!("{1}{G}"),

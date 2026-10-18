@@ -10,7 +10,7 @@ card!(
     oracle_id = "46665089-aa3d-44c3-964d-6638dfbb5782",
     scryfall_id = "32840097-0531-4c43-b6a8-e76c17420b04",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Scatter",
         mana_cost = mana!("{1}{U}"),

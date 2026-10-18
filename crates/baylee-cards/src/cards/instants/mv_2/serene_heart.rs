@@ -11,7 +11,7 @@ card!(
     oracle_id = "f38b03dd-a200-48a6-ab65-fb2ac47456df",
     scryfall_id = "aff19d9d-8069-4f8d-a81b-e2fcd94c13b3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serene Heart",
         mana_cost = mana!("{1}{G}"),

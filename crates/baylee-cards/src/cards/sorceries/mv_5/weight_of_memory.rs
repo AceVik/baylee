@@ -10,7 +10,7 @@ card!(
     oracle_id = "826c5feb-9e82-49e0-bc6f-6c29004f8151",
     scryfall_id = "2f2359aa-9230-4519-b12e-ec395a8dd2a0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weight of Memory",
         mana_cost = mana!("{3}{U}{U}"),

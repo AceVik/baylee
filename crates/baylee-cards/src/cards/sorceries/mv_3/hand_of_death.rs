@@ -15,7 +15,7 @@ card!(
     oracle_id = "dc45b2e3-272b-479b-8e3b-36eead606a3a",
     scryfall_id = "d17d9a95-5586-4d16-9700-215b9af63f6f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hand of Death",
         mana_cost = mana!("{2}{B}"),

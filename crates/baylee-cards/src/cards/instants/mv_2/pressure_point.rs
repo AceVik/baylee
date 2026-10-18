@@ -11,7 +11,7 @@ card!(
     oracle_id = "d4bbdd0c-e578-49ed-b2f7-b1decb04ee87",
     scryfall_id = "2fe82bbf-9b92-4684-a42d-fbc50c4c5903",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pressure Point",
         mana_cost = mana!("{1}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "1a61929e-14bd-4f21-b173-00818d49743d",
     scryfall_id = "aadc1809-d6bb-455c-b6ce-dd11521808b6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Memory Drain",
         mana_cost = mana!("{2}{U}{U}"),

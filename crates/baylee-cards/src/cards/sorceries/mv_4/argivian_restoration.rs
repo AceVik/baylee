@@ -10,7 +10,7 @@ card!(
     oracle_id = "d887919a-68d5-455d-977c-4f1f0b4b3141",
     scryfall_id = "3f14b3a6-5490-4a50-9449-542e23f1d6b1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Argivian Restoration",
         mana_cost = mana!("{2}{U}{U}"),

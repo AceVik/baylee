@@ -10,7 +10,7 @@ card!(
     oracle_id = "dccd0533-fda0-41ff-b540-c4f1bb32fc95",
     scryfall_id = "6ecff12a-37d5-4a7b-b615-4c5e3bd950bb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blunt the Assault",
         mana_cost = mana!("{3}{G}"),

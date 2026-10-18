@@ -13,7 +13,7 @@ card!(
     oracle_id = "773c7a1e-0f59-4606-a2fc-c47bda760ecd",
     scryfall_id = "87e4b75c-e993-4983-8933-977be314bba6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foul Play",
         mana_cost = mana!("{1}{B}"),

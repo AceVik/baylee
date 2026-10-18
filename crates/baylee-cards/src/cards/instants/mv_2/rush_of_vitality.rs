@@ -10,7 +10,7 @@ card!(
     oracle_id = "6e460d39-0f18-4a2d-9c8d-3eaba301d285",
     scryfall_id = "1e53cd8b-18f8-4950-84d4-7aafa26c7ae4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rush of Vitality",
         mana_cost = mana!("{1}{B}"),

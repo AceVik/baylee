@@ -11,7 +11,7 @@ card!(
     oracle_id = "4e552be1-0702-4e18-822f-98611f8a8e70",
     scryfall_id = "a8f3d2cb-d073-4df8-8769-49612628a377",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enter the Avatar State",
         mana_cost = mana!("{W}"),

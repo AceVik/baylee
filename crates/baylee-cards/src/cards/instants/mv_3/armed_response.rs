@@ -16,7 +16,7 @@ card!(
     oracle_id = "0258a606-1625-402e-b0c4-ffca06779b5e",
     scryfall_id = "7029fac9-ef8a-499f-aa42-c145b6b528ae",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armed Response",
         mana_cost = mana!("{2}{W}"),

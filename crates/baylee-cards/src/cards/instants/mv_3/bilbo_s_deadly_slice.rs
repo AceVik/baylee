@@ -10,7 +10,7 @@ card!(
     oracle_id = "4c054431-3667-4e28-9d68-03b43447c35b",
     scryfall_id = "17892c93-b9b2-4720-933b-998ed0200492",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bilbo's Deadly Slice",
         mana_cost = mana!("{1}{B}{B}"),

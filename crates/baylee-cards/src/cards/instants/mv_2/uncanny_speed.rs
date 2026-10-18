@@ -10,7 +10,7 @@ card!(
     oracle_id = "85b0a2ea-dbdc-456e-9ce1-faa8c13f84d0",
     scryfall_id = "1d7b747e-446a-4c25-9834-0be8476dc22d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Uncanny Speed",
         mana_cost = mana!("{1}{R}"),

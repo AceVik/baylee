@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::OwnedByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::OwnedByYou]),
-]);
-
 card!(
     index = index::SHIPWRECK_DOWSER,
     oracle_id = "dc3073fc-dc23-426e-b867-fee5dd99fe25",
@@ -30,11 +25,11 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::INSTANT_OR_SORCERY,
+            PlayerRel::You
         )))
     ),],
 );

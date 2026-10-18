@@ -10,7 +10,7 @@ card!(
     oracle_id = "800c258a-cfc4-4a54-a667-065ea8dea69e",
     scryfall_id = "4101e3fe-b0e7-4f0f-b9ac-9b61a4d628b3",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Helix",
         mana_cost = mana!("{R}{W}"),

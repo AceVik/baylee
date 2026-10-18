@@ -16,7 +16,7 @@ card!(
     oracle_id = "84ee0da2-d886-4603-9aaa-bc5326a424d7",
     scryfall_id = "c338b459-6bb8-4bc7-a6b5-945a09589c05",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tendrils of Corruption",
         mana_cost = mana!("{3}{B}"),

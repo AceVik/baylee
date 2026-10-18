@@ -10,7 +10,7 @@ card!(
     oracle_id = "71da5acb-78bc-453a-ae28-d22faa5a4e43",
     scryfall_id = "457ea1f3-890c-4bff-9938-cd46252477f4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pay No Heed",
         mana_cost = mana!("{W}"),

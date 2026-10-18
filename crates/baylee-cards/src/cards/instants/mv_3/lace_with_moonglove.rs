@@ -11,7 +11,7 @@ card!(
     oracle_id = "07beecfd-1720-42a1-93f8-f06604c3c228",
     scryfall_id = "753434b3-8a58-4b4b-94f8-1b33c0ce92bf",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lace with Moonglove",
         mana_cost = mana!("{2}{G}"),

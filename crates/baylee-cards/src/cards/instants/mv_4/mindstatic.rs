@@ -10,7 +10,7 @@ card!(
     oracle_id = "880e0177-f1d2-4bdc-83b4-cae6a0706ef9",
     scryfall_id = "55d3fad5-a12a-4b41-9c7b-c1af5e0b5ca8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mindstatic",
         mana_cost = mana!("{3}{U}"),

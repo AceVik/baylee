@@ -12,7 +12,7 @@ card!(
     index = index::ENVIRONMENTAL_SCIENCES,
     oracle_id = "2f889671-a1d6-4034-881b-58c93897d707",
     scryfall_id = "46b394fc-a99c-44e7-9226-da0699167541",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Environmental Sciences",
         mana_cost = mana!("{2}"),

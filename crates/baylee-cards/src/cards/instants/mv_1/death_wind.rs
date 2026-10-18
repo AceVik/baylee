@@ -10,7 +10,7 @@ card!(
     oracle_id = "a636b62a-340b-444d-9161-f6d3367b745c",
     scryfall_id = "94f60752-783e-4bec-b18e-ba7f87e36521",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death Wind",
         mana_cost = mana!("{X}{B}"),

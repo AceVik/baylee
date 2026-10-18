@@ -5,12 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static TARGET1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::NATURE_S_SPIRAL,
     oracle_id = "565922d6-8152-411f-8d4d-dc7c8523a49b",
     scryfall_id = "6666b95e-80de-4bf7-bae6-8a7e991b38ad",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Spiral",
         mana_cost = mana!("{1}{G}"),
@@ -18,10 +27,10 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You)
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::Any,
+            &TARGET1,
             PlayerRel::You
         )))
     ),],

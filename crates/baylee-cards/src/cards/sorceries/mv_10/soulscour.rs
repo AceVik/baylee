@@ -10,7 +10,7 @@ card!(
     oracle_id = "d7644325-8a0f-4f40-bab6-518df7ac1d14",
     scryfall_id = "6b431711-ac9d-4f05-af66-44f1ca5fabf1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soulscour",
         mana_cost = mana!("{7}{W}{W}{W}"),

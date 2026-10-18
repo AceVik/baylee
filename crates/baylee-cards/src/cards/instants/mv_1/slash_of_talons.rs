@@ -15,7 +15,7 @@ card!(
     oracle_id = "ef331f13-bdd0-4123-9e61-b2e4b6b6d8b8",
     scryfall_id = "a97d474e-83b6-4969-81b4-51f5315057d7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slash of Talons",
         mana_cost = mana!("{W}"),

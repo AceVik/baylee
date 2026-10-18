@@ -9,6 +9,8 @@ use super::Precon;
 /// The decks the house offers, in key order.
 #[rustfmt::skip]
 pub static PLAYABLE: &[Precon] = &[
+    Precon { key: "8ED/silver-deck", text: include_str!("../../../../data/decks/precon/8ED/silver-deck.txt") },
+    Precon { key: "9ED/silver-deck", text: include_str!("../../../../data/decks/precon/9ED/silver-deck.txt") },
     Precon { key: "ITP/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-second-deck.txt") },
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },
     Precon { key: "ITP/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-second-deck.txt") },
@@ -17,6 +19,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/azaar-lichlord", text: include_str!("../../../../data/decks/precon/PAST/azaar-lichlord.txt") },
     Precon { key: "PAST/centaur-shaman", text: include_str!("../../../../data/decks/precon/PAST/centaur-shaman.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
+    Precon { key: "PAST/crag-hydra", text: include_str!("../../../../data/decks/precon/PAST/crag-hydra.txt") },
     Precon { key: "PAST/druid", text: include_str!("../../../../data/decks/precon/PAST/druid.txt") },
     Precon { key: "PAST/elvish-magi", text: include_str!("../../../../data/decks/precon/PAST/elvish-magi.txt") },
     Precon { key: "PAST/enchantress", text: include_str!("../../../../data/decks/precon/PAST/enchantress.txt") },
@@ -27,6 +30,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/high-priest", text: include_str!("../../../../data/decks/precon/PAST/high-priest.txt") },
     Precon { key: "PAST/merfolk-shaman", text: include_str!("../../../../data/decks/precon/PAST/merfolk-shaman.txt") },
     Precon { key: "PAST/nether-fiend", text: include_str!("../../../../data/decks/precon/PAST/nether-fiend.txt") },
+    Precon { key: "PAST/prismat", text: include_str!("../../../../data/decks/precon/PAST/prismat.txt") },
     Precon { key: "PAST/saltrem-tor", text: include_str!("../../../../data/decks/precon/PAST/saltrem-tor.txt") },
     Precon { key: "PAST/sorcerer", text: include_str!("../../../../data/decks/precon/PAST/sorcerer.txt") },
     Precon { key: "PAST/summoner", text: include_str!("../../../../data/decks/precon/PAST/summoner.txt") },

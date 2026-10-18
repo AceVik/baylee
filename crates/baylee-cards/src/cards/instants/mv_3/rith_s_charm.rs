@@ -14,7 +14,7 @@ card!(
     oracle_id = "9dbccdc5-61f7-4a7d-bbbc-5cab393e24f7",
     scryfall_id = "0a353fed-e01c-4eaf-afb5-446644628284",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rith's Charm",
         mana_cost = mana!("{R}{G}{W}"),

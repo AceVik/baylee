@@ -15,7 +15,7 @@ card!(
     oracle_id = "09618da4-6e2d-4047-96d7-0576c0754e7d",
     scryfall_id = "bec748e6-7245-4a71-aeee-cefed8346948",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "End the Festivities",
         mana_cost = mana!("{R}"),

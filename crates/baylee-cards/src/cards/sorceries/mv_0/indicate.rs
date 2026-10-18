@@ -9,7 +9,7 @@ card!(
     index = index::INDICATE,
     oracle_id = "67876214-3777-41b1-935e-75dd5075fa53",
     scryfall_id = "e328353e-d43f-46f7-ab4e-d3e1f3e57c7e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Indicate",
         mana_cost = mana!("{0}"),

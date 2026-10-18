@@ -15,7 +15,7 @@ card!(
     oracle_id = "15e71226-feb0-4870-a3ea-d8604ca5b3dc",
     scryfall_id = "5b101264-4994-43b7-9156-228f7d10d2bd",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Puncturing Light",
         mana_cost = mana!("{1}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "94f0a572-e91c-4b56-a5d1-6cbbeabd210d",
     scryfall_id = "f67b323d-0dda-45f8-84b7-d883ce5045a8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infernal Grasp",
         mana_cost = mana!("{1}{B}"),

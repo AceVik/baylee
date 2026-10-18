@@ -10,7 +10,7 @@ card!(
     oracle_id = "87bd0fdb-c5b9-46ea-9858-1a870960351f",
     scryfall_id = "7213d9e1-e9c6-45d8-bb7f-336c41e7b6f7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Invoke the Divine",
         mana_cost = mana!("{2}{W}"),

@@ -15,7 +15,7 @@ card!(
     oracle_id = "52c96b5a-ce47-4bde-b530-0033b9bfd808",
     scryfall_id = "193d1eac-ede7-4f75-9c74-05133b215f93",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cosmium Blast",
         mana_cost = mana!("{1}{W}"),

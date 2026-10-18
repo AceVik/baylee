@@ -1245,3 +1245,61 @@ fn player_target_with_target_opponent_oracle_narrows_to_any_opponent() {
         ]
     );
 }
+
+#[test]
+fn comma_separated_and_oracle_scoped_graveyard_targets_strip_player_qualifiers() {
+    let argivian = read(
+        "Name:Argivian Find\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact.YouCtrl,Enchantment.YouCtrl\n\
+         Oracle:Return target artifact or enchantment card from your graveyard to your hand.",
+    );
+    assert_eq!(
+        argivian.abilities,
+        [
+            "spell!(&[Effect::GraveyardToHand { target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_ENCHANTMENT, PlayerRel::You) }], targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_ENCHANTMENT, PlayerRel::You))))"
+        ]
+    );
+
+    let misery = read(
+        "Name:Misery Charm\nManaCost:B\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ DBDestroy,DBReturn,DBLoseLife\n\
+         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Creature.Goblin | SpellDescription$ Destroy target Goblin.\n\
+         SVar:DBReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Creature.Goblin | SpellDescription$ Return target Goblin card from your graveyard to your hand.\n\
+         SVar:DBLoseLife:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SpellDescription$ Target player loses 2 life.\n\
+         Oracle:Choose one —\\n• Destroy target Goblin.\\n• Return target Goblin card from your graveyard to your hand.\\n• Target player loses 2 life.",
+    );
+    assert!(
+        misery.abilities[0].contains("TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)"),
+        "{}",
+        misery.abilities[0]
+    );
+}
+
+#[test]
+fn permanent_card_in_graveyard_or_library_filters_permanent_types_only() {
+    let spiral = read(
+        "Name:Nature's Spiral\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Permanent.YouCtrl\n\
+         Oracle:Return target permanent card from your graveyard to your hand.",
+    );
+    assert!(
+        spiral.statics.contains(
+            "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE).union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT).union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+        ),
+        "{}",
+        spiral.statics
+    );
+
+    let bridge = read(
+        "Name:Planar Bridge\nManaCost:6\nTypes:Legendary Artifact\n\
+         A:AB$ ChangeZone | Cost$ 8 T | Origin$ Library | Destination$ Battlefield | ChangeType$ Permanent\n\
+         Oracle:{8}, {T}: Search your library for a permanent card, put it onto the battlefield, then shuffle.",
+    );
+    assert!(
+        bridge.statics.contains(
+            "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE).union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT).union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+        ),
+        "{}",
+        bridge.statics
+    );
+}

@@ -16,7 +16,7 @@ card!(
     oracle_id = "b81e5dbd-47a5-4994-91b7-e2a50c8e098d",
     scryfall_id = "ebf8ccb8-57fb-491c-b07d-93348b33a765",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chaos Charm",
         mana_cost = mana!("{R}"),

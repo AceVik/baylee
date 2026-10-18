@@ -10,7 +10,7 @@ card!(
     oracle_id = "a167d593-cded-43e1-b9bb-2287dbd0cbec",
     scryfall_id = "b17da4d0-f9fd-43af-85fc-ede9fa3962bf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment of Heroism",
         mana_cost = mana!("{1}{W}"),

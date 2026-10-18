@@ -12,7 +12,7 @@ card!(
     oracle_id = "fa5d6c02-53b2-4144-87cb-e223b529ba7d",
     scryfall_id = "7b81cb30-e9f8-41f3-a10b-26e0ba2503aa",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Victorious Destruction",
         mana_cost = mana!("{4}{R}"),

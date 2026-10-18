@@ -12,7 +12,7 @@ card!(
     oracle_id = "990583ef-5bf4-4e14-a8f1-61d32c6a75df",
     scryfall_id = "673a67b2-fbb0-4be4-9edd-93946a583f23",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flick a Coin",
         mana_cost = mana!("{2}{R}"),

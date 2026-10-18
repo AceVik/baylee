@@ -10,7 +10,7 @@ card!(
     oracle_id = "36c78a5f-0148-4596-a346-f8e35037b694",
     scryfall_id = "eb4b75e6-3080-412b-bf40-b6029ea8bbfe",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Time Wipe",
         mana_cost = mana!("{2}{W}{W}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "3a42558c-7432-4c05-9599-95343eb09be1",
     scryfall_id = "4cb4e315-1a77-479a-9f15-fb23575de805",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Censor",
         mana_cost = mana!("{1}{U}"),

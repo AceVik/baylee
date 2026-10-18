@@ -12,7 +12,7 @@ card!(
     oracle_id = "cbdbf18f-0180-4ade-a79e-1e644dd42d6f",
     scryfall_id = "b4964c78-b9ca-43c2-bcaa-bf75d92b9065",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rip Apart",
         mana_cost = mana!("{R}{W}"),

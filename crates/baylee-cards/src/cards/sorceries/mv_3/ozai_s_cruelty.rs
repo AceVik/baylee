@@ -11,7 +11,7 @@ card!(
     oracle_id = "aba5c046-2f8c-4749-b347-9a7d8cb1c865",
     scryfall_id = "22cad680-d46a-4589-a633-b6ee9a78d61e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ozai's Cruelty",
         mana_cost = mana!("{2}{B}"),

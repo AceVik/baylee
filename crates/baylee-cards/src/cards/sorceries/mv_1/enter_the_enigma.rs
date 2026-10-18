@@ -11,7 +11,7 @@ card!(
     oracle_id = "67554654-e751-4679-9e92-f3588525ae4f",
     scryfall_id = "cf5479c7-9e46-4a57-abe7-8cc670de89e4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enter the Enigma",
         mana_cost = mana!("{U}"),

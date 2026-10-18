@@ -12,7 +12,7 @@ card!(
     oracle_id = "49aa87c7-034b-409d-b37f-50db6a42e533",
     scryfall_id = "30c5fd8e-753a-45e1-bcdd-fb6e072ffbb0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "You See a Guard Approach",
         mana_cost = mana!("{U}"),

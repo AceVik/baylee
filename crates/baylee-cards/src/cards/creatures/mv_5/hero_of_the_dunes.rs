@@ -9,7 +9,7 @@ use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::Or(&[
     Filter::And(&[Filter::CREATURE, Filter::CmcAtMost(3)]),
-    Filter::And(&[Filter::ARTIFACT, Filter::OwnedByYou, Filter::CmcAtMost(3)]),
+    Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost(3)]),
 ]);
 
 card!(

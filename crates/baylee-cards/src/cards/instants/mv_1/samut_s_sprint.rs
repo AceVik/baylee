@@ -10,7 +10,7 @@ card!(
     oracle_id = "7d07821e-d34b-4441-a137-836ffce7127b",
     scryfall_id = "94bda699-2b5d-4f5b-bee5-792b99d2b64a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Samut's Sprint",
         mana_cost = mana!("{R}"),

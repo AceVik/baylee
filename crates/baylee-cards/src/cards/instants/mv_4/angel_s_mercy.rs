@@ -10,7 +10,7 @@ card!(
     oracle_id = "6b232bb7-d372-4174-a049-5f8d620810e6",
     scryfall_id = "43e6d650-4e96-43a3-8b94-7f044d3b2f82",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angel's Mercy",
         mana_cost = mana!("{2}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "5d248ed0-c2b4-4558-9a09-ace8fd4b0599",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call the Scions",
         mana_cost = mana!("{2}{G}"),

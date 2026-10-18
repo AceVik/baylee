@@ -10,7 +10,7 @@ card!(
     oracle_id = "06d77149-52b6-4d2c-bfb9-1c25f6b1b0bb",
     scryfall_id = "c0efc963-5848-44eb-a654-c08b5bd4501d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pharika's Cure",
         mana_cost = mana!("{B}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "a07698f6-5ad5-49a3-9da2-f82d407f5cd7",
     scryfall_id = "15af0592-a1cb-4b1e-b051-dde978939706",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Izzet Charm",
         mana_cost = mana!("{U}{R}"),

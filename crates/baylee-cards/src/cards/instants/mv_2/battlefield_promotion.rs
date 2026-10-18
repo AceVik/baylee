@@ -10,7 +10,7 @@ card!(
     oracle_id = "303d74d0-84db-4694-bb1a-470cf470bc4f",
     scryfall_id = "4e4e3a08-05a6-4730-8b4a-a8cb440dc299",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battlefield Promotion",
         mana_cost = mana!("{1}{W}"),

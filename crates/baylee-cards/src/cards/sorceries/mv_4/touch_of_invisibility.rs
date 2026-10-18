@@ -11,7 +11,7 @@ card!(
     oracle_id = "791fbaf1-43eb-4555-9275-c4b344f65942",
     scryfall_id = "a5a0c915-92a9-4eb0-a02a-c1571b00761b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Touch of Invisibility",
         mana_cost = mana!("{3}{U}"),

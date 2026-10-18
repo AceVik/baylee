@@ -10,7 +10,7 @@ card!(
     oracle_id = "d119ca9a-ee82-42c2-81e6-684205ca5183",
     scryfall_id = "f123d665-b3d2-4edb-9f8d-49da748f8628",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Ruin",
         mana_cost = mana!("{2}{B}"),

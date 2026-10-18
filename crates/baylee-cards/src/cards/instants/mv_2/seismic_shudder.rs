@@ -15,7 +15,7 @@ card!(
     oracle_id = "10c0f705-4c23-4761-afa9-4a29cf90e8ae",
     scryfall_id = "20365082-6102-4e3b-8791-c9b66846270d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seismic Shudder",
         mana_cost = mana!("{1}{R}"),

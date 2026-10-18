@@ -10,7 +10,7 @@ card!(
     oracle_id = "533d6b9f-a145-44c4-9d16-74fcd9c0ae2f",
     scryfall_id = "7cfc631b-49d1-4f1c-adac-5b07a2ccd06f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle-Rage Blessing",
         mana_cost = mana!("{1}{B}"),

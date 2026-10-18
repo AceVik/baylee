@@ -10,7 +10,7 @@ card!(
     oracle_id = "8a922366-ee2a-4ddb-a904-683dcf4f191a",
     scryfall_id = "10d3d239-1e16-4a23-9098-ee67d32e0208",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elven Cache",
         mana_cost = mana!("{2}{G}{G}"),

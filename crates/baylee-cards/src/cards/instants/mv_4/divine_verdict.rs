@@ -15,7 +15,7 @@ card!(
     oracle_id = "3070f997-24f2-471d-af96-a2f3b588198e",
     scryfall_id = "ed07b708-7232-4b87-b5d9-edaa20a69293",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Divine Verdict",
         mana_cost = mana!("{3}{W}"),

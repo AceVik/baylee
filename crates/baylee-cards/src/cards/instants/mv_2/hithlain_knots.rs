@@ -11,7 +11,7 @@ card!(
     oracle_id = "2c80fc55-86a0-403e-82ce-09ee03095d8a",
     scryfall_id = "74868f21-b8a2-4aa0-9431-3f2171bde9c3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hithlain Knots",
         mana_cost = mana!("{1}{U}"),

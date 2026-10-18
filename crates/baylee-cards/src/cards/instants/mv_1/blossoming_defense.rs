@@ -10,7 +10,7 @@ card!(
     oracle_id = "5a851367-1c4a-4cc9-a9c3-3d2775986b4c",
     scryfall_id = "3cce80d0-b937-4325-a603-1278c110f244",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blossoming Defense",
         mana_cost = mana!("{G}"),

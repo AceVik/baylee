@@ -10,7 +10,7 @@ card!(
     oracle_id = "ec9975f4-dfff-4b72-9da8-8f2025f0524a",
     scryfall_id = "d0def54b-9f0a-4ab1-9df9-25506a06350c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rush of Adrenaline",
         mana_cost = mana!("{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "526cd570-046e-402a-986c-f6ece68eec47",
     scryfall_id = "f11cd406-c6ae-4018-ae45-4e5577aa82ae",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sweltering Suns",
         mana_cost = mana!("{1}{R}{R}"),

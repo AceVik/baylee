@@ -15,7 +15,7 @@ card!(
     oracle_id = "c13955b8-bad3-4f79-ad9f-11e214a1cab2",
     scryfall_id = "747881c7-3788-4dd6-b78d-b2a5ded20e14",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smash to Dust",
         mana_cost = mana!("{1}{R}"),

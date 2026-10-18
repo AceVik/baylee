@@ -14,7 +14,7 @@ card!(
     oracle_id = "92b617f9-6e6b-42a0-9c45-6ff5f6193051",
     scryfall_id = "642e1b90-c240-44fe-82b2-7522026224ae",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aang's Defense",
         mana_cost = mana!("{W}"),

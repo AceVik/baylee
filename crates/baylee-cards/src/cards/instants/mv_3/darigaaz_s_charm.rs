@@ -13,7 +13,7 @@ card!(
     oracle_id = "7ee01801-5e42-4916-a359-64e9975090a7",
     scryfall_id = "928af23d-1558-4d20-8841-554a327db861",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darigaaz's Charm",
         mana_cost = mana!("{B}{R}{G}"),

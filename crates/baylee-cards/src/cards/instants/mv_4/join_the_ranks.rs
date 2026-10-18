@@ -11,7 +11,7 @@ card!(
     oracle_id = "aa16307a-9c1f-4538-872c-95206e2b7a6e",
     scryfall_id = "e27e2eb4-d48b-43c3-bd19-e1748f310c54",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Join the Ranks",
         mana_cost = mana!("{3}{W}"),

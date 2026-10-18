@@ -11,7 +11,7 @@ card!(
     oracle_id = "91cac048-90ca-41bc-9177-56c78453c4a2",
     scryfall_id = "ac549d51-3862-4eb0-9951-f13a8ba28822",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swallowing Plague",
         mana_cost = mana!("{X}{B}{B}"),

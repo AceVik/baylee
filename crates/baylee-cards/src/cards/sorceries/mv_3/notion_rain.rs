@@ -10,7 +10,7 @@ card!(
     oracle_id = "f93dbe17-71d1-4542-96ff-81ac6da9513f",
     scryfall_id = "66ed78c5-be23-4fcb-9143-e6574cd6ec68",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Notion Rain",
         mana_cost = mana!("{1}{U}{B}"),

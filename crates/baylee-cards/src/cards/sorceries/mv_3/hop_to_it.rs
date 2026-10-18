@@ -11,7 +11,7 @@ card!(
     oracle_id = "e8a9350a-07c1-47ed-8c4f-88e4b3b17545",
     scryfall_id = "ee7207f8-5daa-42af-aeea-7a489047110b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hop to It",
         mana_cost = mana!("{2}{W}"),

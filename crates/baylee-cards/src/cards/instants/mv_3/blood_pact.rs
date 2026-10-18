@@ -10,7 +10,7 @@ card!(
     oracle_id = "cfc5a284-7238-4c98-9d2f-7e5c3329be7b",
     scryfall_id = "ee769671-655b-40d6-a6d8-bf8c901df17f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Pact",
         mana_cost = mana!("{2}{B}"),

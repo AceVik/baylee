@@ -10,7 +10,7 @@ card!(
     oracle_id = "3ab3996f-aa3f-4041-8634-8e197d51f108",
     scryfall_id = "316a2d2f-ca94-463f-ada4-2b12bce6312f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mass Calcify",
         mana_cost = mana!("{5}{W}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "bc730e60-b9c2-4c49-b97b-2878be105b04",
     scryfall_id = "2a28abc1-3e75-4db4-baa1-b47abdb7453b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skillful Lunge",
         mana_cost = mana!("{1}{W}"),

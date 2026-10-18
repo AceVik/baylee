@@ -10,7 +10,7 @@ card!(
     oracle_id = "6840a63d-d627-4a18-afa9-018406767642",
     scryfall_id = "f2718457-1e3b-48bc-99fe-2300277ee1e0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Winds of Rebuke",
         mana_cost = mana!("{1}{U}"),

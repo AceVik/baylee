@@ -10,7 +10,7 @@ card!(
     oracle_id = "0765c18b-25a0-4f79-aa1e-7adba7f5c91e",
     scryfall_id = "214dc9c1-154d-4c35-845d-dd2928f1e142",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chorus of Might",
         mana_cost = mana!("{3}{G}"),

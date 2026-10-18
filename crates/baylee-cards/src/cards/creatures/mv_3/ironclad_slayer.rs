@@ -7,10 +7,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[
-        Filter::HasSubtype(subtypes::enchantment::AURA),
-        Filter::ControlledByYou,
-    ]),
+    Filter::HasSubtype(subtypes::enchantment::AURA),
     Filter::HasSubtype(subtypes::artifact::EQUIPMENT),
 ]);
 

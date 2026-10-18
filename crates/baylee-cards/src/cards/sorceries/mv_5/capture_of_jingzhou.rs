@@ -10,7 +10,7 @@ card!(
     oracle_id = "89aa65d9-2502-40b0-90b6-b25a8e9f6155",
     scryfall_id = "f87d0298-f76b-4ea8-82c4-5861c4539d8b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Capture of Jingzhou",
         mana_cost = mana!("{3}{U}{U}"),

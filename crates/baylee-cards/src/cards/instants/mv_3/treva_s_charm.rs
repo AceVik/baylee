@@ -13,7 +13,7 @@ card!(
     oracle_id = "e9795590-0918-49f9-b37c-1278c8616ab1",
     scryfall_id = "f63c6e81-8d78-4f20-b572-6015385e03ba",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treva's Charm",
         mana_cost = mana!("{G}{W}{U}"),

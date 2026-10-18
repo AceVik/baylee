@@ -10,7 +10,7 @@ card!(
     oracle_id = "c169929a-850b-4d46-9f14-a922f4465d85",
     scryfall_id = "b28dbf2c-9bfe-42be-be55-1e7fb523df36",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aim High",
         mana_cost = mana!("{1}{G}"),

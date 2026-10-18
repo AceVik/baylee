@@ -10,7 +10,7 @@ card!(
     oracle_id = "1c2829b7-f73f-4023-95f3-9cd40b4125d7",
     scryfall_id = "c55c60dc-40ed-4a36-9daa-702f79ffe818",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voyage's End",
         mana_cost = mana!("{1}{U}"),

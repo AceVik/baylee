@@ -12,7 +12,7 @@ card!(
     oracle_id = "dce4d65f-cb91-48a2-a2a7-013e73dfb667",
     scryfall_id = "032f6c5a-8d88-4a55-a54b-28df42d801e1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Legion's Judgment",
         mana_cost = mana!("{2}{W}"),

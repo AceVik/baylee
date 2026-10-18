@@ -11,7 +11,7 @@ card!(
     oracle_id = "aa4f9618-8106-451e-889a-79a5e8159256",
     scryfall_id = "b3e0e818-db6a-453a-a1f0-a7fade6509d3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Luxurious Libation",
         mana_cost = mana!("{X}{G}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "3bc0bd36-70be-4180-9fb3-b10ce054107b",
     scryfall_id = "9068b3a4-9130-42d8-a26b-52010b7daa8b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consuming Corruption",
         mana_cost = mana!("{B}{B}"),

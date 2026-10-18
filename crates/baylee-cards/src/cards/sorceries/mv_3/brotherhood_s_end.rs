@@ -12,7 +12,7 @@ card!(
     oracle_id = "fe7bf8ca-88ae-4c6d-8d71-ef170a87c0d0",
     scryfall_id = "50f7666d-0d60-4fe5-b144-286d4e47b704",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brotherhood's End",
         mana_cost = mana!("{1}{R}{R}"),

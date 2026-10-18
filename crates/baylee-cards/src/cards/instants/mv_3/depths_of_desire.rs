@@ -11,7 +11,7 @@ card!(
     oracle_id = "caa0c20c-594b-4ffd-87de-60bf15d8c3be",
     scryfall_id = "63420437-76a9-40cf-aedc-0ca1e73fcc0b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Depths of Desire",
         mana_cost = mana!("{2}{U}"),

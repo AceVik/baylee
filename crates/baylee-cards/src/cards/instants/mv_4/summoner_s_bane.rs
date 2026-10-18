@@ -11,7 +11,7 @@ card!(
     oracle_id = "b9b0c209-e346-45ee-a272-0b53589c21df",
     scryfall_id = "54a9a782-3479-41cd-9c4f-fa38bfad98c8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Summoner's Bane",
         mana_cost = mana!("{2}{U}{U}"),

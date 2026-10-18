@@ -10,7 +10,7 @@ card!(
     oracle_id = "67bc4116-539e-4748-95e1-033df78173ec",
     scryfall_id = "9edb76bd-db4b-4279-8eaa-dfdf5952eafc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Contingency Plan",
         mana_cost = mana!("{1}{U}"),

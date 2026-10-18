@@ -17,7 +17,7 @@ card!(
     oracle_id = "3a82e724-28f6-430f-a474-ab4276197963",
     scryfall_id = "bdcfd9ee-9553-4080-a25c-d3552ddc7e82",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vampires' Vengeance",
         mana_cost = mana!("{2}{R}"),

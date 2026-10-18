@@ -10,7 +10,7 @@ card!(
     oracle_id = "0a88d1b1-ac3c-41da-b3f5-b689af0e45d7",
     scryfall_id = "0683d586-a54b-425a-a24d-2efb2342f150",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Drain",
         mana_cost = mana!("{2}{B}"),

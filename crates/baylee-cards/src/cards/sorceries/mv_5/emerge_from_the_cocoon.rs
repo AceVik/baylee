@@ -10,7 +10,7 @@ card!(
     oracle_id = "fed2127c-7174-4863-ad6a-1847c96bbd3f",
     scryfall_id = "3ba16fbf-2d44-4337-87cb-6ff6b84a258a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Emerge from the Cocoon",
         mana_cost = mana!("{4}{W}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "b783246a-e00b-4cdf-9111-fe0afb896a8e",
     scryfall_id = "312fb6e4-1eb1-4fbb-b7a4-125829a6e96a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Easy Prey",
         mana_cost = mana!("{1}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "f6653d90-cd30-4b2b-9592-97d5769dc3d8",
     scryfall_id = "6d745f35-944a-4157-a351-baa06f67b725",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Seize the Initiative",
         mana_cost = mana!("{W}"),

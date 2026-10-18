@@ -11,7 +11,7 @@ card!(
     oracle_id = "8060dc97-9868-4846-85f4-0ef70da2b021",
     scryfall_id = "b98e0ab1-dea8-492b-a712-2057f2b1d020",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grim Bounty",
         mana_cost = mana!("{2}{B}{B}"),

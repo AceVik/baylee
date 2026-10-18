@@ -10,7 +10,7 @@ card!(
     oracle_id = "92419fbf-7a1b-428f-92d6-e9fd510dbfac",
     scryfall_id = "7ddfd4f5-7fe1-4a22-9a85-bd9b75b16380",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stealth Mission",
         mana_cost = mana!("{2}{U}"),

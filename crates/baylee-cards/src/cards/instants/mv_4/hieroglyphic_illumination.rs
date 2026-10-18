@@ -11,7 +11,7 @@ card!(
     oracle_id = "60e358ec-eb11-4a16-a0ae-b7c064a8ea6c",
     scryfall_id = "0bd05638-d621-4967-b7e3-63121c88f18b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hieroglyphic Illumination",
         mana_cost = mana!("{3}{U}"),

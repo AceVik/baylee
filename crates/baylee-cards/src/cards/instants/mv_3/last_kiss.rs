@@ -10,7 +10,7 @@ card!(
     oracle_id = "bc59bf58-373d-4562-9a67-0721fcf2f098",
     scryfall_id = "5ac5e741-3eee-4580-a931-7cad50c77934",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Last Kiss",
         mana_cost = mana!("{2}{B}"),

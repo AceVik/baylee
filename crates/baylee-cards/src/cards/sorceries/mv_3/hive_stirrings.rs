@@ -11,7 +11,7 @@ card!(
     oracle_id = "c7dd0614-e11e-4b6b-a2cb-9904e457148f",
     scryfall_id = "e4399e19-d05d-4bb3-9aff-c4133ddd2850",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hive Stirrings",
         mana_cost = mana!("{2}{W}"),

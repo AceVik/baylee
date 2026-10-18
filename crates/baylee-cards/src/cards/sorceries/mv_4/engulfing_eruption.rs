@@ -10,7 +10,7 @@ card!(
     oracle_id = "27b4fee0-ae46-4d15-96cd-aff8f3009de8",
     scryfall_id = "f198c7e3-8a85-48f3-a7c2-93320fd4fb81",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Engulfing Eruption",
         mana_cost = mana!("{2}{R}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "424683a5-d239-400d-af2b-9c00d1d32d7f",
     scryfall_id = "32ed969f-2c8e-4421-9448-dc5a2afdc81d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scatter Arc",
         mana_cost = mana!("{3}{U}"),

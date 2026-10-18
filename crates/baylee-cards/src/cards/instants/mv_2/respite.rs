@@ -10,7 +10,7 @@ card!(
     oracle_id = "46137f00-f7f5-430a-857c-ff2dbf2d2579",
     scryfall_id = "d9b5c747-43d6-4c5f-9ca3-feaf004a88cb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Respite",
         mana_cost = mana!("{1}{G}"),

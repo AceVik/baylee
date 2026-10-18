@@ -15,7 +15,7 @@ card!(
     oracle_id = "4497d0b9-cf4b-4c9d-bf7e-8ed85aa6b5b8",
     scryfall_id = "43708ec9-a85a-4244-86b4-67b30b41d854",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wanderer's Intervention",
         mana_cost = mana!("{1}{W}"),

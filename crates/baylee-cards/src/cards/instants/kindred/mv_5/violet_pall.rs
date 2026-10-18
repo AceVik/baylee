@@ -17,7 +17,7 @@ card!(
     oracle_id = "bf6ea336-6a4d-4653-acdd-f09af0b9f0e3",
     scryfall_id = "bdfd0fa3-37d2-403e-99fe-8c9e57515e9d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Violet Pall",
         mana_cost = mana!("{4}{B}"),

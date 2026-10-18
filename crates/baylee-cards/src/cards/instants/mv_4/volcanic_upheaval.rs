@@ -10,7 +10,7 @@ card!(
     oracle_id = "4d628f52-183a-4a89-b05f-50463a82513d",
     scryfall_id = "8d90bd68-0521-4db3-b590-a4e007da9f2e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Volcanic Upheaval",
         mana_cost = mana!("{3}{R}"),

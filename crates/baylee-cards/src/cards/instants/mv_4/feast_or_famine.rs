@@ -19,7 +19,7 @@ card!(
     oracle_id = "485f710d-5bc2-4c8f-b7e9-eed6caa261a6",
     scryfall_id = "92105bc6-b64a-4bdc-99fe-7a2ccdbd4486",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feast or Famine",
         mana_cost = mana!("{3}{B}"),

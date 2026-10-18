@@ -10,7 +10,7 @@ card!(
     oracle_id = "1e6a24be-8281-41c1-a5ba-b68f0ef1d7b8",
     scryfall_id = "a3d2c692-7566-468e-9c86-47a9f768fde2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Snakeskin Veil",
         mana_cost = mana!("{G}"),

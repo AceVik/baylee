@@ -10,7 +10,7 @@ card!(
     oracle_id = "22196948-9f30-4fcd-b43b-c7f81a0f4f36",
     scryfall_id = "75d07295-78b7-4f90-82c7-e7a639db9993",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pedal to the Metal",
         mana_cost = mana!("{X}{R}"),

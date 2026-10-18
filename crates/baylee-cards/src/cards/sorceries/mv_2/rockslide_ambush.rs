@@ -16,7 +16,7 @@ card!(
     oracle_id = "13958d6f-25f9-4a6c-a16c-e7a20e1b9117",
     scryfall_id = "1546ba6b-54ea-45b1-958d-284ba6867af6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rockslide Ambush",
         mana_cost = mana!("{1}{R}"),

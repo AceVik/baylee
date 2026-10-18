@@ -12,7 +12,7 @@ card!(
     oracle_id = "38877c68-b69b-4ee1-8e8f-5137a184a8f7",
     scryfall_id = "b7551b61-656e-4f37-b9da-73174db983b7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spell Snare",
         mana_cost = mana!("{U}"),

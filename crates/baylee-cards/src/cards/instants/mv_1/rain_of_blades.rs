@@ -10,7 +10,7 @@ card!(
     oracle_id = "c7d398a4-0eb3-43cc-9952-35f3b791aa7a",
     scryfall_id = "f3bd6ca4-c4ed-41c3-834c-23e0c1741b72",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rain of Blades",
         mana_cost = mana!("{W}"),

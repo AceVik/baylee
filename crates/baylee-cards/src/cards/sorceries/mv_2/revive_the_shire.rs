@@ -6,12 +6,21 @@
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
+static TARGET1: Filter = Filter::HasType(
+    TypeSet::ARTIFACT
+        .union(TypeSet::BATTLE)
+        .union(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT)
+        .union(TypeSet::LAND)
+        .union(TypeSet::PLANESWALKER),
+);
+
 card!(
     index = index::REVIVE_THE_SHIRE,
     oracle_id = "67afcfef-3f0c-4823-b690-01732f28a005",
     scryfall_id = "46b7f493-1b57-4b07-8510-30703282f879",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Revive the Shire",
         mana_cost = mana!("{1}{G}"),
@@ -20,14 +29,14 @@ card!(
     abilities = &[spell!(
         &[
             Effect::GraveyardToHand {
-                target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You)
+                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
             },
             Effect::CreateToken {
                 token: &generated_tokens::FOOD
             }
         ],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::Any,
+            &TARGET1,
             PlayerRel::You
         )))
     ),],

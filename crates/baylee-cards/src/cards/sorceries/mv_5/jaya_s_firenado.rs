@@ -10,7 +10,7 @@ card!(
     oracle_id = "250f804f-b5d5-414c-bb25-476d1fe1f85a",
     scryfall_id = "4b78eaab-819c-4f06-b3b1-a25c17ab2235",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jaya's Firenado",
         mana_cost = mana!("{4}{R}"),

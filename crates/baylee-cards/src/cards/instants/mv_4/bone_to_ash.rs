@@ -11,7 +11,7 @@ card!(
     oracle_id = "31be5bf4-9950-456c-8365-74b48e132ef5",
     scryfall_id = "df5dd873-af44-45eb-9b82-a3622cc58b35",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bone to Ash",
         mana_cost = mana!("{2}{U}{U}"),

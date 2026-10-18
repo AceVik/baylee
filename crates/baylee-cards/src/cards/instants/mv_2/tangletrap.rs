@@ -14,7 +14,7 @@ card!(
     oracle_id = "75effdde-0427-4e5a-bd6d-c3118f301520",
     scryfall_id = "80fbf729-00c0-4237-8294-c857f96364d3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tangletrap",
         mana_cost = mana!("{1}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "82ce3682-0514-49a5-a330-2591e9789d36",
     scryfall_id = "90ec1540-e8cb-4edc-a3b3-f71423cb46fc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spawning Breath",
         mana_cost = mana!("{1}{R}"),

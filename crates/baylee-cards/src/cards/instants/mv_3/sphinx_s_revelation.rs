@@ -10,7 +10,7 @@ card!(
     oracle_id = "71d83fca-e40e-4d0e-956d-d0d6da9cc472",
     scryfall_id = "6350b216-4a11-4e33-89ac-ffaf6315ab7d",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphinx's Revelation",
         mana_cost = mana!("{X}{W}{U}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e4bcd4ea-e7cd-4471-8f3b-18bb51d3d70c",
     scryfall_id = "4391b0af-2f26-4a45-9e2a-5bd8e9838107",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyroclasm",
         mana_cost = mana!("{1}{R}"),

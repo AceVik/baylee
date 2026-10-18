@@ -15,7 +15,7 @@ card!(
     oracle_id = "50f1948c-fa27-458d-be14-cb0e09e39f63",
     scryfall_id = "7bf94184-e745-469a-9d55-af0ddacbb9cf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cleansing Ray",
         mana_cost = mana!("{1}{W}"),

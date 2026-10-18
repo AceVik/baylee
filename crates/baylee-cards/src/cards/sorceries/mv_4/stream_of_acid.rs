@@ -18,7 +18,7 @@ card!(
     oracle_id = "1b9c9083-62c3-46fd-a2a0-6de7de88a3c3",
     scryfall_id = "dbbf00b3-2a1b-4ad3-8a5b-deec9e08a231",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stream of Acid",
         mana_cost = mana!("{2}{B}{B}"),

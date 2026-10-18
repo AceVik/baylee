@@ -10,7 +10,7 @@ card!(
     oracle_id = "53dc9795-d26a-4821-afad-8d77d279ffe3",
     scryfall_id = "803a6ac7-9327-4c2f-b023-93f5f65f83b8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Awaken the Bear",
         mana_cost = mana!("{2}{G}"),

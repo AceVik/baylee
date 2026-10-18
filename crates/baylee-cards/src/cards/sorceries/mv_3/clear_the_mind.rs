@@ -11,7 +11,7 @@ card!(
     oracle_id = "141c33be-7a25-4981-b62c-efee8e8ec91d",
     scryfall_id = "a7da6982-9e57-41d2-a052-f2a3bb646436",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clear the Mind",
         mana_cost = mana!("{2}{U}"),

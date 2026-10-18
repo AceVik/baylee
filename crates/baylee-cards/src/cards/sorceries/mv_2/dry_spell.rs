@@ -10,7 +10,7 @@ card!(
     oracle_id = "980a9957-6b52-45c6-b847-f84974d5a653",
     scryfall_id = "54558c35-89fd-4733-8419-81fd7a619319",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dry Spell",
         mana_cost = mana!("{1}{B}"),

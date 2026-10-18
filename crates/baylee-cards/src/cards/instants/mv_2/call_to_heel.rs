@@ -10,7 +10,7 @@ card!(
     oracle_id = "8ef3dd68-f6a1-43b9-8837-40b326019b1b",
     scryfall_id = "bdedbb84-7abe-420d-8429-c2d77ee0ae36",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call to Heel",
         mana_cost = mana!("{1}{U}"),

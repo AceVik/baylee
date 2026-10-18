@@ -10,7 +10,7 @@ card!(
     oracle_id = "552f0163-a19d-4671-888f-044fc0354875",
     scryfall_id = "c54a2256-673d-4d93-9e1d-7790bf254881",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimpse the Unthinkable",
         mana_cost = mana!("{U}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "96e8210a-a547-431d-8146-7399ec20c591",
     scryfall_id = "3d0da994-d3e7-41b9-ae8f-6f1a3b779f23",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Larger Than Life",
         mana_cost = mana!("{1}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "041e2a01-3652-46c1-a9d1-d38ae7ee0551",
     scryfall_id = "2d5391a9-6c30-4f9b-b746-a4427a3e63fc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rain of Embers",
         mana_cost = mana!("{1}{R}"),

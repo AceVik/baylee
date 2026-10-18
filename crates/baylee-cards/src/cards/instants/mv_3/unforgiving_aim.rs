@@ -16,7 +16,7 @@ card!(
     oracle_id = "be7e220e-272e-45ca-8265-8d78da2cd2a7",
     scryfall_id = "0bef3905-24f8-419b-aeca-396adfc6d0dc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unforgiving Aim",
         mana_cost = mana!("{2}{G}"),

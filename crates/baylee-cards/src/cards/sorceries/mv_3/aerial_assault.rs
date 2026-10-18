@@ -18,7 +18,7 @@ card!(
     oracle_id = "a4eb06ca-16d8-41c2-8fc6-22e73872b5b0",
     scryfall_id = "58e84a4a-034f-4f55-a827-e62f2b61f091",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aerial Assault",
         mana_cost = mana!("{2}{W}"),

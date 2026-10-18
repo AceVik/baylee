@@ -10,7 +10,7 @@ card!(
     oracle_id = "ac5427d7-9af9-4f94-a8c3-da019ec0b5c5",
     scryfall_id = "d00fd2d8-76ce-4334-b772-a5dc64fc2989",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psychic Drain",
         mana_cost = mana!("{X}{U}{B}"),

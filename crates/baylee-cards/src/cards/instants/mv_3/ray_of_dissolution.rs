@@ -10,7 +10,7 @@ card!(
     oracle_id = "509bfcbc-a59a-47c8-be78-29823fc010e3",
     scryfall_id = "b55c31d1-6b05-4ea1-a444-51ad57ebcfa0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ray of Dissolution",
         mana_cost = mana!("{2}{W}"),

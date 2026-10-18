@@ -10,7 +10,7 @@ card!(
     oracle_id = "29e9cf1c-a6bd-4bee-9000-ac1b4e19d6b0",
     scryfall_id = "269af993-4894-4bf1-b55a-af4d736cb3cc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ritual of Soot",
         mana_cost = mana!("{2}{B}{B}"),

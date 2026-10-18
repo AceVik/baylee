@@ -10,7 +10,7 @@ card!(
     oracle_id = "c96803dc-b69b-4fc3-a39b-1aad6d800e86",
     scryfall_id = "c730b0c4-e8cf-4c6f-b65c-faebf508fc3c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Narrow Escape",
         mana_cost = mana!("{2}{W}"),

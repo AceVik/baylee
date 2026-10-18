@@ -10,7 +10,7 @@ card!(
     oracle_id = "d685799f-cc1a-40d6-9df6-d05b8b1f5b13",
     scryfall_id = "a5134828-5876-4d17-b0bb-f7e80e54c100",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dreadbore",
         mana_cost = mana!("{B}{R}"),

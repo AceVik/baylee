@@ -14,7 +14,7 @@ card!(
     oracle_id = "26d2762b-4346-40d0-b93d-b0dbfeb6e2bc",
     scryfall_id = "3bbdba38-2b99-4226-98e3-6d2580345d6d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reroute Systems",
         mana_cost = mana!("{W}"),

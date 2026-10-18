@@ -11,7 +11,7 @@ card!(
     oracle_id = "686e0b86-121c-45be-842d-c83d3b6547f6",
     scryfall_id = "7c35f4d5-2337-4ea0-a571-5a73e2d0d54a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Compelling Argument",
         mana_cost = mana!("{1}{U}"),

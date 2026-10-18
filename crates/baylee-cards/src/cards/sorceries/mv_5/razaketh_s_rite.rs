@@ -11,7 +11,7 @@ card!(
     oracle_id = "0ab0be8e-d6be-411b-827f-584bb5d03766",
     scryfall_id = "dd36987a-48c3-477b-b859-0268e84b7e7b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Razaketh's Rite",
         mana_cost = mana!("{3}{B}{B}"),

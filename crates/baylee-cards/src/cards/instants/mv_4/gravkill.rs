@@ -16,7 +16,7 @@ card!(
     oracle_id = "15c6837c-775b-4b4a-a2f7-9fd79215fa05",
     scryfall_id = "cfa6c57f-a193-48cc-9764-d8348548a111",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gravkill",
         mana_cost = mana!("{3}{B}"),

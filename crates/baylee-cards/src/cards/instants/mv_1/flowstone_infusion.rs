@@ -10,7 +10,7 @@ card!(
     oracle_id = "6c75b92a-4fc1-4f26-95be-1b92f462c111",
     scryfall_id = "b57c3674-9a31-4418-b306-e6b0a2514d8f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flowstone Infusion",
         mana_cost = mana!("{R}"),

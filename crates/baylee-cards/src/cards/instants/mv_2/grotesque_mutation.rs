@@ -10,7 +10,7 @@ card!(
     oracle_id = "058a8475-649f-433a-b258-42bc03bf40ba",
     scryfall_id = "83684009-f91d-4503-bdbb-181c53f394de",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grotesque Mutation",
         mana_cost = mana!("{1}{B}"),

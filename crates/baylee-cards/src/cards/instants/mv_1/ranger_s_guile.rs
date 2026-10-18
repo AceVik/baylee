@@ -10,7 +10,7 @@ card!(
     oracle_id = "694cb93a-bcc5-44b0-a76c-19ae4a4e5e0f",
     scryfall_id = "02392840-f0c4-462e-84ce-9a7cdd9f5efb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ranger's Guile",
         mana_cost = mana!("{G}"),

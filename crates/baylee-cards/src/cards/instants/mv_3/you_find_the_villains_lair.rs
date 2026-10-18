@@ -12,7 +12,7 @@ card!(
     oracle_id = "41cdeb52-e90f-44f8-94d2-23aa032c4870",
     scryfall_id = "c6704458-6e9e-4795-a56d-25b68fbf9672",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "You Find the Villains' Lair",
         mana_cost = mana!("{1}{U}{U}"),

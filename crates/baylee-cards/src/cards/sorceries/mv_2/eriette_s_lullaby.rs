@@ -12,7 +12,7 @@ card!(
     oracle_id = "b134a9e6-b004-4833-b298-10529f5a85b8",
     scryfall_id = "184c18b6-40e2-4f7f-a3bb-49bc695b68ec",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eriette's Lullaby",
         mana_cost = mana!("{1}{W}"),

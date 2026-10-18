@@ -11,7 +11,7 @@ card!(
     oracle_id = "76a6ddc2-f894-4331-89a9-87ca16efd0c0",
     scryfall_id = "9aba0c60-78e2-4e1c-a6ad-6f1c001ad7ee",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Servo Exhibition",
         mana_cost = mana!("{1}{W}"),

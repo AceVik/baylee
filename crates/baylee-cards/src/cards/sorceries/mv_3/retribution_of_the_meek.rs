@@ -10,7 +10,7 @@ card!(
     oracle_id = "61f2083b-3018-43a4-8852-8e6d2a97d5d6",
     scryfall_id = "860b8633-1bfc-426a-8666-5e6a584d4525",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Retribution of the Meek",
         mana_cost = mana!("{2}{W}"),

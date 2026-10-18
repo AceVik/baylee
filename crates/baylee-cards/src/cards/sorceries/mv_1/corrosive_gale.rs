@@ -13,7 +13,7 @@ card!(
     oracle_id = "6143073f-4110-4a37-bc0c-89fbda2fc839",
     scryfall_id = "04a13825-ab9b-4ffd-9b59-6198181891b9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Corrosive Gale",
         mana_cost = mana!("{X}{G/P}"),

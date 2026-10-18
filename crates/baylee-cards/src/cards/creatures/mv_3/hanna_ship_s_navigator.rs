@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
-    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]),
-]);
-
 card!(
     index = index::HANNA_SHIP_S_NAVIGATOR,
     oracle_id = "3b008c71-e2a0-4f56-83d3-655c5dd58e0e",
@@ -30,8 +25,11 @@ card!(
     abilities = &[activated!(
         cost!("{1}{W}{U}", TapSelf),
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_ENCHANTMENT, PlayerRel::You)
         }],
-        target = Some(TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer))
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+            PlayerRel::You
+        ))
     ),],
 );

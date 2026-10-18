@@ -10,7 +10,7 @@ card!(
     oracle_id = "2cb95721-56c8-4008-8055-579a5a97fc8b",
     scryfall_id = "5503186a-46fe-4956-8ae3-5ab3343f8a93",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gaea's Gift",
         mana_cost = mana!("{1}{G}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "c1b6795a-1ac6-4edb-bcee-4db1f1fbe8ea",
     scryfall_id = "be722ac5-e8c4-4180-aed0-7c28895afc0d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spin Out",
         mana_cost = mana!("{1}{B}{B}"),

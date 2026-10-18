@@ -10,7 +10,7 @@ card!(
     oracle_id = "b08b348c-cf74-4aea-ab88-38201e04e42c",
     scryfall_id = "75629aa3-426e-4e25-a7ab-71e03436e061",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Divine Retribution",
         mana_cost = mana!("{1}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "17f8e8cb-cd1b-4d94-9efa-ce268e8e7096",
     scryfall_id = "4ea4993c-d1ba-4b33-955b-e0874fd2132f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Water Wings",
         mana_cost = mana!("{1}{U}"),

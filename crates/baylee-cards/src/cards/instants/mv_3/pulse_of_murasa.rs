@@ -12,7 +12,7 @@ card!(
     oracle_id = "d5b446a4-a761-42f0-acf0-ea0a1a9538d6",
     scryfall_id = "a4b9f8f4-d704-4f16-8495-cf8185285859",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pulse of Murasa",
         mana_cost = mana!("{2}{G}"),

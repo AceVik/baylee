@@ -10,7 +10,7 @@ card!(
     oracle_id = "053a90b8-61b1-4390-afc0-c5eaef0138a9",
     scryfall_id = "a47c9cb7-1b7d-4e89-8d4a-79dc515ac858",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Repulsor Rays",
         mana_cost = mana!("{R}"),

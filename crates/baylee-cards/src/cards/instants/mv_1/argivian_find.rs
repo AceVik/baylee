@@ -5,17 +5,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
-    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]),
-]);
-
 card!(
     index = index::ARGIVIAN_FIND,
     oracle_id = "0b6c74a7-d7d3-4c05-84b1-bcb580bb476f",
     scryfall_id = "89f23295-ad0a-4e2d-ae04-1a9c065e575d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Argivian Find",
         mana_cost = mana!("{W}"),
@@ -23,11 +18,11 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT_OR_ENCHANTMENT, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+            PlayerRel::You
         )))
     ),],
 );

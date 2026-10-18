@@ -12,7 +12,7 @@ card!(
     oracle_id = "d8838e16-96ca-4f73-ad61-7e98a76c4baf",
     scryfall_id = "35a30091-7f68-4a67-b47e-f44318fc93b2",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blade Banish",
         mana_cost = mana!("{3}{W}"),

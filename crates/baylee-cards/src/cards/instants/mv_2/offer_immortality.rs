@@ -10,7 +10,7 @@ card!(
     oracle_id = "be4499e6-616a-4c11-b37e-9201d2492682",
     scryfall_id = "b0aac10a-6d47-4a6c-8a10-2b7c06f3ff32",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Offer Immortality",
         mana_cost = mana!("{1}{B}"),

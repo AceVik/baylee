@@ -12,7 +12,7 @@ card!(
     oracle_id = "2ed1879a-83b8-48df-a6d2-fe28e912b4c5",
     scryfall_id = "9db2e3a9-b90d-44cd-a2bd-eeb7dbe255b0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slagstorm",
         mana_cost = mana!("{1}{R}{R}"),

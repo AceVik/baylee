@@ -14,7 +14,7 @@ card!(
     oracle_id = "618cd1bc-4422-441b-906f-1a209277be93",
     scryfall_id = "eae67d98-5167-442b-8586-0b2bcb0c56eb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crushing Canopy",
         mana_cost = mana!("{2}{G}"),

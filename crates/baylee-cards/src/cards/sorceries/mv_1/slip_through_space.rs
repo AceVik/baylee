@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2dee6dca-9c7e-4347-bea7-7fecc69e5827",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::DEVOID,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slip Through Space",
         mana_cost = mana!("{U}"),

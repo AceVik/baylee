@@ -25,7 +25,7 @@ card!(
     oracle_id = "aba7e9e2-8df8-454e-a332-9abae1d95b6f",
     scryfall_id = "e98db9ed-b43f-4bc1-b7a9-ce03a534d992",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Change the Equation",
         mana_cost = mana!("{1}{U}"),

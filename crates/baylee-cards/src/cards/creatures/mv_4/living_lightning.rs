@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::HasType(TypeSet::INSTANT), Filter::OwnedByYou]),
-    Filter::And(&[Filter::HasType(TypeSet::SORCERY), Filter::OwnedByYou]),
-]);
-
 card!(
     index = index::LIVING_LIGHTNING,
     oracle_id = "1f4738db-be2e-4d02-ad0c-1b74dd6bbfdc",
@@ -28,11 +23,11 @@ card!(
     abilities = &[triggered!(
         Trigger::Dies(&Filter::This),
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You)
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &TARGET1,
-            PlayerRel::EachPlayer
+            &Filter::INSTANT_OR_SORCERY,
+            PlayerRel::You
         )))
     ),],
 );

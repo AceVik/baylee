@@ -13,7 +13,7 @@ card!(
     oracle_id = "321fd970-a259-448d-bd98-e85e386174f9",
     scryfall_id = "6c47db5b-7cc4-446f-b96c-e0c69ed9f0b0",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twitch",
         mana_cost = mana!("{2}{U}"),

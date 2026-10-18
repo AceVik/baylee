@@ -10,7 +10,7 @@ card!(
     oracle_id = "021ce403-cbfa-4d69-a6e9-473d58bd477a",
     scryfall_id = "1dc24c93-2670-47c0-bb15-d1fff0fd19eb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spidery Grasp",
         mana_cost = mana!("{2}{G}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "7e0d60d7-cb27-4e45-80d4-c29aef5d56b6",
     scryfall_id = "636c4042-703f-4548-9a0f-cb550c468bf9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dangerous Wager",
         mana_cost = mana!("{1}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "894d96b1-c82a-4141-a2f3-76da505bd5e5",
     scryfall_id = "8ace095a-3ea9-4121-8ffb-5b3612b96985",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rubble Reading",
         mana_cost = mana!("{3}{R}"),

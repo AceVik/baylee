@@ -11,7 +11,7 @@ card!(
     oracle_id = "a26820b9-3bec-41b2-9812-99e4a2211297",
     scryfall_id = "fe1ab8db-3994-4b6d-9eaf-75243a78b715",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glimmerburst",
         mana_cost = mana!("{3}{U}"),

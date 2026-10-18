@@ -10,7 +10,7 @@ card!(
     oracle_id = "e41d9b3a-0712-4174-8c5c-224065a63b16",
     scryfall_id = "5ec5a956-c846-46b6-91bd-37e4db542280",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Culling Sun",
         mana_cost = mana!("{2}{W}{W}{B}"),

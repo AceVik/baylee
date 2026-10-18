@@ -10,7 +10,7 @@ card!(
     oracle_id = "4fb0ff70-eba1-4485-b68d-444eb512a2a7",
     scryfall_id = "63d05659-bfff-4b73-80f7-a9f31a7ef957",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Furious Bellow",
         mana_cost = mana!("{1}{R}"),

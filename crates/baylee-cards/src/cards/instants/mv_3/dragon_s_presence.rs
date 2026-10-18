@@ -15,7 +15,7 @@ card!(
     oracle_id = "4fb7aeb6-2fc3-459e-bad8-1c7ea92f7ae7",
     scryfall_id = "53855022-7aff-4d13-bdd8-0abbf69204a4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon's Presence",
         mana_cost = mana!("{2}{W}"),

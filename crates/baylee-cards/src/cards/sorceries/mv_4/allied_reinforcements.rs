@@ -11,7 +11,7 @@ card!(
     oracle_id = "2baf2ee6-e290-4a2b-89a0-0e725edde06d",
     scryfall_id = "fd7d7c93-5622-45ca-9359-110685d9162c",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Allied Reinforcements",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "a3874282-9887-4b53-b80e-564ac99cca23",
     scryfall_id = "31420a65-5f13-4ae9-8d45-2531ee2771e8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Drown in Shapelessness",
         mana_cost = mana!("{1}{U}"),

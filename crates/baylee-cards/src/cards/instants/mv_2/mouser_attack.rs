@@ -13,7 +13,7 @@ card!(
     oracle_id = "bae5dc68-1fd1-428d-bee7-c238e07b21ea",
     scryfall_id = "058490f4-0ada-45e6-b4f0-e433537f52d6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mouser Attack!",
         mana_cost = mana!("{1}{R}"),

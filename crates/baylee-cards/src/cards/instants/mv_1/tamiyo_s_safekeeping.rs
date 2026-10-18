@@ -10,7 +10,7 @@ card!(
     oracle_id = "bb2b324c-970a-4920-884e-c92ba49669f0",
     scryfall_id = "fd4b7ee2-de65-4288-872d-486065a4f226",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tamiyo's Safekeeping",
         mana_cost = mana!("{G}"),

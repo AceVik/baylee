@@ -10,7 +10,7 @@ card!(
     oracle_id = "bef3f0a9-4d5c-4469-81df-adbeedeed768",
     scryfall_id = "c175c998-7b80-4187-bdbc-5b6e0d7eac91",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horrid Vigor",
         mana_cost = mana!("{1}{G}"),

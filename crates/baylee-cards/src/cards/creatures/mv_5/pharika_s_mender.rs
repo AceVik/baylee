@@ -6,10 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::Or(&[
-    Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]),
-    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]),
-]);
+static TARGET1: Filter = Filter::Or(&[Filter::CREATURE, Filter::ENCHANTMENT]);
 
 card!(
     index = index::PHARIKA_S_MENDER,
@@ -29,12 +26,12 @@ card!(
         Trigger::ETB,
         &[Effect::MayDo {
             effects: &[Effect::GraveyardToHand {
-                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+                target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
             }]
         }],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
             &TARGET1,
-            PlayerRel::EachPlayer
+            PlayerRel::You
         )))
     ),],
 );

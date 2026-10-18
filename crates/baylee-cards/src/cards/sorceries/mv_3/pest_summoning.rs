@@ -12,7 +12,7 @@ card!(
     oracle_id = "f6e0cb77-4115-4948-8e1e-fdb774b1b254",
     scryfall_id = "6267e19a-a777-4767-8433-86b6624362b6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pest Summoning",
         mana_cost = mana!("{1}{B/G}{B/G}"),

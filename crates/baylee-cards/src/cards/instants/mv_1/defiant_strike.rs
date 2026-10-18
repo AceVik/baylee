@@ -11,7 +11,7 @@ card!(
     oracle_id = "f8c2d9c5-6fe6-4698-9972-83cdd625d94b",
     scryfall_id = "5c23869b-c99a-49dd-9e29-fcc0eb63fad1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Defiant Strike",
         mana_cost = mana!("{W}"),

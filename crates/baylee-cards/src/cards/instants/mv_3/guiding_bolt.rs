@@ -13,7 +13,7 @@ card!(
     oracle_id = "b433cf1f-a7f3-4b68-8bfb-e4196f6e3a12",
     scryfall_id = "cd552f81-1947-47e0-beee-f04e73551055",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guiding Bolt",
         mana_cost = mana!("{2}{W}"),

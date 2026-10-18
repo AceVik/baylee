@@ -10,7 +10,7 @@ card!(
     oracle_id = "115fd5ac-460b-49a3-83ed-9d56a7aecb14",
     scryfall_id = "b4f38f7e-2369-48c9-9121-4b13c29ea869",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Artisan's Sorrow",
         mana_cost = mana!("{3}{G}"),

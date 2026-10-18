@@ -12,7 +12,7 @@ card!(
     oracle_id = "11e02134-7b1a-46a4-a89e-7539dd1efada",
     scryfall_id = "588c6217-c460-417e-98bf-de5475780baf",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disdainful Stroke",
         mana_cost = mana!("{1}{U}"),

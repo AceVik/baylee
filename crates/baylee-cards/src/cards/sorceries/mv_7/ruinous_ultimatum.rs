@@ -10,7 +10,7 @@ card!(
     oracle_id = "a6f38908-aa4f-4f99-a28e-85d11dab52e4",
     scryfall_id = "50c1d6ca-7789-46b5-bc89-85cc3915cb85",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ruinous Ultimatum",
         mana_cost = mana!("{R}{R}{W}{W}{W}{B}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "ede6a352-52de-4ae0-816f-50140033dedf",
     scryfall_id = "ae311e17-ca96-4458-897f-30419a95a264",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Tempest",
         mana_cost = mana!("{5}{R}{R}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "9b3b0bef-cdbb-41c2-b8f1-ddda9903b43a",
     scryfall_id = "cd5f473c-e11e-4047-91f9-81b80f0a3562",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tropical Storm",
         mana_cost = mana!("{X}{G}"),

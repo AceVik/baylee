@@ -12,7 +12,7 @@ card!(
     oracle_id = "6e127e6e-b292-4398-b3fa-8b520a7d26a3",
     scryfall_id = "8ed3d16f-f0c6-4080-8913-758208b08234",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glare of Heresy",
         mana_cost = mana!("{1}{W}"),

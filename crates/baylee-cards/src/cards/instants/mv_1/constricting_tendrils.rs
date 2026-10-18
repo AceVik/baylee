@@ -11,7 +11,7 @@ card!(
     oracle_id = "9e34ab18-5d39-49d9-9d3d-e1d4a3611b87",
     scryfall_id = "1a110be3-93ec-40ef-94a6-e4c43f1ce211",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Constricting Tendrils",
         mana_cost = mana!("{U}"),

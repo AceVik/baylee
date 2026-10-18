@@ -10,7 +10,7 @@ card!(
     oracle_id = "d9c57520-9827-4b8b-8f81-43cca4227c60",
     scryfall_id = "87f4b533-7113-4b36-9c7a-e4cf798c88a9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Taigam's Scheming",
         mana_cost = mana!("{1}{U}"),

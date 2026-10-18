@@ -11,7 +11,7 @@ card!(
     oracle_id = "87b55d99-badc-45e3-8364-173a400c4d7e",
     scryfall_id = "a4b87068-aaa6-41de-9b9a-76ca4210a485",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Scouts",
         mana_cost = mana!("{3}{R}{R}"),

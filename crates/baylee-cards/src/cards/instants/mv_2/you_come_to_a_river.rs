@@ -12,7 +12,7 @@ card!(
     oracle_id = "9913da11-07f0-494a-8c47-11629dcb5be2",
     scryfall_id = "ebf9bab7-98a0-4394-90c0-e7c52e14eb37",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "You Come to a River",
         mana_cost = mana!("{1}{U}"),

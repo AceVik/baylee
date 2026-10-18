@@ -10,7 +10,7 @@ card!(
     oracle_id = "b081726f-0ed6-4ab0-833e-f510ac6fbeaa",
     scryfall_id = "5702b757-5be5-4a48-bc73-a87ec4f3193b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stymied Hopes",
         mana_cost = mana!("{1}{U}"),

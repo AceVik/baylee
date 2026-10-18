@@ -10,7 +10,7 @@ card!(
     oracle_id = "2bf4811f-3462-4542-acb0-101e772bfec9",
     scryfall_id = "00ac1759-d4cc-41d5-a9b7-a89b80d2190c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Give In to Violence",
         mana_cost = mana!("{1}{B}"),

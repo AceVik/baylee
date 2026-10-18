@@ -10,7 +10,7 @@ card!(
     oracle_id = "120446cc-f55b-40db-915d-2669c1083e56",
     scryfall_id = "2798fdff-0b39-41b6-b0ec-c4f449ca3314",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unnatural Predation",
         mana_cost = mana!("{G}"),

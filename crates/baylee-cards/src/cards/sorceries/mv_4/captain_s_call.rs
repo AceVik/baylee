@@ -11,7 +11,7 @@ card!(
     oracle_id = "46418fe4-065c-4dfa-b796-eee02c14f351",
     scryfall_id = "0c7ed7e0-0e80-44d3-a7af-b4c321239df8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Captain's Call",
         mana_cost = mana!("{3}{W}"),

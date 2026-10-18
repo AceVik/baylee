@@ -15,7 +15,7 @@ card!(
     oracle_id = "319d5cf8-ab72-401e-b04e-c13a7a6c1aac",
     scryfall_id = "0aec4d0f-ba1e-45f8-9764-9bcc3fa50e51",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stern Dismissal",
         mana_cost = mana!("{U}"),

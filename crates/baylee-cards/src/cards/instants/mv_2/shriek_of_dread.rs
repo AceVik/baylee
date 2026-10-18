@@ -10,7 +10,7 @@ card!(
     oracle_id = "ee5a4902-f993-4fe6-92da-38636962c558",
     scryfall_id = "54a7fb3b-8e81-4763-b2a1-7c2108a00afe",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shriek of Dread",
         mana_cost = mana!("{1}{B}"),

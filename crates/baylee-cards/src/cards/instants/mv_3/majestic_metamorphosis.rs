@@ -12,7 +12,7 @@ card!(
     oracle_id = "5779d9b2-4de1-4aa4-a56d-0da05146743a",
     scryfall_id = "bcaebea6-9e3f-4ac7-abe1-5445912f5b44",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Majestic Metamorphosis",
         mana_cost = mana!("{2}{U}"),

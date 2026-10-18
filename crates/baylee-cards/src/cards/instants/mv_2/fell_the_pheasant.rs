@@ -13,7 +13,7 @@ card!(
     oracle_id = "c78c8f7d-45fd-46c0-9ed4-4d0e85aada2e",
     scryfall_id = "33d3cc84-7cb6-4de2-9018-4695a3b1e099",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fell the Pheasant",
         mana_cost = mana!("{1}{G}"),

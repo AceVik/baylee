@@ -13,7 +13,7 @@ card!(
     oracle_id = "177113f8-1188-4e5e-8ad7-34a7bb8ca7f1",
     scryfall_id = "25749f9a-260d-4bdc-bd28-429c12faa4a5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Origin of Metalbending",
         mana_cost = mana!("{1}{G}"),

@@ -182,27 +182,49 @@ impl Tx<'_> {
 
     /// A valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     pub(super) fn filter_expr(&self, valid: &str) -> Option<String> {
+        self.filter_expr_in_zone(valid, false)
+    }
+
+    fn push_filter_base(&self, base: &str, card_zone: bool, clauses: &mut Vec<String>) -> bool {
+        match base {
+            "Card" => {}
+            "Permanent" if !card_zone => {}
+            "Permanent" => clauses.push(
+                "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
+                 .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
+                 .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+                    .to_string(),
+            ),
+            "Creature" => clauses.push("Filter::CREATURE".to_string()),
+            "Artifact" => clauses.push("Filter::ARTIFACT".to_string()),
+            "Enchantment" => clauses.push("Filter::ENCHANTMENT".to_string()),
+            "Land" => clauses.push("Filter::LAND".to_string()),
+            "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
+            "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
+            "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
+            _ => {
+                let Some(path) = self.cats.const_path(base) else {
+                    self.note(format!("filter base `{base}`"));
+                    return false;
+                };
+                clauses.push(format!("Filter::HasSubtype({path})"));
+            }
+        }
+        true
+    }
+
+    /// A valid-string as a `Filter`, distinguishing battlefield objects
+    /// (`card_zone == false`, where every object is already a permanent) from
+    /// card zones such as graveyards and libraries (`card_zone == true`, where
+    /// `"Permanent"` means a permanent card under CR 110.4a).
+    pub(super) fn filter_expr_in_zone(&self, valid: &str, card_zone: bool) -> Option<String> {
         let mut alternatives = Vec::new();
         for alt in valid.split(',') {
             let mut clauses = Vec::new();
             let mut atoms = alt.split('.');
             let base = atoms.next()?.trim();
-            match base {
-                "Card" | "Permanent" => {}
-                "Creature" => clauses.push("Filter::CREATURE".to_string()),
-                "Artifact" => clauses.push("Filter::ARTIFACT".to_string()),
-                "Enchantment" => clauses.push("Filter::ENCHANTMENT".to_string()),
-                "Land" => clauses.push("Filter::LAND".to_string()),
-                "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
-                "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
-                "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
-                _ => {
-                    let Some(path) = self.cats.const_path(base) else {
-                        self.note(format!("filter base `{base}`"));
-                        return None;
-                    };
-                    clauses.push(format!("Filter::HasSubtype({path})"));
-                }
+            if !self.push_filter_base(base, card_zone, &mut clauses) {
+                return None;
             }
             for atom in atoms.flat_map(|a| a.split('+')) {
                 clauses.push(match atom.trim() {
@@ -359,31 +381,51 @@ impl Tx<'_> {
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
     /// its owner is whose graveyard it is in); no such qualifier is any
-    /// graveyard. The rest of the valid-string is the card's filter.
+    /// graveyard unless the Oracle text explicitly scopes it to "your
+    /// graveyard" (Misery Charm). The rest of the valid-string is the card's
+    /// filter.
     pub(super) fn graveyard_target(&mut self, valid: &str) -> Option<String> {
-        let (base, rest) = valid.split_once('.').unwrap_or((valid, ""));
         let mut whose = "PlayerRel::EachPlayer";
-        let mut kept = Vec::new();
-        for atom in rest.split('+').filter(|a| !a.is_empty()) {
-            match atom {
-                "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
-                "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
-                other => kept.push(other),
+        let mut cleaned_alts = Vec::new();
+        for alt in valid.split(',') {
+            let mut parts = alt
+                .split('.')
+                .flat_map(|s| s.split('+'))
+                .map(str::trim)
+                .filter(|a| !a.is_empty());
+            let base = parts.next()?;
+            let mut kept = Vec::new();
+            for atom in parts {
+                match atom {
+                    "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
+                    "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                    other => kept.push(other),
+                }
+            }
+            // Stir the Grave spells its "with mana value X or less" bound as
+            // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
+            if self.has_x
+                && self.svars.get("X").map(String::as_str) == Some("Targeted$CardManaCost")
+                && !kept.iter().any(|a| a.starts_with("cmc"))
+            {
+                kept.push("cmcLEX");
+            }
+            if kept.is_empty() {
+                cleaned_alts.push(base.to_string());
+            } else {
+                cleaned_alts.push(format!("{base}.{}", kept.join("+")));
             }
         }
-        // Stir the Grave spells its "with mana value X or less" bound as
-        // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
-        if self.has_x
-            && self.svars.get("X").map(String::as_str) == Some("Targeted$CardManaCost")
-            && !kept.iter().any(|a| a.starts_with("cmc"))
-        {
-            kept.push("cmcLEX");
+        if whose == "PlayerRel::EachPlayer" {
+            let lower = self.oracle.to_ascii_lowercase();
+            if (lower.contains("from your graveyard") || lower.contains("in your graveyard"))
+                && !lower.contains("from a graveyard")
+                && !lower.contains("in a graveyard")
+            {
+                whose = "PlayerRel::You";
+            }
         }
-        let filter = if kept.is_empty() {
-            self.filter_expr(base)?
-        } else {
-            self.filter_expr(&format!("{base}.{}", kept.join("+")))?
-        };
+        let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
         let filter = self.body.filter_static("TARGET", &filter);
         Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
     }

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ebcd198e-7fbd-46e0-a6d9-ff499e541978",
     scryfall_id = "24a5b025-4cdb-416d-aad6-0fc7e8da3df2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Ransacking",
         mana_cost = mana!("{1}{R}"),

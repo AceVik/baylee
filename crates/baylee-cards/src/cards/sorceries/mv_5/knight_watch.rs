@@ -11,7 +11,7 @@ card!(
     oracle_id = "4965f5fe-a5fe-4976-822c-5cf40fea8c34",
     scryfall_id = "cd492072-9a8c-4d55-ac71-3c8efaa3fc87",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight Watch",
         mana_cost = mana!("{4}{W}"),

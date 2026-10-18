@@ -10,7 +10,7 @@ card!(
     oracle_id = "230bf3a4-68a8-4553-b8d7-ad340cbd7371",
     scryfall_id = "588ad2bf-405d-4c36-b485-e415c22f2703",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desert Sandstorm",
         mana_cost = mana!("{2}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "2dc94a25-4e35-4277-8eba-b8d0b293ff7b",
     scryfall_id = "8d7a4494-2ced-4405-9204-d2617961a1d6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bountiful Harvest",
         mana_cost = mana!("{4}{G}"),

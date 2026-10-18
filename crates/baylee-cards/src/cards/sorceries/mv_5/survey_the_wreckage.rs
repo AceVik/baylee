@@ -11,7 +11,7 @@ card!(
     oracle_id = "35df2d01-2f9f-49a7-8fa1-cfaa52e5c7b6",
     scryfall_id = "a6e750f9-ad86-4d60-98a3-78d11cd52cd1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Survey the Wreckage",
         mana_cost = mana!("{4}{R}"),

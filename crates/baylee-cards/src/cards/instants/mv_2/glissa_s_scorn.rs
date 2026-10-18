@@ -10,7 +10,7 @@ card!(
     oracle_id = "f30f17f0-bd2d-4f10-9739-111917acc100",
     scryfall_id = "f11187c1-de35-4e85-87c3-656f978b2d7e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glissa's Scorn",
         mana_cost = mana!("{1}{G}"),

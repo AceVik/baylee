@@ -916,7 +916,7 @@ impl Tx<'_> {
             );
             return None;
         }
-        let filter = self.filter_expr(&p.take("ChangeType")?)?;
+        let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
         let name = self.body.filter_static("SEARCH", &filter);
         let finds = vec![find; count].join(", ");
         Some(vec![format!(

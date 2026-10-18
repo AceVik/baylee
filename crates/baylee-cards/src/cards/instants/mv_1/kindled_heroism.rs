@@ -10,7 +10,7 @@ card!(
     oracle_id = "c1ed20c0-f75d-4aca-8874-6955bd9fb21b",
     scryfall_id = "22a6d05e-e566-4a85-bcf8-9d0fbea3dd14",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kindled Heroism",
         mana_cost = mana!("{R}"),

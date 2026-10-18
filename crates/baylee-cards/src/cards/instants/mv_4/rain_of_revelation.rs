@@ -10,7 +10,7 @@ card!(
     oracle_id = "7d5dfa6b-f685-4925-b93a-ae5815a3c0a7",
     scryfall_id = "da367981-9d6f-419f-9f58-f969b6183336",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rain of Revelation",
         mana_cost = mana!("{3}{U}"),

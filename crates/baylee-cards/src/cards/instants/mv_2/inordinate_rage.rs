@@ -10,7 +10,7 @@ card!(
     oracle_id = "50402103-14ea-49b0-8e66-d2b7f7a69a41",
     scryfall_id = "d0f62bdc-50a0-41a0-ac37-9b0eeb21b6aa",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Inordinate Rage",
         mana_cost = mana!("{1}{R}"),

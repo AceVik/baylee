@@ -10,7 +10,7 @@ card!(
     oracle_id = "7f3095fb-ffc0-48ed-8792-4157897a9ce7",
     scryfall_id = "c656ad1b-e85b-4b0c-b538-506afe4a9da5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rise to the Challenge",
         mana_cost = mana!("{1}{R}"),

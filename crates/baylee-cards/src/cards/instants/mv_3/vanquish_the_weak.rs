@@ -12,7 +12,7 @@ card!(
     oracle_id = "4a3cc4f6-037f-461d-a3b7-9f9e24c4b8cf",
     scryfall_id = "935cb9a2-11ba-45d9-ab38-dea23cecf521",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vanquish the Weak",
         mana_cost = mana!("{2}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6de8bdc0-9b2a-4105-bbac-d5a2f73f52dc",
     scryfall_id = "48d97373-9b55-4eb7-99b6-8912f09bd0bb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pirate's Prize",
         mana_cost = mana!("{3}{U}"),

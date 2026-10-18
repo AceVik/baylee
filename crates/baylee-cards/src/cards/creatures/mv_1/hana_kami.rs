@@ -25,8 +25,8 @@ card!(
     abilities = &[activated!(
         cost!("{1}{G}", SacrificeSelf),
         &[Effect::GraveyardToHand {
-            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer)
+            target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)
         }],
-        target = Some(TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::EachPlayer))
+        target = Some(TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You))
     ),],
 );

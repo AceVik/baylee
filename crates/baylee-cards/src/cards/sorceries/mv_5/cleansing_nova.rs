@@ -12,7 +12,7 @@ card!(
     oracle_id = "aff34f28-f707-4458-8af3-1bd5b13a6b10",
     scryfall_id = "670e4457-927e-42ed-a36f-28b60c2f7566",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cleansing Nova",
         mana_cost = mana!("{3}{W}{W}"),

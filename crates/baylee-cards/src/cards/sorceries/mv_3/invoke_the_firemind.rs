@@ -12,7 +12,7 @@ card!(
     oracle_id = "2037659f-2efe-4321-afaf-961bbec35e9e",
     scryfall_id = "df4863dc-3545-4ee7-a3c8-beed109a7f38",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Invoke the Firemind",
         mana_cost = mana!("{X}{U}{U}{R}"),

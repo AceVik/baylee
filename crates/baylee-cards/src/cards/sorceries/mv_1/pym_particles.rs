@@ -11,7 +11,7 @@ card!(
     oracle_id = "636b44dc-f7e4-42d2-abf6-ae49432b6052",
     scryfall_id = "928dfa54-1ead-4eff-a538-36cb94f05b78",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pym Particles",
         mana_cost = mana!("{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "5e4c02c2-2e54-4e8d-8d94-6b2454027e7e",
     scryfall_id = "f06c0007-299e-4d71-99c3-f905d942759d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Queen's Commission",
         mana_cost = mana!("{2}{W}"),

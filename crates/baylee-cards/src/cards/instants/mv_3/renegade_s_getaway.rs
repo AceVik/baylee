@@ -11,7 +11,7 @@ card!(
     oracle_id = "4b77479e-8d49-46f6-b774-d8caf151c15c",
     scryfall_id = "49b0a5d5-99d7-492b-bd85-77c3cee12c8d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Renegade's Getaway",
         mana_cost = mana!("{2}{B}"),

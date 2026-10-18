@@ -19,7 +19,7 @@ card!(
     oracle_id = "ea935885-acbc-450d-a3ad-f80c09e12ce7",
     scryfall_id = "395b6ce4-143f-4eed-b565-98aa3d6208ef",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Power Word Kill",
         mana_cost = mana!("{1}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "f7f32fec-b384-4021-a69f-2dc9220ebc64",
     scryfall_id = "273f25fc-9c9f-4b73-a28b-1461d8fcd443",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scouring Sands",
         mana_cost = mana!("{1}{R}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "6b37b0ef-7e89-447f-a189-b3ea7b42143f",
     scryfall_id = "b17950ae-43aa-4d03-a41e-726ca96eb1ba",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirling Strike",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "973fd4d4-9255-4825-85b7-503606c4e932",
     scryfall_id = "c3471c9c-6354-483f-960d-494f0e0a424f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sinister Sabotage",
         mana_cost = mana!("{1}{U}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "cb5ed146-5079-46ef-a3e0-e584fa4467f6",
     scryfall_id = "860cb8af-a5f6-47e7-a34b-7b9f11ddc8c6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spectral Interference",
         mana_cost = mana!("{1}{U}"),

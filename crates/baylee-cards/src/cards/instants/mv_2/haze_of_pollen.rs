@@ -11,7 +11,7 @@ card!(
     oracle_id = "f0140f00-5414-493b-962d-33312d49f6ea",
     scryfall_id = "b636925d-1c32-4fdc-b814-e6111393d04e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Haze of Pollen",
         mana_cost = mana!("{1}{G}"),

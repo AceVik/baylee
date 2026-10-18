@@ -12,7 +12,7 @@ card!(
     oracle_id = "adc03c37-33c7-4b92-b9fd-4608e6c372c4",
     scryfall_id = "cdf305b7-d1f7-4770-9201-8f3fb6735cd9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Collar the Culprit",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "ad09b3c3-c8e7-481c-8c45-e7f234935117",
     scryfall_id = "407183c6-c962-4f8c-867e-abc309b6c573",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anguished Unmaking",
         mana_cost = mana!("{1}{W}{B}"),

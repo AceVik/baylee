@@ -11,7 +11,7 @@ card!(
     oracle_id = "3cc79d36-1a24-4395-8ad1-915a65db8a60",
     scryfall_id = "1c95f8b8-faba-4412-8d8f-093e2ec903f0",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Awaken the Woods",
         mana_cost = mana!("{X}{G}{G}"),

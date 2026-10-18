@@ -12,7 +12,7 @@ card!(
     oracle_id = "7e4504c1-4349-408d-8fdf-0c44efdd3f56",
     scryfall_id = "df491512-ba8a-4ba5-ad42-338190201170",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pierce the Sky",
         mana_cost = mana!("{1}{G}"),

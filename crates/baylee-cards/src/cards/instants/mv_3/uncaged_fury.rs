@@ -10,7 +10,7 @@ card!(
     oracle_id = "7aac51ef-ae03-4a9e-9a48-46223787f291",
     scryfall_id = "de8f4d5b-ea3c-4d01-b163-2fcfb1bcca8e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Uncaged Fury",
         mana_cost = mana!("{2}{R}"),

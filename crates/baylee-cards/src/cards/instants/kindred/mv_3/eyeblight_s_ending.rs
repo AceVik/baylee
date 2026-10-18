@@ -16,7 +16,7 @@ card!(
     oracle_id = "9f3e1eef-31db-4e1a-b5a9-ac835f6a3eab",
     scryfall_id = "6738c356-734a-4930-acd3-31dead241bea",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eyeblight's Ending",
         mana_cost = mana!("{2}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "05b5c0fb-84b2-4a32-bf66-179c4dccb3df",
     scryfall_id = "84dcd314-f4d2-461e-a66e-7b1d8f141879",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Natural End",
         mana_cost = mana!("{2}{G}"),

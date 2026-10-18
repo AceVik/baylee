@@ -10,7 +10,7 @@ card!(
     oracle_id = "d95fc2cb-5e49-4a22-a93e-d21cf64dcd84",
     scryfall_id = "b5fb18c4-1386-4ea0-97c1-4bdd1e7eb5a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lunar Frenzy",
         mana_cost = mana!("{X}{R}"),

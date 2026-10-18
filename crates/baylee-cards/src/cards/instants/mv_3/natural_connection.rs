@@ -12,7 +12,7 @@ card!(
     oracle_id = "dc85c659-f2ed-4b13-807c-d853f74de410",
     scryfall_id = "b8614b00-bf12-464e-8d13-61310e265ccb",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Natural Connection",
         mana_cost = mana!("{2}{G}"),

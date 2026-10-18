@@ -10,7 +10,7 @@ card!(
     oracle_id = "af32ce11-c026-4135-b1e3-10c6aa15c72c",
     scryfall_id = "d1637b62-e364-4250-aad5-841c6a47a11e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Specter's Wail",
         mana_cost = mana!("{1}{B}"),

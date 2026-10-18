@@ -15,7 +15,7 @@ card!(
     oracle_id = "2a6c7826-dcfe-4029-894e-6c82c4dd84b7",
     scryfall_id = "54cc4e2b-1497-4788-afb4-9e42b7683b5a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piercing Light",
         mana_cost = mana!("{W}"),

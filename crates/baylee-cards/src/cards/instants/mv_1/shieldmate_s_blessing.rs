@@ -10,7 +10,7 @@ card!(
     oracle_id = "4ed55e9c-84ea-42a3-a32f-469da56b3eb5",
     scryfall_id = "f58a26f8-a2c9-48e5-8662-7cbd43c00411",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shieldmate's Blessing",
         mana_cost = mana!("{W}"),

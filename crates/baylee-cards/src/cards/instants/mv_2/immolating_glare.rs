@@ -10,7 +10,7 @@ card!(
     oracle_id = "046b6989-5b56-4b52-a655-109b1eb26a93",
     scryfall_id = "2f468338-bb66-4db0-a883-69095566092b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Immolating Glare",
         mana_cost = mana!("{1}{W}"),
