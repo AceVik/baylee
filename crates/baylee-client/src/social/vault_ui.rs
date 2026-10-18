@@ -505,6 +505,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn notice_and_preferences_survive_lock_and_edits_while_locked() {
+        use baylee_client_core::social::{ChatPrefs, Intent, Me, Social};
+        let me = Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        };
+        let (machine, _) = Social::start(
+            me.clone(),
+            None,
+            None,
+            ChatPrefs::default(),
+            super::super::now_ms(),
+            &mut super::super::OsEntropy,
+        );
+        let mut host = SocialHost {
+            machine: Some(machine),
+            ..Default::default()
+        };
+        let mut prefs = crate::prefs::Prefs::default();
+        host.act(Intent::NoticeSeen);
+        let seen = host.machine().unwrap().prefs().clone();
+        super::super::window::save_prefs(&mut host, Some(&mut prefs), seen);
+        act(
+            Press::Lock,
+            &mut Form::default(),
+            &mut host,
+            &mut ChatUi::default(),
+        );
+        assert!(host.machine().is_none());
+        assert!(host.vault.prefs.notice_seen);
+        let mut edited = prefs.all().chat.clone();
+        edited.timestamps = false;
+        super::super::window::save_prefs(&mut host, Some(&mut prefs), edited);
+        assert!(!host.vault.prefs.timestamps);
+        // A fetched account update also arrives while chat is locked.
+        prefs.edit().chat.toast_text = false;
+        host.sync_prefs(&prefs.all().chat);
+        let (reopened, _) = Social::start(
+            me,
+            None,
+            None,
+            host.vault.prefs.clone(),
+            super::super::now_ms(),
+            &mut super::super::OsEntropy,
+        );
+        assert_eq!(reopened.prefs(), &prefs.all().chat);
+        assert!(reopened.prefs().notice_seen);
+    }
+
+    #[test]
     fn close_erases_all_password_fields_and_releases_keyboard() {
         let mut form = Form::default();
         form.password.set("old", 3, None);

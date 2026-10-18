@@ -64,6 +64,48 @@ fn accepted_password_change_with_same_token_locks_before_reopening() {
 }
 
 #[test]
+fn completed_unlock_uses_preferences_changed_after_worker_started() {
+    let (root, session) = fixture();
+    let (machine, _) = Social::start(
+        Me {
+            tag: session.tag,
+            handle: session.handle,
+            guest: false,
+            gateway: session.gateway,
+        },
+        None,
+        None,
+        social::ChatPrefs::default(),
+        now_ms(),
+        &mut OsEntropy,
+    );
+    let (sender, receiver) = mpsc::channel();
+    sender
+        .send(Ok(Ready {
+            machine,
+            effects: vec![],
+            disk: Box::new(social::disk::MemoryDisk::new()),
+            store: Box::new(social::vault::MemorySecrets::new()),
+        }))
+        .unwrap_or_else(|_| panic!("receiver must remain connected"));
+    let mut host = SocialHost::default();
+    host.vault.job = Some(Job {
+        receiver: Mutex::new(receiver),
+        cancelled: Arc::new(AtomicBool::new(false)),
+    });
+    let changed = social::ChatPrefs {
+        notice_seen: true,
+        timestamps: false,
+        ..Default::default()
+    };
+    host.act(social::Intent::SetPrefs(changed.clone()));
+    let mut lobby = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    follow_with(&mut host, &mut lobby, |_, _| panic!("no job should start"));
+    assert_eq!(host.machine().unwrap().prefs(), &changed);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn ending_session_drops_stores_and_cancels_inflight_job() {
     let mut host = SocialHost {
         store: Some(Box::new(social::vault::MemorySecrets::new())),

@@ -157,11 +157,25 @@ impl SocialHost {
 
     /// Hands the machine an intent and carries out what it answers.
     pub(crate) fn act(&mut self, intent: Intent) {
+        // This cache survives a manual lock and seeds the next unlock job.
+        // Preference changes must reach it even while no machine is present.
+        match &intent {
+            Intent::SetPrefs(prefs) => self.vault.prefs.clone_from(prefs),
+            Intent::NoticeSeen => self.vault.prefs.notice_seen = true,
+            _ => {}
+        }
         let Some(machine) = self.machine.as_mut() else {
             return;
         };
         let effects = machine.act(intent, now_ms(), &mut OsEntropy);
         self.carry_out(effects);
+    }
+
+    /// Applies account preference updates, including while the vault is locked.
+    fn sync_prefs(&mut self, prefs: &social::ChatPrefs) {
+        if self.vault.prefs != *prefs {
+            self.act(Intent::SetPrefs(prefs.clone()));
+        }
     }
 
     /// Carries out the machine's effects.
@@ -761,6 +775,9 @@ fn drive(
             host.end();
         }
         host.session = wanted;
+    }
+    if let Some(prefs) = prefs.as_deref() {
+        host.sync_prefs(&prefs.all().chat);
     }
     // Vault credentials are an invisible one-shot handoff. Mutating only that
     // field must not flag visible lobby state and rebuild its UI every frame.

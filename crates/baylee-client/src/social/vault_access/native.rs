@@ -90,7 +90,16 @@ fn follow_with(
         if let Some(result) = result {
             host.vault.job = None;
             match result {
-                Ok(ready) => {
+                Ok(mut ready) => {
+                    // Preferences can change while the worker derives the key.
+                    // Publish the machine with current settings, not its snapshot.
+                    if ready.machine.prefs() != &host.vault.prefs {
+                        ready.effects.extend(ready.machine.act(
+                            social::Intent::SetPrefs(host.vault.prefs.clone()),
+                            now_ms(),
+                            &mut OsEntropy,
+                        ));
+                    }
                     host.machine = Some(ready.machine);
                     host.store = Some(ready.store);
                     host.disk = Some(ready.disk);
