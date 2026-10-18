@@ -1189,3 +1189,20 @@ later copies and separately restores temporary copied rules and decisions.
 The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy) were reread: “Tell the Community it’s unofficial.” Existing unofficial notices, attribution and the owner decision on rules implementation above remain in place. The Raceway implementation and Destroy Evil / Nature's Claim tests introduce no copied implementation, imagery, recordings or fonts. The speed display uses ordinary text and numerals in the existing licensed font. Scryfall's API documentation returned HTTP 403 during this check; cached card data were used, and no new API consumption or image handling is introduced.
 
 - 2026-10-15, 32-card Oracle-blind test trial: behavioral tests and generated rule bindings only; no new card images, symbols, audio, or corpus source are distributed. The existing owner-approved rules-implementation exception remains applicable. The Fan Content Policy requirement “Tell the Community it’s unofficial.” remains satisfied by the existing unofficial fan-project notice (https://company.wizards.com/en/legal/fancontentpolicy). Agony Warp's independent-target behavior was checked against Wizards' Modern Masters 2015 release notes (https://magic.wizards.com/en/news/feature/modern-masters-2015-edition-release-notes-2015-05-12); corpus lookup stays external and generation remains through xtask.
+
+### 2026-10-18 — Completing mutate, venture and Hanweir meld
+
+Independent rules code completes Gemrazer, Dungeon Descent and Hanweir Battlements,
+and adds Hanweir Garrison with its identifying header. No corpus implementation,
+card image, font, icon or audio is copied into the repository. Dungeon room names
+and choices use the existing text renderer; card images use the existing Scryfall
+pipeline without alteration. The owner-approved rules-implementation decision
+above continues to apply.
+
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were checked: “Tell the Community it’s unofficial.” Existing notices and credits
+remain in place. The [Scryfall API/image terms](https://scryfall.com/docs/api)
+returned HTTP 403 to both the web reader and direct HTTP access during this check;
+that access failure is recorded rather than presented as a fresh verification of
+those terms. Existing Scryfall licensing decisions and delivery restrictions above
+remain applicable; no new distribution or image treatment is introduced.

@@ -33,6 +33,7 @@ pub(super) fn exile_until_end(state: &mut GameState, res: &Resolution, tapped: b
             continue;
         };
         let owner = object.owner;
+        let components = state.merged_components(target);
         if state
             .move_object(
                 target,
@@ -44,13 +45,17 @@ pub(super) fn exile_until_end(state: &mut GameState, res: &Resolution, tapped: b
         {
             continue;
         }
-        let Some(object) = state.object(target).filter(|o| o.zone == Zone::Exile) else {
-            continue;
-        };
-        objects.push(baylee_core::ids::DamageSourceRef {
-            object: target,
-            version: object.version,
-        });
+        for component in components {
+            if let Some(object) = state
+                .object(component)
+                .filter(|o| o.zone == Zone::Exile && o.is_card())
+            {
+                objects.push(baylee_core::ids::DamageSourceRef {
+                    object: component,
+                    version: object.version,
+                });
+            }
+        }
     }
     if !objects.is_empty() {
         state.delayed.push(DelayedTrigger {

@@ -48,7 +48,15 @@ pub(super) fn zone(
         .list(loc)
         .iter()
         .filter_map(|&id| {
-            let viewer = entitled_viewer(state.object(id)?, seat, controlled);
+            let object = state.object(id)?;
+            if object
+                .riders
+                .iter()
+                .any(|r| matches!(r, baylee_engine::object::Rider::MergedInto(_)))
+            {
+                return None;
+            }
+            let viewer = entitled_viewer(object, seat, controlled);
             public_object(state, id, viewer)
         })
         .collect()

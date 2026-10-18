@@ -493,7 +493,7 @@ fn requirements_are_reachable(
 pub const MUTATE_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::TargetReq::one(
     baylee_cards_dsl::TargetSpec::Object(&baylee_cards_dsl::Filter::And(&[
         baylee_cards_dsl::Filter::CREATURE,
-        baylee_cards_dsl::Filter::OwnedByYou,
+        baylee_cards_dsl::Filter::OwnedBySourceOwner,
         baylee_cards_dsl::Filter::Not(&baylee_cards_dsl::Filter::HasSubtype(
             baylee_core::generated::subtypes::creature::HUMAN,
         )),
@@ -863,6 +863,13 @@ pub(crate) fn can_cast_form_paying(
             || source_affordable(state, player, what, pool, cost, &[], Some(allowance))
     };
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
+    if obj
+        .riders
+        .iter()
+        .any(|r| matches!(r, crate::object::Rider::MergedInto(_)))
+    {
+        return Err(CastError::NotInHand);
+    }
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
     // Flashback (CR 702.34a): a card may be cast from its owner's graveyard

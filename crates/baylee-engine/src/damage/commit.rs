@@ -52,21 +52,21 @@ impl DamageWork {
                         part.view.amount,
                         part.view.is_combat,
                     );
-                    if part.view.is_combat
-                        && state
-                            .commanders
-                            .iter()
-                            .flatten()
-                            .any(|c| c.object == part.view.source)
-                    {
+                    if part.view.is_combat {
+                        let commanders = state
+                            .damage_source(part.view.source, part.source_version)
+                            .map(|source| state.merged_commanders(source))
+                            .unwrap_or_default();
                         let tally = &mut state.players[usize::from(player.get())].commander_damage;
                         let n = u16::try_from(part.view.amount).unwrap_or(u16::MAX);
-                        if let Some((_, total)) =
-                            tally.iter_mut().find(|(id, _)| *id == part.view.source)
-                        {
-                            *total = total.saturating_add(n);
-                        } else {
-                            tally.push((part.view.source, n));
+                        for commander in commanders {
+                            if let Some((_, total)) =
+                                tally.iter_mut().find(|(id, _)| *id == commander)
+                            {
+                                *total = total.saturating_add(n);
+                            } else {
+                                tally.push((commander, n));
+                            }
                         }
                     }
                 }

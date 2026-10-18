@@ -766,8 +766,7 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
         // where the other two sources start theirs. A sheet is a keyboard
         // surface — `1`..`9` answer it — so a sheet with no row lit would be
         // one that looks unreachable until an arrow key is pressed.
-        matches!(prompt, Prompt::CastMode { .. })
-            .then(|| (prompt, interaction.chosen_index().unwrap_or(0), false))
+        casts_beside_card(&prompt).then(|| (prompt, interaction.chosen_index().unwrap_or(0), false))
     };
     let (prompt, picked, dismissible) = duel
         .cast_menu
@@ -2932,4 +2931,13 @@ mod running {
             );
         }
     }
+}
+
+/// Resolution choices have no hand/battlefield card to anchor a casting sheet to.
+pub(super) fn casts_beside_card(prompt: &Prompt) -> bool {
+    use baylee_engine::choice::CastModeKind;
+    matches!(prompt, Prompt::CastMode { options, .. } if !options.iter().any(|o| matches!(o.kind,
+        CastModeKind::MutatePosition(_) | CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. }
+        | CastModeKind::Colors(_) | CastModeKind::Counter(_)
+    )))
 }

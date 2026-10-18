@@ -77,6 +77,13 @@ fn gemrazer_mutates_onto_non_human_creature_and_destroys_opponent_artifact() {
         )
         .expect("choose Llanowar Elves as mutate target");
 
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseMode(0))
+        .expect("put Gemrazer on top");
+
     // Resolve the mutating spell, which triggers "Whenever this creature mutates,
     // destroy target artifact or enchantment an opponent controls."
     pass_until(&mut engine, |e| {
@@ -116,4 +123,103 @@ fn gemrazer_mutates_onto_non_human_creature_and_destroys_opponent_artifact() {
     let kw = keywords(&engine, elf);
     assert!(kw.contains(KeywordSet::REACH));
     assert!(kw.contains(KeywordSet::TRAMPLE));
+}
+
+#[test]
+fn gemrazer_underneath_preserves_body_and_both_cards_leave_together() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(85, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .hand(0, &[gemrazer()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let card = in_hand(&engine, p0, gemrazer()).unwrap();
+    let version = engine.state().object(elf).unwrap().version;
+    tap_mana_except(&mut engine, p0, elf);
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    engine.apply(p0, PlayerAction::ChooseMode(1)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), (1, 1));
+    assert_eq!(
+        engine.state().object(elf).unwrap().version,
+        version,
+        "no zone change or new permanent"
+    );
+    assert!(keywords(&engine, elf).contains(KeywordSet::TRAMPLE));
+    assert_eq!(
+        engine.state().merged_components(elf).as_slice(),
+        &[elf, card]
+    );
+    assert_eq!(
+        engine
+            .state()
+            .merged_top(engine.state().object(elf).unwrap())
+            .id,
+        elf
+    );
+    let _ = engine.state.move_object(
+        elf,
+        ZoneLocation::Hand(p0),
+        crate::zone::ZonePosition::Top,
+        crate::event::Cause::Effect,
+    );
+    for id in [elf, card] {
+        let obj = engine.state().object(id).unwrap();
+        assert_eq!(obj.zone, Zone::Hand);
+        assert!(!obj.riders.iter().any(|r| matches!(
+            r,
+            crate::object::Rider::MergedInto(_) | crate::object::Rider::MergedComponent(_)
+        )));
+    }
+    assert!(
+        !engine
+            .state()
+            .object(elf)
+            .unwrap()
+            .base
+            .keywords
+            .contains(KeywordSet::TRAMPLE)
+    );
+    assert_eq!(engine.state().object(card).unwrap().base.power, Some(4));
+}
+
+#[test]
+fn mutate_target_ownership_follows_spell_owner_even_when_control_is_borrowed() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(86, forest())
+        .hand(1, &[gemrazer()])
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let spell = in_hand(&engine, p1, gemrazer()).unwrap();
+    engine.state.object_mut(spell).unwrap().set_controller(p0);
+    for (owner, expected) in [(p0, false), (p1, true)] {
+        let elf = on_battlefield(&engine, owner, llanowar_elves()).unwrap();
+        assert_eq!(
+            crate::eval::matches(
+                &baylee_cards_dsl::Filter::OwnedBySourceOwner,
+                &engine.state,
+                engine.state.object(elf).unwrap(),
+                p0,
+                spell
+            ),
+            expected
+        );
+    }
 }

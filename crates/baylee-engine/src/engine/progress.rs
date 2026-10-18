@@ -111,6 +111,32 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    fn complete_finished_dungeons(&mut self) {
+        let finished: Vec<_> = self
+            .state
+            .players
+            .iter()
+            .filter_map(|player| {
+                let (dungeon, source) = player.dungeon?;
+                (dungeon.next(player.dungeon_room - 1).is_empty()
+                    && !self
+                        .trigger_queue
+                        .iter()
+                        .chain(&self.state.reflexive)
+                        .any(|t| t.source == source)
+                    && !self.state.zones.list(ZoneLocation::Stack).iter().any(|id| {
+                        self.state
+                            .object(*id)
+                            .is_some_and(|o| o.ability.is_some_and(|a| a.source == source))
+                    }))
+                .then_some(player.id)
+            })
+            .collect();
+        for player in finished {
+            crate::resolve::dungeon::complete(&mut self.state, player);
+        }
+    }
+
     /// A seat's automation settings.
     #[must_use]
     pub fn automation(&self, player: PlayerId) -> &SeatAutomation {
@@ -313,6 +339,9 @@ impl<L: CardLookup> Engine<L> {
             self.state.capture_rule_references(&self.lookup);
             if !self.awaiting_answer {
                 return;
+            }
+            if self.filter_dungeon_plays() {
+                continue;
             }
             // A player controlling another player cannot choose an outside card (CR 723.4).
             if let Pending::ChooseCards {
@@ -555,6 +584,7 @@ impl<L: CardLookup> Engine<L> {
             // 117.5: detection precedes SBAs; stacking and target choices follow.
             self.queue_new_triggers();
             // 2. State-based actions (fixpoint).
+            self.complete_finished_dungeons();
             let outcome = self.run_state_based_actions();
             if outcome.changed
                 || outcome.legend_choice.is_some()

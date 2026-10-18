@@ -20,6 +20,8 @@ pub(crate) struct Ordering {
 
 #[derive(Clone, Debug, Hash)]
 pub(crate) struct Batch {
+    pub zone: Zone,
+    pub bottom: bool,
     pub owner: PlayerId,
     pub cards: Vec<(ObjectId, u32)>,
 }
@@ -127,6 +129,8 @@ pub(crate) fn capture(state: &mut GameState, since: u64) {
             }
         } else {
             batches.push(Batch {
+                zone: Zone::Graveyard,
+                bottom: false,
                 owner: obj.owner,
                 cards: vec![(object, obj.version)],
             });
@@ -148,14 +152,14 @@ pub(crate) fn pending(state: &mut GameState) -> Option<Pending> {
         batch.cards.retain(|&(id, version)| {
             state
                 .object(id)
-                .is_some_and(|o| o.zone == Zone::Graveyard && o.version == version)
+                .is_some_and(|o| o.zone == batch.zone && o.version == version)
         });
         if state.has_left(batch.owner) || batch.cards.len() < 2 {
             continue;
         }
         let cards: Vec<_> = state
             .zones
-            .list(ZoneLocation::Graveyard(batch.owner))
+            .list(ZoneLocation::of(batch.zone, batch.owner))
             .iter()
             .rev()
             .filter(|id| batch.cards.iter().any(|(card, _)| card == *id))
@@ -163,11 +167,18 @@ pub(crate) fn pending(state: &mut GameState) -> Option<Pending> {
             .collect();
         let n = u32::try_from(cards.len()).unwrap_or(u32::MAX);
         let player = batch.owner;
+        let place = if batch.zone == Zone::Graveyard {
+            ArrangePlace::Graveyard
+        } else if batch.bottom {
+            ArrangePlace::LibraryBottom
+        } else {
+            ArrangePlace::LibraryTop
+        };
         state.graveyard_order.batches.push_front(batch);
         return Some(Pending::Arrange {
             player,
             cards,
-            piles: vec![ArrangePile::all_of(ArrangePlace::Graveyard, n)],
+            piles: vec![ArrangePile::all_of(place, n)],
             prompt: ArrangePrompt::Order,
         });
     }
@@ -181,7 +192,9 @@ pub(crate) fn answer(state: &mut GameState, cards: &[ObjectId]) {
         .batches
         .pop_front()
         .expect("graveyard order pending");
-    let graveyard = state.zones.list_mut(ZoneLocation::Graveyard(batch.owner));
+    let graveyard = state
+        .zones
+        .list_mut(ZoneLocation::of(batch.zone, batch.owner));
     let mut ordered = cards.iter().rev();
     for card in graveyard.iter_mut() {
         if batch.cards.iter().any(|(id, _)| id == card) {
@@ -189,6 +202,29 @@ pub(crate) fn answer(state: &mut GameState, cards: &[ObjectId]) {
         }
     }
     state.invalidate_projections();
+}
+
+/// A merged permanent splits into physical cards in its owner's chosen order.
+pub(crate) fn merged_library(
+    state: &mut GameState,
+    owner: PlayerId,
+    cards: &[ObjectId],
+    bottom: bool,
+) {
+    let cards: Vec<_> = cards
+        .iter()
+        .filter_map(|id| state.object(*id))
+        .filter(|o| o.zone == Zone::Library && o.is_card() && o.owner == owner)
+        .map(|o| (o.id, o.version))
+        .collect();
+    if cards.len() > 1 {
+        state.graveyard_order.batches.push_back(Batch {
+            zone: Zone::Library,
+            bottom,
+            owner,
+            cards,
+        });
+    }
 }
 
 #[cfg(test)]
@@ -474,5 +510,44 @@ mod tests {
         }];
         assert!(matches!(resolve::run(&mut state, &mut res), Flow::Complete));
         assert_eq!(state.zones.list(ZoneLocation::Graveyard(P0)).len(), 3);
+    }
+    #[test]
+    fn merged_cards_choose_their_relative_library_order_at_either_end() {
+        for position in [ZonePosition::Top, ZonePosition::Bottom] {
+            let (mut state, res) = table();
+            let root = res.source;
+            let name = state.names.intern("Merged component");
+            let card = state.object(root).unwrap().card;
+            let part = state.create_bare(P0, ObjectKind::Card, name, ZoneLocation::Command(P0));
+            state.object_mut(part).unwrap().card = card;
+            state
+                .object_mut(part)
+                .unwrap()
+                .riders
+                .push(crate::object::Rider::MergedInto(root));
+            state
+                .object_mut(root)
+                .unwrap()
+                .riders
+                .push(crate::object::Rider::MergedComponent(part));
+            state
+                .move_object(
+                    root,
+                    ZoneLocation::Library(P0),
+                    position,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+            let Pending::Arrange { cards, .. } = pending(&mut state).expect("merged order") else {
+                panic!("arrange")
+            };
+            assert_eq!(cards.len(), 2);
+            answer(&mut state, &[part, root]);
+            let library = state.zones.list(ZoneLocation::Library(P0));
+            let root_at = library.iter().position(|id| *id == root).unwrap();
+            let part_at = library.iter().position(|id| *id == part).unwrap();
+            assert_eq!(part_at, root_at + 1, "chosen top-first order");
+            assert!(pending(&mut state).is_none());
+        }
     }
 }

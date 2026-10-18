@@ -928,6 +928,15 @@ fn cast_label(
             .collect::<Vec<_>>()
             .join(" + ")
         }
+        K::Dungeon(dungeon) => dungeon.name().to_string(),
+        K::DungeonRoom { dungeon, room } => dungeon.rooms()[usize::from(room)].to_string(),
+        K::MutatePosition(top) => if top {
+            Phrase::MutateOnTop
+        } else {
+            Phrase::MutateUnderneath
+        }
+        .text(lang)
+        .to_string(),
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
         K::Alternative(i) => {

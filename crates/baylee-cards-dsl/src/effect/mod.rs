@@ -3362,6 +3362,19 @@ pub enum Effect {
     },
     /// "Venture into the dungeon" (Dungeon Descent, CR 701.49).
     VentureIntoTheDungeon,
+    /// Internal resolution instruction for a mutating creature spell.
+    MergeMutatingSpell,
+    /// Draw, reveal, and offer exactly one of those cards as a free cast now.
+    DungeonDrawThree,
+    /// Exile two library cards and offer their ordinary-cost plays now.
+    DungeonExileTwo,
+    /// Oubliette: choose three distinct permanents, then sacrifice together.
+    DungeonSacrificeThree,
+    /// Each player may discard (true) or sacrifice (false) rather than lose two life.
+    DungeonTax {
+        /// Whether the optional payment is a discard.
+        discard: bool,
+    },
 }
 
 #[cfg(test)]

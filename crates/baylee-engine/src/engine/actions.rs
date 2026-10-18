@@ -360,7 +360,9 @@ impl<L: CardLookup> Engine<L> {
                     matches!(
                         res.awaiting,
                         Some(
-                            resolve::AwaitingOp::ChooseEffect { .. }
+                            resolve::AwaitingOp::Dungeon { .. }
+                                | resolve::AwaitingOp::MutatePosition
+                                | resolve::AwaitingOp::ChooseEffect { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
                         )

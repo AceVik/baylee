@@ -545,9 +545,12 @@ impl GameState {
         // headed for. The answer was taken before the effect ran; all that
         // is left is to spend it.
         let to = self.flashback_destination(id, from_zone, to);
+        let requested = to;
         let to = self.take_commander_redirect(id, to);
+        let commander_redirected = to != requested;
         let (to, exile_counter, revealed_in_hand) =
             crate::replacement::graveyard_destination(self, id, to);
+        let component_destination = if commander_redirected { requested } else { to };
         let from_loc = ZoneLocation::of(from_zone, from_player);
         // A creature dies when it is put into a graveyard from the
         // battlefield (CR 700.4), and whether it was a creature is what it
@@ -730,6 +733,8 @@ impl GameState {
                             | crate::object::Rider::EntryCopyApplied
                             | crate::object::Rider::BattleProtector(_)
                             | crate::object::Rider::MergedComponent(_)
+                            | crate::object::Rider::MergedTop(_)
+                            | crate::object::Rider::MergedToken(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -820,6 +825,7 @@ impl GameState {
                 obj.status.remove(crate::object::Status::FACE_DOWN);
                 if let Some(original) = obj.original_base.take() {
                     obj.base = original;
+                    obj.token = None;
                 }
                 obj.drop_own_abilities();
                 // And the flag that says when the field it just cleared was
@@ -865,16 +871,37 @@ impl GameState {
             .object(id)
             .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
         self.zones.insert(id, to, pos, projectable);
+        let library_parts =
+            if component_destination.zone() == Zone::Library && !merged_components.is_empty() {
+                Some(
+                    std::iter::once(id)
+                        .chain(merged_components.iter().copied())
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                None
+            };
         if to.zone() != Zone::Battlefield {
             for comp in merged_components {
                 if let Some(comp_owner) = self.object(comp).map(|o| o.owner) {
                     if let Some(comp_obj) = self.object_mut(comp) {
                         comp_obj.kind = ObjectKind::Card;
+                        comp_obj
+                            .riders
+                            .retain(|r| !matches!(r, crate::object::Rider::MergedInto(_)));
                     }
-                    let comp_to = ZoneLocation::of(to.zone(), comp_owner);
+                    let comp_to = ZoneLocation::of(component_destination.zone(), comp_owner);
                     let _ = self.move_object(comp, comp_to, pos, cause);
                 }
             }
+        }
+        if let Some(parts) = library_parts {
+            crate::graveyard_order::merged_library(
+                self,
+                component_destination.player().expect("library owner"),
+                &parts,
+                pos == ZonePosition::Bottom,
+            );
         }
         // A card-less object that lands anywhere but the battlefield or the
         // stack is a cleanup candidate (CR 704.5d), and so is a copy of a

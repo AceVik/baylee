@@ -94,6 +94,9 @@ pub fn matches_projected_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> bool {
+    if obj.is_merged_component() {
+        return false;
+    }
     let this = context.source;
     let matches = |f: &Filter| matches_projected_with_context(f, state, obj, chars, you, context);
     match &context.text.filter_leaf(*filter) {
@@ -142,7 +145,7 @@ pub fn matches_projected_with_context(
             matches!(rider, crate::object::Rider::ChosenName { acquisition, name, .. } if *acquisition == current && *name == chars.name)
         })
         }),
-        Filter::IsToken => obj.card.is_none(),
+        Filter::IsToken => !obj.is_card(),
         Filter::ActivatedAbilityFrom(filter) => {
             stack_filters::activated_source_matches(filter, state, obj, you, context)
         }
@@ -182,6 +185,7 @@ pub fn matches_projected_with_context(
             }
         }
         Filter::OwnedByYou => obj.owner == you,
+        Filter::OwnedBySourceOwner => state.object_or_departed(this).is_some_and(|source| source.owner == obj.owner),
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
@@ -247,11 +251,7 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
-        Filter::IsCommander => state
-            .commanders
-            .iter()
-            .flatten()
-            .any(|c| c.object == obj.id),
+        Filter::IsCommander => !state.merged_commanders(obj).is_empty(),
         Filter::HasAdventure => obj
             .printed_face()
             .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))

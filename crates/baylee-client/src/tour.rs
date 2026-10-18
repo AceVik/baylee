@@ -65,6 +65,7 @@ impl Default for Setting {
 
 /// The tour standing, if one is.
 #[derive(Resource, Default)]
+#[allow(clippy::struct_excessive_bools)] // process policy, parked run, input swallowing and practice are independent
 pub struct TourDesk {
     /// Process-local override for unattended runs; never changes saved preferences.
     pub disabled: bool,

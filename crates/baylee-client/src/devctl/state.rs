@@ -1194,8 +1194,11 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
             .collect::<Vec<_>>()
             .join(",")
     });
+    let disabled = believed.tour.as_deref().is_some_and(|d| d.disabled);
     let Some(run) = believed.tour.as_deref().and_then(|d| d.run.as_ref()) else {
-        return format!("{{\"tour\":null,\"mode\":\"idle\",\"seen\":[{seen}]}}");
+        return format!(
+            "{{\"tour\":null,\"mode\":\"idle\",\"disabled\":{disabled},\"seen\":[{seen}]}}"
+        );
     };
     let parked = believed.tour.as_deref().is_some_and(|d| d.parked);
     let mode = if parked {

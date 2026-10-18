@@ -28,6 +28,12 @@ impl ObjectStatus {
     /// permanent, whose characteristics the seat may not know.
     pub const NO_ABILITIES: Self = Self(16);
 
+    /// A melded physical card rendered using a combined-face token definition.
+    /// Its presentation identity must not make it a token for rules queries.
+    pub const MELDED_CARD: Self = Self(32);
+    /// Token identity, including anonymous copies and merged token tops.
+    pub const TOKEN: Self = Self(64);
+
     /// Builds a status from the engine's raw bits.
     #[must_use]
     pub const fn from_bits(bits: u8) -> Self {

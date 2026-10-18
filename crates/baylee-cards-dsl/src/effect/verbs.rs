@@ -1060,6 +1060,11 @@ impl Effect {
             | Effect::ReturnTawnossCoffinExile
             | Effect::TakklemaggotDeath
             | Effect::MeldWithNamed { .. }
+            | Effect::MergeMutatingSpell
+            | Effect::DungeonDrawThree
+            | Effect::DungeonSacrificeThree
+            | Effect::DungeonExileTwo
+            | Effect::DungeonTax { .. }
             | Effect::VentureIntoTheDungeon
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)

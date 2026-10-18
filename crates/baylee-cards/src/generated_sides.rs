@@ -141,11 +141,12 @@ pub static BACK_IMAGE: [CardIndex; 113] = [
 ];
 
 /// Cards that are double-faced cards under CR 712.1.
-pub static DOUBLE_FACED: [CardIndex; 115] = [
+pub static DOUBLE_FACED: [CardIndex; 116] = [
     CardIndex::new(12269),
     CardIndex::new(15585),
     CardIndex::new(15830),
     CardIndex::new(15923),
+    CardIndex::new(15924),
     CardIndex::new(17113),
     CardIndex::new(17140),
     CardIndex::new(17164),
@@ -41321,6 +41322,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15923),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15924),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,

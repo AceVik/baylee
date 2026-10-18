@@ -26,6 +26,7 @@ mod draw_wish;
 mod hash;
 mod hidden_exile;
 mod lifetimes;
+mod merged;
 mod moves;
 mod player_counters;
 mod projection;
@@ -133,9 +134,9 @@ pub struct Player {
     /// [`GameState::snapshot_hash`]: it cannot tell two states of one game
     /// apart, and hashing it would only churn every recorded hash.
     pub team: Option<u8>,
-    /// Current room index in the dungeon (0 = not currently in a dungeon,
-    /// 1..=3 = rooms 1..=3 of Lost Mine of Phandelver; room 4 completes the
-    /// dungeon and resets to 0; CR 309.4 / 701.49).
+    /// Active dungeon and its command-zone object; absent outside a dungeon.
+    pub dungeon: Option<(baylee_core::dungeon::Dungeon, ObjectId)>,
+    /// One-based room index; zero outside a dungeon.
     pub dungeon_room: u8,
     /// Number of dungeons this player has completed this game.
     pub dungeons_completed: u8,

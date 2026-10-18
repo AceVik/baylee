@@ -300,10 +300,9 @@ impl<L: CardLookup> Engine<L> {
             ActivationZone::BattlefieldOpponent => self.state.object(source).is_some_and(|o| {
                 o.zone == Zone::Battlefield && self.state.is_opponent(player, o.controller)
             }),
-            ActivationZone::Command => self
-                .state
-                .object(source)
-                .is_some_and(|o| o.zone == Zone::Command && o.owner == player),
+            ActivationZone::Command => self.state.object(source).is_some_and(|o| {
+                o.zone == Zone::Command && o.owner == player && !o.is_merged_component()
+            }),
             ActivationZone::Hand => self
                 .state
                 .object(source)

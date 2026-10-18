@@ -3015,7 +3015,26 @@ impl Interaction {
 }
 
 fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
-    let phrase = if !options.is_empty()
+    let phrase = if options
+        .first()
+        .is_some_and(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Dungeon(_)))
+    {
+        Phrase::ChooseDungeon
+    } else if options.first().is_some_and(|o| {
+        matches!(
+            o.kind,
+            baylee_engine::choice::CastModeKind::DungeonRoom { .. }
+        )
+    }) {
+        Phrase::ChooseDungeonRoom
+    } else if options.first().is_some_and(|o| {
+        matches!(
+            o.kind,
+            baylee_engine::choice::CastModeKind::MutatePosition(_)
+        )
+    }) {
+        Phrase::ChooseMutatePosition
+    } else if !options.is_empty()
         && options
             .iter()
             .all(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Colors(_)))

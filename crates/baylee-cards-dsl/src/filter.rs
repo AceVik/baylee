@@ -117,6 +117,8 @@ pub enum Filter {
     ControlledByDefendingPlayer,
     /// Owned by `you`.
     OwnedByYou,
+    /// Owned by the source spell's owner, independently of its controller.
+    OwnedBySourceOwner,
     /// Currently tapped.
     Tapped,
     /// Currently untapped.

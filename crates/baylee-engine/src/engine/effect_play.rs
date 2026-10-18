@@ -10,6 +10,7 @@ pub(super) struct EffectPlay {
     control: Option<(PlayerId, PlayerId, ObjectId)>,
     linked: Option<LinkedPlay>,
     awaiting_land_entry: bool,
+    offered: Option<ObjectId>,
 }
 
 #[derive(Clone, Copy, Debug, Hash)]
@@ -25,7 +26,7 @@ impl EffectPlay {
             .map(|(controller, player, _)| (controller, player))
     }
     pub(super) fn commanded_card(&self) -> Option<ObjectId> {
-        self.control.map(|(_, _, card)| card)
+        self.control.map(|(_, _, card)| card).or(self.offered)
     }
     pub(super) fn fingerprint(&self) -> u64 {
         self.resolution
@@ -42,11 +43,51 @@ impl EffectPlay {
                 self.control,
                 self.linked,
                 self.awaiting_land_entry,
+                self.offered,
             )))
     }
 }
 
 impl<L: CardLookup> Engine<L> {
+    /// Probe the same cast procedure that accepting a room offer will start.
+    /// Otherwise an AI can repeatedly select an uncastable card without progress.
+    pub(super) fn filter_dungeon_plays(&mut self) -> bool {
+        let Some(AwaitingOp::DungeonPlay(play)) =
+            self.resolution.as_ref().and_then(|r| r.awaiting.as_ref())
+        else {
+            return false;
+        };
+        let crate::choice::Pending::ChooseCards {
+            player, options, ..
+        } = &self.pending
+        else {
+            return false;
+        };
+        let player = *player;
+        let free = play.free;
+        let available: Vec<_> = options
+            .iter()
+            .copied()
+            .filter(|&card| {
+                let modes = if free {
+                    self.immediate_free_options(player, card, true)
+                } else {
+                    self.cast_options(player, card, false)
+                };
+                modes.is_ok_and(|modes| !modes.is_empty())
+            })
+            .collect();
+        if available.is_empty() {
+            self.awaiting_answer = false;
+            self.answer_dungeon_play(player, &[]);
+            return true;
+        }
+        if let crate::choice::Pending::ChooseCards { options, .. } = &mut self.pending {
+            *options = available;
+        }
+        false
+    }
+
     pub(super) fn answer_effect_play(
         &mut self,
         player: PlayerId,
@@ -57,6 +98,10 @@ impl<L: CardLookup> Engine<L> {
             AwaitingOp::BattleDefeatCast { card } => {
                 let card = *card;
                 self.answer_battle_defeat(player, cards, card);
+                return Some(Ok(()));
+            }
+            AwaitingOp::DungeonPlay(_) => {
+                self.answer_dungeon_play(player, cards);
                 return Some(Ok(()));
             }
             AwaitingOp::LinkedPlay { .. } => {
@@ -87,6 +132,7 @@ impl<L: CardLookup> Engine<L> {
             control,
             linked: None,
             awaiting_land_entry: false,
+            offered: None,
         });
         let result = cards.first().map_or(
             Err(EngineError::IllegalAction("casting declined")),
@@ -116,6 +162,7 @@ impl<L: CardLookup> Engine<L> {
             control: None,
             linked: None,
             awaiting_land_entry: false,
+            offered: None,
         });
         if cards.first() != Some(&card.object)
             || self.start_transformed_free_cast(player, card).is_err()
@@ -163,6 +210,7 @@ impl<L: CardLookup> Engine<L> {
             control: None,
             linked,
             awaiting_land_entry: false,
+            offered: None,
         });
         if let Some(linked) = linked {
             if self
@@ -172,6 +220,64 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_nested_cast();
             }
         } else {
+            self.finish_nested_cast();
+        }
+    }
+
+    fn answer_dungeon_play(&mut self, player: PlayerId, cards: &[ObjectId]) {
+        let mut resolution = self.resolution.take().expect("dungeon play resolution");
+        let Some(AwaitingOp::DungeonPlay(play)) = resolution.awaiting.as_mut() else {
+            unreachable!("dungeon play")
+        };
+        let chosen = cards
+            .first()
+            .and_then(|id| play.cards.iter().find(|r| r.object == *id))
+            .copied();
+        let free = play.free;
+        if chosen.is_none() {
+            play.cards.clear();
+        }
+        let linked = chosen
+            .filter(|r| {
+                self.state.object(r.object).is_some_and(|o| {
+                    o.version == r.version
+                        && o.zone
+                            == if free {
+                                crate::zone::Zone::Hand
+                            } else {
+                                crate::zone::Zone::Exile
+                            }
+                })
+            })
+            .filter(|_| !free)
+            .map(|card| {
+                let object = self.state.object_mut(card.object).expect("offered exile");
+                let rider = crate::object::Rider::PlayableFromExileFor(player);
+                let opened = !object.riders.contains(&rider);
+                if opened {
+                    object.riders.push(rider);
+                }
+                LinkedPlay {
+                    card,
+                    face_down: false,
+                    opened,
+                }
+            });
+        self.effect_plays.push(EffectPlay {
+            resolution: Box::new(resolution),
+            control: None,
+            linked,
+            awaiting_land_entry: false,
+            offered: chosen.map(|r| r.object),
+        });
+        let result = chosen.map_or(Err(EngineError::IllegalAction("play declined")), |r| {
+            if free {
+                self.start_immediate_free_play(player, r.object, true)
+            } else {
+                self.start_cast_wizard(player, r.object)
+            }
+        });
+        if result.is_err() {
             self.finish_nested_cast();
         }
     }
@@ -230,6 +336,40 @@ impl<L: CardLookup> Engine<L> {
                 let rider =
                     crate::object::Rider::PlayableFromExileFor(parent.resolution.controller);
                 object.riders.retain(|r| *r != rider);
+            }
+        }
+        if let Some(AwaitingOp::DungeonPlay(play)) = parent.resolution.awaiting.as_ref() {
+            let mut play = play.clone();
+            // A rejected/cancelled cast does not consume this permission.
+            // Only a card that actually left the offered incarnation was played.
+            let played = parent.offered.is_some_and(|id| {
+                play.cards.iter().find(|r| r.object == id).is_some_and(|r| {
+                    self.state.object(id).is_none_or(|o| {
+                        o.version != r.version
+                            || o.zone
+                                != if play.free {
+                                    crate::zone::Zone::Hand
+                                } else {
+                                    crate::zone::Zone::Exile
+                                }
+                    })
+                })
+            });
+            if played {
+                if play.free {
+                    play.cards.clear();
+                } else {
+                    play.cards.retain(|r| Some(r.object) != parent.offered);
+                }
+            }
+            parent.resolution.awaiting = None;
+            if let Some(question) =
+                crate::resolve::dungeon::continue_play(&self.state, &mut parent.resolution, play)
+            {
+                self.resolution = Some(*parent.resolution);
+                self.pending = question;
+                self.awaiting_answer = true;
+                return true;
             }
         }
         if let Some(AwaitingOp::LinkedPlay { cards }) = parent.resolution.awaiting.take()

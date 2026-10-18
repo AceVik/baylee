@@ -6,6 +6,20 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Choose among multiple eligible physical meld partners.
+    MeldPartner,
+    /// Immediate plays offered by a dungeon room.
+    DungeonPlay(super::dungeon::Play),
+    /// Simultaneous discard or sacrifice payments for a dungeon room.
+    DungeonTax(Box<super::dungeon::Tax>),
+    /// Resolving venture: choices are dungeon/room pairs, in menu order.
+    Dungeon {
+        /// Legal dungeon and room destinations.
+        choices: Vec<(baylee_core::dungeon::Dungeon, u8)>,
+    },
+    /// A resolving mutate spell chooses its position in the permanent.
+    MutatePosition,
+
     /// Counter replacement order must finish before the next instruction.
     CounterPlacementChoice,
     /// Competing shield-counter and regeneration replacements.
@@ -968,6 +982,11 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::MeldPartner => 29,
+            Self::Dungeon { choices } => crate::state::structural_fingerprint(&(25_u8, choices)),
+            Self::MutatePosition => 26,
+            Self::DungeonPlay(play) => crate::state::structural_fingerprint(&(27_u8, play)),
+            Self::DungeonTax(tax) => crate::state::structural_fingerprint(&(28_u8, tax)),
             Self::Eureka {
                 player,
                 remaining_in_round,

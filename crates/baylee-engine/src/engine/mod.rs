@@ -2120,3 +2120,6 @@ mod target_incarnation_tests;
 
 #[cfg(test)]
 mod granted_tests;
+
+#[cfg(test)]
+mod dungeon_tests;

@@ -221,6 +221,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::Blink { owner_control, .. } => {
             if let Some(&target_id) = res.targets.first() {
+                let components = state.merged_components(target_id);
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
@@ -231,35 +232,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
-                // "Under your control" when `you` has left the game: the card
-                // stays in exile (CR 800.4b). Under its owner's it comes
-                // back, since an owner who had left would have taken the
-                // card with them (CR 800.4a).
                 if !owner_control && state.has_left(you) {
                     return None;
                 }
-                if let Some(obj) = state.object_mut(target_id) {
-                    obj.kind = ObjectKind::Permanent;
-                    // The card that comes back is a new object (CR 400.7):
-                    // whatever control effect held the one that left named
-                    // that object and reaches this one no more. So it enters
-                    // under the control the sentence names, written here
-                    // where it arrives, and as its default rather than as a
-                    // layer-2 effect: "under its owner's control"
-                    // (Ephemerate) or "under your control" (Restoration
-                    // Angel), the latter being the resolving ability's
-                    // controller (CR 110.2a). Not CR 610.3c, which is about
-                    // a card returned after an "until" event and does not
-                    // reach an immediate return. Only control is chosen: the
-                    // owner stays who it was (CR 108.3).
-                    obj.set_controller(if owner_control { owner } else { you });
+                // A merged permanent leaves once, then each physical card returns
+                // separately. Tokens cannot return after changing zones.
+                for card in components {
+                    if let Some(obj) = state
+                        .object_mut(card)
+                        .filter(|o| o.zone == crate::zone::Zone::Exile && o.is_card())
+                    {
+                        obj.kind = ObjectKind::Permanent;
+                        obj.set_controller(if owner_control { obj.owner } else { you });
+                        let _ = state.move_object(
+                            card,
+                            ZoneLocation::Battlefield,
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                    }
                 }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Battlefield,
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
             }
             None
         }
@@ -723,6 +715,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 return None;
             }
             if let Some(&target_id) = res.targets.first() {
+                let components = state.merged_components(target_id);
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
@@ -740,13 +733,27 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if let Some(version) = super::source_version(state, res)
                     .or_else(|| state.object(res.source).map(|o| o.version))
                 {
-                    state.remember_link(
-                        target_id,
-                        baylee_core::ids::DamageSourceRef {
-                            object: res.source,
-                            version,
-                        },
-                    );
+                    for component in components {
+                        if let Some(object) = state
+                            .object_mut(component)
+                            .filter(|o| o.zone == crate::zone::Zone::Exile)
+                        {
+                            let link = crate::object::Rider::Linked {
+                                host: res.source,
+                                until,
+                            };
+                            if !object.riders.contains(&link) {
+                                object.riders.push(link);
+                            }
+                            state.remember_link(
+                                component,
+                                baylee_core::ids::DamageSourceRef {
+                                    object: res.source,
+                                    version,
+                                },
+                            );
+                        }
+                    }
                 }
             }
             None
@@ -759,6 +766,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .unwrap_or(0);
             let acquisition = super::subjects::acquisition(state, res);
             for &target in &res.targets {
+                let components = state.merged_components(target);
                 let owner = state.object(target).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
@@ -773,17 +781,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
-                if let Some(card) = state
-                    .object_mut(target)
-                    .filter(|card| card.zone == crate::zone::Zone::Exile)
-                {
-                    card.riders.push(crate::object::Rider::LinkedExile {
-                        source: baylee_core::ids::DamageSourceRef {
-                            object: res.source,
-                            version,
-                        },
-                        acquisition,
-                    });
+                for component in components {
+                    if let Some(card) = state
+                        .object_mut(component)
+                        .filter(|card| card.zone == crate::zone::Zone::Exile)
+                    {
+                        let with = crate::object::Rider::ExiledWith {
+                            host: res.source,
+                            version: u16::try_from(version).unwrap_or(u16::MAX),
+                        };
+                        if !card.riders.contains(&with) {
+                            card.riders.push(with);
+                        }
+                        card.riders.push(crate::object::Rider::LinkedExile {
+                            source: baylee_core::ids::DamageSourceRef {
+                                object: res.source,
+                                version,
+                            },
+                            acquisition,
+                        });
+                    }
                 }
             }
             None
@@ -2109,7 +2126,13 @@ mod arrival_control_tests {
     /// A permanent of seat 0's that `ExileLinked` names as the host.
     fn host(state: &mut GameState) -> ObjectId {
         let name = state.names.intern("Host");
-        state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        let card = state
+            .battlefield_seen()
+            .find_map(|id| state.object(id).and_then(|o| o.card))
+            .expect("physical fixture card");
+        let host = state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state.object_mut(host).unwrap().card = Some(card);
+        host
     }
 
     /// Endless Sands and Safe Haven: "Return each creature card exiled with

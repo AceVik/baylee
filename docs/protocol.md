@@ -4765,3 +4765,18 @@ manual activations remain governed by the authoritative legal-action lists.
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.
+
+## Mutate and dungeon resolution choices (protocol 35, view 82)
+
+`ChooseCastMode` also carries resolution decisions: `MutatePosition(bool)` selects
+above/below the existing permanent, `Dungeon` selects an ordinary venture dungeon,
+and `DungeonRoom` selects one of its connected rooms. These choices have no mana
+cost and appear in the decision drawer even when their source is not a visible
+card. Older peers cannot decode these enum variants and must refuse the new
+protocol version.
+
+The public object's `TOKEN` status distinguishes an actual token permanent from
+`MELDED_CARD`, a physical melded permanent that uses a registered back-image token
+identifier. Image identity alone is not rules identity. Internal merged
+components are omitted from the command-zone view; the battlefield permanent
+shows its top printing and retains its existing object handle.

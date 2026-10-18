@@ -530,6 +530,9 @@ impl<L: CardLookup> Engine<L> {
                 let Some(obj) = self.state.object(card) else {
                     continue;
                 };
+                if obj.is_merged_component() {
+                    continue;
+                }
                 let Some(card_ref) = obj.card else { continue };
                 let Some(def) = self.lookup.card(card_ref.index) else {
                     continue;

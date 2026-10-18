@@ -1031,6 +1031,9 @@ impl GameState {
 
 /// Public objects that can be chosen without a retained source reference.
 fn is_public_damage_source(object: &GameObject) -> bool {
+    if object.is_merged_component() {
+        return false;
+    }
     (object.zone == Zone::Battlefield && !object.status.contains(crate::object::Status::PHASED_OUT))
         || (object.zone == Zone::Stack && object.kind == ObjectKind::Spell)
         || (object.zone == Zone::Command

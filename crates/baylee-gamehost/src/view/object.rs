@@ -42,11 +42,15 @@ fn exact_object_view(
         } else {
             "Unknown source".into()
         },
-        card: obj.card.filter(|_| known).map(|c| CardIdentity {
-            index: c.index,
-            print: c.print,
-            face: obj.face_index,
-        }),
+        card: state
+            .merged_top(obj)
+            .card
+            .filter(|_| known && state.merged_top(obj).token.is_none())
+            .map(|c| CardIdentity {
+                index: c.index,
+                print: c.print,
+                face: state.merged_top(obj).face_index,
+            }),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
         token: obj
             .token
@@ -245,11 +249,7 @@ pub(super) fn public_object(
     Some(PublicObject {
         word_changes: word_changes(state, id),
         id,
-        card: obj.card.filter(|_| known).map(|c| CardIdentity {
-            index: c.index,
-            print: c.print,
-            face: obj.face_index,
-        }),
+        card: visible_printing(state.merged_top(obj), known),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
         prepared_spell: obj
             .riders
@@ -302,7 +302,10 @@ pub(super) fn public_object(
             && obj.counters.get(baylee_cards_dsl::CounterKind::Time) > 0,
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
-        token: obj.token.map(baylee_cards::tokens::token_id),
+        token: state
+            .merged_top(obj)
+            .token
+            .map(baylee_cards::tokens::token_id),
         colors: chars.colors,
         // The projected keywords, and on the stack "can't be countered" as
         // well when only a rider says so: the Cavern of Souls mana the spell
@@ -633,10 +636,30 @@ fn status_of(
             .contains(baylee_engine::object::Status::FACE_DOWN);
     ObjectStatus::from_bits(
         obj.status.public().bits()
+            | if obj.is_card() && obj.token.is_some() {
+                ObjectStatus::MELDED_CARD.bits()
+            } else {
+                0
+            }
+            | if obj.is_card() || obj.kind != baylee_engine::object::ObjectKind::Permanent {
+                0
+            } else {
+                ObjectStatus::TOKEN.bits()
+            }
             | if lost {
                 ObjectStatus::NO_ABILITIES.bits()
             } else {
                 0
             },
     )
+}
+
+fn visible_printing(obj: &GameObject, known: bool) -> Option<CardIdentity> {
+    obj.card
+        .filter(|_| known && obj.token.is_none())
+        .map(|card| CardIdentity {
+            index: card.index,
+            print: card.print,
+            face: obj.face_index,
+        })
 }

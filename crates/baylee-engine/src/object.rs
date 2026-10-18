@@ -1001,6 +1001,12 @@ pub enum Rider {
     /// (CR 712.21a, CR 727.3), which moves to the same zone when this
     /// permanent leaves the battlefield.
     MergedComponent(ObjectId),
+    /// Top component of a merged permanent; the root retains its physical card.
+    MergedTop(ObjectId),
+    /// A component is inside this permanent, not independently in the command zone.
+    MergedInto(ObjectId),
+    /// Token status of the top component, independent of the root's physical card.
+    MergedToken(bool),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1105,6 +1111,9 @@ impl Rider {
             | Self::Dashed
             | Self::Mutating
             | Self::MergedComponent(_)
+            | Self::MergedTop(_)
+            | Self::MergedInto(_)
+            | Self::MergedToken(_)
             | Self::Escaped
             | Self::Masked
             // "That player" of a triggered ability on the stack, which is
@@ -1930,6 +1939,14 @@ impl GameObject {
         )
     }
 
+    /// Physical component stored under another permanent, not a separate rules object.
+    #[must_use]
+    pub fn is_merged_component(&self) -> bool {
+        self.riders
+            .iter()
+            .any(|r| matches!(r, Rider::MergedInto(_)))
+    }
+
     /// Whether this object is a card: "a Magic card or an object
     /// represented by a Magic card" (CR 108.2), which is what text means by
     /// "card".
@@ -1943,6 +1960,12 @@ impl GameObject {
     /// not before a projection or a trigger may have looked at them there.
     #[must_use]
     pub fn is_card(&self) -> bool {
+        if let Some(token) = self.riders.iter().find_map(|r| match r {
+            Rider::MergedToken(token) => Some(*token),
+            _ => None,
+        }) {
+            return !token;
+        }
         self.card.is_some() && !self.riders.contains(&Rider::SpellCopy)
     }
 

@@ -131,7 +131,9 @@ pub(crate) fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
 
 /// Whether `id` is one of the table's commanders (CR 903.3).
 fn is_commander(state: &GameState, id: ObjectId) -> bool {
-    state.commanders.iter().flatten().any(|c| c.object == id)
+    state
+        .object(id)
+        .is_some_and(|o| !state.merged_commanders(o).is_empty())
 }
 
 /// One of a seat's commanders, as the whole table may see it.
@@ -175,6 +177,18 @@ pub(crate) fn known_name(obj: &GameObject) -> baylee_core::ids::NameRef {
 
 /// The public name of an object as `seat` may know it.
 fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
+    if let Some((dungeon, room)) = state.players.iter().find_map(|player| {
+        player
+            .dungeon
+            .filter(|(_, source)| *source == obj.id)
+            .map(|(dungeon, _)| (dungeon, player.dungeon_room))
+    }) {
+        return format!(
+            "{} — {}",
+            dungeon.name(),
+            dungeon.rooms()[usize::from(room - 1)]
+        );
+    }
     if may_know_card(obj, seat) {
         state.names.get(known_name(obj)).to_string()
     } else {

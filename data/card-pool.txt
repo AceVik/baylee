@@ -11,6 +11,7 @@
 # it counts as implemented.
 Cultivate
 Kodama's Reach
+Hanweir Garrison
 
 # Every unique land Scryfall prints. `landgen` (crates/baylee-cards-codegen)
 # reads a land's printed text and writes the finished card when — and only

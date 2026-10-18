@@ -8,6 +8,26 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
+        self.start_immediate_free_play(player, card, false)
+    }
+
+    /// Immediate free casts can forbid land plays (Mad Wizard's Lair).
+    pub(crate) fn start_immediate_free_play(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        cast_only: bool,
+    ) -> Result<(), EngineError> {
+        let options = self.immediate_free_options(player, card, cast_only)?;
+        self.start_free_cast_options(player, card, options, true, None)
+    }
+
+    pub(in crate::engine) fn immediate_free_options(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        cast_only: bool,
+    ) -> Result<Vec<CastModeDesc>, EngineError> {
         let def = self
             .state
             .object(card)
@@ -67,10 +87,11 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        if self
-            .state
-            .object(card)
-            .is_some_and(crate::object::GameObject::is_card)
+        if !cast_only
+            && self
+                .state
+                .object(card)
+                .is_some_and(crate::object::GameObject::is_card)
             && self.state.turn.active == player
             && casting::has_a_land_drop_left(&self.state, player)
         {
@@ -83,7 +104,7 @@ impl<L: CardLookup> Engine<L> {
         for (index, option) in options.iter_mut().enumerate() {
             option.index = u32::try_from(index).expect("bounded cast options");
         }
-        self.start_free_cast_options(player, card, options, true, None)
+        Ok(options)
     }
 
     pub(super) fn linked_spell_face_allowed(

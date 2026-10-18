@@ -989,6 +989,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::HasSupertype(_)
         | Filter::IsToken
         | Filter::WithSingleTarget
+        | Filter::OwnedBySourceOwner
         | Filter::OwnedByYou
         | Filter::Tapped
         | Filter::Untapped

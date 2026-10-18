@@ -672,7 +672,13 @@ impl<L: CardLookup> Engine<L> {
                     _ => None,
                 })
             })
-            .or_else(|| self.modal_program(top));
+            .or_else(|| self.modal_program(top))
+            .or_else(|| {
+                resolution_object
+                    .riders
+                    .contains(&crate::object::Rider::Mutating)
+                    .then(|| (vec![Effect::MergeMutatingSpell], true, None))
+            });
         if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = &resolution_object;
             let mut res = Resolution {
@@ -1104,60 +1110,6 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
-            if let Some(host) = self
-                .state
-                .object(spell)
-                .filter(|o| o.riders.contains(&crate::object::Rider::Mutating))
-                .and_then(|o| o.targets.first().copied())
-                .filter(|&h| {
-                    self.state.object(h).is_some_and(|o| {
-                        o.zone == crate::zone::Zone::Battlefield
-                            && !o.status.contains(crate::object::Status::PHASED_OUT)
-                    })
-                })
-            {
-                let spell_base = self
-                    .state
-                    .object(spell)
-                    .map(|o| std::sync::Arc::clone(&o.base));
-                let spell_abilities = self.state.printed_ability_list(spell);
-                let host_abilities = self.state.printed_ability_list(host);
-                if let (Some(spell_base), Some(spell_abilities), Some(host_abilities)) =
-                    (spell_base, spell_abilities, host_abilities)
-                {
-                    let combined = spell_abilities.merged_with(&host_abilities);
-                    if let Some(host_obj) = self.state.object_mut(host) {
-                        if host_obj.original_base.is_none() {
-                            host_obj.original_base = Some(std::sync::Arc::clone(&host_obj.base));
-                        }
-                        let host_kw = host_obj.base.keywords;
-                        host_obj.base = spell_base;
-                        host_obj.base_mut().keywords = host_obj.base.keywords.union(host_kw);
-                        host_obj.take_abilities(combined);
-                        host_obj
-                            .riders
-                            .push(crate::object::Rider::MergedComponent(spell));
-                        host_obj.cache.clear();
-                    }
-                    if let Some(spell_obj) = self.state.object_mut(spell) {
-                        spell_obj.kind = ObjectKind::Card;
-                        spell_obj
-                            .riders
-                            .retain(|r| *r != crate::object::Rider::Mutating);
-                    }
-                    let _ = self.state.move_object(
-                        spell,
-                        ZoneLocation::Command(owner),
-                        ZonePosition::Top,
-                        Cause::Spell,
-                    );
-                    self.state.invalidate_projections();
-                    self.state
-                        .journal
-                        .record(GameEvent::CreatureMutated { object: host });
-                    return;
-                }
-            }
             let finality = self
                 .state
                 .object(spell)

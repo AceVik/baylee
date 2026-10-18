@@ -727,7 +727,7 @@ fn choice_rows(
         .as_ref()
         .filter(|_| !waiting)
         .map(baylee_client_core::Interaction::prompt)
-        .filter(|prompt| !matches!(prompt, Prompt::CastMode { .. }))
+        .filter(|prompt| !crate::hud::sheet::casts_beside_card(prompt))
         .and_then(|p| {
             crate::choices::options(
                 &p,

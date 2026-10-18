@@ -788,3 +788,51 @@ fn the_stack_can_be_let_go_of_only_while_there_is_one() {
         "and it stands between the two that are answers: {answers:?}"
     );
 }
+
+#[test]
+fn resolving_mutate_and_dungeon_choices_stand_in_the_drawer_without_a_card_anchor() {
+    use baylee_core::dungeon::Dungeon;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    for kinds in [
+        [
+            CastModeKind::MutatePosition(true),
+            CastModeKind::MutatePosition(false),
+        ],
+        [
+            CastModeKind::Dungeon(Dungeon::LostMine),
+            CastModeKind::Dungeon(Dungeon::Tomb),
+        ],
+        [
+            CastModeKind::DungeonRoom {
+                dungeon: Dungeon::LostMine,
+                room: 1,
+            },
+            CastModeKind::DungeonRoom {
+                dungeon: Dungeon::LostMine,
+                room: 2,
+            },
+        ],
+    ] {
+        let mut duel = duel_casting();
+        duel.cast_menu = None;
+        duel.interaction = Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::ChooseCastMode {
+                player: PlayerId::new(0),
+                object: ObjectId::new(999, 0),
+                options: kinds
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, kind)| CastModeDesc {
+                        index: u32::try_from(index).unwrap(),
+                        kind,
+                        cost: ManaCost::ZERO,
+                    })
+                    .collect(),
+            },
+            PlayerId::new(0),
+        ));
+        let mut app = bar_of(duel);
+        assert_eq!(choice_rows(&mut app), vec![(0, false), (1, false)]);
+        assert_eq!(drawer_panels(&mut app), 1);
+    }
+}

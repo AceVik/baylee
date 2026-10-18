@@ -3,7 +3,6 @@
 //! Oracle: {R}, {T}: Target creature gains haste until end of turn.
 //! Oracle: {3}{R}{R}, {T}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township.
 //! Set: INR #279 — Innistrad Remastered | Scryfall ID: 8c0acb91-edfc-43a5-af77-6614327fce43 | Oracle ID: 0e735ba6-7fd1-4d12-b20c-21525dc1e2b5
-// PARTIAL — mana and haste work; the meld partner is not in the playable pool.
 
 use crate::tokens;
 use baylee_cards_dsl::prelude::*;
@@ -14,9 +13,7 @@ card!(
     scryfall_id = "8c0acb91-edfc-43a5-af77-6614327fce43",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     faces = &[face!(name = "Hanweir Battlements", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "Hanweir Garrison is absent from the playable pool; full meld integration remains unverified"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(

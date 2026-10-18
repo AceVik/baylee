@@ -3,8 +3,6 @@
 //! Oracle: Reach, trample
 //! Oracle: Whenever this creature mutates, destroy target artifact or enchantment an opponent controls.
 //! Set: IKO #155 — Ikoria: Lair of Behemoths | Scryfall ID: 0095245c-a30e-4e2a-88c9-632c678e9f03 | Oracle ID: 3dfb0c0a-b68f-43b9-8475-28d0192fc4ed
-// PARTIAL — normal casting and mutate-on-top work; choosing to mutate underneath
-// and full merged-permanent identity handling are not implemented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -15,9 +13,7 @@ card!(
     scryfall_id = "0095245c-a30e-4e2a-88c9-632c678e9f03",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Partial(
-        "mutate always puts Gemrazer on top; underneath choice and merged identity handling remain incomplete"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gemrazer",
         mana_cost = mana!("{3}{G}"),

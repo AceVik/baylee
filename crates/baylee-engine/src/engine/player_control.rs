@@ -456,6 +456,10 @@ impl<L: CardLookup> Engine<L> {
         self.effect_plays
             .last()
             .is_some_and(|frame| frame.commanded_card() == Some(card))
+            || self.resolution.as_ref().is_some_and(|res| {
+                matches!(&res.awaiting, Some(crate::resolve::AwaitingOp::DungeonPlay(play))
+                    if play.cards.iter().any(|offered| offered.object == card))
+            })
     }
 
     pub(super) fn remember_controlled_spell(

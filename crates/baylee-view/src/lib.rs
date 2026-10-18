@@ -232,7 +232,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 80 adds the imported damage-clearing destruction replacement prompt.
 /// Version 81 adds battle defenders and defense counters. The defaulted
 /// optional battle protector field is an additive public designation.
-pub const VIEW_VERSION: u32 = 81;
+/// Version 82 adds mutate/dungeon resolution choices and separates token status
+/// from the image identifier used for a physical melded permanent.
+pub const VIEW_VERSION: u32 = 82;
 
 // ------------------------------------------------------------------- targets
 

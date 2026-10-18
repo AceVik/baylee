@@ -1426,6 +1426,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         // Preset-constant, so it tells no two states of one game apart
         // (`docs/engine-internals.md`).
         team: _,
+        dungeon,
         dungeon_room,
         dungeons_completed,
     } = player;
@@ -1446,6 +1447,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     last_turn_attackers.hash(h);
     last_turn_acted.hash(h);
     if *dungeon_room != 0 || *dungeons_completed != 0 {
+        dungeon.hash(h);
         dungeon_room.hash(h);
         dungeons_completed.hash(h);
     }
@@ -1912,6 +1914,18 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(84);
                 (kind, n).hash(h);
             }
+            Rider::MergedTop(id) => {
+                h.u8(87);
+                id.hash(h);
+            }
+            Rider::MergedInto(id) => {
+                h.u8(88);
+                id.hash(h);
+            }
+            Rider::MergedToken(token) => {
+                h.u8(89);
+                token.hash(h);
+            }
             Rider::Mutating => h.u8(85),
             Rider::MergedComponent(comp) => {
                 h.u8(86);
@@ -2008,6 +2022,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::ControlledByYou => h.u8(14),
         F::ControlledByOpponent => h.u8(15),
         F::OwnedByYou => h.u8(16),
+        F::OwnedBySourceOwner => h.u8(132),
         F::Tapped => h.u8(17),
         F::Untapped => h.u8(18),
         F::Attacking => h.u8(19),

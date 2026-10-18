@@ -275,13 +275,18 @@ pub(super) fn ask_commander_replace(
     moves: &[(ObjectId, ZoneLocation)],
 ) -> Option<Pending> {
     let mut remaining: Vec<(PlayerId, ObjectId, bool)> = Vec::new();
-    for &(id, to) in moves {
-        // Already answered: this is the second visit, the one that runs.
-        if state.commander_redirect.iter().any(|(o, _)| *o == id) {
-            continue;
-        }
-        if let Some(owner) = state.commander_owner(id, to) {
-            remaining.push((owner, id, matches!(to, ZoneLocation::Library(_))));
+    for &(root, to) in moves {
+        for id in state.merged_components(root) {
+            // Each physical commander chooses independently; the other cards
+            // still go to the destination of the merged permanent.
+            if state.commander_redirect.iter().any(|(o, _)| *o == id)
+                || remaining.iter().any(|(_, other, _)| *other == id)
+            {
+                continue;
+            }
+            if let Some(owner) = state.commander_owner(id, to) {
+                remaining.push((owner, id, matches!(to, ZoneLocation::Library(_))));
+            }
         }
     }
     let (asked, pending) = next_commander_ask(state, &mut remaining)?;
@@ -973,6 +978,12 @@ pub(super) fn resume_targets_inner(
 /// The engine must validate the chosen option against the pending question.
 pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
     subjects::begin_resume(state, res);
+    if matches!(res.awaiting, Some(AwaitingOp::Dungeon { .. })) {
+        return dungeon::resume(state, res, index);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::MutatePosition)) {
+        return mutate::resume(state, res, index);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::MoveCounter { .. })) {
         let flow = counter_move::resume(state, res, index);
         subjects::flush(state, res);

@@ -4744,3 +4744,60 @@ the inventory. The sweep includes 8,635 passing engine tests (two ignored),
 305 gamehost tests (two ignored), including the broad short-game card sweep.
 Workspace all-targets Clippy with `-D warnings`, formatting, and codegen
 reproducibility also pass. Codegen produced no generated-file changes.
+
+## 2026-10-18 — Finish the three partial mechanics after the review
+
+Gemrazer, Dungeon Descent and Hanweir Battlements now have executable completion
+paths rather than coverage claims standing in for missing choices. Hanweir
+Garrison was added as a real playable card, with its own attack-trigger test.
+Generated registry and Oracle metadata were rebuilt with `xtask codegen`.
+
+- Mutate needs a resolution-time top/bottom choice, not just a casting mode.
+  Preserve the permanent's handle, counters and combat state while changing its
+  top face; preserve every physical component for blink, linked exile, library
+  ordering and individual commander redirects. Commander damage follows the
+  commanders contained in the permanent. A borrowed spell uses its owner's
+  creatures as mutate targets, not its controller's creatures.
+- Venture needs all three dungeon graphs and each printed room body, followed by
+  separately stacked room triggers. Completion happens when the last room's
+  ability leaves the stack, including when countered, or when venturing onward
+  before it resolves. Keep that removed dungeon's last-known source available.
+  A declined or failed immediate cast must not consume a still-usable room offer.
+- Meld checks the actual physical pair after exiling the named permanents.
+  With multiple Garrisons the player chooses the partner. The combined back is
+  a physical card permanent with mana value three, not a token merely because
+  the renderer reuses a token definition for its image. Its triggered ability
+  must cite that back, never a row from Battlements' front.
+- Shared prompt enums do not imply shared UI placement. The live client exposed
+  a resolution choice hidden in a card-anchored cast panel; mutate and dungeon
+  choices now use the ordinary decision drawer. The UI regression test creates
+  these prompts without a rendered source and verifies visible choice rows.
+- `--no-tours` and `BAYLEE_NO_TOURS=1` disable tours only for the current process.
+  They do not mark tours as completed in the user's preferences. The harness
+  reports the flag so an unattended run can assert its setup.
+
+Rules sources: Wizards' [Ikoria release notes](https://magic.wizards.com/en/news/feature/ikoria-lair-behemoths-and-commander-2020-edition-release-notes-2020-04-10),
+[Adventures in the Forgotten Realms release notes](https://magic.wizards.com/en/news/feature/adventures-forgotten-realms-release-notes-2021-07-09)
+and [Innistrad Remastered mechanics](https://magic.wizards.com/en/news/feature/innistrad-remastered-mechanics).
+The printed dungeon room texts were also checked against Scryfall's card data.
+The legal check and its documentation-access limitation are recorded in `docs/legal.md`.
+
+Native dev-control checks use isolated XDG directories, offline play, passive
+input and disabled tours. Both mutate positions resolve their destroy trigger;
+Dungeon Descent pays its mana/tap costs, offers three dungeons, stacks Cave
+Entrance's scry, and offers the next fork, with Mine Tunnels producing Treasure.
+Screenshots and harness states were inspected alongside assertions, rather than
+using a successful launch as evidence of playability.
+The real Hanweir pair was also activated in the native client: the resulting
+7/4 retained physical-card status, attacked immediately, created two tapped 3/2
+Eldrazi Horrors, and dealt 13 combat damage to an unblocked opponent (40 → 27).
+
+A further offer/execute check caught the risk of an AI repeatedly selecting an
+unpayable Runestone Caverns card. Dungeon offers now probe the same cast-option
+builder used to accept them and refresh after each actual play. A regression
+starts with an exiled Sol Ring and Forest and no mana sources: only Forest is
+initially offered, then Sol Ring becomes available after the land is played.
+The final native binary repeated this as one game: Garrison attacked for four
+with two 1/1 Humans, melded in the second main phase, then Township attacked for
+13 on the following turn (40 → 36 → 23). This run used `BAYLEE_NO_TOURS=1` without
+the CLI switch and confirmed `tour.disabled == true` with an empty seen list.

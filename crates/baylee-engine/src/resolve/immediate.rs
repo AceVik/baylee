@@ -47,10 +47,12 @@ pub(super) fn exec_immediate(
             source_name,
             partner_name,
             melded,
-        } => {
-            super::meld::meld_with_named(state, res, source_name, partner_name, melded);
-            None
-        }
+        } => super::meld::meld_with_named(state, res, source_name, partner_name, melded),
+        Effect::DungeonSacrificeThree => super::dungeon::sacrifice_three(state, res),
+        Effect::DungeonDrawThree => super::dungeon::draw_three(state, res),
+        Effect::DungeonExileTwo => super::dungeon::exile_two(state, res),
+        Effect::DungeonTax { discard } => super::dungeon::tax(state, res, discard),
+        Effect::MergeMutatingSpell => Some(super::mutate::start(res)),
         Effect::VentureIntoTheDungeon => super::dungeon::venture_into_the_dungeon(state, res),
         Effect::DestroyEventThenMayReattach { to } => {
             crate::aura_bindings::destroy_event_and_offer(state, res, to)
@@ -2760,4 +2762,3 @@ fn takklemaggot_death(state: &mut GameState, res: &mut Resolution) -> Option<Pen
     );
     None
 }
-

@@ -118,6 +118,9 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::EscapeGranted { .. } => 16,
         CastModeKind::BeamMeUp => 17,
         CastModeKind::Mutate => 18,
+        CastModeKind::MutatePosition(_) => 19,
+        CastModeKind::Dungeon(_) => 20,
+        CastModeKind::DungeonRoom { .. } => 21,
     }
 }
 

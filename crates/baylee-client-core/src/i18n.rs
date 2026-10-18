@@ -1649,6 +1649,16 @@ messages! {
 
 
     // ---- the deck builder
+    /// Resolution choice: `MutateOnTop`.
+    MutateOnTop { en: "Put on top", de: "Obenauf legen" },
+    /// Resolution choice: `MutateUnderneath`.
+    MutateUnderneath { en: "Put underneath", de: "Darunter legen" },
+    /// Resolution choice: `ChooseMutatePosition`.
+    ChooseMutatePosition { en: "Choose how to merge", de: "Position beim Mutieren wählen" },
+    /// Resolution choice: `ChooseDungeon`.
+    ChooseDungeon { en: "Choose a dungeon", de: "Dungeon wählen" },
+    /// Resolution choice: `ChooseDungeonRoom`.
+    ChooseDungeonRoom { en: "Choose the next room", de: "Nächsten Raum wählen" },
     /// White
     ColorWhite { en: "White", de: "Weiß" },
     /// Blue

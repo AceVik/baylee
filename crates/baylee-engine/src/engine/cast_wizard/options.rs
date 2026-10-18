@@ -5,7 +5,7 @@ use super::*;
 impl<L: CardLookup> Engine<L> {
     /// All legal ways to cast `card` right now.
     #[allow(clippy::too_many_lines)] // one branch per printed way to cast; splitting hides the list
-    pub(super) fn cast_options(
+    pub(in crate::engine) fn cast_options(
         &self,
         player: PlayerId,
         card: ObjectId,

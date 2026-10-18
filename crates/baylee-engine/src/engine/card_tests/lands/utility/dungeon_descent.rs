@@ -101,6 +101,14 @@ fn dungeon_descent_taps_legendary_creature_and_ventures_into_the_dungeon() {
         "untapped legendary creature was tapped to pay the cost"
     );
 
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseMode(0))
+        .expect("choose Lost Mine");
+    assert!(!stack_is_empty(&engine), "room ability uses the stack");
+
     // Room 1 of Lost Mine of Phandelver (Cave Entrance) triggers Scry 1.
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Arrange { .. })

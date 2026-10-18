@@ -460,3 +460,77 @@ fn a_creature_that_lost_all_its_abilities_says_so_in_every_seats_view() {
         );
     }
 }
+
+#[test]
+fn merged_top_printing_is_visible_without_publishing_a_second_command_object() {
+    use baylee_engine::object::Rider;
+    let p0 = PlayerId::new(0);
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let root = state.zones.list(ZoneLocation::Battlefield)[0];
+    let top = state.zones.list(ZoneLocation::Hand(p0))[0];
+    let physical_root = state.object(root).unwrap().card.unwrap();
+    let top_print = state.object(top).unwrap().card.unwrap();
+    state
+        .move_object(
+            top,
+            ZoneLocation::Command(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Spell,
+        )
+        .unwrap();
+    state
+        .object_mut(top)
+        .unwrap()
+        .riders
+        .push(Rider::MergedInto(root));
+    state.object_mut(root).unwrap().riders.extend([
+        Rider::MergedComponent(top),
+        Rider::MergedTop(top),
+        Rider::MergedToken(false),
+    ]);
+    let public = super::super::object::public_object(&state, root, p0).unwrap();
+    assert_eq!(public.card.unwrap().print, top_print.print);
+    assert_eq!(state.object(root).unwrap().card.unwrap(), physical_root);
+    assert!(
+        super::super::zones::zone(
+            &state,
+            ZoneLocation::Command(p0),
+            p0,
+            baylee_core::ids::SeatSet::new()
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn melded_card_art_does_not_report_token_identity() {
+    let p0 = PlayerId::new(0);
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let root = state.zones.list(ZoneLocation::Battlefield)[0];
+    state.object_mut(root).unwrap().token =
+        Some(&baylee_cards::tokens::HANWEIR_THE_WRITHING_TOWNSHIP);
+    let public = super::super::object::public_object(&state, root, p0).unwrap();
+    assert!(public.token.is_some());
+    assert!(
+        public
+            .status
+            .contains(baylee_view::ObjectStatus::MELDED_CARD)
+    );
+    assert!(!public.status.contains(baylee_view::ObjectStatus::TOKEN));
+}
+
+#[test]
+fn dungeon_and_room_ability_are_not_reported_as_creature_tokens() {
+    use baylee_engine::object::ObjectKind;
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let seat = PlayerId::new(0);
+    let name = state.names.intern("Dungeon room");
+    for (kind, zone) in [
+        (ObjectKind::Emblem, ZoneLocation::Command(seat)),
+        (ObjectKind::AbilityOnStack, ZoneLocation::Stack),
+    ] {
+        let id = state.create_bare(seat, kind, name, zone);
+        let public = super::super::object::public_object(&state, id, seat).unwrap();
+        assert!(!public.status.contains(baylee_view::ObjectStatus::TOKEN));
+    }
+}

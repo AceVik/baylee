@@ -3,8 +3,6 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {4}, {T}, Tap an untapped legendary creature you control: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next room.)
 //! Set: AFR #255 — Adventures in the Forgotten Realms | Scryfall ID: f4cccdbc-f4f4-42b6-9747-6ef703ff949a | Oracle ID: f086a63c-0c62-4674-bd27-82e7aed12b1a
-// PARTIAL — mana and activation costs work; venture currently follows a fixed
-// path and resolves rooms inline instead of offering dungeons and room triggers.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -17,7 +15,7 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial("venture lacks dungeon/path choices and separate room triggers"),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(

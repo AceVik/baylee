@@ -251,7 +251,8 @@ impl HeuristicAgent {
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::HasWatermark
+            Filter::OwnedBySourceOwner
+            | Filter::HasWatermark
             | Filter::SharesWatermarkWithSource
             | Filter::UnCard
             | Filter::Kicked
@@ -613,6 +614,15 @@ impl HeuristicAgent {
 
 /// A registered token is known; an anonymous copy's public identity is not.
 fn public_token_identity(object: &PublicObject) -> Option<bool> {
+    if object
+        .status
+        .contains(baylee_view::ObjectStatus::MELDED_CARD)
+    {
+        return Some(false);
+    }
+    if object.status.contains(baylee_view::ObjectStatus::TOKEN) {
+        return Some(true);
+    }
     match (object.token, object.card) {
         (Some(_), _) => Some(true),
         (None, Some(_)) => Some(false),

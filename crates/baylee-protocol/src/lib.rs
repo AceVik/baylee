@@ -30,7 +30,8 @@ pub mod tape;
 /// and shield/additional-counter replacement choices.
 /// Version 33 adds the damage-clearing destruction replacement prompt.
 /// Version 34 adds battle defenders and defense counters to serialized choices.
-pub const PROTOCOL_VERSION: u32 = 34;
+/// Version 35 adds resolution choices for mutate positions and dungeon paths.
+pub const PROTOCOL_VERSION: u32 = 35;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -261,7 +262,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_thirty_one() {
+    fn the_wire_version_is_thirty_five() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -310,7 +311,8 @@ mod tests {
         // 32: additional `DamageEffectKind` variants an older client cannot decode.
         // 33: damage-clearing destruction replacement prompt.
         // 34: Battle defender and Defense counter variants.
-        assert_eq!(PROTOCOL_VERSION, 34);
+        // 35: MutatePosition, Dungeon and DungeonRoom cast-mode choices.
+        assert_eq!(PROTOCOL_VERSION, 35);
     }
 
     #[test]

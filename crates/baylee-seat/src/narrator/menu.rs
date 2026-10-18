@@ -1221,12 +1221,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         let card = card?;
         baylee_cards::oracle::sentence(card.index, face, line?.line)
     };
-    let cost = option.cost.to_string();
-    let cost = if cost.is_empty() {
-        "no mana".to_string()
-    } else {
-        cost
-    };
+    let cost = spoken_cost(&option.cost);
     match option.kind {
         CastModeKind::Permission(source) => source.map_or_else(
             || "Use an unrestricted casting permission".to_string(),
@@ -1273,6 +1268,13 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
+        CastModeKind::Dungeon(dungeon) => format!("Enter {}", dungeon.name()),
+        CastModeKind::DungeonRoom { dungeon, room } => {
+            format!("Enter {}", dungeon.rooms()[usize::from(room)])
+        }
+        CastModeKind::MutatePosition(top) => {
+            if top { "Put on top" } else { "Put underneath" }.to_string()
+        }
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {
@@ -1370,4 +1372,13 @@ fn entry_life_words(amount: u16) -> (String, String, String) {
         format!("pay {amount} life; it enters untapped"),
         "it enters tapped".to_string(),
     )
+}
+
+fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {
+    let cost = cost.to_string();
+    if cost.is_empty() {
+        "no mana".to_string()
+    } else {
+        cost
+    }
 }

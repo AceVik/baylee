@@ -6895,6 +6895,8 @@ pub mod hanna_s_custody;
 pub mod hanna_ship_s_navigator;
 #[path = "lands/utility/hanweir_battlements.rs"]
 pub mod hanweir_battlements;
+#[path = "creatures/mv_3/hanweir_garrison.rs"]
+pub mod hanweir_garrison;
 #[path = "creatures/mv_2/hapatra_vizier_of_poisons.rs"]
 pub mod hapatra_vizier_of_poisons;
 #[path = "creatures/mv_1/hapless_researcher.rs"]

@@ -413,6 +413,11 @@ mod tests {
                 name,
                 ZoneLocation::Battlefield,
             );
+            // A physical card can return from exile; a token cannot (CR 111.8).
+            state.object_mut(explorer).unwrap().card = Some(crate::object::CardRef {
+                index: baylee_core::ids::CardIndex::new(0),
+                print: baylee_core::ids::PrintRef::new(0),
+            });
             super::super::gain_control(&mut state, &[(explorer, controller)]);
             let version = state.object(explorer).unwrap().version;
             assert_eq!(state.object(explorer).unwrap().controller, controller);

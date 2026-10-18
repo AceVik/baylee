@@ -683,6 +683,17 @@ pub enum CastModeKind {
     /// Cast for the card's mutate cost rather than its mana cost (CR 702.140a),
     /// targeting a non-Human creature its owner owns to merge with.
     Mutate,
+    /// Resolving a mutating spell: true puts it on top, false underneath.
+    MutatePosition(bool),
+    /// Choose the dungeon to enter.
+    Dungeon(baylee_core::dungeon::Dungeon),
+    /// Follow a printed arrow into this room.
+    DungeonRoom {
+        /// Dungeon containing the room.
+        dungeon: baylee_core::dungeon::Dungeon,
+        /// Zero-based room index.
+        room: u8,
+    },
     /// Cast from the owner's graveyard for the card's escape cost
     /// (CR 702.138a): its mana, and as many other cards from that graveyard
     /// exiled, asked as the cast's cost (`ChoicePrompt::CostExile`).

@@ -28,6 +28,22 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::MeldPartner => {
+            let Effect::MeldWithNamed {
+                source_name,
+                partner_name,
+                melded,
+            } = res.effects[res.pc]
+            else {
+                unreachable!("meld instruction")
+            };
+            meld::finish(state, res, chosen[0], source_name, partner_name, melded);
+        }
+        AwaitingOp::DungeonTax(tax) => {
+            if let Some(pending) = dungeon::resume_tax(state, res, tax, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::DiscardAny(selection) => {
             return super::discard_any::resume(state, res, *selection, chosen);
         }
@@ -1284,6 +1300,9 @@ pub(super) fn resume_inner(
         AwaitingOp::ChooseCardName { .. }
         | AwaitingOp::ChooseNumber
         | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
+        | AwaitingOp::DungeonPlay(_)
+        | AwaitingOp::Dungeon { .. }
+        | AwaitingOp::MutatePosition
         | AwaitingOp::ChooseEffect { .. }
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast

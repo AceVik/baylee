@@ -354,7 +354,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // which is a different fact wearing the same shape. `token` is the
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
-        Filter::IsToken => object.token.is_some(),
+        Filter::IsToken => object.status.contains(baylee_view::ObjectStatus::TOKEN) || (object.token.is_some() && !object.status.contains(baylee_view::ObjectStatus::MELDED_CARD)),
         Filter::WithSingleTarget => object.targets.len() == 1,
         Filter::TargetsPermanentYouControl => {
             return targets_permanent_you_control(view, object);
@@ -424,7 +424,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // can use a candidate's mana value as the unannounced source's X.
         // Continuous ability removal and grants are evaluated by the engine.
         // Card identity cannot establish verified physical printing facts.
-        Filter::HasWatermark
+        Filter::OwnedBySourceOwner
+        | Filter::HasWatermark
         | Filter::SharesWatermarkWithSource
         | Filter::UnCard
         | Filter::HasManaAbility

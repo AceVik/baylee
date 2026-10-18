@@ -86,7 +86,10 @@ fn raw_option_cost(
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
         Some(CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
         Some(
-            CastModeKind::Colors(_)
+            CastModeKind::Dungeon(_)
+            | CastModeKind::DungeonRoom { .. }
+            | CastModeKind::MutatePosition(_)
+            | CastModeKind::Colors(_)
             | CastModeKind::Counter(_)
             | CastModeKind::Permission(_)
             | CastModeKind::EscapeGranted { .. },
