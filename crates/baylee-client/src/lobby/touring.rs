@@ -131,6 +131,9 @@ pub(super) fn tours(
     (mut commands, mut opens, mailbox): (Commands, MessageWriter<crate::DuelCommand>, Res<Mailbox>),
     mut opened: Local<Opened>,
 ) {
+    if desk.disabled {
+        return;
+    }
     let Some(settings) = settings.as_mut() else {
         return;
     };

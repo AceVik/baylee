@@ -9678,6 +9678,10 @@ curl -s -XPOST localhost:28770/executor  -d '{"single":true}'
 
 Use a fresh isolated configuration for each test client; never point agent
 runs at production gateways, crash reporting or feedback. Dev-control runs
+should set `BAYLEE_NO_TOURS=1` (or pass `--no-tours` to the native client)
+to suppress lobby/table tours and contextual tips for that process. This
+override leaves saved tour preferences and progress untouched.
+Dev-control runs
 are silent unless `BAYLEE_DEV_SOUND=1` explicitly opts in. The native Rust
 helpers (`cargo run --profile tools -p baylee-tools -- shell …` and `recording …`) replace
 the Python drivers; see `docs/dev-tools.md` for the command mapping.

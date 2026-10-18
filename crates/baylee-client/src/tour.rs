@@ -66,6 +66,8 @@ impl Default for Setting {
 /// The tour standing, if one is.
 #[derive(Resource, Default)]
 pub struct TourDesk {
+    /// Process-local override for unattended runs; never changes saved preferences.
+    pub disabled: bool,
     /// The run, if a tour is running.
     pub run: Option<Run>,
     /// The run is set aside: its screen is not up (the player navigated
@@ -111,7 +113,7 @@ impl TourDesk {
 
     /// Starts a run, unless one stands.
     pub fn start(&mut self, run: Run) {
-        if self.run.is_none() {
+        if !self.disabled && self.run.is_none() {
             self.run = Some(run);
             self.parked = false;
             self.missing = 0.0;
@@ -181,6 +183,9 @@ impl TourDesk {
 
     /// A just-in-time step steps in front of whatever stands.
     pub fn interject(&mut self, run: Run) {
+        if self.disabled {
+            return;
+        }
         if let Some(standing) = self.run.take()
             && !standing.single
         {
@@ -379,8 +384,8 @@ const MISSING_GRACE: f32 = 0.6;
 const MISSING_FRAMES: u32 = 12;
 
 /// Whether the tour's systems may run: a settings file to keep marks in.
-fn settled(settings: Option<Res<crate::settings::ClientSettings>>) -> bool {
-    settings.is_some()
+fn settled(settings: Option<Res<crate::settings::ClientSettings>>, desk: Res<TourDesk>) -> bool {
+    settings.is_some() && !desk.disabled
 }
 
 /// Installs the desk, its keys and presses, and its drawing.
@@ -417,4 +422,30 @@ pub(crate) fn install(app: &mut App) {
                 .after(bevy::ui::UiSystems::Layout)
                 .run_if(settled),
         );
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app.world_mut().resource_mut::<TourDesk>().disabled = std::env::args_os()
+            .any(|arg| arg == "--no-tours")
+            || std::env::var_os("BAYLEE_NO_TOURS").is_some_and(|value| value == "1");
+    }
+}
+
+#[cfg(test)]
+mod disabled_tests {
+    use super::*;
+    use baylee_client_core::tour::Tour;
+
+    #[test]
+    fn disabled_tours_cannot_start_or_interject_or_capture_input() {
+        let mut desk = TourDesk {
+            disabled: true,
+            ..Default::default()
+        };
+        desk.start(Run::chapter(Tour::Lobby, 0, false, 2).unwrap());
+        desk.interject(Run::chapter(Tour::Table, 0, false, 2).unwrap());
+        assert!(desk.run.is_none());
+        assert!(desk.stash.is_none());
+        assert!(!desk.holds_keyboard());
+        assert!(desk.shown().is_none());
+    }
 }
